@@ -1423,6 +1423,9 @@
     /* opened from an emailed sign-in link: finish it once the page is up, and keep the code out of the address bar */
     var emailLink = '';
     try { if (auth.isSignInWithEmailLink(location.href)) { emailLink = location.href; history.replaceState(history.state, '', location.pathname + location.hash); } } catch (e) {}
+    /* opened from a one-time sign-in link the Edictum team made (functions/once.js): the same, kept out of the address bar */
+    var onceLink = '';
+    try { var qs = new URLSearchParams(location.search); onceLink = qs.get('once') || ''; if (onceLink) { qs.delete('once'); history.replaceState(history.state, '', location.pathname + (qs.toString() ? '?' + qs : '') + location.hash); } } catch (e) {}
     var user = null;
     try {
       user = await within(firstUser(auth), 10000);
@@ -1449,7 +1452,8 @@
     mount();
     PF.app = app; perfApply(); /* after start-up, which its download would only slow */
     if (emailLink) finishEmailLink(emailLink);
-    else setTimeout(googleReturn, 0);
+    else if (onceLink) onceOpen(onceLink);
+    else { setTimeout(googleReturn, 0); setTimeout(onceGuideStart, 0); }
     setTimeout(supportCheck, 6000);
     /* and again every few minutes while a ticket waits, so a reply reaches a player who keeps the game open */
     setInterval(function () { if (!document.hidden) supportCheck(); }, 5 * 60000);
@@ -1688,7 +1692,7 @@
     });
     d.addEventListener('change', function(e) { if (e.target.id === 'ed-guest-code-saved') syncSignoutButton(); });
     d.addEventListener('cancel', function (e) { if (ui.busy) e.preventDefault(); });
-    d.addEventListener('close', function () { ui.view = 'main'; ui.report = null; ui.support = null; setMsg(''); });
+    d.addEventListener('close', function () { ui.view = 'main'; ui.report = null; ui.support = null; ui.fromCode = false; setMsg(''); });
     /* while the dialog is open, keys belong to it, not to the game's shortcuts behind it; Enter in a field
        with data-enter does that field's action */
     window.addEventListener('keydown', function (e) {
@@ -1743,7 +1747,8 @@
           '<input class="input" id="ed-rc-email" type="email" maxlength="200" autocomplete="email" spellcheck="false" data-enter="recovery-mail" value="' + esc(ui.rcEmail || '') + '">' +
           '<p class="ed-fine">We send it once and keep neither the code nor the address. Anyone who can read that inbox can take over your nation.</p>' +
           row('<button type="button" class="btn ghost" data-ed="recovery-mail">' + (ui.rcMailed ? 'Send it again' : 'Send the code') + '</button>') + '</div>' : '') +
-        row('<button type="button" class="btn" data-ed="recovery-saved" data-autofocus>I saved my recovery code</button>');
+        /* or no code to keep at all: the account panel's linking buttons, with a way back here (ui.fromCode) */
+        row('<button type="button" class="btn" data-ed="recovery-saved" data-autofocus>I saved my recovery code</button><button type="button" class="btn ghost" data-ed="recovery-link">Link your account instead</button>');
     } else if (ui.view === 'regenerate') {
       h = '<p class="eyebrow">Guest Nation</p><h2 class="ed-h" id="ed-dlg-h">Regenerate recovery key?</h2>' +
         '<p>Generate a new recovery key for ' + nm + '.</p><p><b>Your previous key stops working immediately.</b> Devices already signed in stay signed in, and your nation keeps its progress.</p><p>Save the new key outside this browser before signing out. The old key cannot be retrieved.</p>' +
@@ -1754,6 +1759,26 @@
         '<label class="ed-lbl2" for="ed-recovery-input">Recovery code</label><input class="input" id="ed-recovery-input" autocomplete="off" spellcheck="false" maxlength="80" data-autofocus>' +
         '<p class="ed-fine">Lost the code? Try a browser where your Guest session is still active and choose Regenerate recovery key in your account panel. Without an active session or a working code, access cannot be recovered. Registered Nations use their linked sign-in instead.</p>' +
         row('<button type="button" class="btn" data-ed="recover-yes">Recover nation</button><button type="button" class="btn ghost" data-ed="back">Back</button>');
+    } else if (ui.view === 'once') {
+      /* a one-time sign-in link from the Edictum team (onceOpen): whose it is, asked before it is used up */
+      var oc = ui.once || {};
+      h = '<p class="eyebrow">A link from the Edictum team</p><h2 class="ed-h" id="ed-dlg-h">' + (oc.name ? 'Sign in to ' + quoted(oc.name) + '?' : oc.err ? 'This link cannot be used' : 'Checking your link…') + '</h2>' +
+        (oc.name ? '<p>The Edictum team made this link so you can get back into ' + quoted(oc.name) + '. It signs this browser in, and then it cannot be used again.</p>' +
+          (n && w.kind === 'guest' ? '<p>The guest nation ' + nm + ' on this browser will be dissolved, and its recovery code will no longer restore it.</p>' : '') +
+          (w.kind === 'linked' ? '<p>This browser is signed in to another account now: it signs out of that one.</p>' : '') +
+          row('<button type="button" class="btn" data-ed="once-yes" data-autofocus>Sign in</button><button type="button" class="btn ghost" data-ed="close">Cancel</button>')
+        : oc.err ? row('<button type="button" class="btn ghost" data-ed="back" data-autofocus>Other ways to sign in</button>') : '');
+    } else if (ui.view === 'secure') {
+      /* after a one-time link: how this player gets back in on their own next time, each way checked or added here */
+      var su = A.auth && A.auth.currentUser, sg = googleOf(su), sm = su && hasProvider(su, 'password') && su.email, sd = su && discordOf(su), checked = su && L.get(LS_GCHECK + su.uid);
+      var ways = (sg ? '<li><b>Google</b> (' + esc(sg) + '): tap <b>Sign in</b>, then “Continue with Google”. ' + (checked ? '<span class="ed-ok">✓ Checked on this device</span>' : '<button type="button" class="btn ghost small-btn" data-ed="gcheck">Check it now</button>') + '</li>' : '') +
+        (sm ? '<li><b>Email</b> (' + esc(sm) + '): tap <b>Sign in</b>, then “Continue with email”, and open the link the Herald sends you.</li>' : '') +
+        (sd ? '<li><b>Discord</b> (' + esc(sd.name || 'linked') + '): tap <b>Sign in</b>, then “Continue with Discord”.</li>' : '');
+      h = '<p class="eyebrow">Your account</p><h2 class="ed-h" id="ed-dlg-h">Make sure you can get back in</h2>' +
+        '<p>You are in ' + (nm || 'your nation') + ', with a one-time link from the Edictum team. The link is used up now, and this browser stays signed in.</p>' +
+        (ways ? '<p>If it ever loses its sign-in, this is how you get back in:</p><ul class="ed-ways">' + ways + '</ul>' + (linkingButtons(su) ? '<p>Add another way too, so that one that fails is not the end:</p>' + row(linkingButtons(su)) : '')
+          : '<p><b>This nation has no sign-in yet.</b> Add one now, or this browser is the only way in:</p>' + row(linkingButtons(su))) +
+        row('<button type="button" class="btn" data-ed="once-done">Done</button>');
     } else if (ui.view === 'switch') {
       var what = (A.sw && A.sw.what) || 'Google account', that = 'That ' + what;
       h = '<p class="eyebrow">Your account</p><h2 class="ed-h" id="ed-dlg-h">Switch to that ' + esc(what) + '?</h2>' +
@@ -1828,6 +1853,7 @@
           (n ? '<p>' + nm + ' is a Guest Nation, tied to this browser: <b>if its data is cleared, the nation can be lost</b>. Link a sign-in to become a Registered Nation.</p>' + PERKS + '<p class="ed-fine">Assembly voting also needs a nation at least 24 hours old.</p>'
              : '<p>If your nation is linked to Google, Discord or an email address, sign in with it to carry on here. New to Edictum? Close this and found a nation on this page; you can link a sign-in whenever you like.</p>') +
           webviewNote() + row(linkingButtons(A.auth.currentUser)) + TRUST +
+          (n && ui.fromCode && pendingRecoveryCode() ? row('<button type="button" class="btn ghost" data-ed="recovery-code-back">Back to my recovery code</button>') : '') +
           (n ? row('<button type="button" class="btn ghost" data-ed="recovery-regenerate">Regenerate recovery key</button><button type="button" class="btn ghost" data-ed="signout">Sign out</button>') + '<p class="ed-fine">A saved code cannot be displayed again. Regenerating replaces it and stops the previous key from working. After linking, use your linked sign-in to recover this nation.</p>' :
             row('<button type="button" class="btn ghost" data-ed="guest-session">Login with active guest session</button>') + row('<button type="button" class="linkish" data-ed="recover">Recover with a code</button>'));
       } else if (w.kind === 'linked') {
@@ -1858,6 +1884,8 @@
     if (a === 'recover-yes') { recoverNation(); return; }
     if (a === 'guest-session') { resumeGuest(); return; }
     if (a === 'recovery-saved') { var rotation=recoveryRotation(A.uid);if(rotation&&ui.recoveryCode!==rotation.code){setMsg('Finish regenerating and save your new recovery key first.',true);return;}clearRecovery(A.uid); recoveryChecked = A.uid; ui.view = 'main'; ui.dlg.close(); return; }
+    if (a === 'recovery-link') { ui.fromCode = true; ui.view = 'main'; setMsg(''); draw(); var sb = ui.dlg.querySelector('.ed-signin'); if (sb) try { sb.focus(); } catch (e) {} return; }
+    if (a === 'recovery-code-back') { ui.view = 'recovery-code'; setMsg(''); draw(); return; }
     if (a === 'recovery-mail-open') { ui.rcMail = true; setMsg(''); draw(); var mi = ui.dlg.querySelector('#ed-rc-email'); if (mi) mi.focus(); return; }
     if (a === 'recovery-mail') { mailRecovery(); return; }
     if (a === 'recovery-copy' || a === 'recovery-download') {
@@ -1889,6 +1917,9 @@
       return;
     }
     if (a === 'switch') { doSwitch(); return; }
+    if (a === 'once-yes') { onceSignIn(); return; }
+    if (a === 'gcheck') { googleCheck(); return; }
+    if (a === 'once-done') { L.set(LS_ONCE, null); ui.dlg.close(); return; }
     if (a === 'signout') { ui.view = 'signout'; setMsg(''); draw(); return; }
     if (a === 'signout-yes') { doSignOut(); return; }
     if (a === 'delete') { ui.view = 'delete'; setMsg(''); draw(); return; }
@@ -2138,12 +2169,16 @@
     if (c === 'auth/invalid-action-code' || c === 'auth/expired-action-code') return 'That sign-in link has expired or was already used. Ask for a new one.';
     if (c === 'auth/quota-exceeded' || c === 'auth/too-many-requests') return 'Too many sign-in emails just now. Try again in a while.';
     if (c === 'auth/user-disabled') return 'That account is disabled. Contact support.';
+    if (c === 'auth/user-mismatch') return 'That is a different Google account from the one this nation uses. Choose ' + (googleOf(A.auth && A.auth.currentUser) || 'its own Google account') + ' in Google’s window.';
+    /* a one-time sign-in link (functions/once.js) says itself what is wrong with it */
+    if ((c.indexOf('once_') === 0 || c === 'resource-exhausted') && e.message) return e.message;
     return 'Sign-in did not work (' + (c || 'unknown error') + '). Try again in a moment.';
   }
   /* this account now has another sign-in (what: 'Google account', 'Discord account', 'email address') */
   function linkedNow(u, what, label) {
     noteSignIn(what);
     clearRecovery(u.uid);
+    L.set(LS_ONCE, null); /* a way back in, added: the guide after a one-time link has done its work */
     setBusy('');
     var n = localNation();
     ui.view = 'main'; draw(); paint();
@@ -2219,6 +2254,63 @@
       }
       setMsg(authMessage(e), true);
     });
+  }
+
+  /* ───────── one-time sign-in links from the Edictum team (functions/once.js) ─────────
+     The team makes one for a player who cannot get back in; it arrives as /?once=<code>. The game says whose nation it
+     opens and asks first (a guest nation on this browser is dissolved, as when switching to an account), signs in with
+     the custom token it gives, once, and then guides the player through LS_ONCE: the 'secure' view at each start until
+     they have checked or added a way back in on this device, or chosen Done. */
+  var LS_ONCE = 'edictum.onceGuide', LS_GCHECK = 'edictum.gcheck.', SS_GCHECK = 'edictum.gcheck';
+  function googleOf(u) { var g = u && (u.providerData || []).filter(function (p) { return p && p.providerId === 'google.com'; })[0]; return g ? g.email || 'Google' : ''; }
+  function onceOpen(code) {
+    ui.once = { code: code };
+    open('once'); setBusy('Checking your sign-in link…');
+    call('accounts', { op: 'once', step: 'peek', code: code }).then(function (r) {
+      setBusy('');
+      if (r.uid === A.uid) { ui.once = null; ui.view = 'main'; draw(); setMsg('You are already signed in to ' + (r.name ? '“' + r.name + '”' : 'that nation') + '. The link was not used; it stops working within a day.'); return; }
+      ui.once = { code: code, uid: r.uid, name: r.name }; draw();
+    }, function (e) { setBusy(''); ui.once = { err: true }; draw(); setMsg(authMessage(e), true); });
+  }
+  function onceSignIn() {
+    var oc = ui.once;
+    if (!oc || !oc.code || ui.busy) return;
+    A.sw = { what: 'the one-time link', ready: true, signIn: function () {
+      return call('accounts', { op: 'once', step: 'use', code: oc.code }).then(function (r) {
+        return A.auth.signInWithCustomToken(r.token).then(function (res) { L.set(LS_ONCE, r.uid); return res; });
+      });
+    } };
+    doSwitch();
+  }
+  /* at start-up: back from Google's check (below), or the guide still to do */
+  function onceGuideStart() {
+    if (googleCheckReturn()) return;
+    var u = A.auth && A.auth.currentUser;
+    if (u && L.get(LS_ONCE) === u.uid) setTimeout(function () { if (!ui.dlg || !ui.dlg.open) open('secure'); }, 900);
+  }
+  /* "Check it now": sign in with the account's own Google once here, so the player knows that way works on this device.
+     A phone goes to Google and back, as when linking. */
+  function googleCheck() {
+    var u = A.auth && A.auth.currentUser;
+    if (!u || !hasProvider(u, 'google.com') || ui.busy) return;
+    setBusy('Waiting for Google…');
+    if (phoneLike() && !webview()) {
+      SS.set(SS_GCHECK, '1');
+      u.reauthenticateWithRedirect(provider()).catch(function (e) { SS.set(SS_GCHECK, null); setBusy(''); setMsg(authMessage(e), true); });
+      return;
+    }
+    u.reauthenticateWithPopup(provider()).then(function () { googleChecked(u); }, function (e) { setBusy(''); setMsg(authMessage(e), true); });
+  }
+  function googleChecked(u) {
+    L.set(LS_GCHECK + u.uid, String(Date.now())); L.set(LS_ONCE, null);
+    setBusy(''); ui.view = 'secure'; draw();
+    setMsg('Google works on this device. If it ever loses its sign-in, “Continue with Google” brings you back.');
+  }
+  function googleCheckReturn() {
+    if (!SS.get(SS_GCHECK)) return false;
+    SS.set(SS_GCHECK, null);
+    A.auth.getRedirectResult().then(function (res) { open('secure'); if (res && res.user) googleChecked(res.user); }, function (e) { open('secure'); setMsg(authMessage(e), true); });
+    return true;
   }
 
   /* Discord (functions/discord.js): the window opens on /discord at once (a window opened later would be

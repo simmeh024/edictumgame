@@ -13,7 +13,7 @@ assert.ok(i > 0 && j > i, 'raceKnown … capWrong sit before raceSoon');
 const AC_EPOCH = Date.UTC(2026, 9, 28), DAY = 864e5;
 function kit() {
   const ctx = vm.createContext({
-    AC_EPOCH, RACE: { t: new Map(), want: new Set() }, S: { mode: 'world' }, fetched: 0,
+    AC_EPOCH, RACE: { t: new Map(), want: new Set(), f: new Map() }, S: { mode: 'world' }, fetched: 0,
     raceSoon() { ctx.fetched++; },
     capSince: n => Math.max(n.founded || 0, n.capAt || 0),
     inReach: (x, c) => Math.abs(c - x.cap) <= (x.reach ?? 68),

@@ -7,6 +7,7 @@ import { forgetDiscord, discordStep } from './discord.js';
 import { shopStep, forgetShop } from './shop.js';
 import { mailStep, mailUnsub, forgetMail, recoveryMail } from './mail.js';
 import { noteGone, forgetGone } from './gone.js';
+import { onceUse, forgetOnce } from './once.js';
 import { lettersStep, forgetLetters } from './letters.js';
 import { alDrop } from './alliances.js';
 import { trDrop } from './treaties.js';
@@ -138,6 +139,8 @@ export const accounts = onCall({ region: 'europe-west1', maxInstances: 10, memor
     // A code proves access to the existing guest identity, never registration or political eligibility.
     return { token: await getAuth().createCustomToken(u.uid, { guestRecovery: true }) };
   }
+  // a one-time sign-in link an admin made (functions/once.js): its caller is whatever this browser has, as with 'recover'
+  if (d.op === 'once') return onceUse(db, uid, d, digest(String(req.rawRequest.ip || 'unknown')));
   if (d.op === 'discord') return discordStep(uid, d);
   if (d.op === 'shop') return shopStep(uid, d);
   if (d.op === 'mail') return mailStep(uid, d, String(req.rawRequest?.ip || ''));
@@ -172,6 +175,8 @@ export const accounts = onCall({ region: 'europe-west1', maxInstances: 10, memor
     await Promise.all(['accountSeen/', 'recruitTrail/', 'staffNotes/', 'watch/', 'limits/', 'rlimits/', 'slimits/', 'blimits/', 'llimits/', 'cbPace/', 'rcPace/', 'rcMute/', 'rcNote/', 'rcHello/'].map(c => db.doc(c + uid).delete()));
     await forgetDiscord(uid);
     await forgetMail(uid);
+    // its one-time sign-in links and their record (functions/once.js)
+    await forgetOnce(db, uid);
     // copies of nations it dissolved (functions/gone.js); their lines, naming them, stay until they expire
     await forgetGone(db, uid);
     // the counts, blocks and read receipts of its letters, and its devices' push subscriptions (functions/letters.js)

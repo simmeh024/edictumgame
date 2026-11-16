@@ -20457,7 +20457,7 @@ armyPower=(f=>function(n){const v=f.apply(this,arguments);return n&&n._armyK?Mat
    time of the save that first carried each (stamps/<reg>/<key>/<uid>, written in that save's batch by
    src/shim.js; the rules accept only the server's time). Stamps are read only for contested entries. An
    entry made since stamps began that has none counts from its record's last save. */
-const RACE={t:new Map(),want:new Set(),busy:false,rev:0};
+const RACE={t:new Map(),want:new Set(),busy:false,rev:0,f:new Map()};
 function raceT(src,key,t,n){
   if(!(t>=AC_EPOCH)||S.mode!=='world')return t;
   const k=key+':'+src,v=RACE.t.get(k);
@@ -20476,6 +20476,18 @@ function raceKnown(src,key,t,n){
   if(v===undefined){RACE.want.add(k);raceSoon();}
   return null;
 }
+/* an entry whose server time is still being read, or whose read failed and is tried again (raceFailed). A claim under
+   a capital that stands only until then (capWrong) still costs its credit meanwhile, so no credit shows that the
+   server's time takes back a moment later: Eternia saw one after each load (16 Nov 2026), its claim under Neverfall's
+   capital, whose stamp came in the last of seven batches of 40. Two claims on one hex are not held back that way:
+   their records' order is the server's nearly always, and holding back the loser's credit until the stamps were in
+   kept 19 to 32 credits from three Meridian nations for the first seconds of every visit. */
+const RACE_TRIES=4;
+function raceOpen(src,key,t){
+  if(!(t>=AC_EPOCH)||S.mode!=='world')return false;
+  const k=key+':'+src,v=RACE.t.get(k);
+  return v===undefined||v===false&&(RACE.f.get(k)||0)<RACE_TRIES;
+}
 /* ── a capital on land already claimed ──
    A game that cannot reach the server plays on its own, with no other nation on its map. On 12 Nov 2026 a new
    nation founded that way put its capital on a hex Eternia had claimed two weeks before, and its first save, once
@@ -20487,24 +20499,34 @@ const capClaimsMemo=new WeakMap();
 function capClaimsAt(ev){let m=capClaimsMemo.get(ev);if(m)return m;m=new Map();for(const e of ev.list)if(e.claim){const a=m.get(e.c);if(a)a.push(e);else m.set(e.c,[e]);}capClaimsMemo.set(ev,m);return m;}
 /* id → the entry (list item) of the nation whose earlier claim the capital stands on */
 function capWrong(list,ev){
-  const out=new Map();if(!ev||!ev.list.length)return out;
+  const out=new Map();out.pend=new Set();if(!ev||!ev.list.length)return out;
   const at=capClaimsAt(ev);let by=null;
   for(const x of list){
     if(x.npc||x.id==='draft')continue;const es=at.get(x.cap);if(!es)continue;const since=capSince(x.n);
     if(!by)by=new Map(list.map(z=>[z.id,z]));
+    const pend=[];
     for(const e of es){
       const y=by.get(e.src);if(!y||y===x||y.npc||!Array.isArray(y.n.claims)||!(e.t<since)||!inReach(y,e.c))continue;
       const t=raceKnown(e.src,'c'+e.c,e.t,y.n);
-      if(t!=null&&t<since){out.set(x.id,y);break;}
+      if(t!=null&&t<since){out.set(x.id,y);pend.length=0;break;}
+      if(t==null&&raceOpen(e.src,'c'+e.c,e.t))pend.push(e.src+':'+e.c);
     }
+    for(const k of pend)out.pend.add(k);
   }
   return out;
 }
 function raceSoon(){if(!RACE.busy&&RACE.want.size&&S.db){RACE.busy=true;setTimeout(raceFetch,60);}}
+/* a stamp that could not be read (the connection dropped, a phone woke offline) used to stay unread for the rest of the
+   visit, and with it a capital on land claimed first, and a credit for that claim. It is read again after 15, 30 and
+   60 seconds; after RACE_TRIES failures the entry keeps its record's time until the page is loaded again. */
+function raceFailed(k){
+  RACE.t.set(k,false);const f=(RACE.f.get(k)||0)+1;RACE.f.set(k,f);if(f>=RACE_TRIES)return;
+  setTimeout(()=>{if(RACE.t.get(k)!==false)return;RACE.t.delete(k);RACE.want.add(k);RACE.rev++;raceSoon();},15000*2**(f-1));
+}
 async function raceFetch(){
   const ks=[...RACE.want].slice(0,40);for(const k of ks)RACE.want.delete(k);
   await Promise.all(ks.map(k=>{const [key,src]=k.split(':');
-    return S.db.doc('stamps/'+REG.id+'/'+key+'/'+src).get().then(sn=>{const t=sn.exists?(sn.data()||{}).t:null;RACE.t.set(k,t==null?null:typeof t.toMillis==='function'?t.toMillis():Number(t));},()=>RACE.t.set(k,false));}));
+    return S.db.doc('stamps/'+REG.id+'/'+key+'/'+src).get().then(sn=>{const t=sn.exists?(sn.data()||{}).t:null;RACE.t.set(k,t==null?null:typeof t.toMillis==='function'?t.toMillis():Number(t));},()=>raceFailed(k));}));
   RACE.busy=false;RACE.rev++;
   try{redrawMaps();if(['nation','region','visit','explore','map'].includes(S.view))render();}catch(e){}
   raceSoon();
@@ -20643,7 +20665,7 @@ function territory(extra){
   const wrong=capWrong(list,ev);
   if(wrong.size)for(let i=list.length-1;i>=0;i--)if(wrong.has(list[i].id))list.splice(i,1);
   const csig=list.map(x=>x.npc||!Array.isArray(x.n.cities)?'':x.n.cities.map(c=>c.c).join('.')).join(',');
-  const key=list.map(x=>x.id+'@'+x.cap+'#'+x.budget+'~'+x.w.toFixed(2)+x.col+(x.me?'*':'')+(x.cm?'c':'')).join('|')+'|'+ev.sig+'|'+csig+(TERR_AT==null?'':'@'+TERR_AT)+(wrong.size?'|w'+[...wrong.keys()].join('.'):'');
+  const key=list.map(x=>x.id+'@'+x.cap+'#'+x.budget+'~'+x.w.toFixed(2)+x.col+(x.me?'*':'')+(x.cm?'c':'')).join('|')+'|'+ev.sig+'|'+csig+(TERR_AT==null?'':'@'+TERR_AT)+(wrong.size?'|w'+[...wrong.keys()].join('.'):'')+(wrong.pend&&wrong.pend.size?'|p'+[...wrong.pend].join('.'):'');
   const TC=TERR_AT==null?terrCache:atlasCache,hit=TC.get(key);
   if(hit){hit.list.forEach((x,i)=>{x.n=list[i].n;x.pop=list[i].pop;});return hit;}
   const N=MAP.N,L=list.length,byId=Object.fromEntries(list.map((x,i)=>[x.id,i]));
@@ -20656,6 +20678,9 @@ function territory(extra){
   const used=new Int32Array(L),how=new Map(),nat=new Map();
   for(const e of ev.list){
     if(!e.claim)continue;const oi=byId[e.o];if(oi===undefined||!list[oi].cm)continue;
+    /* a claim under a capital that stands only until the claim's server time is read (capWrong's pend) holds no land
+       yet, but keeps its credit until that time says the capital came first */
+    if(isCap[e.c]&&wrong.pend&&wrong.pend.has(e.src+':'+e.c)&&claimLand(e.c))used[oi]++;
     if(!(e.c>=0&&e.c<N)||isCap[e.c]||!claimLand(e.c))continue;
     if(cityOver.has(e.c)){if(cityOver.get(e.c)===oi&&!how.has(e.c)){used[oi]++;how.set(e.c,1);nat.set(e.c,oi);}continue;}
     if(!inReach(list[oi],e.c)||list.some((y,j)=>j!==oi&&hexDist(e.c,y.cap)<=2&&e.t>capSince(y.n)))continue;
@@ -50350,7 +50375,7 @@ document.addEventListener('click',e=>{
 
 /* ───────── staff operations ───────── */
 setInterval(()=>{if(S.isOwner&&S.view==='admin-online'&&!document.hidden&&!ADMX.busy)adminExtraLoad('admin-online');},30000);
-const ADMX={loaded:{},busy:false,err:'',q:'',reg:'',act:'',eng:'',sort:'',watchWhy:'',watchFor:'',watchBusy:false,watchMsg:'',query:null,search:null,player:null,health:null,audit:null,target:'',ask:null,reasons:{},modes:{},regionBusy:'',message:'',mod:null,modReason:'',modBusy:false,modMsg:'',note:'',noteFor:'',noteBusy:false,noteMsg:'',clubDays:30,clubWhy:'',clubBusy:false,clubMsg:'',packP:'',packWhy:'',packBusy:false,packMsg:''};
+const ADMX={loaded:{},busy:false,err:'',q:'',reg:'',act:'',eng:'',sort:'',watchWhy:'',watchFor:'',watchBusy:false,watchMsg:'',onceFor:'',onceAsk:'',onceBusy:false,onceMsg:'',onceLink:'',query:null,search:null,player:null,health:null,audit:null,target:'',ask:null,reasons:{},modes:{},regionBusy:'',message:'',mod:null,modReason:'',modBusy:false,modMsg:'',note:'',noteFor:'',noteBusy:false,noteMsg:'',clubDays:30,clubWhy:'',clubBusy:false,clubMsg:'',packP:'',packWhy:'',packBusy:false,packMsg:''};
 async function adminRequest(data){const api=await window.claude.use('admin');if(!api)throw new Error('The admin service needs a connection.');return api.request(data);}
 const adminTime=t=>t?new Date(t).toLocaleString():'No confirmed save';
 async function adminExtraLoad(v,more=false,refresh=false){
@@ -50425,6 +50450,7 @@ function adminPlayerDetail(p){
 ${adminCards(p)}
     <h3 class="help-h3">Nation</h3>${adminNation(p)}
     <h3 class="help-h3">Account</h3>${adminAccount(p.account)}
+    <h3 class="help-h3">One-time sign-in</h3>${adminOnce(p)}
     <h3 class="help-h3">Same address</h3>${adminAlts(p)}
     <h3 class="help-h3">Purchases</h3>${adminPurchases(p)}
     <h3 class="help-h3">Reports and tickets</h3>${adminReports(p)}
@@ -50544,6 +50570,37 @@ async function adminPackSet(uid,pk,on){
   ADMX.packBusy=false;render();
 }
 /* the staff's private notes on a player (functions/admin.js, note()): one text, which the player never sees */
+/* a one-time sign-in link for a player who cannot get back in (functions/once.js): emailed to the verified address on
+   their account (the safe way), or copied for the admin to send. It works once, within a day, and a new one cancels the
+   last; the player is asked before it is used, then guided to make sure they can get back in on their own */
+function adminOnce(p){
+  const o=p.once,mine=ADMX.onceFor===p.uid,ask=mine?ADMX.onceAsk:'',busy=ADMX.onceBusy?' disabled':'';
+  if(!p.account||!o)return '<p class="hint">No sign-in account: there is nothing to sign in to.</p>';
+  if(!p.exists)return '<p class="hint">This player has no nation, so a link would sign in to nothing.</p>';
+  const by=x=>x===S.uid?'you':`<code>${esc(x)}</code>`;
+  const state=o.live?`A link is waiting: made ${esc(rel(o.at))} by ${by(o.by)}, ${o.via==='mail'?`emailed to ${esc(o.to)}`:'copied to send by hand'}. It works once, until ${esc(new Date(o.exp).toLocaleString())}.`
+    :o.usedAt?`No link waiting. The last one signed the player in ${esc(rel(o.usedAt))}.`:'No link made for this player yet.';
+  const confirm={mail:`Make a one-time sign-in link for <b>${esc(p.name)}</b> and email it to <b>${esc(o.mail)}</b>, the verified address on the account?`,
+    copy:`Make a one-time sign-in link for <b>${esc(p.name)}</b> to copy? Anyone who opens it can sign in to this nation, until it is used or a day has passed: send it only to the player, by a way you know is theirs.`}[ask];
+  return `<p>${state}</p>
+    <p class="hint">For a player who cannot get back in. The link signs whoever opens it in to this nation, once, within a day; the player is asked first, and then shown how to make sure they can get back in on their own. A new link cancels the last. The player gets a letter from the Edictum Team when it is used.</p>
+    ${confirm?`<div class="adm-ask" id="admin-once-ask"><p>${confirm}${o.live?' The link waiting now stops working.':''}</p><div class="row"><button class="btn small" data-act="admin-once-yes" data-v="${ask}" data-id="${esc(p.uid)}"${busy}>${ADMX.onceBusy?'Working…':ask==='mail'?'Yes, email it':'Yes, make the link'}</button><button class="btn ghost small" data-act="admin-once-no">Cancel</button></div></div>`
+      :`<div class="row">${o.mail?`<button class="btn ghost small" data-act="admin-once" data-v="mail" data-id="${esc(p.uid)}"${busy}>Email a link to ${esc(o.mail)}</button>`:''}<button class="btn ghost small" data-act="admin-once" data-v="copy" data-id="${esc(p.uid)}"${busy}>${o.mail?'Copy a link instead':'Copy a link'}</button>${o.live?`<button class="btn ghost small" data-act="admin-once-yes" data-v="revoke" data-id="${esc(p.uid)}"${busy}>Cancel the link</button>`:''}</div>`}
+    ${!o.mail?'<p class="hint">The account has no verified email address, so the link can only be copied.</p>':''}
+    ${mine&&ADMX.onceLink?`<div class="field"><label for="admin-once-link">The link (shown once: copy it now)</label><input class="input" id="admin-once-link" readonly value="${esc(ADMX.onceLink)}"></div><div class="row"><button class="btn ghost small" data-act="admin-once-copy">Copy the link</button></div>`:''}
+    ${mine&&ADMX.onceMsg?`<p class="hint" aria-live="polite">${esc(ADMX.onceMsg)}</p>`:''}`;
+}
+async function adminOnceDo(v,uid){
+  const p=ADMX.player;if(!p||p.uid!==uid||ADMX.onceBusy)return;
+  ADMX.onceBusy=true;ADMX.onceFor=uid;ADMX.onceMsg='';ADMX.onceLink='';render();
+  try{
+    const r=await adminRequest({op:'once',step:v,uid});p.once=r.once;ADMX.onceAsk='';
+    if(v==='mail')ADMX.onceMsg=`The Herald emailed the link to ${r.sent}. It works once, within a day.`;
+    else if(v==='copy'){ADMX.onceLink=r.link;ADMX.onceMsg='Send it to the player yourself. It works once, within a day.';}
+    else ADMX.onceMsg='The link no longer works.';
+  }catch(e){ADMX.onceMsg='That did not work: '+(e.message||e.code||'unknown error');}
+  ADMX.onceBusy=false;render();
+}
 function adminNotes(p){
   const n=p.staffNote||{text:'',at:0,by:''},val=ADMX.noteFor===p.uid?ADMX.note:n.text;
   return `<div class="field"><label for="admin-note">Notes on this player</label><textarea class="input" id="admin-note" data-id="${esc(p.uid)}" maxlength="4000" rows="5" aria-describedby="admin-note-h">${esc(val)}</textarea>
@@ -50663,10 +50720,14 @@ document.addEventListener('click',async e=>{
   if(a==='admin-mod-yes'){adminModerate(el.dataset.a,id);return;}
   if(a==='admin-mod-no'){ADMX.mod=null;ADMX.modMsg='';render();return;}
   if(a==='admin-note-save'){adminNoteSave(id);return;}
+  if(a==='admin-once'){ADMX.onceFor=id;ADMX.onceAsk=el.dataset.v;ADMX.onceMsg='';ADMX.onceLink='';render();return;}
+  if(a==='admin-once-no'){ADMX.onceAsk='';ADMX.onceMsg='';render();return;}
+  if(a==='admin-once-yes'){adminOnceDo(el.dataset.v,id);return;}
+  if(a==='admin-once-copy'){const f=document.getElementById('admin-once-link');const done=ok=>{ADMX.onceMsg=ok?'Copied. Send it to the player yourself; it works once, within a day.':'Select the link and copy it.';render();};try{navigator.clipboard.writeText(ADMX.onceLink).then(()=>done(true),()=>{if(f){f.focus();f.select();}done(false);});}catch(err){done(false);}return;}
   if(a==='admin-club'){adminClubSet(id,el.dataset.v==='on');return;}
   if(a==='admin-pack'){adminPackSet(id,el.dataset.v==='on'?ADMX.packP:el.dataset.p,el.dataset.v==='on');return;}
   if(a==='admin-inspect'){
-    ADMX.err='';ADMX.mod=null;ADMX.modReason='';ADMX.modMsg='';ADMX.note='';ADMX.noteFor='';ADMX.noteMsg='';ADMX.clubWhy='';ADMX.clubMsg='';ADMX.packWhy='';ADMX.packMsg='';ADMX.packP='';ADMX.watchWhy='';ADMX.watchFor='';ADMX.watchMsg='';
+    ADMX.err='';ADMX.mod=null;ADMX.modReason='';ADMX.modMsg='';ADMX.note='';ADMX.noteFor='';ADMX.noteMsg='';ADMX.clubWhy='';ADMX.clubMsg='';ADMX.packWhy='';ADMX.packMsg='';ADMX.packP='';ADMX.watchWhy='';ADMX.watchFor='';ADMX.watchMsg='';ADMX.onceFor='';ADMX.onceAsk='';ADMX.onceMsg='';ADMX.onceLink='';
     try{ADMX.player=await adminRequest({op:'player',uid:id});if(S.view!=='admin-players')go('admin-players');else render();}
     catch(err){ADMX.err=err.message;render();}
   }
@@ -60485,7 +60546,7 @@ function shopAgl(){const a=SHOP.doc&&SHOP.doc.agl;return Array.isArray(a)?a.filt
    reason the admin wrote, which is for the audit log. */
 OFFICES['office-team']={name:'The Edictum Team',chip:'The people who make Edictum',go:['customise','Open Customise'],
   note:'The Edictum Team writes only to you, about your own account, and does not answer letters. To write to the team, use the Help page.',
-  about:'Writes when the team gives you a pack from the Shop, or takes one back.',
+  about:'Writes when the team gives you a pack from the Shop, or takes one back, and when a one-time sign-in link from the team signs your account in.',
   seal:dmSeal('#f1e4e4','#7a2e2e','<path d="M4 11h16v9H4zM3 8h18v3H3zM12 8v12M12 8c-1.5-3.5-6-3.5-5 0M12 8c1.5-3.5 6-3.5 5 0"/>')};
 function shopAgLetter(n,x){
   return x.on?`To the government of ${n.name},
@@ -60503,6 +60564,25 @@ If you think this is a mistake, write to us from the Help page.
 The Edictum Team`;
 }
 DM_SOURCES.push(n=>shopAgl().map(x=>({peer:'office-team',t:x.t,x:shopAgLetter(n,x)})));
+/* each time a one-time sign-in link from the Edictum team signed this account in (functions/once.js, onceLog/{uid}, which
+   only its player reads): a letter, so a link opened by someone else does not go unnoticed. Read once per account. */
+const ONCEL={uid:'',t:[]};
+function onceLogLoad(){
+  if(!S.db||!S.uid||ONCEL.uid===S.uid)return;ONCEL.uid=S.uid;ONCEL.t=[];
+  try{Promise.resolve(S.db.doc('onceLog/'+S.uid).get()).then(sn=>{const t=sn&&sn.exists?(sn.data()||{}).t:null;ONCEL.t=Array.isArray(t)?t.filter(x=>typeof x==='number'&&x>0):[];if(ONCEL.t.length)render();},()=>{});}catch(e){}
+}
+function onceLetterText(n){
+  return `To the government of ${n.name},
+
+This account was signed in with a one-time link that the Edictum team made for you, on the day of this letter. The link is used up now.
+
+If that was you, there is nothing more to do. So that you can always get back in on your own, open the account panel and check that Google, Discord or your email address is linked.
+
+If it was not you, write to us from the Help page at once.
+
+The Edictum Team`;
+}
+DM_SOURCES.push(n=>{onceLogLoad();return ONCEL.t.map(t=>({peer:'office-team',t,x:onceLetterText(n)}));});
 document.addEventListener('change',e=>{if(e.target&&e.target.id==='shop-gift-to'&&SHOP.gift)SHOP.gift.to=e.target.value;});
 function shopConnect(){
   if(!S.db||!S.uid)return;

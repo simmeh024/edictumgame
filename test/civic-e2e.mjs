@@ -19,6 +19,11 @@ check('the one-time warning is explicit',/access cannot be recovered/.test(await
 await A.screenshot({path:path.join(OUT,'guest-recovery-code.png')});
 await A.reload();await ready(A);await A.waitForSelector('#ed-recovery-code',{timeout:20000});
 check('reload before acknowledgement retains the same code',await A.locator('#ed-recovery-code').textContent()===secret);
+await A.click('[data-ed="recovery-link"]');
+check('Link your account instead shows the linking buttons and a way back',await A.isVisible('[data-ed="google"]')&&await A.isVisible('[data-ed="email"]')&&await A.isVisible('[data-ed="recovery-code-back"]')&&!await A.locator('#ed-recovery-code').count());
+await A.screenshot({path:path.join(OUT,'guest-recovery-link-instead.png')});
+await A.click('[data-ed="recovery-code-back"]');
+check('Back to my recovery code shows the same code again',await A.locator('#ed-recovery-code').textContent()===secret&&await A.isVisible('[data-ed="recovery-saved"]'));
 let heldRecovery;
 await A.route('**/europe-west1/accounts',async route=>{
  if(route.request().postDataJSON()?.data?.op==='status'&&!heldRecovery){const response=await route.fetch();heldRecovery={route,response};}
