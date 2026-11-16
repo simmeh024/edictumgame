@@ -21,11 +21,13 @@ function cut(a, b) { const i = html.indexOf(a), j = html.indexOf(b, i + a.length
 const line = start => { const l = html.split('\n').find(x => x.startsWith(start)); assert.ok(l, start); return l; };
 const DAY = 864e5;
 
-test('the Lunar Colony unlocks at five billion people, with the Hyperloop; Planetary Power keeps only its medallion', () => {
-  assert.match(html, /\{p:5000,t:'Continental Power',c:4,b:\['hyperloop','lunar'\]/);
+test('the Lunar Colony opens at 100 million people with the habitat test (16 Nov); Continental Power keeps the Hyperloop', () => {
+  assert.match(html, /\{p:5000,t:'Continental Power',c:4,b:\['hyperloop'\]/);
+  assert.match(html, /\{p:100,t:'Superpower',c:10,city:1,b:\['lunar'\]\}/);
   assert.match(html, /\{p:50000,t:'Planetary Power',c:4,x:'the Planetary Power Medallion'\}/);
-  /* letter XI's estimate says five billion in every family; "fifty billion" is left only on the medallion */
-  assert.equal((html.match(/five billion people/g) || []).length >= 8, true);
+  /* letter XI's estimate names a hundred million in every family; five billion is left only on its medallion */
+  assert.equal((html.match(/a hundred million people/g) || []).length >= 8, true);
+  assert.deepEqual((html.match(/[^\n]*five billion people[^\n]*/gi) || []).map(l => /gi-continent/.test(l)), [true]);
   assert.deepEqual((html.match(/[^\n]*fifty billion[^\n]*/gi) || []).map(l => /gi-planet/.test(l)), [true]);
 });
 
@@ -39,16 +41,22 @@ test('the Starport needs 75 million lunar people, which even a polar or highland
   assert.ok(0.05 + 300 * 0.14 + 31 * 1.2 > sp.req, 'room for it');
 });
 
-test('smelters, extractors and mines: at most eight of each per colony, and only eight count at home', () => {
+test('smelters, extractors and mines: at most eight of each per colony, only eight count at home, and a young colony sends 40%', () => {
   const B = SP.SP_BLDS;
-  for (const [body, k] of [['moon', 'rs'], ['moon', 'he'], ['mars', 'cm']]) { assert.equal(B[body][k].max, 8, k);assert.match(B[body][k].d, /Up to eight per colony/); }
-  const ctx = vm.createContext({ SP_BLDS: B, SPB: { moon: { id: 'moon' }, mars: { id: 'mars' } }, DAY, Date,
-    spColony: (b, o) => o ? { blds: o.blds } : null, spPop: () => 0 });
-  vm.runInContext(fn('spIncome') + '\nthis.spIncome=spIncome;', ctx);
+  for (const [body, k] of [['moon', 'rs'], ['moon', 'he'], ['mars', 'cm']]) { assert.equal(B[body][k].max, 8, k);assert.match(B[body][k].d, /Up to eight per colony/);assert.match(B[body][k].d, /once the colony has 20 million people/); }
+  const st = { P: 20 }, ctx = vm.createContext({ SP_BLDS: B, SPB: { moon: { id: 'moon' }, mars: { id: 'mars' } }, DAY, Date, Math,
+    spColony: (b, o) => o ? { blds: o.blds } : null, spPop: () => st.P, spOpCol: op => op ? { blds: op.blds } : null });
+  vm.runInContext(line('const SP_OP_K=') + '\n' + line('const spIncF=') + '\n' + fn('spIncome') + '\nthis.spIncome=spIncome;', ctx);
   const now = Date.now(), done = k => ({ k, d: now - DAY });
   const n = { sp: { moon: { blds: [...Array(12)].map(() => done('he')).concat([done('rs'), done('md'), done('md')]) }, mars: { blds: [...Array(10)].map(() => done('cm')) } } };
-  const o = ctx.spIncome(n, now);
+  let o = ctx.spIncome(n, now);
   assert.equal(o.oil, 40, 'eight Helium-3 Extractors count');assert.equal(o.iron, 4 + 48, 'one smelter and eight Canyon Mines');assert.equal(o.goods, 3, 'one Mass Driver');
+  /* a colony of no people sends 40% of the same, and one of ten million 70% */
+  st.P = 0;o = ctx.spIncome(n, now);assert.equal(o.oil, 16);assert.equal(o.iron, 20.8);assert.equal(o.goods, 1.2);
+  st.P = 10;o = ctx.spIncome(n, now);assert.equal(o.oil, 28);
+  /* an outpost: its one building, at 40% */
+  st.P = 20;o = ctx.spIncome({ sp: { op: { blds: [done('rs')] } } }, now);assert.deepEqual({ ...o }, { iron: 1.6 });
+  o = ctx.spIncome({ sp: { op: { blds: [{ k: 'rs', d: now + DAY }] } } }, now);assert.deepEqual({ ...o }, {}, 'not before it is finished');
 });
 
 test('terraforming engines make room in their own colony, and four earn an achievement', () => {
@@ -63,11 +71,11 @@ test('a crew Mission Control prepared lands with 20,000 settlers and two more ex
     const ctx = vm.createContext({ S: { nation: { name: 'Testoria', capital: 'Port Test', stock: { iron: 999, oil: 999, goods: 999 } } }, RES: ['food', 'timber', 'iron', 'oil', 'goods'],
       SP_LANDC: { moon: { iron: 150, oil: 120, goods: 150 } }, SP_POP0: 0.005, SP_E0: 3, SP_MILES: [1, 10, 100], spLandBonus: () => bonus, spLandProblem: () => '',
       clone: v => JSON.parse(JSON.stringify(v)), stockNow: n => ({ ...n.stock }), roundStock: s => s, commit: n => { saved = n; }, render: () => {},
-      toast: m => toasts.push(m), spWhere: () => 'on Mare Concordiae', fmt0: v => String(v), spRefreshPanel: () => {}, Date });
+      toast: m => toasts.push(m), spWhere: () => 'on Mare Concordiae', fmt0: v => String(v), spRefreshPanel: () => {}, popNow: () => 120.5, Date, Math });
     vm.runInContext(fn('spLand') + '\nthis.spLand=spLand;', ctx);
     assert.equal(ctx.spLand({ id: 'moon', nm: 'the Moon' }, 5), true);return [saved.sp.moon, toasts[0]];
   };
-  const [plain] = run(null);assert.equal(plain.p, 0.005);assert.equal(plain.e, 3);
+  const [plain] = run(null);assert.equal(plain.p, 0.005);assert.equal(plain.e, 3);assert.equal(plain.lp, 120.5, 'the people at home when it landed');assert.equal(plain.ld, undefined);
   const [prep, msg] = run({ p: 0.02, e: 2 });assert.equal(prep.p, 0.02);assert.equal(prep.e, 5);assert.match(msg, /^20000 settlers/);assert.match(msg, /prepared crew/);
   /* the save hook no longer adds the points a second time */
   assert.doesNotMatch(cut('const sp=n.sp&&n.sp.moon;', 'else if(!sp&&m.ld)'), /e:\(\+sp\.e\|\|0\)\+2/);
@@ -122,7 +130,7 @@ test('platinum grows with the rock and the ship, and never falls below the strik
 });
 
 test('Mission Control: even letter gates, two missions that wait for their letter, prep that must be flown', () => {
-  assert.match(html, /const MC_GATE=\[50,100,200,300,450,600,800,1000,1200,1400,1600\];/);
+  assert.match(html, /const MC_GATE=\[40,70,110,160,220,290,370,460,560,670,800\];/);
   assert.match(html, /need:\['b:mctrl','m:cam','l:2'\]/);assert.match(html, /need:\['m:orb','l:3'\]/);
   assert.match(html, /if\(cr>=\(k==='prep'\?3:1\)\)return 0;/);
   assert.match(html, /spLandBonus=\(n,B,now\)=>B\.id==='moon'&&mcPrepFlown\(n,now\)\?\{p:SP_POP_PREP,e:2\}:null;/);
