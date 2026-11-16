@@ -46,7 +46,7 @@ test('a hundred and fifty, numbered after every older edict, with ids and titles
     assert(c.R[i]&&!x.fo&&!x.req&&!x.nbx,x.id+' is drawn at random, with no condition');
   });
   assert(/'SHOW_ISSUES'/.test(readFileSync(new URL('../scripts/split-content.mjs',import.meta.url),'utf8')),'their text is cached with the other edicts');
-  assert(source.includes('Rule on over 2,500 edicts'),'the front page counts them');
+  assert(source.includes('Rule on over 2,800 edicts'),'the front page counts them');
 });
 
 test('the edicts use only real topics, scales, budget lines, laws and placeholders, in the house style',()=>{
