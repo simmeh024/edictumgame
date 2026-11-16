@@ -4119,6 +4119,11 @@ button.fp-cell-in:hover{border-color:var(--ink-3);background:var(--sheet-2);--fp
 .lg i.sp-night{background:linear-gradient(90deg,transparent,rgba(4,8,10,.55));border-color:var(--rule-2)}
 .lg i.sp-storm{border-radius:50%;background:radial-gradient(rgba(214,160,118,.9),rgba(214,160,118,0))}
 .sp-teaser{position:relative}
+.sp-race-l{list-style:none;margin:0;padding:0;display:grid;gap:4px}
+.sp-race-l li{display:flex;flex-wrap:wrap;gap:4px 12px;justify-content:space-between;padding:6px 10px;border-radius:8px;background:var(--sheet-2)}
+.sp-race-l li.me{outline:1px solid var(--accent)}
+.mc-op{margin:6px 0 12px}
+.mc-opb li{flex-wrap:wrap}
 .sp-teaser .sp-wrap{aspect-ratio:1.85;max-height:none}
 .sp-tz{position:absolute;left:22px;top:22px;max-width:430px;padding:20px 22px;background:color-mix(in srgb,var(--sheet) 93%,transparent);border:1px solid var(--rule);border-radius:4px;box-shadow:var(--shadow)}
 .sp-tz .h2{font-size:24px;margin:6px 0 12px}
@@ -4779,6 +4784,9 @@ button.fk-rp:hover,button.fk-qb:hover{color:var(--accent)}
 /* Bonus tasks: their colour, and the Lamplight accent their completion earns */
 .tut-ic-bonus{background:color-mix(in srgb,var(--up) 14%,var(--sheet));color:var(--up)}
 .tut-gp-bonus{border-left-color:var(--up)}
+.tut-ic-space{background:color-mix(in srgb,var(--accent) 14%,var(--sheet));color:var(--accent)}
+.tut-gp-space{border-left-color:var(--accent)}
+.tut-ob-space{--gc:var(--accent)}
 .tut-unl{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin:6px 0 4px;font-size:13px;color:var(--ink-2)}
 .tut-unl-i{display:inline-flex;align-items:center;gap:6px;padding:3px 10px 3px 4px;border-radius:999px;border:1px solid var(--rule);background:var(--sheet-2);font-weight:600;color:var(--ink)}
 .tut-unl-i svg{width:22px;height:22px}
@@ -22518,7 +22526,7 @@ const MILESTONES=[
   {p:35,t:'Great Power',c:6,b:['library','colossus']},
   {p:50,c:8,city:1,b:['spaceport']},
   {p:75,c:8,city:1},
-  {p:100,t:'Superpower',c:10,city:1},
+  {p:100,t:'Superpower',c:10,city:1,b:['lunar']},
   {p:200,c:12,city:1},
   {p:500,t:'Hegemon',c:15},
   {p:1000,t:'World Power',c:20}
@@ -35744,7 +35752,7 @@ MILESTONES.push(
   {p:1500,c:3,city:1,b:['fusion']},
   {p:2000,c:3,b:['arcology']},
   {p:3500,c:3,city:1},
-  {p:5000,t:'Continental Power',c:4,b:['hyperloop','lunar'],x:'the Continental Power Medallion'},
+  {p:5000,t:'Continental Power',c:4,b:['hyperloop'],x:'the Continental Power Medallion'},
   {p:10000,c:4,city:1,b:['elevator']},
   {p:20000,c:4,b:['orbital']},
   {p:35000,c:4,city:1},
@@ -35880,7 +35888,7 @@ HELP_EXT.push({k:'leadbld',t:'Leadership buildings',body:n=>{
   return `<p>Twelve buildings belong to a kind of government. A nation’s leadership groups follow its type of state, set in Settings and changed by some edicts, and its freedoms. A nation can belong to several groups, or to none.${n?` Right now ${esc(n.name)} counts as ${g.length?list(ldrNames(g).map(esc)):'none of them'}.`:''}</p>
     <ul>${LDR.map(G=>`<li><b>${esc(G.n)}</b>: ${esc(G.who)}. ${esc(cap1(list(Object.keys(BUILDINGS).filter(k=>BUILDINGS[k].lead===G.k).map(k=>BUILDINGS[k].n+' ('+ldrLow(BUILDINGS[k].d.replace(/\.$/,''))+')'))))}.</li>`).join('')}</ul>
     <p>The catalogue tags each one, such as “Crown only”. Most are one per nation. If your government changes and you leave a group, its buildings are never lost: they fall dormant, keep their block, give nothing, and work again the moment you return. A captured one works only if its new holder belongs to the group. Stolen plans cannot unlock them.</p>`;}});
-HELP_EXT.push({k:'giants',t:'Half a billion and beyond',body:n=>`<p>From half a billion people, land alone cannot hold a nation. Vertical Farms (from 500 million), Arcologies, Orbital Habitats and the Orbital Elevator add room for billions more, counted with your science and health like the rest of your capacity. Fusion Plants and Hyperloop Terminals keep them supplied, and from five billion people the Lunar Colony opens the Moon.</p>
+HELP_EXT.push({k:'giants',t:'Half a billion and beyond',body:n=>`<p>From half a billion people, land alone cannot hold a nation. Vertical Farms (from 500 million), Arcologies, Orbital Habitats and the Orbital Elevator add room for billions more, counted with your science and health like the rest of your capacity. Fusion Plants and Hyperloop Terminals keep them supplied, and from a hundred million people, once Mission Control has tested a habitat, the Lunar Colony opens the Moon.</p>
   <p>Milestones carry on to a trillion people, through ${list(MILESTONES.filter(m=>m.p>1000&&m.t).map(m=>esc(m.t)))}, with more cities (up to ${MAX_CITIES}) and bonus land credits. Land credits from population slow down above a billion: about ${budgetOf(1e6)-budgetOf(1000)} more between a billion and a trillion.</p>
   <p>It is a long road. The late buildings are dear, take days to finish and each needs a free building block, which only a big city has to spare. Expect months, not days. Stolen plans cannot bring them early.</p>`});
 
@@ -37167,22 +37175,22 @@ const SP_SHIP={moon:{oil:40,h:6},mars:{oil:90,h:18}};
 const SP_BLDS={
   moon:{
     hd:{n:'Habitat Dome',d:'Room for 1.2 million more people (1.6 million in a rille’s lava tube).',cost:{iron:90,goods:60},h:20,cap:1.2,capT:{5:1.6},ic:'dome'},
-    rs:{n:'Regolith Smelter',d:'Iron +4 a day at home. Up to eight per colony.',cost:{goods:50,food:30},h:12,inc:{iron:4},no:[6],max:8,ic:'chimney'},
-    he:{n:'Helium-3 Extractor',d:'Oil +5 a day at home: a clean fuel, mined from the maria. Up to eight per colony.',cost:{iron:70,goods:40},h:16,inc:{oil:5},on:[1,5],max:8,ic:'derrick'},
+    rs:{n:'Regolith Smelter',d:'Iron +4 a day at home once the colony has 20 million people (1.6 at first). Up to eight per colony.',cost:{goods:50,food:30},h:12,inc:{iron:4},no:[6],max:8,ic:'chimney'},
+    he:{n:'Helium-3 Extractor',d:'Oil +5 a day at home once the colony has 20 million people (2 at first): a clean fuel, mined from the maria. Up to eight per colony.',cost:{iron:70,goods:40},h:16,inc:{oil:5},on:[1,5],max:8,ic:'derrick'},
     im:{n:'Ice Mine',d:'Water from a crater that never sees the Sun: growth +0.1 a day and room for 0.4 million.',cost:{iron:100,goods:60},h:24,gr:0.1,cap:0.4,on:[6],ic:'ice'},
     sa:{n:'Solar Array',d:'Expansion points +0.5 a day (+1 on the polar uplands, where the Sun never sets).',cost:{iron:60,goods:40},h:10,ep:0.5,epT:{7:1},ic:'solar'},
-    md:{n:'Mass Driver',d:'Halves the shipping cost and time of everything you build here, and ships goods home: +3 a day.',cost:{iron:200,goods:120},h:36,inc:{goods:3},one:1,ic:'rail'},
+    md:{n:'Mass Driver',d:'Halves the shipping cost and time of everything you build here, and ships goods home: +3 a day once the colony has 20 million people.',cost:{iron:200,goods:120},h:36,inc:{goods:3},one:1,ic:'rail'},
     ob:{n:'Observatory',d:'Science +3 and Culture +1 at home when completed. The far side is wonderfully quiet.',cost:{goods:120,iron:60},h:24,once:{sci:3,culture:1},one:1,ic:'dish'},
     sp:{n:'Starport',d:'Opens Mars when completed. Needs 75 million people on the Moon.',cost:{iron:300,oil:150,goods:300},h:48,one:1,req:75,on:[0,1,2],ic:'rocket'}
   },
   mars:{
     pt:{n:'Pressurised Township',d:'Room for 1.2 million more people (1.6 million on a canyon floor, out of the wind).',cost:{iron:100,goods:70},h:22,cap:1.2,capT:{2:1.6},ic:'dome'},
     gf:{n:'Greenhouse Farms',d:'Growth +0.08 a day and room for 0.3 million.',cost:{food:80,goods:40},h:16,gr:0.08,cap:0.3,on:[0,1,6,9],ic:'greenhouse'},
-    cm:{n:'Canyon Mine',d:'Iron +6 a day at home, from the walls of the great canyons. Up to eight per colony.',cost:{goods:60,food:30},h:18,inc:{iron:6},on:[2,3],max:8,ic:'headframe'},
+    cm:{n:'Canyon Mine',d:'Iron +6 a day at home once the colony has 20 million people (2.4 at first), from the walls of the great canyons. Up to eight per colony.',cost:{goods:60,food:30},h:18,inc:{iron:6},on:[2,3],max:8,ic:'headframe'},
     iq:{n:'Polar Ice Quarry',d:'Growth +0.08 a day and room for 0.3 million, cut from the polar cap.',cost:{iron:90,goods:50},h:24,gr:0.08,cap:0.3,on:[7],ic:'ice'},
     dt:{n:'Dust Turbines',d:'Expansion points +0.5 a day. The storms have to be good for something.',cost:{iron:60,goods:40},h:12,ep:0.5,ic:'turbine'},
     te:{n:'Terraforming Engine',d:'Warms and wets the whole planet, for every nation, and its workers’ quarters make room for 0.5 million more in your colony. Up to four per colony.',cost:{iron:300,goods:300,oil:150},h:72,tf:1,cap:0.5,max:4,ic:'engine'},
-    os:{n:'Olympus Spaceport',d:'Halves the shipping cost and time of everything you build on Mars, and goods +5 a day at home.',cost:{iron:250,goods:250,oil:100},h:60,inc:{goods:5},one:1,on:[4],ic:'rocket'}
+    os:{n:'Olympus Spaceport',d:'Halves the shipping cost and time of everything you build on Mars, and goods +5 a day at home once the colony has 20 million people.',cost:{iron:250,goods:250,oil:100},h:60,inc:{goods:5},one:1,on:[4],ic:'rocket'}
   }
 };
 const SP_CAP={moon:[0.2,0.32,0.26,0.1,0.06,0.45,0.12,0.14],mars:[0.22,0.25,0.28,0.08,0.1,0.05,0.3,0.1,0.1,0.22,0.16]};
@@ -37226,6 +37234,10 @@ function spDecB(B,t,s){
     const c=parseInt(m[2],36),sm=parseInt(m[3],36),dm=parseInt(m[4],36);if(!(c<B.N)||dm<1){res=null;break;}res.push({k:m[1],c,sm,dm,s:t+sm*SP_MIN,d:t+(sm+dm)*SP_MIN});if(res.length>SP_BLD){res=null;break;}}
   if(SP_DB.size>8000)SP_DB.clear();SP_DB.set(key,res);return res;
 }
+/* the outpost's building kinds; a colony's buildings send home a share of their output that grows with its people:
+   SP_INC_MIN at first (and always at an outpost), all of it from SP_INC_FULL million */
+const SP_OP_K=['rs','he'],SP_INC_MIN=0.4,SP_INC_FULL=20;
+const spIncF=P=>SP_INC_MIN+(1-SP_INC_MIN)*Math.max(0,Math.min(1,(P||0)/SP_INC_FULL));
 /* the saved field, checked: anything malformed in one body drops that body */
 function spNorm(d){
   if(!d||typeof d!=='object'||Array.isArray(d))return null;
@@ -37237,9 +37249,13 @@ function spNorm(d){
     const r={t:o.t,c:o.c,k,b,p:fin(o.p)?clamp(o.p,0,1e5):SP_POP0,pa:fin(o.pa)&&o.pa>=o.t&&o.pa<=now+DAY?o.pa:o.t,e:fin(o.e)?clamp(o.e,0,1e5):0};
     if(typeof o.nm==='string'&&o.nm.trim())r.nm=o.nm.replace(/\s+/g,' ').trim().slice(0,32);
     if(Array.isArray(o.ml))r.ml=o.ml.slice(0,SP_MILES.length).map(v=>fin(v)&&v>=o.t&&v<=now+DAY?v:0);
+    /* ld: when the crew landed, for a colony that opened at its outpost (t stays the outpost's); lp: the people at home then */
+    if(fin(o.ld)&&o.ld>=o.t&&o.ld<=now+DAY)r.ld=o.ld;if(fin(o.lp)&&o.lp>0)r.lp=Math.min(1e7,o.lp);
     out[id]=r;}
   if(fin(d.tf))out.tf=clamp(d.tf,0,1);
-  return out.moon||out.mars||out.tf?out:null;
+  {const op=d.op,B=SPB.moon;if(!out.moon&&op&&typeof op==='object'&&!Array.isArray(op)&&fin(op.t)&&op.t>=1.75e12&&op.t<=now+DAY&&Number.isInteger(op.c)&&op.c>=0&&op.c<B.N){
+    const b=typeof op.b==='string'&&op.b.length<=40&&/^[0-9a-z.,]*$/.test(op.b)?op.b:'',bl=b?spDecB(B,op.t,b):[];out.op={t:op.t,c:op.c,b:bl&&bl.length<=1&&bl.every(x=>SP_OP_K.includes(x.k))?b:''};}}
+  return out.moon||out.mars||out.tf||out.op?out:null;
 }
 NORM_HOOKS.push((n,d)=>{const v=spNorm(d&&d.sp);if(v)n.sp=v;else delete n.sp;});
 /* the shared snapshot keeps every region's space data (called for each record in connect()) */
@@ -37253,9 +37269,9 @@ function spKeep(a,raw){
 /* ── one colony ── decoded from a record's body data, memoised */
 const SP_CM=new Map();
 function spColony(B,o,tf){
-  if(!o)return null;tf=B.id==='mars'&&tf>0?tf:0;const key=B.id+o.t+'|'+o.c+'|'+o.k+'|'+o.b+'|'+o.p+'|'+o.pa+'|'+o.e+'|'+tf,hit=SP_CM.get(key);if(hit)return hit;
+  if(!o)return null;tf=B.id==='mars'&&tf>0?tf:0;const key=B.id+o.t+'|'+o.c+'|'+o.k+'|'+o.b+'|'+o.p+'|'+o.pa+'|'+o.e+'|'+tf+(o.op?'|op':''),hit=SP_CM.get(key);if(hit)return hit;
   const K=spDecK(B,o.c,o.k),bl=spDecB(B,o.t,o.b);if(!K||!bl)return null;
-  const col={B,o,t:o.t,c:o.c,cells:[o.c].concat(K.cells),ct:[o.t].concat(K.mins.map(m=>o.t+m*SP_MIN)),blds:bl,p:o.p,pa:o.pa,e:o.e,tf,nm:o.nm||''};
+  const col={B,o,t:o.t,c:o.c,cells:[o.c].concat(K.cells),ct:[o.t].concat(K.mins.map(m=>o.t+m*SP_MIN)),blds:bl,p:o.p,pa:o.pa,e:o.e,tf,nm:o.nm||'',op:!!o.op};
   if(SP_CM.size>6000)SP_CM.clear();SP_CM.set(key,col);return col;
 }
 /* capacity, growth and expansion-point rate at time t, from the record alone (every viewer agrees) */
@@ -37271,6 +37287,7 @@ function spState(col,t){
 function spSteps(col,t1){const s=new Set();for(const t of col.ct)if(t>col.pa&&t<t1)s.add(t);for(const b of col.blds)if(b.d>col.pa&&b.d<t1)s.add(b.d);return [...s].sort((a,b)=>a-b);}
 /* people (millions) at time t, and expansion points earned by t */
 function spRun(col,t,eb){
+  if(col.op)return {P:0,E:0};
   t=Math.max(t,col.pa);let P=Math.max(0.0001,col.p),E=col.e,a=col.pa;
   for(const b of spSteps(col,t).concat([t])){if(b<=a)continue;const st=spState(col,a),dt=(b-a)/DAY,n=Math.max(1,Math.ceil(dt*4)),h=dt/n;
     for(let i=0;i<n;i++){const Pm=logistic(P,st.K,st.r,h/2);E+=(st.ep+(eb||0)+SP_EPP*Math.log2(1+Pm/0.01))*h;P=logistic(P,st.K,st.r,h);}a=b;}
@@ -37298,7 +37315,11 @@ function spRecs(){
   return out.sort((a,b)=>a.id<b.id?-1:a.id>b.id?1:0);
 }
 const SP_EP=Date.UTC(2026,0,1)-1048576*SP_MIN;
-const spHead=o=>o?o.t+'|'+o.c+'|'+o.k.length+'|'+o.k.slice(-12):'';
+const spHead=o=>o?o.t+'|'+o.c+'|'+o.k.length+'|'+o.k.slice(-12)+(o.op?'|op':''):'';
+/* an outpost (sp.op, on the Moon only) takes part in the replay as a colony of one tile with no people; a nation has
+   an outpost or a lunar colony, never both */
+const spOpCol=op=>op?{t:op.t,c:op.c,k:'',b:op.b||'',p:0,pa:op.t,e:0,op:1,nm:''}:null;
+const spBodyO=(r,id)=>r&&r.sp?(id==='moon'?r.sp.moon||spOpCol(r.sp.op):r.sp[id]):null;
 /* the shared result for a body: tile owners and colonies. Landings and claims are replayed in time order
    (minutes; ties by nation id). A landing needs a free tile with no other colony within 4 tiles; a claim
    needs a free tile next to the colony and fewer than 300 tiles held. Recomputed only when the records'
@@ -37307,14 +37328,14 @@ function spWorld(B){
   const M=SP.memo[B.id]||(SP.memo[B.id]={}),wa=S.worldAll,na=S.nation;
   if(M.W&&M.wa===wa&&M.na===na&&M.ex===SP.extra&&M.v===SP.ver)return M.W;
   M.wa=wa;M.na=na;M.ex=SP.extra;M.v=SP.ver;
-  const recs=spRecs().filter(r=>r.sp[B.id]),heads=new Map(recs.map(r=>[r.id,spHead(r.sp[B.id])]));
+  const recs=spRecs().filter(r=>spBodyO(r,B.id)),heads=new Map(recs.map(r=>[r.id,spHead(spBodyO(r,B.id))]));
   if(M.W&&M.heads&&heads.size===M.heads.size&&[...heads].every(([id,h])=>M.heads.get(id)===h)){spRefresh(M.W,recs);return M.W;}
   if(M.W&&M.heads&&spIncr(B,M,recs,heads)){M.heads=heads;return M.W;}
   M.W=spReplay(B,recs);M.heads=heads;return M.W;
 }
-function spRefresh(W,recs){for(const r of recs){const C=W.byId[r.id];if(!C)continue;C.rec=r;C.name=r.name;C.me=!!r.me;C.o=r.sp[W.B.id];const K=spColony(W.B,C.o,r.sp.tf);if(K)C.colony=K;}}
-function spMkCol(B,r,i){const o=r.sp[B.id],col=spColony(B,o,r.sp.tf);let rgb=[87,166,222];try{const h=safeColor(r.col,'#57A6DE');rgb=[parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)];}catch(e){}
-  return {i,id:r.id,name:r.name,reg:r.reg,col:r.col,rgb,fl:r.fl,me:!!r.me,rec:r,o,colony:col,land:o.t,c:o.c,ok:false,held:[],lost:[],n:0,done:0};}
+function spRefresh(W,recs){for(const r of recs){const C=W.byId[r.id];if(!C)continue;C.rec=r;C.name=r.name;C.me=!!r.me;C.o=spBodyO(r,W.B.id);const K=spColony(W.B,C.o,r.sp.tf);if(K)C.colony=K;}}
+function spMkCol(B,r,i){const o=spBodyO(r,B.id),col=spColony(B,o,r.sp.tf);let rgb=[87,166,222];try{const h=safeColor(r.col,'#57A6DE');rgb=[parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)];}catch(e){}
+  return {i,id:r.id,name:r.name,reg:r.reg,col:r.col,rgb,fl:r.fl,me:!!r.me,rec:r,o,colony:col,land:o.ld||o.t,op:!!o.op,c:o.c,ok:false,held:[],lost:[],n:0,done:0};}
 function spReplay(B,recs){
   const t0=performance.now(),own=new Int32Array(B.N).fill(-1),cols=[],ev=[];
   for(const r of recs){const C=spMkCol(B,r,cols.length);if(!C.colony)continue;cols.push(C);}
@@ -37337,12 +37358,12 @@ function spApply(W,e){
 /* only appended claims (and new landings) at or after the last replayed minute: apply them in order */
 function spIncr(B,M,recs,heads){
   const W=M.W,ev=[];if(recs.length<W.cols.length)return false;for(const C of W.cols)if(!heads.has(C.id))return false;
-  for(const r of recs){const C=W.byId[r.id],o=r.sp[B.id];
+  for(const r of recs){const C=W.byId[r.id],o=spBodyO(r,B.id);
     const after=(m,id)=>m>W.lastM||(m===W.lastM&&id>W.lastId);
     if(!C){const C2=spMkCol(B,r,W.cols.length);if(!C2.colony||!after(Math.floor((o.t-SP_EP)/SP_MIN),r.id))return false;W.cols.push(C2);W.byId[r.id]=C2;const K=C2.colony;ev.push([Math.floor((K.t-SP_EP)/SP_MIN),C2.i,-1,0]);
       let a=1;while(a<K.cells.length){let b=a;while(b<K.cells.length&&K.ct[b]===K.ct[a])b++;ev.push([Math.floor((K.ct[a]-SP_EP)/SP_MIN),C2.i,a,b]);a=b;}continue;}
     if(M.heads.get(r.id)===heads.get(r.id)){C.rec=r;C.name=r.name;C.me=!!r.me;C.o=o;const K2=spColony(B,o,r.sp.tf);if(K2)C.colony=K2;continue;}
-    const old=C.colony,K=spColony(B,o,r.sp.tf);if(!K||K.t!==old.t||K.c!==old.c||!o.k.startsWith(C.o.k)||K.cells.length<old.cells.length)return false;
+    const old=C.colony,K=spColony(B,o,r.sp.tf);if(!K||K.t!==old.t||K.c!==old.c||!!K.op!==!!old.op||!o.k.startsWith(C.o.k)||K.cells.length<old.cells.length)return false;
     for(let j=0;j<old.cells.length;j++)if(K.cells[j]!==old.cells[j])return false;
     let a=old.cells.length;while(a<K.cells.length){let b=a;while(b<K.cells.length&&K.ct[b]===K.ct[a])b++;const m=Math.floor((K.ct[a]-SP_EP)/SP_MIN);if(!after(m,r.id))return false;ev.push([m,C.i,a,b]);a=b;}
     C.rec=r;C.o=o;C.colony=K;C.name=r.name;C.me=!!r.me;}
@@ -37723,10 +37744,11 @@ function spLandProblem(B,c){
   if(n.sp&&n.sp[B.id])return `You already have a colony on ${B.nm}.`;
   if(!spAccess(n,B.id))return B.id==='moon'?'Complete the Lunar Colony wonder in one of your cities first.':'Build a Starport in your lunar colony first.';
   if(!(c>=0&&c<B.N))return 'Choose a landing site on the map.';
-  const t=spT(B,c),W=spWorld(B),o=W.own[c];
+  const op=B.id==='moon'&&n.sp&&n.sp.op;if(op&&c!==op.c)return `Your colony opens at your outpost, ${spWhere(B,op.c)}. Select it on the map.`;
+  const t=spT(B,c),W=spWorld(B),o=W.own[c],me=W.byId[myId()],mi=me&&me.ok?me.i:-2;
   if(spNoLand(B,t))return B.id==='moon'?(t===3?'A crater rim is no place to land. Try the floor, or the plains beyond.':'The mountains are too steep for a lander.'):(t===3?'A canyon wall is a cliff. Land on the floor or the rim of the plateau.':t===8?'A crater rim is no place to land.':'The slopes of a volcano are no place to land. You may claim them later.');
-  if(o>=0)return `That tile belongs to the colony of ${W.cols[o].name}.`;
-  for(const x of spRing(B,c,SP_GAP)){const i=W.own[x];if(i>=0)return `That is too close to the colony of ${W.cols[i].name}. Land more than ${SP_GAP} tiles from any other colony.`;}
+  if(o>=0&&o!==mi)return `That tile belongs to the ${W.cols[o].op?'outpost':'colony'} of ${W.cols[o].name}.`;
+  for(const x of spRing(B,c,SP_GAP)){const i=W.own[x];if(i>=0&&i!==mi)return `That is too close to the ${W.cols[i].op?'outpost':'colony'} of ${W.cols[i].name}. Land more than ${SP_GAP} tiles from any other colony.`;}
   const miss=lacking(SP_LANDC[B.id],stockNow(n));if(miss.length)return 'Your stockpile is short of '+list(miss)+'.';
   return '';
 }
@@ -37734,8 +37756,11 @@ function spLand(B,c){
   const p=spLandProblem(B,c);if(p){S.spMsg=p;spRefreshPanel();return false;}
   const n=clone(S.nation),now=Date.now(),st=stockNow(S.nation,now);for(const r of RES)st[r]-=SP_LANDC[B.id][r]||0;n.stock=roundStock(st);n.stockAt=now;n._stockSet=true;
   let bo=null;try{bo=spLandBonus(S.nation,B,now);}catch(e){}const p0=bo&&bo.p>SP_POP0?bo.p:SP_POP0,e0=SP_E0+(bo&&bo.e>0?bo.e:0);
-  n.sp=n.sp||{};n.sp[B.id]={t:now,c,k:'',b:'',p:p0,pa:now,e:e0,ml:SP_MILES.map(()=>0),nm:(n.capital||n.name)+(B.id==='moon'?' Base':' Township')};
-  S.spMsg='';commit(n);render();toast(`${fmt0(Math.round(p0*1e6))} settlers of ${n.name} have landed on ${B.nm}, ${spWhere(B,c)}.${bo?' Mission Control’s prepared crew brought more settlers and '+bo.e+' more expansion points.':''} Spend expansion points to claim the tiles around them.`);return true;
+  n.sp=n.sp||{};const op=B.id==='moon'&&n.sp.op&&n.sp.op.c===c?n.sp.op:null,lp=Math.round(popNow(S.nation,now)*1000)/1000;
+  /* at an outpost the colony keeps the outpost's time (its claim to the tile) and its building, and notes when the crew landed */
+  n.sp[B.id]=op?{t:op.t,c,k:'',b:op.b||'',p:p0,pa:now,e:e0,ld:now,lp,ml:SP_MILES.map(()=>0),nm:(n.capital||n.name)+' Base'}:{t:now,c,k:'',b:'',p:p0,pa:now,e:e0,lp,ml:SP_MILES.map(()=>0),nm:(n.capital||n.name)+(B.id==='moon'?' Base':' Township')};
+  if(B.id==='moon')delete n.sp.op;
+  S.spMsg='';commit(n);render();toast(`${fmt0(Math.round(p0*1e6))} settlers of ${n.name} have landed on ${B.nm}, ${spWhere(B,c)}${op?', at your outpost':''}.${bo?' Mission Control’s prepared crew brought more settlers and '+bo.e+' more expansion points.':''} Spend expansion points to claim the tiles around them.`);return true;
 }
 /* where a tile is: the nearest great feature */
 function spWhere(B,c){const X=(spX(B,c)-HEX_W/2)/HEX_W,Y=(spY(B,c)-HEX_R)/HEX_W;let best=null,bd=1e9;for(const f of spFeatures(B)){if(f.k==='rima')continue;const d=Math.hypot(f.X-X,f.Y-Y)/Math.max(8,f.sz);if(d<bd){bd=d;best=f;}}
@@ -37810,7 +37835,12 @@ COMMIT_HOOKS.push((n,old,now)=>{
     for(const b of col.blds){const D=SP_BLDS[id][b.k];if(!D.once||b.d>now)continue;const key='sp:'+id+':'+b.k;n.bonce=n.bonce||[];if(n.bonce.includes(key))continue;applyEffects(n,D.once);n.bonce=n.bonce.concat(key).slice(-200);out.push(`The ${D.n} on ${B.nm} is open: Science and Culture rise at home.`);}
   }
   if(n.sp.mars||n.sp.tf){try{const L=spTf(now);if(SP.tfTest==null)n.sp.tf=Math.round(L*1e4)/1e4;}catch(e){}}
-  if(!n.sp.moon&&!n.sp.mars&&!n.sp.tf)delete n.sp;
+  /* an outpost that lost the race for its tile (another beacon or colony was there first) is packed up */
+  if(n.sp.op){const op=n.sp.op;if(n.sp.moon)delete n.sp.op;else{let W=null;try{W=spWorld(SPB.moon);}catch(e){}const C=W&&W.byId[myId()];
+    if(C&&C.op&&C.done&&!C.ok&&C.o&&C.o.t===op.t){const by=C.why>=0&&W.cols[C.why]?W.cols[C.why].name:'another nation',st=n.stock||{};
+      for(const b of spDecB(SPB.moon,op.t,op.b||'')||[]){const cost=spCost(SPB.moon,b.k,null);for(const r of RES)st[r]=stockLimit(n,r,(st[r]||0)+(cost[r]||0),st[r]);}
+      n.stock=st;delete n.sp.op;out.push(`${by} set down beside your beacon on the Moon moments before you did. Your outpost has been packed up${op.b?' and its building’s cost returned':''}: choose another site.`);}}}
+  if(!n.sp.moon&&!n.sp.mars&&!n.sp.tf&&!n.sp.op)delete n.sp;
   return out;
 });
 
@@ -37819,11 +37849,14 @@ function spIncome(n,now){
   const o={};if(!n||!n.sp)return o;now=now||Date.now();
   for(const id of ['moon','mars']){const B=SPB[id],col=spColony(B,n.sp[id],n.sp.tf);if(!col)continue;
     /* exporters count up to their limit per colony (eight smelters, extractors or mines; one Mass Driver or spaceport) */
-    const seen={};for(const b of col.blds){const D=SP_BLDS[id][b.k];if(!D.inc||b.d>now)continue;seen[b.k]=(seen[b.k]||0)+1;if(seen[b.k]>(D.one?1:D.max||Infinity))continue;for(const r in D.inc)o[r]=(o[r]||0)+D.inc[r];}
-    const P=spPop(col,now);o.goods=(o.goods||0)+Math.min(8,Math.floor(P/25));}
+    const P=spPop(col,now),f=spIncF(P),seen={};for(const b of col.blds){const D=SP_BLDS[id][b.k];if(!D.inc||b.d>now)continue;seen[b.k]=(seen[b.k]||0)+1;if(seen[b.k]>(D.one?1:D.max||Infinity))continue;for(const r in D.inc)o[r]=(o[r]||0)+D.inc[r]*f;}
+    o.goods=(o.goods||0)+Math.min(8,Math.floor(P/25));}
+  /* an outpost's one building, at the smallest share */
+  if(n.sp.op&&!n.sp.moon){const col=spColony(SPB.moon,spOpCol(n.sp.op));if(col)for(const b of col.blds.slice(0,1)){const D=SP_BLDS.moon[b.k];if(!D||!D.inc||b.d>now||!SP_OP_K.includes(b.k))continue;for(const r in D.inc)o[r]=(o[r]||0)+D.inc[r]*SP_INC_MIN;}}
+  for(const r in o)o[r]=Math.round(o[r]*100)/100;
   return o;
 }
-stockRates=(f=>function(n){const o=f.apply(this,arguments);try{const a=spIncome(n);for(const r in a)if(r in o)o[r]+=a[r];}catch(e){}return o;})(stockRates);
+/* what the colonies send home is added to the stock rates last, in the Moon-in-midgame section, after the economy's floor */
 
 /* ───────── the Lunar Colony wonder: a stand-in until agent F's module defines it ───────── */
 function spStandIn(){
@@ -37862,7 +37895,7 @@ function spBox(B,mode){
 }
 /* before the Lunar Colony: the Moon, faintly, and the road to it */
 function spTeaser(n,now){
-  const m=spLunarAt(),need=m?m.p:0,pop=popNow(n,now),B=SPB.moon,W=spWorld(B),cols=W.cols.filter(C=>C.ok),regs=new Set(cols.map(C=>C.reg)).size;
+  const m=spLunarAt(),need=m?m.p:0,pop=popNow(n,now),B=SPB.moon,W=spWorld(B),cols=W.cols.filter(C=>C.ok&&!C.op),regs=new Set(cols.map(C=>C.reg)).size;
   const prog=need?clamp(pop/need,0,1):0,unl=need&&pop>=need-1e-9,LB=BUILDINGS.lunar;
   let bld=null;for(const c of n.cities||[])for(const b of c.b||[])if(b.k==='lunar')bld=b;
   const step=(ok,t,body)=>`<li class="${ok?'done':''}"><span class="sp-ck" aria-hidden="true">${ok?'✓':''}</span><span><b>${t}</b>${body?`<span class="hint">${body}</span>`:''}</span></li>`;
@@ -37870,9 +37903,10 @@ function spTeaser(n,now){
   return `<div class="sp-teaser">${spBox(B,'teaser')}<div class="sp-tz"><p class="eyebrow">The Moon is waiting</p><h2 class="h2">A colony of your own, a quarter of a million miles up</h2>
     <ol class="sp-steps">
       ${step(unl,`Reach ${need?fmtPopShort(need):'the top milestone'} people${m&&m.t?`, ${esc(m.t)}`:''}`,unl?'Done.':`${esc(n.name)} has ${fmtPop(pop)}: ${(prog*100).toFixed(prog<0.1?2:1)}% of the way.<span class="bar sp-bar"><i style="width:${(prog*100).toFixed(2)}%"></i></span>`)}
-      ${step(!!bld&&bld.d<=now,'Complete the Lunar Colony wonder in one of your cities',bld?(bld.d<=now?'Done.':`Under construction: ready in ${fmtDur(bld.d-now)}.`):`${LB?LB.h+' hours, '+esc(cost)+'.':''} ${unl?'<button class="linkish" data-act="go" data-v="cities">Open Cities</button>':''}`)}
-      ${step(false,'Land on the Moon','Your colony starts on one tile with five thousand settlers and grows over weeks and months.')}
-      ${step(false,'Grow to 100 million and build a Starport','A finished Starport opens Mars.')}
+      ${spTzSteps(n,now,step)}
+      ${step(!!bld&&bld.d<=now,'Complete the Lunar Colony wonder in one of your cities',bld?(bld.d<=now?'Done.':`Under construction: ready in ${fmtDur(bld.d-now)}.`):`${LB?LB.h+' hours, '+esc(cost)+'.':''} ${lunarOpen(n,now)?'<button class="linkish" data-act="go" data-v="cities">Open Cities</button>':''}`)}
+      ${step(false,n.sp&&n.sp.op?'Open the colony at your outpost':'Land on the Moon','Your colony starts on one tile with five thousand settlers and grows over weeks and months.')}
+      ${step(false,`Grow to ${SP_BLDS.moon.sp.req} million and build a Starport`,'A finished Starport opens Mars.')}
     </ol>
     <p class="hint">${cols.length?`Already up there: ${cols.length===1?'one colony':cols.length+' colonies'} from ${regs===1?'one region':regs+' regions'}.`:'No nation has landed yet. The first gets the best maria.'}</p></div></div>
     ${cols.length?spColonyList(B,now):''}`;
@@ -37889,6 +37923,7 @@ const spTfStage=L=>{let s='';for(const [x,t] of SP_TF_ST)if(L>=x)s=t;return s;};
 function spPanel(B,now){
   now=now||Date.now();const n=S.nation,col=spMyCol(B),W=spWorld(B),C=W.byId[myId()],sel=S.spSel&&S.spSel.b===B.id?S.spSel.c:-1,msg=S.spMsg?`<p class="err">${esc(S.spMsg)}</p>`:'';
   if(!col||!C||!C.ok){
+    if(B.id==='moon'&&n.sp&&n.sp.op&&!n.sp.moon)return spOpPanel(B,now)+msg;
     const p=sel>=0?spLandProblem(B,sel):'',lc=SP_LANDC[B.id];
     return `<p class="eyebrow">Landing</p><h3 class="sp-ph">Choose a landing site</h3><p class="hint">Select any tile that is not a crater rim${B.id==='mars'?', canyon wall or volcano':' or a mountain'}, more than ${SP_GAP} tiles from every other colony. Maria${B.id==='mars'?', canyons and the polar ice':', rilles and the polar ice'} make the best neighbours.</p>
       ${sel>=0?spTileInfo(B,sel,W,null,now)+(p?`<p class="err">${esc(p)}</p>`:`<button class="btn" data-act="sp-land">Land here</button>`):''}
@@ -37907,10 +37942,10 @@ function spPanel(B,now){
   const pr=prog.length?`<h4 class="lbl-h">Under construction</h4><ul class="sp-prog">${prog.map(b=>`<li><span>${esc(SP_BLDS[B.id][b.k].n)}</span><span class="hint">${fmtDur(b.d-now)}</span><span class="bar"><i data-live="sp-bar" data-s="${b.s}" data-d="${b.d}" style="width:${clamp((now-b.s)/(b.d-b.s)*100,0,100).toFixed(1)}%"></i></span></li>`).join('')}</ul>`:'';
   const built={};for(const b of col.blds)if(b.d<=now)built[b.k]=(built[b.k]||0)+1;
   const bl=Object.keys(built).length?`<h4 class="lbl-h">Buildings</h4><p class="sp-bl">${Object.entries(built).map(([k,v])=>`${esc(SP_BLDS[B.id][k].n)}${v>1?' × '+v:''}`).join(' · ')}</p>`:'';
-  const ex=RES.filter(r=>inc[r]).map(r=>`${inc[r]} ${resName(r)}`);
-  const exp=`<h4 class="lbl-h">Sent home</h4><p class="hint">${ex.length?esc(list(ex))+' a day':'Nothing yet. Smelters, extractors, mines and a Mass Driver ship goods home; every 25 million colonists add a crate of goods a day.'}</p>`;
+  const ex=RES.filter(r=>inc[r]).map(r=>`${fmt1(inc[r])} ${resName(r)}`),share=Math.round(spIncF(P)*100);
+  const exp=`<h4 class="lbl-h">Sent home</h4><p class="hint">${ex.length?esc(list(ex))+' a day':'Nothing yet. Smelters, extractors, mines and a Mass Driver ship goods home; every 25 million colonists add a crate of goods a day.'}${share<100?` Your buildings send ${share}% of their output while the colony is small: all of it from ${SP_INC_FULL} million people.`:''}</p>`;
   let extra='';
-  if(B.id==='moon'){const sp=col.blds.find(b=>b.k==='sp');extra=`<h4 class="lbl-h">Starport</h4><p class="hint">${sp?(sp.d<=now?'Your Starport is ready: Mars is open.':`Under construction: ready in ${fmtDur(sp.d-now)}.`):P>=100?'Your colony has 100 million people. Build a Starport on a flat tile to open Mars.':`Needs 100 million people. You have ${(P).toFixed(P<1?2:1)} million: ${clamp(P,0,100).toFixed(1)}%.`}</p>${!sp&&P<100?`<span class="bar sp-bar"><i style="width:${clamp(P,0,100).toFixed(1)}%"></i></span>`:''}`;}
+  if(B.id==='moon'){const sp=col.blds.find(b=>b.k==='sp');extra=`<h4 class="lbl-h">Starport</h4><p class="hint">${sp?(sp.d<=now?'Your Starport is ready: Mars is open.':`Under construction: ready in ${fmtDur(sp.d-now)}.`):P>=SP_BLDS.moon.sp.req?`Your colony has ${SP_BLDS.moon.sp.req} million people. Build a Starport on a flat tile to open Mars.`:`Needs ${SP_BLDS.moon.sp.req} million people. You have ${(P).toFixed(P<1?2:1)} million: ${clamp(P/SP_BLDS.moon.sp.req*100,0,100).toFixed(1)}%.`}</p>${!sp&&P<SP_BLDS.moon.sp.req?`<span class="bar sp-bar"><i style="width:${clamp(P/SP_BLDS.moon.sp.req*100,0,100).toFixed(1)}%"></i></span>`:''}`;}
   else{const L=spTf(now),eng=spEngines(),mineE=col.blds.filter(b=>b.k==='te'&&b.d<=now).length,nx=SP_TF_ST.find(s=>s[0]>L);
     extra=`<h4 class="lbl-h">Terraforming</h4><p class="hint">Mars is ${Math.round(L*100)}% terraformed${spTfStage(L)?': '+esc(spTfStage(L)):''}. ${(k=>k===1?'One engine is':k+' engines are')(eng.filter(d=>d<=now).length)} running${mineE?(mineE===eng.filter(d=>d<=now).length?(mineE===1?', and it is yours':', all of them yours'):`, ${mineE} of them yours`):''}.${nx?` Next: ${esc(nx[1])} at ${Math.round(nx[0]*100)}%.`:''}</p><span class="bar sp-bar tf"><i style="width:${(L*100).toFixed(1)}%"></i></span>`;}
   return top+tile+pr+bl+exp+extra;
@@ -37920,7 +37955,7 @@ function spTileInfo(B,c,W,C,now){
   if(B.id==='moon'){if(t===1)notes.push('Helium-3 in the basalt');if(t===5)notes.push('a lava tube: sheltered room');if(t===6)notes.push('water ice in eternal shadow');if(t===7)notes.push('sunlight almost all year');if(spNight(B,c,now))notes.push('lunar night');}
   else{if(t===7)notes.push('water ice');if(t===2||t===3)notes.push('iron in the canyon walls');if(t===4)notes.push('volcanic slope: the Olympus Spaceport stands here');if(spStormAt(B,c,now))notes.push('a dust storm overhead');const L=spTf(now),[K,k]=spTile(B,c),stt=spTfState(K,k,L);if(stt)notes.push(['','frost','a lake','green','open water'][stt]);}
   return `<p class="sp-tn"><b>${esc(spTName(B,c))}</b> <span class="hint">${esc(spWhere(B,c))}</span></p>
-    <p class="hint">${O?`${O.me?'Your colony':'The colony of '+esc(O.name)+(O.reg!==REG.id?' ('+esc((REG_BY_ID[O.reg]||{}).name||'')+')':'')}`:'Unclaimed'} · room for ${fmt1(SP_CAP[B.id][t]||0.1)} million${notes.length?' · '+esc(notes.join(', ')):''}</p>${lm?`<p class="hint sp-lm">${esc(lm.txt)}.</p>`:''}`;
+    <p class="hint">${O?`${O.me?(O.op?'Your outpost':'Your colony'):(O.op?'The outpost of ':'The colony of ')+esc(O.name)+(O.reg!==REG.id?' ('+esc((REG_BY_ID[O.reg]||{}).name||'')+')':'')}`:'Unclaimed'} · room for ${fmt1(SP_CAP[B.id][t]||0.1)} million${notes.length?' · '+esc(notes.join(', ')):''}</p>${lm?`<p class="hint sp-lm">${esc(lm.txt)}.</p>`:''}`;
 }
 function spTileActions(B,c,W,C,col,pts,now){
   const o=W.own[c];
@@ -37949,9 +37984,9 @@ function spFind(B){
 function spFindRes(B){const q=(S.spQ||'').trim().toLowerCase();if(!q)return '';const W=spWorld(B),hit=W.cols.filter(C=>C.ok&&String(C.name).toLowerCase().includes(q)).slice(0,8);
   return hit.length?hit.map(C=>`<button class="linkish" data-act="sp-goto" data-id="${esc(C.id)}">${esc(C.name)}</button>`).join(' · '):'<span class="hint">No colony by that name.</span>';}
 function spColonyList(B,now){
-  const W=spWorld(B),me=W.byId[myId()],q=(S.spQ||'').trim().toLowerCase();let cols=W.cols.filter(C=>C.ok);const total=cols.length,regs=new Set(cols.map(C=>C.reg)).size;
+  const W=spWorld(B),me=W.byId[myId()],q=(S.spQ||'').trim().toLowerCase();let cols=W.cols.filter(C=>C.ok&&!C.op);const total=cols.length,regs=new Set(cols.map(C=>C.reg)).size;
   if(!total)return '';
-  cols.sort((a,b)=>b.held.length-a.held.length||a.land-b.land);let rows=cols.slice(0,20);if(me&&me.ok&&!rows.includes(me))rows.push(me);
+  cols.sort((a,b)=>b.held.length-a.held.length||a.land-b.land);let rows=cols.slice(0,20);if(me&&me.ok&&!me.op&&!rows.includes(me))rows.push(me);
   return `<section class="section"><h2 class="h2">Colonies on ${esc(B.nm)}</h2><p class="hint" style="margin-bottom:12px">${total===1?'One colony':total+' colonies'} from ${regs===1?'one region':regs+' regions'}${total>rows.length?`, the ${rows.length} largest shown`:''}.</p>
     <div class="tbl-wrap"><table class="tbl sp-tbl"><thead><tr><th>Nation</th><th>Home</th><th class="c-pop">Tiles</th><th class="c-pop">People</th><th>Landed</th><th></th></tr></thead><tbody>
     ${rows.map(C=>{const P=spPop(C.colony,now),R=REG_BY_ID[C.reg];return `<tr class="${C.me?'me':''}"><td><span class="nm"><span class="sp-fl">${(C.fl&&C.fl.length?C.fl:[C.col]).map(c=>`<i style="background:${safeColor(c,'#888888')}"></i>`).join('')}</span>${C.me?`<b>${esc(C.name)}</b>`:C.reg===REG.id?nationLink(C.id,C.name,false):esc(C.name)}</span><span class="hint sp-cn">${esc(C.colony.nm||'')}</span></td><td class="c-cat">${esc(R?R.name:'')}</td><td class="c-pop">${C.held.length}</td><td class="c-pop">${P<1?fmt0(P*1e6):fmtPop(P)}</td><td class="c-cat">${fmtDate(C.land)}</td><td><button class="btn ghost small-btn" data-act="sp-goto" data-id="${esc(C.id)}">Show</button></td></tr>`;}).join('')}
@@ -37961,6 +37996,7 @@ function spColonyList(B,now){
 function spEvents(B,now,since){
   const W=spWorld(B),out=[];
   for(const C of W.cols){if(!C.ok)continue;const R=REG_BY_ID[C.reg],who=esc(C.name)+(R?` <span class="hint">(${esc(R.name)})</span>`:'');
+    if(C.op){if(C.land>=since)out.push({t:C.land,id:C.id,k:'op',h:`${who} set up an outpost ${esc(spWhere(B,C.c))}.`});continue;}
     if(C.land>=since)out.push({t:C.land,id:C.id,k:'land',h:`${who} landed ${esc(spWhere(B,C.c))}.`});
     (C.o.ml||[]).forEach((t,i)=>{if(t&&t>=since&&t<=now)out.push({t,id:C.id,k:'mile'+i,h:`${who} reached ${fmtPopShort(SP_MILES[i])} people on ${esc(B.nm)}.`});});
     for(const b of C.colony.blds){if(b.d<since||b.d>now)continue;if(b.k==='sp')out.push({t:b.d,id:C.id,k:'sp',h:`${who} opened a Starport on the Moon. Next stop, Mars.`});if(b.k==='os')out.push({t:b.d,id:C.id,k:'os',h:`${who} opened the Olympus Spaceport.`});if(b.k==='te')out.push({t:b.d,id:C.id,k:'te',h:`${who} switched on a Terraforming Engine.`});}}
@@ -38002,7 +38038,7 @@ function spBind(cv){
 function spTip(cv,c,e,tip){
   if(!tip)return;if(c<0){tip.hidden=true;return;}const B=SPB[cv.dataset.body],W=spWorld(B),o=W.own[c],O=o>=0?W.cols[o]:null,lm=(spLandmarks(B),B.lmAt.get(c)),now=Date.now();
   const me=W.byId[myId()],cl=me&&me.ok&&o<0&&spPoints(me.colony,0,spNbBonus(B,me))>0&&[0,1,2,3,4,5].some(d=>{const nb=spNb(B,c,d);return nb>=0&&W.own[nb]===me.i;});
-  const head=O?(O.me?'Your colony':O.name)+(O.colony.nm?' · '+O.colony.nm:''):spTName(B,c);
+  const head=O?(O.me?(O.op?'Your outpost':'Your colony'):O.name)+(O.op?(O.me?'':' · outpost'):O.colony.nm?' · '+O.colony.nm:''):spTName(B,c);
   const bits=[O?spTName(B,c):null,spWhere(B,c),lm?lm.txt:null,cl?'Claimable':null,B.id==='moon'&&spNight(B,c,now)?'Lunar night':null,B.id==='mars'&&spStormAt(B,c,now)?'Dust storm overhead':null];
   const bl=O&&O.colony.blds.find(b=>b.c===c);if(bl)bits.push(SP_BLDS[B.id][bl.k].n+(bl.d>now?' (building)':''));
   mapShowTip(cv,e,tip,head,bits.filter(Boolean).join(' · '));
@@ -38041,18 +38077,21 @@ setInterval(()=>{if(S.view!=='space'||document.hidden)return;const now=Date.now(
 function spOwnEvents(n,now,since,me){
   const out=[];if(!n||!n.sp)return out;const nm=n.name;
   for(const id of ['moon','mars']){const B=SPB[id],col=spColony(B,n.sp[id],n.sp.tf);if(!col)continue;
-    if(col.t>=since)out.push({t:col.t,k:'land',b:id,txt:me?`Your settlers have landed on ${B.nm}, ${spWhere(B,col.c)}.`:`${nm} landed a colony on ${B.nm}, ${spWhere(B,col.c)}.`});
+    const lt=col.o.ld||col.t;if(lt>=since)out.push({t:lt,k:'land',b:id,txt:me?`Your settlers have landed on ${B.nm}, ${spWhere(B,col.c)}.`:`${nm} landed a colony on ${B.nm}, ${spWhere(B,col.c)}.`});
     (col.o.ml||[]).forEach((t,i)=>{if(t&&t>=since&&t<=now)out.push({t,k:'mile'+i,b:id,txt:me?`${fmtPopShort(SP_MILES[i])} people now live in your colony on ${B.nm}.${id==='moon'&&i===2?' You may build a Starport.':''}`:`The colony of ${nm} on ${B.nm} has reached ${fmtPopShort(SP_MILES[i])} people.`});});
     for(const b of col.blds){if(b.d<since||b.d>now)continue;const D=SP_BLDS[id][b.k];
       if(b.k==='sp')out.push({t:b.d,k:'sp',b:id,txt:me?`The Starport is ready. Mars is open to ${nm}.`:`${nm} opened a Starport on the Moon. Mars is next.`});
       else if(me)out.push({t:b.d,k:'bld',b:id,txt:`Completed on ${B.nm}: ${D.n}.`});
       else if(b.k==='os'||b.k==='te')out.push({t:b.d,k:b.k,b:id,txt:`${nm} ${b.k==='os'?'opened the Olympus Spaceport':'switched on a Terraforming Engine'} on Mars.`});}}
+  /* the outpost, before the colony opens there */
+  if(n.sp.op&&!n.sp.moon){const op=n.sp.op,B=SPB.moon;if(op.t>=since&&op.t<=now)out.push({t:op.t,k:'op',b:'moon',txt:me?`Your outpost is set up on the Moon, ${spWhere(B,op.c)}.`:`${nm} set up an outpost on the Moon, ${spWhere(B,op.c)}.`});
+    const b=(spDecB(B,op.t,op.b||'')||[])[0];if(b&&me&&b.d>=since&&b.d<=now)out.push({t:b.d,k:'bld',b:'moon',txt:`Completed at your outpost: ${SP_BLDS.moon[b.k].n}.`});}
   return out;
 }
 NOTIF_SOURCES.push((n,now)=>{
   if(!n||n.npc)return [];const since=now-14*DAY,out=spOwnEvents(n,now,since,true).map(e=>({t:e.t,k:'space',kl:'Space',txt:e.txt,go:'space'}));
   if(n.sp&&(n.sp.mars||spAccess(n,'mars',now)))for(const [x,t,txt] of SP_TF_ST){const tt=spTfCross(x,now);if(tt&&tt>=since)out.push({t:tt,k:'space',kl:'Space',txt:`Mars, ${t}: ${txt}`,go:'space'});}
-  const lu=spLunarDone(n,now);if(lu&&lu>=since&&!(n.sp&&n.sp.moon))out.push({t:lu+1,k:'space',kl:'Space',txt:'The Lunar Colony is complete. Choose a landing site on the Moon.',go:'space'});
+  const lu=spLunarDone(n,now);if(lu&&lu>=since&&!(n.sp&&n.sp.moon))out.push({t:lu+1,k:'space',kl:'Space',txt:n.sp&&n.sp.op?'The Lunar Colony is complete. Your colony can open at your outpost on the Moon.':'The Lunar Colony is complete. Choose a landing site on the Moon.',go:'space'});
   return out.slice(-12);
 });
 HAP_SOURCES.push((x,now)=>{const n=x&&x.n;if(!n||n.npc||!n.sp)return [];const nm=nationLink(x.id,n.name,x.me);
@@ -38060,21 +38099,23 @@ HAP_SOURCES.push((x,now)=>{const n=x&&x.n;if(!n||n.npc||!n.sp)return [];const nm
 const SP_HL={land:['{P} plants its flag on {B}','One small step for {P}','{P} touches down on {B}','Lander from {P} reaches {B}, all bolts present'],
   mile2:['{P}’s {A} colony passes 100 million','A hundred million {D} now live on {B}','Standing room only in {P}’s {A} colony'],
   mile1:['{P}’s {A} colony reaches ten million'],sp:['{P} opens a Starport on the Moon','Next stop Mars, says {P}','{P}’s Starport takes its first bookings for Mars'],
+  op:['{P} sets up an outpost on {B}','A beacon from {P} now holds a corner of {B}'],
   os:['{P} opens the Olympus Spaceport'],te:['{P} switches on a Terraforming Engine','Mars warms by a whisker, thanks to {P}']};
 DISPATCH_SOURCES.push(ctx=>{
   if(!ctx||(ctx.reg&&ctx.reg!==REG.id))return [];const from=+ctx.from||0,to=+ctx.to||0,out=[];
   const recs=[];if(S.nation&&S.nation.sp)recs.push({id:myId(),n:S.nation});for(const id of Object.keys(S.world||{}))if(id!==S.uid&&S.world[id].sp)recs.push({id,n:S.world[id]});
   for(const r of recs)for(const e of spOwnEvents(r.n,to,from,false)){if(e.t>to||!SP_HL[e.k])continue;const B=SPB[e.b],k='sp:'+e.k+':'+e.b+':'+r.id+':'+e.t,a=SP_HL[e.k];
-    const h=a[hash(k)%a.length].split('{P}').join(r.n.name).split('{B}').join(B.id==='moon'?'the Moon':'Mars').split('{D}').join(r.n.demonym||'settlers').split('{A}').join(B.id==='moon'?'lunar':'Martian');const others=e.k==='land'&&spWorld(B).cols.some(C=>C.ok&&C.id!==r.id&&C.land<e.t);
+    const h=a[hash(k)%a.length].split('{P}').join(r.n.name).split('{B}').join(B.id==='moon'?'the Moon':'Mars').split('{D}').join(r.n.demonym||'settlers').split('{A}').join(B.id==='moon'?'lunar':'Martian');const others=e.k==='land'&&spWorld(B).cols.some(C=>C.ok&&!C.op&&C.id!==r.id&&C.land<e.t);
     out.push({t:e.t,sec:e.k==='land'||e.k==='sp'?'world':'culture',h:cap1(h),b:e.txt+(others?' Other nations’ colonies are already up there, from every region of the known world.':e.k==='land'?' It is the first colony there: the best ground is still free.':''),who:[r.id],w:e.k==='land'?(e.b==='mars'?8:6):e.k==='sp'?7:4,k});}
   for(const [x,t,txt] of SP_TF_ST){const tt=spTfCross(x,to);if(tt&&tt>=from&&tt<=to)out.push({t:tt,sec:'world',h:`Mars reaches ${Math.round(x*100)}%: ${t}`,b:`${txt} Every Terraforming Engine on the planet helped, whichever region sent it.`,who:[],w:6,k:'sp:tf:'+x});}
   return out;
 });
-HELP_EXT.push({k:'space',t:'Space: the Moon and Mars',body:n=>{const m=spLunarAt();return `<p>Every nation of every region shares one Moon (${SPB.moon.COLS} × ${SPB.moon.ROWS} tiles) and one Mars (${SPB.mars.COLS} × ${SPB.mars.ROWS}). The Moon opens when you complete the <b>Lunar Colony</b> wonder${m?`, which unlocks at ${fmtPopShort(m.p)} people`:''}. Each nation may have one colony on each body.</p>
+HELP_EXT.push({k:'space',t:'Space: the Moon and Mars',body:n=>{const m=spLunarAt();return `<p>Every nation of every region shares one Moon (${SPB.moon.COLS} × ${SPB.moon.ROWS} tiles) and one Mars (${SPB.mars.COLS} × ${SPB.mars.ROWS}). The Moon opens when you complete the <b>Lunar Colony</b> wonder, which unlocks once Mission Control has flown its first habitat test${m?` and you have ${fmtPopShort(m.p)} people`:''}. Each nation may have one colony on each body.</p>
+  <p><b>The outpost.</b> Before that, the beacon of Mission Control’s cargo landing can become an outpost: one tile of the shared Moon that holds your site (other colonies must land more than ${SP_GAP} tiles away) and can run one Regolith Smelter or Helium-3 Extractor. It has no people. When the Lunar Colony is complete, your colony opens there.</p>
   <p><b>Landing.</b> Land on any tile except a crater rim${', mountain, canyon wall or volcano'}, more than ${SP_GAP} tiles from every other colony. It costs ${esc(costText(SP_LANDC.moon))} for the Moon and ${esc(costText(SP_LANDC.mars))} for Mars. A colony starts on one tile with ${fmt0(SP_POP0*1e6)} people and ${SP_E0} expansion points. On the Moon, a crew that Mission Control has prepared for launch brings ${fmt0(SP_POP_PREP*1e6)} settlers and 2 more points.</p>
   <p><b>Growing.</b> People grow towards the colony’s room: every tile adds some (${SP_CAP.moon[1]} million on a mare, ${SP_CAP.moon[5]} in a rille’s lava tube, ${SP_CAP.moon[0]} on the highlands) and each Habitat Dome or Pressurised Township adds 1.2 million. Growth is ${SP_R0.moon} a day on the Moon and ${SP_R0.mars} on Mars, more with Ice Mines and Greenhouse Farms.</p>
   <p><b>Expansion points.</b> A colony earns ${SP_EP0} points a day, plus ${SP_EPP} for every doubling of its people above ten thousand, plus 0.5 for each Solar Array or Dust Turbine (up to ${SP_EPB}). Colonies that border each other trade their surplus: each foreign colony touching yours adds 0.1 points a day, up to 0.5. Each point claims one free tile touching the colony, up to ${SP_TILES} tiles. The first claim to a tile wins; a claim that loses the race is refunded.</p>
-  <p><b>Building.</b> Colony buildings are paid from your home stockpile, plus fuel for the journey (${SP_SHIP.moon.oil} oil and ${SP_SHIP.moon.h} hours to the Moon, ${SP_SHIP.mars.oil} oil and ${SP_SHIP.mars.h} hours to Mars; a Mass Driver or the Olympus Spaceport halves them). One building per tile, two under way at a time, ${SP_BLD} per colony. Smelters, extractors and mines send iron and oil home every day (up to ${SP_BLDS.moon.rs.max} of each kind per colony), and every 25 million colonists add a crate of goods.</p>
+  <p><b>Building.</b> Colony buildings are paid from your home stockpile, plus fuel for the journey (${SP_SHIP.moon.oil} oil and ${SP_SHIP.moon.h} hours to the Moon, ${SP_SHIP.mars.oil} oil and ${SP_SHIP.mars.h} hours to Mars; a Mass Driver or the Olympus Spaceport halves them). One building per tile, two under way at a time, ${SP_BLD} per colony. Smelters, extractors and mines send iron and oil home every day (up to ${SP_BLDS.moon.rs.max} of each kind per colony), and every 25 million colonists add a crate of goods. A young colony’s buildings send ${Math.round(SP_INC_MIN*100)}% of their output, rising to all of it at ${SP_INC_FULL} million people.</p>
   <p><b>Mars.</b> A lunar colony of ${SP_BLDS.moon.sp.req} million people may build a Starport; when it is finished, Mars is open. With good tiles, three visits a day and steady building, ${SP_BLDS.moon.sp.req} million on the Moon takes about four weeks; five to seven is more usual, and every landing site can get there. Three hundred tiles take about ten weeks.</p>
   <p><b>Terraforming.</b> Terraforming Engines on Mars (up to ${SP_TF_MAX} per colony) warm the whole planet for everyone, and each one running makes room for ${SP_BLDS.mars.te.cap} million more in its own colony. The level rises with the square root of the engines running: one nation’s four engines take about six months, sixteen engines about three. At 10% frost lakes appear, at 30% blue lakes, at 50% green lowlands, at 70% the canyons fill into seas, and Martian tiles hold more people as it rises.</p>
   <p><b>No war in space.</b> The Outer Space Treaty forbids it. Competition is for the best ground: maria, ice, canyons and prestige.</p>`;}});
@@ -41673,6 +41714,11 @@ setMapOpt=(f=>function(k,v){if(k==='lens'&&v&&v!=='pol')tutMark('l');return f.ap
    credits it pays (1 unless said), gift resources it pays, lock(n) why it cannot be done yet ('' once it can), when()
    whether it is in the game at all, own 1 when it pays a reward of its own (the Google step, n.glk). t, h, v and b may
    be functions of the nation. Keys are kept for ever in n.tut.lc: never reuse one for a different task. */
+/* the space tasks call into later sections: anything missing (a sandbox, an old record) reads as not done */
+const tutSp=f=>{try{return !!f();}catch(e){return false;}};
+const tutSpAt=n=>tutSp(()=>popNow(n)>=bldUnlockAt('spaceport')-1e-9);
+const tutSpLock=n=>tutSp(()=>spOpen(n))?'':'The Space page opens with an edict, once you have enacted 25 edicts.';
+const tutSpPop=n=>{if(tutSpAt(n))return '';let at='50 million';try{at=fmtPopShort(bldUnlockAt('spaceport'));}catch(e){}return `The Space Port opens at ${at} people.`;};
 const TUT_OLD_FIRST=['issue','settle','land','build','trade','exp','dm'],TUT_BUILD_TIMBER=80,TUT_CITY2_GOODS=200,TUT_B2_TIMBER=40,TUT_B2_GOODS=100,TUT_V2=26,TUT_BONUS_U=['c-lantern','e-lantern','t-thorough','a-lamplight'],TUT_BONUS_GIFT={goods:5,oil:5,timber:10},TUT_CAP0='Port Alder',TUT_CULT=['lang','faith','sport','dish','anthem'];
 /* Version 27: designs all through the tutorial. A group's bonus brings designs besides its epithet (bonus.x); Make it
    your own, which pays no bonus, unlocks its design once all six are done (unl, as the Bonus tasks do); each section of
@@ -41784,6 +41830,21 @@ const TUT_LISTS=[
      f:n=>(n.ddr|0)>0||tutTly(n,'ddr')},
     {k:'bnws',lc:1,gift:{...TUT_BONUS_GIFT},t:'Read the development news',h:'What has changed in Edictum and what is coming, from the team that makes it. Some posts carry a poll for players to answer.',v:'devnews',b:'Read the news',
      f:n=>(+n.nwr||0)>0||n.nwv===1||(+n.nwvn||0)>0||tutAch(n,'fun-poll')}]},
+  {k:'space',c:'',opt:1,eb:'Optional',t:()=>'To the Moon',
+   lede:'A space agency, a Space Port and a beacon on the Moon: the road to a colony of your own. Each step pays land credits and supplies for the next, once.',
+   bonus:null,tasks:[
+    {k:'sagc',lc:2,gift:{goods:20,oil:10},t:'Found a space agency',h:'Dr. Lyra Okafor runs it from a borrowed classroom: one mission at a time, and the first picture of the Moon within the hour.',v:'space',to:'mc-agency',b:'Open Space',lock:tutSpLock,
+     f:n=>tutSp(()=>{const w=mcOf(n);return w&&w.a;})},
+    {k:'smct',lc:2,gift:{goods:20,iron:20},t:'Build Mission Control',h:'A second mission slot for the agency, so one team can prepare while another flies.',v:'space',to:'mc-agency',b:'Open Space',lock:tutSpLock,
+     f:n=>tutSp(()=>mcHas(n,'mctrl',Date.now()))},
+    {k:'sorb',lc:2,gift:{oil:20,goods:20},t:'Fly the first orbital pass',h:'A camera in orbit lights most of the near side on the agency’s black chart of the Moon.',v:'space',to:'mc-agency',b:'Open Space',lock:tutSpLock,
+     f:n=>tutSp(()=>mcDone(n,'orb',Date.now()))},
+    {k:'sprt',lc:3,gift:{iron:40,oil:30,goods:40},t:'Build the Space Port',h:'Science and Weirdness rise at home, and the agency’s cargo landing flies from it.',v:'cities',b:'Open Cities',lock:tutSpPop,
+     f:n=>tutSp(()=>cityList(n).some(c=>(c.b||[]).some(b=>b.k==='spaceport'&&b.d<=Date.now())))},
+    {k:'scgo',lc:3,gift:{iron:40,oil:30,goods:40},t:'Land the first cargo on the Moon',h:'An uncrewed lander from the Space Port sets down supplies, with a powered beacon on top.',v:'space',to:'mc-agency',b:'Open Space',lock:tutSpPop,
+     f:n=>tutSp(()=>mcDone(n,'cargo',Date.now()))},
+    {k:'sout',lc:3,gift:{iron:60,goods:60},t:'Set up a Lunar Outpost',h:'The cargo beacon becomes one tile of the Moon every nation shares, held for you until the Lunar Colony, with room for a smelter or an extractor.',v:'space',to:'mc-op',b:'Open Space',
+     lock:n=>tutSp(()=>mcDone(n,'cargo',Date.now()))?'':'The outpost starts from the beacon of the cargo landing.',f:n=>!!(n.sp&&(n.sp.op||n.sp.moon))}]},
   {k:'ambitions',c:'d',eb:'Further ambitions',t:()=>'Ledger of ambitions',
    lede:'The long game, entry by entry. Each pays once, whenever you get to it.',
    secs:[['b','Building','lp-blueprint'],['x','Exploration','pt-chart'],['g','Government','ls-violet'],['p','Diplomacy','pi-envoy'],['i','Identity','t-illustrious']],
@@ -41956,6 +42017,8 @@ function tutPicks(n,ph){
   for(const x of O.core)if(x.k==='city')push(O,x);
   if(!R.full&&!R.paid)for(const x of R.core)push(R,x);
   for(const x of O.core)push(O,x);
+  /* To the Moon joins the next steps from the Space Port's milestone */
+  if(tutSpAt(n)){const SP=G('space');for(const x of SP.core)push(SP,x);}
   if(E.full)for(const x of B.core)push(B,x);
   if(ph!=='fut')for(const x of F.core)push(F,x);
   for(const x of R.core)push(R,x);
@@ -41965,7 +42028,7 @@ function tutPicks(n,ph){
 
 /* ── pieces of the card ── */
 const TUT_SVG=(d,w)=>`<svg viewBox="0 0 24 24" width="${w||22}" height="${w||22}" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${d}</svg>`;
-const TUT_PATH={castle:'<path d="M4 21V9l3 2V7l2-2 2 2V5h2v2l2-2 2 2v4l3-2v12z"/><path d="M10 21v-4a2 2 0 0 1 4 0v4"/>',hex:'<path d="M12 2.5l8.2 4.75v9.5L12 21.5l-8.2-4.75v-9.5z"/>',
+const TUT_PATH={rocket:'<path d="M12 3c3 2 4.5 5 4.5 9l-1.5 4h-6L7.5 12c0-4 1.5-7 4.5-9z"/><circle cx="12" cy="10" r="1.6"/><path d="M9 15.5L6.5 19H9.5M15 15.5l2.5 3.5h-3M11 19.5l1 2 1-2"/>',castle:'<path d="M4 21V9l3 2V7l2-2 2 2V5h2v2l2-2 2 2v4l3-2v12z"/><path d="M10 21v-4a2 2 0 0 1 4 0v4"/>',hex:'<path d="M12 2.5l8.2 4.75v9.5L12 21.5l-8.2-4.75v-9.5z"/>',
   hammer:'<path d="M15 4l5 5-2.5 2.5-5-5z"/><path d="M12.5 6.5L4 15v4h4l8.5-8.5"/>',scroll:'<path d="M7 4h11a2 2 0 0 1 2 2v1h-4"/><path d="M16 7v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-1h10"/><path d="M7 4a2 2 0 0 0-2 2v11"/><path d="M9 9h4M9 13h4"/>',
   city:'<path d="M3 21h18"/><path d="M5 21V10l5-3v14"/><path d="M10 21V4l9 4v13"/><path d="M13 9h3M13 13h3M13 17h3"/>',scales:'<path d="M12 4v16M8 20h8"/><path d="M5 7h14"/><path d="M5 7l-2.5 6a2.5 2.5 0 0 0 5 0z"/><path d="M19 7l-2.5 6a2.5 2.5 0 0 0 5 0z"/>',
   compass:'<circle cx="12" cy="12" r="8.5"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/>',passport:'<rect x="5" y="3.5" width="14" height="17" rx="1.5"/><circle cx="12" cy="10" r="3"/><path d="M9 16h6"/>',
@@ -41977,7 +42040,7 @@ const TUT_PATH={castle:'<path d="M4 21V9l3 2V7l2-2 2 2V5h2v2l2-2 2 2v4l3-2v12z"/
   gift:'<rect x="3.5" y="9" width="17" height="11.5" rx="1"/><path d="M12 9v11.5M3.5 13h17"/><path d="M12 9C10.5 5.5 6.5 5 6.5 7.5S9 9 12 9zM12 9c1.5-3.5 5.5-4 5.5-1.5S15 9 12 9z"/>'};
 const TUT_TICO={settle:'castle',land:'hex',build:'hammer',issue:'scroll',charter:'scroll',city2:'city',trade:'scales',exp:'compass',stamp:'passport',dsp:'paper',rch:'chat',dm:'mail',games:'medal',asm:'columns',
   city:'flag',ruler:'person',portrait:'person',culture:'quill',flag:'flag',cust:'flag',shop:'star'};
-const TUT_GICO={establish:'castle',future:'compass',region:'columns',own:'flag',bonus:'gift',ambitions:'star'};
+const TUT_GICO={establish:'castle',future:'compass',region:'columns',own:'flag',bonus:'gift',space:'rocket',ambitions:'star'};
 const tutIco=(s,L,w)=>TUT_SVG(TUT_PATH[TUT_TICO[s.k]||TUT_GICO[L.k]||'star'],w);
 const TUT_HEX='<svg class="tut-hx" viewBox="0 0 24 24" width="13" height="13" aria-hidden="true" focusable="false"><path d="M12 2.5l8.2 4.75v9.5L12 21.5l-8.2-4.75v-9.5z" fill="currentColor"/></svg>';
 /* a task's reward: a land token and each resource with its icon (or "n of each resource") */
@@ -41999,7 +42062,7 @@ function tutRow(n,x,me){
   const s=x.s,why=x.ok?'':x.lock||(me?tutWait(n,s):'');
   return `<li class="${x.ok?'done':x.lock?'later':''}" data-k="${s.k}"><span class="stp-i" aria-hidden="true">${x.ok?'✓':''}</span><span class="stp-x"><b>${esc(tutTxt(s.t,n))}</b>${x.ok?'<span class="hint">Done</span>':`<span class="hint">${esc(tutTxt(s.h,n)||'')}</span>${tutReq(why)}${tutRw(s)}`}</span>${x.ok||!me||x.lock?'':tutBtn(n,s)}</li>`;
 }
-const tutGroupWord=L=>L.k==='establish'?'Main path':L.k==='future'?'Build your future':L.k==='region'?'Your region':L.k==='own'?'Make it your own':L.k==='bonus'?'Bonus task':'Ambitions';
+const tutGroupWord=L=>L.k==='establish'?'Main path':L.k==='future'?'Build your future':L.k==='region'?'Your region':L.k==='own'?'Make it your own':L.k==='bonus'?'Bonus task':L.k==='space'?'To the Moon':'Ambitions';
 const tutBonusLine=(n,L)=>{
   if(L.unl)return tutUnlLine(n,L);
   if(!L.bonus)return '';const paid=tutChOf(n).includes(L.c),lead=paid?'Done, and paid':{establish:'Sign the charter to finish the main path',future:'Any two done',region:'Any three done',ambitions:'Fill the whole ledger'}[L.k]||'Finish it';
@@ -42088,7 +42151,7 @@ const tutRing=(d,t)=>{const C=2*Math.PI*7,f=t?Math.min(1,d/t):0;return `<svg cla
 function tutOthers(n,ph){
   const b=[],G=k=>tutGroup(n,tutL(k),true),left=g=>g.st.some(x=>!x.ok);
   if(ph!=='fut'){const F=G('future');if(left(F)){const open=!(F.full||F.paid);b.push(['future','Build your future',open?Math.min(F.done,F.need):F.done,open?F.need:F.core.length,`Build your future · ${open?`choose ${F.need} of ${F.core.length}`:`${F.done} of ${F.core.length}`}`]);}}
-  for(const [k,w] of [['region','Your region'],['own','Make it your own'],['bonus','Bonus tasks']]){const g=G(k);if(left(g))b.push([k,w,g.done,g.core.length,`${w} · ${g.done} of ${g.core.length}`]);}
+  for(const [k,w] of [['region','Your region'],['own','Make it your own'],['bonus','Bonus tasks']].concat(tutSpAt(n)?[['space','To the Moon']]:[])){const g=G(k);if(left(g))b.push([k,w,g.done,g.core.length,`${w} · ${g.done} of ${g.core.length}`]);}
   const A=G('ambitions'),sh=A.st.find(x=>x.k==='shop'),shop=tutEstDone(n)&&sh&&!sh.ok;
   if(!b.length&&!shop&&!left(A))return '';
   return `<div class="tut-oth"><p class="eyebrow">Other things to try</p>${b.map(([k,t,d,all,lbl])=>`<button type="button" class="btn ghost small-btn tut-ob tut-ob-${k}" data-act="tut-sheet" data-l="${k}" aria-label="${esc(lbl)}" title="${esc(lbl)}">${tutRing(d,all)}<span class="tut-ob-t">${esc(t)}</span><span class="tut-ob-n">${d}/${all}</span></button>`).join('')}${shop?'<button type="button" class="btn ghost small-btn" data-act="go" data-v="shop">Look round the Shop</button>':''}${left(A)?`<button type="button" class="linkish small tut-oth-all" data-act="tut-sheet" data-l="ambitions">Ambitions and every task</button>`:''}</div>`;
@@ -42264,7 +42327,7 @@ function tutLedger(n,me,tabbed){
 }
 function tutSheetHtml(k){
   const n=S.nation;if(!n)return '';const L=tutL(k)||tutL('region'),G=x=>tutGroup(n,tutL(x),true);
-  const others=['future','region','own','bonus','ambitions'].filter(x=>x!==L.k).map(x=>{const g=G(x);return `<button type="button" class="tut-sh-g" data-act="tut-sheet" data-l="${x}">${esc(x==='ambitions'?'Ledger of ambitions':tutL(x).t())}<span>${g.done} of ${g.core.length} ›</span></button>`;}).join('');
+  const others=['future','region','own','bonus','space','ambitions'].filter(x=>x!==L.k).map(x=>{const g=G(x);return `<button type="button" class="tut-sh-g" data-act="tut-sheet" data-l="${x}">${esc(x==='ambitions'?'Ledger of ambitions':tutL(x).t())}<span>${g.done} of ${g.core.length} ›</span></button>`;}).join('');
   return `<div class="tut-sh-h"><h2 id="tut-sh-h" tabindex="-1">${L.k==='ambitions'?'Ambitions and every task':'Other things to try'}</h2><button type="button" class="tut-sh-x" data-act="tut-sheet-x" aria-label="Close">${TUT_SVG(TUT_PATH.close,20)}</button></div>
     <div class="tut-sh-b">${L.k==='ambitions'?tutLedger(n,true,true):tutGroupPanel(n,L)}<div class="tut-sh-o">${others}</div></div>`;
 }
@@ -42686,7 +42749,7 @@ function tutHelp(n){
     const need=L.need?` Any ${L.need===2?'two':'three'} of the ${core.length} finish it, and the others still pay when you do them.`:'';
     return `<h3 class="help-h3" id="tut-hl-${L.k}">${esc(L.t())}${L.opt?' <span class="hint">· optional</span>':''}</h3><p>${esc(L.lede)}${need}${me?` <span class="hint">${done} of ${core.length} done.</span>`:''}</p>
       <ol class="stp-l tut-hl-l">${st.map(x=>tutRow(m,x,me)).join('')}</ol>${tutBonusLine(m,L)}`;}).join('');
-  return `<p>Your Nation page shows a short main path first: settle your capital, claim land, start a building and answer three edicts, then sign the founding charter. After it, Build your future asks for any two of four ways to grow. Your region, Make the nation your own and the Bonus tasks are optional and open from the start, and the ledger of ambitions keeps everything else for the long game. Every bonus task done unlocks four designs for Customise. The page suggests at most three things at a time, and only things your nation can do now.</p>
+  return `<p>Your Nation page shows a short main path first: settle your capital, claim land, start a building and answer three edicts, then sign the founding charter. After it, Build your future asks for any two of four ways to grow. Your region, Make the nation your own, the Bonus tasks and To the Moon are optional and open from the start (To the Moon joins your next steps once the Space Port opens), and the ledger of ambitions keeps everything else for the long game. Every bonus task done unlocks four designs for Customise. The page suggests at most three things at a time, and only things your nation can do now.</p>
     <p>Every task ticks itself off from what your nation has actually done, wherever you did it, and pays the first time: land credits to spend on the map and, for most, a gift of resources. A task keeps its reward even if it later comes undone. A finished part pays a bonus once, and an epithet for your nation under Epithet in Customise.</p>
     <p>Some tasks wait on your nation: a second city opens with your first building, alliances at ${fmtPopShort(featureAt('alli'))}, bids for the Games at ${fmtPopShort(featureAt('host'))}, and the Assembly to Registered Nations a day old. Until then the task says what it waits for.</p>
     ${me&&tutHid(n)?`<div class="row"><button type="button" class="btn ghost small-btn" data-act="tut-restore">Show What’s next again</button><span class="hint">It is hidden on this device. Settings › Display has the same switch.</span></div>`:''}${groups}
@@ -64626,7 +64689,7 @@ for(const is of NS_ISSUES){ISSUES.push(is);is.no=ISSUES.length;ISSUE_BY_ID[is.id
    arrival slot that could take it rolls one in MC_ODDS, derived from the slot's own time and the nation's seed, and
    the misses are kept (n.mc.r, n.mc.rt), so the MC_GUAR-th eligible slot brings it whatever the dice said. After it,
    each chapter arrives through an ordinary slot once its mission or building has happened and the nation has
-   enacted its gate of edicts (MC_GATE: 100, 200, 300 … 1,600, the last for XII to XIV too), one on the desk at a
+   enacted its gate of edicts (MC_GATE: 70, 110, 160 … 800, the last for XII to XIV too), one on the desk at a
    time, after any follow-up or Willow Street letter that is due. Like Willow Street's, every letter carries its frozen
    context (mcCtx): the family of states (fdFam), the freedom bands, the laws, the story's facts, the manifest. A veto
    files the proposal as failed and the story goes on. Two missions wait for the letter that asks how to fly them
@@ -64810,7 +64873,7 @@ rep:{name:'Committee Stage',to:'Dear Senators,',ch:[
   e:{sci:2,env:1,happy:-1},fx:'the first lunar habitat will be the standard one, and the weight saved goes on a full sample kit',
   r:'The sample kit arrives in forty labelled drawers, one of them labelled “Ice, jar of, for Senator Sandilands”. The volunteers practise with it in the sandpit and find a teaspoon nobody can account for.',s:{hb:'kit'}}]},
 /* XI · The Estimate, Revised Again: the Lunar Colony's fifth estimate */
-{q:'Crew and cargo planning has reached its final review. We have a crew: four people, chosen from three hundred applicants, under the command of {CMD}, who has asked me to say that they are all honoured and would like to know where the toilet is. We have a plan for every kilogram. What we do not have, yet again, is an agreed estimate.\n\nThe Lunar Colony, the settlement the crew will land into, has been costed at four hundred each of food, iron, oil and goods, and ninety-six hours of building in one of our cities, and it may only be built once {N} is a nation of five billion people, on the principle that a country should be able to spare a few. This is the fifth revision. It is the same as the first, with a footnote. [[cr:0|Nobody has broken ground yet, so the estimate is still a theory.]][[cr:1|The colony is already under construction, and the builders have asked for the estimate in writing, so that they can disagree with it properly.]][[cr:2/3|The colony is already finished, which makes the estimate a historical document.]]\n\nLaunch preparation will take three days of checking by everyone who has to sign. If the government spent some of its standing on a parallel review, everyone could check everything at once, and it would take half the time.\n\nI would like the Senate to settle the estimate, so that we can stop revising it. Will it accept the figures, trim them, or wait?',
+{q:'Crew and cargo planning has reached its final review. We have a crew: four people, chosen from three hundred applicants, under the command of {CMD}, who has asked me to say that they are all honoured and would like to know where the toilet is. We have a plan for every kilogram. What we do not have, yet again, is an agreed estimate.\n\nThe Lunar Colony, the settlement the crew will land into, has been costed at four hundred each of food, iron, oil and goods, and ninety-six hours of building in one of our cities, and it may only be built once {N} is a nation of a hundred million people, on the principle that a country should be able to spare a few. This is the fifth revision. It is the same as the first, with a footnote. [[cr:0|Nobody has broken ground yet, so the estimate is still a theory.]][[cr:1|The colony is already under construction, and the builders have asked for the estimate in writing, so that they can disagree with it properly.]][[cr:2/3|The colony is already finished, which makes the estimate a historical document.]]\n\nLaunch preparation will take three days of checking by everyone who has to sign. If the government spent some of its standing on a parallel review, everyone could check everything at once, and it would take half the time.\n\nI would like the Senate to settle the estimate, so that we can stop revising it. Will it accept the figures, trim them, or wait?',
  o:[
  {k:'h',t:'“Accept it as it stands, and minute that it is final,” says Senator Cornelius Puddicombe, who chairs the Appropriations Committee. “An estimate revised five times is a guess with a filing system. [[cr:2/3|The colony is already built, so my committee will be approving money it has already spent, which will be a novel experience.|My committee will vote the money on Thursday.]]”',
   e:{sci:1,tax:1,corrupt:-1},fx:'the estimate for the Lunar Colony is accepted as it stands, and minuted as final',
@@ -64982,7 +65045,7 @@ crn:{name:'In the Royal Gift',to:'To the Crown,',ch:[
   e:{sci:2,culture:1,safety:-1},fx:'the first lunar habitat is the standard one, and the spare weight goes to a full sample kit, with a Royal Collection number on every jar',
   r:'The kit goes in with forty jars, each with a Royal Collection number already printed on the lid[[E2|, and a private museum offers to buy the spare numbers]]. The crew will have one door and a great deal to put in jars.',s:{hb:'kit'}}]},
 /* XI · The Estimate, Revised Again: the Privy Purse meets it, Finance trims it, or the jubilee waits for it */
-{q:'Crew and cargo planning has reached its final review, and the estimate has been revised again. [[cr:0|The Lunar Colony has not been started: it will want four hundred each of food, iron, oil and goods, ninety-six hours of building, and a nation of five billion people before anyone may lay the first stone.]][[cr:1|The Lunar Colony is under construction, which has made the estimate more accurate and not, I regret, any smaller.]][[cr:2/3|The Lunar Colony is finished, so the estimate now concerns only the people and what they take.]]\n\nFinance has gone through the estimate with a ruler, asking of every line whether it could be a shorter line. The Lord Chamberlain’s office has added a line for a launch procession, with horses. The Privy Purse struck it out, in ink. The Office of Ceremonies has put it back, in pencil, with a note that the {L}’s jubilee falls next spring and that a launch on the jubilee would be remembered for a reign.[[ch:royal| The Royal Charter has added a line for the Governor’s uniform, also in pencil.]][[hb:big| The front door is in the estimate, and has been weighed twice.]]\n\nThe plans themselves must be checked by everybody who has to sign them. If the Crown were to spend a little of its standing on a parallel review, launch preparation would take half as long.\n\nShould we accept the estimate, trim it, or wait for the jubilee?',
+{q:'Crew and cargo planning has reached its final review, and the estimate has been revised again. [[cr:0|The Lunar Colony has not been started: it will want four hundred each of food, iron, oil and goods, ninety-six hours of building, and a nation of a hundred million people before anyone may lay the first stone.]][[cr:1|The Lunar Colony is under construction, which has made the estimate more accurate and not, I regret, any smaller.]][[cr:2/3|The Lunar Colony is finished, so the estimate now concerns only the people and what they take.]]\n\nFinance has gone through the estimate with a ruler, asking of every line whether it could be a shorter line. The Lord Chamberlain’s office has added a line for a launch procession, with horses. The Privy Purse struck it out, in ink. The Office of Ceremonies has put it back, in pencil, with a note that the {L}’s jubilee falls next spring and that a launch on the jubilee would be remembered for a reign.[[ch:royal| The Royal Charter has added a line for the Governor’s uniform, also in pencil.]][[hb:big| The front door is in the estimate, and has been weighed twice.]]\n\nThe plans themselves must be checked by everybody who has to sign them. If the Crown were to spend a little of its standing on a parallel review, launch preparation would take half as long.\n\nShould we accept the estimate, trim it, or wait for the jubilee?',
  o:[
  {k:'h',t:'“Accept it, horses and all, and the Privy Purse will meet the difference,” says Private Secretary Lady Benedicta Cressingham. “The {L} has asked me to say that a nation which has come this far does not haggle over the last step. The procession can be small. The horses can be old.”',
   e:{sci:2,tax:1,happy:1},fx:'the final estimate for the crewed landing is accepted as it stands, procession included, and the Privy Purse meets the difference',
@@ -65154,7 +65217,7 @@ imp:{name:'The Furthest Province',to:'Most Excellent Imperial Council,',ch:[
   e:{sci:2,edu:1,safety:-1},fx:'the habitat for the Moon is the standard one, and its spare kilograms carry a full sample kit',
   r:'The sample kit is packed in a case of forty labelled compartments, one of them marked “Unexpected”. The Dean asks to be the first to open it when it comes home, and is put on a list.',s:{hb:'kit'}}]},
 /* XI · The Estimate, Revised Again: an arch, a smaller arch, and a seal that will not move */
-{q:'Crew and cargo planning has reached its final review, and the estimate has been revised again. It has now been revised three times: once by us, upwards, once by the Exchequer, downwards, and once by the Office of Triumphs, which added a triumphal arch at the launch site and then, on being shown the bill, a smaller one. [[hb:big|The front door, I should say, has survived every revision.]]\n\nWhat matters most is the Lunar Colony itself, which must be raised in one of the cities of the Empire: four hundred each of food, iron, oil and goods, ninety-six hours of work, and a nation of five billion people to do it. [[cr:0|Nothing has been started yet. The census office tells me it is counting as fast as it can.]][[cr:1|Construction has already begun, which has made the estimate easier to believe and harder to change.]][[cr:2/3|The Colony already stands, so the estimate is now mostly about what goes on top of it.]] [[P0|Nobody outside the Council has seen the figures, which may be the only reason they have not been revised a fourth time.]][[P2|Every provincial assembly has been sent the figures, and every one has sent back a revision.]]\n\nIf the government spent some of its standing on a parallel review of the plans, launch preparation would take half as long. I mention it because the review would be done by people who have not yet revised anything.\n\nWill the Council accept the estimate as it stands, trim it, or wait for a steadier one?',
+{q:'Crew and cargo planning has reached its final review, and the estimate has been revised again. It has now been revised three times: once by us, upwards, once by the Exchequer, downwards, and once by the Office of Triumphs, which added a triumphal arch at the launch site and then, on being shown the bill, a smaller one. [[hb:big|The front door, I should say, has survived every revision.]]\n\nWhat matters most is the Lunar Colony itself, which must be raised in one of the cities of the Empire: four hundred each of food, iron, oil and goods, ninety-six hours of work, and a nation of a hundred million people to do it. [[cr:0|Nothing has been started yet. The census office tells me it is counting as fast as it can.]][[cr:1|Construction has already begun, which has made the estimate easier to believe and harder to change.]][[cr:2/3|The Colony already stands, so the estimate is now mostly about what goes on top of it.]] [[P0|Nobody outside the Council has seen the figures, which may be the only reason they have not been revised a fourth time.]][[P2|Every provincial assembly has been sent the figures, and every one has sent back a revision.]]\n\nIf the government spent some of its standing on a parallel review of the plans, launch preparation would take half as long. I mention it because the review would be done by people who have not yet revised anything.\n\nWill the Council accept the estimate as it stands, trim it, or wait for a steadier one?',
  o:[
  {k:'c',t:'“Accept it,” says Lord Peregrine Mountsorrel, Master of the Imperial Triumphs. “The invitations to the Triumph of the Moon were printed last week, with a date on them. An estimate may be revised. An invitation, once posted, may not.”',
   e:{culture:1,happy:1,tax:1,sci:1},fx:'the revised estimate for the Moon is accepted as it stands, so that the Triumph of the Moon can keep its date',
@@ -65326,7 +65389,7 @@ sul:{name:'First Refusal',to:'Honoured members of the Divan,',ch:[
   e:{sci:2,env:1,edu:1},fx:'the habitat for the Moon is the standard one, and the weight saved goes on a full sample kit',
   r:'The kit holds forty jars, each labelled by the Waterworks in advance, one of them “drinking: yes or no”. The volunteers ask what happened to the front door, and are told to take it up with the Moon.',s:{hb:'kit'}}]},
 /* XI · The Estimate, Revised Again: accept it, trim it, or audit it */
-{q:'Crew and cargo planning has reached its final review, and the estimate has been revised again. It has passed through eleven offices of the Divan, each of which has sealed it, and each of which has added a small sum for the cost of sealing it. The total has risen by a twelfth, a good part of which is wax.\n\n[[cr:0|The Lunar Colony itself has not been started. It needs four hundred each of food, iron, oil and goods, ninety-six hours of building and a nation of five billion people behind it, and the estimate assumes all of these arrive on time.]][[cr:1|The Lunar Colony is under construction, and the estimate now includes the scaffolding.]][[cr:2/3|The Lunar Colony is already finished, which has not stopped anybody revising the estimate for it.]][[E0| The state works have quoted for the fittings in a single figure, with no workings.]][[E2| Four firms have quoted for the fittings, and the cheapest spells “habitat” three different ways.]] Line two hundred and fourteen, one desk lamp, has been struck out by Finance in green ink, with the note “not a launch item”. I do not contest this.\n\nThe plans could also be checked by two review teams at once, if the throne spent some of its standing on it, which would halve the launch preparation. But first the Divan must decide what to do with the estimate. Shall we accept it, trim it, or wait for the twelfth revision?',
+{q:'Crew and cargo planning has reached its final review, and the estimate has been revised again. It has passed through eleven offices of the Divan, each of which has sealed it, and each of which has added a small sum for the cost of sealing it. The total has risen by a twelfth, a good part of which is wax.\n\n[[cr:0|The Lunar Colony itself has not been started. It needs four hundred each of food, iron, oil and goods, ninety-six hours of building and a nation of a hundred million people behind it, and the estimate assumes all of these arrive on time.]][[cr:1|The Lunar Colony is under construction, and the estimate now includes the scaffolding.]][[cr:2/3|The Lunar Colony is already finished, which has not stopped anybody revising the estimate for it.]][[E0| The state works have quoted for the fittings in a single figure, with no workings.]][[E2| Four firms have quoted for the fittings, and the cheapest spells “habitat” three different ways.]] Line two hundred and fourteen, one desk lamp, has been struck out by Finance in green ink, with the note “not a launch item”. I do not contest this.\n\nThe plans could also be checked by two review teams at once, if the throne spent some of its standing on it, which would halve the launch preparation. But first the Divan must decide what to do with the estimate. Shall we accept it, trim it, or wait for the twelfth revision?',
  o:[
  {k:'h',t:'“Accept it as it stands, seal it a twelfth time, and forbid a thirteenth,” says Grand Vizier Ismay Carrodus. “An estimate is a promise about the future, made by people who will not be there. This one has been promised enough.”',
   e:{sci:2,tax:1,cons:1},fx:'the estimate for the crewed landing is accepted as it stands, sealed a twelfth time, and closed to further revision',
@@ -65499,7 +65562,7 @@ the:{name:'The Lesser Light',to:'Dear Members of the Holy Synod,',ch:[
   e:{sci:2,edu:1,safety:-1},fx:'the first lunar habitat goes up standard, and the spare weight carries a full sample kit',
   r:'The sample kit goes in: drills, scoops, bags, labels and a small pair of tongs nobody can explain. [[ch:protect|Under the charter the bags will come home empty, so the labels have been reprinted to say “seen”.|The volunteers practise on the training ground and bring back eleven bags of gravel and one of somebody’s lunch.]]',s:{hb:'kit'}}]},
 /* XI · The Estimate, Revised Again: accept, trim for the almonries, or let it lie on the table */
-{q:'Crew and cargo planning has reached its final review, and the estimate has been revised again. It is the fourth revision, and I have stopped printing them on the good paper. [[cr:0|The Lunar Colony itself has not been begun. It will take four hundred each of food, iron, oil and goods, and ninety-six hours of building in one of our cities, and before any of that {N} must number five billion people, which the Calendar Office points out is more than it has ever had to count.]][[cr:1|The Lunar Colony is under construction, and the builders say it is on schedule, which I have learned to hear as a warning.]][[cr:2/3|The Lunar Colony is already finished, which leaves the estimate as the only thing in the programme still growing.]][[E0&!cr:2/3| The state foundries have promised the colony’s iron by the next quarter of the plan.]][[E2&!cr:2/3| Three foundries have bid for the colony’s iron, and the cheapest bid came with a brochure.]]\n\nThe almoners have written to ask how many loaves the Moon costs. I worked it out. I would rather not put the figure in a letter, so I have enclosed it on a separate sheet. I believe the Moon is worth it, and I have not stopped thinking about the sheet.\n\nA parallel review of the plans would halve the launch preparation, if the Synod were willing to spend some of its standing on one. Meanwhile the estimate itself waits for an answer. Will the Synod accept it, trim it, or put it off?',
+{q:'Crew and cargo planning has reached its final review, and the estimate has been revised again. It is the fourth revision, and I have stopped printing them on the good paper. [[cr:0|The Lunar Colony itself has not been begun. It will take four hundred each of food, iron, oil and goods, and ninety-six hours of building in one of our cities, and before any of that {N} must number a hundred million people, which the Calendar Office points out is more than it has ever had to count.]][[cr:1|The Lunar Colony is under construction, and the builders say it is on schedule, which I have learned to hear as a warning.]][[cr:2/3|The Lunar Colony is already finished, which leaves the estimate as the only thing in the programme still growing.]][[E0&!cr:2/3| The state foundries have promised the colony’s iron by the next quarter of the plan.]][[E2&!cr:2/3| Three foundries have bid for the colony’s iron, and the cheapest bid came with a brochure.]]\n\nThe almoners have written to ask how many loaves the Moon costs. I worked it out. I would rather not put the figure in a letter, so I have enclosed it on a separate sheet. I believe the Moon is worth it, and I have not stopped thinking about the sheet.\n\nA parallel review of the plans would halve the launch preparation, if the Synod were willing to spend some of its standing on one. Meanwhile the estimate itself waits for an answer. Will the Synod accept it, trim it, or put it off?',
  o:[
  {k:'h',t:'“The figure has been revised four times, and each time it has moved less,” says Canon Bede Hollinrake. “In my experience that is what a true number does as it settles, like a new moon coming clear of the haze. Accept it, and stop asking it to be smaller than it is.”',
   e:{sci:2,tax:1,happy:1},fx:'the revised estimate for the Moon is accepted as it stands',
@@ -65672,7 +65735,7 @@ peo:{name:'The Moon in the Five-Year Plan',to:'Dear Comrade Delegates,',ch:[
   e:{sci:3,edu:1,happy:-1},fx:'the habitat for the Moon stays standard, and the spare kilograms go to a full sample kit',
   r:'The sample kit goes in, in a padded case with forty-two compartments, one of them labelled “ice, hopefully”. The volunteers practise drilling on the training ground until the Centre’s groundsman asks them to stop.',s:{hb:'kit'}}]},
 /* XI · The Estimate, Revised Again: accept, trim or carry into the next Plan */
-{q:'Crew and cargo planning has reached its final review, and the estimate for the Lunar Colony has been revised again. This is its fifth revision. The first was ours, the second the Planning Commission’s, the third Finance’s, the fourth the Commission’s revision of Finance’s, and the fifth is Finance’s reply. They agree on the total to within one per cent, and on nothing else.\n\n[[cr:0|Work on the colony itself has not started. It needs four hundred each of food, iron, oil and goods, ninety-six hours of building, and a nation of five billion people, which is the part no estimate can hurry.]][[cr:1|The colony is already under construction, which makes the estimate somewhat historical, since the builders are spending it while we revise it.]][[cr:2/3|The colony is already finished, which makes the estimate a record rather than a forecast. Finance would still like it revised.]] [[hb:big|The front door is in it, at full weight.]][[hb:power|The extra power units are in it, at full weight.]][[hb:kit|The sample kit is in it, all forty-two compartments.]]\n\nAfter the review comes the launch preparation: three days of checking by everybody who has to sign. If the Congress spent some of its standing on a parallel review, with two committees reading the plans at once instead of in turn, it would take half as long. I mention this because I have now watched both committees read.\n\nMeanwhile the estimate needs a decision. Should the Congress accept it as it stands, trim it, or carry it into the next Five-Year Plan?',
+{q:'Crew and cargo planning has reached its final review, and the estimate for the Lunar Colony has been revised again. This is its fifth revision. The first was ours, the second the Planning Commission’s, the third Finance’s, the fourth the Commission’s revision of Finance’s, and the fifth is Finance’s reply. They agree on the total to within one per cent, and on nothing else.\n\n[[cr:0|Work on the colony itself has not started. It needs four hundred each of food, iron, oil and goods, ninety-six hours of building, and a nation of a hundred million people, which is the part no estimate can hurry.]][[cr:1|The colony is already under construction, which makes the estimate somewhat historical, since the builders are spending it while we revise it.]][[cr:2/3|The colony is already finished, which makes the estimate a record rather than a forecast. Finance would still like it revised.]] [[hb:big|The front door is in it, at full weight.]][[hb:power|The extra power units are in it, at full weight.]][[hb:kit|The sample kit is in it, all forty-two compartments.]]\n\nAfter the review comes the launch preparation: three days of checking by everybody who has to sign. If the Congress spent some of its standing on a parallel review, with two committees reading the plans at once instead of in turn, it would take half as long. I mention this because I have now watched both committees read.\n\nMeanwhile the estimate needs a decision. Should the Congress accept it as it stands, trim it, or carry it into the next Five-Year Plan?',
  o:[
  {k:'h',t:'“Accept it,” says Delegate Agata Lisitsyna. “Five revisions have moved the total by one per cent and the date by four months. A sixth will only move the date. This estimate is as true as an estimate gets.”',
   e:{sci:2,tax:1,happy:1},fx:'the estimate for the Lunar Colony is accepted as it stands, after five revisions and without a sixth',
@@ -65845,7 +65908,7 @@ col:{name:'Despatch Follows',to:'To the Governor in Council,',ch:[
   e:{sci:2,edu:1,cons:1},fx:'the habitat for the Moon is the standard one, and the spare weight goes to a full sample kit',
   r:'The kit comes with a core drill, a nest of sieves and two hundred bags already labelled for the territorial museum, which has cleared a shelf and put up a card saying “Reserved: Moon”.',s:{hb:'kit'}}]},
 /* XI · The Estimate, Revised Again: above the Governor's financial delegation */
-{q:'Crew and cargo planning has reached its final review, and the estimate for the Lunar Colony has been revised again. [[cr:0|Nothing is built yet. On paper the Colony needs four hundred each of food, iron, oil and goods, ninety-six hours of building, and a nation of five billion people behind it, which is the only figure nobody has asked us to reduce.]][[cr:1|The Colony is under construction, and the builders have found that the estimate assumed a level site, which the Moon has never offered anyone.]][[cr:2/3|The Colony is already finished, which makes the estimate the only part of it still under construction.]]\n\nThe new figure is above the Governor’s financial delegation. Under the Colonial Regulations it must therefore go overseas for approval, and would come back in about four months, approved or not.[[ch:foreign| The Fund, which is paying for most of it, has also asked to see it first.]][[ch:local| The Legislative Council, which voted our charter, has asked to see it too, as it is entitled to.]][[ch:match| The Fund and the Legislative Council have each asked to see their own half, which is not how estimates work.]] If the Council spent some of its standing with the Colonial Office on a parallel review, the plans could be checked here and overseas at once, and launch preparation would take half the time.\n\nThe Financial Secretary has deferred the desk lamp to the next financial year. Ours follows the Colonial Office’s, which began last week, so the lamp is now fifty-one weeks away. By the agency’s arithmetic, that is about a hundred and twenty times further than the Moon.\n\nShould the Council accept the estimate, trim it, or wait for overseas?',
+{q:'Crew and cargo planning has reached its final review, and the estimate for the Lunar Colony has been revised again. [[cr:0|Nothing is built yet. On paper the Colony needs four hundred each of food, iron, oil and goods, ninety-six hours of building, and a nation of a hundred million people behind it, which is the only figure nobody has asked us to reduce.]][[cr:1|The Colony is under construction, and the builders have found that the estimate assumed a level site, which the Moon has never offered anyone.]][[cr:2/3|The Colony is already finished, which makes the estimate the only part of it still under construction.]]\n\nThe new figure is above the Governor’s financial delegation. Under the Colonial Regulations it must therefore go overseas for approval, and would come back in about four months, approved or not.[[ch:foreign| The Fund, which is paying for most of it, has also asked to see it first.]][[ch:local| The Legislative Council, which voted our charter, has asked to see it too, as it is entitled to.]][[ch:match| The Fund and the Legislative Council have each asked to see their own half, which is not how estimates work.]] If the Council spent some of its standing with the Colonial Office on a parallel review, the plans could be checked here and overseas at once, and launch preparation would take half the time.\n\nThe Financial Secretary has deferred the desk lamp to the next financial year. Ours follows the Colonial Office’s, which began last week, so the lamp is now fifty-one weeks away. By the agency’s arithmetic, that is about a hundred and twenty times further than the Moon.\n\nShould the Council accept the estimate, trim it, or wait for overseas?',
  o:[
  {k:'h',t:'“Accept it as it stands,” says Councillor Matthew Lartey. “The Regulations allow the Governor to exceed the delegation in a case of urgency, and we have been waiting for the Moon for longer than the Regulations have existed. If that is not urgent, nothing in this territory ever has been.”',
   e:{sci:2,tax:2,pol:1},fx:'the revised estimate for the Lunar Colony is accepted as it stands, under the Governor’s power to act in a case of urgency',
@@ -66017,7 +66080,7 @@ bor:{name:'Matters Arising',to:'Dear Councillors,',ch:[
   e:{sci:2,env:1,happy:1},fx:'the spare weight goes on a full sample kit, so the crew can bring back the soil the allotment holders keep asking about',
   r:'The standard habitat goes with a full sample kit, and a seed tray the Allotments Officer slipped in when nobody was looking. The waiting list for lunar soil reaches six hundred, which is longer than the one for allotments.',s:{hb:'kit'}}]},
 /* XI · The Estimate, Revised Again: accept, trim or hold over */
-{q:'Crew and cargo planning has reached its final review, and the estimate for the Lunar Colony has been revised again. [[cr:0|The colony has not been started. Building it in one of our cities will take four hundred loads each of food, iron, oil and goods, and four days of work, and the Planning Committee will not let us lay a brick until {N} counts five billion people, which it calls a sustainable catchment.]][[cr:1|The colony is already under construction in one of our cities, and the builders have been asked to keep their receipts.]][[cr:2/3|The colony is already built, which makes this the first estimate in the borough’s history to arrive after the thing it estimates.]] [[E0|The Works Department estimated its own share, generously.]][[E1|The Works Department and its contractors estimated their shares, and each found the other’s too high.]][[E2|Three contractors estimated the work, and the lowest asked whether the Moon has a car park.]] The new total is larger than the last one and smaller than the one before, which the Treasurer calls progress.\n\n[[hb:big|The front door alone weighs as much as the Deputy Mayor’s chain, which is the comparison the Treasurer chose.]][[hb:power|The extra power units are the heaviest line, and the best defended.]][[hb:kit|The sample kit is the lightest line and has had the most letters.]] And in the margin, in my handwriting, is the desk lamp. Finance has asked why a lamp is in an estimate for a colony. It is not: it is in the margin, where I have kept it since my first letter.\n\nIf the Council were willing to spend some of its standing on a parallel review of the plans, I am told the launch preparation could be done in half the time. In any case, will the Council accept the estimate, trim it, or hold it over?',
+{q:'Crew and cargo planning has reached its final review, and the estimate for the Lunar Colony has been revised again. [[cr:0|The colony has not been started. Building it in one of our cities will take four hundred loads each of food, iron, oil and goods, and four days of work, and the Planning Committee will not let us lay a brick until {N} counts a hundred million people, which it calls a sustainable catchment.]][[cr:1|The colony is already under construction in one of our cities, and the builders have been asked to keep their receipts.]][[cr:2/3|The colony is already built, which makes this the first estimate in the borough’s history to arrive after the thing it estimates.]] [[E0|The Works Department estimated its own share, generously.]][[E1|The Works Department and its contractors estimated their shares, and each found the other’s too high.]][[E2|Three contractors estimated the work, and the lowest asked whether the Moon has a car park.]] The new total is larger than the last one and smaller than the one before, which the Treasurer calls progress.\n\n[[hb:big|The front door alone weighs as much as the Deputy Mayor’s chain, which is the comparison the Treasurer chose.]][[hb:power|The extra power units are the heaviest line, and the best defended.]][[hb:kit|The sample kit is the lightest line and has had the most letters.]] And in the margin, in my handwriting, is the desk lamp. Finance has asked why a lamp is in an estimate for a colony. It is not: it is in the margin, where I have kept it since my first letter.\n\nIf the Council were willing to spend some of its standing on a parallel review of the plans, I am told the launch preparation could be done in half the time. In any case, will the Council accept the estimate, trim it, or hold it over?',
  o:[
  {k:'m',t:'“Accept it as it stands, less one desk lamp,” says Councillor {FIN}, who chairs Finance and General Purposes. “I have read every line. The colony is expensive and the estimate is honest, which in my experience is the rarer of the two. The lamp is in the margin, and the margin is not part of the estimate.”',
   e:{sci:2,tax:2,econ:-1},fx:'the revised estimate for the colony is accepted as it stands, and the desk lamp in its margin is struck out',
@@ -66068,7 +66131,7 @@ bor:{name:'Matters Arising',to:'Dear Councillors,',ch:[
 
 }};
 /* ── the numbers ── */
-const MC_N=14,MC_IDS=Array.from({length:MC_N},(x,k)=>'mc-'+(k+1)),MC_AT=50/* MC_GATE[0] */,MC_ODDS=8,MC_GUAR=12;
+const MC_N=14,MC_IDS=Array.from({length:MC_N},(x,k)=>'mc-'+(k+1)),MC_AT=40/* MC_GATE[0] */,MC_ODDS=8,MC_GUAR=12;
 const MC_TITLES=['A Letter in the Wrong Tray','First Light','Something Came Back','The Missing Eleven Minutes','The Far Side, Before Lunch','The Ice in the Dark','The Rover Has Stopped','A Light on the Moon','Fly Me to the Moon','The Weight of a Front Door','The Estimate, Revised Again','The Last Cargo Manifest','You May Land','The First Night'];
 /* the facts a letter can remember ('-' in a condition: not yet set); tr, Okafor's trust, runs from -3 to 3 */
 const MC_FACTS={p3:['wide','sharp'],rl:['dom','partner'],pub:['pub','keep'],ps:['high','low'],rv:['rec','route'],bk:['open','coded','anthem'],
@@ -66154,7 +66217,7 @@ const mcFam=f=>MC_STORY.fam[f]||MC_STORY.fam.rep;
 function mcBldAt(n,k){let t=0;for(const c of cityList(n||{}))for(const b of c.b||[])if(b.k===k&&mcNum(b.d)&&(!t||b.d<t))t=b.d;return t;}
 /* credit for a nation already on its way: 1 the Lunar Colony under construction, 2 complete, 3 a colony landed */
 function mcCr(n,t){
-  if(n&&n.sp&&n.sp.moon&&n.sp.moon.t<=t)return 3;
+  if(n&&n.sp&&n.sp.moon&&(n.sp.moon.ld||n.sp.moon.t)<=t)return 3;
   let s=0,d=0;for(const c of cityList(n||{}))for(const b of c.b||[])if(b.k==='lunar'){if(mcNum(b.s)&&(!s||b.s<s))s=b.s;if(mcNum(b.d)&&(!d||b.d<d))d=b.d;}
   return d&&d<=t?2:s&&s<=t?1:0;
 }
@@ -66275,9 +66338,9 @@ function mcReady(n,k,t){
 }
 const mcEdicts=n=>Math.max(0,(n&&n.ws&&Number.isInteger(n.ws.e)?n.ws.e:0));
 /* the enacted edicts each letter waits for as well, on top of its mission or building: letter I at 50 (with the opening's
-   roll), II at 100 and so on, a letter every 7 to 13 days for a player who enacts 15 a day, to XI at 1,600; letters XII
+   roll), II at 70 and so on, a letter every 2 to 9 days for a player who enacts 15 a day, to XI at 800; letters XII
    to XIV keep the last gate and wait for the Lunar Colony and the landing themselves */
-const MC_GATE=[50,100,200,300,450,600,800,1000,1200,1400,1600];
+const MC_GATE=[40,70,110,160,220,290,370,460,560,670,800];
 const mcGate=k=>MC_GATE[Math.min(k,MC_GATE.length-1)];
 /* the chapter that could take this slot: 0 the opening (if the roll allows), k a chapter whose moment has come, -1 none */
 function mcNext(m,t){
@@ -66416,7 +66479,7 @@ COMMIT_HOOKS.unshift((n,old,now)=>{
      crew lands with SP_POP_PREP settlers and two more expansion points, given in spLand through spLandBonus); a landing
      lost to a faster colony takes the record with it */
   const sp=n.sp&&n.sp.moon;
-  if(sp&&!m.ld&&m.a){W().ld={t:sp.t,c:sp.c,p:mcPrepFlown(n,sp.t)?1:0};}
+  if(sp&&!m.ld&&m.a){const lt=sp.ld||sp.t;W().ld={t:lt,c:sp.c,p:mcPrepFlown(n,lt)?1:0};}
   else if(!sp&&m.ld)delete W().ld;
   if(n.mc.c.length>=MC_N&&n.mc.ld&&!n.mc.md.g14&&typeof mdGain==='function'){mdGain(n,2,now);W().md.g14=now;out.push('Mission Control: the first night is broadcast. +2 mandate.');}
   return out;
@@ -66530,7 +66593,7 @@ Object.assign(BUILDINGS,{
   robo:{n:'Robotics and Landing Lab',c:'soc',one:1,d:'Builds your agency’s rovers, tests its landers, and surveys alternative landing sites. Science +2 when completed. One per nation.',q:'A sandpit the size of a football pitch, and a rover that has been reversing into the same rock since Tuesday.',cost:{iron:45,oil:15,goods:40},h:12,once:{sci:2},icon:'crane'},
   crewc:{n:'Crew and Habitat Centre',c:'soc',one:1,need:'sci',d:'Trains your agency’s crews, tests habitat layouts and prepares the loadout carried into the Lunar Colony. Science +3 and Happiness +1 when completed. One per nation.',q:'A habitat on a training ground, lived in by four volunteers who now argue about the kettle like a married couple.',cost:{food:60,iron:120,oil:60,goods:120},h:24,once:{sci:3,happy:1},late:1,icon:'dome'}
 });
-{const add=(p,...k)=>{const m=MILESTONES.find(m=>m.p===p);m.b=(m.b||[]).concat(k);};add(15,'dsts');add(75,'robo');add(1000,'crewc');}
+{const add=(p,...k)=>{const m=MILESTONES.find(m=>m.p===p);m.b=(m.b||[]).concat(k);};add(15,'dsts');add(75,'robo');add(100,'crewc');}
 NB_SPACE.add('crewc');
 mcSiteName=(n,c)=>{const t=Number.isInteger(c)?c:mcSites(n)[0];return t>=0?spWhere(SPB.moon,t):'the preferred site';};
 
@@ -66644,11 +66707,14 @@ function mcNextStep(n,now){
     return {t:`Next: ${M.n}.`,h:(p?`<span class="hint">${esc(p)}</span>`:`<button type="button" class="btn small-btn" data-act="mc-start" data-k="${k}"${miss.length?' disabled':''}>Start: ${fmtDur(mcHours(n,k)*3600e3)}</button>`)+mcNextCost(cost,st)+mcNextShort(miss),rv:M.rv,cost};};
   if(!mcImg(n,now)){const k=w.a.f==='sci'?'scope':w.a.f==='flt'?'cam':'trk';return msStep(k)||{t:'The first image is on its way.',h:''};}
   for(const k of ['cam','orb','relay','polar','rover','cargo','hab','plan','prep']){if(D(k))continue;if(k==='relay'&&w.ms.relay&&w.ms.relay.d<=now)return {t:'The relay is in orbit, waiting for a station that can hear it.',h:mcBuildLink(n,'dsts'),b:'dsts',cost:bCost(n,'dsts')};
-    const s=msStep(k);if(s&&k==='prep'&&mcCr(n,now)>=2)s.t+=` Fly it before you land: the crew brings ${fmt0(SP_POP_PREP*1e6)} settlers instead of ${fmt0(SP_POP0*1e6)}, and two more expansion points.`;if(s)return s;return null;}
+    const s=msStep(k);if(s&&k==='prep'&&mcCr(n,now)>=2)s.t+=` Fly it before you land: the crew brings ${fmt0(SP_POP_PREP*1e6)} settlers instead of ${fmt0(SP_POP0*1e6)}, and two more expansion points.`;
+    /* the wonder opens with the habitat test: say so beside the last two missions, or ahead of them while one flies */
+    const lun=(k==='plan'||k==='prep')&&mcCr(n,now)<1&&lunarOpen(n,now);
+    if(s){if(lun)s.h+=`<p class="hint mc-lun">The Lunar Colony wonder is open to you now. ${mcBuildLink(n,'lunar')}</p>`;return s;}if(lun)break;return null;}
   const cr=mcCr(n,now);
   if(cr<1){const m=MILESTONES.find(m=>(m.b||[]).includes('lunar')),pop=popNow(n,now),early=m&&pop<m.p;return {t:'Next: build the Lunar Colony wonder.',h:early?`<span class="hint">It unlocks at ${fmtPopShort(m.p)} people. ${esc(n.name)} has ${fmtPop(pop)}.</span>`:mcBuildLink(n,'lunar'),cost:early?null:bCost(n,'lunar')};}
   if(cr<2){const b=mcLunarBld(n);return {t:'The Lunar Colony is under construction.',h:b?`<span class="hint">Ready in ${fmtDur(b.d-now)}.</span>${mcLive(b.s,b.d)}`:''};}
-  if(cr<3)return {t:'The Lunar Colony is complete: choose where to land.',h:'<span class="hint">Use the map below.</span>'};
+  if(cr<3)return n.sp&&n.sp.op?{t:'The Lunar Colony is complete: open the colony at your outpost.',h:`<button type="button" class="btn small-btn" data-act="sp-land-op"${lacking(SP_LANDC.moon,st).length?' disabled':''}>Land at the outpost</button>${mcNextCost(SP_LANDC.moon,st)}${mcNextShort(lacking(SP_LANDC.moon,st))}`,cost:SP_LANDC.moon}:{t:'The Lunar Colony is complete: choose where to land.',h:'<span class="hint">Use the map below.</span>'};
   return null;
 }
 function mcLunarBld(n){for(const c of cityList(n))for(const b of c.b||[])if(b.k==='lunar')return b;return null;}
@@ -66688,11 +66754,11 @@ function mcAgencyHTML(n,now){
   const scan=mcHas(n,'dsts',now)&&w.a.tm.sci&&!spAccess(n,'moon',now)?`<p class="hint">Science & Survey can chart any sector in detail: select one on the chart below.</p>`:'';
   return `<section class="section mc-agency" id="mc-agency" aria-labelledby="mc-h"><p class="eyebrow">Mission Control · Director Dr. Lyra Okafor</p><h2 class="h2" id="mc-h">${esc(w.a.nm)}</h2>
     <p class="hint">${has?'Working from Mission Control':'Working from a borrowed classroom'} · ${act.length} of ${slots} mission ${slots===1?'slot':'slots'} in use${!has&&!w.md.c1?' · Mission Control adds a second':''}.</p>
-    ${teams}${mcStoryLine(n,now)}<h3 class="lbl-h">Under way</h3>${jobs}${next}${list}${md?`<div class="mc-mds">${md}</div>`:''}${scan}${mcSitesHTML(n,now)}${mcExpHTML(n,now)}${mcNightHTML(n,now)}${msg}</section>`;
+    ${teams}${mcStoryLine(n,now)}<h3 class="lbl-h">Under way</h3>${jobs}${next}${list}${md?`<div class="mc-mds">${md}</div>`:''}${scan}${mcOutpostHTML(n,now)}${mcSitesHTML(n,now)}${mcExpHTML(n,now)}${mcNightHTML(n,now)}${msg}</section>`;
 }
 /* candidate landing sites, once the polar survey has found them */
 function mcSitesHTML(n,now){
-  if(!mcDone(n,'polar',now)||(n.sp&&n.sp.moon))return '';const w=mcOf(n),sites=mcSites(n),pf=mcPrefTile(n),B=SPB.moon,acc=spAccess(n,'moon',now);
+  if(!mcDone(n,'polar',now)||(n.sp&&(n.sp.moon||n.sp.op)))return '';const w=mcOf(n),sites=mcSites(n),pf=mcPrefTile(n),B=SPB.moon,acc=spAccess(n,'moon',now);
   return `<h3 class="lbl-h">Candidate landing sites</h3><ul class="mc-sites">${sites.map((c,i)=>{if(c<0)return '';const p=acc?spLandProblem(B,c):'',t=spTName(B,c);
     return `<li class="${c===pf?'on':''}"><b>${esc(cap1(spWhere(B,c)))}</b><span class="hint">${esc(t)}${i===1?' · the backup zone':''}${c===pf?' · preferred':''}${p&&acc?' · '+esc(p):''}</span>${c===pf?'':`<button type="button" class="linkish small" data-act="mc-pref" data-c="${c}">Make it the preferred site</button>`}</li>`;}).join('')}</ul>`;
 }
@@ -67014,7 +67080,7 @@ TUT_GUIDES.s={nm:'the Space page',bt:'The Space page',sh:'Tour',p:[
     p:()=>{const e=mcEdicts(S.nation);return `<p>Dr. Okafor writes fourteen letters as the programme reaches each step. The first can arrive once you have enacted ${fmt0(MC_GATE[0])} edicts (you have enacted ${fmt0(e)}), and each later one waits for its mission and for more edicts. They come to your Edicts desk with a gold border.</p><p>Each asks for a decision. A veto means her proposal fails, but the missions carry on. Some steps can be hurried with mandate from the Government page.</p>`;},
     f:()=>[['Letters','14, each with a gold border'],['The first',`from ${fmt0(MC_GATE[0])} enacted edicts`]]},
   {h:'The road to the Moon',tg:{b:'moon',pg:1,r:'steps',sel:['.sp-teaser .sp-steps','.sp-tabs']},
-    p:()=>{const m=spLunarAt();return `<p>The checklist at the foot of the page is the way to the real Moon: reach ${m?fmtPopShort(m.p):'the last milestone’s'} people, build the Lunar Colony wonder in one of your cities, then land on the shared map beside every other nation. A Starport on the Moon opens Mars, and Mars the asteroid belt; each has a guide of its own.</p><p>That is the tour. <b>Tour of this page</b>, at the top, brings it back.</p>`;},
+    p:()=>{const m=spLunarAt();return `<p>The checklist at the foot of the page is the way to the real Moon: reach ${m?fmtPopShort(m.p):'the last milestone’s'} people, fly Mission Control’s habitat test, build the Lunar Colony wonder in one of your cities, then land on the shared map beside every other nation (at your outpost, if the cargo lander’s beacon became one). A Starport on the Moon opens Mars, and Mars the asteroid belt; each has a guide of its own.</p><p>That is the tour. <b>Tour of this page</b>, at the top, brings it back.</p>`;},
     f:()=>{const m=spLunarAt(),n=S.nation;return [['The Moon opens at',m?fmtPopShort(m.p)+' people':''],['Your population',tutCall(()=>fmtPop(popNow(n,Date.now())),'')]];}}
 ]};
 /* the picture a step shows when the page is not on screen: the Space page, top to bottom, with its part lit */
@@ -67039,10 +67105,183 @@ HELP_EXT.push({k:'space-page',t:'The Space page, step by step',body:n=>{const m=
     <li><b>Build Mission Control</b> in one of your cities, for a second mission slot. The tracking station, the robotics lab and the crew centre follow as your population grows.</li>
     <li><b>Watch the chart.</b> Each mission lights more of the black survey chart of the Moon.</li>
     <li><b>Answer Dr. Okafor’s letters</b> on the Edicts page, from your ${fmt0(MC_GATE[0])}th enacted edict. They have a gold border.</li>
-    <li><b>Build the Lunar Colony</b>${m?` at ${fmtPopShort(m.p)} people`:''}, and land on the Moon that every nation shares.</li>
+    <li><b>Set up an outpost</b> at the cargo lander’s beacon: one tile of the shared Moon held for you, with room for a smelter or an extractor.</li>
+    <li><b>Build the Lunar Colony</b> once the habitat test has flown${m?` and you have ${fmtPopShort(m.p)} people`:''}, and land on the Moon that every nation shares.</li>
   </ol>
   <p>The first time you open the page, a short tour points at each of these.</p>
   ${n&&!n.npc?`<div class="tut-hb"><button type="button" class="btn ghost small-btn" data-act="tut-guide" data-g="s"><span class="tut-qi" aria-hidden="true">?</span>Take the tour</button></div>`:''}`;}});
+
+/* ───────── the Moon in midgame ─────────
+   The Lunar Colony opens with Mission Control's first habitat test (LUNAR_MS) and the people of its milestone (100
+   million), not at five billion. Before it, the beacon of the cargo landing can become an outpost: n.sp.op = {t, c, b},
+   one tile of the shared Moon that holds the site (it replays as a colony of one tile without people, so every other
+   landing keeps SP_GAP from it) and may run one Regolith Smelter or Helium-3 Extractor at SP_INC_MIN of its output.
+   When the wonder is complete the colony opens there: spLand keeps the outpost's time, tile and building and notes the
+   crew's landing (ld) and the people at home (lp). The first colony on the Moon, and the first of each region, reach the
+   bell, the Dispatch and the region's Happenings; the Space page lists the region's space race. */
+const LUNAR_MS='hab';
+function lunarOpen(n,t){
+  t=t||Date.now();if(!n)return false;
+  if(cityList(n).some(c=>(c.b||[]).some(b=>b.k==='lunar')))return true;
+  if(popNow(n,t)<bldUnlockAt('lunar')-1e-9)return false;
+  try{return mcDone(n,LUNAR_MS,t);}catch(e){return false;}
+}
+bldUnlocked=(f=>function(n,key){if(key==='lunar'&&n&&!n.npc)return lunarOpen(n);return f.apply(this,arguments);})(bldUnlocked);
+buildProblem=(f=>function(n,ct,key){const r=f.apply(this,arguments);
+  if(key==='lunar'&&r&&r.k==='lock'&&n&&!n.npc){const p=bldUnlockAt('lunar');r.t=popNow(n)<p-1e-9?`Unlocks at ${fmtPopShort(p)} people, once Mission Control has flown its first habitat test.`:'Unlocks once Mission Control has flown its first habitat test, on the Space page.';}
+  return r;})(buildProblem);
+/* the teaser's checklist: the habitat test, and the outpost (optional) */
+function spTzSteps(n,now,step){
+  let hab=false,cargo=false;try{hab=mcDone(n,LUNAR_MS,now);cargo=mcDone(n,'cargo',now);}catch(e){}
+  const op=n.sp&&n.sp.op,go='<button class="linkish" data-act="tut-go" data-v="space" data-to="mc-agency">Mission Control</button>';
+  return step(hab,'Fly Mission Control’s first habitat test',hab?'Done.':`It follows the cargo landing and needs the Crew and Habitat Centre (from ${fmtPopShort(bldUnlockAt('crewc'))} people). ${go}`)
+    +step(!!op,'Optional: set up an outpost at the cargo beacon',op?`Done: ${esc(spWhere(SPB.moon,op.c))}.`:cargo?`Your beacon is waiting. ${go}`:'After the cargo landing: one tile of the Moon held for you, with room for a smelter or an extractor.');
+}
+
+/* ── the outpost ── */
+function spOpProblem(n,c,now){
+  now=now||Date.now();const B=SPB.moon;
+  if(!n||n.npc)return 'Found a nation first.';
+  if(n.sp&&n.sp.moon)return 'You already have a colony on the Moon.';
+  if(n.sp&&n.sp.op)return 'You already have an outpost on the Moon.';
+  let cargo=false;try{cargo=mcDone(n,'cargo',now);}catch(e){}if(!cargo)return 'The outpost starts from the beacon of Mission Control’s cargo landing.';
+  if(!(c>=0&&c<B.N))return 'Mission Control has no landing site yet.';
+  const t=spT(B,c);if(spNoLand(B,t))return t===3?'A crater rim is no place for an outpost.':'The mountains are too steep for an outpost.';
+  /* the outpost's one building needs ground a smelter or an extractor can work (not the ice, which is for an Ice Mine) */
+  if(!SP_OP_K.some(k=>{const D=SP_BLDS.moon[k];return !(D.on&&!D.on.includes(t))&&!(D.no&&D.no.includes(t));}))return 'The ice in eternal shadow is for an Ice Mine: an outpost needs ground a smelter or an extractor can work.';
+  const W=spWorld(B),o=W.own[c];if(o>=0)return `That tile belongs to the ${W.cols[o].op?'outpost':'colony'} of ${W.cols[o].name}.`;
+  for(const x of spRing(B,c,SP_GAP)){const i=W.own[x];if(i>=0)return `That is too close to the ${W.cols[i].op?'outpost':'colony'} of ${W.cols[i].name}.`;}
+  return '';
+}
+/* where the outpost goes: the preferred landing site, or the nearest free tile to it that its building can work (-1:
+   none within 12 tiles); the colony can claim the ice beside it later */
+function spOpSpot(n,now){
+  const B=SPB.moon,pf=mcPrefTile(n);if(!(pf>=0))return -1;if(!spOpProblem(n,pf,now))return pf;
+  for(let R=1;R<=12;R++)for(const c of spRing(B,pf,R))if(!spOpProblem(n,c,now))return c;
+  return -1;
+}
+function spOpWhy(n,now){const pf=mcPrefTile(n),p=spOpProblem(n,pf,now);return /^That /.test(p)||!p?'Every tile near the preferred site is taken. Make another candidate site the preferred one.':p;}
+function spOpPlace(){
+  const n0=S.nation,now=Date.now(),c=spOpSpot(n0,now);if(c<0){S.mcMsg=spOpWhy(n0,now);render();return false;}
+  const n=clone(n0);n.sp=n.sp||{};n.sp.op={t:now,c,b:''};S.mcMsg='';commit(n);render();
+  toast(`The cargo beacon is now an outpost of ${n.name}, ${spWhere(SPB.moon,c)}. Other colonies must land more than ${SP_GAP} tiles away.`);return true;
+}
+function spOpBld(n){const op=n&&n.sp&&n.sp.op;if(!op)return null;const bl=spDecB(SPB.moon,op.t,op.b||'');return bl&&bl[0]||null;}
+function spOpBuildProblem(n,k,now){
+  now=now||Date.now();const B=SPB.moon,op=n&&n.sp&&n.sp.op,D=SP_BLDS.moon[k];
+  if(!op)return 'Set up the outpost first.';if(!D||!SP_OP_K.includes(k))return 'An outpost runs a smelter or an extractor.';
+  if(spOpBld(n))return 'The outpost has room for one building.';
+  const t=spT(B,op.c);if(D.on&&!D.on.includes(t))return 'Needs '+list(D.on.map(x=>SP_MOON_T[x].toLowerCase()))+'.';if(D.no&&D.no.includes(t))return 'Not on '+SP_MOON_T[t].toLowerCase()+'.';
+  const miss=lacking(spCost(B,k,null),stockNow(n,now));if(miss.length)return 'You need '+list(miss)+' more at home.';
+  return '';
+}
+function spOpBuild(k){
+  const n0=S.nation,now=Date.now(),p=spOpBuildProblem(n0,k,now);if(p){S.mcMsg=p;render();return false;}
+  const B=SPB.moon,n=clone(n0),st=stockNow(n0,now),cost=spCost(B,k,null);for(const r of RES)st[r]-=cost[r]||0;n.stock=roundStock(st);n.stockAt=now;n._stockSet=true;
+  const op=n.sp.op;op.b=spEncB([{k,c:op.c,sm:Math.max(0,Math.floor((now-op.t)/SP_MIN)),dm:Math.max(1,Math.ceil(spHours(B,k,null)*60))}]);
+  S.mcMsg='';commit(n);render();toast(`${SP_BLDS.moon[k].n} ordered for your outpost. Ready in ${fmtDur(spHours(B,k,null)*3600e3)}.`);return true;
+}
+const spOpInc=k=>Object.entries(SP_BLDS.moon[k].inc).map(([r,v])=>`${fmt1(v*SP_INC_MIN)} ${resName(r)}`).join(', ');
+function spOpBody(n,now){
+  const B=SPB.moon,op=n.sp.op,b=spOpBld(n),st=stockNow(n,now);
+  let h=`<p><b>${esc(cap1(spWhere(B,op.c)))}</b> <span class="hint">· ${esc(spTName(B,op.c))} · since ${fmtDate(op.t)}</span></p>`;
+  if(b){const D=SP_BLDS.moon[b.k];
+    h+=b.d<=now?`<p>${esc(D.n)} <span class="hint">· sends ${esc(spOpInc(b.k))} a day home: ${Math.round(SP_INC_MIN*100)}% of its output, all of it once a colony of ${SP_INC_FULL} million people stands behind it.</span></p>`
+      :`<p>${esc(D.n)} <span class="hint">· ready in <span data-live="mc-left" data-d="${b.d}">${fmtDur(b.d-now)}</span></span></p>${mcLive(b.s,b.d)}`;}
+  else{const opts=SP_OP_K.map(k=>{const D=SP_BLDS.moon[k],p=spOpBuildProblem(n,k,now);
+      if(p&&!/^You need/.test(p))return `<li><b>${esc(D.n)}</b> <span class="hint">${esc(p)}</span></li>`;
+      return `<li><b>${esc(D.n)}</b><span class="hint">${esc(spOpInc(k))} a day at home · ${spHours(B,k,null)} h, shipping included</span><span class="opt-c">${mcCostHTML(spCost(B,k,null),st)}</span><button type="button" class="btn ghost small-btn" data-act="sp-op-build" data-k="${k}"${p?' disabled':''}>Build</button></li>`;}).join('');
+    h+=`<p class="hint">One building fits. It sends ${Math.round(SP_INC_MIN*100)}% of what it would send from a grown colony.</p><ul class="mc-avail mc-opb">${opts}</ul>`;}
+  h+=spLunarDone(n,now)?`<div class="row"><button type="button" class="btn small-btn" data-act="sp-land-op"${lacking(SP_LANDC.moon,st).length?' disabled':''}>Open the colony here</button>${mcNextCost(SP_LANDC.moon,st)}</div>`
+    :`<p class="hint">When the Lunar Colony wonder is complete, your colony opens here and keeps the building.</p>`;
+  return `<div class="mc-op">${h}</div>`;
+}
+function mcOutpostHTML(n,now){
+  if(!n||n.npc||(n.sp&&n.sp.moon))return '';const op=n.sp&&n.sp.op;let cargo=false;try{cargo=mcDone(n,'cargo',now);}catch(e){}
+  if(!op&&!cargo)return '';if(op)return `<h3 class="lbl-h" id="mc-op">The outpost</h3>${spOpBody(n,now)}`;
+  const c=spOpSpot(n,now),pf=mcPrefTile(n),B=SPB.moon;
+  return `<h3 class="lbl-h" id="mc-op">The outpost</h3><div class="mc-op"><p>The cargo lander’s beacon is still sending. Make it an outpost of ${esc(n.name)}: one tile of the Moon that every nation shares, held for you until the Lunar Colony is ready, with room for a Regolith Smelter or a Helium-3 Extractor. Other colonies must land more than ${SP_GAP} tiles away.</p>
+    ${c>=0?`<p class="hint">Site: ${esc(spWhere(B,c))}, ${esc(spTName(B,c).toLowerCase())}${c!==pf?' (the nearest free tile to the preferred site that a smelter or an extractor can work)':''}.</p><div class="row"><button type="button" class="btn small-btn" data-act="sp-op-place">Set up the outpost</button></div>`:`<p class="hint">${esc(spOpWhy(n,now))}</p>`}</div>`;
+}
+function spOpPanel(B,now){const n=S.nation;return `<p class="eyebrow">Your outpost on the Moon</p><h3 class="sp-ph">The outpost of ${esc(n.name)}</h3>${spOpBody(n,now)}`;}
+document.addEventListener('click',e=>{
+  const el=e.target.closest('[data-act]');if(!el)return;const a=el.dataset.act;
+  if(a==='sp-op-place'){spOpPlace();return;}
+  if(a==='sp-op-build'){spOpBuild(el.dataset.k);return;}
+  if(a==='sp-land-op'){const n=S.nation,op=n&&n.sp&&n.sp.op;if(!op)return;const p=spLandProblem(SPB.moon,op.c);if(p){S.mcMsg=p;S.spMsg=p;render();return;}spLand(SPB.moon,op.c);return;}
+});
+
+/* ── firsts on the Moon: the first colony of all (the rule of sp-moon-first: landing minute, then the lower id) and
+   the first of each region (by the region the nation is in now) ── */
+const SPF={k:-1,v:null,sig:''};
+function spFirsts(){
+  const W=spWorld(SPB.moon);if(SPF.v&&SPF.k===W.ver&&SPF.w===W)return SPF.v;
+  const m=C=>Math.floor((C.land-SP_EP)/SP_MIN),before=(a,b)=>m(a)<m(b)||(m(a)===m(b)&&a.id<b.id);
+  let world=null;const reg={};
+  for(const C of W.cols){if(!C.ok||C.op)continue;if(!world||before(C,world))world=C;if(C.reg&&(!reg[C.reg]||before(C,reg[C.reg])))reg[C.reg]=C;}
+  const v={world,reg},sig=(world?world.id:'')+'|'+Object.keys(reg).sort().map(r=>r+':'+reg[r].id).join(',');
+  /* the Dispatch keeps its editions until something it reads changes */
+  if(sig!==SPF.sig){SPF.sig=sig;try{dspXRev++;}catch(e){}}
+  SPF.k=W.ver;SPF.w=W;SPF.v=v;return v;
+}
+const spRegName=r=>{const R=REG_BY_ID[r];return R?R.name:'the region';};
+NOTIF_SOURCES.push((n,now)=>{
+  if(!n||n.npc)return [];const F=spFirsts(),out=[],since=Math.max(now-14*DAY,n.founded||0),fresh=C=>C&&C.land>=since&&C.land<=now;
+  const w=F.world,r=F.reg[REG.id];
+  if(fresh(w))out.push({t:w.land,k:'space',kl:'Space',go:'space',txt:w.me?'Your settlers are the first on the Moon, before every nation of every region.':`${w.name}${w.reg!==REG.id?' ('+spRegName(w.reg)+')':''} has landed the first colony on the Moon.`});
+  if(fresh(r)&&r!==w)out.push({t:r.land,k:'space',kl:'Space',go:'space',txt:r.me?`Your colony is the first of ${spRegName(REG.id)} on the Moon.`:`${r.name} has landed the first colony of ${spRegName(REG.id)} on the Moon.`});
+  return out;
+});
+try{if(!DSP_GO.space)DSP_GO.space='Space';}catch(e){}
+DISPATCH_SOURCES.push(ctx=>{
+  if(!ctx||(ctx.reg&&ctx.reg!==REG.id))return [];const from=+ctx.from||0,to=+ctx.to||0,F=spFirsts(),out=[],inW=C=>C&&C.land>=from&&C.land<=to;
+  const w=F.world,r=F.reg[REG.id],rn=spRegName(REG.id);
+  if(inW(w))out.push({t:w.land,sec:'front',w:10,k:'moonfirst:w:'+w.id,who:[w.id],go:'space',h:`${w.name} lands the first colony on the Moon`,
+    b:`Settlers of ${w.name}${w.reg!==REG.id?', in '+spRegName(w.reg)+',':''} have set down ${spWhere(SPB.moon,w.c)}, the first of any nation of any region. Every later landing must keep its distance, and the best maria are being looked at very hard.`});
+  if(inW(r)&&r!==w)out.push({t:r.land,sec:'world',w:8,k:'moonfirst:r:'+REG.id+':'+r.id,who:[r.id],go:'space',h:`${r.name} puts ${rn} on the Moon`,
+    b:`The first colony of ${rn} has landed ${spWhere(SPB.moon,r.c)}. The census office has opened a new page and is not sure which column to use.`});
+  return out;
+});
+HAP_SOURCES.push((x,now)=>{
+  if(!x||!x.id||!x.n)return [];const F=spFirsts(),w=F.world,r=F.reg[REG.id],me=x.me?myId():x.id,nm=nationLink(x.id,x.n.name,x.me);
+  if(w&&w.id===me&&w.land<=now)return [{t:w.land,txt:`${nm} landed the first colony on the Moon, before every nation of every region.`}];
+  if(r&&r.id===me&&r.land<=now)return [{t:r.land,txt:`${nm} landed the first colony of ${esc(spRegName(REG.id))} on the Moon.`}];
+  return [];
+});
+
+/* ── the space race in the region: Space Ports, the Lunar Colony, outposts and colonies ── */
+function spRaceRows(now){
+  const n=S.nation,W=spWorld(SPB.moon),M=spWorld(SPB.mars),rows=[];
+  for(const x of allNations()){if(x.npc)continue;const m=x.me?n:x.n;if(!m)continue;const sp=m.sp||{},id=x.me?myId():x.id;
+    const bs=k=>{let st=0;for(const c of cityList(m))for(const b of c.b||[])if(b.k===k)st=Math.max(st,b.d<=now?2:1);return st;};
+    let rank=0,what='';
+    if(sp.mars){const C=M.byId[id];rank=6;what='On Mars'+(C&&C.ok?` · ${C.held.length} ${C.held.length===1?'tile':'tiles'}`:'');}
+    else if(sp.moon){const C=W.byId[id];rank=5;what='On the Moon'+(C&&C.ok?` · ${C.held.length} ${C.held.length===1?'tile':'tiles'} · ${spPeople(spPop(C.colony,now))}`:'');}
+    else if(sp.op){const L=bs('lunar');rank=4+L*0.1;what=L===2?'Outpost on the Moon · Lunar Colony complete':L===1?'Outpost on the Moon · building the Lunar Colony':'Outpost on the Moon';}
+    else{const L=bs('lunar');if(L){rank=3+L*0.1;what=L===2?'Lunar Colony complete':'Building the Lunar Colony';}else if(bs('spaceport')===2){rank=2;what='Space Port';}else continue;}
+    let pop=0;try{pop=popNow(m,now);}catch(e){}
+    rows.push({x,m,rank,what,pop});}
+  return rows.sort((a,b)=>b.rank-a.rank||b.pop-a.pop);
+}
+function spRaceHTML(now){
+  const all=spRaceRows(now);if(!all.length)return '';let rows=all.slice(0,12);const mine=all.find(r=>r.x.me);if(mine&&!rows.includes(mine))rows.push(mine);
+  return `<section class="section sp-race"><h2 class="h2">The space race in ${esc(spRegName(REG.id))}</h2><p class="hint">How close the nations of your region are to the Moon: a Space Port, the Lunar Colony, an outpost, a colony.</p>
+    <ol class="sp-race-l">${rows.map(r=>`<li class="${r.x.me?'me':''}"><span class="sp-race-n">${r.x.me?`<b>${esc(r.m.name)}</b>`:nationLink(r.x.id,r.m.name,false)}</span><span class="hint">${esc(r.what)}</span></li>`).join('')}</ol>${all.length>rows.length?`<p class="hint">And ${all.length-rows.length} more.</p>`:''}</section>`;
+}
+spView=(f=>function(now){const h=f.apply(this,arguments);try{const n=S.nation,t=now||Date.now();if(n&&!n.npc&&spOpen(n,t))return h+spRaceHTML(t);}catch(e){}return h;})(spView);
+
+/* ── what the colonies and the outpost send home, on top of everything else: added after the economy's floor (GB.SHARE
+   of the nation's surplus), which would otherwise swallow it whenever the floor is the larger figure ── */
+stockRates=(f=>function(n){const o=f.apply(this,arguments);try{const a=spIncome(n);for(const r in a)if(r in o)o[r]+=a[r];}catch(e){}return o;})(stockRates);
+
+/* ── honours for the new road ── */
+achDef('exp','sp-op','s','Beacon Keeper','Turn the cargo lander’s beacon into an outpost on the Moon.',1,x=>{if(x.npc)return 0;const sp=x.n.sp;return achYes(sp&&(sp.op||(sp.moon&&sp.moon.ld)));},{fm:'bool'});
+achDef('exp','sp-op-run','b','Moonlighting','Run a Regolith Smelter or a Helium-3 Extractor at your outpost on the Moon.',1,x=>{if(x.npc)return 0;const sp=x.n.sp;if(!sp)return 0;
+  if(sp.op&&!sp.moon){const b=(spDecB(SPB.moon,sp.op.t,sp.op.b||'')||[])[0];return achYes(b&&b.d<=x.now);}
+  if(sp.moon&&sp.moon.ld){const bl=spDecB(SPB.moon,sp.moon.t,sp.moon.b||'')||[];return achYes(bl.some(b=>SP_OP_K.includes(b.k)&&b.c===sp.moon.c&&b.s<sp.moon.ld&&b.d<=x.now));}
+  return 0;},{fm:'bool'});
+achDef('exp','sp-moon-early','g','Before a Billion','Land a colony on the Moon while your nation has fewer than a billion people.',1,x=>{if(x.npc)return 0;const o=x.n.sp&&x.n.sp.moon;return achYes(o&&o.lp>0&&o.lp<1000);},{fm:'bool'});
+achDef('exp','sp-moon-reg','g','First of the Region','Land the first colony of your region on the Moon.',1,x=>{if(x.npc||!(x.n.sp&&x.n.sp.moon))return 0;const C=spWorld(SPB.moon).byId[x.me?myId():x.id];return achYes(C&&C.ok&&!C.op&&C.reg&&spFirsts().reg[C.reg]===C);},{fm:'bool'});
 
 /* ───────── thirty edicts that find iron, oil or timber for a city ─────────
    Thirty edicts in which something turns up near one of the nation's cities: a seam of iron, a pocket of oil, a stand

@@ -53,13 +53,16 @@ const V25_BONUS={c:[3,{food:10,timber:10}],f:[2,{goods:10}],m:[3,{iron:10}],d:[5
 const dbl=g=>Object.fromEntries(Object.entries(g).map(([k,v])=>[k,v*2]));
 const BONUS=['bcen','bach','batl','bwsl','bnam','bwnd','barm','bmus','bspy','bpst','bddr','bnws'];
 
-test('six groups: the main path, Build your future, the region, Make it your own, Bonus tasks and the ledger; every earlier key is kept',()=>{
+test('seven groups: the main path, Build your future, the region, Make it your own, Bonus tasks, To the Moon and the ledger; every earlier key is kept',()=>{
   const r=rewards(),L=r.ctx.lists;
-  assert.deepEqual([...L].map(x=>x.k),['establish','future','region','own','bonus','ambitions']);
-  assert.deepEqual([...L].map(x=>x.c),['c','f','m','','','d'],'the four letters of the lists before Version 26, so a bonus paid then is never paid again; Make it your own has none');
+  assert.deepEqual([...L].map(x=>x.k),['establish','future','region','own','bonus','space','ambitions']);
+  assert.deepEqual([...L].map(x=>x.c),['c','f','m','','','','d'],'the four letters of the lists before Version 26, so a bonus paid then is never paid again; Make it your own and To the Moon have none');
+  assert.deepEqual([...G(r,'space').tasks.map(s=>s.k)],['sagc','smct','sorb','sprt','scgo','sout'],'To the Moon: agency, Mission Control, orbit, Space Port, cargo, outpost');
+  /* the space tasks read later sections: in this sandbox they are simply not done, and their gates hold */
+  const sp=G(r,'space').tasks,n0={sp:null,cities:[]};assert.ok(sp.every(s=>s.f(n0)===false));assert.ok(sp.filter(s=>s.lock).every(s=>typeof s.lock(n0)==='string'&&s.lock(n0).length>0));
   const keys=L.flatMap(x=>x.tasks.map(s=>s.k));assert.equal(new Set(keys).size,keys.length);
   for(const k of [...Object.keys(V25),'charter','google'])assert.ok(keys.includes(k),'an earlier key is kept: '+k);
-  assert.equal(keys.length,Object.keys(V25).length+2+BONUS.length,'no task is lost, and the bonus tasks are the only ones added');
+  assert.equal(keys.length,Object.keys(V25).length+2+BONUS.length+6,'no task is lost, and the bonus tasks and the six of To the Moon are the only ones added');
   assert.deepEqual([...L.flatMap(x=>x.tasks.filter(s=>s.own).map(s=>s.k))],['google']);
   assert.deepEqual([...G(r,'establish').tasks.map(s=>s.k)],['settle','land','build','issue','charter'],'settle, claim, build, three edicts, then the charter');
   assert.deepEqual([...G(r,'future').tasks.map(s=>s.k)],['city2','trade','exp','stamp']);assert.equal(G(r,'future').need,2);
