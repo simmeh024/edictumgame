@@ -169,14 +169,20 @@ await sendOne(uidB);
 check('the server files the sponsor’s fourth', await until(async () => (await filed()).filter(t => t === uidB).length === 1, 100000), JSON.stringify(await filed()));
 check('and then no more today', /You have sent 4 Supply Caches today/.test(await why(uidB)), await why(uidB));
 
-// the phone
-await A.setViewportSize({ width: 390, height: 844 }); await nav(A, 'region'); await A.click('#rgn-tab-invite'); await sleep(800);
-/* what sticks out past the right edge, named when the check fails */
-const wide = () => A.evaluate(() => ({ sw: document.documentElement.scrollWidth, w: window.innerWidth, out: [...document.querySelectorAll('body *')].filter(e => { const r = e.getBoundingClientRect(); return r.width && r.right > window.innerWidth + 1 && getComputedStyle(e).position !== 'fixed'; }).slice(0, 6).map(e => e.tagName.toLowerCase() + (e.id ? '#' + e.id : '') + (e.className && typeof e.className === 'string' ? '.' + e.className.trim().split(/\s+/).join('.') : '') + ' ' + Math.round(e.getBoundingClientRect().right)) }));
-/* the page may still be settling into the phone layout just after the resize, so give it a few seconds */
-let fit = await wide();
-const fits = await until(async () => { fit = await wide(); return fit.sw <= fit.w + 1; }, 5000);
-check('on a phone the Invite tab fits without scrolling sideways', fits, JSON.stringify(fit));
+// the phone. The page's width is watched every frame, not only at the end: the Invite tab's badge (a new recruit)
+// lies past the edge of the tab row until the row scrolls to it, and its screen-reader words, absolutely placed, once
+// widened the page by 65 px for about a second, which a single look after a pause caught only on a slow machine (and
+// waiting for the page to settle would hide). The widest frame names what sticks out past the right edge.
+await A.setViewportSize({ width: 390, height: 844 });
+await A.evaluate(() => {
+  const out = () => [...document.querySelectorAll('body *')].filter(e => { const r = e.getBoundingClientRect(); return r.width && r.right > window.innerWidth + 1 && getComputedStyle(e).position !== 'fixed'; }).slice(0, 6).map(e => e.tagName.toLowerCase() + (e.id ? '#' + e.id : '') + (e.className && typeof e.className === 'string' ? '.' + e.className.trim().split(/\s+/).join('.') : '') + ' ' + Math.round(e.getBoundingClientRect().right));
+  window.__wide = { px: 0, sw: document.documentElement.scrollWidth, w: window.innerWidth, out: [] };
+  const look = () => { const sw = document.documentElement.scrollWidth, w = window.innerWidth; if (sw - w > window.__wide.px) window.__wide = { px: sw - w, sw, w, out: out() }; window.__wideRaf = requestAnimationFrame(look); };
+  look();
+});
+await nav(A, 'region'); await A.click('#rgn-tab-invite'); await sleep(800);
+const wider = await A.evaluate(() => { cancelAnimationFrame(window.__wideRaf); return window.__wide; });
+check('on a phone the Invite tab fits without scrolling sideways', wider.px <= 1 && await A.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), JSON.stringify(wider));
 await A.screenshot({ path: OUT + '/recruit-invite-phone.png', fullPage: true });
 
 await finish();
