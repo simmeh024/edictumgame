@@ -148,7 +148,7 @@ test('the result page, the Statistics page and the Nation page show it', () => {
 test('twenty productivity edicts: numbered after every older one, drawn at random, each with a lasting pd option', () => {
   const a = code.indexOf('const PRD_ISSUES=['), b = code.indexOf('/* ───────── the browser tab');
   assert.ok(a > code.indexOf('for(const is of PT_ISSUES)') && a < b, 'after the court painter, before the browser tab');
-  assert.equal(code.indexOf('ISSUES.push(', code.indexOf('for(const is of PRD_ISSUES){') + 30), -1, 'nothing is added after them');
+  assert.equal(code.indexOf('ISSUES.push(', code.indexOf('for(const is of PRD_ISSUES){') + 30), code.indexOf('for(const is of NBR_ISSUES){ISSUES.push(') + 28, 'only the neighbour edicts (their own test, edicts-neighbours) are added after them');
   const end = code.indexOf('\n', code.indexOf('for(const is of PRD_ISSUES)'));
   const ctx = vm.createContext({ISSUES: Array.from({length: 7}), ISSUE_BY_ID: {}, ISSUES_RANDOM: []});
   vm.runInContext(code.slice(a, end) + '\nthis.J=JSON.stringify(PRD_ISSUES.map(i=>({id:i.id,no:i.no,c:i.c,o:i.o.map(o=>o.e)})));this.R=ISSUES_RANDOM.length;', ctx);
