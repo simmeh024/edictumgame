@@ -4851,6 +4851,7 @@ button.fk-rp:hover,button.fk-qb:hover{color:var(--accent)}
 .tut-done-n{display:inline-flex;align-items:center;gap:8px}.tut-laurel{color:var(--mu-gold);flex:none}
 .tut-hon{margin:0 0 12px;padding:10px 12px;border-radius:8px;background:color-mix(in srgb,var(--mu-gold-soft) 40%,var(--sheet));border:1px solid color-mix(in srgb,var(--mu-gold) 28%,var(--rule))}
 .tut-hon .eyebrow{margin:0 0 6px}.tut-hon-r{display:flex;flex-wrap:wrap;gap:6px 8px;margin-bottom:6px}.tut-hon .hint{margin:4px 0 0}
+.tut-hon-h{display:flex;align-items:baseline;justify-content:space-between;gap:4px 12px;margin:0 0 6px}.tut-hon-h .eyebrow{margin:0}.tut-hon-h .linkish{flex:none}.sg-tuthon{margin-top:12px}
 @media (max-width:560px){
   .tut-oth{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:stretch}.tut-oth>.eyebrow,.tut-oth-all{grid-column:1 / -1}
   .tut-oth .tut-ob{justify-content:flex-start;padding-inline:10px;min-height:44px}.tut-ob-t{flex:1;text-align:left;line-height:1.2}
@@ -41816,6 +41817,11 @@ function tutHid(n){
 }
 function tutHide(on){const n=S.nation;if(!n)return;try{localStorage.setItem(TUT_HK,JSON.stringify({s:String(n.seed),h:on?1:0}));}catch(e){}}
 const tutLater=n=>{try{return !!n&&localStorage.getItem(TUT_LATER)===String(n.seed);}catch(e){return false;}};
+/* "Earned in the tutorial" (the titles and designs on the all-done card): hidden on this device for one nation, by its own
+   Hide button or Settings › Display; the key holds that nation's seed */
+const TUT_HON='statehood.tuthon.v1';
+const tutHonHid=n=>{try{return !!n&&localStorage.getItem(TUT_HON)===String(n.seed);}catch(e){return false;}};
+function tutHonHide(on){const n=S.nation;if(!n)return;try{localStorage.setItem(TUT_HON,on?String(n.seed):'');}catch(e){}}
 const tutAside=n=>!!(n&&n.tut&&n.tut.p===1);
 /* a group's state: its tasks (st), those that count (core: all but the charter's signing), how many are done and
    needed, whether it is full (done >= need) and whether its bonus is paid */
@@ -42067,8 +42073,8 @@ const TUT_LAUREL=(()=>{const lf=(x,y,a)=>`<ellipse cx="${x}" cy="${y}" rx="4.6" 
 function tutHonours(n){
   let u=null;try{u=unlocksOf(n);}catch(e){}if(!u)return '';const has=id=>u.has?u.has(id):u.includes(id);
   const mine=Object.keys(UNLOCKS).filter(id=>UNLOCKS[id].src==='tut'&&has(id)),ep=mine.filter(id=>UNLOCKS[id].k==='title'),des=mine.filter(id=>UNLOCKS[id].k!=='title');
-  if(!mine.length)return '';
-  return `<div class="tut-hon"><p class="eyebrow">Earned in the tutorial</p>${ep.length?`<div class="tut-hon-r">${ep.map(id=>tutDesignPill(n,id)).join('')}</div>`:''}${des.length?`<div class="tut-hon-r">${des.map(id=>tutDesignPill(n,id)).join('')}</div><p class="hint">Every one of them is in Customise. <button type="button" class="linkish small" data-act="go" data-v="customise">Open Customise</button></p>`:''}</div>`;
+  if(!mine.length||tutHonHid(n))return '';
+  return `<div class="tut-hon"><div class="tut-hon-h"><p class="eyebrow" id="tut-hon-t">Earned in the tutorial</p><button type="button" class="linkish small" data-act="tut-hon-x" aria-describedby="tut-hon-t" title="Hide this list on this device. Settings › Display brings it back.">Hide</button></div>${ep.length?`<div class="tut-hon-r">${ep.map(id=>tutDesignPill(n,id)).join('')}</div>`:''}${des.length?`<div class="tut-hon-r">${des.map(id=>tutDesignPill(n,id)).join('')}</div><p class="hint">Every one of them is in Customise. <button type="button" class="linkish small" data-act="go" data-v="customise">Open Customise</button></p>`:''}</div>`;
 }
 /* ── 10. after a task's button: the thing to press on the page it opened pulses for a moment ── */
 const TUT_COACH={land:'#lc-coach [data-act="lc-block"]',build:'#main [data-act="ct-open"]',issue:'#main button[data-act="open"]',city2:'#cx-new',stamp:'#rgn-tab-nations',dsp:'#dsp-title',dm:'#dm-to',
@@ -42625,6 +42631,8 @@ document.addEventListener('click',e=>{
   if(a==='tut-hide'){tutHide(true);render();toast('What’s next is hidden on this device. Settings › Display, or How to play, brings it back.');
     const h=document.querySelector('#main h1,.hero h1');if(h)try{if(!h.hasAttribute('tabindex'))h.setAttribute('tabindex','-1');h.focus({preventScroll:true});}catch(e){}return;}
   if(a==='tut-show'||a==='tut-restore'){tutHide(false);tutGo('nation','','tut-h');toast('What’s next is back on your Nation page.');return;}
+  if(a==='tut-hon-x'){tutHonHide(true);render();toast('Earned in the tutorial is hidden on this device. Settings › Display brings it back.');
+    const h=document.getElementById('tut-h');if(h)try{h.focus({preventScroll:true});}catch(e){}return;}
   if(a==='tut-fin-x'||a==='tut-fin-see'){const n=S.nation;if(!n)return;tutFinSeen(n,el.dataset.k||'');
     if(a==='tut-fin-see'&&el.dataset.id&&typeof unlockShow==='function'&&unlockShow(el.dataset.id))return;render();const h=document.getElementById('tut-h');if(h)try{h.focus({preventScroll:true});}catch(e){}return;}
   if(a==='tut-later'){try{if(S.nation)localStorage.setItem(TUT_LATER,String(S.nation.seed));}catch(e){}render();const h=document.getElementById('tut-h');if(h)try{h.focus({preventScroll:true});}catch(e){}return;}
@@ -49195,7 +49203,9 @@ function settingsView(){
     </section>
     ${OBS?'':`<section class="sg-card" id="set-tasks"><h3 class="sg-ch">Nation page</h3>
       <label class="tog"><input type="checkbox" data-act="sg-tut"${tutHid(n)?'':' checked'}> Show What’s next on the Nation page</label>
-      <p class="hint">Your tasks while any are left, what is under way, and what comes next, even once every task is done. The card’s own Hide button turns it off too.</p></section>`}`;
+      <p class="hint">Your tasks while any are left, what is under way, and what comes next, even once every task is done. The card’s own Hide button turns it off too.</p>
+      <label class="tog sg-tuthon"><input type="checkbox" data-act="sg-tuthon"${tutHonHid(n)?'':' checked'}> Show what you earned in the tutorial</label>
+      <p class="hint">The titles and designs the tutorial gave you, listed on What’s next once every task is done. Its own Hide button turns it off too.</p></section>`}`;
   const sound=`${sgHead('sound','This device only','Applies at once. Nobody else hears it.')}${sfxSection()}`;
   const account=`${sgHead('account','','')}
     ${OBS?'':`<section class="sg-card" id="set-acct"><h3 class="sg-ch">Sign-in</h3><p class="hint fs-hint">How you sign in, the accounts linked to ${esc(n.name)}, your recovery key and signing out are in the account panel.</p><button type="button" class="btn ghost" data-act="acct-open">Open the account panel</button></section>`}
@@ -69700,6 +69710,9 @@ document.addEventListener('change',e=>{const t=e.target;if(t&&t.id==='s-freq'&&S
 /* Settings › Display: What's next on the Nation page, on or off on this device (the card's own Hide button, the same key) */
 document.addEventListener('change',e=>{const t=e.target;if(!t||!t.dataset||t.dataset.act!=='sg-tut'||!S.nation)return;tutHide(!t.checked);render();
   toast(t.checked?'What’s next is back on your Nation page.':'What’s next is hidden on this device. Switch it back on here, or in How to play.');});
+/* and the "Earned in the tutorial" list on it (the list's own Hide button, the same key) */
+document.addEventListener('change',e=>{const t=e.target;if(!t||!t.dataset||t.dataset.act!=='sg-tuthon'||!S.nation)return;tutHonHide(!t.checked);render();
+  toast(t.checked?'Earned in the tutorial is back on What’s next.':'Earned in the tutorial is hidden on this device. Switch it back on here.');});
 document.addEventListener('keydown',e=>{
   const t=e.target;if(!t||!t.classList||!t.classList.contains('sg-tab'))return;
   const d={ArrowDown:1,ArrowRight:1,ArrowUp:-1,ArrowLeft:-1}[e.key];if(!d&&e.key!=='Home'&&e.key!=='End')return;e.preventDefault();
@@ -69717,7 +69730,7 @@ UX_SETTINGS.push(
   {v:'focus:set-notif',l:'Notifications and pop-ups',g:'Settings',words:'notifications pop-ups popups toasts bell badge alerts',view:'settings',target:'#set-notif'},
   {v:'focus:set-mail',l:'Letters by post (email)',g:'Settings',words:'email e-mail mail letters digest newsletter',view:'settings',target:'#set-mail'},
   {v:'focus:set-social',l:'Recruit a player',g:'Settings',words:'recruit invite friend referral link share',view:'settings',target:'#set-social'},
-  {v:'focus:set-tasks',l:'Show What’s next',g:'Settings',words:'tutorial tasks next steps what’s next whats next card nation page restore hide show',view:'settings',target:'#set-tasks'},
+  {v:'focus:set-tasks',l:'Show What’s next',g:'Settings',words:'tutorial tasks next steps what’s next whats next card nation page restore hide show earned in the tutorial honours epithets titles designs',view:'settings',target:'#set-tasks'},
   {v:'focus:set-restart',l:'Start over (danger zone)',g:'Settings',words:'start over restart reset begin again new game danger zone',view:'settings',target:'#set-restart'},
   {v:'focus:set-dissolve',l:'Dissolve nation (danger zone)',g:'Settings',words:'dissolve quit end nation danger zone',view:'settings',target:'#set-dissolve'},
   {v:'focus:set-delete',l:'Delete nation and account (danger zone)',g:'Settings',words:'delete account erase data privacy remove me gdpr danger zone',view:'settings',target:'#set-delete'}
