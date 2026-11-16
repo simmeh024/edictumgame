@@ -495,3 +495,18 @@ test('the note design system: legible grounds, tactile tiers, layout and era fie
   assert.equal(C.cuClean({ note: { lay: 'wobbly', era: 'stone' } }), null, 'unknown layouts and eras are dropped');
   for (const P of Object.values(C.CU_FLAV)) { assert.ok(P.pat in C.CU_PATS && P.lay in C.CU_LAYS && P.era in C.CU_ERAS, P.nm); }
 });
+
+test('the Note Studio fields: positions, layers, guilloché, ornaments, type, microtext and own colours are kept, bad ones dropped', () => {
+  const C = currencyHelpers();
+  const n = C.cuClean({ note: { pos: { v: [12, -4, 1.2], e: [0, 0, 1], x: [1, 1, 1], t: [999, 'a', 1] }, lop: { security: .4, text: 1, nope: .2 }, gp: [9, .5, 4, .3],
+    ros: 'compass', bd: 'key', bdn: 99, bdw: .2, tp: 2, ls: 1.4, cs: 's', vf: 'm', mt: 'Fair <b>trade</b>', wm: 'arms', ov: { 100: { c1: '#112233', c2: 'red' }, 7: { c1: '#112233' } }, rx: 'Ostria' } }).note;
+  assert.deepEqual(JSON.parse(JSON.stringify(n.pos)), { v: [12, -4, 1.2] }, 'unmoved, unknown and broken parts are dropped');
+  assert.deepEqual({ ...n.lop }, { security: .4 }, 'full opacity and unknown layers are not stored');
+  assert.deepEqual([...n.gp], [9, .5, 4, .3]);
+  assert.equal(n.ros, 'compass'); assert.equal(n.bd, 'key'); assert.equal(n.bdn, 40, 'repeats are capped'); assert.equal(n.bdw, .3);
+  assert.equal(n.tp, 2); assert.equal(n.ls, 1.4); assert.equal(n.cs, 's'); assert.equal(n.vf, 'm');
+  assert.ok(!/[<>]/.test(n.mt), 'microtext carries no markup'); assert.equal(n.wm, 'arms');
+  assert.deepEqual(JSON.parse(JSON.stringify(n.ov)), { 100: { c1: '#112233' } }, 'only real values and colours');
+  assert.equal(n.rx, 'Ostria');
+  assert.equal(C.cuClean({ note: { gp: [1, 2], ros: 'skull', bd: 'zigzag', tp: 7, cs: 'x', wm: 'face' } }), null);
+});
