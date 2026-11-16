@@ -284,7 +284,7 @@ function card(store={},over={}){
     cityLabel:(n,c)=>c.nm||n.capital,wsOf:n=>n.ws||null,WS_AT:[5,10,25],wsK:()=>-1,mileOf:()=>({cities:1}),MILE_CITIES:5,MILESTONES:[{p:7,city:1}],popNow:()=>4,fmtPop:p=>p+' million',
     nextCreditPop:()=>5,esc:s=>String(s),resIco:r=>`<i data-r="${r}"></i>`,landCredits:()=>3,GL_TAG:'<span class="tut-lc">+10 land</span>',...over});
   vm.runInContext(fn('list')+'\nconst TUT_V=25,TUT_GS="mrba";\n'+fn('tutNorm')+'\n'+fn('tutCall')+'\n'+LISTS+'\n'+REWARDS+'\n'+CARD+
-    '\n'+fn('cityBonusOpen')+'\n'+fn('cxBldExtras')+'\n'+fn('cityGoldKept')+'\n'+fn('cityGoldOpen')+'\n'+fn('bldUgEver')+'\nthis.X={tutCard,tutPhase,tutPicks,tutHid,tutHide,tutGroup,tutL,tutFinSeen,tutComing,tutOthers,tutProg,tutBonusLine,fdl:()=>0};',ctx);
+    '\n'+fn('cityBonusOpen')+'\n'+fn('cxBldExtras')+'\n'+fn('cityGoldKept')+'\n'+fn('cityGoldOpen')+'\n'+fn('bldUgEver')+'\nthis.X={tutCard,tutPhase,tutPicks,tutHid,tutHide,tutHonHid,tutHonHide,tutGroup,tutL,tutFinSeen,tutComing,tutOthers,tutProg,tutBonusLine,fdl:()=>0};',ctx);
   return {ctx,X:ctx.X,store};
 }
 const settled=o=>({name:'Testoria',seed:'s1',capital:'Port Alder',leader:'President',loc:3,founded:Date.now()-36e5,onb:{v:1,u:[]},stock:{food:60,timber:45,iron:25,oil:10,goods:40},tut:{b:1,b2:1,v:26},...o});
@@ -347,6 +347,27 @@ test('with every task done the card stays, as What’s next: the edicts on the d
   X.tutHide(false);assert.notEqual(X.tutCard(n),'');
   assert.match(source,/id="set-tasks"><h3 class="sg-ch">Nation page<\/h3>\s*<label class="tog"><input type="checkbox" data-act="sg-tut"\$\{tutHid\(n\)\?'':' checked'\}>/,'Settings › Display has the switch');
   assert.match(source,/t\.dataset\.act!=='sg-tut'\|\|!S\.nation\)return;tutHide\(!t\.checked\)/,'and it is the card’s own key');
+});
+
+test('the all-done card lists what the tutorial gave, with a Hide of its own for one nation on this device, which Settings › Display undoes',()=>{
+  const store={},desk={d:'2026-11-15',q:[['iss',3]],p:[1],c:[3],w:1};
+  const {X,ctx}=card(store,{deskN:l=>(l||[]).length,syncInbox:n=>n,awayOn:()=>false,awayWhen:t=>String(t),awayAdd:(n,t,d)=>t+d,FREQ_DEF:30,fmtWait:ms=>Math.round(ms/6e4)+' min',
+    ddOn:()=>true,ddDay:()=>'2026-11-15',ddLater:(a,b)=>!b||a>b,ddFresh:()=>desk,ddWeek:()=>true,ddNextAt:now=>now+36e5});
+  ctx.tutPicks=()=>[];ctx.tutOthers=()=>'';ctx.tutPhase=()=>'next';
+  ctx.UNLOCKS['t-founder']={k:'title',n:'the Founder',src:'tut'};ctx.UNLOCKS['t-bought']={k:'title',n:'the Purchased',src:'shop'};
+  ctx.unlocksOf=()=>new Set(['t-founder','t-bought']);
+  const n=settled({inbox:[],issueClock:Date.now(),freq:30,dd:desk});ctx.S.nation=n;
+  let h=X.tutCard(n);
+  assert.match(h,/Earned in the tutorial/);assert.match(h,/the Founder/);assert.doesNotMatch(h,/the Purchased/,'only what the tutorial gave');
+  assert.match(h,/<button type="button" class="linkish small" data-act="tut-hon-x"[^>]*>Hide<\/button>/,'with a Hide button of its own');
+  X.tutHonHide(true);assert.equal(X.tutHonHid(n),true);h=X.tutCard(n);
+  assert.doesNotMatch(h,/Earned in the tutorial/,'hidden: the list goes');assert.match(h,/Every task done/,'and the rest of the card stays');assert.match(h,/Hide this card/);
+  assert.equal(X.tutHid(n),false,'it is not the card’s own key');
+  const other={...n,seed:'s2'};ctx.S.nation=other;assert.match(X.tutCard(other),/Earned in the tutorial/,'another nation on the same device still sees its own');
+  ctx.S.nation=n;X.tutHonHide(false);assert.equal(X.tutHonHid(n),false);assert.match(X.tutCard(n),/Earned in the tutorial/,'shown again');
+  assert.match(source,/<label class="tog sg-tuthon"><input type="checkbox" data-act="sg-tuthon"\$\{tutHonHid\(n\)\?'':' checked'\}>/,'Settings › Display has the switch, in the Nation page card');
+  assert.match(source,/t\.dataset\.act!=='sg-tuthon'\|\|!S\.nation\)return;tutHonHide\(!t\.checked\)/,'and it is the list’s own key');
+  assert.match(source,/if\(a==='tut-hon-x'\)\{tutHonHide\(true\);render\(\);/,'the Hide button hides it and redraws');
 });
 
 test('previously completed actions are recognised: a nation that did things before the task appeared sees them done',()=>{
