@@ -217,6 +217,14 @@ service cloud.firestore {
     match /accountIdentity/{uid} { allow read, write: if false; }
     match /guestRecovery/{id} { allow read, write: if false; }
     match /recoveryLimits/{id} { allow read, write: if false; }
+    // one-time sign-in links an admin made, and each player's waiting link (functions/once.js): the server's alone
+    match /onceLinks/{id} { allow read, write: if false; }
+    match /onceFor/{uid} { allow read, write: if false; }
+    // when one-time links signed an account in: its player reads it, for the Edictum Team's letters (game/edictum.html)
+    match /onceLog/{uid} {
+      allow read: if isSelf(uid);
+      allow write: if false;
+    }
     // a copy of each nation its player dissolved, for the admins' Recently dissolved (functions/gone.js)
     match /gone/{id} { allow read, write: if false; }
     // the address a player last played from, for the admin console only (functions/accounts.js, 'seen')

@@ -18,6 +18,7 @@ import { gatherMore, moreSummary, buyerTiming } from './stats-more.js';
 import { supportAdmin } from './support.js';
 import { goneList, goneRestore } from './gone.js';
 import { letterStats } from './letter-stats.js';
+import { onceAdmin, onceStatus } from './once.js';
 import DATA from './civic-data.json' with { type: 'json' };
 
 /* every region, from the same list the save permit checks (civic-data.json): a list of its own here missed Terra */
@@ -89,7 +90,9 @@ async function account(db, uid) {
 async function player(db, uid) {
   const [n, ban, mod, sessions, acct, notes, shop, comp, watch, grant] = await Promise.all([db.doc('nations/' + uid).get(), db.doc('bans/' + uid).get(), db.doc('mod/' + uid).get(), db.collection('saveHealth').where('uid', '==', uid).limit(30).get(), account(db, uid), db.doc('staffNotes/' + uid).get(), db.doc('shop/' + uid).get(), db.doc('shopComp/' + uid).get(), db.doc('watch/' + uid).get(), db.doc('shopGrant/' + uid).get()]);
   const d = n.data() || {}, more = await overview(db, uid, d, acct, shop);
-  return { ...more, uid, exists: n.exists, name: d.name || ban.get('name') || mod.get('name') || uid, reg: d.reg || '', pop: d.pop ?? null, revision: d.rev || 0, savedAt: ms(d.ts), banned: ban.exists, hidden: mod.get('hidden') === true, rename: mod.get('rename') === true, removed: mod.get('removed') || 0, note: ban.get('note') || mod.get('note') || '', account: acct, staffNote: staffNote(notes), club: clubState(shop, comp), packs: packState(shop, grant), watch: watchState(watch), sessions: sessions.docs.map(s => { const { expiresAt, ...value } = s.data(); return { id: s.id, ...value, t: ms(s.get('t')) }; }) };
+  // the one-time sign-in link waiting for this player, if any (functions/once.js)
+  const once = acct ? await onceStatus(db, uid, await getAuth().getUser(uid).catch(() => null)) : null;
+  return { ...more, once, uid, exists: n.exists, name: d.name || ban.get('name') || mod.get('name') || uid, reg: d.reg || '', pop: d.pop ?? null, revision: d.rev || 0, savedAt: ms(d.ts), banned: ban.exists, hidden: mod.get('hidden') === true, rename: mod.get('rename') === true, removed: mod.get('removed') || 0, note: ban.get('note') || mod.get('note') || '', account: acct, staffNote: staffNote(notes), club: clubState(shop, comp), packs: packState(shop, grant), watch: watchState(watch), sessions: sessions.docs.map(s => { const { expiresAt, ...value } = s.data(); return { id: s.id, ...value, t: ms(s.get('t')) }; }) };
 }
 /* The rest of a player's page: their nation at a glance, what they bought, other accounts seen from their address,
    reports and tickets by and about them, and the admin actions on them (the page builds its timeline from these) */
@@ -506,6 +509,8 @@ export const adminConsole = onCall({ region: 'europe-west1', maxInstances: 5, me
   if (d.op === 'letterStats') return letterStats(db, d);
   if (d.op === 'club') return club(db, actor, d);
   if (d.op === 'pack') return pack(db, actor, d);
+  // a one-time sign-in link for a player who cannot get back in (functions/once.js)
+  if (d.op === 'once') return onceAdmin(db, actor, id(d.uid), d);
   if (d.op === 'feed') return feedOp(db, d);
   if (d.op === 'watch') return watchOp(db, actor, d);
   if (d.op === 'alerts') return alertsOp(db, actor, d);

@@ -677,6 +677,20 @@ Without an active session or a working code, access cannot be recovered. Registe
 sign-in, and a former Guest code stops working after linking. `LINK_OPTIONS` in `src/shim.js` is the
 account panel's provider list (Google, Discord, email); a Discord link counts through its `dc` claim.
 
+**One-time sign-in links** (`functions/once.js`). For a player who cannot get back in (a phone that lost its sign-in,
+a Google sign-in that will not finish, an email link that never arrives), an admin opens the player in the admin
+portal and, under **One-time sign-in**, either has the Herald email a link to the verified address on the account
+(the safe way: only its owner reads that address) or copies one to send by another way the player is known by. A link
+is a 160-bit code (`?once=EDO…`), stored only as its hash in `onceLinks/` (TTL on `exp`); it works once, within 24
+hours, and a new link or **Cancel the link** stops the last one. Each is in the admin audit log (`once_link`,
+`once_revoked`). Opening it, the game takes the code out of the address bar, says whose nation it opens and asks first
+(a guest nation on that browser is dissolved, as when switching to an account), then signs in with the custom token
+the `accounts` op `once` returns. Afterwards **Make sure you can get back in** lists the account's sign-ins, offers
+**Check it now** for Google (on a phone, there and back) and **Add …** for the missing ones, and returns at each start
+until one is checked or added on that device, or the player chooses Done. Every use is noted in `onceLog/{uid}`, which
+only the player reads, and the Edictum Team writes them a letter for each, so a link opened by someone else does not go
+unnoticed. Tests: `npm run test:once` (`test/once.test.mjs`, `test/once-e2e.mjs`).
+
 `functions/eligibility.js` checks linked identity, a trusted nation creation timestamp, bans, moderation
 and region availability. Assembly participation requires 24 hours of nation age. Community topics,
 alliance founding/management and offensive wars against players require registration. Guests retain
