@@ -48831,10 +48831,17 @@ for(const t of ['pointerdown','pointermove','keydown','wheel','touchstart','scro
 setInterval(quietCheck,20000);
 
 /* ───────── shared region ───────── */
+/* A returning account with no copy of its nation in this browser (site data partly cleared, another browser on the
+   same sign-in): its saved nation comes with connect's first read. Until then, or 10 seconds at most, the page says
+   so instead of showing the founding form, which the nation would replace a moment later (staging, 2026-11-16) */
+var OWN_WAIT={on:(()=>{try{const u=localStorage.getItem('edictum.uid');return !!u&&u!=='-'&&!localStorage.getItem('statehood.nation.v1');}catch(e){return false;}})()};
+function ownWaitEnd(){if(!OWN_WAIT||!OWN_WAIT.on)return;OWN_WAIT.on=false;if(!S.nation)render();}
+if(OWN_WAIT.on)setTimeout(ownWaitEnd,10000);
+function ownWaitView(){return `<div class="found own-wait" role="status" aria-live="polite"><header class="found-head"><span class="wordmark">Edictum</span><span class="brand-sub">A nation simulator · Region of ${esc(REGION)}</span></header><p class="eyebrow">One moment</p><h1 class="display">Opening your nation…</h1><p class="lede">Fetching your nation’s latest save.</p></div>`;}
 let connectEngaged=false;
 async function connect(){
   /* observing needs the region's data and an admin's account: without either, this tab goes back to its own nation */
-  const quit=()=>{if(OBS)obsExit();if(PV)pvExit();};
+  const quit=()=>{ownWaitEnd();if(OBS)obsExit();if(PV)pvExit();};
   if(!window.claude||typeof window.claude.use!=='function')return quit();
   let db,user;
   try{[db,user]=await Promise.all([window.claude.use('db'),window.claude.use('user')]);}catch(e){return quit();}
@@ -48869,6 +48876,7 @@ async function connect(){
     /* the first read failed: an earlier visit's unsent changes still go, and a newer save read later does not
        silently replace them (syncOwnNation) */
     if(S.nation&&S.nation._dirty){carried=true;if(S.mode==='world')queueRemote();}}
+  ownWaitEnd();
   publishSync();
   civicRefresh();
   /* Three listeners: this region's nations in full; every region's Moon, Mars and belt data (space/,
@@ -51061,7 +51069,7 @@ function render(){if(fxRender())return;
      Translate), made the translator redo and keep track of the whole page each time, which wore a long session
      down to a crawl. The serial numbers that make SVG ids unique differ from drawing to drawing, so they are
      left out of the comparison. A jump or a reward to show always draws. */
-  const html=gamesLocal((OBS?obsBar():PV?pvBar():'')+(S.nation?shell():PV?pvWait():foundView())),app=document.getElementById('app'),same=renderKey(html);
+  const html=gamesLocal((OBS?obsBar():PV?pvBar():'')+(S.nation?shell():PV?pvWait():OWN_WAIT&&OWN_WAIT.on&&!OBS?ownWaitView():foundView())),app=document.getElementById('app'),same=renderKey(html);
   if(same===RENDER_LAST.k&&!uxPlan&&!rewardJump&&app.firstChild&&RENDER_LAST.app===app.firstChild){RENDER_LAST.skips++;return;}
   const navK=navBefore();
   const route=rpRoute();
