@@ -170,6 +170,8 @@ async function rcPost(db, who, d, regions) {
       else if (r && u === r.a) toTell.set(u, true);
     });
     const ref = db.collection('rchat/' + reg + '/chat').doc(), me = team ? 'Edictum team' : line(e.saved.get('name'), 80) || 'A nation';
+    /* a team line keeps the staff member's own nation name (wn), so readers see who on the team wrote it */
+    const wn = team && e.saved && e.saved.exists ? line(e.saved.get('name'), 80) : '';
     /* the author as a reader in another region sees them: region, flag, rank, alliance, Founding Supporter mark */
     let marks = {};
     if (extra.length) {
@@ -183,7 +185,7 @@ async function rcPost(db, who, d, regions) {
     tx.set(pace, { p: recent.concat(now).slice(-RC_HOUR), ...(world ? { w: now, wh: h } : { h }) }, { merge: true });
     const exp = Timestamp.fromMillis(now + RC_KEEP);
     tx.create(ref, { a: who.uid, nm: me, x, t: now, exp, ...marks,
-      ...(who.admin ? { st: 'admin' } : who.mod ? { st: 'mod' } : {}), ...(team ? { tm: true } : {}), ...(r ? { r } : {}), ...(Object.keys(mn).length ? { mn } : {}), ...(pic ? { im: pic.im } : {}) });
+      ...(who.admin ? { st: 'admin' } : who.mod ? { st: 'mod' } : {}), ...(team ? { tm: true, ...(wn ? { wn } : {}) } : {}), ...(r ? { r } : {}), ...(Object.keys(mn).length ? { mn } : {}), ...(pic ? { im: pic.im } : {}) });
     if (pic) tx.create(db.doc('rcimg/' + reg + '/chat/' + ref.id), { a: who.uid, d: pic.d, k: pic.kind, t: now, exp });
     for (const [u, rp] of toTell) tx.create(db.collection('mentions/' + u + '/m').doc(), { k: 'chat', by: who.uid, nm: me, reg, rc: ref.id, x: line(x, 160) || '📷 A picture', t: now, ...(rp ? { rp: true } : {}) });
     tell = [...toTell].map(([u, rp]) => ({ u, rp, nm: me }));

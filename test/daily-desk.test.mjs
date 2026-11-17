@@ -17,7 +17,7 @@ const plain=v=>v===undefined?v:JSON.parse(JSON.stringify(v)),eq=(a,b,m)=>assert.
 function desk(over={}){
   const start=source.indexOf('const DD_GIFT='),end=source.indexOf('/* ── the desk on the edicts page ── */',start);
   assert.ok(start>0&&end>start);
-  const ctx=vm.createContext({window:{},NORM_HOOKS:[],COMMIT_HOOKS:[],UNLOCK_SOURCES:[],NOTIF_SOURCES:[],MP_NET_MAX:24,FREQ_DEF:30,
+  const ctx=vm.createContext({window:{},NORM_HOOKS:[],COMMIT_HOOKS:[],UNLOCK_SOURCES:[],NOTIF_SOURCES:[],MP_NET_MAX:55,FREQ_DEF:30,
     allNations:()=>[{me:true},{me:false}],cellOf:v=>Number.isInteger(v)?v:-1,asmState:()=>null,asmMemberAt:()=>true,pgAvailable:()=>false,
     cityList:n=>n.cities||[],landCredits:()=>0,landEarned:()=>BASE,earnedAt:()=>BASE,stockNow:n=>({...n.stock}),stockLimit:(n,r,v)=>Math.min(400,v),
     num0:v=>Number.isFinite(v)?v:0,roundStock:s=>({...s}),resName:r=>r,czHas:(o,k)=>Object.hasOwn(o,k),
