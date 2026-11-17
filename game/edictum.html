@@ -21666,20 +21666,24 @@ const MAX_DEALS=12;
    coast +0.85). With the eating steps above it took 29% off the food banked on the 16 Nov snapshot. The map tools copy
    CELL_RES on its own, so the factor is written into it and FOOD_LAND below must stay the same number. */
 const CELL_RES=(()=>{
-  const N=MAP.N,o={food:new Float32Array(N),timber:new Float32Array(N),iron:new Float32Array(N),oil:new Float32Array(N)},Y=[null,null,[2.4,0.6,0.2],[1,1.4,0.8],[0.2,0.3,2.2]];
+  const N=MAP.N,o={food:new Float32Array(N),timber:new Float32Array(N),iron:new Float32Array(N),oil:new Float32Array(N)},Y=[null,null,[2.4,0.6,0.17],[1,1.4,0.68],[0.2,0.3,1.87]];
   for(let i=0;i<N;i++){
     const t=MAP.T[i];if(t<2)continue;
     o.food[i]=Y[t][0];o.timber[i]=Y[t][1];o.iron[i]=Y[t][2];
     for(let d=0;d<6;d++){const nb=MAP.nbr[i*6+d];if(nb<0||MAP.T[nb]<2){o.food[i]+=1;break;}}
-    if(t<4&&hash('oil:'+cellKey(i))%1000<40)o.oil[i]=5;
+    if(t<4&&hash('oil:'+cellKey(i))%1000<40)o.oil[i]=4.5;
     o.food[i]*=0.85;
   }
   return o;
 })();
 const FOOD_LAND=0.85;
 /* large iron deposits, scattered over the map (the same for every player): mountains most often, then hills, now and then
-   lowland, never where there is oil. Each adds IRON_DEP_YIELD iron a day to the land, which an Iron Mine doubles. */
-const IRON_DEP_YIELD=4;
+   lowland, never where there is oil. Each adds IRON_DEP_YIELD iron a day to the land, which an Iron Mine raises by 75%.
+   On 2026-11-17 the owner made iron harder to get and oil a little harder: land iron ×0.85 (lowland 0.2, hills 0.8,
+   mountains 2.2 and deposits 4 before), oil deposits 5 → 4.5, the Iron Mine [1,1.5] → [0.75,1.1] and Ore Pits
+   [0.5,1] → [0.375,0.75] each burning 1 timber a day, Oil Wells +150% → +125%, and 30% of an upgrade's timber
+   is paid in iron instead (ugIron). */
+const IRON_DEP_YIELD=3.5;
 /* every map gets its share: one deposit for every IRON_DEP_PER land hexes (at least IRON_DEP_MIN, at most IRON_DEP_MAX),
    the hexes ranked by a hash weighted towards mountains (25) and hills (8) over lowland (1), so a flat map still has some */
 const IRON_DEP_PER=250,IRON_DEP_MIN=24,IRON_DEP_MAX=400,IRON_DEP_W=[0,0,1,8,25];
@@ -22064,9 +22068,9 @@ const BLD_CATS=[['prod','Production'],['soc','Society'],['def','Defence'],['won'
 const BUILDINGS={
   farm:{n:'Farm Estates',c:'prod',d:'Food from the land around the city +60%, and 2 more a day.',cost:{timber:10,goods:8},h:2,res:{food:[0.6,2]}},
   sawmill:{n:'Sawmill',c:'prod',d:'Timber from the land around the city doubles, and 2 more a day.',cost:{food:12,goods:8},h:2,res:{timber:[1,2]}},
-  mine:{n:'Iron Mine',c:'prod',d:'Iron from the land around the city doubles, and 1.5 more a day.',cost:{timber:20,food:10},h:4,res:{iron:[1,1.5]},need:'hills'},
-  oilwell:{n:'Oil Wells',c:'prod',d:'Oil from deposits around the city +150%.',cost:{iron:15,timber:10},h:6,res:{oil:[1.5,0]},need:'oil'},
-  orepit:{n:'Ore Pits',c:'prod',d:'Iron from the land around the city +50%, and 1 more a day. For cities with no hills nearby.',cost:{timber:15,food:10},h:4,res:{iron:[0.5,1]},need:'flat'},
+  mine:{n:'Iron Mine',c:'prod',d:'Iron from the land around the city +75%, and 1.1 more a day. Burns 1 timber a day smelting the ore.',cost:{timber:20,food:10},h:4,res:{iron:[0.75,1.1]},need:'hills',up:{timber:1}},
+  oilwell:{n:'Oil Wells',c:'prod',d:'Oil from deposits around the city +125%.',cost:{iron:15,timber:10},h:6,res:{oil:[1.25,0]},need:'oil'},
+  orepit:{n:'Ore Pits',c:'prod',d:'Iron from the land around the city +38%, and 0.75 more a day. Burns 1 timber a day smelting the ore. For cities with no hills nearby.',cost:{timber:15,food:10},h:4,res:{iron:[0.375,0.75]},need:'flat',up:{timber:1}},
   factory:{n:'Factory',c:'prod',d:'Goods +6 a day. Uses 1 oil a day, except your first Factory, which runs without.',cost:{timber:15,iron:6},h:4,res:{goods:[0,6]},up:{oil:1}},
   harbour:{n:'Harbour',c:'prod',d:'Food +3 and goods +3 a day from fishing and shipping.',cost:{timber:25,iron:5},h:4,res:{food:[0,3],goods:[0,3]},need:'coast',once:{tour:1}},
   market:{n:'Market Hall',c:'soc',d:'Your economy +3% and one more trade deal slot.',cost:{timber:12,goods:12},h:3,prosper:0.03},
@@ -67658,9 +67662,11 @@ function cxRefund(n,st,cost,now){for(const r of RES)st[r]=stockLimit(n,r,st[r]+M
 /* the list prices of an upgrade and of a wall level (no cabinet bonus): the most a kept price can be. m stands in for the
    block's share for a raise to an old level (×1.5 or ×2.5) still under way when the blocks arrived */
 /* prices round up to whole units, less a hair of floating-point dust first (225 × 1.08 is 243.00000000000003: 243, not 244) */
-function cxUpList(k,to,m,tr){const U=CX_UG[to-1];m=m||(U&&U.cost);if(!BUILDINGS[k]||!m)return null;const T=tr>=2?bTier(k,tr):null,base=bCost(null,k),c={};for(const r in base)c[r]=Math.max(1,Math.ceil(base[r]*m*(T?T.ug:1)-1e-9));return c;}
+/* since 2026-11-17 (idea 6) 30% of an upgrade's timber price is asked in iron instead, so upgrades lean on iron: ugIron,
+   kept on cxUpList's line so the tests that lift that line get it too */
+function cxUpList(k,to,m,tr){const U=CX_UG[to-1];m=m||(U&&U.cost);if(!BUILDINGS[k]||!m)return null;const T=tr>=2?bTier(k,tr):null,base=bCost(null,k),c={};for(const r in base)c[r]=Math.max(1,Math.ceil(base[r]*m*(T?T.ug:1)-1e-9));return ugIron(c);}function ugIron(c){const t=c.timber||0;if(t<2)return c;const x=Math.round(t*0.3);c.timber=t-x;c.iron=(c.iron||0)+x;return c;}
 function cxWallList(to){const W=CX_WALL[to];if(!W)return null;const c={};for(const r in W.cost)c[r]=Math.max(1,Math.round(W.cost[r]));return c;}
-function cxUpQuote(n,ct,k,to,tr){const U=CX_UG[to-1],T=tr>=2?bTier(k,tr):null,base=bCost(n,k),c={};for(const r in base)c[r]=Math.max(1,Math.ceil(base[r]*U.cost*(T?T.ug:1)-1e-9));return {cost:c,hours:Math.max(0.1,Math.round(bHours(n,k)*U.h*(T?T.uh:1)*cxBuildK(ct)*10)/10)};}
+function cxUpQuote(n,ct,k,to,tr){const U=CX_UG[to-1],T=tr>=2?bTier(k,tr):null,base=bCost(n,k),c={};for(const r in base)c[r]=Math.max(1,Math.ceil(base[r]*U.cost*(T?T.ug:1)-1e-9));return {cost:ugIron(c),hours:Math.max(0.1,Math.round(bHours(n,k)*U.h*(T?T.uh:1)*cxBuildK(ct)*10)/10)};}
 function cxBusyLeft(b,now){const e=cxBldExtras(b),d=e.tu&&e.tu.d>now?e.tu.d:e.uu?e.uu.d:now;return fmtDur(Math.max(0,d-now));}
 function cxUpBusy(rec,now){return ((rec&&rec.b)||[]).find(b=>{if(!b||!cxUpgradable(b.k))return false;const e=cxBldExtras(b);return e.uu&&e.uu.d>now||e.tu&&e.tu.d>now;})||null;}
 function cxUpProblem(n,ct,k,st,now){
