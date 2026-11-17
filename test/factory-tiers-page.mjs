@@ -115,7 +115,7 @@ try {
   check('the row shows the Assembly Plant with its tier II badge and no blocks yet', /^Assembly Plant ?II/.test(r) && await page.$('.bld .tier-b') !== null, r);
   check('it makes 12 goods, and its first Factory runs without oil', /\+12 goods a day/.test(r), r);
   const q = await page.evaluate(() => { const P = window.__game.TIER(); return [P.cxUpQuote(window.__game.S.nation, null, 'factory', 1, 1).cost, P.cxUpQuote(window.__game.S.nation, null, 'factory', 1, 2).cost]; });
-  check('its blocks start again, at twice the price', r.includes('Upgrade to grey') && q[1].timber >= 2 * q[0].timber - 1 && r.includes(`${q[1].timber} timber`), JSON.stringify({ q, r }));
+  check('its blocks start again, at twice the price', r.includes('Upgrade to grey') && /* since 2026-11-17 part of the timber is asked in iron (ugIron), rounded per price: compare the two together */ (q[1].timber + (q[1].iron || 0)) >= 2 * (q[0].timber + (q[0].iron || 0)) - 2 && r.includes(`${q[1].timber} timber`), JSON.stringify({ q, r }));
   await page.screenshot({ path: path.join(OUT, 'factory-tier-row.png'), clip: await page.locator('.bld:has([data-k="factory"])').boundingBox() || undefined });
 
   /* a tier II block: the goods rise from 12 */
