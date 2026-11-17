@@ -22936,6 +22936,7 @@ function mileUnlocks(m,n){
   for(const [f,p] of Object.entries(FEATURE_AT))if(MILESTONES.filter(x=>x.p<=p).pop()===m)u.push(FEATURE_WORDS[f]+(p===m.p?'':' at '+fmtPopShort(p)));
   if(m.host)u.push('bidding to host the Games');
   if(mc)u.push(mc===1?'a bonus land credit':mc+' bonus land credits');
+  {const pm=popMarkCredits(m.p)-popMarkCredits(m.p-1e-6);if(pm)u.push(pm+' population land credits');}
   return u;
 }
 function growthSection(n){
@@ -22992,13 +22993,17 @@ function prvCredits(n){return PRV_CREDITS*Math.max(0,prvPeak(n)-1);}
    more than the most provinces a nation can hold (PRV_MAXL, 48: test/province-credits.test.mjs holds the two equal). */
 const PRV_PEAK_MAX=48;
 NORM_HOOKS.push((n,d)=>{const k=d&&d.prpk;if(Number.isInteger(k)&&k>0)n.prpk=Math.min(k,PRV_PEAK_MAX);});
-function landEarned(n){const p=popNow(n);return Math.max(0,Math.max(0,budgetOf(p)-CORE_HEXES)+mileOf(n).bonus+(n.lcb||0)+achRankCredits(n)+achTierCredits(n)+prvCredits(n)-(n.mvl||0));}
+/* population marks: at 10, 20 … 100 million people a nation earns 2, 4 … 20 land credits (twice the tens), and every
+   25 million after 100 million 2 more. Counted from the population now, like the milestones. */
+function popMarkCredits(p){if(!(p>=10-1e-9))return 0;let k=0;for(let m=10;m<=100&&p>=m-1e-9;m+=10)k+=m/5;if(p>=125-1e-9)k+=2*Math.floor((p-100+1e-9)/25);return k;}
+function popMarkNext(p){if(p<100-1e-9){const m=10*Math.floor(p/10+1e-9)+10;return {p:m,c:m/5};}return {p:100+25*(Math.floor((p-100+1e-9)/25)+1),c:2};}
+function landEarned(n){const p=popNow(n);return Math.max(0,Math.max(0,budgetOf(p)-CORE_HEXES)+mileOf(n).bonus+(n&&n.npc?0:popMarkCredits(p))+(n.lcb||0)+achRankCredits(n)+achTierCredits(n)+prvCredits(n)-(n.mvl||0));}
 function landCredits(n){
   if(!n||!Array.isArray(n.claims)||cellOf(n.loc)<0)return 0;
   const T=territory(),i=T.byId[myId()];if(i===undefined)return 0;
   return Math.max(0,landEarned(n)-claimsUsed(n,T,i));
 }
-function nextCreditAt(n){const p=popNow(n),h=popForHexes(budgetOf(p)+1),m=mileOf(n).next;return m&&mileCredit(n,MILESTONES.indexOf(m))&&m.p<h?m.p:h;}
+function nextCreditAt(n){const p=popNow(n),h=popForHexes(budgetOf(p)+1),m=mileOf(n).next,k=n&&n.npc?h:popMarkNext(p).p,a=m&&mileCredit(n,MILESTONES.indexOf(m))&&m.p<h?m.p:h;return Math.min(a,k);}
 const freeCell=(T,c)=>claimLand(c)&&T.owner[c]===-1&&!T.isCap[c]&&claimOk(T,c);
 let landMemo={T:null,me:'',fr:null,bs:null};
 function claimFrontier(T){
