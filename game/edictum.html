@@ -30442,8 +30442,15 @@ function normalize(d){
     size+=s.length;n[k]=JSON.parse(s);fk.push(k);
   }
   if(fk.length)n._fk=fk;else delete n._fk;
+  /* a nation of another region is checked against this page's map, not its own: its cities, roads and land would
+     not fit and be dropped, and a save that followed (or the copy regionReload keeps) lost them for good (Guatapanal,
+     17 Nov 2026: signed in on a new phone, which opens FIRST_REG). They are kept as they were; the region's own page
+     checks them. */
+  if(typeof r.reg==='string'&&REG_BY_ID[r.reg]&&r.reg!==REG.id)for(const k of MAP_KEEP){
+    if(!(k in r))continue;let s;try{s=JSON.stringify(r[k]);}catch(e){continue;}if(s!==undefined)n[k]=JSON.parse(s);}
   return n;
 }
+const MAP_KEEP=['loc','cv','cities','infra','dep','mapPlan','claims','conq','bx','rec','mvCap'];
 
 /* ───────── moving ───────── */
 /* A move keeps the nation: people, laws, cabinet, treasury, history, honours and museum. The land starts
