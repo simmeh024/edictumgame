@@ -39,6 +39,22 @@ test('fields no code reads are kept as they were and listed; read-and-dropped on
   const p = k.normalize(JSON.parse('{"name":"x","pop":1,"__proto__":{"evil":1},"constructor":2}'));
   assert.equal(p.evil, undefined); assert.equal(p._fk, undefined);
 });
+/* the real normalize's map checks, standing in: a city or road off this page's map goes */
+test('a nation of another region keeps its cities, roads and land as they were (Guatapanal, 17 Nov 2026)', () => {
+  const i = src.indexOf('const FWD_MAX='), j = src.indexOf('\n', src.indexOf('const MAP_KEEP=')) + 1;
+  const N = 100, onMap = c => c < N;
+  const ctx = vm.createContext({ remapLegacy: d => d, JSON, Proxy, Reflect, Set, REG: { id: 'sunkenkingdoms' }, REG_BY_ID: { sunkenkingdoms: {}, saffron: {} },
+    normalizeR2: d => ({ name: d.name, reg: d.reg, cv: 4, loc: d.loc, cities: (d.cities || []).filter(c => onMap(c.c)), infra: (d.infra || []).filter(r => r.path.every(onMap)), claims: d.claims }) });
+  vm.runInContext(src.slice(i, j).replace(/\bconst (FWD_MAX|MAP_KEEP)/g, 'var $1'), ctx);
+  const d = { name: 'Guatapanal', reg: 'saffron', cv: 4, loc: { c: 3, r: 335 }, dep: { cap: { oil: 1 } },
+    cities: [{ id: 'cap', c: 335, b: [{ k: 'farm' }] }, { id: 'u', c: 343, b: [] }], infra: [{ id: 'r1', path: [343, 335] }, { id: 'r2', path: [41, 34] }], claims: [{ c: 336 }] };
+  const n = ctx.normalize(d);
+  assert.deepEqual(plain(n.cities), d.cities); assert.deepEqual(plain(n.infra), d.infra); assert.deepEqual(plain(n.dep), d.dep);
+  assert.notEqual(n.cities, d.cities, 'a copy');
+  const here = ctx.normalize({ ...d, reg: 'sunkenkingdoms' });
+  assert.deepEqual(plain(here.cities), [], 'this region\'s own nation is still checked against the map');
+  assert.deepEqual(plain(here.infra), [d.infra[1]]);
+});
 test('bounded by count and size', () => {
   const k = norm(), d = { name: 'x', pop: 1 };
   for (let i = 0; i < k.FWD_MAX + 10; i++) d['f' + i] = i;
