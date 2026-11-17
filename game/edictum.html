@@ -66007,12 +66007,13 @@ function cxRefund(n,st,cost,now){for(const r of RES)st[r]=stockLimit(n,r,st[r]+M
 function cxUpList(k,to,m,tr){const U=CX_UG[to-1];m=m||(U&&U.cost);if(!BUILDINGS[k]||!m)return null;const T=tr>=2?bTier(k,tr):null,base=bCost(null,k),c={};for(const r in base)c[r]=Math.max(1,Math.ceil(base[r]*m*(T?T.ug:1)-1e-9));return c;}
 function cxWallList(to){const W=CX_WALL[to];if(!W)return null;const c={};for(const r in W.cost)c[r]=Math.max(1,Math.round(W.cost[r]));return c;}
 function cxUpQuote(n,ct,k,to,tr){const U=CX_UG[to-1],T=tr>=2?bTier(k,tr):null,base=bCost(n,k),c={};for(const r in base)c[r]=Math.max(1,Math.ceil(base[r]*U.cost*(T?T.ug:1)-1e-9));return {cost:c,hours:Math.max(0.1,Math.round(bHours(n,k)*U.h*(T?T.uh:1)*cxBuildK(ct)*10)/10)};}
+function cxBusyLeft(b,now){const e=cxBldExtras(b),d=e.tu&&e.tu.d>now?e.tu.d:e.uu?e.uu.d:now;return fmtDur(Math.max(0,d-now));}
 function cxUpBusy(rec,now){return ((rec&&rec.b)||[]).find(b=>{if(!b||!cxUpgradable(b.k))return false;const e=cxBldExtras(b);return e.uu&&e.uu.d>now||e.tu&&e.tu.d>now;})||null;}
 function cxUpProblem(n,ct,k,st,now){
   if(!cxUpgradable(k))return 'This building cannot be upgraded.';
   const b=ct.rec&&ct.rec.b.find(x=>x.k===k);if(!b||b.d>now)return 'Finish the building first.';
   if(cxUps(b,now)>=CX_UG_MAX)return 'All five upgrades are done.';
-  const busy=cxUpBusy(ct.rec,now);if(busy)return `The builders are ${cxBldExtras(busy).tu?'retooling':'upgrading'} the ${BUILDINGS[busy.k].n} first.`;
+  const busy=cxUpBusy(ct.rec,now);if(busy)return `The builders are ${cxBldExtras(busy).tu?'retooling':'upgrading'} the ${BUILDINGS[busy.k].n} in this city first, ${cxBusyLeft(busy,now)} left. Each city works on one upgrade or retool at a time.`;
   const miss=lacking(cxUpQuote(n,ct,k,cxUps(b,now)+1,cxTier(b,now).t).cost,st);return miss.length?'You need '+list(miss)+' more.':null;
 }
 function cxUpgrade(cid,k){
@@ -66334,7 +66335,7 @@ function elProblem(n,ct,k,st,now){
   if(!elOn(k))return 'This building has no economy levels.';
   const b=ct.rec&&(ct.rec.b||[]).find(x=>x.k===k);if(!b||b.d>now)return 'Finish the building first.';
   if(cxUps(b,now)<EL_BLD[k])return `Give it all ${CX_UG_MAX} upgrades first.`;
-  const busy=elBusy(ct.rec,now)||cxUpBusy(ct.rec,now);if(busy)return `The builders are working on the ${BUILDINGS[busy.k].n} first.`;
+  const busy=elBusy(ct.rec,now)||cxUpBusy(ct.rec,now);if(busy)return `The builders are working on the ${BUILDINGS[busy.k].n} in this city first, ${cxBusyLeft(busy,now)} left. Each city works on one upgrade or retool at a time.`;
   const miss=lacking(elQuote(n,ct,k,elLv(b,now)+1).cost,st);return miss.length?'You need '+list(miss)+' more.':null;
 }
 function elRaise(cid,k){
@@ -66381,7 +66382,7 @@ function tierProblem(n,ct,k,st,now){
   const b=ct.rec&&ct.rec.b.find(x=>x.k===k);if(!b||b.d>now)return 'Finish the building first.';
   const to=bTierNext(k,cxTier(b,now).t);if(!to)return 'It is at its highest tier.';
   if(cxUps(b,now)<CX_UG_MAX)return 'Give it all five upgrades first.';
-  const busy=cxUpBusy(ct.rec,now);if(busy)return busy===b?'It is being retooled.':`The builders are ${cxBldExtras(busy).tu?'retooling':'upgrading'} the ${BUILDINGS[busy.k].n} first.`;
+  const busy=cxUpBusy(ct.rec,now);if(busy)return busy===b?'It is being retooled.':`The builders are ${cxBldExtras(busy).tu?'retooling':'upgrading'} the ${BUILDINGS[busy.k].n} in this city first, ${cxBusyLeft(busy,now)} left. Each city works on one upgrade or retool at a time.`;
   const miss=lacking(tierQuote(n,ct,k,to).cost,st);return miss.length?'You need '+list(miss)+' more.':null;
 }
 function tierStart(cid,k,ln){
