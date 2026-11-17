@@ -5914,6 +5914,7 @@ svg.cu-note.cu-note-v{width:28%!important;min-width:56px;height:auto!important;m
 .cst-card svg{width:calc(96px * var(--k,1))!important}.cst-card svg.cu-note-v{width:calc(46px * var(--k,1))!important}
 .cst-sub{font-size:13px;margin:8px 0 0}.cst-ents{list-style:none;margin:0;padding:0;display:grid;gap:6px}.cst-ents li{display:grid;grid-template-columns:72px 1fr auto;gap:8px;align-items:center}.cst-ent-n{width:72px;height:auto}
 .cst-cms{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.cst-cms svg{width:100%;height:auto}.cst-cm-c{width:110px;height:auto}
+.cz-st-top{margin:0 0 14px;padding:10px 12px;border:1px solid var(--accent);border-radius:8px;background:var(--accent-soft)}
 .cu-st-open{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;margin:4px 0 10px}
 /* see it: the note in the world */
 .cst-cv[data-see="uv"]{background:#0b0718}.cst-cv[data-see="uv"] .cst-note{filter:invert(1) hue-rotate(180deg) brightness(.55) saturate(2.4) contrast(1.4)}
@@ -28667,8 +28668,8 @@ function czFlagBody(n){
   const saved=JSON.stringify(n.flag);if(!S.czFlag||JSON.stringify(S.czFlag)===S.czFlagBase&&S.czFlagBase!==saved){S.czFlag=clone(n.flag);S.czFlagBase=saved;}
   const dirty=czFlagDirty();
   /* the flag is designed only in the Flag Studio; a draft left there unsaved can still be flown or dropped here */
-  return `<div class="flag-preview-row"><div class="flag-frame" id="c-flag-prev">${flagSVG(S.czFlag,'Flag preview')}</div>
-    <div class="cu-st-open"><button type="button" class="btn" data-fst="open">Design in the Flag Studio</button><span class="hint">Your flag is designed in the Studio: every part on one screen, layers, a canton, borders, proportions, traditions, a vexillology check and your flag in use.</span></div></div>
+  return `<div class="cu-st-open cz-st-top"><button type="button" class="btn" data-fst="open">Design in the Flag Studio</button><span class="hint">Your flag is designed in the Studio: every part on one screen, layers, a canton, borders, proportions, traditions, a vexillology check and your flag in use.</span></div>
+    <div class="flag-preview-row"><div class="flag-frame" id="c-flag-prev">${flagSVG(S.czFlag,'Flag preview')}</div></div>
     ${dirty?`<div class="row cz-flagbar is-dirty"><button type="button" class="btn" data-act="cz-flag-save">Fly the unsaved design</button><button type="button" class="btn ghost" data-act="cz-flag-reset">Discard it</button><span class="hint" id="c-flag-dirty">Your flag has unsaved changes from the Studio.</span></div>`:''}`;
 }
 function czFlagMark(){const d=czFlagDirty(),el=document.getElementById('c-flag-dirty');if(el)el.textContent=d?'Your flag has unsaved changes.':'';const b=document.querySelector('.cz-flagbar');if(b)b.classList.toggle('is-dirty',d);}
@@ -48188,7 +48189,8 @@ function cuCzBody(n){
       :`<button type="button" id="${id}-${v}" class="seg-b cu-lk" data-act="cu-locked" data-u="${u}" aria-disabled="true" title="${esc(l+': '+unlockHow(u))}">${CZ_LOCK}${esc(l)}</button>`;}).join('')}</div></div>`;
   const flagC=(n.flag&&n.flag.c||[]).map(cuHex).filter(Boolean),sw=[...new Set(flagC.concat(Object.values(CZ_TINCT).map(t=>t[1].toUpperCase())).concat(['#1D6A5C','#6A3DB3','#7A2E2E','#2D3E6B']))].slice(0,12).concat(Object.keys(CU_SWATCH).filter(h=>!flagC.includes(h)));
   const col=(k,l)=>`<div class="cz-drow"><span class="cz-dl" id="cu-l-${k}">${l}</span><div class="cu-sws" role="group" aria-labelledby="cu-l-${k}">${sw.map(h=>`<button type="button" class="cu-sw${N[k]===h?' on':''}" style="background:${h}" data-act="cu-set" data-f="note.${k}" data-v="${h}" aria-pressed="${N[k]===h}" aria-label="${esc(h)}${flagC.includes(h)?', from your flag':''}"></button>`).join('')}<label class="cu-sw-c"><span class="cz-sr">Another colour</span><input type="color" value="${esc((N[k]||'#1D6A5C').toLowerCase())}" data-cu="note.${k}"></label></div></div>`;
-  return `<div class="cu-cz">
+  return `<div class="cu-st-open cz-st-top"><button type="button" class="btn" data-cst="open">Design the banknotes in the Note Studio</button><button type="button" class="btn" data-cst="open" data-v="coin">Design the coins</button><span class="hint">Notes and coins are designed in the Studio: every part on one screen, the whole series, effects and security features.</span></div>
+  <div class="cu-cz">
   <div class="cu-cz-prev" id="cu-prev" aria-live="polite">${cuPrevHTML(n,d)}</div>
   <form id="cu-form" novalidate>
     <p class="cu-quick hint">A currency is ready the moment a nation is founded: the suggestion below is yours already. Name it here; design its notes and coins in the Note Studio. Save keeps both. Names and designs never change what the currency is worth or how far it is trusted.</p>
@@ -48198,10 +48200,6 @@ function cuCzBody(n){
     <div class="fields">${f('su','Subunit',16,'cent','')}<div class="field"><label for="cu-f-sn">Subunits in one unit</label><select class="input" id="cu-f-sn" data-cu="sn">${CU_SNS.map(v=>`<option value="${v}"${+d.sn===v?' selected':''}>${v===1?'None':v}</option>`).join('')}</select></div></div>
     ${seg('Symbol goes','cu-l-sp',[['b','Before: '+c.sy+'10'],['a','After: 10 '+c.sy]],d.sp,'cu','sp')}
     ${seg('Separators','cu-l-nf',Object.keys(CU_NF).map(k=>[k,CU_NF[k][2]]),d.nf,'cu','nf')}
-    <h3 class="sub-h">Banknote</h3>
-    <div class="cu-st-open"><button type="button" class="btn" data-cst="open">Design the banknotes in the Note Studio</button><span class="hint">The notes are designed in the Studio: every part on one screen, the whole series, effects and security features.</span></div>
-    <h3 class="sub-h">Coin</h3>
-    <div class="cu-st-open"><button type="button" class="btn" data-cst="open" data-v="coin">Design the coins in the Note Studio</button><span class="hint">Both faces, metals, shape, finish, rim, edge, marks and the whole set to scale.</span></div>
     <div class="row cu-bar"><button class="btn" type="submit">Save the currency</button><button type="button" class="btn ghost" data-act="cu-reset">Back to the suggestion</button><span class="hint" id="cu-msg"></span></div>
   </form></div>`;
 }
@@ -54958,7 +54956,7 @@ function uxHold(el,sel){
 }
 const UX_SETTINGS=[
   {v:'focus:currency',l:'Currency designer',g:'Design',words:'money banknote coin notes currency symbol code',view:'customise',target:'#cz-sec-c'},
-  {v:'focus:flag',l:'Flag layers and design',g:'Design',words:'flag emblem stripes border layers rotate',view:'customise',target:'[data-fgg="c:layers"]',setup:()=>{FG.open['c:layers']=true;}},
+  {v:'focus:flag',l:'Flag Studio: layers and design',g:'Design',words:'flag emblem stripes border layers rotate canton studio',view:'customise',target:'#cz-sec-e [data-fst="open"]'},
   {v:'focus:passport',l:'Passport designer',g:'Design',words:'passport cover pages stamp visas',view:'customise',target:'#cz-sec-p'},
   {v:'focus:appearance',l:'Game appearance',g:'Settings',words:'theme accent colour color density font text size motion',view:'settings',target:'#set-appearance'},
   {v:'focus:sound',l:'Sound effects',g:'Settings',words:'sound sounds audio mute quiet silent volume seal stamp dice vibrate buzz',view:'settings',target:'#set-sound'},
