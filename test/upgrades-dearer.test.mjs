@@ -23,6 +23,8 @@ function load(){
   return ctx;
 }
 
+/* since 2026-11-17 30% of an upgrade's timber is asked in iron instead (ugIron): the prices below are the timber-only ones, moved */
+const ug=c=>{c={...c};const t=c.timber||0;if(t>=2){const x=Math.round(t*0.3);c.timber=t-x;c.iron=(c.iron||0)+x;}return c;};
 test('the five coloured upgrades cost 1.2 times what they did',()=>{
   const G=load();
   assert.deepEqual([...G.CX_UG].map(u=>u.cost),[0.48,0.72,1.08,1.56,2.16]);
@@ -33,12 +35,12 @@ test('the five coloured upgrades cost 1.2 times what they did',()=>{
 
 test('prices round up to whole units, without floating-point dust adding one',()=>{
   const G=load();
-  assert.deepEqual({...G.cxUpQuote({},{},'hall',3).cost},{timber:27,iron:11,goods:8});
+  assert.deepEqual({...G.cxUpQuote({},{},'hall',3).cost},ug({timber:27,iron:11,goods:8}));
   /* 225 × 1.08 is 243.00000000000003 and 50 × 1.8 × 1.3 is 117.00000000000001 in floating point: 243 and 117, not one more */
-  assert.deepEqual({...G.cxUpQuote({},{},'keep',3).cost},{timber:243});assert.deepEqual({...G.cxUpList('keep',3)},{timber:243});
+  assert.deepEqual({...G.cxUpQuote({},{},'keep',3).cost},ug({timber:243}));assert.deepEqual({...G.cxUpList('keep',3)},ug({timber:243}));
   assert.deepEqual({...G.elList('tower',2)},{timber:117});assert.deepEqual({...G.elQuote({},{},'tower',2).cost},{timber:117});
-  assert.deepEqual({...G.cxUpList('hall',3)},{timber:27,iron:11,goods:8},'the refund cap matches the price');
-  assert.deepEqual({...G.cxUpQuote({},{},'hall',5).cost},{timber:54,iron:22,goods:16});
+  assert.deepEqual({...G.cxUpList('hall',3)},ug({timber:27,iron:11,goods:8}),'the refund cap matches the price');
+  assert.deepEqual({...G.cxUpQuote({},{},'hall',5).cost},ug({timber:54,iron:22,goods:16}));
 });
 
 test('the economy levels after gold start at 1.8 times the building, up from 1.5',()=>{

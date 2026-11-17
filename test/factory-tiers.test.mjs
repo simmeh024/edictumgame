@@ -47,6 +47,8 @@ const nation=(o={})=>({id:'me',n:{policies:o.pol||{},gov:[]}});
 const city=(o={})=>({id:o.id||'c1',nm:o.nm||'Ashford',active:true,hi:0,dist:[0,1,2],done:o.done||['factory'],prog:[],ug:o.ug||{},tr:o.tr||{},mk:1,mood:60});
 const world=cities=>{const T={list:[nation()]};G.territory=()=>T;G.cityState=()=>({all:cities});return T;};
 
+/* since 2026-11-17 30% of an upgrade's timber is asked in iron instead (ugIron): the prices below are the timber-only ones, moved */
+const ug=c=>{c={...c};const t=c.timber||0;if(t>=2){const x=Math.round(t*0.3);c.timber=t-x;c.iron=(c.iron||0)+x;}return c;};
 test('the Factory has tier II, Industrial Works, in three lines',()=>{
   const T=G.BTIER.factory[2];
   assert.equal(T.n,'Industrial Works');
@@ -85,8 +87,8 @@ test('the record keeps the tier, the line and a retool under way, and nothing it
   deq(G.cxBldExtras(bld('factory',5,{tu:{...tu,d:NOW+8*DAY}})),{ug:5},'never longer than a week');
   deq(G.cxBldExtras(bld('factory',5,{tu:{...tu,ln:7}})),{ug:5},'a line is needed');
   const uu={u:3,s:NOW,d:NOW+DAY,p:{timber:99,iron:99}};
-  deq(G.cxBldExtras(bld('factory',2,{tr:2,uu})).uu.p,{timber:33,iron:13},'a tier II block’s price is capped at twice a tier I one');
-  deq(G.cxBldExtras(bld('factory',2,{uu})).uu.p,{timber:17,iron:7},'tier I as before');
+  deq(G.cxBldExtras(bld('factory',2,{tr:2,uu})).uu.p,ug({timber:33,iron:13}),'a tier II block’s price is capped at twice a tier I one');
+  deq(G.cxBldExtras(bld('factory',2,{uu})).uu.p,ug({timber:17,iron:7}),'tier I as before');
 });
 
 test('a finished retool: tier II at once, its blocks back to none, written in by the next save',()=>{
@@ -107,10 +109,10 @@ test('a finished retool: tier II at once, its blocks back to none, written in by
 
 test('tier II blocks cost twice a tier I block and take half as long again',()=>{
   const one=[1,2,3,4,5].map(to=>G.cxUpQuote({},{},'factory',to)),two=[1,2,3,4,5].map(to=>G.cxUpQuote({},{},'factory',to,2));
-  deq(one.map(q=>q.cost),[{timber:8,iron:3},{timber:11,iron:5},{timber:17,iron:7},{timber:24,iron:10},{timber:33,iron:13}],'tier I as before');
-  deq(two.map(q=>q.cost),[{timber:15,iron:6},{timber:22,iron:9},{timber:33,iron:13},{timber:47,iron:19},{timber:65,iron:26}]);
+  deq(one.map(q=>q.cost),[{timber:8,iron:3},{timber:11,iron:5},{timber:17,iron:7},{timber:24,iron:10},{timber:33,iron:13}].map(ug),'tier I as before');
+  deq(two.map(q=>q.cost),[{timber:15,iron:6},{timber:22,iron:9},{timber:33,iron:13},{timber:47,iron:19},{timber:65,iron:26}].map(ug));
   deq(two.map(q=>q.hours),one.map(q=>Math.round(q.hours*1.5*10)/10));
-  deq(G.cxUpList('factory',5,0,2),{timber:65,iron:26});
+  deq(G.cxUpList('factory',5,0,2),ug({timber:65,iron:26}));
   deq(G.cxUpQuote({},{},'farm',1,2),G.cxUpQuote({},{},'farm',1),'a building with no tier II prices as tier I');
 });
 
