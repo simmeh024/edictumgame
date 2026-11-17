@@ -42,11 +42,11 @@ test('the people on every hex of land beyond the natural size eat 1.4 food a day
   assert.equal(ctx.FOOD_EAT,1.4);
   const z=ctx.budgetOf(10);assert.equal(z,21,'a 10M nation’s natural size');
   assert.equal(E.held[0],400);
-  assert.ok(near(E.eat[0],1.4*(400-z)));
-  assert.ok(near(E.dem.food[0],z*ctx.DEMAND.food+1.4*(400-z)),'on top of what the natural size eats');
+  assert.ok(near(E.eat[0],1.54*(400-z)),'1.4, and 10% more at 10M people');
+  assert.ok(near(E.dem.food[0],z*ctx.DEMAND.food+1.54*(400-z)),'on top of what the natural size eats');
   for(const r of ['iron','oil','goods'])assert.ok(near(E.dem[r][0],z*ctx.DEMAND[r]),`${r} is untouched`);
-  /* 960 grown, 48 + 531 eaten: about 380 spare, where it used to be over 900 */
-  assert.ok(near(E.sup.food[0]-E.dem.food[0],960-48.3-530.6,1e-3));
+  /* 960 grown, 48 + 584 eaten: about 330 spare, where it used to be over 900 */
+  assert.ok(near(E.sup.food[0]-E.dem.food[0],960-48.3-583.66,1e-3));
 });
 
 test('a nation with no land beyond its natural size eats what it always did',()=>{
@@ -59,7 +59,7 @@ test('a nation with no land beyond its natural size eats what it always did',()=
 
 test('only land eats: lakes held are not counted',()=>{
   const {E}=world({pop:10,land:100,lakes:30});
-  assert.equal(E.held[0],100);assert.ok(near(E.eat[0],1.4*(100-21)));
+  assert.equal(E.held[0],100);assert.ok(near(E.eat[0],1.54*(100-21)));
 });
 
 test('a fed nation keeps its growth, and nobody grows faster than before',()=>{
@@ -72,8 +72,8 @@ test('a fed nation keeps its growth, and nobody grows faster than before',()=>{
 });
 
 test('average land stays fed at the full bonus; mountains go hungry and grow slower',()=>{
-  const avg=world({pop:10,land:400,yieldOf:2.16});
-  assert.ok(avg.E.ratio.food[0]>1.4&&avg.E.ratio.food[0]<1.6,`average land: ${avg.E.ratio.food[0]}`);
+  const avg=world({pop:10,land:400,yieldOf:2.16*0.85});
+  assert.ok(avg.E.ratio.food[0]>1.1&&avg.E.ratio.food[0]<1.25,`average land: ${avg.E.ratio.food[0]}`);
   assert.equal(avg.E.eff[0].growth,1.25);
   const hills=world({pop:10,land:400,yieldOf:1}),g=hills.E.eff[0].growth;
   assert.ok(hills.E.ratio.food[0]<0.75,'hills cannot feed their people');
@@ -90,13 +90,13 @@ test('Strategic Reserves still soften a shortage, and food policies still feed t
 
 test('building upkeep is still eaten on top',()=>{
   const {E}=world({pop:10,land:400,up:{food:3}});
-  assert.ok(near(E.dem.food[0],21*2.3+1.4*379+3));
+  assert.ok(near(E.dem.food[0],21*2.3+1.54*379+3));
 });
 
 test('the breakdown, the slow-food hint and Help all tell the player',()=>{
-  assert.match(source,/used\.push\(\[`People out on your land \(\$\{fmt0\(k\)\} hex\$\{k===1\?'':'es'\} beyond your core of \$\{fmt0\(econSize\(x\)\)\}, \$\{fmtAmt\(FOOD_EAT\)\} each\)`,-E\.eat\[i\]\]\)/);
+  assert.match(source,/used\.push\(\[`People out on your land \(\$\{fmt0\(k\)\} hex/);
   assert.match(source,/the people out on your land eat \$\{fmtAmt\(FOOD_EAT\)\} a hex a day, more than hills and mountains grow/);
-  assert.match(source,/Food also feeds the people out on your land: beyond a core that grows with your population\$\{n\?` \(\$\{fmt0\(Math\.max\(CORE_HEXES,budgetOf\(n\.pop\|\|0\)\)\)\} hexes for you now\)`:''\}, every hex of land you hold eats \$\{fmtAmt\(FOOD_EAT\)\} a day\./);
+  assert.match(source,/every hex of land you hold eats \$\{fmtAmt\(FOOD_EAT\)\} a day, \$\{Math\.round\(FOOD_TIER_K\*100\)\}% more at each of/);
   const brk=source.indexOf("used.push(['Your people'"),eat=source.indexOf('used.push([`People out on your land'),upk=source.indexOf("used.push(['Building upkeep'");
   assert.ok(brk>0&&eat>brk&&upk>eat,'your people, then the land, then upkeep');
 });
