@@ -75,10 +75,14 @@ check('the second biggest is second, in silver', pC && pC.k === 2 && pC.beam, JS
 check('and the third, in bronze', pA && pA.k === 3 && pA.beam, JSON.stringify(pA));
 const pD = await place(D);
 check('a nation outside the top three has no medal and no pattern', pD.k === 0 && !pD.beam, JSON.stringify(pD));
+/* once lit, the page shows the Great Dam, and the lighthouse's plaque is under Past projects */
 await nav(D, 'wonder');
-check('the plaque names gold, silver and bronze', await until(() => D.evaluate(() => { G.render(); return ['wd-m1', 'wd-m2', 'wd-m3'].every(c => document.querySelector('.wd-side .wd-who li.' + c + ' .wd-mt')); }), 10000));
-check('Lampwick is in gold', /Lampwick\s*Gold/.test(await text(D, '.wd-side .wd-who li.wd-m1')), await text(D, '.wd-side .wd-who li.wd-m1'));
-await D.locator('.wd-side .wd-who').screenshot({ path: OUT + '/lighthouse-plaque.png' });
+const PL = '#wd-past .wd-who';
+check('the page moves on to the Great Dam once the lamp is lit', await until(async () => { await D.evaluate(() => G.render()); return /Great Dam/.test(await text(D, '.vh h1')); }, 10000), await text(D, '.vh h1'));
+await D.evaluate(() => document.querySelectorAll('#wd-past details').forEach(d => { d.open = true; }));
+check('the plaque names gold, silver and bronze', await until(() => D.evaluate(PL => ['wd-m1', 'wd-m2', 'wd-m3'].every(c => document.querySelector(PL + ' li.' + c + ' .wd-mt')), PL), 10000));
+check('Lampwick is in gold', /Lampwick\s*Gold/.test(await text(D, PL + ' li.wd-m1')), await text(D, PL + ' li.wd-m1'));
+await D.locator(PL).first().screenshot({ path: OUT + '/lighthouse-plaque.png' });
 const ach = await B.evaluate(() => { G.commit(G.clone(G.S.nation)); return Object.keys(G.S.nation.ach || {}).filter(id => /^bld-(lth|wonders2|laststone)/.test(id)); });
 check('Top of the Plaque is earned', ach.includes('bld-lthtop'), JSON.stringify(ach));
 const achC = await C.evaluate(() => { G.commit(G.clone(G.S.nation)); return Object.keys(G.S.nation.ach || {}); });
