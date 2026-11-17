@@ -1263,7 +1263,7 @@ test('Region chat: answers quote their line and tell its writer, @mentions tell 
   await civic(o,{op:'rcReact',reg:'meridian',id:l1.id,k:'ha'});
   assert.equal((await db.doc('rchat/meridian/chat/'+l1.id).get()).get('rv')[o.uid],undefined);
   assert.deepEqual(await civic(g,{op:'rcReact',reg:'meridian',id:l1.id,k:'bravo'}),{ok:true,k:'bravo'});
-  await assert.rejects(civic(o,{op:'rcReact',reg:'meridian',id:l1.id,k:'love'}),e=>e.status==='INVALID_ARGUMENT');
+  await assert.rejects(civic(o,{op:'rcReact',reg:'meridian',id:l1.id,k:'meh'}),e=>e.status==='INVALID_ARGUMENT');
   await assert.rejects(civic(far,{op:'rcReact',reg:'meridian',id:l1.id,k:'hear'}),e=>e.status==='PERMISSION_DENIED');
   await rejects(civic(o,{op:'rcReact',reg:'meridian',id:'B'.repeat(20),k:'hear'}),'rc_gone');
   // a deleted account's reactions go with it (functions/accounts.js calls rcForget)

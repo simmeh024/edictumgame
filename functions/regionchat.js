@@ -58,7 +58,7 @@ const line = (x, max) => typeof x === 'string' ? x.replace(/[\u0000-\u001f\u007f
 const sameKey = x => line(x, RC_TEXT).toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
 const hash = s => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0).toString(36); };
 export const RC_OPS = ['rcPost', 'rcDelete', 'rcMute', 'rcUnmute', 'rcReact', 'rcHello', 'rcCast', 'rcUncast'];
-export const RC_MN = 5, RC_REACT = ['hear', 'ha', 'bravo', 'shame'], RC_RV_MAX = 300;
+export const RC_MN = 5, RC_REACT = ['hear', 'ha', 'bravo', 'shame', 'fire', 'love', 'wow', 'hmm'], RC_RV_MAX = 300;
 export const isRegionChatOp = op => RC_OPS.includes(op);
 /* how long a silence lasts, in hours: 0 is until lifted (kept as a far-off until, with perm) */
 export const RC_MUTE_HOURS = [1, 24, 168, 720, 0], RC_FOREVER = Date.UTC(2100, 0, 1), RC_WIPE = 86400000;
