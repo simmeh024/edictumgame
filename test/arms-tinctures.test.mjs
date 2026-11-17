@@ -28,7 +28,8 @@ function game({ mine = [], rm = false } = {}) {
   });
   vm.runInContext([
     grab(/const czHas=.*;/), grab(/const czU=.*;/), grab(/const CZ_SHIELDS=\{.*\};/), grab(/const CZ_SH_SHOP=\{.*\};/),
-    slice('const CZ_TINCT={', 'const CZ_DIVS='), grab(/const CZ_DIVS=\{.*\};/), grab(/const CZ_ORD=\{.*\};/),
+    slice('const CZ_TINCT={', 'const CZ_DIVS='), grab(/const CZ_DIVS=\{.*\};/), grab(/const CZ_ORD=\{.*\};/), grab(/const CZ_CREST=\{.*\};/), grab(/const CZ_SUP=\{.*\};/), grab(/const CZ_COMP=\{.*\};/),
+    grab(/function czChargeSpots\(a\)\{[\s\S]*?\n\}/), grab(/function czArmsExt\(a,id,F,c1,c2\)\{[\s\S]*?\n\}/),
     grab(/function czCleanArms\(a,u\)\{[\s\S]*?\n\}/), grab(/function czArmsSVG\(a,o\)\{[\s\S]*?\n\}/), grab(/function czGiltDef\(gid,still\)\{[\s\S]*?\n\}/),
     'this.X={CZ_TINCT,CZ_METAL,CZ_TN_U,CZ_TN_FB,czTnOk,czTnKey,czTnKeep,czTnSw,czCleanArms,czArmsSVG};'
   ].join('\n'), ctx);
