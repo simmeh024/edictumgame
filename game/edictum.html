@@ -54957,7 +54957,9 @@ ppViewOpen=(f=>function(id){const r=f.apply(this,arguments);nxWant(id);return r;
 
 /* ───────── map development: city reach, transport and private expansion plans ───────── */
 const MP_CITY_GROW=2,MP_CITY_MAX=3,MP_SEA_REACH=14,MP_PLAN_MAX=48,MP_NET_MAX=55;
-const MP_TYPES={road:{n:'Road',cost:{timber:2,goods:1},mins:15,bonus:0.04},rail:{n:'Railway',cost:{iron:3,goods:2},mins:30,bonus:0.10},sea:{n:'Shipping connection',cost:{timber:3,goods:2,oil:1},mins:20,bonus:0.06}};
+const MP_TYPES={road:{n:'Road',cost:{timber:2,goods:1},mins:15,bonus:0.04},rail:{n:'Railway',cost:{iron:3,goods:2},mins:30,bonus:0.10},sea:{n:'Shipping connection',cost:{timber:3,goods:2,oil:1},mins:20,bonus:0.06},bridge:{n:'Bridge',cost:{iron:18,timber:14,goods:10},mins:180,bonus:0.08}};
+/* a bridge joins two of a nation's cities at most MP_BRIDGE hexes apart across water: dear, slow, all or nothing */
+const MP_BRIDGE=3,MP_WET=k=>k==='sea'||k==='bridge';
 const mpCell=c=>Number.isInteger(c)&&c>=0&&c<MAP.N;
 const mpRadius=p=>p>=MP_CITY_GROW?MP_CITY_MAX:CITY_DISTRICT;
 function mpAssignDistricts(all,T,radius){
@@ -54979,6 +54981,17 @@ function mpLandPath(T,hi,a,b,max=64){
   if(!mpCell(a)||!mpCell(b)||a===b||T.owner[a]!==hi||T.owner[b]!==hi||MAP.T[a]<2||MAP.T[b]<2)return null;
   const prev=new Map([[a,-1]]),q=[[a,0]];for(let i=0;i<q.length;i++){const [c,dist]=q[i];if(dist>=max)continue;
     for(let d=0;d<6;d++){const v=MAP.nbr[c*6+d];if(v<0||prev.has(v)||T.owner[v]!==hi||MAP.T[v]<2)continue;prev.set(v,c);if(v===b){const path=[v];while(path[0]!==a)path.unshift(prev.get(path[0]));return path;}q.push([v,dist+1]);}}
+  return null;
+}
+/* the shortest crossing from city a to city b (≤ MP_BRIDGE steps) over water or the nation's own land, with at least one
+   water hex on it */
+function mpBridgePath(T,hi,a,b){
+  if(!mpCell(a)||!mpCell(b)||a===b||hexDist(a,b)>MP_BRIDGE)return null;
+  const okC=c=>MAP.T[c]<2||T.owner[c]===hi,key=(c,w)=>c*2+w,prev=new Map([[key(a,0),-1]]),q=[[a,0,0]];
+  for(let i=0;i<q.length;i++){const [c,w,dist]=q[i];if(dist>=MP_BRIDGE)continue;
+    for(let d=0;d<6;d++){const v=MAP.nbr[c*6+d];if(v<0||!okC(v))continue;const w2=w||(MAP.T[v]<2?1:0),k2=key(v,w2);if(prev.has(k2))continue;prev.set(k2,key(c,w));
+      if(v===b){if(!w2)continue;const path=[];let k=k2;while(k!==-1){path.unshift(k>>1);k=prev.get(k);}return path;}
+      if(v!==b)q.push([v,w2,dist+1]);}}
   return null;
 }
 const MP_SEA_CACHE=new Map();
@@ -55024,7 +55037,7 @@ function mpClaimSequence(T,input){
   }return {cells,blocked,cost:cells.length};
 }
 function mpRouteShape(r){
-  if(!r||!Object.hasOwn(MP_TYPES,r.k)||typeof r.id!=='string'||r.id.length>60||!mpCell(r.a)||!mpCell(r.b)||r.a===r.b||!Array.isArray(r.path)||r.path.length<2||r.path.length>(r.k==='sea'?MP_SEA_REACH+1:65))return null;
+  if(!r||!Object.hasOwn(MP_TYPES,r.k)||typeof r.id!=='string'||r.id.length>60||!mpCell(r.a)||!mpCell(r.b)||r.a===r.b||!Array.isArray(r.path)||r.path.length<2||r.path.length>(r.k==='sea'?MP_SEA_REACH+1:r.k==='bridge'?MP_BRIDGE+1:65))return null;
   if(r.path[0]!==r.a||r.path.at(-1)!==r.b||!r.path.every(mpCell)||new Set(r.path).size!==r.path.length||r.path.some((c,i)=>i&&!mpAdjacent(r.path[i-1],c)))return null;
   if(!Number.isFinite(r.t)||r.t<=0||!Number.isFinite(r.d)||r.d<r.t+(r.path.length-1)*MP_TYPES[r.k].mins*60000||r.d-r.t>7*DAY||!REG_BY_ID[r.reg])return null;
   return {id:r.id,k:r.k,a:r.a,b:r.b,path:r.path.slice(),t:r.t,d:r.d,reg:r.reg};
@@ -55035,6 +55048,7 @@ function mpRouteStatus(r,T,hi,byCell,now=Date.now()){
   if(!a||!a.active||a.hi!==hi)return 'Origin city lost';
   if(r.k==='rail'&&!a.done.includes('rail'))return 'Needs its railway station';
   if(r.k==='sea'&&!a.done.includes('harbour'))return 'Needs its harbour';
+  if(r.k==='bridge'){const b=byCell.get(r.b);if(!b||!b.active||b.hi!==hi)return 'Far city lost';if(r.path.some((c,i)=>i>0&&i<r.path.length-1?MAP.T[c]>=2&&T.owner[c]!==hi:MAP.T[c]<2||T.owner[c]!==hi))return 'Connection cut';return r.d>now?'Under construction':'Active';}
   if(r.path.some((c,i)=>r.k==='sea'&&i>0&&i<r.path.length-1?MAP.T[c]>=2:MAP.T[c]<2||T.owner[c]!==hi))return r.k!=='sea'&&mpLiveCells(r,T,hi).length>1?(r.d>now?'Under construction':'Partly cut'):'Connection cut';
   return r.d>now?'Under construction':'Active';
 }
@@ -55042,6 +55056,7 @@ function mpRouteStatus(r,T,hi,byCell,now=Date.now()){
    no longer holds (or that is no longer land). A whole route gives every hex; a sea lane is all or nothing. */
 function mpLiveCells(r,T,hi){
   const P=r&&Array.isArray(r.path)?r.path:[],ok=c=>MAP.T[c]>=2&&T.owner[c]===hi;
+  if(r.k==='bridge')return P.length&&P.every((c,i)=>i===0||i===P.length-1?ok(c):MAP.T[c]<2||T.owner[c]===hi)?[P[0],P[P.length-1]]:[];
   if(r.k==='sea')return P.length&&P.every((c,i)=>i===0||i===P.length-1?ok(c):MAP.T[c]<2)?[P[0],P[P.length-1]]:[];
   let i=0;while(i<P.length&&ok(P[i]))i++;if(i===P.length)return P.slice();
   let j=P.length;while(j>i&&ok(P[j-1]))j--;
@@ -55054,7 +55069,7 @@ function mpNetworkBonuses(T,all,agg,now){
   T.list.forEach((x,hi)=>{const bonuses=new Map(),hexes=new Set();for(const raw of (Array.isArray(x.n.infra)?x.n.infra:[]).slice(0,MP_NET_MAX)){
     const r=mpRouteShape(raw),st=r&&mpRouteStatus(r,T,hi,byCell,now);if(st!=='Active'&&st!=='Partly cut')continue;
     /* every city the route passes through is on it, not only its two ends */
-    for(const cell of mpLiveCells(r,T,hi)){const ct=byCell.get(cell);if(ct&&ct.hi===hi)bonuses.set(ct,Math.max(bonuses.get(ct)||0,MP_TYPES[r.k].bonus));else if(r.k!=='sea')hexes.add(cell);}}
+    for(const cell of mpLiveCells(r,T,hi)){const ct=byCell.get(cell);if(ct&&ct.hi===hi)bonuses.set(ct,Math.max(bonuses.get(ct)||0,MP_TYPES[r.k].bonus));else if(!MP_WET(r.k))hexes.add(cell);}}
     const a=agg[hi];a.transportArmy=Math.min(0.06,bonuses.size*0.02);
     const pol=(res,v)=>{for(const k in RES_POL)if(x.n.policies?.[k]&&RES_POL[k][res])v*=RES_POL[k][res];return v;};
     for(const [ct,bonus] of bonuses){ct.transportBonus=bonus;for(const res of RES){const Y=CELL_RES[res];const land=pol(res,Y?ct.dist.reduce((s,c)=>s+Y[c],0):0);const local=Math.max(0,land+(ct.buildOutput?.[res]||0));if(local)a.add[res]=(a.add[res]||0)+local*bonus;}}
@@ -55071,8 +55086,9 @@ function mpRoutePreview(T,k,a,b){
   if(!mpCell(b)||T.owner[b]!==hi||MAP.T[b]<2)return {why:'Choose a destination on land you hold.'};
   if(k==='rail'&&!ct.done.includes('rail'))return {why:'Complete a Railway Station in the origin city first.'};
   if(k==='sea'&&!ct.done.includes('harbour'))return {why:'Complete a coastal Harbour in the origin city first.'};
-  const path=k==='sea'?mpSeaReach(a).get(b):mpLandPath(T,hi,a,b);
-  if(!path)return {why:k==='sea'?'No water route reaches that coast within 14 hexes.':'No route through your own land connects these locations (maximum 64 steps).'};
+  if(k==='bridge'){const o=cityState(T).byCell.get(b);if(!o||!o.active||o.hi!==hi)return {why:'A bridge must end at another of your cities.'};if(hexDist(a,b)>MP_BRIDGE)return {why:`A bridge can reach a city at most ${MP_BRIDGE} hexes away.`};}
+  const path=k==='sea'?mpSeaReach(a).get(b):k==='bridge'?mpBridgePath(T,hi,a,b):mpLandPath(T,hi,a,b);
+  if(!path)return {why:k==='bridge'?'No crossing over water joins these cities within 3 hexes. Where land joins them, build a road.':k==='sea'?'No water route reaches that coast within 14 hexes.':'No route through your own land connects these locations (maximum 64 steps).'};
   if((S.nation.infra||[]).some(r=>r.k===k&&((r.a===a&&r.b===b)||(r.a===b&&r.b===a))))return {why:'That connection already exists.'};
   const steps=path.length-1,cost=Object.fromEntries(Object.entries(type.cost).map(([r,v])=>[r,v*steps]));
   return {path,cost,ms:steps*type.mins*60000,steps,ct,type};
@@ -55125,7 +55141,7 @@ MAP_PANEL.push(ctx=>{if(ctx.cell==null)return '';const T=territory(),ct=cityStat
 function mpRoutesHereHTML(cell,T){
   if(!mapOpt('mp-networks',true))return '';const CS=cityState(T),rows=[];
   T.list.forEach((x,hi)=>{if(x.npc)return;for(const raw of (Array.isArray(x.n.infra)?x.n.infra:[]).slice(0,MP_NET_MAX)){const r=mpRouteShape(raw);if(!r||r.reg!==REG.id||!r.path.includes(cell))continue;
-    if(r.k==='sea'&&cell!==r.a&&cell!==r.b)continue;
+    if(MP_WET(r.k)&&cell!==r.a&&cell!==r.b)continue;
     const st=mpRouteStatus(r,T,hi,CS.byCell),live=(st==='Active'||st==='Partly cut')&&mpLiveCells(r,T,hi).includes(cell),A=CS.byCell.get(r.a),B=CS.byCell.get(r.b),end=cell===r.a||cell===r.b;
     const name=c=>{const o=CS.byCell.get(c);return o?o.nm:terrName(c);},ct=CS.byCell.get(cell),mine=x.id===myId();
     const what=!live?(st==='Under construction'?'not finished yet':st==='Partly cut'?'cut off from both ends here':'not working: '+st.toLowerCase()):ct&&ct.hi===hi?`${end?'':'passes through, so '}${esc(ct.nm)} counts as on it`:r.k==='sea'?'':`this hex yields ${Math.round(MP_HEX_K*100)}% more`;
@@ -55174,7 +55190,7 @@ MAP_LAYERS.push({stage:'land',kinds:['main','visit'],draw:M=>{
 MAP_LAYERS.push({stage:'over',kinds:['main','visit'],draw:M=>{
   const {g,T,s}=M,mi=T.byId[myId()],CS=cityState(T),stroke=(path,color,dash,width=1.8)=>{g.beginPath();path.forEach((c,i)=>i?g.lineTo(MAP.cx[c],MAP.cy[c]):g.moveTo(MAP.cx[c],MAP.cy[c]));g.strokeStyle=color;g.lineWidth=width/s;g.setLineDash(dash.map(v=>v/s));g.stroke();g.setLineDash([]);};
   if(mapOpt('mp-networks',true))T.list.forEach((x,hi)=>{for(const raw of (x.n.infra||[]).slice(0,MP_NET_MAX)){const r=mpRouteShape(raw);if(!r||r.reg!==REG.id)continue;const status=mpRouteStatus(r,T,hi,CS.byCell),cut=!['Active','Under construction'].includes(status);const color=cut?M.col.down:status==='Under construction'?M.col.stamp:r.k==='sea'?M.col.accent:M.col.ink;
-    stroke(r.path,color,cut||status==='Under construction'?[4,4]:r.k==='sea'?[2,4]:[],r.k==='rail'?3.6:1.8);if(r.k==='rail'&&!cut)stroke(r.path,M.col.sheet,[],1);
+    stroke(r.path,color,cut||status==='Under construction'?[4,4]:r.k==='sea'?[2,4]:[],r.k==='rail'||r.k==='bridge'?(r.k==='bridge'?4.4:3.6):1.8);if((r.k==='rail'||r.k==='bridge')&&!cut)stroke(r.path,M.col.sheet,r.k==='bridge'?[1,3]:[],r.k==='bridge'?1.6:1);
     /* a partly cut route: the stretches still joined to an end are drawn whole over the dashed red line */
     if(status==='Partly cut'){const live=new Set(mpLiveCells(r,T,hi));let run=[];for(const c of r.path.concat(-1)){if(live.has(c)){run.push(c);continue;}if(run.length>1){stroke(run,M.col.ink,[],r.k==='rail'?3.6:1.8);if(r.k==='rail')stroke(run,M.col.sheet,[],1);}run=[];}}}});
   if(M.kind==='main'&&mi!==undefined){
@@ -67701,14 +67717,14 @@ function cxAnswer(cid,i){
   c.ne=now+CX_EV_GAP+hash(cid+':'+now)%DAY;
   commit(n);S.cityMsg='';render();toast(o.r);
 }
-function cxBuildRoad(a,b){
-  const n=S.nation,T=territory(),p=mpRoutePreview(T,'road',a,b),now=Date.now();
+function cxBuildRoad(a,b,k='road'){
+  const n=S.nation,T=territory(),p=mpRoutePreview(T,k,a,b),now=Date.now();
   if(p.why){S.cityMsg=p.why;render();return;}
   if((n.infra||[]).length>=MP_NET_MAX){S.cityMsg=`You can keep up to ${MP_NET_MAX} connections. Remove an old one on the map first.`;render();return;}
   const st=stockNow(n,now),miss=lacking(p.cost,st);if(miss.length){S.cityMsg='You need '+list(miss)+' more.';render();return;}
   const next=clone(n);cxPay(next,st,p.cost,now);
-  next.infra=(next.infra||[]).concat({id:'net-'+now.toString(36)+'-'+(n.infra||[]).length,k:'road',a,b,path:p.path,t:now,d:now+p.ms,reg:REG.id});
-  commit(next);saveSoon();S.cityMsg='';render();toast(`Road building has started. It will be finished in ${fmtDur(p.ms)}.`);
+  next.infra=(next.infra||[]).concat({id:'net-'+now.toString(36)+'-'+(n.infra||[]).length,k,a,b,path:p.path,t:now,d:now+p.ms,reg:REG.id});
+  commit(next);saveSoon();S.cityMsg='';render();toast(`${k==='bridge'?'Bridge':'Road'} building has started. It will be finished in ${fmtDur(p.ms)}.`);
 }
 function cxQueueUp(cid,k){
   const now=Date.now(),n=ensureCities(clone(S.nation)),c=n.cities.find(x=>x.id===cid);if(!c)return;
@@ -67827,7 +67843,15 @@ function cxRoads(ct,T,n,st,ok){
   const linked=new Set(routes.map(r=>r.a===ct.c?r.b:r.a));
   const can=pgAvailable(n,'map'),held=CS.all.filter(o=>o!==ct&&o.active&&o.hi===hi),others=held.filter(o=>!linked.has(o.c));
   const offers=!ok?'':!can?'<p class="hint">Roads open once your nation holds three claimed hexes.</p>':others.length?`<ul class="cx-roads">${others.map(o=>{const p=mpRoutePreview(T,'road',ct.c,o.c),miss=p.why?[]:lacking(p.cost,st);return `<li><span><b>To ${esc(o.nm)}</b> <span class="hint">${p.why?esc(p.why):`${p.steps} ${p.steps===1?'hex':'hexes'} · ${esc(costText(p.cost))} · ${fmtDur(p.ms)}`}</span></span>${p.why?'':`<button class="btn small-btn${miss.length?' ghost':''}" data-act="cx-road" data-a="${ct.c}" data-b="${o.c}"${miss.length?` disabled title="You need ${esc(list(miss))} more"`:''}>Build road</button>`}</li>`;}).join('')}</ul>`:held.length?'<p class="hint">Every other city you hold is already connected to this one.</p>':`<p class="hint">${esc(ct.nm)} is your only city for now. Once you hold a second one, you can build a road to it from here.</p>`;
-  return `<section class="cx-sec"><h4 class="lbl-h">Roads</h4><p class="hint">A city on a finished road, at either end or anywhere along it, builds 10% faster, its people are happier (+5 mood), and its land produces more. Road hexes that no city works yield 10% more. If part of a road is lost, the stretches still joined to a city keep working. Railways and sea lanes are built on the map, under Transport networks.</p>${rows?`<ul class="cx-parts">${rows}</ul>`:''}${offers}</section>`;
+  return `<section class="cx-sec"><h4 class="lbl-h">Roads</h4><p class="hint">A city on a finished road, at either end or anywhere along it, builds 10% faster, its people are happier (+5 mood), and its land produces more. Road hexes that no city works yield 10% more. If part of a road is lost, the stretches still joined to a city keep working. Railways and sea lanes are built on the map, under Transport networks.</p>${rows?`<ul class="cx-parts">${rows}</ul>`:''}${offers}</section>${cxBridges(ct,T,n,st,ok,held)}`;
+}
+/* bridges to the cities across the water, at most MP_BRIDGE hexes away */
+function cxBridges(ct,T,n,st,ok,held){
+  if(!ok||!pgAvailable(n,'map'))return '';const hi=T.byId[myId()];
+  const has=new Set((n.infra||[]).filter(r=>r&&r.k==='bridge'&&(r.a===ct.c||r.b===ct.c)).map(r=>r.a===ct.c?r.b:r.a));
+  const near=held.filter(o=>!has.has(o.c)&&hexDist(ct.c,o.c)<=MP_BRIDGE).map(o=>[o,mpRoutePreview(T,'bridge',ct.c,o.c)]).filter(([,p])=>!p.why);
+  const t=MP_TYPES.bridge;
+  return `<section class="cx-sec cx-bridges"><h4 class="lbl-h">Bridges</h4><p class="hint">A bridge spans water to another of your cities at most ${MP_BRIDGE} hexes away. It is costly (${esc(costText(t.cost))} for every hex it spans) and slow to build (${t.mins/60} hours a hex), but both cities gain +${Math.round(t.bonus*100)}% on their land, the best of any connection, and count as on a road. A bridge works only while you hold both cities and every land hex it touches.</p>${near.length?`<ul class="cx-roads">${near.map(([o,p])=>{const miss=lacking(p.cost,st);return `<li><span><b>To ${esc(o.nm)}</b> <span class="hint">${p.steps} ${p.steps===1?'hex':'hexes'} · ${esc(costText(p.cost))} · ${fmtDur(p.ms)}</span></span><button class="btn small-btn${miss.length?' ghost':''}" data-act="cx-road" data-k="bridge" data-a="${ct.c}" data-b="${o.c}"${miss.length?` disabled title="You need ${esc(list(miss))} more"`:''}>Build bridge</button></li>`;}).join('')}</ul>`:`<p class="hint">No city of yours lies across the water within ${MP_BRIDGE} hexes${has.size?' that is not bridged already':''}.</p>`}</section>`;
 }
 function cityCard(ct,T,n,st,now){
   const mine=ct.fid===myId(),holder=ct.hi>=0?T.list[ct.hi]:null,taken=mine&&!!holder&&holder.id!==myId(),occupied=mine&&(!ct.active||taken),ok=mine&&ct.active&&!taken;
@@ -67930,7 +67954,7 @@ document.addEventListener('click',e=>{
   if(a==='cx-fire-no'){S.cxFire=null;render();return;}
   if(a==='cx-fire'){cxDismiss(id);return;}
   if(a==='cx-ev'){cxAnswer(id,+el.dataset.i);return;}
-  if(a==='cx-road'){cxBuildRoad(+el.dataset.a,+el.dataset.b);return;}
+  if(a==='cx-road'){cxBuildRoad(+el.dataset.a,+el.dataset.b,el.dataset.k==='bridge'?'bridge':'road');return;}
   if(a==='cx-qup'){cxQueueUp(id,el.dataset.k);return;}
   if(a==='cx-cr'){cxCrestEdit(id,el.dataset.f,el.dataset.v);return;}
 });
