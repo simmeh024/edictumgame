@@ -42,7 +42,7 @@ await page.evaluate(() => { const b = document.querySelector('[data-cst="open"]'
 check('the Studio opens', await until(() => page.evaluate(() => { const e = document.getElementById('cu-st'); return e && !e.hidden && !!e.querySelector('.cst-front svg.cu-note'); })));
 const fit = await page.evaluate(() => { const e = document.getElementById('cu-st'), r = e.getBoundingClientRect(); return { sh: e.scrollHeight, h: r.height, w: e.scrollWidth, vw: innerWidth, docScroll: document.documentElement.scrollHeight > innerHeight && getComputedStyle(document.documentElement).overflow !== 'hidden' }; });
 check('everything fits in one view (no scrolling) on a desktop screen', fit.sh <= fit.h + 1 && fit.w <= fit.vw + 1, JSON.stringify(fit));
-check('layers, inspector, tabs and the series are all there', await page.evaluate(() => document.querySelectorAll('.cst-lay').length === 6 && !!document.getElementById('cst-i-x') && document.querySelectorAll('.cst-tab').length === 8 && document.querySelectorAll('.cst-card').length >= 9));
+check('layers, inspector, tabs and the series are all there', await page.evaluate(() => document.querySelectorAll('.cst-lay').length === 6 && !!document.getElementById('cst-i-x') && document.querySelectorAll('.cst-tab').length === 9 && document.querySelectorAll('.cst-card').length >= 9));
 // drag the vignette 20 units left
 const hit = await page.$('.cst-front .cst-ov [data-part="v"]'), bb = await hit.boundingBox(), u = bb.width / 80;
 await page.mouse.move(bb.x + bb.width / 2, bb.y + bb.height / 2); await page.mouse.down();
@@ -111,6 +111,27 @@ check('the 50 carries its enamel inlay', await until(() => page.evaluate(() => /
 await page.screenshot({ path: path.join(OUT, 'note-studio-coin3.png') });
 await page.click('[data-cst="save"]');
 check('the new coin choices are saved', await until(() => page.evaluate(() => { const K = window.__game.S.nation.cur.coin; return K.ring === 'copper' && K.core === 'gold' && K.shape === 'poly' && K.sides === 9 && K.enm === 'flag' && K.pv === 'anchor' && !!K.mm; })));
+await page.click('[data-cst="mode"][data-v="note"]');
+// effects
+for (const [L, f] of [['vignette', 'holo'], ['text', 'glitter'], ['frame', 'neon'], ['security', 'halftone'], ['emblem', 'heat'], ['paper', 'tint']]) await page.selectOption(`[data-cst-fx="${L}"]`, f);
+await page.click('[data-cst="tab"][data-v="fx"]');
+await clickAll(['[data-cst="set"][data-f="note.irs"][data-v="1"]', '[data-cst="set"][data-f="note.prl"][data-v="1"]', '[data-cst="set"][data-f="note.uvp"][data-v="star"]']);
+await page.$eval('#cst-r-age', e => { e.value = .6; e.dispatchEvent(new Event('input', { bubbles: true })); });
+const fxa = await page.evaluate(() => { const s = document.querySelector('.cst-front svg.cu-note'), uv = s.querySelector('.cu-uvm'); return { holo: !!s.querySelector('[data-layer="vignette"][filter*="fh"]'), ht: !!s.querySelector('[data-layer="security"][mask]'), heat: !!s.querySelector('[data-layer="emblem"].cu-heat'), uvHidden: uv && getComputedStyle(uv).opacity === '0', age: /mix-blend-mode:multiply/.test(s.innerHTML), irs: /ir\)" opacity=".6"/.test(s.innerHTML) }; });
+await page.selectOption('[data-cst-sel="see"]', 'uv');
+const uvOn = await page.evaluate(() => getComputedStyle(document.querySelector('.cst-front .cu-uvm')).opacity === '1');
+await page.screenshot({ path: path.join(OUT, 'note-studio-uv.png') });
+await page.selectOption('[data-cst-sel="see"]', 'flat');
+check('layer effects, stripe, age and the UV picture are drawn; the UV picture shows only under UV', fxa.holo && fxa.ht && fxa.heat && fxa.uvHidden && fxa.age && fxa.irs && uvOn, JSON.stringify(fxa) + ' uv:' + uvOn);
+await page.screenshot({ path: path.join(OUT, 'note-studio-effects.png') });
+await page.click('[data-cst="mode"][data-v="coin"]'); await page.click('[data-cst="ctab"][data-v="cfx"]');
+await clickAll(['[data-cst="set"][data-f="coin.ptn"][data-v="1"]', '[data-cst="set"][data-f="coin.ton"][data-v="1"]', '[data-cst="set"][data-f="coin.frost"][data-v="1"]']);
+await page.$eval('#cst-r-wear', e => { e.value = .5; e.dispatchEvent(new Event('input', { bubbles: true })); });
+const cfx = await page.evaluate(() => [...document.querySelectorAll('#cst-stage .cst-coin')].map(c => [/pt\)/, /tn\)/, /wr\)/, /fr\)/].map(r => r.test(c.innerHTML) ? 1 : 0).join('')));
+check('coin effects draw on both faces (frost needs a device: the plain-value side has none)', cfx.length === 2 && cfx[0] === '1111' && cfx[1].startsWith('111'), JSON.stringify(cfx));
+await page.screenshot({ path: path.join(OUT, 'note-studio-coin-effects.png') });
+await page.click('[data-cst="save"]');
+check('every effect is saved', await until(() => page.evaluate(() => { const c = window.__game.S.nation.cur, N = c.note, K = c.coin; return N.fx.vignette === 'holo' && N.fx.security === 'halftone' && N.fx.emblem === 'heat' && N.irs === 1 && N.prl === 1 && N.uvp === 'star' && N.age === .6 && K.ptn === 1 && K.ton === 1 && K.frost === 1 && K.wear === .5; })));
 await page.click('[data-cst="mode"][data-v="note"]');
 // vertical notes
 await page.click('[data-cst="tab"][data-v="style"]'); await page.click('[data-cst="set"][data-f="note.or"][data-v="v"]');
