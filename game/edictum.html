@@ -212,7 +212,7 @@ textarea.input{resize:vertical;min-height:84px;line-height:1.5}
 .vh h1{font-family:var(--f-display);font-weight:650;font-size:clamp(34px,5vw,46px);line-height:1.04;margin:6px 0 10px;font-variation-settings:"opsz" 96}
 .vh p{color:var(--ink-2);max-width:64ch}
 
-@media(max-width:1100px){.map-layout:has(.mp-tool){grid-template-areas:"map" "side" "legend"}}.mp-map-toolbar{margin:0 0 16px;gap:8px;flex-wrap:wrap}.mp-map-toolbar .btn{min-height:44px}.mp-tools{padding:14px 0 18px;margin-bottom:20px;border-bottom:1px solid var(--rule)}.mp-tools>.row{gap:8px}.mp-tool{margin-top:18px}.mp-tool>p,.mp-influence>p{font-size:13px;line-height:1.6}.mp-tool .input{width:100%;min-height:44px;margin:6px 0 12px}.mp-tool>.lbl{display:block}.mp-tools .btn,.mp-tools .linkish{min-height:44px}.mp-steps{padding:0;list-style:none;max-height:240px;overflow:auto}.mp-steps li,.mp-net-list li{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid var(--rule);font-size:12px;overflow-wrap:anywhere}.mp-net-list{list-style:none;padding:0;margin:18px 0 0}.mp-net-list li>div{display:grid;gap:4px;min-width:0}.mp-net-list li>span{display:flex;flex-direction:column;gap:6px;max-width:55%;min-width:0}.mp-net-list .btn{white-space:normal;min-height:44px}.mp-net-list .linkish{flex:none}.mp-influence{padding:12px 0;margin:12px 0;border-top:1px solid var(--rule);border-bottom:1px solid var(--rule)}.mp-influence .h2{font-size:18px;margin:0 0 8px}.mp-key{line-height:1.7;max-width:85ch}.mp-landscape-note{margin-top:16px}.mp-tools .row{flex-wrap:wrap}@media(max-width:600px){.mp-tool .row>.btn{flex:1 1 100%}.mp-steps{max-height:180px}.mp-tools .btn{font-size:13px}.mp-tool .mp-dl>div{gap:12px}}
+@media(max-width:1100px){.map-layout:has(.mp-tool){grid-template-areas:"map" "side" "legend"}}.mp-map-toolbar{margin:0 0 16px;gap:8px;flex-wrap:wrap}.mp-map-toolbar .btn{min-height:44px}.mp-tools{padding:14px 0 18px;margin-bottom:20px;border-bottom:1px solid var(--rule)}.mp-tools>.row{gap:8px}.mp-alert{display:flex;align-items:flex-start;gap:10px;margin:12px 0;padding:10px 12px;border:1px solid var(--accent,#8a5cf6);border-left-width:4px;border-radius:6px;background:color-mix(in srgb,var(--accent,#8a5cf6) 14%,transparent);font-size:13px;line-height:1.5}.mp-alert p{margin:0;flex:1}.mp-alert .linkish{min-height:28px!important;font-size:18px;line-height:1;text-decoration:none}.mp-tool{margin-top:18px}.mp-tool>p,.mp-influence>p{font-size:13px;line-height:1.6}.mp-tool .input{width:100%;min-height:44px;margin:6px 0 12px}.mp-tool>.lbl{display:block}.mp-tools .btn,.mp-tools .linkish{min-height:44px}.mp-steps{padding:0;list-style:none;max-height:240px;overflow:auto}.mp-steps li,.mp-net-list li{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid var(--rule);font-size:12px;overflow-wrap:anywhere}.mp-net-list{list-style:none;padding:0;margin:18px 0 0}.mp-net-list li>div{display:grid;gap:4px;min-width:0}.mp-net-list li>span{display:flex;flex-direction:column;gap:6px;max-width:55%;min-width:0}.mp-net-list .btn{white-space:normal;min-height:44px}.mp-net-list .linkish{flex:none}.mp-influence{padding:12px 0;margin:12px 0;border-top:1px solid var(--rule);border-bottom:1px solid var(--rule)}.mp-influence .h2{font-size:18px;margin:0 0 8px}.mp-key{line-height:1.7;max-width:85ch}.mp-landscape-note{margin-top:16px}.mp-tools .row{flex-wrap:wrap}@media(max-width:600px){.mp-tool .row>.btn{flex:1 1 100%}.mp-steps{max-height:180px}.mp-tools .btn{font-size:13px}.mp-tool .mp-dl>div{gap:12px}}
 
 /* issues */
 .edict-tools{margin:0 0 20px;padding:16px;background:var(--sheet-2);border:1px solid var(--rule);border-radius:4px}
@@ -54559,7 +54559,7 @@ render=(f=>function(){const r=f.apply(this,arguments);for(const id of nxShown())
 ppViewOpen=(f=>function(id){const r=f.apply(this,arguments);nxWant(id);return r;})(ppViewOpen);
 
 /* ───────── map development: city reach, transport and private expansion plans ───────── */
-const MP_CITY_GROW=2,MP_CITY_MAX=3,MP_SEA_REACH=14,MP_PLAN_MAX=48,MP_NET_MAX=24;
+const MP_CITY_GROW=2,MP_CITY_MAX=3,MP_SEA_REACH=14,MP_PLAN_MAX=48,MP_NET_MAX=40;
 const MP_TYPES={road:{n:'Road',cost:{timber:2,goods:1},mins:15,bonus:0.04},rail:{n:'Railway',cost:{iron:3,goods:2},mins:30,bonus:0.10},sea:{n:'Shipping connection',cost:{timber:3,goods:2,oil:1},mins:20,bonus:0.06}};
 const mpCell=c=>Number.isInteger(c)&&c>=0&&c<MAP.N;
 const mpRadius=p=>p>=MP_CITY_GROW?MP_CITY_MAX:CITY_DISTRICT;
@@ -54695,7 +54695,7 @@ function mpApplyPlan(){if(!pgAvailable(S.nation,'map'))return;const p=mpClaimSeq
   if(writeClaims(p.cells,`${S.nation.name} claimed ${p.cost} planned ${p.cost===1?'hex':'hexes'}.`,false,true)){S.mpDraft=[];S.mpMsg='Expansion complete.';render();}}
 function mpBuildRoute(){if(!pgAvailable(S.nation,'map'))return;
   const n=S.nation,T=territory(),k=S.mpKind||'road',p=mpRoutePreview(T,k,S.mpFrom,S.mpTo),now=Date.now();S.mpMsg='';
-  if(p.why){S.mpMsg=p.why;render();return;}if((n.infra||[]).length>=MP_NET_MAX){S.mpMsg='You can keep up to 24 connections. Remove an old one first.';render();return;}
+  if(p.why){S.mpMsg=p.why;render();return;}if((n.infra||[]).length>=MP_NET_MAX){S.mpMsg=`You can keep up to ${MP_NET_MAX} connections. Remove an old one on the map first.`;render();return;}
   const stock=stockNow(n,now),short=lacking(p.cost,stock);if(short.length){S.mpMsg='You need '+list(short)+'.';render();return;}
   const next=clone(n);for(const r of RES)stock[r]-=p.cost[r]||0;next.stock=roundStock(stock);next.stockAt=now;next._stockSet=true;
   const r={id:'net-'+now.toString(36)+'-'+(n.infra||[]).length,k,a:S.mpFrom,b:S.mpTo,path:p.path,t:now,d:now+p.ms,reg:REG.id};next.infra=(next.infra||[]).concat(r);
@@ -54716,7 +54716,7 @@ function mpTransportHTML(T){
 }
 MAP_PANEL_TOP.unshift(()=>{
   if(!S.nation||cellOf(S.nation.loc)<0)return '';const T=territory();
-  return `<section class="mp-tools"><p class="eyebrow">Cartographer's tools</p><div class="row"><button class="btn${S.mpMode==='plan'?'':' ghost'}" data-act="mp-mode" data-v="plan" aria-pressed="${S.mpMode==='plan'}">Plan expansion</button><button class="btn${S.mpMode==='transport'?'':' ghost'}" data-act="mp-mode" data-v="transport" aria-pressed="${S.mpMode==='transport'}">Transport</button>${S.mpMode?'<button class="linkish" data-act="mp-mode" data-v="">Finish planning</button>':''}</div>${S.mpMsg?`<p class="hint" role="status">${esc(S.mpMsg)}</p>`:''}${S.mpMode==='plan'?mpPlanHTML(T):S.mpMode==='transport'?mpTransportHTML(T):''}</section>`;
+  return `<section class="mp-tools"><p class="eyebrow">Cartographer's tools</p><div class="row"><button class="btn${S.mpMode==='plan'?'':' ghost'}" data-act="mp-mode" data-v="plan" aria-pressed="${S.mpMode==='plan'}">Plan expansion</button><button class="btn${S.mpMode==='transport'?'':' ghost'}" data-act="mp-mode" data-v="transport" aria-pressed="${S.mpMode==='transport'}">Transport</button>${S.mpMode?'<button class="linkish" data-act="mp-mode" data-v="">Finish planning</button>':''}</div>${S.mpMsg?`<div class="mp-alert" role="alert"><p>${esc(S.mpMsg)}</p><button class="linkish" data-act="mp-msg-x" aria-label="Dismiss">×</button></div>`:''}${S.mpMode==='plan'?mpPlanHTML(T):S.mpMode==='transport'?mpTransportHTML(T):''}</section>`;
 });
 function mpInfluenceHTML(ct,T){
   const pop=cpPop(ct,T),r=ct.radius||CITY_DISTRICT;
@@ -54910,6 +54910,7 @@ document.addEventListener('change',e=>{
   if(e.target.id==='mp-net-from'){S.mpFrom=e.target.value===''?null:+e.target.value;S.mpTo=null;S.mpMsg='';updateMapPanel();redrawMaps();}
 });
 document.addEventListener('click',e=>{const el=e.target.closest('[data-act]');if(!el||!S.nation)return;const a=el.dataset.act;
+  if(a==='mp-msg-x'){S.mpMsg='';render();return;}
   if(a==='mp-mode'){if(!pgAvailable(S.nation,'map'))return;S.mpMode=S.mpMode===el.dataset.v?'':el.dataset.v;S.mpMsg='';S.mapClaim=null;S.mapTarget=null;S.trSel=null;S.nwsOpen=null;S.mpFrom=null;S.mpTo=null;render();}
   if(a==='mp-drop'){S.mpDraft=mpDraft().filter(c=>c!==+el.dataset.c);S.mpMsg='';updateMapPanel();redrawMaps();}
   if(a==='mp-clear'){S.mpDraft=[];S.mpMsg='Draft cleared. Save to replace the saved plan.';updateMapPanel();redrawMaps();}
