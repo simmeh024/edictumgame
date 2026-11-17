@@ -3845,6 +3845,9 @@ button.fp-cell-in:hover{border-color:var(--ink-3);background:var(--sheet-2);--fp
 .dsp-sec-in>.dsp-st.mine::before{left:-9px}
 .dsp-side{min-width:0;border-left:1px solid var(--rule-2);padding-left:22px}
 .dsp-box{margin-bottom:24px}
+.rd-q{margin:6px 0 10px;padding-left:20px}.rd-q li{margin:4px 0}
+.rd-st{margin:0 0 8px}.rd-acts{margin:0 0 8px}.rd-last{margin-top:14px;padding-top:10px;border-top:1px solid var(--rule)}
+.rd-here{margin-top:10px}
 .dsp-vh{font-family:var(--f-display);font-style:italic;font-weight:600;font-size:20px;line-height:1.2;margin:0 0 6px}
 .dsp-view p,.dsp-small{font-size:14px;line-height:1.55}
 .dsp-small{color:var(--ink-2);font-style:italic}
@@ -26218,7 +26221,7 @@ document.addEventListener('click',e=>{
     updateMapPanel();redrawMaps();const f=document.querySelector('#map-panel [data-act="lc-block"]');if(f)f.focus();return;
   }
   if(a==='lc-release'){const T=territory();releaseClaims(el.dataset.c!=null?[+el.dataset.c]:claimBatches(recentClaims(T)).filter(b=>b.t===+el.dataset.t).flatMap(b=>b.cells));return;}
-  if((a==='lc-cancel'||a==='lc-block'||a==='lc-one')&&S.lcBack!=null){const b=S.lcBack;S.lcBack=null;setTimeout(()=>{const x=document.querySelector(`[data-act="lc-pick"][data-b="${b}"]`)||document.querySelector('[data-act="lc-pick"]')||document.querySelector('.lc-list[data-keep="lcOpen"] summary')||document.querySelector('[data-act="map-me"]');if(x)x.focus();},0);}
+  if((a==='lc-cancel'||a==='lc-block'||a==='lc-one')&&S.lcBack!=null){const b=S.lcBack;S.lcBack=null;setTimeout(()=>{const x=document.querySelector(`[data-act="lc-pick"][data-b="${b}"]`)||document.querySelector('[data-act="lc-pick"]')||document.querySelector('.lc-list[data-keep="lcOpen"] summary')||document.querySelector('[data-act="map-me"]');if(x)try{x.focus({preventScroll:true});}catch(e){}},0);}
 });
 document.addEventListener('toggle',e=>{const d=e.target,k=d&&d.dataset&&d.dataset.keep;if(k==='lcOpen'||k==='relOpen'||k==='lhOpen'||k==='blkMx')S[k]=d.open;},true);
 
@@ -26877,6 +26880,8 @@ const UNLOCKS={
   't-curator':{k:'title',n:'the Curator',src:'set'},'t-collector':{k:'title',n:'the Collector',src:'set'},'t-antiquarian':{k:'title',n:'the Antiquarian',src:'set'},
   't-venerable':{k:'title',n:'the Venerable',src:'prestige'},'t-legendary':{k:'title',n:'the Legendary',src:'prestige'},
   't-mythic':{k:'title',n:'the Mythic',src:'prestige'},'t-eternal':{k:'title',n:'the Eternal',src:'prestige'},
+  /* earned by finding the riddle of the week among the first ten (Sharp-Eyed) */
+  't-sharp':{k:'title',n:'the Sharp-Eyed',src:'ach'},
   /* borders round the nation card, one with each rank */
   ...Object.fromEntries(ID_BD.map(([id,n],i)=>[id,{k:'border',n,src:i?'prestige':'free'}])),
   /* frames round the national flag */
@@ -34366,13 +34371,15 @@ function dspView(now){
       <div class="row"><button class="btn" type="submit"${myLive.length>=DSP_AD_MAX?' disabled':''}>Place it for ${esc(costText(DSP_AD_COST))}</button><button type="button" class="btn ghost" data-act="dsp-adclose">Cancel</button><span class="hint"><span id="dsp-ad-n">${draft.length}</span>/${DSP_AD_LEN} characters · runs 3 days · ${myLive.length} of ${DSP_AD_MAX} running</span></div>
     </form>`;
   /* the features: a column on a wide screen, tabs on a phone */
-  const F=E.figs,side=S.dspSide&&['view','wx','figs','stars','fix'].includes(S.dspSide)?S.dspSide:'view',scopes=away?E.scopes:dspScopesFor(E);
+  const F=E.figs,side=S.dspSide&&['view','riddle','wx','figs','stars','fix'].includes(S.dspSide)?S.dspSide:'view',scopes=away?E.scopes:dspScopesFor(E);
   const box=(k,h,id,inner)=>`<section class="dsp-box${narrow&&k===side?' on':''}" id="dsp-p-${k}" aria-labelledby="${id}"${narrow?` role="tabpanel"`:''}><h2 class="dsp-sh" id="${id}">${h}</h2>${inner}</section>`;
   const boxes=[['view','Our view',box('view','Our view','dsp-vw-h',`<h3 class="dsp-vh">${esc(E.view.h)}</h3><p>${esc(E.view.x)}</p>`)],
     ['wx','Weather',box('wx','Weather'+(E.wx.season?' · '+esc(E.wx.season):''),'dsp-wx-h',`<ul class="dsp-list">${E.wx.map(w=>`<li><b>${esc(w.p)}:</b> ${esc(w.c)}. <span class="dsp-deg">${w.d}°</span></li>`).join('')}</ul>`)],
     ['figs','Figures',box('figs','The figures','dsp-fg-h',`<dl class="dsp-figs">${F.rows.map(r=>`<div${r.id===me?' class="mine"':''}><dt>${esc(r.l)}</dt><dd>${r.id&&byId.has(r.id)?(r.id===me?`<b>${esc(r.v)}</b>`:`<button class="linkish" data-act="visit" data-id="${esc(r.id)}">${esc(r.v)}</button>`):esc(r.v)} <span>${esc(r.s)}</span></dd></div>`).join('')}
       <div><dt>Markets</dt><dd>${F.deals?`${F.deals} ${F.deals===1?'trade deal':'trade deals'} signed. `:''}${esc(F.market)}${F.prices?`<span class="dsp-px">${F.prices.map(p=>`${esc(p.r)} ${p.v.toFixed(2)}`).join(' · ')}</span><span class="dsp-px-n">Prices while the edition is open: regional demand against supply, 1.00 is balanced.</span>`:''}</dd></div></dl>`)],
     ['stars','Stars',box('stars','The stars','dsp-hs-h',`<ul class="dsp-list">${scopes.map(s=>`<li${s.id===me?' class="mine"':''}><b>${esc(s.name)}</b> <span class="dsp-sign">${esc(s.sign)}</span> ${esc(s.line)}</li>`).join('')}</ul>`)]];
+  /* the riddle of the week, in the reader's own region's live paper */
+  if(E.live&&!away){let rh='';try{rh=rdBox(now);}catch(e){}if(rh)boxes.splice(1,0,['riddle','Riddle',box('riddle','Riddle of the week','dsp-rd-h',rh)]);}
   if(E.fix)boxes.push(['fix','Corrections',box('fix','Corrections','dsp-fx-h',`<p class="dsp-small">${esc(E.fix)}</p>`)]);
   const tabs=narrow?`<div class="dsp-tabs" role="tablist" aria-label="Features">${boxes.map(([k,l])=>`<button type="button" role="tab" class="dsp-tab${k===side?' on':''}" id="dsp-t-${k}" data-act="dsp-side" data-k="${k}" aria-selected="${k===side}" aria-controls="dsp-p-${k}" tabindex="${k===side?0:-1}">${esc(l)}</button>`).join('')}</div>`:'';
   /* sections: all open on a wide screen; on a phone each folds, the first open unless the reader chose */
@@ -54961,7 +54968,9 @@ ppViewOpen=(f=>function(id){const r=f.apply(this,arguments);nxWant(id);return r;
 
 /* ───────── map development: city reach, transport and private expansion plans ───────── */
 const MP_CITY_GROW=2,MP_CITY_MAX=3,MP_SEA_REACH=14,MP_PLAN_MAX=48,MP_NET_MAX=55;
-const MP_TYPES={road:{n:'Road',cost:{timber:2,goods:1},mins:15,bonus:0.04},rail:{n:'Railway',cost:{iron:3,goods:2},mins:30,bonus:0.10},sea:{n:'Shipping connection',cost:{timber:3,goods:2,oil:1},mins:20,bonus:0.06}};
+const MP_TYPES={road:{n:'Road',cost:{timber:2,goods:1},mins:15,bonus:0.04},rail:{n:'Railway',cost:{iron:3,goods:2},mins:30,bonus:0.10},sea:{n:'Shipping connection',cost:{timber:3,goods:2,oil:1},mins:20,bonus:0.06},bridge:{n:'Bridge',cost:{iron:18,timber:14,goods:10},mins:180,bonus:0.08}};
+/* a bridge joins two of a nation's cities at most MP_BRIDGE hexes apart across water: dear, slow, all or nothing */
+const MP_BRIDGE=3,MP_WET=k=>k==='sea'||k==='bridge';
 const mpCell=c=>Number.isInteger(c)&&c>=0&&c<MAP.N;
 const mpRadius=p=>p>=MP_CITY_GROW?MP_CITY_MAX:CITY_DISTRICT;
 function mpAssignDistricts(all,T,radius){
@@ -54983,6 +54992,17 @@ function mpLandPath(T,hi,a,b,max=64){
   if(!mpCell(a)||!mpCell(b)||a===b||T.owner[a]!==hi||T.owner[b]!==hi||MAP.T[a]<2||MAP.T[b]<2)return null;
   const prev=new Map([[a,-1]]),q=[[a,0]];for(let i=0;i<q.length;i++){const [c,dist]=q[i];if(dist>=max)continue;
     for(let d=0;d<6;d++){const v=MAP.nbr[c*6+d];if(v<0||prev.has(v)||T.owner[v]!==hi||MAP.T[v]<2)continue;prev.set(v,c);if(v===b){const path=[v];while(path[0]!==a)path.unshift(prev.get(path[0]));return path;}q.push([v,dist+1]);}}
+  return null;
+}
+/* the shortest crossing from city a to city b (≤ MP_BRIDGE steps) over water or the nation's own land, with at least one
+   water hex on it */
+function mpBridgePath(T,hi,a,b){
+  if(!mpCell(a)||!mpCell(b)||a===b||hexDist(a,b)>MP_BRIDGE)return null;
+  const okC=c=>MAP.T[c]<2||T.owner[c]===hi,key=(c,w)=>c*2+w,prev=new Map([[key(a,0),-1]]),q=[[a,0,0]];
+  for(let i=0;i<q.length;i++){const [c,w,dist]=q[i];if(dist>=MP_BRIDGE)continue;
+    for(let d=0;d<6;d++){const v=MAP.nbr[c*6+d];if(v<0||!okC(v))continue;const w2=w||(MAP.T[v]<2?1:0),k2=key(v,w2);if(prev.has(k2))continue;prev.set(k2,key(c,w));
+      if(v===b){if(!w2)continue;const path=[];let k=k2;while(k!==-1){path.unshift(k>>1);k=prev.get(k);}return path;}
+      if(v!==b)q.push([v,w2,dist+1]);}}
   return null;
 }
 const MP_SEA_CACHE=new Map();
@@ -55028,7 +55048,7 @@ function mpClaimSequence(T,input){
   }return {cells,blocked,cost:cells.length};
 }
 function mpRouteShape(r){
-  if(!r||!Object.hasOwn(MP_TYPES,r.k)||typeof r.id!=='string'||r.id.length>60||!mpCell(r.a)||!mpCell(r.b)||r.a===r.b||!Array.isArray(r.path)||r.path.length<2||r.path.length>(r.k==='sea'?MP_SEA_REACH+1:65))return null;
+  if(!r||!Object.hasOwn(MP_TYPES,r.k)||typeof r.id!=='string'||r.id.length>60||!mpCell(r.a)||!mpCell(r.b)||r.a===r.b||!Array.isArray(r.path)||r.path.length<2||r.path.length>(r.k==='sea'?MP_SEA_REACH+1:r.k==='bridge'?MP_BRIDGE+1:65))return null;
   if(r.path[0]!==r.a||r.path.at(-1)!==r.b||!r.path.every(mpCell)||new Set(r.path).size!==r.path.length||r.path.some((c,i)=>i&&!mpAdjacent(r.path[i-1],c)))return null;
   if(!Number.isFinite(r.t)||r.t<=0||!Number.isFinite(r.d)||r.d<r.t+(r.path.length-1)*MP_TYPES[r.k].mins*60000||r.d-r.t>7*DAY||!REG_BY_ID[r.reg])return null;
   return {id:r.id,k:r.k,a:r.a,b:r.b,path:r.path.slice(),t:r.t,d:r.d,reg:r.reg};
@@ -55039,6 +55059,7 @@ function mpRouteStatus(r,T,hi,byCell,now=Date.now()){
   if(!a||!a.active||a.hi!==hi)return 'Origin city lost';
   if(r.k==='rail'&&!a.done.includes('rail'))return 'Needs its railway station';
   if(r.k==='sea'&&!a.done.includes('harbour'))return 'Needs its harbour';
+  if(r.k==='bridge'){const b=byCell.get(r.b);if(!b||!b.active||b.hi!==hi)return 'Far city lost';if(r.path.some((c,i)=>i>0&&i<r.path.length-1?MAP.T[c]>=2&&T.owner[c]!==hi:MAP.T[c]<2||T.owner[c]!==hi))return 'Connection cut';return r.d>now?'Under construction':'Active';}
   if(r.path.some((c,i)=>r.k==='sea'&&i>0&&i<r.path.length-1?MAP.T[c]>=2:MAP.T[c]<2||T.owner[c]!==hi))return r.k!=='sea'&&mpLiveCells(r,T,hi).length>1?(r.d>now?'Under construction':'Partly cut'):'Connection cut';
   return r.d>now?'Under construction':'Active';
 }
@@ -55046,6 +55067,7 @@ function mpRouteStatus(r,T,hi,byCell,now=Date.now()){
    no longer holds (or that is no longer land). A whole route gives every hex; a sea lane is all or nothing. */
 function mpLiveCells(r,T,hi){
   const P=r&&Array.isArray(r.path)?r.path:[],ok=c=>MAP.T[c]>=2&&T.owner[c]===hi;
+  if(r.k==='bridge')return P.length&&P.every((c,i)=>i===0||i===P.length-1?ok(c):MAP.T[c]<2||T.owner[c]===hi)?[P[0],P[P.length-1]]:[];
   if(r.k==='sea')return P.length&&P.every((c,i)=>i===0||i===P.length-1?ok(c):MAP.T[c]<2)?[P[0],P[P.length-1]]:[];
   let i=0;while(i<P.length&&ok(P[i]))i++;if(i===P.length)return P.slice();
   let j=P.length;while(j>i&&ok(P[j-1]))j--;
@@ -55058,7 +55080,7 @@ function mpNetworkBonuses(T,all,agg,now){
   T.list.forEach((x,hi)=>{const bonuses=new Map(),hexes=new Set();for(const raw of (Array.isArray(x.n.infra)?x.n.infra:[]).slice(0,MP_NET_MAX)){
     const r=mpRouteShape(raw),st=r&&mpRouteStatus(r,T,hi,byCell,now);if(st!=='Active'&&st!=='Partly cut')continue;
     /* every city the route passes through is on it, not only its two ends */
-    for(const cell of mpLiveCells(r,T,hi)){const ct=byCell.get(cell);if(ct&&ct.hi===hi)bonuses.set(ct,Math.max(bonuses.get(ct)||0,MP_TYPES[r.k].bonus));else if(r.k!=='sea')hexes.add(cell);}}
+    for(const cell of mpLiveCells(r,T,hi)){const ct=byCell.get(cell);if(ct&&ct.hi===hi)bonuses.set(ct,Math.max(bonuses.get(ct)||0,MP_TYPES[r.k].bonus));else if(!MP_WET(r.k))hexes.add(cell);}}
     const a=agg[hi];a.transportArmy=Math.min(0.06,bonuses.size*0.02);
     const pol=(res,v)=>{for(const k in RES_POL)if(x.n.policies?.[k]&&RES_POL[k][res])v*=RES_POL[k][res];return v;};
     for(const [ct,bonus] of bonuses){ct.transportBonus=bonus;for(const res of RES){const Y=CELL_RES[res];const land=pol(res,Y?ct.dist.reduce((s,c)=>s+Y[c],0):0);const local=Math.max(0,land+(ct.buildOutput?.[res]||0));if(local)a.add[res]=(a.add[res]||0)+local*bonus;}}
@@ -55075,8 +55097,9 @@ function mpRoutePreview(T,k,a,b){
   if(!mpCell(b)||T.owner[b]!==hi||MAP.T[b]<2)return {why:'Choose a destination on land you hold.'};
   if(k==='rail'&&!ct.done.includes('rail'))return {why:'Complete a Railway Station in the origin city first.'};
   if(k==='sea'&&!ct.done.includes('harbour'))return {why:'Complete a coastal Harbour in the origin city first.'};
-  const path=k==='sea'?mpSeaReach(a).get(b):mpLandPath(T,hi,a,b);
-  if(!path)return {why:k==='sea'?'No water route reaches that coast within 14 hexes.':'No route through your own land connects these locations (maximum 64 steps).'};
+  if(k==='bridge'){const o=cityState(T).byCell.get(b);if(!o||!o.active||o.hi!==hi)return {why:'A bridge must end at another of your cities.'};if(hexDist(a,b)>MP_BRIDGE)return {why:`A bridge can reach a city at most ${MP_BRIDGE} hexes away.`};}
+  const path=k==='sea'?mpSeaReach(a).get(b):k==='bridge'?mpBridgePath(T,hi,a,b):mpLandPath(T,hi,a,b);
+  if(!path)return {why:k==='bridge'?'No crossing over water joins these cities within 3 hexes. Where land joins them, build a road.':k==='sea'?'No water route reaches that coast within 14 hexes.':'No route through your own land connects these locations (maximum 64 steps).'};
   if((S.nation.infra||[]).some(r=>r.k===k&&((r.a===a&&r.b===b)||(r.a===b&&r.b===a))))return {why:'That connection already exists.'};
   const steps=path.length-1,cost=Object.fromEntries(Object.entries(type.cost).map(([r,v])=>[r,v*steps]));
   return {path,cost,ms:steps*type.mins*60000,steps,ct,type};
@@ -55129,7 +55152,7 @@ MAP_PANEL.push(ctx=>{if(ctx.cell==null)return '';const T=territory(),ct=cityStat
 function mpRoutesHereHTML(cell,T){
   if(!mapOpt('mp-networks',true))return '';const CS=cityState(T),rows=[];
   T.list.forEach((x,hi)=>{if(x.npc)return;for(const raw of (Array.isArray(x.n.infra)?x.n.infra:[]).slice(0,MP_NET_MAX)){const r=mpRouteShape(raw);if(!r||r.reg!==REG.id||!r.path.includes(cell))continue;
-    if(r.k==='sea'&&cell!==r.a&&cell!==r.b)continue;
+    if(MP_WET(r.k)&&cell!==r.a&&cell!==r.b)continue;
     const st=mpRouteStatus(r,T,hi,CS.byCell),live=(st==='Active'||st==='Partly cut')&&mpLiveCells(r,T,hi).includes(cell),A=CS.byCell.get(r.a),B=CS.byCell.get(r.b),end=cell===r.a||cell===r.b;
     const name=c=>{const o=CS.byCell.get(c);return o?o.nm:terrName(c);},ct=CS.byCell.get(cell),mine=x.id===myId();
     const what=!live?(st==='Under construction'?'not finished yet':st==='Partly cut'?'cut off from both ends here':'not working: '+st.toLowerCase()):ct&&ct.hi===hi?`${end?'':'passes through, so '}${esc(ct.nm)} counts as on it`:r.k==='sea'?'':`this hex yields ${Math.round(MP_HEX_K*100)}% more`;
@@ -55178,7 +55201,7 @@ MAP_LAYERS.push({stage:'land',kinds:['main','visit'],draw:M=>{
 MAP_LAYERS.push({stage:'over',kinds:['main','visit'],draw:M=>{
   const {g,T,s}=M,mi=T.byId[myId()],CS=cityState(T),stroke=(path,color,dash,width=1.8)=>{g.beginPath();path.forEach((c,i)=>i?g.lineTo(MAP.cx[c],MAP.cy[c]):g.moveTo(MAP.cx[c],MAP.cy[c]));g.strokeStyle=color;g.lineWidth=width/s;g.setLineDash(dash.map(v=>v/s));g.stroke();g.setLineDash([]);};
   if(mapOpt('mp-networks',true))T.list.forEach((x,hi)=>{for(const raw of (x.n.infra||[]).slice(0,MP_NET_MAX)){const r=mpRouteShape(raw);if(!r||r.reg!==REG.id)continue;const status=mpRouteStatus(r,T,hi,CS.byCell),cut=!['Active','Under construction'].includes(status);const color=cut?M.col.down:status==='Under construction'?M.col.stamp:r.k==='sea'?M.col.accent:M.col.ink;
-    stroke(r.path,color,cut||status==='Under construction'?[4,4]:r.k==='sea'?[2,4]:[],r.k==='rail'?3.6:1.8);if(r.k==='rail'&&!cut)stroke(r.path,M.col.sheet,[],1);
+    stroke(r.path,color,cut||status==='Under construction'?[4,4]:r.k==='sea'?[2,4]:[],r.k==='rail'||r.k==='bridge'?(r.k==='bridge'?4.4:3.6):1.8);if((r.k==='rail'||r.k==='bridge')&&!cut)stroke(r.path,M.col.sheet,r.k==='bridge'?[1,3]:[],r.k==='bridge'?1.6:1);
     /* a partly cut route: the stretches still joined to an end are drawn whole over the dashed red line */
     if(status==='Partly cut'){const live=new Set(mpLiveCells(r,T,hi));let run=[];for(const c of r.path.concat(-1)){if(live.has(c)){run.push(c);continue;}if(run.length>1){stroke(run,M.col.ink,[],r.k==='rail'?3.6:1.8);if(r.k==='rail')stroke(run,M.col.sheet,[],1);}run=[];}}}});
   if(M.kind==='main'&&mi!==undefined){
@@ -67707,14 +67730,14 @@ function cxAnswer(cid,i){
   c.ne=now+CX_EV_GAP+hash(cid+':'+now)%DAY;
   commit(n);S.cityMsg='';render();toast(o.r);
 }
-function cxBuildRoad(a,b){
-  const n=S.nation,T=territory(),p=mpRoutePreview(T,'road',a,b),now=Date.now();
+function cxBuildRoad(a,b,k='road'){
+  const n=S.nation,T=territory(),p=mpRoutePreview(T,k,a,b),now=Date.now();
   if(p.why){S.cityMsg=p.why;render();return;}
   if((n.infra||[]).length>=MP_NET_MAX){S.cityMsg=`You can keep up to ${MP_NET_MAX} connections. Remove an old one on the map first.`;render();return;}
   const st=stockNow(n,now),miss=lacking(p.cost,st);if(miss.length){S.cityMsg='You need '+list(miss)+' more.';render();return;}
   const next=clone(n);cxPay(next,st,p.cost,now);
-  next.infra=(next.infra||[]).concat({id:'net-'+now.toString(36)+'-'+(n.infra||[]).length,k:'road',a,b,path:p.path,t:now,d:now+p.ms,reg:REG.id});
-  commit(next);saveSoon();S.cityMsg='';render();toast(`Road building has started. It will be finished in ${fmtDur(p.ms)}.`);
+  next.infra=(next.infra||[]).concat({id:'net-'+now.toString(36)+'-'+(n.infra||[]).length,k,a,b,path:p.path,t:now,d:now+p.ms,reg:REG.id});
+  commit(next);saveSoon();S.cityMsg='';render();toast(`${k==='bridge'?'Bridge':'Road'} building has started. It will be finished in ${fmtDur(p.ms)}.`);
 }
 function cxQueueUp(cid,k){
   const now=Date.now(),n=ensureCities(clone(S.nation)),c=n.cities.find(x=>x.id===cid);if(!c)return;
@@ -67833,7 +67856,15 @@ function cxRoads(ct,T,n,st,ok){
   const linked=new Set(routes.map(r=>r.a===ct.c?r.b:r.a));
   const can=pgAvailable(n,'map'),held=CS.all.filter(o=>o!==ct&&o.active&&o.hi===hi),others=held.filter(o=>!linked.has(o.c));
   const offers=!ok?'':!can?'<p class="hint">Roads open once your nation holds three claimed hexes.</p>':others.length?`<ul class="cx-roads">${others.map(o=>{const p=mpRoutePreview(T,'road',ct.c,o.c),miss=p.why?[]:lacking(p.cost,st);return `<li><span><b>To ${esc(o.nm)}</b> <span class="hint">${p.why?esc(p.why):`${p.steps} ${p.steps===1?'hex':'hexes'} · ${esc(costText(p.cost))} · ${fmtDur(p.ms)}`}</span></span>${p.why?'':`<button class="btn small-btn${miss.length?' ghost':''}" data-act="cx-road" data-a="${ct.c}" data-b="${o.c}"${miss.length?` disabled title="You need ${esc(list(miss))} more"`:''}>Build road</button>`}</li>`;}).join('')}</ul>`:held.length?'<p class="hint">Every other city you hold is already connected to this one.</p>':`<p class="hint">${esc(ct.nm)} is your only city for now. Once you hold a second one, you can build a road to it from here.</p>`;
-  return `<section class="cx-sec"><h4 class="lbl-h">Roads</h4><p class="hint">A city on a finished road, at either end or anywhere along it, builds 10% faster, its people are happier (+5 mood), and its land produces more. Road hexes that no city works yield 10% more. If part of a road is lost, the stretches still joined to a city keep working. Railways and sea lanes are built on the map, under Transport networks.</p>${rows?`<ul class="cx-parts">${rows}</ul>`:''}${offers}</section>`;
+  return `<section class="cx-sec"><h4 class="lbl-h">Roads</h4><p class="hint">A city on a finished road, at either end or anywhere along it, builds 10% faster, its people are happier (+5 mood), and its land produces more. Road hexes that no city works yield 10% more. If part of a road is lost, the stretches still joined to a city keep working. Railways and sea lanes are built on the map, under Transport networks.</p>${rows?`<ul class="cx-parts">${rows}</ul>`:''}${offers}</section>${cxBridges(ct,T,n,st,ok,held)}`;
+}
+/* bridges to the cities across the water, at most MP_BRIDGE hexes away */
+function cxBridges(ct,T,n,st,ok,held){
+  if(!ok||!pgAvailable(n,'map'))return '';const hi=T.byId[myId()];
+  const has=new Set((n.infra||[]).filter(r=>r&&r.k==='bridge'&&(r.a===ct.c||r.b===ct.c)).map(r=>r.a===ct.c?r.b:r.a));
+  const near=held.filter(o=>!has.has(o.c)&&hexDist(ct.c,o.c)<=MP_BRIDGE).map(o=>[o,mpRoutePreview(T,'bridge',ct.c,o.c)]).filter(([,p])=>!p.why);
+  const t=MP_TYPES.bridge;
+  return `<section class="cx-sec cx-bridges"><h4 class="lbl-h">Bridges</h4><p class="hint">A bridge spans water to another of your cities at most ${MP_BRIDGE} hexes away. It is costly (${esc(costText(t.cost))} for every hex it spans) and slow to build (${t.mins/60} hours a hex), but both cities gain +${Math.round(t.bonus*100)}% on their land, the best of any connection, and count as on a road. A bridge works only while you hold both cities and every land hex it touches.</p>${near.length?`<ul class="cx-roads">${near.map(([o,p])=>{const miss=lacking(p.cost,st);return `<li><span><b>To ${esc(o.nm)}</b> <span class="hint">${p.steps} ${p.steps===1?'hex':'hexes'} · ${esc(costText(p.cost))} · ${fmtDur(p.ms)}</span></span><button class="btn small-btn${miss.length?' ghost':''}" data-act="cx-road" data-k="bridge" data-a="${ct.c}" data-b="${o.c}"${miss.length?` disabled title="You need ${esc(list(miss))} more"`:''}>Build bridge</button></li>`;}).join('')}</ul>`:`<p class="hint">No city of yours lies across the water within ${MP_BRIDGE} hexes${has.size?' that is not bridged already':''}.</p>`}</section>`;
 }
 function cityCard(ct,T,n,st,now){
   const mine=ct.fid===myId(),holder=ct.hi>=0?T.list[ct.hi]:null,taken=mine&&!!holder&&holder.id!==myId(),occupied=mine&&(!ct.active||taken),ok=mine&&ct.active&&!taken;
@@ -67936,7 +67967,7 @@ document.addEventListener('click',e=>{
   if(a==='cx-fire-no'){S.cxFire=null;render();return;}
   if(a==='cx-fire'){cxDismiss(id);return;}
   if(a==='cx-ev'){cxAnswer(id,+el.dataset.i);return;}
-  if(a==='cx-road'){cxBuildRoad(+el.dataset.a,+el.dataset.b);return;}
+  if(a==='cx-road'){cxBuildRoad(+el.dataset.a,+el.dataset.b,el.dataset.k==='bridge'?'bridge':'road');return;}
   if(a==='cx-qup'){cxQueueUp(id,el.dataset.k);return;}
   if(a==='cx-cr'){cxCrestEdit(id,el.dataset.f,el.dataset.v);return;}
 });
@@ -74015,7 +74046,7 @@ mapBox=(f=>function(kind){const h=f.apply(this,arguments),n=S.nation;if(kind!=='
 
 /* the browser tests' window into the game: test/lib.mjs sets EDICTUM_PROBE before the page loads (a
    player's own browser can reach all of this anyway) */
-if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({RPATCH,SC:()=>scProbe(),JV:()=>jvProbe(),M100P:()=>({M100,M100_N,M100_MC,M100_MCN,m100Bits,m100Got,m100In,m100Due,m100Count,m100Show,m100Open,ctgMcOk,nationColor,czShOk,czShieldPath,unlocksOf,czPatSVG,xsMax}),RVN:()=>({RV,rvData,rvSync,rvKey,rvHeld,rvStretch,rvMost,rvEdgeHolder,rvAt,rvNameAt,rvLabelAt,rvParts,rvRename,rvReset,rvNameProblem,rvTidy,rvLabel,rvnPanel,logLine,RVN_MAX,RVN_LEN,updateMapPanel,hexDist,HEX_W,REG}),CP2:()=>({BLD_ICO,bldIco,bldLead,cxDefTotal,cxOrder,qjBuilding,BUILDINGS}),PRVC:()=>({cxPrvOf,cxPrvSeatTrial,cxOvwCols,prvSeat,prvMine,prvOfCell,prvSetAut,prvAppoint,PRV}),NPX:()=>({fbTrend,fbYesterday,heroLead,heroOpen,opOf,OPEN_TO,hnOf,hnFill,hnLine,nbSection,ppWho,ppWhoHTML,ppHash,ppCarried,economy,territory,bordersOf,fillDeal,findNation,clsHide,MAP,hexDist,STAT_KEYS,popNow,myId}),PT:()=>ptProbe(),LTH:()=>lthProbe(),DAM:()=>damProbe(),CHAT:()=>({RGC,RGW,tab:rgcTab(),count:rgcCount(),region:rgcUnread(),world:rgwUnread(),named:rgwNamedUnread(),hidden:document.hidden}),UXP2:()=>({edictDesk,edictStep,edictOpen,fill,ISSUE_BY_ID,ACH,keysOpen,dmOthers,dmPickList,stGroups,stTabLast,navRecent,vhData,VH_KEY,VH_AFTER,QJ_DO,qjItems:q=>navQjItems(q),NAV_REC_KEY,ST_KEY}),HID:()=>({HIDN,hidMask,iAmHidden,frontier,mapPanel,warControls}),WG:()=>({wgTakers,wgForField,wgForPick,warGiveHex,warGive,occupiedFrom,attack,offerPeace,declareWar,collectConquests,dedupeConq}),WAKE:()=>({dormFresh,dormQuiet,dormWelcome,moveTo,RSTAT,REGIONS,REG,regDisabled}),LAND:()=>({landWait,capLift,capWrong,capNote,raceKnown,RACE,worldHeardAt:()=>worldHeardAt,landQ:()=>S.landQ,landQueued,fdSites:(n,T)=>fdSites(n,T)}),BG:{gain:bldGain,html:bldGainHtml},IB:()=>({agRoster,agPick,agStatus,heatOf,cvRoll,cvKey,cvBlock,cvOdds,buLv,buGap,buAll,BU,BU_KEYS,ibFile,ibWanted,ibChatter,HEAT_MAX,DD_TASKS,DD_LEG,findNation,allNations,cvProtected}),VL:()=>({VL_SECS,VL_DEF,CLS,CLS_OPS,CLS_READ,vlOrder,clsOf,clsRaw,clsMax,clsSeen,clsHide,clsRead,vlSave,findNation}),IFC:()=>({plan:ifcPlan,works:ifcWorks,line:ifcLine,tab:ifcTab}),XP:()=>({BUILDINGS,XU,XU_KEYS,XU_TOTAL,LOST_KINDS,LOST_ORDER,xuLv,xuWhy,xuHave,xuStart,xuCost,xuGear,xpSeen,expFree,xpTeamOpen,nationBuilt,expBackTeam,SITES,SITE_KINDS,expPlan,expOdds,expRuns,expRange,flRange,flAlive,flPlan,flDebug,flNow,discoveries,sendExpedition,hearReport,xpRoute,xpRivals,xpRivalText,xpFinds,flOdds,territory}),SVC:()=>({SVC,SVC_N,SVC_V,SVC_NEED,svcPlan,svcOpen,svcDig,svcShort,svcRoll,svcAmt,svcDayOf,svcRoom,svcNext}),FLC:()=>({FLC,FLC_RULES,FLC_CAT,flcId,flcTimes,flcPhase,flcPrev,flcView,flcLoad,flcChamp,flcTodo,flcClaims,flcLand,flcStreak,flcAllDone,flcSeen,flcDuty,flcDeskOn,flcDraftPush,FCA}),LK:{lakeMap,isLake,claimLand,lakeShore,fillHeld,LAKE_MAX,LAKE_A,freeCell,claimFrontier,blockPlan,autoPlan,terrCount,placePhrase,claimWhy,swapCheck,inspectPanel,writeClaims,landCredits:n=>landCredits(n)},PST:()=>({PST,PST_LOOKS,PST_SHAPES,pstBar,pstKm,pstView,pstBox,pstPlace,pstKeyOf,pstRender,pstShow,pstHide}),DIG:()=>({DIG_SETS,DIG_FIRST,DIG_POOL,DIG_SITES,DIG_LEN,DIG_EVENTS,DIG_SCH,digSet,digHeld,digDone,digRew,digCredits,digOrder,digActive,digRetired,digOpenedAt,digPlan,digSend,digOpen,digChoose,digMod,digEvent,digPity,digGround,digInvites,digJoin,digJointOn,digGiftsIn,digTake,digGiveSpare,digSellSpare,digHire,digRegionFinds,digFirsts,landEarned:n=>landEarned(n),REG,REGIONS,COL_BY_ID}),MW:()=>({mwOf,mwPoints,mwVisitors,mwTakings,mwExhibit,mwExhibitItems,mwRanking,mwWorn,mwSlots,mwOnShow,COL_BY_ID,COL_ITEMS,DIG_SETS,MW_FLOORS}),GM:()=>({gamesResults,edOf,b1Now,gevWhy,baseScores,entryOf,medalsIn,gamesRecords,gamesCeremony,unlocksOf,myId,formOf,GAME_EVENTS,clone,commit}),GB:()=>({IRON_DEP,IRON_DEP_YIELD,CELL_RES,MAP_T:MAP.T,mapAt:c=>{centerMain(c,NEAR_Z*1.6);},stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,FOOD_SPOIL,FOOD_EAT,TIMBER_BURN,foodGrowth,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({dspShown,dspRegShown,dspRegs,dspPic,dspLocator,dspHtDefs,pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),ASMX:()=>({ASMX,ASMX_TABS,asmBookAt,asmState,asmArcLoad,REG}),RGNX:()=>({RGN,RGN_PAGE,notifItems,ONL,onlRefresh}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals}),TYX:()=>({TY,TY_RULES,TY_K,tyOf,tyList,tyWarBlock,tyIncoming,affinity,alPactLive,alRelationsHTML}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,achTierCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC,step:rcStepCheck,head:rcHead,sponsoring:rcSponsoring,qr:qrMatrix,card:rcCardDraw,invCap:rcInvCap,free:rcFreeLand,STEPS:RC_STEPS,UNL:RC_UNLOCKS}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend,card:n=>tutCard(n),phase:n=>tutPhase(n),picks:(n,ph)=>tutPicks(n,ph),group:(n,k)=>tutGroup(n,tutL(k)),hid:n=>tutHid(n)},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours},WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR,bell:now=>notifItems(now||Date.now())},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},TIER:()=>({BTIER,bEff,bTier,bTierNext,bTierLine,tierQuote,tierProblem,cxTier,cxTrMap,tierSettle,tierReady,cxGoldNow,cxUpQuote,cxUpList,cxUps}),CX:{upgradable:cxUpgradable,mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState,UG:CX_UG,LV:CX_LV,ups:cxUps,upMap:cxUpMap,extras:cxBldExtras,quote:cxUpQuote},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo,unlockTarget,unlockShow,unlockFresh,unlockQueue,ULK,UNLOCKS,unlocksOf,toast:m=>toast(m)},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{coinBackSVG:cuCoinBackSVG,noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,coinSVG:cuCoinSVG,guide:cuGuideHTML,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ACH_RANKS_V1,ID_BD,achVal,achCtx,achEvalNew,achState,stockRates:n=>stockRates(n),achPoints,achRank,achRankOf,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,flagNorm:(f,n)=>flagNorm(f,n),flagSVG:(f,l)=>flagSVG(f,l),mapTip:id=>{const T=mapTerr('main'),i=T.list.findIndex(x=>x.id===id);if(i<0)return '';const cell=Array.prototype.indexOf.call(T.owner,i);return MAP_TIP.map(h=>{try{return h({kind:'main',cell,cv:null,x:0,y:0});}catch(e){return '';}}).filter(x=>typeof x==='string').join(' | ');},cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
+if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({RPATCH,SC:()=>scProbe(),RD:()=>rdProbe(),JV:()=>jvProbe(),M100P:()=>({M100,M100_N,M100_MC,M100_MCN,m100Bits,m100Got,m100In,m100Due,m100Count,m100Show,m100Open,ctgMcOk,nationColor,czShOk,czShieldPath,unlocksOf,czPatSVG,xsMax}),RVN:()=>({RV,rvData,rvSync,rvKey,rvHeld,rvStretch,rvMost,rvEdgeHolder,rvAt,rvNameAt,rvLabelAt,rvParts,rvRename,rvReset,rvNameProblem,rvTidy,rvLabel,rvnPanel,logLine,RVN_MAX,RVN_LEN,updateMapPanel,hexDist,HEX_W,REG}),CP2:()=>({BLD_ICO,bldIco,bldLead,cxDefTotal,cxOrder,qjBuilding,BUILDINGS}),PRVC:()=>({cxPrvOf,cxPrvSeatTrial,cxOvwCols,prvSeat,prvMine,prvOfCell,prvSetAut,prvAppoint,PRV}),NPX:()=>({fbTrend,fbYesterday,heroLead,heroOpen,opOf,OPEN_TO,hnOf,hnFill,hnLine,nbSection,ppWho,ppWhoHTML,ppHash,ppCarried,economy,territory,bordersOf,fillDeal,findNation,clsHide,MAP,hexDist,STAT_KEYS,popNow,myId}),PT:()=>ptProbe(),LTH:()=>lthProbe(),DAM:()=>damProbe(),CHAT:()=>({RGC,RGW,tab:rgcTab(),count:rgcCount(),region:rgcUnread(),world:rgwUnread(),named:rgwNamedUnread(),hidden:document.hidden}),UXP2:()=>({edictDesk,edictStep,edictOpen,fill,ISSUE_BY_ID,ACH,keysOpen,dmOthers,dmPickList,stGroups,stTabLast,navRecent,vhData,VH_KEY,VH_AFTER,QJ_DO,qjItems:q=>navQjItems(q),NAV_REC_KEY,ST_KEY}),HID:()=>({HIDN,hidMask,iAmHidden,frontier,mapPanel,warControls}),WG:()=>({wgTakers,wgForField,wgForPick,warGiveHex,warGive,occupiedFrom,attack,offerPeace,declareWar,collectConquests,dedupeConq}),WAKE:()=>({dormFresh,dormQuiet,dormWelcome,moveTo,RSTAT,REGIONS,REG,regDisabled}),LAND:()=>({landWait,capLift,capWrong,capNote,raceKnown,RACE,worldHeardAt:()=>worldHeardAt,landQ:()=>S.landQ,landQueued,fdSites:(n,T)=>fdSites(n,T)}),BG:{gain:bldGain,html:bldGainHtml},IB:()=>({agRoster,agPick,agStatus,heatOf,cvRoll,cvKey,cvBlock,cvOdds,buLv,buGap,buAll,BU,BU_KEYS,ibFile,ibWanted,ibChatter,HEAT_MAX,DD_TASKS,DD_LEG,findNation,allNations,cvProtected}),VL:()=>({VL_SECS,VL_DEF,CLS,CLS_OPS,CLS_READ,vlOrder,clsOf,clsRaw,clsMax,clsSeen,clsHide,clsRead,vlSave,findNation}),IFC:()=>({plan:ifcPlan,works:ifcWorks,line:ifcLine,tab:ifcTab}),XP:()=>({BUILDINGS,XU,XU_KEYS,XU_TOTAL,LOST_KINDS,LOST_ORDER,xuLv,xuWhy,xuHave,xuStart,xuCost,xuGear,xpSeen,expFree,xpTeamOpen,nationBuilt,expBackTeam,SITES,SITE_KINDS,expPlan,expOdds,expRuns,expRange,flRange,flAlive,flPlan,flDebug,flNow,discoveries,sendExpedition,hearReport,xpRoute,xpRivals,xpRivalText,xpFinds,flOdds,territory}),SVC:()=>({SVC,SVC_N,SVC_V,SVC_NEED,svcPlan,svcOpen,svcDig,svcShort,svcRoll,svcAmt,svcDayOf,svcRoom,svcNext}),FLC:()=>({FLC,FLC_RULES,FLC_CAT,flcId,flcTimes,flcPhase,flcPrev,flcView,flcLoad,flcChamp,flcTodo,flcClaims,flcLand,flcStreak,flcAllDone,flcSeen,flcDuty,flcDeskOn,flcDraftPush,FCA}),LK:{lakeMap,isLake,claimLand,lakeShore,fillHeld,LAKE_MAX,LAKE_A,freeCell,claimFrontier,blockPlan,autoPlan,terrCount,placePhrase,claimWhy,swapCheck,inspectPanel,writeClaims,landCredits:n=>landCredits(n)},PST:()=>({PST,PST_LOOKS,PST_SHAPES,pstBar,pstKm,pstView,pstBox,pstPlace,pstKeyOf,pstRender,pstShow,pstHide}),DIG:()=>({DIG_SETS,DIG_FIRST,DIG_POOL,DIG_SITES,DIG_LEN,DIG_EVENTS,DIG_SCH,digSet,digHeld,digDone,digRew,digCredits,digOrder,digActive,digRetired,digOpenedAt,digPlan,digSend,digOpen,digChoose,digMod,digEvent,digPity,digGround,digInvites,digJoin,digJointOn,digGiftsIn,digTake,digGiveSpare,digSellSpare,digHire,digRegionFinds,digFirsts,landEarned:n=>landEarned(n),REG,REGIONS,COL_BY_ID}),MW:()=>({mwOf,mwPoints,mwVisitors,mwTakings,mwExhibit,mwExhibitItems,mwRanking,mwWorn,mwSlots,mwOnShow,COL_BY_ID,COL_ITEMS,DIG_SETS,MW_FLOORS}),GM:()=>({gamesResults,edOf,b1Now,gevWhy,baseScores,entryOf,medalsIn,gamesRecords,gamesCeremony,unlocksOf,myId,formOf,GAME_EVENTS,clone,commit}),GB:()=>({IRON_DEP,IRON_DEP_YIELD,CELL_RES,MAP_T:MAP.T,mapAt:c=>{centerMain(c,NEAR_Z*1.6);},stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,FOOD_SPOIL,FOOD_EAT,TIMBER_BURN,foodGrowth,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({dspShown,dspRegShown,dspRegs,dspPic,dspLocator,dspHtDefs,pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),ASMX:()=>({ASMX,ASMX_TABS,asmBookAt,asmState,asmArcLoad,REG}),RGNX:()=>({RGN,RGN_PAGE,notifItems,ONL,onlRefresh}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals}),TYX:()=>({TY,TY_RULES,TY_K,tyOf,tyList,tyWarBlock,tyIncoming,affinity,alPactLive,alRelationsHTML}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,achTierCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC,step:rcStepCheck,head:rcHead,sponsoring:rcSponsoring,qr:qrMatrix,card:rcCardDraw,invCap:rcInvCap,free:rcFreeLand,STEPS:RC_STEPS,UNL:RC_UNLOCKS}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend,card:n=>tutCard(n),phase:n=>tutPhase(n),picks:(n,ph)=>tutPicks(n,ph),group:(n,k)=>tutGroup(n,tutL(k)),hid:n=>tutHid(n)},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours},WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR,bell:now=>notifItems(now||Date.now())},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},TIER:()=>({BTIER,bEff,bTier,bTierNext,bTierLine,tierQuote,tierProblem,cxTier,cxTrMap,tierSettle,tierReady,cxGoldNow,cxUpQuote,cxUpList,cxUps}),CX:{upgradable:cxUpgradable,mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState,UG:CX_UG,LV:CX_LV,ups:cxUps,upMap:cxUpMap,extras:cxBldExtras,quote:cxUpQuote},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo,unlockTarget,unlockShow,unlockFresh,unlockQueue,ULK,UNLOCKS,unlocksOf,toast:m=>toast(m)},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{coinBackSVG:cuCoinBackSVG,noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,coinSVG:cuCoinSVG,guide:cuGuideHTML,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ACH_RANKS_V1,ID_BD,achVal,achCtx,achEvalNew,achState,stockRates:n=>stockRates(n),achPoints,achRank,achRankOf,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,flagNorm:(f,n)=>flagNorm(f,n),flagSVG:(f,l)=>flagSVG(f,l),mapTip:id=>{const T=mapTerr('main'),i=T.list.findIndex(x=>x.id===id);if(i<0)return '';const cell=Array.prototype.indexOf.call(T.owner,i);return MAP_TIP.map(h=>{try{return h({kind:'main',cell,cv:null,x:0,y:0});}catch(e){return '';}}).filter(x=>typeof x==='string').join(' | ');},cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
 /* ───────── Letters by post: the player's email address, confirmed by a code, and the letters they choose ─────────
    Settings › Letters by post (src/shim.js mail; functions/mail.js). The address lives only on the server; this card
    asks for it each time Settings opens. Things this nation does to another player's nation (a letter, a war, a deal)
@@ -76521,6 +76552,129 @@ HELP_EXT.push({k:'ventures',t:'Joint ventures',body:()=>`<p>A joint venture is s
   <ul>${JV_RULES.kinds.map(k=>`<li><b>${esc(JV_K[k][0])}</b>: each side pays ${RES.filter(r=>JV_RULES.cost[k][r]).map(r=>fmt0(JV_RULES.cost[k][r])+' '+resName(r)).join(', ')}; built in ${JV_RULES.hours[k]} hours; ${esc(jvGives(k))}.</li>`).join('')}</ul>
   <p>Your half leaves your stockpile when you propose. Another player has ${JV_RULES.answer/DAY} days to accept and pay theirs; if they decline, or do not answer, yours comes back. A computer nation answers at once, by its affinity with you (it needs ${JV_RULES.npcMin}).</p>
   <p>A venture closes while the two nations are at war and opens again at peace. It gives nothing while a hex on its route, or a city at either end, belongs to someone else. Either side may end it with ${JV_RULES.notice/DAY} days’ notice, which costs ${JV_RULES.leaveGw} goodwill with the other; neither half comes back. A nation takes part in at most ${JV_RULES.max} at once, and builds one of each kind with the same neighbour. Joint ventures need a Registered Nation (a linked sign-in).</p>`});
+
+/* ───────── the riddle of the week (17 November 2026) ─────────
+   Every Monday at 08:00 UTC (weekStart) the riddle job (jobs/fx/riddle.mjs) sets each region a riddle: a few lines that
+   point at one hex of the map, counted from the capital of one of its computer nations. It is riddles/{region}_{yyyymmdd}
+   (functions/riddle-rules.js; RD_RULES is its copy, test/riddle.test.mjs keeps them in step). The answer stays on the
+   server (riddleKeys/, which no player reads) until the week is over, when the job writes it into the riddle (a).
+   The Dispatch prints the riddle in its features column, with the first to find it and last week's answer. On the map,
+   the panel of any land hex offers "This is the riddle's answer…": a guess goes to the server (civic op rdGuess), which
+   says right or wrong; RD_RULES.tries a week, the same hex twice counts once. The player's own guesses come back from
+   riddles/{id}/guesses/{uid} and are marked on the map. A right answer is counted once per riddle (n.rdo, the ids solved)
+   in the tally: rdl solved, rdlt among the first ten, rdl1 the very first. Among the first ten earns "the Sharp-Eyed". */
+const RD_RULES={tries:3,top:10,week:7*86400000};
+const RD_ID=/^[a-z0-9-]{1,40}_\d{8}$/;
+const RD={id:'',cur:null,prev:null,mine:null,un:[],busy:false,ask:-1,drawn:''};
+function rdIdAt(t){const d=new Date(weekStart(t));return REG.id+'_'+d.getUTCFullYear()+String(d.getUTCMonth()+1).padStart(2,'0')+String(d.getUTCDate()).padStart(2,'0');}
+function rdNorm(id,d){
+  if(!d||!RD_ID.test(id))return null;const n=v=>typeof v==='number'&&isFinite(v)?v:0,s=(v,m)=>typeof v==='string'?v.slice(0,m):'';
+  const q=Array.isArray(d.q)?d.q.filter(l=>typeof l==='string').slice(0,8).map(l=>l.slice(0,240)):[];
+  const top=Array.isArray(d.top)?d.top.filter(x=>x&&typeof x==='object').slice(0,RD_RULES.top).map(x=>({u:s(x.u,128),nm:s(x.nm,80)||'A nation',t:n(x.t)})):[];
+  return {id,reg:s(d.reg,40),t:n(d.t),x:n(d.x),q,n:n(d.n),top,cap:s(d.cap,128),a:Number.isInteger(d.a)?d.a:-1};
+}
+function rdStop(){for(const u of RD.un)try{u();}catch(e){}RD.un=[];}
+/* a change redraws only the Dispatch's riddle box, in place (another nation solving it changes the count, and a whole
+   page drawn again mid-read would jump); the page is drawn again only the first time a riddle has a box to fill */
+function rdPaint(){try{
+  if(S.view==='dispatch'){const el=document.getElementById('dsp-p-riddle');let h='';try{h=rdBox(Date.now());}catch(e){}
+    if(el&&h){const hd=el.querySelector('.dsp-sh');el.innerHTML=(hd?hd.outerHTML:'')+h;}
+    else if(h&&!el&&RD.drawn!==RD.id&&!alTyping()){RD.drawn=RD.id;quietRender();}}
+  else if(S.view==='map'){updateMapPanel();redrawMaps();}
+}catch(e){}}
+/* this week's riddle and last week's, and this nation's guesses at this week's */
+function rdConnect(){
+  if(!S.db||S.mode!=='world'&&!(OBS&&S.obsOn))return;const now=Date.now(),id=rdIdAt(now);if(RD.id===id&&RD.un.length)return;
+  rdStop();RD.id=id;RD.cur=null;RD.prev=null;RD.mine=null;RD.ask=-1;const prev=rdIdAt(weekStart(now)-1);
+  try{RD.un.push(S.db.doc('riddles/'+id).onSnapshot(s=>{RD.cur=s.exists?rdNorm(id,s.data()):null;rdPaint();},()=>{}));}catch(e){}
+  try{RD.un.push(S.db.doc('riddles/'+prev).onSnapshot(s=>{RD.prev=s.exists?rdNorm(prev,s.data()):null;rdPaint();},()=>{}));}catch(e){}
+  if(S.uid&&!OBS)try{RD.un.push(S.db.doc('riddles/'+id+'/guesses/'+S.uid).onSnapshot(s=>{const d=s.exists?s.data():null;
+    RD.mine=d?{g:Array.isArray(d.g)?d.g.filter(Number.isInteger).slice(0,RD_RULES.tries):[],ok:Number(d.ok)||0,r:Number(d.r)||0}:null;rdPaint();},()=>{}));}catch(e){}
+}
+connect=(f=>async function(){const r=await f.apply(this,arguments);try{rdConnect();}catch(e){}return r;})(connect);
+/* a new week brings a new riddle */
+setInterval(()=>{try{if(RD.id&&rdIdAt(Date.now())!==RD.id){RD.id='';rdConnect();}}catch(e){}},60000);
+function rdOpen(now){now=now||Date.now();const R=RD.cur;return !!R&&R.reg===REG.id&&now>=R.t&&now<R.x;}
+function rdLeft(){const M=RD.mine;return M&&M.ok?0:RD_RULES.tries-(M?M.g.length:0);}
+const rdOrd=k=>k+(k%100>=11&&k%100<=13?'th':['th','st','nd','rd'][k%10]||'th');
+async function rdGuessAt(c){
+  const R=RD.cur;if(!R||RD.busy||!rdOpen())return;if(OBS){toast('Observing: nothing can be changed.');return;}
+  RD.busy=true;updateMapPanel();
+  try{const r=(await alReq({op:'rdGuess',rid:R.id,c}))||{};
+    if(r.right){if(!r.again){const n=clone(S.nation);n._rdw={id:R.id,rank:r.rank};commit(n);setTimeout(()=>{try{if(S.nation&&!OBS)commit(clone(S.nation));}catch(e){}},60);}
+      toast(r.rank<=RD_RULES.top?`You found it! You are the ${rdOrd(r.rank)} to solve this week’s riddle, so ${REGION} will remember you.`:`You found it! You are the ${rdOrd(r.rank)} to solve this week’s riddle.`);}
+    else toast(r.same?'You already guessed that hex.':r.left>0?`Not this hex. ${r.left} ${r.left===1?'guess':'guesses'} left this week.`:'Not this hex, and that was your last guess this week. The answer comes out on Monday.');
+  }catch(e){toast(alErrText(e));}
+  finally{RD.busy=false;RD.ask=-1;updateMapPanel();redrawMaps();}
+}
+/* a right answer counts once per riddle; n.rdo keeps the ids solved */
+COMMIT_HOOKS.push((n,old,now)=>{
+  if(!n)return [];const w=n._rdw;delete n._rdw;
+  if(w&&typeof w.id==='string'&&RD_ID.test(w.id)&&!(n.rdo||[]).includes(w.id)){now=now||Date.now();
+    n.rdo=(n.rdo||[]).concat(w.id).slice(-30);gbBump(n,'rdl',1,now);if(w.rank>0&&w.rank<=RD_RULES.top)gbBump(n,'rdlt',1,now);if(w.rank===1)gbBump(n,'rdl1',1,now);}
+  return [];
+});
+NORM_HOOKS.push((n,d)=>{if(d&&Array.isArray(d.rdo)){const a=[...new Set(d.rdo.filter(v=>typeof v==='string'&&RD_ID.test(v)))].slice(-30);if(a.length)n.rdo=a;else delete n.rdo;}else delete n.rdo;});
+
+/* the Dispatch's box: the riddle, how this nation stands, the first to find it, and last week's answer */
+function rdCapName(R){const x=R&&R.cap?findNation(R.cap):null;return x?x.n.name:'';}
+function rdBox(now){
+  const R=RD.cur&&RD.cur.reg===REG.id?RD.cur:null,P=RD.prev&&RD.prev.reg===REG.id&&RD.prev.a>=0?RD.prev:null;if(!R&&!P)return '';
+  const M=RD.mine,left=rdLeft(),open=rdOpen(now);
+  const st=!R?'':M&&M.ok?`<b>You found it</b>: the ${rdOrd(M.r)} in ${esc(REGION)}.`:!open?'This riddle is closed.':left<=0?`You have used your ${RD_RULES.tries} guesses. The answer comes out on Monday.`
+    :`You have ${left} of ${RD_RULES.tries} guesses. Find the hex on the map, open it, and choose <b>This is the riddle’s answer</b>. The first ${RD_RULES.top} to find it are named here.`;
+  const who=L=>L.map(x=>`<b>${esc(x.nm)}</b>`).join(', ');
+  return `${R?`<div class="rd-now"><p class="dsp-vh">Where am I?</p><ol class="rd-q">${R.q.map(l=>`<li>${esc(l)}</li>`).join('')}</ol>
+      <p class="rd-st">${st}</p>
+      <p class="rd-acts"><button type="button" class="btn sm" data-act="rd-map">Look on the map</button></p>
+      <p class="dsp-small">${R.n?`Found so far by ${R.n} ${R.n===1?'nation':'nations'}${R.top.length?`; first ${who(R.top.slice(0,5))}${R.top.length>5?` and ${R.top.length-5} more of the first ten`:''}`:''}.`:'Nobody has found it yet.'} Closes ${esc(fmtDate(R.x))}, ${esc(fmtTime(R.x))}.</p></div>`:''}
+    ${P?`<div class="rd-last"><p class="dsp-vh">Last week’s answer</p><p>${esc(cap1(placePhrase(P.a)))}. <button type="button" class="linkish" data-act="rd-show" data-c="${P.a}">Show it on the map</button></p>
+      <p class="dsp-small">${P.n?`Found by ${P.n} ${P.n===1?'nation':'nations'}${P.top[0]?`, first of all ${who([P.top[0]])}`:''}.`:'Nobody found it.'}</p></div>`:''}`;
+}
+/* the map's panel: answer with this hex, or what this nation guessed here */
+MAP_PANEL.push(ctx=>{
+  const c=ctx.cell;if(c==null||c<0||!S.nation||S.mode!=='world'||OBS||!rdOpen()||MAP.T[c]<2)return '';
+  const M=RD.mine,left=rdLeft();if(M&&M.ok)return '';
+  if(M&&M.g.includes(c))return '<section class="rd-here"><p class="hint">You guessed this hex for the riddle of the week. It was not the one.</p></section>';
+  if(left<=0)return '';
+  const g=`${left} ${left===1?'guess':'guesses'} left this week`;
+  if(RD.ask===c)return `<section class="rd-here"><p><b>Answer the riddle of the week with this hex?</b> <span class="hint">${g}.</span></p><div class="row"><button type="button" class="btn sm" data-act="rd-guess" data-c="${c}"${RD.busy?' disabled':''}>Yes, this is it</button><button type="button" class="btn ghost sm" data-act="rd-ask-no">Not yet</button></div></section>`;
+  return `<section class="rd-here"><button type="button" class="btn ghost sm" data-act="rd-ask" data-c="${c}">This is the riddle’s answer…</button> <span class="hint">${g}</span></section>`;
+});
+/* on the map: a cross on each hex this nation guessed wrong this week, and a ring round last week's answer */
+MAP_LAYERS.push({stage:'top',kinds:['main'],draw:M=>{
+  const {g,s}=M,P=RD.prev&&RD.prev.reg===REG.id&&RD.prev.a>=0?RD.prev.a:-1,G=RD.mine&&!RD.mine.ok&&rdOpen()?RD.mine.g:[];
+  if(P<0&&!G.length)return;
+  g.save();g.lineCap='round';
+  for(const c of G){if(c<0||c>=MAP.N)continue;const x=MAP.cx[c],y=MAP.cy[c],r=2.6;g.beginPath();g.moveTo(x-r,y-r);g.lineTo(x+r,y+r);g.moveTo(x+r,y-r);g.lineTo(x-r,y+r);g.strokeStyle=M.col.down;g.lineWidth=Math.max(0.8,1.8/s);g.stroke();}
+  if(P>=0&&P<MAP.N){const x=MAP.cx[P],y=MAP.cy[P];g.beginPath();g.arc(x,y,HEX_R*0.95,0,Math.PI*2);g.strokeStyle=M.col.stamp;g.lineWidth=Math.max(1,2.2/s);g.setLineDash([3/s,2/s]);g.stroke();g.setLineDash([]);
+    if(s*HEX_W>=14){g.font=`700 ${Math.max(8,11/s)}px ${MAP_FONT}`;g.textAlign='center';g.textBaseline='middle';g.fillStyle=M.col.stamp;g.fillText('?',x,y-HEX_R*1.35);}}
+  g.restore();
+}});
+/* in the bell: a new riddle each week */
+NOTIF_SOURCES.push((n,now)=>{if(!S.nation||n!==S.nation)return [];const R=RD.cur;if(!R||!rdOpen(now)||(RD.mine&&RD.mine.ok))return [];
+  return [{t:R.t,k:'riddle',kl:'Riddle of the week',txt:`This week’s riddle is in the Dispatch: ${R.q[0]||'find the hex it points at.'}`,go:'dispatch'}];});
+document.addEventListener('click',e=>{
+  const el=e.target.closest&&e.target.closest('[data-act^="rd-"]');if(!el)return;const a=el.dataset.act,c=+el.dataset.c;
+  if(a==='rd-ask'&&Number.isInteger(c)){RD.ask=c;updateMapPanel();return;}
+  if(a==='rd-ask-no'){RD.ask=-1;updateMapPanel();return;}
+  if(a==='rd-guess'&&Number.isInteger(c)){rdGuessAt(c);return;}
+  if(a==='rd-map'){let cc=-1;try{const T=territory(),i=RD.cur&&RD.cur.cap?T.byId[RD.cur.cap]:undefined;if(i!==undefined)cc=T.list[i].cap;}catch(e){}if(cc>=0){centerMain(cc,NEAR_Z);S.mapCell=null;}S.mapSel=null;S.mapTarget=null;go('map');return;}
+  if(a==='rd-show'&&Number.isInteger(c)&&c>=0&&c<MAP.N){centerMain(c,NEAR_Z+1.5);S.mapSel=null;S.mapTarget=null;S.mapCell=c;go('map');return;}
+});
+
+achDef('press','rdl-1','b','Riddle Solved','Find the hex the riddle of the week points at.',1,x=>aT(x,'rdl'),{mp:1});
+achDef('press','rdl-5','s','Puzzle Master','Solve five riddles of the week.',5,x=>aT(x,'rdl'),{mp:1});
+achDef('press','rdl-20','g','Sphinx of the Region','Solve twenty riddles of the week.',20,x=>aT(x,'rdl'),{mp:1});
+achDef('press','rdl-top','s','Sharp-Eyed','Be among the first ten in your region to solve a riddle of the week.',1,x=>aT(x,'rdlt'),{mp:1,u:'t-sharp'});
+achDef('press','rdl-first','g','First to the Answer','Be the first in your region to solve a riddle of the week.',1,x=>aT(x,'rdl1'),{mp:1});
+
+HELP_EXT.push({k:'riddle',t:'Riddle of the week',body:()=>`<p>Every Monday at 08:00 UTC each region gets a riddle in the Dispatch, in its features column. Its lines point at one hex of your region’s map: they count hexes from the capital of one of the computer nations, name a direction and the ground, and add what is needed until only one hex fits.</p>
+  <p>Find it on the map and open the hex. Its panel offers <b>This is the riddle’s answer…</b>. You have ${RD_RULES.tries} guesses a week; a wrong guess is marked with a cross on your map. The first ten nations to find it are named in the Dispatch, and earn the title “the Sharp-Eyed”.</p>
+  <p>When the week is over, the Dispatch shows last week’s answer, and the map rings it. Directions are as on the map, north at the top, and “3 hexes” means three steps from the capital’s own hex.</p>`});
+
+/* the browser tests' window (EDICTUM_PROBE, RD) */
+function rdProbe(){return {RD,RD_RULES,rdIdAt,rdBox,rdGuessAt,rdLeft,rdOpen};}
 
 /* ───────── cities that need you, in the bell (CA) ─────────
    What the Cities page lists under "Needs your attention" also goes in the bell as pinned notices: a matter waiting for an

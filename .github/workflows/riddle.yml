@@ -1,0 +1,79 @@
+# Every Monday, just after the week begins (08:00 UTC, the game's weekStart), the riddle job sets each region's riddle
+# of the week and tells last week's answer (jobs/fx/riddle.mjs), writing riddles/<id> and riddleKeys/<id> with the
+# Admin SDK. A second run an hour later is a safety net: a region that already has this week's riddle is skipped. Run
+# by hand (Actions > Riddle of the week > Run workflow) to set this week's riddle at once, for example after a deploy.
+# GitHub runs scheduled workflows from the default branch only.
+#
+# Needs, under Settings > Secrets and variables > Actions (the same as Deploy and the currency job):
+#   secret   FIREBASE_SERVICE_ACCOUNT  the service account key JSON; it needs to read and write Firestore
+#   variable FIREBASE_PROJECT_ID       the Firebase project id
+# With target staging it uses FIREBASE_SERVICE_ACCOUNT_STAGING and FIREBASE_STAGING_PROJECT_ID instead. Without them
+# the workflow says so and does nothing.
+name: Riddle of the week
+
+on:
+  schedule:
+    - cron: '5 8 * * 1'
+    - cron: '35 9 * * 1'
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'Which project: live or staging'
+        type: choice
+        options: [live, staging]
+        default: live
+
+permissions:
+  contents: read
+
+concurrency:
+  group: riddle-${{ inputs.target || 'live' }}
+  cancel-in-progress: false
+
+jobs:
+  set:
+    name: Set the riddles
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PROJECT_ID: ${{ inputs.target == 'staging' && vars.FIREBASE_STAGING_PROJECT_ID || vars.FIREBASE_PROJECT_ID }}
+      HAS_SERVICE_ACCOUNT: ${{ (inputs.target == 'staging' && secrets.FIREBASE_SERVICE_ACCOUNT_STAGING || secrets.FIREBASE_SERVICE_ACCOUNT) != '' }}
+    steps:
+      - name: Check the repository settings
+        id: settings
+        run: |
+          if [ "$HAS_SERVICE_ACCOUNT" != "true" ] || [ -z "$PROJECT_ID" ]; then
+            msg="The riddle job did not run: the repository is missing the service account secret or the project id variable for this target (README.md, Owner setup)."
+            echo "::warning title=Riddle job skipped::$msg"
+            { echo "### Riddle job skipped"; echo; echo "$msg"; } >> "$GITHUB_STEP_SUMMARY"
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check out
+        if: steps.settings.outputs.ready == 'true'
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        if: steps.settings.outputs.ready == 'true'
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: jobs/fx/package-lock.json
+
+      - name: Install the job's pinned packages
+        if: steps.settings.outputs.ready == 'true'
+        run: npm ci --prefix jobs/fx
+
+      - name: Set this week's riddles and tell last week's answers
+        if: steps.settings.outputs.ready == 'true'
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ inputs.target == 'staging' && secrets.FIREBASE_SERVICE_ACCOUNT_STAGING || secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          key="$RUNNER_TEMP/service-account.json"
+          trap 'rm -f "$key"' EXIT
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$key"
+          GOOGLE_APPLICATION_CREDENTIALS="$key" node jobs/fx/riddle.mjs --project "$PROJECT_ID" | tee "$RUNNER_TEMP/report.json"
+          { echo "### Riddles of the week"; echo; echo '```json'; cat "$RUNNER_TEMP/report.json"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"

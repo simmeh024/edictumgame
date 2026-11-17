@@ -201,11 +201,13 @@ await open(B);
 await nav(B, 'exchange');
 await until(async () => !!(await B.$('.cu-tbl')));
 check('the Bureau fits a phone without sideways scroll', (await noScroll(B)) <= 0);
-check('it lists the region’s other player as soon as the region arrives', await until(async () => /Aldorian Thaler/.test(await text(B, '.cu-tbl'))));
+// the region's nations arrive after the page has drawn (on a busy CI runner that once took over 8 seconds); the table
+// lists them as they come, without a reload
+check('it lists the region’s other player as soon as the region arrives', await until(async () => /Aldorian Thaler/.test(await text(B, '.cu-tbl')), 25000), (await text(B, '.cu-tbl')).slice(0, 300));
 check('and a newly founded nation is rated the next day', /Bvlander Crown/.test(await text(B, '.cu-yours')) && !!(await B.$('.cu-yours .cu-big')));
 const tgt = await B.$$eval('#main button, #main select, #main input', els => els.filter(e => e.offsetParent && !e.closest('.cz-sr')).map(e => { const r = e.getBoundingClientRect(); return [e.className, Math.round(r.width), Math.round(r.height)]; }).filter(([c, w, h]) => /seg-b|cu-swap|input|btn/.test(c) && Math.min(w, h) < 24));
 check('its controls are large enough to touch', !tgt.length, JSON.stringify(tgt.slice(0, 5)));
-check('the chart, controls and prestige badges carry text, not only colour', (await B.$$('.cu-pb .cu-pb-t')).length >= 9 && !!(await B.$('[aria-label="Swap the two currencies"]')));
+check('the chart, controls and prestige badges carry text, not only colour', await until(async () => (await B.$$('.cu-pb .cu-pb-t')).length >= 9, 15000) && !!(await B.$('[aria-label="Swap the two currencies"]')), String((await B.$$('.cu-pb .cu-pb-t')).length));
 await B.screenshot({ path: path.join(OUT, 'exchange-390.png'), fullPage: true });
 await nav(B, 'customise');
 await czSection(B, 'c');

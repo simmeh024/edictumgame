@@ -13,6 +13,7 @@ import { rcForget, RC_WORLD } from './regionchat.js';
 import { alDrop } from './alliances.js';
 import { trDrop } from './treaties.js';
 import { jvDrop } from './ventures.js';
+import { rdForget } from './riddles.js';
 import { fcForget } from './flagcomp.js';
 import { shopSummary, founderGiftSummary, grantSummary, parseEcb, ECB_URL } from './shop-stats.js';
 import { gatherMore, moreSummary, buyerTiming } from './stats-more.js';
@@ -366,6 +367,7 @@ async function mutate(db, actor, data) {
       await alDrop(db, target);
       await trDrop(db, target);
       await jvDrop(db, target);
+      await rdForget(db, target);
       const chat = await db.collectionGroup('chat').where('a', '==', target).get();
       if (!chat.empty) { const w = db.bulkWriter(); await Promise.all([Promise.all(chat.docs.map(d => w.delete(d.ref))), w.close()]); }
       const [posts, reports] = await Promise.all([db.collectionGroup('posts').where('a', '==', target).get(), db.collection('reports').where('target', '==', target).get()]);
