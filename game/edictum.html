@@ -76085,7 +76085,7 @@ HELP_EXT.push({k:'ventures',t:'Joint ventures',body:()=>`<p>A joint venture is s
    in the tally: rdl solved, rdlt among the first ten, rdl1 the very first. Among the first ten earns "the Sharp-Eyed". */
 const RD_RULES={tries:3,top:10,week:7*86400000};
 const RD_ID=/^[a-z0-9-]{1,40}_\d{8}$/;
-const RD={id:'',cur:null,prev:null,mine:null,un:[],busy:false,ask:-1};
+const RD={id:'',cur:null,prev:null,mine:null,un:[],busy:false,ask:-1,drawn:''};
 function rdIdAt(t){const d=new Date(weekStart(t));return REG.id+'_'+d.getUTCFullYear()+String(d.getUTCMonth()+1).padStart(2,'0')+String(d.getUTCDate()).padStart(2,'0');}
 function rdNorm(id,d){
   if(!d||!RD_ID.test(id))return null;const n=v=>typeof v==='number'&&isFinite(v)?v:0,s=(v,m)=>typeof v==='string'?v.slice(0,m):'';
@@ -76094,7 +76094,14 @@ function rdNorm(id,d){
   return {id,reg:s(d.reg,40),t:n(d.t),x:n(d.x),q,n:n(d.n),top,cap:s(d.cap,128),a:Number.isInteger(d.a)?d.a:-1};
 }
 function rdStop(){for(const u of RD.un)try{u();}catch(e){}RD.un=[];}
-function rdPaint(){try{if(S.view==='dispatch'&&!alTyping())quietRender();else if(S.view==='map'){updateMapPanel();redrawMaps();}}catch(e){}}
+/* a change redraws only the Dispatch's riddle box, in place (another nation solving it changes the count, and a whole
+   page drawn again mid-read would jump); the page is drawn again only the first time a riddle has a box to fill */
+function rdPaint(){try{
+  if(S.view==='dispatch'){const el=document.getElementById('dsp-p-riddle');let h='';try{h=rdBox(Date.now());}catch(e){}
+    if(el&&h){const hd=el.querySelector('.dsp-sh');el.innerHTML=(hd?hd.outerHTML:'')+h;}
+    else if(h&&!el&&RD.drawn!==RD.id&&!alTyping()){RD.drawn=RD.id;quietRender();}}
+  else if(S.view==='map'){updateMapPanel();redrawMaps();}
+}catch(e){}}
 /* this week's riddle and last week's, and this nation's guesses at this week's */
 function rdConnect(){
   if(!S.db||S.mode!=='world'&&!(OBS&&S.obsOn))return;const now=Date.now(),id=rdIdAt(now);if(RD.id===id&&RD.un.length)return;

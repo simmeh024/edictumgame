@@ -14,6 +14,8 @@ const job = (reg, now) => JSON.parse(execFileSync(process.execPath, [path.join(R
 const admin = async doc => { const r = await fetch(`http://${FS_HOST}/v1/projects/${PROJECT}/databases/(default)/documents/${doc}`, { headers: { authorization: 'Bearer owner' } }); return r.ok ? (await r.json()).fields : null; };
 const watch = p => p.ctx.addInitScript(() => { window.__toasts = []; addEventListener('DOMContentLoaded', () => new MutationObserver(() => { const t = document.getElementById('toast'); if (t && !t.hidden) window.__toasts.push(t.textContent); }).observe(document.body, { subtree: true, childList: true, characterData: true, attributes: true })); });
 const toastHas = (p, re) => until(() => p.evaluate(src => (window.__toasts || []).some(t => new RegExp(src).test(t)), re.source), 30000);
+/* a screenshot of an element the page may draw again meanwhile (the paper refreshes itself): try again on a fresh copy */
+const shot = async (loc, file) => { for (let i = 0; ; i++) { try { return await loc.screenshot({ path: file }); } catch (e) { if (i >= 4 || !/not attached|not visible|stable/i.test(e.message)) throw e; await sleep(500); } } };
 const panelOn = (p, c) => p.evaluate(c => { G.S.mapSel = null; G.S.mapTarget = null; G.S.mapCell = c; G.RVN().updateMapPanel(); }, c);
 
 const A = await player('riddler');
@@ -42,7 +44,7 @@ const box = await text(A, '#dsp-p-riddle');
 check('the Dispatch prints the riddle in its features', box.includes(lines[0]) && /Riddle of the week/.test(box), box.slice(0, 300));
 check('with the guesses left', /You have 3 of 3 guesses/.test(box));
 check('and last week’s answer', /Last week’s answer/.test(box) && /Nobody found it/.test(box));
-await A.locator('#dsp-p-riddle').screenshot({ path: path.join(OUT, 'riddle-dispatch.png') });
+await shot(A.locator('#dsp-p-riddle'), path.join(OUT, 'riddle-dispatch.png'));
 
 /* a wrong guess: the computer nation's capital itself is never the answer */
 await A.click('[data-act="rd-map"]'); await sleep(400);
@@ -68,7 +70,7 @@ const un = await A.evaluate(() => { try { return G.UX.unlocksOf(G.S.nation).has(
 check('and the Sharp-Eyed title is earned', un === 'yes', un);
 check('the panel no longer offers a guess', !(await A.$('#map-panel [data-act="rd-ask"]')));
 await A.evaluate(c => { G.MD.centerMain(c, 9); G.render(); }, answer); await sleep(600);
-await A.locator('canvas[data-map="main"]').screenshot({ path: path.join(OUT, 'riddle-map.png') });
+await shot(A.locator('canvas[data-map="main"]'), path.join(OUT, 'riddle-map.png'));
 await nav(A, 'dispatch'); await A.waitForSelector('#dsp-p-riddle');
 check('the Dispatch says it was found, and by whom', /You found it: the 1st/.test(await text(A, '#dsp-p-riddle')) && /first Riddleton/.test(await text(A, '#dsp-p-riddle')));
 check('no page errors', !errors.length, JSON.stringify(errors));
