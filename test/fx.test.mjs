@@ -529,4 +529,7 @@ test('the back of a note: picture, engraving, ground, caption and symbols are ke
   const n = C.cuClean({ note: { bk: 'harbour', bkp: 'lattice', bkg: 'c2', bkf: 0, bkt: 'Old <Port>' } }).note;
   assert.equal(n.bk, 'harbour'); assert.equal(n.bkp, 'lattice'); assert.equal(n.bkg, 'c2'); assert.equal(n.bkf, 0); assert.ok(!/[<>]/.test(n.bkt));
   assert.equal(C.cuClean({ note: { bk: 'map', bkp: 'seeded', bkg: 'c3', bkf: 1 } }), null, 'defaults and unknown values are not stored');
+  const m = C.cuClean({ note: { bkly: 'wide', bkfr: 'oval', bks: 9, bkc: '#123abc', bkvs: 'l', bkm: 1, bkw: 0 } }).note;
+  assert.deepEqual({ ...m }, { bkly: 'wide', bkfr: 'oval', bks: 1.3, bkc: '#123ABC', bkvs: 'l', bkm: 1, bkw: 0 });
+  assert.equal(C.cuClean({ note: { bkly: 'up', bkfr: 'star', bks: 1, bkc: 'red', bkvs: 'm', bkm: 2, bkw: 1 } }), null);
 });

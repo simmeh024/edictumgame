@@ -47016,6 +47016,11 @@ function cuNoteClean(r){
   if(obj(r.ov)){const q={};for(const d of CU_DENOMS){const x=r.ov[d];if(obj(x)){const y={};for(const k of ['c1','c2']){const c=cuHex(x[k]);if(c)y[k]=c;}if(Object.keys(y).length)q[d]=y;}}if(Object.keys(q).length)o.ov=q;}
   const rx=cuName(r.rx,40);if(rx)o.rx=rx;if(r.or==='v')o.or='v';
   if(cuHas(CU_BKS,r.bk)&&r.bk!=='map')o.bk=r.bk;if(cuHas(CU_PATS,r.bkp)&&r.bkp!=='seeded'&&r.bkp!=='banner'&&r.bkp!=='waves')o.bkp=r.bkp;if(r.bkg==='c2')o.bkg='c2';if(r.bkf===0)o.bkf=0;const bkt=cuStr(r.bkt,40);if(bkt)o.bkt=bkt;
+  /* more of the back: its layout (bkly), the picture's frame (bkfr) and size (bks), its own ground colour (bkc), the
+     value's size (bkvs), the motto shown (bkm) and the value in words left out (bkw 0) */
+  if(r.bkly==='flip'||r.bkly==='wide')o.bkly=r.bkly;if(['oval','arch','none'].includes(r.bkfr))o.bkfr=r.bkfr;
+  if(r.bks!==null&&r.bks!==''&&Number.isFinite(+r.bks)&&+r.bks!==1)o.bks=Math.round(Math.min(1.3,Math.max(.7,+r.bks))*100)/100;
+  const bkc=cuHex(r.bkc);if(bkc)o.bkc=bkc;if(r.bkvs==='s'||r.bkvs==='l')o.bkvs=r.bkvs;if(r.bkm===1)o.bkm=1;if(r.bkw===0)o.bkw=0;
   if(cuHas(CU_P2,r.p2))o.p2=r.p2;if(cuHas(CU_WINS,r.win))o.win=r.win;if(cuHas(CU_INKS,r.ink))o.ink=r.ink;if(r.rb===1)o.rb=1;if(cuHas(CU_REGS,r.reg))o.reg=r.reg;
   if(cuHas(CU_SERS,r.ser))o.ser=r.ser;const pre=typeof r.pre==='string'?r.pre.toUpperCase().replace(/[^A-Z]/g,'').slice(0,2):'';if(pre.length===2)o.pre=pre;if(cuHas(CU_DSS,r.ds))o.ds=r.ds;
   if(Array.isArray(r.sg)){const g=[...new Set(r.sg.filter(k=>typeof k==='string'&&/^[a-z]{3}$/.test(k)))].slice(0,2);if(g.length)o.sg=g;}
@@ -47722,21 +47727,30 @@ function cuNoteBackVSVG0(n,c,o){
 <linearGradient id="${id}h" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#a6f0f4"/><stop offset=".5" stop-color="#f4eda6"/><stop offset="1" stop-color="#f4a6c9"/></linearGradient><linearGradient id="${id}au" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f2d27a"/><stop offset=".5" stop-color="#c9961a"/><stop offset="1" stop-color="#f7e3a1"/></linearGradient>
 ${o.lite?'':cuFxDefs(id)}${pat}${cuHatch(id+'q',pin,0,1.6,.2)}<radialGradient id="${id}w"><stop offset=".55" stop-color="${vc}" stop-opacity=".38"/><stop offset="1" stop-color="${vc}" stop-opacity="0"/></radialGradient><clipPath id="${id}c"><rect width="160" height="320" rx="7"/></clipPath>${N.win&&!o.lite?cuWinCut(id,N.win,wx,wy,160,320):''}</defs>
 <g clip-path="url(#${id}c)"><g${N.win&&!o.lite?` mask="url(#${id}k2)"`:''}><rect width="160" height="320" fill="url(#${id}g0)"/><rect width="160" height="320" fill="url(#${id}p)" opacity=".5"/>${N.prl&&!o.lite?`<rect width="160" height="320" fill="url(#${id}pl)" opacity=".45"/>`:''}${strip}<ellipse cx="${wx}" cy="${wy}" rx="18" ry="22" fill="url(#${id}w)"/>
-<rect x="${fx}" y="${fy}" width="${fw}" height="${fh}" rx="3" fill="${vc}" opacity=".92"/><rect x="${fx}" y="${fy}" width="${fw}" height="${fh}" rx="3" fill="url(#${id}q)" opacity=".3"/>${map}
-<rect x="${fx}" y="${fy}" width="${fw}" height="${fh}" rx="3" fill="none" stroke="${rule}" stroke-width="1.2"/>
+${cuBackFrame(id,N,fx,fy,fw,fh,vc,rule,pin,map,0)}
 <text x="${fx+fw/2}" y="${fy+11}" text-anchor="middle" font-family="${CU_F.t}" font-size="4.4" letter-spacing=".8" fill="${pin}"${cuFit(ttl,4.4,.85,fw-16)}>${esc(ttl)}</text>
 ${area?`<text x="${fx+fw-5}" y="${fy+fh-5}" text-anchor="end" font-family="${CU_F.m}" font-size="3.8" fill="${pin}" opacity=".85">${esc(area)}</text>`:''}
 <rect x="7" y="7" width="146" height="306" rx="4" fill="none" stroke="${rule}" stroke-width="1.6"/>${o.lite?'':cuMicro(id+'m',N.mt?N.mt.toUpperCase():bank,ink,1)}${N.bd&&!o.lite?cuBand(N.bd,N.bdn||20,N.bdw||1,rule,1):''}
-<text x="80" y="24" text-anchor="middle" font-family="${CU_F.t}" font-size="5.4" letter-spacing=".8" fill="${ink}"${cuFit(bank,5.4,.9,132)}>${esc(bank)}</text>
-<text x="80" y="236" text-anchor="middle" font-family="${CU_F.d}" font-weight="700" font-size="${den>=1000?26:32}" fill="${ink}">${denS}</text>
-<text x="80" y="248" text-anchor="middle" font-family="${CU_F.t}" font-size="4" letter-spacing=".5" fill="${ink}"${cuFit(words,4,.8,132)}>${esc(words)}</text>
+<text x="80" y="24" text-anchor="middle" font-family="${CU_F.t}" font-size="5.4" letter-spacing=".8" fill="${ink}"${cuFit(bank,5.4,.9,132)}>${esc(bank)}</text>${N.bkm===1&&(c.mo||n.motto)?`<text x="80" y="31" text-anchor="middle" font-family="${CU_F.d}" font-style="italic" font-size="3.8" fill="${ink}" opacity=".85"${cuFit('“'+(c.mo||n.motto)+'”',3.8,.45,132)}>“${esc(String(c.mo||n.motto).slice(0,48))}”</text>`:''}
+<text x="80" y="236" text-anchor="middle" font-family="${CU_F.d}" font-weight="700" font-size="${cuR2((den>=1000?26:32)*(N.bkvs==='s'?.75:N.bkvs==='l'?1.25:1))}" fill="${ink}">${denS}</text>
+${N.bkw===0?'':`<text x="80" y="248" text-anchor="middle" font-family="${CU_F.t}" font-size="4" letter-spacing=".5" fill="${ink}"${cuFit(words,4,.8,132)}>${esc(words)}</text>`}
 ${(N.bkf===0?[]:facts).slice(0,3).map(([l,v],i)=>`<text x="80" y="${260+i*6.4}" text-anchor="middle" font-family="${CU_F.t}" font-size="3.3" letter-spacing=".4" fill="${ink}" opacity=".9"${cuFit(l+' · '+v,3.3,.82,132)}>${esc((l+' · '+v).toUpperCase().slice(0,44))}</text>`).join('')}
 ${o.lite?'':cuRegister(id+'r',80,288,c.sy||'¤',ink,false,cuRegArt(n,N,80,288,ink))+cuTactile(den,12,56,ink)}<text x="80" y="304" text-anchor="middle" font-family="${CU_F.t}" font-size="3.2" letter-spacing=".6" fill="${ink}" opacity=".85">${esc(('Legal tender in '+name).toUpperCase().slice(0,44))}</text>
 ${o.lite?'':cuAge(id,N,160,320)}</g></g>${N.win&&!o.lite?cuWinEdge(N.win,wx,wy,denS):''}</svg>`;
 }
 /* the back's own tokens: on the second colour (note.bkg 'c2') the ground and inks follow that colour, kept legible */
-function cuBackTok(T,N){if(N.bkg!=='c2')return T;const G=cuLegible(T.c2),dark=G.dark;
+function cuBackTok(T,N){const own=cuHex(N.bkc);if(N.bkg!=='c2'&&!own)return T;const G=cuLegible(own||T.c2),dark=G.dark;
   return Object.assign({},T,{c1:G.c1,c2:T.c1,dark,ink:G.ink,vc:cuMix(G.c1,'#FFFFFF',.82),pin:cuMix(G.c1,'#0B1312',dark?.42:.64),rule:dark?cuMix(T.c1,'#FFFFFF',.2):cuMix(T.c1,'#000000',.15)});}
+/* the back's picture in its frame (note.bkfr: rectangle, oval, arch or none), scaled about its centre (note.bks) */
+function cuBackFrame(id,N,fx,fy,fw,fh,vc,rule,pin,art,inner){
+  const k=N.bkfr||'rect',cx=cuR2(fx+fw/2),cy=cuR2(fy+fh/2),sc=+N.bks||1,ry=cuR2(Math.min(fw/2,fh*.45));
+  const shp=a=>k==='oval'?`<ellipse cx="${cx}" cy="${cy}" rx="${cuR2(fw/2)}" ry="${cuR2(fh/2)}" ${a}/>`:k==='arch'?`<path d="M${fx} ${fy+fh}V${cuR2(fy+ry)}A${cuR2(fw/2)} ${ry} 0 0 1 ${fx+fw} ${cuR2(fy+ry)}V${fy+fh}Z" ${a}/>`:`<rect x="${fx}" y="${fy}" width="${fw}" height="${fh}" rx="3" ${a}/>`;
+  const a2=sc!==1?`<g transform="translate(${cx} ${cy}) scale(${sc}) translate(${-cx} ${-cy})">${art}</g>`:art;
+  if(k==='none')return a2;
+  return `<defs><clipPath id="${id}fc">${shp('')}</clipPath></defs>${shp(`fill="${vc}" opacity=".92"`)}${shp(`fill="url(#${id}q)" opacity=".3"`)}<g clip-path="url(#${id}fc)">${a2}</g>${shp(`fill="none" stroke="${rule}" stroke-width="1.2"`)}${k==='rect'&&inner?`<rect x="${fx+2.2}" y="${fy+2.2}" width="${fw-4.4}" height="${fh-4.4}" rx="2" fill="none" stroke="${pin}" stroke-width=".3" stroke-dasharray=".7 1" opacity=".7"/>`:''}`;
+}
+/* the national symbols on one line, for the wide back */
+function cuFactLine(f,x,y,ink){if(!f.length)return '';const t=f.map(([l,v])=>l+' · '+v).join('   ').toUpperCase().slice(0,110);return `<text x="${x}" y="${y}" font-family="${CU_F.t}" font-size="3.2" letter-spacing=".4" fill="${ink}" opacity=".9"${cuFit(t,3.2,.82,200)}>${esc(t)}</text>`;}
 /* the picture the designer chose for the back, in its frame (fx, fy, fw, fh); null keeps the map */
 function cuBackArt(id,n,k,fx,fy,fw,fh,pin,vc){
   if(!k||k==='map')return null;const name=String(n.name||''),cx=fx+fw/2,cy=fy+fh/2+5;
@@ -47773,10 +47787,13 @@ function cuNoteBackSVG0(n,c,o){
   o=o||{};const id='cub'+(++cuSeq),N=c.note,base=CU_DENOMS.includes(N.den)?N.den:100,den=CU_DENOMS.includes(o.den)?o.den:base;
   const T=cuTok(n,c,den,base),B=cuBackTok(T,N),{c1,c2,dark,ink}=B,soft=dark?'rgba(246,241,226,.45)':'rgba(22,32,30,.4)';
   const flR=N.fl==='r',M=x=>flR?320-x:x,MW=(x,w)=>flR?320-x-w:x,S=a=>flR?(a==='start'?'end':'start'):a;
+  /* the layout (note.bkly): mirrored swaps the picture and the text; wide spreads the picture over the top. The strip,
+     window and see-through mark stay where the front puts them */
+  const WIDE=N.bkly==='wide',fl2=N.bkly==='flip'?!flR:flR,ML=x=>fl2?320-x:x,MWL=(x,w)=>fl2?320-x-w:x,SL=a=>fl2?(a==='start'?'end':'start'):a;
   const denS=den.toLocaleString('en-US'),name=String(n.name||''),{vc,pin,rule}=B;
   const pat=cuPattern(N.bkp||'waves',id+'p',soft,n),bank=('Bank of '+name).toUpperCase().slice(0,34),words=(CU_WORDS[den]+' '+(den===1?c.nm:c.pl)).toUpperCase().slice(0,44);
   /* the map: the land engraved on a pale sea of fine lines, the capital a star, the cities dots */
-  const fx=MW(20,184),fy=20,fw=184,fh=118,L=cuLand(n);let map='';
+  const fx=WIDE?20:MWL(20,184),fy=WIDE?18:20,fw=WIDE?280:184,fh=WIDE?84:118,L=cuLand(n);let map='';
   if(L){const bw=fw-20,bh=fh-34,s=Math.min(bw/L.w,bh/L.h),ox=fx+10+(bw-L.w*s)/2,oy=fy+16+(bh-L.h*s)/2,P=([x,y])=>`${cuR2(ox+(x-L.x0)*s)} ${cuR2(oy+(y-L.y0)*s)}`;
     const d=L.rings.map(r=>'M'+r.map(P).join('L')+'Z').join('');
     map=cuEngrave(id+'l',`<path d="${d}" fill="#fff" fill-rule="evenodd"/>`,pin,[fx,fy,fw,fh],{ang:-38,gap:1.15,w:.42,tint:.24,lit:'r',fade:.4})
@@ -47788,7 +47805,8 @@ function cuNoteBackSVG0(n,c,o){
   const ttl=(N.bkt||(BA?BA.ttl:L?'The territory of '+name:n.capital||name)).toUpperCase().slice(0,40),area=L&&!BA?fmtArea(L.cells):'';
   /* the national symbols the nation has named, under its capital */
   const facts=[['Capital',n.capital]].concat(n.founded>0?[['Founded',String(new Date(n.founded).getUTCFullYear())]]:[]);try{const y=cz(n).sy||{};for(const [k,l] of [['bird','National bird'],['flower','National flower'],['tree','National tree']])if(y[k]&&symOpen(n,k))facts.push([l,y[k]]);}catch(e){}
-  const rx=M(304),wx=M(274),wy=118;
+  const rx=ML(304),wx=M(274),wy=118,motto=N.bkm===1?String(c.mo||n.motto||''):'',VS=N.bkvs==='s'?.75:N.bkvs==='l'?1.25:1;
+  const TX=WIDE?24:rx,TA=WIDE?'start':SL('end'),BY=WIDE?113:30,WY=WIDE?(motto?127:121):76,FY=WIDE?WY+7:86,VX=WIDE?(N.win?252:300):rx,VA=WIDE?'end':SL('end'),VY=WIDE?134:66;
   const sx=MW(215,N.strip>1?9:7),sf=N.strip===2?`url(#${id}h)`:N.strip===3?`url(#${id}au)`:c2,strip=N.strip&&N.strip!==4?`<rect x="${sx}" y="0" width="${N.strip>1?9:7}" height="160" fill="${sf}" opacity="${N.strip>1?.92:.6}"/>`:'';
   /* the clear window shows through from the front, so on the back it stands where the front's would be in a mirror */
   const win=N.strip===4,wX=MW(206,22);
@@ -47797,17 +47815,16 @@ function cuNoteBackSVG0(n,c,o){
 <linearGradient id="${id}au" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f2d27a"/><stop offset=".5" stop-color="#c9961a"/><stop offset="1" stop-color="#f7e3a1"/></linearGradient>
 ${N.win&&!o.lite?cuWinCut(id,N.win,M(274),113,320,160):''}${o.lite?'':cuFxDefs(id)}${pat}${cuHatch(id+'q',pin,0,1.6,.2)}<radialGradient id="${id}w"><stop offset=".55" stop-color="${vc}" stop-opacity=".38"/><stop offset="1" stop-color="${vc}" stop-opacity="0"/></radialGradient><clipPath id="${id}c"><rect width="320" height="160" rx="7"/></clipPath>${win?cuWinMask(id,wX):''}</defs>
 <g clip-path="url(#${id}c)"${win?` mask="url(#${id}k)"`:''}><g${N.win&&!o.lite?` mask="url(#${id}k2)"`:''}><rect width="320" height="160" fill="url(#${id}g0)"/><rect width="320" height="160" fill="url(#${id}p)" opacity=".5"/>${N.prl&&!o.lite?`<rect width="320" height="160" fill="url(#${id}pl)" opacity=".45"/>`:''}${strip}${N.win?'':`<ellipse cx="${wx}" cy="${wy}" rx="23" ry="26" fill="url(#${id}w)"/>`}
-<rect x="${fx}" y="${fy}" width="${fw}" height="${fh}" rx="3" fill="${vc}" opacity=".92"/><rect x="${fx}" y="${fy}" width="${fw}" height="${fh}" rx="3" fill="url(#${id}q)" opacity=".3"/>${map}
-<rect x="${fx}" y="${fy}" width="${fw}" height="${fh}" rx="3" fill="none" stroke="${rule}" stroke-width="1.2"/><rect x="${fx+2.2}" y="${fy+2.2}" width="${fw-4.4}" height="${fh-4.4}" rx="2" fill="none" stroke="${pin}" stroke-width=".3" stroke-dasharray=".7 1" opacity=".7"/>
+${cuBackFrame(id,N,fx,fy,fw,fh,vc,rule,pin,map,1)}
 <text x="${fx+fw/2}" y="${fy+11}" text-anchor="middle" font-family="${CU_F.t}" font-size="4.6" letter-spacing=".8" fill="${pin}"${cuFit(ttl,4.6,.85,fw-24)}>${esc(ttl)}</text>
 ${area?`<text x="${fx+fw-6}" y="${fy+fh-5}" text-anchor="end" font-family="${CU_F.m}" font-size="4" fill="${pin}" opacity=".85">${esc(area)}</text>`:''}
 <rect x="7" y="7" width="306" height="146" rx="4" fill="none" stroke="${rule}" stroke-width="1.6"/>${o.lite?'':cuMicro(id+'m',N.mt?N.mt.toUpperCase():bank,ink)}${N.bd&&!o.lite?cuBand(N.bd,N.bdn||20,N.bdw||1,rule):''}
-<text x="${rx}" y="30" text-anchor="${S('end')}" font-family="${CU_F.t}" font-size="4.8" letter-spacing=".8" fill="${ink}"${cuFit(bank,4.8,.9,74)}>${esc(bank)}</text>
-<text x="${rx}" y="66" text-anchor="${S('end')}" font-family="${CU_F.d}" font-weight="700" font-size="${den>=1000?26:den>=100?32:38}" fill="${ink}">${denS}</text>
-<text x="${rx}" y="76" text-anchor="${S('end')}" font-family="${CU_F.t}" font-size="3.8" letter-spacing=".5" fill="${ink}"${cuFit(words,3.8,.8,74)}>${esc(words)}</text>
-${(N.bkf===0?[]:facts).slice(0,4).map(([l,v],i)=>`<text x="${rx}" y="${86+i*6.4}" text-anchor="${S('end')}" font-family="${CU_F.t}" font-size="3.3" letter-spacing=".4" fill="${ink}" opacity=".9"${cuFit(l+' · '+v,3.3,.82,74)}>${esc((l+' · '+v).toUpperCase().slice(0,44))}</text>`).join('')}
-${o.lite?'':cuRegister(id+'r',M(240),146,c.sy||'¤',ink,flR,cuRegArt(n,N,M(240),146,ink))+cuTactile(den,M(228),116,ink)}<text x="${fx+fw/2}" y="145" text-anchor="middle" font-family="${CU_F.t}" font-size="3.4" letter-spacing=".6" fill="${ink}" opacity=".85">${esc(('Legal tender in '+name).toUpperCase().slice(0,48))}</text>
-<text x="${rx}" y="146" text-anchor="${S('end')}" font-family="${CU_F.m}" font-size="5.6" fill="${ink}" opacity=".85">${esc(c.cd)} ${denS}</text>
+<text x="${TX}" y="${BY}" text-anchor="${TA}" font-family="${CU_F.t}" font-size="4.8" letter-spacing=".8" fill="${ink}"${cuFit(bank,4.8,.9,WIDE?160:74)}>${esc(bank)}</text>${motto?`<text x="${TX}" y="${BY+7}" text-anchor="${TA}" font-family="${CU_F.d}" font-style="italic" font-size="4" fill="${ink}" opacity=".85"${cuFit('“'+motto+'”',4,.45,WIDE?160:74)}>“${esc(motto.slice(0,48))}”</text>`:''}
+<text x="${VX}" y="${VY}" text-anchor="${VA}" font-family="${CU_F.d}" font-weight="700" font-size="${cuR2((den>=1000?26:den>=100?32:38)*VS*(WIDE?.85:1))}" fill="${ink}">${denS}</text>
+${N.bkw===0?'':`<text x="${TX}" y="${WY}" text-anchor="${TA}" font-family="${CU_F.t}" font-size="3.8" letter-spacing=".5" fill="${ink}"${cuFit(words,3.8,.8,WIDE?160:74)}>${esc(words)}</text>`}
+${WIDE?cuFactLine(N.bkf===0?[]:facts,TX,FY,ink):(N.bkf===0?[]:facts).slice(0,4).map(([l,v],i)=>`<text x="${TX}" y="${FY+i*6.4}" text-anchor="${TA}" font-family="${CU_F.t}" font-size="3.3" letter-spacing=".4" fill="${ink}" opacity=".9"${cuFit(l+' · '+v,3.3,.82,74)}>${esc((l+' · '+v).toUpperCase().slice(0,44))}</text>`).join('')}
+${o.lite?'':cuRegister(id+'r',M(240),146,c.sy||'¤',ink,flR,cuRegArt(n,N,M(240),146,ink))+cuTactile(den,M(228),116,ink)}<text x="${WIDE?160:fx+fw/2}" y="${WIDE?151:145}" text-anchor="middle" font-family="${CU_F.t}" font-size="3.4" letter-spacing=".6" fill="${ink}" opacity=".85">${esc(('Legal tender in '+name).toUpperCase().slice(0,48))}</text>
+<text x="${WIDE?300:rx}" y="${WIDE?151:146}" text-anchor="${WIDE?'end':SL('end')}" font-family="${CU_F.m}" font-size="${WIDE?4.4:5.6}" fill="${ink}" opacity=".85">${esc(c.cd)} ${denS}</text>
 ${o.lite?'':cuAge(id,N,320,160)}</g></g>${N.win&&!o.lite?cuWinEdge(N.win,M(274),113,denS):''}${win?cuWindow(id,wX,den,denS,null,rule):''}</svg>`;
 }
 /* the Central Bank Pack's clear window: a polymer note's see-through panel, 22 wide and 124 tall from x, cut out of
@@ -48558,7 +48575,14 @@ function cstRight(n,t,c){
     ${cstSeg('Picture','note.bk',Object.entries(CU_BKS).map(([k,l])=>[k==='map'?'':k,l]),D.bk||'')}
     <div class="cst-row"><label class="cst-lab" for="cst-t-bkt">Caption over the picture</label><input class="input" id="cst-t-bkt" data-cst-txt="note.bkt" maxlength="40" value="${esc(D.bkt||'')}" placeholder="Leave empty for the usual caption"></div>
     ${cstSeg('Engraving','note.bkp',[['','Engraved waves']].concat(cstLockOpts(Object.fromEntries(Object.entries(CU_PATS).filter(([k])=>!['seeded','banner','waves'].includes(k))),'pat')),D.bkp||'')}
-    ${cstSeg('Ground','note.bkg',[['','The main colour'],['c2','The second colour']],D.bkg||'')}
+    ${cstSeg('Layout','note.bkly',[['','Picture beside the text'],['flip','Mirrored'],['wide','A wide picture']],D.bkly||'')}${N.or==='v'?'<p class="hint">The layout is for horizontal notes; a vertical back keeps its picture at the top.</p>':''}
+    ${cstSeg('Picture frame','note.bkfr',[['','Rectangle'],['oval','Oval'],['arch','Arch'],['none','None']],D.bkfr||'')}
+    ${cstRange('Picture size','bks',D.bks||1,.7,1.3,.05,Math.round((D.bks||1)*100)+'%')}
+    ${cstSeg('Ground','note.bkg',[['','The main colour'],['c2','The second colour']],cuHex(D.bkc)?'own':D.bkg||'')}
+    <div class="cst-row"><label class="cst-lab" for="cst-c-bkc">Or a colour of its own <b class="cst-mono">${esc(cuHex(D.bkc)||'')}</b></label><div class="cst-sws"><input type="color" id="cst-c-bkc" data-cst-bkc="1" value="${esc((cuHex(D.bkc)||cuHex(N.c2)||'#6A3DB3').toLowerCase())}">${Object.keys(CU_SWATCH).map(h=>`<button type="button" class="cst-sw" style="background:${h}" data-cst="bkc" data-v="${h}" aria-label="${esc(CU_SWATCH[h])}" title="${esc(CU_SWATCH[h])}"></button>`).join('')}${cuHex(D.bkc)?`<button type="button" class="cst-b cst-out" data-cst="bkc" data-v="">No colour of its own</button>`:''}</div></div>
+    ${cstSeg('Value','note.bkvs',[['s','Smaller'],['','As it is'],['l','Larger']],D.bkvs||'')}
+    ${cstSeg('Value in words','note.bkw',[['','Shown'],[0,'Left out']],D.bkw===0?0:'')}
+    ${cstSeg('Motto','note.bkm',[['','Not on the back'],[1,'Under the bank’s name']],D.bkm===1?1:'')}
     ${cstSeg('National symbols','note.bkf',[['','Shown'],[0,'Left out']],D.bkf===0?0:'')}`;
   }else if(tab==='fx'){
     const fx=D.fx||{};
@@ -48716,10 +48740,11 @@ document.addEventListener('click',e=>{
     case 'lock':CST.lock[k]=!CST.lock[k];cstPaint();break;
     case 'pos0':cstDo(`Put the ${CU_PARTS[CST.sel].l.toLowerCase()} back`,()=>{const D=N0();if(D.pos){D.pos=Object.assign({},D.pos);delete D.pos[CST.sel];}});cstPaint();break;
     case 'den':cstSet('note.den',v,`Showed the ${(+v).toLocaleString('en-US')}`);break;
-    case 'set':{const f=el.dataset.f,[g,kk]=f.split('.');const lab={bk:'Back picture',bkp:'Back engraving',bkg:'Back ground',bkf:'Back symbols',irs:'Iridescent stripe',prl:'Paper',uvp:'UV picture',ptn:'patina',ton:'toning',frost:'frost',p2:'Second portrait',ds:'Sizes',win:'Window',ink:'Value ink',reg:'See-through mark',ser:'Serials',rb:'Rainbow',ring:'ring',core:'core',enm:'enamel',pv:'privy mark',mm:'mint',or:'Orientation',met:'metal',shape:'shape',fin:'finish',emb:'Emblem',rev:'other side',rim:'rim',edge:'edge',fld:'field',dk:'value in',lay:'Layout',era:'Era',por:'Vignette',emb:'Emblem',fl:'Flag',pat:'Engraving',strip:'Security strip',wm:'Watermark',tp:'Typefaces',cs:'Case',vf:'Value face',ros:'Corners',bd:'Border band'}[kk]||kk;
-      const num=['bkf','tp','strip','den','yr','rb','irs','prl','ptn','ton','frost'].includes(kk);cstDo(`${g==='coin'?'Coin ':''}${lab}: ${el.textContent.trim()}`,()=>{const D=g==='coin'?(CU.d.coin=CU.d.coin||{}):N0();if(v===''){delete D[kk];if(kk==='bd'){delete D.bdn;delete D.bdw;}}else D[kk]=num?+v:v;});cstPaint();break;}
+    case 'set':{const f=el.dataset.f,[g,kk]=f.split('.');const lab={bkly:'Back layout',bkfr:'Back frame',bkvs:'Back value',bkw:'Back words',bkm:'Back motto',bk:'Back picture',bkp:'Back engraving',bkg:'Back ground',bkf:'Back symbols',irs:'Iridescent stripe',prl:'Paper',uvp:'UV picture',ptn:'patina',ton:'toning',frost:'frost',p2:'Second portrait',ds:'Sizes',win:'Window',ink:'Value ink',reg:'See-through mark',ser:'Serials',rb:'Rainbow',ring:'ring',core:'core',enm:'enamel',pv:'privy mark',mm:'mint',or:'Orientation',met:'metal',shape:'shape',fin:'finish',emb:'Emblem',rev:'other side',rim:'rim',edge:'edge',fld:'field',dk:'value in',lay:'Layout',era:'Era',por:'Vignette',emb:'Emblem',fl:'Flag',pat:'Engraving',strip:'Security strip',wm:'Watermark',tp:'Typefaces',cs:'Case',vf:'Value face',ros:'Corners',bd:'Border band'}[kk]||kk;
+      const num=['bkw','bkm','bkf','tp','strip','den','yr','rb','irs','prl','ptn','ton','frost'].includes(kk);cstDo(`${g==='coin'?'Coin ':''}${lab}: ${el.textContent.trim()}`,()=>{const D=g==='coin'?(CU.d.coin=CU.d.coin||{}):N0();if(kk==='bkg')delete D.bkc;if(v===''){delete D[kk];if(kk==='bd'){delete D.bdn;delete D.bdw;}}else D[kk]=num?+v:v;});cstPaint();break;}
     case 'locked':toast('Locked. '+(el.title||''));break;
     case 'preset':cstDo('Preset: '+CU_FLAV[v].nm,()=>{const D=N0(),keep={};for(const k of ['c1','c2'])if(CST.lockc[k])keep[k]=D[k];cuPreset(v);Object.assign(CU.d.note,keep);});cstPaint();break;
+    case 'bkc':cstDo(v?'Back colour':'Back colour removed',()=>{const D=N0();if(v){D.bkc=v;delete D.bkg;}else delete D.bkc;});cstPaint();break;
     case 'lockc':CST.lockc[v]=!CST.lockc[v];cstPaint();break;
     case 'ovall':{const den=cstCur()[1].note.den,src=(N0().ov||{})[den];if(src)cstDo('Copied colours to every value',()=>{const D=N0();D.ov={};for(const d of CU_DENOMS)D.ov[d]=Object.assign({},src);});cstPaint();break;}
     case 'pal':{const P=(S.nation.cuP||[])[+v];if(P)cstDo('Palette: '+P.nm,()=>{const D=N0();if(!CST.lockc.c1)D.c1=P.c1;if(!CST.lockc.c2)D.c2=P.c2;});cstPaint();break;}
@@ -48755,14 +48780,16 @@ document.addEventListener('input',e=>{
     else if(k==='ls')cstDo('Letter-spacing',()=>{D().ls=v;});
     else if(k==='age')cstDo('Age',()=>{const x=cstNote();if(v>0)x.age=v;else delete x.age;});
     else if(k==='wear')cstDo('Coin wear',()=>{CU.d.coin=CU.d.coin||{};if(v>0)CU.d.coin.wear=v;else delete CU.d.coin.wear;});
+    else if(k==='bks')cstDo('Back picture size',()=>{const x=cstNote();if(v===1)delete x.bks;else x.bks=v;});
     else if(k==='sides')cstDo('Coin sides',()=>{CU.d.coin=CU.d.coin||{};CU.d.coin.sides=v;});
     else if(k==='dsz'||k==='dy')cstDo(k==='dsz'?'Coin device size':'Coin device height',()=>{CU.d.coin=CU.d.coin||{};CU.d.coin[k]=v;});
     else if(k==='bdn'||k==='bdw')cstDo(k==='bdn'?'Band repeats':'Band thickness',()=>{D()[k]=v;});
-    const o=document.getElementById('cst-v-'+k);if(o)o.textContent=k==='ls'?v.toFixed(1):k==='dsz'?Math.round(v*100)+'%':k==='age'?(v?Math.round(v*100)+'%':'New'):k==='wear'?(v?Math.round(v*100)+'%':'Mint'):String(v);
+    const o=document.getElementById('cst-v-'+k);if(o)o.textContent=k==='ls'?v.toFixed(1):k==='dsz'||k==='bks'?Math.round(v*100)+'%':k==='age'?(v?Math.round(v*100)+'%':'New'):k==='wear'?(v?Math.round(v*100)+'%':'Mint'):String(v);
     cstPaint('stage');return;}
   const tx=t.dataset&&t.dataset.cstTxt;
   if(tx==='cev'){CST.cev=t.value;return;}
   if(tx){cstDo(tx==='mo'?'Motto':tx==='note.mt'?'Microtext':tx==='note.pre'?'Serial letters':tx==='note.bkt'?'Back caption':'Coin lettering',()=>{if(tx==='mo')CU.d.mo=t.value;else if(tx.startsWith('coin.')){CU.d.coin=CU.d.coin||{};CU.d.coin[tx.slice(5)]=t.value;}else cstNote()[tx.slice(5)]=tx==='note.pre'?t.value.toUpperCase():t.value;});cstPaint('stage');return;}
+  if(t.dataset&&t.dataset.cstBkc){const h=String(t.value).toUpperCase();cstDo('Back colour',()=>{const D=cstNote();D.bkc=h;delete D.bkg;});cstPaint('stage');return;}
   const col=t.dataset&&t.dataset.cstCol;if(col&&e.type==='input'){const h=String(t.value).toUpperCase(),den=cstCur()[1].note.den;cstDo(`${col==='c1'?'Main':'Second'} colour${CST.one?' of the '+den:''}`,()=>{const D=cstNote();if(CST.one){D.ov=Object.assign({},D.ov);D.ov[den]=Object.assign({},D.ov[den],{[col]:h});}else D[col]=h;});cstPaint('stage');}
 });
 document.addEventListener('change',e=>{

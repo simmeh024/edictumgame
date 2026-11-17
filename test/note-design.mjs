@@ -148,9 +148,13 @@ await clickAll(['[data-cst="set"][data-f="note.bk"][data-v="lighthouse"]', '[dat
 await page.fill('#cst-t-bkt', 'Cape Signal');
 const bk = await until(() => page.evaluate(() => { const b = document.querySelector('#cst-stage svg.cu-note-b'); return b && /CAPE SIGNAL/.test(b.innerHTML) && !/CAPITAL ·/.test(b.innerHTML) ? true : false; }));
 check('the back takes its own picture, caption, engraving, ground and leaves out the symbols', bk);
+await clickAll(['[data-cst="set"][data-f="note.bkly"][data-v="wide"]', '[data-cst="set"][data-f="note.bkfr"][data-v="arch"]', '[data-cst="set"][data-f="note.bkvs"][data-v="l"]', '[data-cst="set"][data-f="note.bkw"][data-v="0"]', '[data-cst="set"][data-f="note.bkm"][data-v="1"]', '[data-cst="bkc"][data-v="#B5832E"]']);
+await page.$eval('#cst-r-bks', e => { e.value = 1.2; e.dispatchEvent(new Event('input', { bubbles: true })); });
+const bk2 = await page.evaluate(() => { const b = document.querySelector('#cst-stage svg.cu-note-b'); return { arch: / A140 /.test(b.innerHTML) || /<path d="M20 102V/.test(b.innerHTML), noWords: !/ONE HUNDRED/.test(b.innerHTML), scaled: /scale\(1\.2\)/.test(b.innerHTML) }; });
+check('layout, arch frame, picture size, value words and own colour change the back', bk2.arch && bk2.noWords && bk2.scaled, JSON.stringify(bk2));
 await page.screenshot({ path: path.join(OUT, 'note-studio-back.png') });
 await page.click('[data-cst="save"]');
-check('the back is saved', await until(() => page.evaluate(() => { const N = window.__game.S.nation.cur.note; return N.bk === 'lighthouse' && N.bkp === 'lattice' && N.bkg === 'c2' && N.bkf === 0 && N.bkt === 'Cape Signal'; })));
+check('the back is saved', await until(() => page.evaluate(() => { const N = window.__game.S.nation.cur.note; return N.bk === 'lighthouse' && N.bkp === 'lattice' && N.bkc === '#B5832E' && !N.bkg && N.bkf === 0 && N.bkt === 'Cape Signal' && N.bkly === 'wide' && N.bkfr === 'arch' && N.bks === 1.2 && N.bkvs === 'l' && N.bkw === 0 && N.bkm === 1; })));
 // vertical notes
 await page.click('[data-cst="tab"][data-v="style"]'); await page.click('[data-cst="set"][data-f="note.or"][data-v="v"]');
 const vt = await until(() => page.evaluate(() => { const s = document.querySelector('.cst-front svg.cu-note'), o = document.querySelector('.cst-front .cst-ov'), b = document.querySelectorAll('#cst-stage svg.cu-note-v').length; return s && s.dataset.or === 'v' && o.getAttribute('viewBox') === '0 0 160 320' && b >= 2 && s.getBBox().height > 200 ? true : false; }));
