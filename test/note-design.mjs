@@ -51,7 +51,7 @@ await page.evaluate(() => { const b = document.querySelector('[data-cst="open"]'
 check('the Studio opens', await until(() => page.evaluate(() => { const e = document.getElementById('cu-st'); return e && !e.hidden && !!e.querySelector('.cst-front svg.cu-note'); })));
 const fit = await page.evaluate(() => { const e = document.getElementById('cu-st'), r = e.getBoundingClientRect(); return { sh: e.scrollHeight, h: r.height, w: e.scrollWidth, vw: innerWidth, docScroll: document.documentElement.scrollHeight > innerHeight && getComputedStyle(document.documentElement).overflow !== 'hidden' }; });
 check('everything fits in one view (no scrolling) on a desktop screen', fit.sh <= fit.h + 1 && fit.w <= fit.vw + 1, JSON.stringify(fit));
-check('layers, inspector, tabs and the series are all there', await page.evaluate(() => document.querySelectorAll('.cst-lay').length === 6 && !!document.getElementById('cst-i-x') && document.querySelectorAll('.cst-tab').length === 9 && document.querySelectorAll('.cst-card').length >= 9));
+check('layers, inspector, tabs and the series are all there', await page.evaluate(() => document.querySelectorAll('.cst-lay').length === 6 && !!document.getElementById('cst-i-x') && document.querySelectorAll('.cst-tab').length === 10 && document.querySelectorAll('.cst-card').length >= 9));
 // drag the vignette 20 units left
 const hit = await page.$('.cst-front .cst-ov [data-part="v"]'), bb = await hit.boundingBox(), u = bb.width / 80;
 await page.mouse.move(bb.x + bb.width / 2, bb.y + bb.height / 2); await page.mouse.down();
@@ -142,6 +142,15 @@ await page.screenshot({ path: path.join(OUT, 'note-studio-coin-effects.png') });
 await page.click('[data-cst="save"]');
 check('every effect is saved', await until(() => page.evaluate(() => { const c = window.__game.S.nation.cur, N = c.note, K = c.coin; return N.fx.vignette === 'holo' && N.fx.security === 'halftone' && N.fx.emblem === 'heat' && N.irs === 1 && N.prl === 1 && N.uvp === 'star' && N.age === .6 && K.ptn === 1 && K.ton === 1 && K.frost === 1 && K.wear === .5; })));
 await page.click('[data-cst="mode"][data-v="note"]');
+// the back of the note
+await page.click('[data-cst="tab"][data-v="back"]');
+await clickAll(['[data-cst="set"][data-f="note.bk"][data-v="lighthouse"]', '[data-cst="set"][data-f="note.bkp"][data-v="lattice"]', '[data-cst="set"][data-f="note.bkg"][data-v="c2"]', '[data-cst="set"][data-f="note.bkf"][data-v="0"]']);
+await page.fill('#cst-t-bkt', 'Cape Signal');
+const bk = await until(() => page.evaluate(() => { const b = document.querySelector('#cst-stage svg.cu-note-b'); return b && /CAPE SIGNAL/.test(b.innerHTML) && !/CAPITAL ·/.test(b.innerHTML) ? true : false; }));
+check('the back takes its own picture, caption, engraving, ground and leaves out the symbols', bk);
+await page.screenshot({ path: path.join(OUT, 'note-studio-back.png') });
+await page.click('[data-cst="save"]');
+check('the back is saved', await until(() => page.evaluate(() => { const N = window.__game.S.nation.cur.note; return N.bk === 'lighthouse' && N.bkp === 'lattice' && N.bkg === 'c2' && N.bkf === 0 && N.bkt === 'Cape Signal'; })));
 // vertical notes
 await page.click('[data-cst="tab"][data-v="style"]'); await page.click('[data-cst="set"][data-f="note.or"][data-v="v"]');
 const vt = await until(() => page.evaluate(() => { const s = document.querySelector('.cst-front svg.cu-note'), o = document.querySelector('.cst-front .cst-ov'), b = document.querySelectorAll('#cst-stage svg.cu-note-v').length; return s && s.dataset.or === 'v' && o.getAttribute('viewBox') === '0 0 160 320' && b >= 2 && s.getBBox().height > 200 ? true : false; }));

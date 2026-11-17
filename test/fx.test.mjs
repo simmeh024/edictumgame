@@ -523,3 +523,10 @@ test('round three fields: windows, inks, serials, signatures, effects and coin m
   assert.equal(n.coin.enm, 'arms'); assert.equal(n.coin.pv, 'anchor'); assert.ok(!/[<>]/.test(n.coin.mm));
   assert.equal(C.cuDenScale(1, 'same'), 1); assert.ok(C.cuDenScale(1, 'steep') < C.cuDenScale(1));
 });
+
+test('the back of a note: picture, engraving, ground, caption and symbols are kept, bad ones dropped', () => {
+  const C = currencyHelpers();
+  const n = C.cuClean({ note: { bk: 'harbour', bkp: 'lattice', bkg: 'c2', bkf: 0, bkt: 'Old <Port>' } }).note;
+  assert.equal(n.bk, 'harbour'); assert.equal(n.bkp, 'lattice'); assert.equal(n.bkg, 'c2'); assert.equal(n.bkf, 0); assert.ok(!/[<>]/.test(n.bkt));
+  assert.equal(C.cuClean({ note: { bk: 'map', bkp: 'seeded', bkg: 'c3', bkf: 1 } }), null, 'defaults and unknown values are not stored');
+});
