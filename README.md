@@ -786,14 +786,17 @@ npm run test:shop-e2e       # buying, wearing and verifying shop cosmetics, the 
 
 Screenshots from the browser tests go to `test/out/`. `python3 build.py --no-minify` keeps the code readable for debugging.
 
-Every pull request runs all twenty-two browser suites as independent parallel jobs on GitHub Actions
-(`.github/workflows/preview.yml`), alongside the backend checks and staging preview. Each browser job
-has its own runner and fresh emulators; suites cannot share an emulator because they reset its data.
-The core game's scenarios keep their existing order within their suite. Run an individual command
-above when working on that feature; there is no need to run every browser suite locally. Local commands
-use the same emulator ports, so run them one at a time unless you give each a separate environment.
+Every pull request runs all the browser suites on GitHub Actions (`.github/workflows/preview.yml`), alongside
+the backend checks and staging preview. The suites are split into 14 groups in `test/browser-suites.json`; each
+group is one job that builds the game once and runs its suites one after another with `scripts/ci-browser.mjs`.
+Every suite still starts its own fresh emulators, because suites reset their data. A new browser suite goes into
+`test/browser-suites.json` (the shortest group); `node scripts/ci-browser.mjs --check` checks the list, and
+`node scripts/ci-browser.mjs <group>` runs a group locally. Run an individual command above when working on that
+feature; there is no need to run every browser suite locally. Local commands use the same emulator ports, so run
+them one at a time unless you give each a separate environment.
 
-One failing suite leaves the other suites running, and each failed job keeps its own screenshot artifact.
+One failing suite leaves the rest of its group running. The group's log, error notes and job summary name the
+failed suite, and its screenshots are kept per suite under `test/out/<suite>/` in the group's artifact.
 The existing **Test the game end to end** check now aggregates the browser jobs and passes only when
 all twenty-two succeed. It also fails if a suite is cancelled or skipped, keeping the release gate intact.
 
