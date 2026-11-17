@@ -36732,7 +36732,8 @@ function dcSpots(T){
       const ic=dcIcon(k),geo=DC_GEO[ic];
       if(geo==='coast'&&seaD.length){const d=seaD.find(z=>z!==seaUsed);if(d!=null){e.cell=ct.c;e.d=d;e.ic=ic;seaUsed=d;r.feat.push(e);continue;}}
       if(geo==='hill'||geo==='oil'||geo==='flat'){
-        const f=free(c=>geo==='hill'?MAP.T[c]>=3:geo==='oil'?CELL_RES.oil[c]>0:MAP.T[c]===2);
+        /* a mine stands on an iron deposit of the district when there is one, so you can see it worked */
+        const dep=geo==='hill'?free(c=>IRON_DEP[c]>0):[],f=dep.length?dep:free(c=>geo==='hill'?MAP.T[c]>=3:geo==='oil'?CELL_RES.oil[c]>0:MAP.T[c]===2);
         if(f.length){const n=geo==='flat'?Math.min(2,f.length):1;for(let i=0;i<n;i++){const c=f[i][0];used.add(c);const e2={...e,cell:c,ic};r.feat.push(e2);note(c,e2);}continue;}
       }
       row.push(e);
