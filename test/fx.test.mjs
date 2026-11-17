@@ -510,3 +510,16 @@ test('the Note Studio fields: positions, layers, guilloché, ornaments, type, mi
   assert.equal(n.rx, 'Ostria');
   assert.equal(C.cuClean({ note: { gp: [1, 2], ros: 'skull', bd: 'zigzag', tp: 7, cs: 'x', wm: 'face' } }), null);
 });
+
+test('round three fields: windows, inks, serials, signatures, effects and coin marks are kept, bad ones dropped', () => {
+  const C = currencyHelpers();
+  const n = C.cuClean({ note: { p2: 'fin', win: 'leaf', ink: 'gold', rb: 1, reg: 'flag', ser: 'two', pre: 'z9q', ds: 'steep', sg: ['def', 'for', 'cul', 'BAD'], fx: { frame: 'foil', nope: 'foil', text: 'glow' }, por: 'harbour' },
+    coin: { ring: 'copper', core: 'bi', sides: 99, shape: 'poly', enm: 'arms', pv: 'anchor', mm: 'Port <Alder>' } });
+  assert.equal(n.note.p2, 'fin'); assert.equal(n.note.win, 'leaf'); assert.equal(n.note.ink, 'gold'); assert.equal(n.note.rb, 1); assert.equal(n.note.reg, 'flag');
+  assert.equal(n.note.ser, 'two'); assert.equal(n.note.pre, 'ZQ'); assert.equal(n.note.ds, 'steep'); assert.equal(n.note.por, 'harbour');
+  assert.deepEqual([...n.note.sg], ['def', 'for'], 'at most two ministers');
+  assert.deepEqual({ ...n.note.fx }, { frame: 'foil' }, 'only known layers and effects');
+  assert.equal(n.coin.ring, 'copper'); assert.equal(n.coin.core, undefined, 'a core cannot itself be bimetallic'); assert.equal(n.coin.sides, 15); assert.equal(n.coin.shape, 'poly');
+  assert.equal(n.coin.enm, 'arms'); assert.equal(n.coin.pv, 'anchor'); assert.ok(!/[<>]/.test(n.coin.mm));
+  assert.equal(C.cuDenScale(1, 'same'), 1); assert.ok(C.cuDenScale(1, 'steep') < C.cuDenScale(1));
+});

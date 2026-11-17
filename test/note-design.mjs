@@ -42,7 +42,7 @@ await page.evaluate(() => { const b = document.querySelector('[data-cst="open"]'
 check('the Studio opens', await until(() => page.evaluate(() => { const e = document.getElementById('cu-st'); return e && !e.hidden && !!e.querySelector('.cst-front svg.cu-note'); })));
 const fit = await page.evaluate(() => { const e = document.getElementById('cu-st'), r = e.getBoundingClientRect(); return { sh: e.scrollHeight, h: r.height, w: e.scrollWidth, vw: innerWidth, docScroll: document.documentElement.scrollHeight > innerHeight && getComputedStyle(document.documentElement).overflow !== 'hidden' }; });
 check('everything fits in one view (no scrolling) on a desktop screen', fit.sh <= fit.h + 1 && fit.w <= fit.vw + 1, JSON.stringify(fit));
-check('layers, inspector, tabs and the series are all there', await page.evaluate(() => document.querySelectorAll('.cst-lay').length === 6 && !!document.getElementById('cst-i-x') && document.querySelectorAll('.cst-tab').length === 6 && document.querySelectorAll('.cst-card').length >= 9));
+check('layers, inspector, tabs and the series are all there', await page.evaluate(() => document.querySelectorAll('.cst-lay').length === 6 && !!document.getElementById('cst-i-x') && document.querySelectorAll('.cst-tab').length === 8 && document.querySelectorAll('.cst-card').length >= 9));
 // drag the vignette 20 units left
 const hit = await page.$('.cst-front .cst-ov [data-part="v"]'), bb = await hit.boundingBox(), u = bb.width / 80;
 await page.mouse.move(bb.x + bb.width / 2, bb.y + bb.height / 2); await page.mouse.down();
@@ -76,6 +76,39 @@ const saved = await until(() => page.evaluate(() => { const c = window.__game.S.
 check('Save keeps every Studio choice on the currency', !!saved, saved);
 const art = await page.evaluate(() => { const s = document.querySelector('.cst-front svg.cu-note'); return { part: !!s.querySelector('[data-part="v"][transform]'), paths: s.querySelectorAll('path').length }; });
 check('the saved note draws the moved part', art.part, JSON.stringify(art));
+// round three: scenes, security, palettes, effects, the contest, commemoratives, one look
+const clickAll = async sels => { for (const q of sels) await page.click(q); };
+await page.click('[data-cst="tab"][data-v="style"]');
+await clickAll(['[data-cst="set"][data-f="note.por"][data-v="harbour"]', '[data-cst="set"][data-f="note.emb"][data-v="cameo"]', '[data-cst="set"][data-f="note.p2"][data-v="fin"]', '[data-cst="set"][data-f="note.ds"][data-v="steep"]']);
+await page.click('[data-cst="tab"][data-v="sec"]');
+await clickAll(['[data-cst="set"][data-f="note.win"][data-v="leaf"]', '[data-cst="set"][data-f="note.ink"][data-v="gold"]', '[data-cst="set"][data-f="note.reg"][data-v="star"]', '[data-cst="set"][data-f="note.ser"][data-v="two"]', '[data-cst="sgt"][data-v="def"]', '[data-cst="sgt"][data-v="for"]']);
+await page.fill('#cst-t-pre', 'zq');
+await page.selectOption('[data-cst-fx="frame"]', 'emboss');
+await page.click('[data-cst="tab"][data-v="colour"]');
+await clickAll(['[data-cst="set"][data-f="note.rb"][data-v="1"]', '[data-cst="lockc"][data-v="c2"]', '[data-cst="ovall"]', '[data-cst="palsave"]']);
+check('a palette is saved on the nation', await until(() => page.evaluate(() => (window.__game.S.nation.cuP || []).length === 1)));
+const art3 = await page.evaluate(() => { const s = document.querySelector('.cst-front svg.cu-note'); return { mask: !!s.querySelector('mask[id$="k2"]'), gold: /gd\)/.test(s.innerHTML), filt: !!s.querySelector('[data-layer="frame"][filter]'), rule: !!document.querySelector('.cst-front .cst-rule'), mm: /printed \d+ × \d+ mm/.test(document.querySelector('.cst-front figcaption').textContent), sigs: (s.innerHTML.match(/Defence Minister|Foreign Minister/gi) || []).length }; });
+check('window, gold ink, layer effect, rulers and extra signatures are drawn', art3.mask && art3.gold && art3.filt && art3.rule && art3.mm && art3.sigs >= 2, JSON.stringify(art3));
+await page.click('[data-cst="save"]');
+check('the new note choices are saved', await until(() => page.evaluate(() => { const N = window.__game.S.nation.cur.note; return N.por === 'harbour' && N.emb === 'cameo' && N.p2 === 'fin' && N.win === 'leaf' && N.ink === 'gold' && N.reg === 'star' && N.ser === 'two' && N.pre === 'ZQ' && N.sg.length === 2 && N.fx.frame === 'emboss' && N.rb === 1 && N.ds === 'steep' && Object.keys(N.ov).length >= 9; })));
+await page.screenshot({ path: path.join(OUT, 'note-studio-round3.png') });
+await page.click('[data-cst="tab"][data-v="talk"]'); await page.click('[data-cst="enter"]');
+check('the note is entered in the Note of the Month', await until(() => page.evaluate(() => document.querySelectorAll('.cst-ents li').length === 1 && (window.__game.S.nation.cuE || []).length === 1)));
+await page.click('[data-cst="tab"][data-v="issue"]'); await page.fill('#cst-t-cev', 'Harbour opening'); await page.click('[data-cst="comm"][data-v="note"]');
+check('a commemorative note is issued and shown', await until(() => page.evaluate(() => (window.__game.S.nation.cuC || []).length === 1 && /Harbour opening/i.test(document.querySelector('.cst-cms').textContent) && /COMMEMORATIVE ISSUE/.test(document.querySelector('.cst-cms').innerHTML))));
+await page.click('[data-cst="tab"][data-v="style"]'); await page.click('[data-cst="look"]');
+check('one look sets the passport typeface', await until(() => page.evaluate(() => { const pp = window.__game.S.nation.pp; return !!(pp && pp.c && pp.c.fn && pp.s && pp.s.fn === pp.c.fn); })));
+await page.click('[data-cst="mode"][data-v="coin"]');
+await clickAll(['[data-cst="set"][data-f="coin.met"][data-v="bi"]', '[data-cst="set"][data-f="coin.ring"][data-v="copper"]', '[data-cst="set"][data-f="coin.core"][data-v="gold"]', '[data-cst="set"][data-f="coin.shape"][data-v="poly"]']);
+await page.$eval('#cst-r-sides', e => { e.value = 9; e.dispatchEvent(new Event('input', { bubbles: true })); });
+await page.click('[data-cst="ctab"][data-v="faces"]'); await page.click('[data-cst="set"][data-f="coin.enm"][data-v="flag"]');
+await page.click('[data-cst="ctab"][data-v="marks"]'); await page.click('[data-cst="set"][data-f="coin.pv"][data-v="anchor"]'); await page.click('[data-cst="set"][data-f="coin.mm"]:not([data-v=""])');
+await page.click('[data-cst="cden"][data-v="50"]');
+check('the 50 carries its enamel inlay', await until(() => page.evaluate(() => /clipPath/.test(document.querySelector('#cst-stage .cst-coin').innerHTML) && document.querySelector('#cst-stage .cst-coin').innerHTML.includes('<svg x="37"'))));
+await page.screenshot({ path: path.join(OUT, 'note-studio-coin3.png') });
+await page.click('[data-cst="save"]');
+check('the new coin choices are saved', await until(() => page.evaluate(() => { const K = window.__game.S.nation.cur.coin; return K.ring === 'copper' && K.core === 'gold' && K.shape === 'poly' && K.sides === 9 && K.enm === 'flag' && K.pv === 'anchor' && !!K.mm; })));
+await page.click('[data-cst="mode"][data-v="note"]');
 // vertical notes
 await page.click('[data-cst="tab"][data-v="style"]'); await page.click('[data-cst="set"][data-f="note.or"][data-v="v"]');
 const vt = await until(() => page.evaluate(() => { const s = document.querySelector('.cst-front svg.cu-note'), o = document.querySelector('.cst-front .cst-ov'), b = document.querySelectorAll('#cst-stage svg.cu-note-v').length; return s && s.dataset.or === 'v' && o.getAttribute('viewBox') === '0 0 160 320' && b >= 2 && s.getBBox().height > 200 ? true : false; }));
@@ -88,7 +121,7 @@ await page.screenshot({ path: path.join(OUT, 'note-studio-vertical.png') });
 // the coin
 await page.click('[data-cst="mode"][data-v="coin"]');
 check('the coin mode shows both faces and the set', await until(() => page.evaluate(() => document.querySelectorAll('#cst-stage .cst-coin').length === 2 && document.querySelectorAll('.cst-cs svg').length >= 4 && !!document.querySelector('.cst-coin.cu-coin-b'))));
-await page.click('[data-cst="set"][data-f="coin.fin"][data-v="proof"]');
+await page.click('[data-cst="ctab"][data-v="metal"]');await page.click('[data-cst="set"][data-f="coin.fin"][data-v="proof"]');
 await page.click('[data-cst="ctab"][data-v="faces"]'); await page.click('[data-cst="set"][data-f="coin.rev"][data-v="wreath"]'); await page.click('[data-cst="set"][data-f="coin.emb"][data-v="portrait"]');
 await page.click('[data-cst="ctab"][data-v="edge"]'); await page.click('[data-cst="set"][data-f="coin.edge"][data-v="letter"]'); await page.click('[data-cst="set"][data-f="coin.rim"][data-v="wide"]');
 await page.click('[data-cst="ctab"][data-v="field"]'); await page.click('[data-cst="set"][data-f="coin.fld"][data-v="rays"]');
