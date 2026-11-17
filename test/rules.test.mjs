@@ -1145,6 +1145,23 @@ test('joint ventures are read by everyone and written only by the server', async
   await assertFails(as('alice').doc('ventures/alice_abc123').delete());
 });
 
+test('the riddle of the week: read by everyone, a nation reads only its own guesses, and nobody reads the answer', async () => {
+  await env.withSecurityRulesDisabled(async ctx => {
+    await ctx.firestore().doc('riddles/meridian_20261116').set({ reg: 'meridian', t: 1, x: 2, q: ['a line'], n: 0, top: [], tu: [] });
+    await ctx.firestore().doc('riddles/meridian_20261116/guesses/alice').set({ u: 'alice', g: [5], ok: 0, r: 0, t: 1 });
+    await ctx.firestore().doc('riddleKeys/meridian_20261116').set({ c: 1234 });
+  });
+  await assertSucceeds(anon().doc('riddles/meridian_20261116').get());
+  await assertSucceeds(as('alice').doc('riddles/meridian_20261116/guesses/alice').get());
+  await assertFails(as('bob').doc('riddles/meridian_20261116/guesses/alice').get());
+  await assertFails(anon().doc('riddles/meridian_20261116/guesses/alice').get());
+  await assertFails(as('alice').doc('riddleKeys/meridian_20261116').get());
+  await assertFails(anon().doc('riddleKeys/meridian_20261116').get());
+  await assertFails(as('alice').doc('riddles/meridian_20261116').update({ n: 1 }));
+  await assertFails(as('alice').doc('riddles/meridian_20261116/guesses/alice').set({ u: 'alice', g: [], ok: 1, r: 1, t: 1 }));
+  await assertFails(as('alice').doc('riddleKeys/meridian_20261116').set({ c: 1 }));
+});
+
 test('the newspaper: press/ is read by everyone and written only by the server; an edition is filed once, by a player of its region, a week at most after it closed', async () => {
   const EPOCH = Date.UTC(2026, 0, 1), DAYMS = 86400000, today = Math.floor((Date.now() - EPOCH) / DAYMS) + 1;
   const paper = (no, by, extra = {}) => ({ r: 'meridian', no, by, v: 1, j: '{"v":1}', t: NOW(), ...extra });
