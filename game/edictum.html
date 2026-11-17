@@ -42394,14 +42394,14 @@ function frWalk(root){
   if(root.nodeType!==1)return;
   const tag=root.tagName;
   if(tag==='SCRIPT'||tag==='STYLE'||tag==='TEXTAREA'||root.isContentEditable||root.hasAttribute('data-no-tr'))return;
-  for(const a of ['placeholder','title','aria-label']){const v=root.getAttribute(a);if(v){const t=FR_UI[v.trim()];if(t)root.setAttribute(a,t)}}
+  for(const a of ['placeholder','title','aria-label']){const v=root.getAttribute(a);if(v){const t=FR_UI[v.trim()];if(t&&t!==v)root.setAttribute(a,t)}}
   for(let c=root.firstChild;c;c=c.nextSibling)frWalk(c);
 }
 function frText(node){
   const v=node.nodeValue;if(!v)return;const k=v.trim();if(!k||k.length>120)return;
-  const t=FR_UI[k];if(!t)return;
+  const t=FR_UI[k];if(!t||t===k)return;
   const p=node.parentNode;if(p&&p.closest&&p.closest('[data-no-tr],textarea'))return;
-  node.nodeValue=v.replace(k,t);
+  const nv=v.replace(k,t);if(nv!==v)node.nodeValue=nv;
 }
 function frStart(){
   if(uiLang()!=='fr'||typeof MutationObserver==='undefined')return;
