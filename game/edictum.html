@@ -5900,6 +5900,14 @@ svg.cu-note.cu-note-v{width:28%!important;min-width:56px;height:auto!important;m
 .cu-uvl,.cu-uvm{opacity:0}.cst-cv[data-see="uv"] .cu-uvl,.cst-cv[data-see="uv"] .cu-uvm{opacity:1}
 .cu-heat{transition:opacity 1.6s ease}.cu-note:hover .cu-heat{opacity:.12}
 @media (prefers-reduced-motion:reduce){.cu-heat{transition:none}}
+.fs-flagrow{display:flex;align-items:flex-start;gap:0;width:min(560px,92%)}.fs-pole{flex:0 0 9px;align-self:stretch;min-height:240px;background:linear-gradient(90deg,#8a8f94,#d9dde0,#7a7f84);border-radius:4px;margin-top:-8px}
+.fs-flag{flex:1;min-width:0;line-height:0}.fs-flag>svg:first-child{width:100%;height:auto;display:block;aspect-ratio:3/2;filter:drop-shadow(0 4px 10px rgba(0,0,0,.2))}
+.fs-flag[data-pr="r12"]>svg:first-child{aspect-ratio:2/1}.fs-flag[data-pr="r35"]>svg:first-child{aspect-ratio:5/3}.fs-flag[data-pr="r11"]>svg:first-child{aspect-ratio:1/1;width:66%}
+.fs-flag .cst-ov{width:100%;height:100%}.fs-see{width:min(520px,92%)}.fs-see svg{width:100%;height:auto;display:block;border-radius:8px}
+.fs-cmp{position:absolute;right:10px;bottom:10px;width:150px}.fs-cmp svg{width:100%;height:auto}
+.fs-use svg{width:84px!important;height:auto}.fs-var svg.fs-vsvg{width:60px;height:40px;display:block}
+.fs-vfig{margin:0;display:grid;grid-template-columns:96px 1fr;gap:10px;align-items:center}.fs-vbig{width:96px;height:64px;display:block;box-shadow:0 1px 4px rgba(0,0,0,.2)}
+.fs-ud{display:flex;gap:0}.fst .cst-lay{grid-template-columns:22px 1fr 50px 44px 22px!important}
 .cst-out{border-color:var(--rule)!important}.cst-fx{font:inherit;font-size:11px;background:var(--paper);color:var(--ink);border:1px solid var(--rule);border-radius:4px;padding:1px;width:100%}
 .cst-lay{grid-template-columns:22px 1fr 44px 58px 22px!important}
 .cst-rule{stroke:var(--ink-2);stroke-width:.4;opacity:.7;pointer-events:none}
@@ -5915,6 +5923,7 @@ svg.cu-note.cu-note-v{width:28%!important;min-width:56px;height:auto!important;m
 .cst-worn{position:absolute;inset:0;border-radius:7px;pointer-events:none;background:linear-gradient(90deg,transparent 49.6%,rgba(0,0,0,.18) 50%,rgba(255,255,255,.25) 50.4%,transparent 51%),linear-gradient(0deg,transparent 49.4%,rgba(0,0,0,.14) 50%,transparent 50.6%),radial-gradient(circle at 80% 25%,rgba(120,90,40,.18),transparent 30%)}
 .cst-cv[data-see="wallet"] .cst-pap{overflow:hidden;padding-bottom:12%}.cst-wallet{position:absolute;left:-4%;right:-4%;bottom:0;height:52%;background:linear-gradient(#6b4226,#4a2c18);border-radius:10px 10px 4px 4px;box-shadow:0 -3px 8px rgba(0,0,0,.35);border-top:2px dashed #c79a6b}
 .cst-cv[data-see="hand"] .cst-pap{transform:rotate(-7deg)}.cst-thumb{position:absolute;left:-6%;bottom:-14%;width:24%;height:46%;background:radial-gradient(ellipse at 40% 30%,#e7b79a,#c98d6c);border-radius:45% 45% 40% 40%;transform:rotate(25deg);box-shadow:0 2px 6px rgba(0,0,0,.3)}
+@media (max-width:600px){.cst-g{flex-wrap:wrap;max-width:100%}.cst-sel select{max-width:44vw}}
 @media (max-width:1000px){.cst{overflow:auto;display:block}.cst-main{grid-template-columns:1fr}.cst-stage{order:-1}.cst-pane{overflow:visible;margin-bottom:8px}.cst-cv{min-height:280px}.cst-bar,.cst-film{margin-bottom:8px}}
 @media (prefers-reduced-motion:reduce){.cst-notes{transition:none}}
 .adst-sec{margin-top:34px}
@@ -28658,6 +28667,7 @@ function czFlagBody(n){
   const saved=JSON.stringify(n.flag);if(!S.czFlag||JSON.stringify(S.czFlag)===S.czFlagBase&&S.czFlagBase!==saved){S.czFlag=clone(n.flag);S.czFlagBase=saved;}
   const dirty=czFlagDirty();
   return `<div class="flag-preview-row"><div class="flag-frame" id="c-flag-prev">${flagSVG(S.czFlag,'Flag preview')}</div>${flagDesigner(S.czFlag,'c')}</div>
+    <div class="cu-st-open"><button type="button" class="btn" data-fst="open">Design in the Flag Studio</button><span class="hint">Every part of the flag on one screen: layers, a canton, borders, proportions, traditions, a vexillology check and your flag in use.</span></div>
     <div class="row cz-flagbar${dirty?' is-dirty':''}"><button type="button" class="btn" id="c-flag-save" data-act="cz-flag-save">Save flag</button><button type="button" class="btn ghost" data-act="cz-flag-reset">Discard changes</button><span class="hint" id="c-flag-dirty">${dirty?'Your flag has unsaved changes.':''}</span></div>`;
 }
 function czFlagMark(){const d=czFlagDirty(),el=document.getElementById('c-flag-dirty');if(el)el.textContent=d?'Your flag has unsaved changes.':'';const b=document.querySelector('.cz-flagbar');if(b)b.classList.toggle('is-dirty',d);}
@@ -44658,6 +44668,7 @@ document.addEventListener('submit',e=>{const f=e.target;if(!f||f.id!=='prv-ren-f
    = {get:()=>flag, done(f), live(f)} says which object it edits and what to redraw; flagEdit(scope,k,v)
    makes one change (with undo); fgPatKeys()/fgEmbKeys() list what the player may use. */
 const FG_C4D='#FFFFFF',FG_RING=new Set(['star','disc','diamond','heart','flower','snowflake','compass']);
+const FG_PR=['r12','r35','r11','swt','pen'],FG_CA=['ring','rows','one'],FG_BD=['edge','frame','saw','fringe'],FG_EA=['row','cons','scat'];
 const FG_SIZE={s:.7,l:1.3},FG_EP=['c','k','h','f'],FG_POS={c:[150,100,1],k:[72,50,.62],h:[52,100,.78],f:[228,100,.86]};
 /* where a pattern's own anchor already is a canton, a hoist or a fly, choosing that position keeps it */
 const FG_OWN={chev3:'f',peaks:'k',canton:'k','bord-canton':'k','str-canton':'k','quart-cross':'k',chevron:'h',hoist:'h','hoist-s':'h',pall:'h',serrated:'f'};
@@ -44811,8 +44822,37 @@ function flagSVG(f,label,opt){
     default:body=R(0,0,300,200,a);
   }
   if(opt&&opt.emb)sc=opt.emb;
-  const em=e!=='none'&&!(opt&&opt.emb)&&(f.es||f.ep||f.en||f.eo)?fgEmbs(f,p,e,ex,ey,sc,ec):emblemSVG(e,ex,ey,42*sc,ec);
-  return `<svg viewBox="0 0 300 200" preserveAspectRatio="xMidYMid slice" role="img" aria-label="${esc(label||'Flag')}">${body}${em}${fglArt(f.layers)}</svg>`;
+  /* the Flag Studio's free placement and scale of the emblem */
+  const free=!(opt&&opt.emb)&&typeof f.ex==='number'&&typeof f.ey==='number';if(free){ex=f.ex*3;ey=f.ey*2;}if(!(opt&&opt.emb)&&f.esc)sc*=f.esc;
+  const ff=free&&f.ep?Object.assign({},f,{ep:undefined}):f;
+  const em=e==='none'?'':f.ea&&!(opt&&opt.emb)?fgArrange(f,e,ex,ey,sc,ec):!(opt&&opt.emb)&&(f.es||ff.ep||f.en||f.eo)?fgEmbs(ff,p,e,ex,ey,sc,ec):emblemSVG(e,ex,ey,42*sc,ec);
+  const cant=f.cn?fgCanton(f):'',bord=f.bd?fgBorder(f):'',pr=FG_PR.includes(f.pr)?f.pr:'';
+  const vb=pr==='r12'?'0 25 300 150':pr==='r35'?'0 10 300 180':pr==='r11'?'50 0 200 200':'0 0 300 200';
+  const cid=pr==='swt'||pr==='pen'?'fgc'+(++fid):'',clip=cid?`<clipPath id="${cid}"><path d="${pr==='pen'?'M0 0L300 100L0 200Z':'M0 0H300L228 100L300 200H0Z'}"/></clipPath>`:'';
+  const inner=`${body}${cant}${bord}${em}${fglArt(f.layers)}`;
+  return `<svg viewBox="${vb}" preserveAspectRatio="xMidYMid slice" role="img" aria-label="${esc(label||'Flag')}"${pr?` data-pr="${pr}"`:''}>${clip}${cid?`<g clip-path="url(#${cid})">${inner}</g>`:inner}</svg>`;
+}
+/* the Flag Studio's canton: the upper hoist corner in its own colour, with its charges in a ring, in rows or one alone */
+function fgCanton(f){
+  const W=130,H=100,ce=czHas(EMBLEMS,f.ce)&&f.ce!=='none'?f.ce:'star',k=f.ck||(f.ca==='one'?1:12),col=safeColor(f.cec,'#FFFFFF');let s=`<rect width="${W}" height="${H}" fill="${f.cn}"/>`;
+  if(f.ca==='one'||k===1)s+=emblemSVG(ce,W/2,H/2,30,col);
+  else if(f.ca==='rows'){const cols=Math.ceil(Math.sqrt(k*1.4)),rows=Math.ceil(k/cols),r=Math.min(W/cols,H/rows)*.34;let i=0;for(let y=0;y<rows;y++)for(let x=0;x<cols&&i<k;x++,i++)s+=emblemSVG(ce,(x+.5+(y%2?.25:0))*W/cols,(y+.5)*H/rows,r,col);}
+  else{const R=H*.32,r=Math.min(H*.09,R*Math.sin(Math.PI/k)*1.1);for(let i=0;i<k;i++){const t=-Math.PI/2+i*2*Math.PI/k;s+=emblemSVG(ce,W/2+Math.cos(t)*R,H/2+Math.sin(t)*R,r,col);}}
+  return s;
+}
+/* its border: edging, a wide frame, a sawtooth hoist or a fringe on the fly */
+function fgBorder(f){const c=safeColor(f.bdc,safeColor(f.c4,'#C9961A'));
+  if(f.bd==='frame')return `<path d="M0 0H300V200H0ZM16 16V184H284V16Z" fill="${c}" fill-rule="evenodd"/>`;
+  if(f.bd==='saw'){let d='';for(let y=0;y<200;y+=20)d+=`M0 ${y}L24 ${y+10}L0 ${y+20}Z`;return `<rect width="10" height="200" fill="${c}"/><path d="${d}" fill="${c}"/>`;}
+  if(f.bd==='fringe'){let d='';for(let y=2;y<200;y+=4)d+=`M292 ${y}h8`;return `<path d="${d}" stroke="${c}" stroke-width="2.2"/><rect x="290" width="3" height="200" fill="${c}"/>`;}
+  return `<rect x="4" y="4" width="292" height="192" fill="none" stroke="${c}" stroke-width="6"/>`;}
+/* charges in a row, a constellation (seeded, the same every time) or scattered over the whole flag */
+function fgArrange(f,e,x,y,sc,ec){
+  const k=f.ek||6,r=42*sc*.4,out=[];
+  if(f.ea==='row'){const span=Math.min(260,k*r*2.6),st=k>1?span/(k-1):0;for(let i=0;i<k;i++)out.push([x-span/2+i*st,y,r]);}
+  else{const g=rng(hash('fga:'+k+':'+f.ea+':'+(f.c||[]).join('')));const W=f.ea==='scat'?280:150,H=f.ea==='scat'?180:110,cx=f.ea==='scat'?150:x,cy=f.ea==='scat'?100:y;
+    for(let i=0;i<k;i++){let px,py,t=0;do{px=cx-W/2+g()*W;py=cy-H/2+g()*H;t++;}while(t<30&&out.some(q=>Math.hypot(q[0]-px,q[1]-py)<r*2.2));out.push([px,py,r*(f.ea==='cons'?.7+g()*.6:1)]);}}
+  return out.map(([px,py,rr])=>emblemSVG(e,px,py,rr,ec)).join('');
 }
 function emblemSVG(e,x,y,r,col){
   const d=FG_EMB[e];if(d===undefined)return emblemSVG0(e,x,y,r,col);
@@ -44846,6 +44886,16 @@ function fgOpt(fl){
   if(FG_EP.includes(fl.ep))o.ep=fl.ep;
   if(fl.en===3||fl.en===5||(Number.isInteger(fl.en)&&fl.en>=7&&fl.en<=12))o.en=fl.en;
   if(fl.eo===1||fl.eo===2||fl.eo===3)o.eo=fl.eo;
+  /* Flag Studio: proportion (pr), a canton (cn its colour; ce, ck, ca, cec its charges), a border (bd, bdc), charges in
+     a row, constellation or scatter (ea, ek), the emblem placed freely (ex, ey in %, esc its scale), a remix credit (rx) */
+  const PR=['r12','r35','r11','swt','pen'],CA=['ring','rows','one'],BD=['edge','frame','saw','fringe'],EA=['row','cons','scat'];
+  if(PR.includes(fl.pr))o.pr=fl.pr;
+  const cn=safeColor(fl.cn,'');if(cn){o.cn=cn;if(czHas(EMBLEMS,fl.ce)&&fl.ce!=='none')o.ce=fl.ce;if(Number.isInteger(fl.ck)&&fl.ck>=1&&fl.ck<=24)o.ck=fl.ck;if(CA.includes(fl.ca))o.ca=fl.ca;const cc=safeColor(fl.cec,'');if(cc)o.cec=cc;}
+  if(BD.includes(fl.bd)){o.bd=fl.bd;const bc=safeColor(fl.bdc,'');if(bc)o.bdc=bc;}
+  if(EA.includes(fl.ea)){o.ea=fl.ea;o.ek=Number.isInteger(fl.ek)?clamp(fl.ek,2,24):6;}
+  if(typeof fl.ex==='number'&&typeof fl.ey==='number'&&Number.isFinite(fl.ex)&&Number.isFinite(fl.ey)){o.ex=Math.round(clamp(fl.ex,0,100)*10)/10;o.ey=Math.round(clamp(fl.ey,0,100)*10)/10;}
+  if(typeof fl.esc==='number'&&Number.isFinite(fl.esc)&&fl.esc!==1)o.esc=Math.round(clamp(fl.esc,.4,2.5)*100)/100;
+  if(typeof fl.rx==='string'){const rx=fl.rx.replace(/[<>"`\\{}]/g,'').trim().slice(0,40);if(rx)o.rx=rx;}
   const layers=fglNorm(fl.layers);if(layers.length)o.layers=layers;
   return o;
 }
@@ -44860,6 +44910,7 @@ function flagNorm(f,n){
   const o=fgCanon(Object.assign({},f&&typeof f==='object'&&!Array.isArray(f)?f:{}));
   if(n&&FG_PU[o.p]&&!czHolds(n,FG_PU[o.p],n.cz))o.p=FG_PFB[o.p];
   if(n&&FG_EU.has(o.e)&&!czHolds(n,o.e,n.cz))o.e='none';
+  if(n&&o.ce&&(FG_EU.has(o.ce)||czU(o.ce))&&!czHolds(n,o.ce,n.cz))delete o.ce;
   if(o.layers){o.layers=fglNorm(o.layers,n);if(!o.layers.length)delete o.layers;}
   return o;
 }
@@ -45039,7 +45090,7 @@ function fglNorm(raw,n){
   for(const l of raw.slice(0,FGL_MAX)){
     if(!l||typeof l!=='object'||!Object.hasOwn(FGL_KINDS,l.k))continue;
     if(l.k==='emblem'&&(!czHas(EMBLEMS,l.e)||l.e==='none'||(n&&czU(l.e)&&!czHolds(n,l.e,n.cz))))continue;
-    out.push({k:l.k,...(l.k==='emblem'?{e:l.e}:{}),x:fglNum(l.x,0,100,50),y:fglNum(l.y,0,100,50),w:fglNum(l.w,2,150,30),h:fglNum(l.h,2,150,30),r:fglNum(l.r,-180,180,0),c:safeColor(l.c,'#F2C230'),...(l.k==='border'?{b:fglNum(l.b,1,12,3)}:{})});
+    out.push({k:l.k,...(l.k==='emblem'?{e:l.e}:{}),x:fglNum(l.x,0,100,50),y:fglNum(l.y,0,100,50),w:fglNum(l.w,2,150,30),h:fglNum(l.h,2,150,30),r:fglNum(l.r,-180,180,0),c:safeColor(l.c,'#F2C230'),...(l.k==='border'?{b:fglNum(l.b,1,12,3)}:{}),...(typeof l.o==='number'&&l.o<1?{o:fglNum(l.o,.1,1,1)}:{})});
   }return out;
 }
 const fglTransform=l=>`translate(${l.x*3} ${l.y*2}) rotate(${l.r})`;
@@ -45047,7 +45098,7 @@ function fglArt(raw){
   const layers=fglNorm(raw);if(!layers.length)return '';
   return `<svg x="0" y="0" width="300" height="200" viewBox="0 0 300 200" overflow="hidden" aria-hidden="true">${layers.map((l,i)=>{
     const w=l.w*3,h=l.h*2,shape=l.k==='emblem'?`<g transform="scale(${w/100} ${h/100})">${emblemSVG(l.e,0,0,50,l.c)}</g>`:l.k==='disc'?`<ellipse rx="${w/2}" ry="${h/2}" fill="${l.c}"/>`:`<rect x="${-w/2}" y="${-h/2}" width="${w}" height="${h}" fill="${l.k==='border'?'none':l.c}"${l.k==='border'?` stroke="${l.c}" stroke-width="${l.b}"`:''}/>`;
-    return `<g data-fgl-layer="${i}" transform="${fglTransform(l)}">${shape}</g>`;
+    return `<g data-fgl-layer="${i}" transform="${fglTransform(l)}"${l.o?` opacity="${l.o}"`:''}>${shape}</g>`;
   }).join('')}</svg>`;
 }
 const fglName=l=>l.k==='emblem'?(EMBLEMS[l.e]||'Emblem'):FGL_KINDS[l.k];
@@ -48651,6 +48702,279 @@ document.addEventListener('change',e=>{
     cstPaint();}
 });
 
+
+/* ── the Flag Studio: the flag designer on one screen, over the Customise page ──
+   It edits the same draft as the Customise designer (S.czFlag, scope 'c'); Save flies it the same way (czFlagSave).
+   Layers and an inspector on the left, the flag on its pole in the middle, tabs on the right, and the flag in use and
+   its variants along the bottom. Styled with the Note Studio's classes. */
+const FSV_MAX=6;
+const FS={on:false,sel:'emb',hist:[],fut:[],tab:'style',see:'pole',guides:true,check:true,lock:{},cmp:-1,drag:null,opener:null,locks:{p:false,c:false,e:false}};
+const FS_SEE={pole:'On a pole',building:'On a building',map:'On the map',pin:'As a lapel pin',ship:'On a ship',tiny:'At 16 pixels'};
+const FS_PR={'':'2 : 3',r35:'3 : 5',r12:'1 : 2',r11:'Square',swt:'Swallowtail',pen:'Pennant'};
+/* starting points from the world's flag traditions */
+const FS_TRAD={
+  nordic:{nm:'Nordic cross',f:{p:'cross',c:['#C8102E','#FFFFFF','#C8102E'],e:'none'}},
+  tricol:{nm:'Tricolour',f:{p:'tri-v',c:['#152450','#FFFFFF','#C8102E'],e:'none'}},
+  panaf:{nm:'Pan-African',f:{p:'tri-h',c:['#1B7F3B','#F2C230','#C8102E'],e:'star',ec:'#111111'}},
+  pacific:{nm:'Pacific stars',f:{p:'plain',c:['#152450','#FFFFFF','#C8102E'],e:'star',ec:'#FFFFFF',ea:'cons',ek:5,cn:'#C8102E',ce:'star',ck:1,ca:'one'}},
+  arab:{nm:'Arab',f:{p:'chevron',c:['#111111','#FFFFFF','#C8102E'],e:'none'}},
+  union:{nm:'Stars and canton',f:{p:'stripes',c:['#C8102E','#FFFFFF','#152450'],e:'none',cn:'#152450',ce:'star',ck:12,ca:'ring',cec:'#FFFFFF'}},
+  pennant:{nm:'Pennant',f:{p:'bi-h',c:['#0F6E67','#F2C230','#FFFFFF'],e:'none',pr:'pen'}},
+  sun:{nm:'Rising sun',f:{p:'plain',c:['#FFFFFF','#C8102E','#152450'],e:'disc',ec:'#C8102E'}}};
+const fsN=()=>S.nation;
+function fsDraft(){const n=fsN();if(!n)return null;if(!S.czFlag){S.czFlag=clone(n.flag);S.czFlagBase=JSON.stringify(n.flag);}return S.czFlag;}
+function fsDo(label,f){const now=Date.now(),last=FS.hist[FS.hist.length-1],snap=JSON.stringify(S.czFlag);if(!(last&&last.l===label&&now-last.t<900))FS.hist.push({l:label,d:snap,t:now});else last.t=now;if(FS.hist.length>80)FS.hist.shift();FS.fut=[];f(S.czFlag);fgCanon(S.czFlag);}
+function fsUndo(){const h=FS.hist.pop();if(!h)return;FS.fut.push({l:h.l,d:JSON.stringify(S.czFlag)});S.czFlag=JSON.parse(h.d);fsPaint();}
+function fsRedo(){const h=FS.fut.pop();if(!h)return;FS.hist.push({l:h.l,d:JSON.stringify(S.czFlag),t:0});S.czFlag=JSON.parse(h.d);fsPaint();}
+function fsOpen(){
+  const n=fsN();if(!n)return;fsDraft();Object.assign(FS,{on:true,hist:[],fut:[],cmp:-1,opener:document.activeElement});
+  let el=document.getElementById('fg-st');if(!el){el=document.createElement('div');el.id='fg-st';el.className='cst fst';el.setAttribute('role','dialog');el.setAttribute('aria-modal','true');el.setAttribute('aria-label','Flag Studio');document.body.appendChild(el);}
+  el.hidden=false;document.documentElement.classList.add('cst-on');fsPaint();requestAnimationFrame(()=>{const b=document.getElementById('fs-close');if(b)b.focus({preventScroll:true});});
+}
+function fsClose(){FS.on=false;const el=document.getElementById('fg-st');if(el){el.hidden=true;el.innerHTML='';}document.documentElement.classList.remove('cst-on');render();const o=FS.opener;if(o&&o.isConnected)o.focus({preventScroll:true});}
+const fsLay=()=>!!(S.nation&&pgAvailable(S.nation,'charter'));
+/* ── where things are (flag units, 300 × 200) ── */
+function fsEmbBox(f){const P=FG_POS[f.ep]||FG_POS.c,x=typeof f.ex==='number'?f.ex*3:FG_POS[f.ep]?P[0]:150,y=typeof f.ey==='number'?f.ey*2:FG_POS[f.ep]?P[1]:100,r=42*(FG_POS[f.ep]?P[2]:1)*(FG_SIZE[f.es]||1)*(f.esc||1)*(f.en>1||f.ea?1.4:1);return {x,y,r};}
+function fsLayBox(l){return {x:l.x*3,y:l.y*2,w:l.w*3,h:l.h*2};}
+/* ── the vexillology check ── */
+function fsCheck(f){
+  const out=[],cols=new Set([f.c[0],f.c[1]].concat((PATTERNS[f.p]||[])[1]>2?[f.c[2]]:[]));if(f.e!=='none')cols.add(f.ec);if(f.cn){cols.add(f.cn);cols.add(safeColor(f.cec,'#FFFFFF'));}if(f.bd)cols.add(safeColor(f.bdc,safeColor(f.c4,'#C9961A')));for(const l of f.layers||[])cols.add(l.c);
+  out.push(cols.size<=4?{ok:1,t:`${cols.size} colour${cols.size===1?'':'s'}: easy to remember`}:{t:`${cols.size} colours: good flags use three or four`});
+  const lum=h=>{const v=[1,3,5].map(i=>parseInt(h.slice(i,i+2),16)/255).map(u=>u<=.03928?u/12.92:Math.pow((u+.055)/1.055,2.4));return .2126*v[0]+.7152*v[1]+.0722*v[2];},ctr=(a,b)=>{const x=lum(a),y=lum(b);return (Math.max(x,y)+.05)/(Math.min(x,y)+.05);};
+  if((PATTERNS[f.p]||[])[1]>=2&&ctr(f.c[0],f.c[1])<1.5)out.push({t:'The first two colours are too alike to tell apart'});
+  if(f.e!=='none'&&ctr(f.ec,f.c[0])<1.6)out.push({t:'The emblem barely shows on the field'});
+  const lt=h=>lum(h)>.55;if(lt(f.c[0])&&lt(f.c[1])&&f.c[0]!==f.c[1])out.push({t:'Light beside light: the rule of tincture puts a dark colour between'});
+  const parts=(f.layers||[]).length+(f.cn?1:0)+(f.bd?1:0)+(f.e!=='none'?1:0);out.push(parts<=4?{ok:1,t:'Simple enough to draw from memory'}:{t:'Many parts: simpler flags are easier to remember'});
+  const tiny=f.e!=='none'&&(f.es==='s'||(f.esc||1)<.6||(f.ea&&(f.ek||6)>12));out.push(tiny?{t:'The emblem is lost at 16 pixels'}:{ok:1,t:'Reads at 16 pixels'});
+  return out;
+}
+/* ── the flag in the world, and its variants ── */
+function fsVariants(f,n){const svg=x=>flagSVG(x,'');const naval=`<svg viewBox="0 0 300 200"><rect width="300" height="200" fill="#F4F4F0"/><svg width="140" height="100" viewBox="0 0 300 200" preserveAspectRatio="xMidYMid slice">${svg(f).replace(/^<svg[^>]*>|<\/svg>$/g,'')}</svg><path d="M140 100H300M150 0V200" stroke="${f.c[0]}" stroke-width="10" opacity=".85"/></svg>`;
+  const war=flagSVG(Object.assign({},f,{pr:'swt',bd:f.bd||'edge'}),''),std=`<svg viewBox="0 0 200 200"><rect width="200" height="200" fill="${f.c[2]}"/><rect x="8" y="8" width="184" height="184" fill="none" stroke="${safeColor(f.ec,'#F2C230')}" stroke-width="5"/>${(()=>{const A=cuArmsOf(n);return A?cuNest(czArmsSVG(A),62,48,76,92):emblemSVG(f.e==='none'?'star':f.e,100,100,52,safeColor(f.ec,'#F2C230'));})()}</svg>`;
+  return [['civil','Civil ensign','Flown by citizens and merchant ships: the national flag itself.',svg(f)],['naval','Naval ensign','The navy’s: the flag in the canton of a white ensign, crossed in the field colour.',naval],['war','War flag','The army’s: the flag as a swallowtail, edged.',war],['std','Leader’s standard','Flown where the leader is: the arms on the third colour, square.',std]];}
+function fsUses(f){const b=flagSVG(f,'').replace(/^<svg[^>]*>|<\/svg>$/g,''),vb=(flagSVG(f,'').match(/viewBox="([^"]+)"/)||[0,'0 0 300 200'])[1],sub=(x,y,w,h)=>`<svg x="${x}" y="${y}" width="${w}" height="${h}" viewBox="${vb}" preserveAspectRatio="xMidYMid slice">${b}</svg>`;
+  return {pole:`<svg viewBox="0 0 120 100"><rect x="6" y="2" width="3" height="98" fill="#8A8F94"/><circle cx="7.5" cy="2.5" r="2.5" fill="#C9961A"/>${sub(9,4,66,44)}</svg>`,
+    building:`<svg viewBox="0 0 120 100"><rect width="120" height="100" fill="#D9CDB8"/><path d="M10 100V40H110V100" fill="#C7B89D"/>${[20,40,60,80,100].map(x=>`<rect x="${x-6}" y="52" width="12" height="20" fill="#5A6B73"/>`).join('')}<path d="M30 20L60 6L90 20Z" fill="#B3A386"/><rect x="58" y="0" width="2" height="22" fill="#666"/>${sub(60,1,26,17)}</svg>`,
+    map:`<svg viewBox="0 0 120 100"><rect width="120" height="100" fill="#B3CFD8"/><path d="M14 84L26 30L58 14L96 30L108 76L60 92Z" fill="${f.c[0]}" opacity=".5"/><rect x="58" y="36" width="1.5" height="18" fill="#333"/>${sub(59.5,36,16,11)}</svg>`,
+    pin:`<svg viewBox="0 0 120 100"><circle cx="60" cy="50" r="40" fill="#C9961A"/><circle cx="60" cy="50" r="35" fill="#E8C766"/><clipPath id="fsp"><circle cx="60" cy="50" r="31"/></clipPath><g clip-path="url(#fsp)">${sub(22,24,76,52)}</g></svg>`,
+    ship:`<svg viewBox="0 0 120 100"><rect width="120" height="100" fill="#CFE3EA"/><path d="M0 80Q30 74 60 80T120 80V100H0Z" fill="#6B93A3"/><path d="M14 72H96L86 84H24Z" fill="#3B3F45"/><rect x="88" y="34" width="2" height="40" fill="#333"/>${sub(90,34,24,16)}</svg>`,
+    tiny:`<svg viewBox="0 0 120 100"><rect width="120" height="100" fill="#F4F4F0"/><g transform="translate(48 42)">${sub(0,0,24,16)}</g><text x="60" y="80" text-anchor="middle" font-size="9" fill="#555">16 × 11 px</text></svg>`};}
+/* ── painting ── */
+function fsBar(n,f){
+  const b=(k,l,on,t,v)=>`<button type="button" class="cst-b${on?' on':''}" data-fst="${k}"${v!=null?` data-v="${esc(String(v))}"`:''}${on!=null?` aria-pressed="${!!on}"`:''}${t?` title="${esc(t)}"`:''}>${l}</button>`,V=Array.isArray(n.fgV)?n.fgV:[],rem=fsRemixList();
+  return `<div class="cst-bar"><h2 class="cst-h">Flag Studio</h2>
+  <div class="cst-g">${b('undo','↶ Undo',null,'Undo (Ctrl+Z)').replace('<button',FS.hist.length?'<button':'<button disabled')}${b('redo','↷ Redo',null,'Redo (Ctrl+Y)').replace('<button',FS.fut.length?'<button':'<button disabled')}</div>
+  <div class="cst-g">${b('guides','Guides',FS.guides)}${b('check','Vexillology check',FS.check)}</div>
+  <label class="cst-g cst-sel"><span>See it</span><select data-fst-sel="see">${Object.entries(FS_SEE).map(([k,l])=>`<option value="${k}"${FS.see===k?' selected':''}>${l}</option>`).join('')}</select></label>
+  <span class="cst-sp"></span>
+  <div class="cst-g"><label class="cst-sel"><span class="u-sr">Versions</span><select data-fst-sel="ver"><option value="">Versions${V.length?` (${V.length})`:''}…</option>${V.map((v,i)=>`<option value="load:${i}">Open “${esc(v.nm)}”</option>`).join('')}${V.map((v,i)=>`<option value="cmp:${i}">${FS.cmp===i?'Stop comparing':'Compare with'} “${esc(v.nm)}”</option>`).join('')}<option value="save">Save this as a version</option>${V.map((v,i)=>`<option value="del:${i}">Delete “${esc(v.nm)}”</option>`).join('')}</select></label>
+  <label class="cst-sel"><span class="u-sr">Remix</span><select data-fst-sel="remix"${rem.length?'':' disabled'}><option value="">${rem.length?'Remix a neighbour’s flag…':'No flags to remix yet'}</option>${rem.map(x=>`<option value="${esc(x.id)}">${esc(x.n.name)}</option>`).join('')}</select></label>${b('surprise','🎲 Surprise me',null,'A new flag from your nation’s seed; locked parts stay')}</div>
+  <div class="cst-g">${b('svg','Export SVG')}${b('png','PNG')}</div>
+  <div class="cst-g">${b('comp','Use in the competition',null,'Make this the design you enter in the monthly flag competition')}<button type="button" class="cst-b cst-pri" data-fst="save">Save flag</button><button type="button" class="cst-b" id="fs-close" data-fst="close" aria-label="Close the Flag Studio">✕</button></div></div>`;
+}
+function fsLeft(n,f){
+  const L=f.layers||[],lay=fsLay(),row=(k,nm,on,extra)=>`<div class="cst-lay${FS.sel===k?' sel':''}"><button type="button" class="cst-ic" data-fst="tog" data-k="${k}" aria-pressed="${!!on}" aria-label="${on?'Remove':'Add'} the ${esc(nm)}">${on?'◉':'○'}</button><button type="button" class="cst-lnm" data-fst="pick" data-k="${k}">${esc(nm)}</button>${extra||'<span></span><span></span>'}<button type="button" class="cst-ic" data-fst="lock" data-k="${k}" aria-pressed="${!!FS.lock[k]}" aria-label="${FS.lock[k]?'Unlock':'Lock'} the ${esc(nm)}">${FS.lock[k]?'🔒':'🔓'}</button></div>`;
+  const rows=L.map((l,i)=>row('l'+i,fglName(l)+' '+(i+1),true,`<input type="range" min="10" max="100" value="${Math.round((l.o||1)*100)}" data-fst-in="lo" data-k="${i}" aria-label="Opacity of layer ${i+1}"><span class="fs-ud"><button type="button" class="cst-ic" data-fst="up" data-k="${i}" aria-label="Move layer ${i+1} back"${i?'':' disabled'}>↑</button><button type="button" class="cst-ic" data-fst="down" data-k="${i}" aria-label="Move layer ${i+1} forward"${i<L.length-1?'':' disabled'}>↓</button></span>`)).reverse().join('')
+    +row('emb',f.e==='none'?'Emblem (none)':'Emblem · '+(EMBLEMS[f.e]||''),f.e!=='none')+row('cn','Canton',!!f.cn)+row('bd','Border',!!f.bd)+`<div class="cst-lay"><span></span><span>Field · ${esc((PATTERNS[f.p]||[''])[0])}</span><span></span><span></span><span></span></div>`;
+  const sel=FS.sel,li=/^l\d+$/.test(sel)?+sel.slice(1):-1,l=L[li];let insp='';
+  if(sel==='emb'){const B=fsEmbBox(f);insp=`<div class="cst-grid">${fsNum('ex','Across %',Math.round(B.x/3),0,100)}${fsNum('ey','Down %',Math.round(B.y/2),0,100)}${fsNum('esc','Size %',Math.round((f.esc||1)*100),40,250,5)}</div><button type="button" class="cst-b cst-out" data-fst="emb0">Back to its usual place</button>`;}
+  else if(l){insp=`<div class="cst-grid">${fsNum('lx','Across %',l.x,0,100)}${fsNum('ly','Down %',l.y,0,100)}${fsNum('lw','Width %',l.w,2,150)}${fsNum('lh','Height %',l.h,2,150)}${fsNum('lr','Turn °',l.r,-180,180,5)}</div>
+    <div class="cst-seg"><button type="button" class="cst-b cst-out" data-fst="mirror">Mirror</button><button type="button" class="cst-b cst-out" data-fst="rot4">Rotate × 4</button><button type="button" class="cst-b cst-out" data-fst="repeat">Repeat</button><button type="button" class="cst-b cst-out" data-fst="ldel">Delete</button></div>`;}
+  else insp='<p class="hint">Pick the emblem or a layer to place it exactly.</p>';
+  return `<div class="cst-ph">Layers</div><div class="cst-lays">${rows}</div>
+  ${lay?`<div class="cst-insp"><div class="cst-seg">${Object.entries(FGL_KINDS).map(([k,v])=>`<button type="button" class="cst-b cst-out" data-fst="add" data-v="${k}"${L.length>=FGL_MAX?' disabled':''}>+ ${esc(v)}</button>`).join('')}</div></div>`:'<p class="hint" style="padding:0 10px">Extra layers open with the Founding Charter.</p>'}
+  <div class="cst-ph">Inspector</div><div class="cst-insp">${insp}<p class="hint">Drag the emblem or a layer on the flag. It snaps to the centre, the hoist and the canton; arrow keys nudge it (Shift for 5).</p></div>`;
+}
+const fsNum=(k,l,v,min,max,step)=>`<label for="fs-i-${k}">${l}</label><input type="number" id="fs-i-${k}" data-fst-in="${k}" value="${v}" min="${min}" max="${max}" step="${step||1}">`;
+function fsOverlay(f){
+  let o='';const vb=(flagSVG(f,'').match(/viewBox="([^"]+)"/)||[0,'0 0 300 200'])[1];
+  if(FS.guides)o+=`<path d="M150 0V200M0 100H300" class="cst-mid"/><rect x="0" y="0" width="130" height="100" class="cst-safe" opacity=".6"/><path d="M75 0V200" class="cst-mid" opacity=".5"/>`;
+  if(f.e!=='none'){const B=fsEmbBox(f);o+=`<rect x="${cuR2(B.x-B.r)}" y="${cuR2(B.y-B.r)}" width="${cuR2(2*B.r)}" height="${cuR2(2*B.r)}" class="cst-hit${FS.lock.emb?' lk':''}" data-fpart="emb"><title>Emblem</title></rect>`;}
+  (f.layers||[]).forEach((l,i)=>{const B=fsLayBox(l);o+=`<g transform="translate(${B.x} ${B.y}) rotate(${l.r})"><rect x="${-B.w/2}" y="${-B.h/2}" width="${B.w}" height="${B.h}" class="cst-hit${FS.lock['l'+i]?' lk':''}" data-fpart="l${i}"><title>${esc(fglName(l))} ${i+1}</title></rect></g>`;});
+  const sel=FS.sel;if(sel==='emb'&&f.e!=='none'){const B=fsEmbBox(f);o+=`<rect x="${cuR2(B.x-B.r)}" y="${cuR2(B.y-B.r)}" width="${cuR2(2*B.r)}" height="${cuR2(2*B.r)}" class="cst-selb"/><rect x="${cuR2(B.x+B.r-3)}" y="${cuR2(B.y+B.r-3)}" width="6" height="6" class="cst-hd" data-fh="1"/>`;}
+  else if(/^l\d+$/.test(sel)&&f.layers&&f.layers[+sel.slice(1)]){const l=f.layers[+sel.slice(1)],B=fsLayBox(l);o+=`<g transform="translate(${B.x} ${B.y}) rotate(${l.r})"><rect x="${-B.w/2}" y="${-B.h/2}" width="${B.w}" height="${B.h}" class="cst-selb"/><rect x="${B.w/2-3}" y="${B.h/2-3}" width="6" height="6" class="cst-hd" data-fh="1"/></g>`;}
+  const sn=FS.snap||{};if(sn.x!=null)o+=`<path d="M${sn.x} 0V200" class="cst-snap"/>`;if(sn.y!=null)o+=`<path d="M0 ${sn.y}H300" class="cst-snap"/>`;
+  return `<svg class="cst-ov" viewBox="${vb}" preserveAspectRatio="xMidYMid slice" aria-hidden="true">${o}</svg>`;
+}
+function fsStage(n,f){
+  const U=fsUses(f),chk=FS.check?fsCheck(f):[],V=Array.isArray(n.fgV)?n.fgV:[],cv=FS.cmp>=0&&V[FS.cmp]?V[FS.cmp]:null;
+  const main=FS.see==='pole'?`<div class="fs-flagrow"><div class="fs-pole" aria-hidden="true"></div><div class="cst-pap fs-flag" data-pr="${esc(f.pr||'')}">${flagSVG(f,'Your flag')}${fsOverlay(f)}</div></div>`:`<div class="fs-see">${U[FS.see]||''}</div>`;
+  return `<div class="cst-cv" id="fs-cv">${main}${cv?`<figure class="cst-fig fs-cmp"><div class="cst-pap fs-flag">${flagSVG(flagNorm(cv.f,n),'')}</div><figcaption>“${esc(cv.nm)}”</figcaption></figure>`:''}
+    ${chk.length?`<ul class="cst-proof" aria-label="Vexillology check">${chk.map(p=>`<li class="${p.ok?'ok':'w'}">${p.ok?'✓':'!'} ${esc(p.t)}</li>`).join('')}</ul>`:''}</div>
+  <div class="cst-hist" aria-label="History"><span class="hint">History</span>${FS.hist.length?FS.hist.map((h,i)=>`<button type="button" class="cst-b" data-fst="jump" data-i="${i}">${esc(h.l)}</button>`).join(''):'<span class="hint">Your changes will be listed here; click one to go back to before it.</span>'}</div>`;
+}
+function fsFilm(n,f){const U=fsUses(f);return `<span class="cst-film-l">In use</span>${Object.entries(FS_SEE).map(([k,l])=>`<button type="button" class="cst-card fs-use${FS.see===k?' on':''}" data-fst="see" data-v="${k}" aria-pressed="${FS.see===k}">${U[k]}<span>${esc(l)}</span></button>`).join('')}<span class="cst-film-l">Variants</span>${fsVariants(f,n).map(([k,l,,s])=>`<button type="button" class="cst-card fs-var" data-fst="tab" data-v="var">${s.replace('<svg','<svg class="fs-vsvg"')}<span>${esc(l)}</span></button>`).join('')}`;}
+const FS_TABS={style:'Style',colour:'Colour',charges:'Charges',var:'Variants',share:'Share'};
+function fsSeg(lab,f,opts,cur){return `<div class="cst-row"><span class="cst-lab">${lab}</span><div class="cst-seg">${opts.map(([v,l,locked,how])=>`<button type="button" class="cst-b${String(cur)===String(v)?' on':''}${locked?' lk':''}" data-fst="${locked?'locked':'set'}" data-f="${f}" data-v="${esc(String(v))}" aria-pressed="${String(cur)===String(v)}"${locked?` title="${esc(how||'')}"`:''}>${locked?CZ_LOCK:''}${esc(l)}</button>`).join('')}</div></div>`;}
+function fsRight(n,f){
+  const tab=FS.tab;let b='';
+  const pats=Object.keys(PATTERNS).map(k=>{const u=FG_PU[k];return [k,PATTERNS[k][0],!!u&&!czHolds(n,u,n.cz),u?unlockHow(u):''];});
+  const embs=Object.keys(EMBLEMS).map(k=>{const u=czU(k)?k:null;return [k,EMBLEMS[k],!!u&&!fgHeld(k),u?unlockHow(u):''];});
+  if(tab==='style')b=`<div class="cst-row"><span class="cst-lab">Traditions</span><div class="cst-seg">${Object.entries(FS_TRAD).map(([k,t])=>`<button type="button" class="cst-b cst-out" data-fst="trad" data-v="${k}">${esc(t.nm)}</button>`).join('')}</div></div>
+    ${fsSeg('Pattern','p',pats,f.p)}${fsSeg('Proportion','pr',Object.entries(FS_PR),f.pr||'')}
+    ${fsSeg('Canton','cnon',[['0','None'],['1','A canton']],f.cn?'1':'0')}
+    ${f.cn?`<div class="cst-row"><label class="cst-lab" for="fs-c-cn">Canton colour</label><input type="color" id="fs-c-cn" data-fst-col="cn" value="${f.cn.toLowerCase()}"></div>${fsSeg('Canton charges','ca',[['ring','A ring'],['rows','Rows'],['one','One']],f.ca||'ring')}${cstRange('How many','ck',f.ck||(f.ca==='one'?1:12),1,24,1).replace(/data-cst-in/g,'data-fst-in').replace(/cst-r-/g,'fs-r-').replace(/cst-v-/g,'fs-v-')}${fsSeg('Canton charge','ce',embs.filter(x=>x[0]!=='none'),f.ce||'star')}<div class="cst-row"><label class="cst-lab" for="fs-c-cec">Charge colour</label><input type="color" id="fs-c-cec" data-fst-col="cec" value="${safeColor(f.cec,'#FFFFFF').toLowerCase()}"></div>`:''}
+    ${fsSeg('Border','bd',[['','None'],['edge','Edging'],['frame','Frame'],['saw','Sawtooth hoist'],['fringe','Fringe']],f.bd||'')}
+    ${f.bd?`<div class="cst-row"><label class="cst-lab" for="fs-c-bdc">Border colour</label><input type="color" id="fs-c-bdc" data-fst-col="bdc" value="${safeColor(f.bdc,safeColor(f.c4,'#C9961A')).toLowerCase()}"></div>`:''}
+    ${f.rx?`<p class="hint">Remixed from the flag of ${esc(f.rx)}. <button type="button" class="linkish small" data-fst="unrx">Drop the credit</button></p>`:''}`;
+  else if(tab==='colour'){const A=cz(n).a,arms=A&&Array.isArray(A.t)?A.t.map(t=>CZ_TINCT[t]&&CZ_TINCT[t][1]).filter(Boolean):[],note=(()=>{try{const N=cuOf(n).note;return [N.c1,N.c2];}catch(e){return [];}})(),sw=[...new Set(arms.concat(note).map(h=>safeColor(h,'')).filter(Boolean))];
+    const col=(k,l,v)=>`<div class="cst-row"><label class="cst-lab" for="fs-c-${k}">${l} <b class="cst-mono">${esc(v)}</b></label><div class="cst-sws"><input type="color" id="fs-c-${k}" data-fst-col="${k}" value="${v.toLowerCase()}">${sw.map(h=>`<button type="button" class="cst-sw" style="background:${h}" data-fst="sw" data-k="${k}" data-v="${h}" aria-label="${h}"></button>`).join('')}</div></div>`;
+    b=`${col('c0','First colour',f.c[0])}${col('c1','Second colour',f.c[1])}${col('c2','Third colour',f.c[2])}${col('ec','Emblem colour',safeColor(f.ec,'#F2C230'))}
+    <div class="cst-row"><span class="cst-lab">Second colour from the first</span><div class="cst-seg">${[['comp','Complement'],['triad','Triad'],['split','Split'],['analog','Neighbour']].map(([k,l])=>`<button type="button" class="cst-b cst-out" data-fst="harm" data-v="${k}"><i class="cst-dot" style="background:${cstHarm(f.c[0],k)}"></i>${l}</button>`).join('')}</div></div>
+    <p class="hint">The swatches come from your coat of arms and your banknotes.</p>
+    <div class="cst-row"><span class="cst-lab">Palettes</span><div class="cst-seg">${(n.cuP||[]).map((P,i)=>`<button type="button" class="cst-b cst-out" data-fst="pal" data-v="${i}"><i class="cst-dot" style="background:${P.c1}"></i><i class="cst-dot" style="background:${P.c2}"></i>${esc(P.nm)}</button>`).join('')}<button type="button" class="cst-b cst-out" data-fst="palsave">Save the first two</button></div><span class="hint">Shared with the Note Studio.</span></div>
+    <div class="cst-row"><span class="cst-lab">Surprise me keeps</span><div class="cst-seg">${[['p','The pattern'],['c','The colours'],['e','The emblem']].map(([k,l])=>`<button type="button" class="cst-b cst-out${FS.locks[k]?' on':''}" data-fst="slock" data-v="${k}" aria-pressed="${FS.locks[k]}">${FS.locks[k]?'🔒':'🔓'} ${l}</button>`).join('')}</div></div>`;}
+  else if(tab==='charges')b=`${fsSeg('Emblem','e',embs,f.e)}
+    ${f.e!=='none'?fsSeg('Arrangement','arr',[['one','One'],['ring','A ring'],['row','A row'],['cons','Constellation'],['scat','Scattered']],f.ea||(f.en>1?'ring':'one'))
+      +(f.ea||f.en>1?cstRange('How many','ek',f.ea?(f.ek||6):(f.en||7),f.ea?2:3,f.ea?24:12,1).replace(/data-cst-in/g,'data-fst-in').replace(/cst-r-/g,'fs-r-').replace(/cst-v-/g,'fs-v-'):'')
+      +fsSeg('Size','es',[['s','Small'],['','Usual'],['l','Large']],f.es||'')+fsSeg('Frame','eo',[['','None'],['1','Outline'],['2','Ring'],['3','Disc']],f.eo||''):''}
+    <p class="hint">Symmetry tools (mirror, rotate, repeat) work on the layer you pick in Layers.</p>`;
+  else if(tab==='var')b=`<p class="hint">Each variant comes from your flag and follows it when you change it.</p>${fsVariants(f,n).map(([k,l,d,s])=>`<figure class="fs-vfig">${s.replace('<svg','<svg class="fs-vbig"')}<figcaption><b>${esc(l)}</b><br><span class="hint">${esc(d)}</span></figcaption></figure>`).join('')}`;
+  else b=`<div class="cst-row"><span class="cst-lab">The flag competition</span><button type="button" class="cst-b cst-pri" data-fst="comp">Use this design in the competition</button><span class="hint">It becomes your entry’s draft on the Flag Competition page, where you enter it. Judging is blind, so it must differ from the flag your nation flies.</span></div>
+    <div class="cst-row"><span class="cst-lab">One look</span><button type="button" class="cst-b cst-out" data-fst="look">Give the banknotes and coins this flag’s colours</button><span class="hint">The notes take the first two colours, and the coins carry the flag.</span></div>
+    <div class="cst-row"><span class="cst-lab">Export</span><div class="cst-seg"><button type="button" class="cst-b cst-out" data-fst="svg">SVG</button><button type="button" class="cst-b cst-out" data-fst="png">PNG</button></div></div>`;
+  return `<div class="cst-tabs" role="tablist">${Object.entries(FS_TABS).map(([k,l])=>`<button type="button" role="tab" class="cst-tab${k===tab?' on':''}" data-fst="tab" data-v="${k}" aria-selected="${k===tab}">${l}</button>`).join('')}</div><div class="cst-tp">${b}</div>`;
+}
+function fsPaint(only){
+  const el=document.getElementById('fg-st');if(!el||!FS.on)return;const n=fsN();if(!n){fsClose();return;}const f=fsDraft();fgCanon(f);
+  const live=()=>{try{FLAG_SCOPES.c.live(f);}catch(e){}};
+  if(only==='stage'){const s=document.getElementById('fs-stage'),fm=document.getElementById('fs-film'),l=document.getElementById('fs-left'),bar=document.getElementById('fs-bar');if(s)s.innerHTML=fsStage(n,f);if(fm)fm.innerHTML=fsFilm(n,f);if(l&&!l.contains(document.activeElement))l.innerHTML=fsLeft(n,f);if(bar)bar.innerHTML=fsBar(n,f);live();return;}
+  const foc=document.activeElement&&el.contains(document.activeElement)?document.activeElement.id:'';
+  el.innerHTML=`<div id="fs-bar">${fsBar(n,f)}</div><div class="cst-main"><aside class="cst-pane" id="fs-left">${fsLeft(n,f)}</aside><section class="cst-pane cst-stage" id="fs-stage">${fsStage(n,f)}</section><aside class="cst-pane" id="fs-right">${fsRight(n,f)}</aside></div><div class="cst-film" id="fs-film">${fsFilm(n,f)}</div>`;
+  if(foc){const x=document.getElementById(foc);if(x)x.focus({preventScroll:true});}live();
+}
+/* ── the actions ── */
+function fsSet(k,v,label){
+  const n=fsN();
+  fsDo(label,f=>{
+    if(k==='p'){f.p=v;}
+    else if(k==='pr'){if(v)f.pr=v;else delete f.pr;}
+    else if(k==='cnon'){if(v==='1'){f.cn=f.cn||f.c[2]||'#152450';f.ca=f.ca||'ring';}else{for(const q of ['cn','ce','ck','ca','cec'])delete f[q];}}
+    else if(k==='ca'){f.ca=v;if(v==='one')f.ck=1;else if(!f.ck||f.ck===1)f.ck=v==='ring'?12:9;}
+    else if(k==='ce')f.ce=v;
+    else if(k==='bd'){if(v)f.bd=v;else{delete f.bd;delete f.bdc;}}
+    else if(k==='e'){f.e=v;if(v==='none'){delete f.ea;delete f.ek;}}
+    else if(k==='arr'){delete f.ea;delete f.ek;delete f.en;if(v==='ring')f.en=7;else if(v!=='one'){f.ea=v;f.ek=v==='row'?3:6;}}
+    else if(k==='es'){if(v)f.es=v;else delete f.es;}
+    else if(k==='eo'){if(v)f.eo=+v;else delete f.eo;}
+  });
+  fsPaint();
+}
+function fsEmbOrigin(f){const P=FG_POS[f.ep];return P?[P[0],P[1]]:(()=>{const v=flagSVG(Object.assign({},f,{ex:undefined,ey:undefined}),'');return [150,100];})();}
+function fsSurprise(){
+  const n=fsN(),r=rng(hash(String(n.seed||n.name)+':fs:'+Date.now())),pick=a=>a[Math.floor(r()*a.length)];
+  const pats=Object.keys(PATTERNS).filter(k=>!FG_PU[k]||czHolds(n,FG_PU[k],n.cz)),embs=Object.keys(EMBLEMS).filter(k=>k!=='none'&&(!czU(k)||fgHeld(k)));
+  const pal=[['#C8102E','#FFFFFF','#152450'],['#0F6E67','#F2C230','#FFFFFF'],['#111111','#C8102E','#F2C230'],['#1B7F3B','#FFFFFF','#E86A10'],['#5B2A6B','#F2C230','#FFFFFF'],['#2D3E6B','#7FA7C9','#FFFFFF'],['#7A2E2E','#E8D5A8','#1D3A2E']];
+  fsDo('Surprise me',f=>{if(!FS.locks.p)f.p=pick(pats);if(!FS.locks.c){f.c=pick(pal).slice();if(r()<.5)f.c.reverse();f.ec=r()<.5?'#FFFFFF':'#F2C230';}
+    if(!FS.locks.e){f.e=r()<.25?'none':pick(embs);delete f.ea;delete f.en;delete f.ex;delete f.ey;delete f.esc;if(r()<.25&&f.e!=='none'){f.ea=pick(FG_EA);f.ek=3+Math.floor(r()*6);}}
+    if(r()<.2){f.cn=f.c[2];f.ca='ring';f.ck=7+Math.floor(r()*8);}else{for(const q of ['cn','ce','ck','ca','cec'])delete f[q];}
+    if(r()<.2)f.bd=pick(FG_BD);else delete f.bd;});
+  fsPaint();
+}
+function fsRemixList(){let T;try{T=territory();}catch(e){return [];}const me=S.nation;return T&&T.list?T.list.filter(x=>x&&x.n&&!x.npc&&!x.me&&!x.hid&&x.n!==me&&x.n.flag&&x.id).slice(0,40):[];}
+function fsRemix(id){const x=fsRemixList().find(r=>r.id===id);if(!x)return;const g=flagNorm(clone(x.n.flag),S.nation);fsDo('Remixed the flag of '+x.n.name,f=>{for(const k of Object.keys(f))delete f[k];Object.assign(f,g,{rx:x.n.name});});toast(`The flag of ${x.n.name} is your starting point, without the parts your nation has not unlocked. Its name stays as credit until you drop it.`);fsPaint();}
+function fsVersions(fn){const n=fsN(),m=clone(n);m.fgV=fn(Array.isArray(n.fgV)?n.fgV.slice():[]).slice(-FSV_MAX);if(!m.fgV.length)delete m.fgV;commit(m);}
+function fsExport(kind){
+  const f=S.czFlag,n=fsN(),svg=flagSVG(f,'Flag of '+n.name).replace('<svg ','<svg xmlns="http://www.w3.org/2000/svg" '),base=String(n.name||'flag').toLowerCase().replace(/[^a-z0-9]+/g,'-');
+  if(kind==='svg'){cstDown(new Blob([svg],{type:'image/svg+xml'}),base+'-flag.svg');toast('The flag is saved as an SVG.');return;}
+  const vb=(svg.match(/viewBox="[\d.]+ [\d.]+ ([\d.]+) ([\d.]+)"/)||[0,300,200]).slice(1).map(Number),k=1200/Math.max(vb[0],vb[1]),img=new Image(),u=URL.createObjectURL(new Blob([svg],{type:'image/svg+xml'}));
+  img.onload=()=>{const cv=document.createElement('canvas');cv.width=Math.round(vb[0]*k);cv.height=Math.round(vb[1]*k);cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);URL.revokeObjectURL(u);cv.toBlob(b=>{if(b){cstDown(b,base+'-flag.png');toast('The flag is saved as a picture.');}},'image/png');};
+  img.onerror=()=>{URL.revokeObjectURL(u);toast('The picture could not be made in this browser. Export SVG instead.');};img.src=u;
+}
+function fsLook(){
+  const n=fsN(),f=S.czFlag,m=clone(n),cur=Object.assign({},m.cur||{});cur.note=Object.assign({},cur.note,{c1:safeColor(f.c[0],'#1D6A5C'),c2:safeColor(f.c[1],'#6A3DB3')});cur.coin=Object.assign({},cur.coin,{emb:'flag'});
+  const cl=cuClean(cur);if(cl)m.cur=cl;commit(m);toast('Your banknotes now print in the flag’s first two colours, and the coins carry the flag.');
+}
+function fsComp(){const n=fsN();if(typeof flcDraft!=='function'){toast('The flag competition is not open here.');return;}flcDraft();FLC.draft=flagNorm(clone(S.czFlag),n);flcKeep();
+  if(flcCanon(FLC.draft)===flcCanon(n.flag))toast('The competition draft is your flying flag. Change something before you enter: judging is blind.');else toast('This design is your competition draft. Enter it on the Flag Competition page.');}
+/* ── dragging the emblem or a layer ── */
+document.addEventListener('pointerdown',e=>{
+  if(!FS.on||e.button>0)return;const ov=e.target.closest&&e.target.closest('#fg-st .cst-ov');if(!ov)return;
+  const hd=e.target.closest('[data-fh]'),pt=e.target.closest('[data-fpart]');const k=hd?FS.sel:pt?pt.dataset.fpart:null;if(!k)return;
+  if(FS.lock[k]){toast('That part is locked. Unlock it in Layers to move it.');return;}
+  if(k!=='emb'&&!fsLay()){toast('Moving layers opens with the Founding Charter.');return;}
+  e.preventDefault();FS.sel=k;const f=S.czFlag,r=ov.getBoundingClientRect(),vb=ov.viewBox.baseVal,u=Math.max(vb.width/r.width,vb.height/r.height);
+  const l=k==='emb'?null:f.layers[+k.slice(1)],B=k==='emb'?fsEmbBox(f):null;
+  FS.drag={k,size:!!hd,x0:e.clientX,y0:e.clientY,u,ox:k==='emb'?B.x:l.x*3,oy:k==='emb'?B.y:l.y*2,os:k==='emb'?(f.esc||1):l.w,oh:l?l.h:0,started:false};
+});
+document.addEventListener('pointermove',e=>{
+  const D=FS.drag;if(!D)return;const dx=(e.clientX-D.x0)*D.u,dy=(e.clientY-D.y0)*D.u;if(!D.started&&Math.abs(dx)+Math.abs(dy)<1)return;
+  const f=S.czFlag;if(!D.started){D.started=true;const lab=(D.size?'Resized ':'Moved ')+(D.k==='emb'?'the emblem':'layer '+(+D.k.slice(1)+1));const last=FS.hist[FS.hist.length-1];FS.hist.push({l:lab,d:JSON.stringify(f),t:Date.now()});FS.fut=[];}
+  FS.snap={};
+  if(D.size){if(D.k==='emb')f.esc=Math.round(clamp(D.os*(1+(dx+dy)/120),.4,2.5)*100)/100;else{const l=f.layers[+D.k.slice(1)];l.w=Math.round(clamp(D.os+dx/3,2,150)*10)/10;l.h=Math.round(clamp(D.oh+dy/2,2,150)*10)/10;}}
+  else{let x=D.ox+dx,y=D.oy+dy;if(!e.altKey){for(const t of [150,75,65])if(Math.abs(x-t)<4){x=t;FS.snap.x=t;break;}for(const t of [100,50])if(Math.abs(y-t)<4){y=t;FS.snap.y=t;break;}}
+    x=clamp(x,0,300);y=clamp(y,0,200);if(D.k==='emb'){f.ex=Math.round(x/3*10)/10;f.ey=Math.round(y/2*10)/10;delete f.ep;}else{const l=f.layers[+D.k.slice(1)];l.x=Math.round(x/3*10)/10;l.y=Math.round(y/2*10)/10;}}
+  const pap=document.querySelector('#fg-st .fs-flag');if(pap)pap.innerHTML=flagSVG(f,'Your flag')+fsOverlay(f);
+});
+document.addEventListener('pointerup',()=>{const D=FS.drag;if(!D)return;FS.drag=null;FS.snap=null;if(D.started){fgCanon(S.czFlag);fsPaint();}});
+document.addEventListener('keydown',e=>{
+  if(!FS.on)return;const tg=e.target,typing=tg&&/^(INPUT|TEXTAREA|SELECT)$/.test(tg.tagName)&&tg.type!=='range'&&tg.type!=='color';
+  if(e.key==='Escape'){e.preventDefault();fsClose();return;}
+  if((e.ctrlKey||e.metaKey)&&!typing){const k=e.key.toLowerCase();if(k==='z'&&!e.shiftKey){e.preventDefault();fsUndo();return;}if(k==='y'||k==='z'&&e.shiftKey){e.preventDefault();fsRedo();return;}}
+  const ar={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]}[e.key];if(!ar||typing||e.ctrlKey||e.metaKey||e.altKey||!tg||!tg.closest||!tg.closest('#fs-stage'))return;
+  const f=S.czFlag,k=FS.sel,m=e.shiftKey?5:1;if(FS.lock[k])return;
+  if(k==='emb'&&f.e!=='none'){e.preventDefault();const B=fsEmbBox(f);fsDo('Nudged the emblem',g=>{g.ex=Math.round(clamp(B.x/3+ar[0]*m,0,100)*10)/10;g.ey=Math.round(clamp(B.y/2+ar[1]*m,0,100)*10)/10;delete g.ep;});fsPaint('stage');}
+  else if(/^l\d+$/.test(k)&&f.layers&&f.layers[+k.slice(1)]&&fsLay()){e.preventDefault();fsDo('Nudged layer '+(+k.slice(1)+1),g=>{const l=g.layers[+k.slice(1)];l.x=clamp(l.x+ar[0]*m,0,100);l.y=clamp(l.y+ar[1]*m,0,100);});fsPaint('stage');}
+});
+document.addEventListener('click',e=>{
+  const el=e.target.closest&&e.target.closest('[data-fst]');if(!el||!S.nation)return;const a=el.dataset.fst,v=el.dataset.v,k=el.dataset.k;
+  if(a==='open'){e.preventDefault();fsOpen();return;}if(!FS.on)return;
+  const L=()=>S.czFlag.layers||(S.czFlag.layers=[]);
+  switch(a){
+    case 'close':fsClose();break;case 'undo':fsUndo();break;case 'redo':fsRedo();break;case 'jump':while(FS.hist.length>+el.dataset.i)fsUndo();break;
+    case 'guides':case 'check':FS[a]=!FS[a];fsPaint();break;
+    case 'see':FS.see=v;fsPaint('stage');break;
+    case 'tab':FS.tab=v;fsPaint();break;
+    case 'save':if(czFlagSave()){S.czFlag=clone(S.nation.flag);S.czFlagBase=JSON.stringify(S.nation.flag);FS.hist=[];FS.fut=[];fsPaint();}break;
+    case 'svg':fsExport('svg');break;case 'png':fsExport('png');break;
+    case 'surprise':fsSurprise();break;case 'slock':FS.locks[v]=!FS.locks[v];fsPaint();break;
+    case 'comp':fsComp();break;case 'look':fsLook();break;
+    case 'pick':FS.sel=k;fsPaint();break;case 'lock':FS.lock[k]=!FS.lock[k];fsPaint();break;
+    case 'tog':if(k==='emb')fsSet('e',S.czFlag.e==='none'?'star':'none',S.czFlag.e==='none'?'Emblem: Star':'Emblem: none');else if(k==='cn')fsSet('cnon',S.czFlag.cn?'0':'1',S.czFlag.cn?'Canton off':'Canton on');else if(k==='bd')fsSet('bd',S.czFlag.bd?'':'edge',S.czFlag.bd?'Border off':'Border: Edging');else if(/^l\d+$/.test(k)){fsDo('Deleted layer '+(+k.slice(1)+1),f=>{f.layers.splice(+k.slice(1),1);if(!f.layers.length)delete f.layers;});FS.sel='emb';fsPaint();}break;
+    case 'set':{const lab={p:'Pattern',pr:'Proportion',cnon:'Canton',ca:'Canton charges',ce:'Canton charge',bd:'Border',e:'Emblem',arr:'Arrangement',es:'Size',eo:'Frame'}[el.dataset.f]||el.dataset.f;fsSet(el.dataset.f,v,`${lab}: ${el.textContent.trim()}`);break;}
+    case 'locked':toast('Locked. '+(el.title||''));break;
+    case 'trad':{const T=FS_TRAD[v];if(T)fsDo('Tradition: '+T.nm,f=>{const keep=f.layers;for(const q of Object.keys(f))delete f[q];Object.assign(f,clone(T.f));if(keep)f.layers=keep;});fsPaint();break;}
+    case 'sw':fsColour(k,v);break;
+    case 'harm':fsColour('c1',cstHarm(S.czFlag.c[0],v));break;
+    case 'pal':{const P=(S.nation.cuP||[])[+v];if(P)fsDo('Palette: '+P.nm,f=>{f.c[0]=P.c1;f.c[1]=P.c2;});fsPaint();break;}
+    case 'palsave':{const f=S.czFlag,Lp=S.nation.cuP||[],m=clone(S.nation);m.cuP=Lp.concat({nm:'Palette '+(Lp.length+1),c1:f.c[0],c2:f.c[1]}).slice(-8);commit(m);toast('Saved as Palette '+(Lp.length+1)+'.');fsPaint();break;}
+    case 'emb0':fsDo('Emblem back in place',f=>{delete f.ex;delete f.ey;delete f.esc;});fsPaint();break;
+    case 'unrx':fsDo('Dropped the remix credit',f=>{delete f.rx;});fsPaint();break;
+    case 'add':if(!fsLay())break;fsDo('Added a '+FGL_KINDS[v].toLowerCase(),f=>{const a2=f.layers||(f.layers=[]);if(a2.length>=FGL_MAX)return;a2.push({k:v,...(v==='emblem'?{e:'star'}:{}),x:50,y:50,w:v==='stripe'?100:v==='border'?92:24,h:v==='stripe'?15:v==='border'?88:36,r:0,c:safeColor(f.ec,'#F2C230'),...(v==='border'?{b:3}:{})});FS.sel='l'+(a2.length-1);});fsPaint();break;
+    case 'up':case 'down':{const i=+k,j=a==='up'?i-1:i+1;fsDo('Reordered the layers',f=>{const a2=f.layers;if(!a2||j<0||j>=a2.length)return;[a2[i],a2[j]]=[a2[j],a2[i]];});FS.sel='l'+j;fsPaint();break;}
+    case 'ldel':{const i=+FS.sel.slice(1);fsDo('Deleted layer '+(i+1),f=>{f.layers.splice(i,1);if(!f.layers.length)delete f.layers;});FS.sel='emb';fsPaint();break;}
+    case 'mirror':case 'rot4':case 'repeat':{if(!fsLay())break;const i=+FS.sel.slice(1),src=S.czFlag.layers&&S.czFlag.layers[i];if(!src)break;
+      fsDo({mirror:'Mirrored',rot4:'Rotated × 4',repeat:'Repeated'}[a]+' layer '+(i+1),f=>{const a2=f.layers,l=a2[i],add=x=>{if(a2.length<FGL_MAX)a2.push(Object.assign({},l,x));};
+        if(a==='mirror')add({x:100-l.x,r:-l.r});else if(a==='repeat')add({x:clamp(l.x+l.w*1.2,0,100)});else{const cx=50,cy=50,dx=(l.x-cx)*3,dy=(l.y-cy)*2;for(const t of [90,180,270]){const rad=t*Math.PI/180;add({x:cx+(dx*Math.cos(rad)-dy*Math.sin(rad))/3,y:cy+(dx*Math.sin(rad)+dy*Math.cos(rad))/2,r:((l.r+t+180)%360)-180});}}});
+      if((S.czFlag.layers||[]).length>=FGL_MAX)toast(`A flag holds at most ${FGL_MAX} layers.`);fsPaint();break;}
+  }
+});
+function fsColour(k,hex){const h=safeColor(hex,'');if(!h)return;fsDo({c0:'First colour',c1:'Second colour',c2:'Third colour',ec:'Emblem colour',cn:'Canton colour',cec:'Charge colour',bdc:'Border colour'}[k]||'Colour',f=>{if(/^c[012]$/.test(k))f.c[+k[1]]=h;else f[k]=h;});fsPaint();}
+document.addEventListener('input',e=>{
+  if(!FS.on)return;const t=e.target,k=t.dataset&&t.dataset.fstIn,col=t.dataset&&t.dataset.fstCol;
+  if(col){const h=String(t.value).toUpperCase();fsDo({c0:'First colour',c1:'Second colour',c2:'Third colour',ec:'Emblem colour',cn:'Canton colour',cec:'Charge colour',bdc:'Border colour'}[col]||'Colour',f=>{if(/^c[012]$/.test(col))f.c[+col[1]]=h;else f[col]=h;});fsPaint('stage');return;}
+  if(!k)return;const v=+t.value;if(!Number.isFinite(v))return;
+  if(k==='lo')fsDo('Layer opacity',f=>{const l=f.layers[+t.dataset.k];if(v>=100)delete l.o;else l.o=v/100;});
+  else if(k==='ck')fsDo('Canton charges',f=>{f.ck=Math.round(v);});
+  else if(k==='ek')fsDo('How many',f=>{if(f.ea)f.ek=Math.round(v);else f.en=Math.round(v);});
+  else if(k==='ex'||k==='ey')fsDo('Moved the emblem',f=>{const B=fsEmbBox(f);f.ex=k==='ex'?clamp(v,0,100):Math.round(B.x/3*10)/10;f.ey=k==='ey'?clamp(v,0,100):Math.round(B.y/2*10)/10;delete f.ep;});
+  else if(k==='esc')fsDo('Emblem size',f=>{const s=clamp(v/100,.4,2.5);if(s===1)delete f.esc;else f.esc=s;});
+  else if(/^l[xywhr]$/.test(k)){const i=+FS.sel.slice(1),key=k[1];fsDo('Layer '+(i+1),f=>{const l=f.layers&&f.layers[i];if(l)l[key]=v;});}
+  const o=document.getElementById('fs-v-'+k);if(o)o.textContent=String(v);
+  fsPaint('stage');
+});
+document.addEventListener('change',e=>{
+  if(!FS.on)return;const t=e.target,s=t.dataset&&t.dataset.fstSel;if(t.dataset&&t.dataset.fstCol){fsPaint();return;}if(!s)return;const v=t.value;
+  if(s==='see'){FS.see=cuHas(FS_SEE,v)?v:'pole';fsPaint('stage');return;}
+  if(s==='remix'){if(v)fsRemix(v);return;}
+  if(s==='ver'){const [op,i]=v.split(':'),V=fsN().fgV||[];
+    if(op==='save'){const nm='Version '+(V.length+1);fsVersions(L=>L.concat({nm,t:Date.now(),f:clone(S.czFlag)}));toast(`Saved as “${nm}”.`);}
+    else if(op==='load'&&V[+i])fsDo(`Opened “${V[+i].nm}”`,f=>{const g=flagNorm(clone(V[+i].f),S.nation);for(const q of Object.keys(f))delete f[q];Object.assign(f,g);});
+    else if(op==='cmp'&&V[+i])FS.cmp=FS.cmp===+i?-1:+i;
+    else if(op==='del'&&V[+i]){const nm=V[+i].nm;fsVersions(L=>L.filter((x,j)=>j!==+i));if(FS.cmp===+i)FS.cmp=-1;toast(`“${nm}” is deleted.`);}
+    fsPaint();}
+});
+NORM_HOOKS.push((n,d)=>{const v=Array.isArray(d&&d.fgV)?d.fgV.filter(x=>x&&typeof x==='object'&&x.f&&typeof x.f==='object').slice(-FSV_MAX).map(x=>({nm:String(x.nm||'Version').replace(/[<>]/g,'').slice(0,40),t:Math.max(0,+x.t||0),f:flagNorm(x.f)})):[];if(v.length)n.fgV=v;else delete n.fgV;});
 
 /* ── hooks ── */
 EXT_PAGES.push('exchange');NAV_LABELS.exchange='Exchange Bureau';
