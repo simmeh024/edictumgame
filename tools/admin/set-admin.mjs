@@ -7,8 +7,8 @@
 //
 // The player is found by the email of their linked Google account, or by the Player ID shown in
 // the game's account menu. Admins see "Remove" on everyone's region message board posts, and a
-// purple Admin pill beside their nation's name that opens the admin portal. Moderators get no
-// portal: they see "Remove" on every comment under the development news. The game asks for a
+// purple Admin pill beside their nation's name that opens the admin portal. Moderators (also appointed
+// from the admin portal's player page) get a green Mod pill and a portal with Reports and Region chats. The game asks for a
 // fresh sign-in token on every load, so the player only needs to reload the page.
 //
 // The service account key is the same JSON that goes in the FIREBASE_SERVICE_ACCOUNT secret.

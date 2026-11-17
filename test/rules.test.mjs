@@ -1291,3 +1291,22 @@ test('a chat silence is read by the silenced player and admins, and written only
   await assertFails(as('bob').doc('rcMute/bob').update({ until: 0 }));
   await assertFails(as('admin', { admin: true }).doc('rcMute/carol').set({ until: 1 }));
 });
+
+test('a moderator reads reports, every region chat and the silences, and marks only themself green', async () => {
+  await env.withSecurityRulesDisabled(async ctx => {
+    const db = ctx.firestore();
+    await db.doc('reports/r1').set({ by: 'alice', target: 'bob', kind: 'nation', reason: 'name', t: 1 });
+    await db.doc('rchat/frostmarch/chat/l1').set({ a: 'bob', x: 'hi', t: 1 });
+    await db.doc('rcMute/carol').set({ until: Date.now() + 1e6 });
+  });
+  const mod = as('mo', { mod: true });
+  await assertSucceeds(mod.collection('reports').get());
+  await assertFails(mod.doc('reports/r1').delete());
+  await assertSucceeds(mod.doc('rchat/frostmarch/chat/l1').get());
+  await assertSucceeds(mod.collection('rcMute').limit(10).get());
+  await assertSucceeds(mod.doc('staff/mo').set({ t: 1, m: true }));
+  await assertFails(mod.doc('staff/mo').set({ t: 1 }));
+  await assertFails(mod.doc('staff/zed').set({ t: 1, m: true }));
+  await assertFails(as('pl').doc('staff/pl').set({ t: 1, m: true }));
+  await assertFails(as('pl').collection('reports').get());
+});
