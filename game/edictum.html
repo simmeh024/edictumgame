@@ -5917,7 +5917,8 @@ svg.cu-note.cu-note-v{width:28%!important;min-width:56px;height:auto!important;m
 .fs-cmp{position:absolute;right:10px;bottom:10px;width:150px}.fs-cmp svg{width:100%;height:auto}
 .fs-use svg{width:84px!important;height:auto}.fs-var svg.fs-vsvg{width:60px;height:40px;display:block}
 .fs-vfig{margin:0;display:grid;grid-template-columns:96px 1fr;gap:10px;align-items:center}.fs-vbig{width:96px;height:64px;display:block;box-shadow:0 1px 4px rgba(0,0,0,.2)}
-.fs-ud{display:flex;gap:0}.fs-tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(54px,1fr));gap:5px}.fs-tiles .tile{padding:2px;min-height:0;height:auto;aspect-ratio:3/2;width:100%}.fs-tiles .tile svg{width:100%;height:100%;display:block}.fst .cst-lay{grid-template-columns:22px 1fr 50px 44px 22px!important}
+.fs-ud{display:flex;gap:0}.fs-stripes{display:grid;gap:4px}.fs-sr{display:grid;grid-template-columns:22px 40px 1fr;gap:6px;align-items:center}.fs-sr input[type=color]{width:40px;height:24px;padding:0;border:1px solid var(--rule);border-radius:4px}.fs-sr input[type=range]{width:100%;accent-color:var(--accent)}
+.fs-hist{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px}.fs-hfig{margin:0;display:grid;gap:4px}.fs-hfig>svg{width:100%;height:auto;aspect-ratio:3/2;box-shadow:0 1px 4px rgba(0,0,0,.2)}.fs-hfig figcaption{font-size:11.5px;color:var(--ink-2)}.fs-hist-m{grid-template-columns:repeat(auto-fill,minmax(160px,1fr))}.fs-tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(54px,1fr));gap:5px}.fs-tiles .tile{padding:2px;min-height:0;height:auto;aspect-ratio:3/2;width:100%}.fs-tiles .tile svg{width:100%;height:100%;display:block}.fst .cst-lay{grid-template-columns:22px 1fr 50px 44px 22px!important}
 .as-pap{position:relative;width:min(440px,92%);line-height:0}.as-pap .as-big{width:100%;height:auto;display:block}.as-pap .cst-ov{position:absolute;inset:0;width:100%;height:100%}
 .as-see{width:min(380px,90%)}.as-see svg{width:100%;height:auto;display:block}
 .as-blazon{margin:0;padding:6px 10px;border-top:1px solid var(--rule);font-family:Cinzel,Georgia,serif;font-size:12.5px;line-height:1.5}
@@ -28813,6 +28814,7 @@ function czFlagMark(){const d=czFlagDirty(),el=document.getElementById('c-flag-d
 function czFlagSave(){
   const n0=S.nation;if(!n0||!S.czFlag)return false;if(!czFlagDirty()){toast('Your flag is already flying as it is.');return false;}
   const m=clone(n0),now=Date.now();m.flag=clone(S.czFlag);m.log.unshift({t:now,k:'flag'});m.log=m.log.slice(0,60);
+  m.fgH=(Array.isArray(n0.fgH)?n0.fgH:[]).concat({a:(Array.isArray(n0.fgH)&&n0.fgH.length?n0.fgH[n0.fgH.length-1].b:0)||n0.founded||0,b:now,f:clone(n0.flag)}).slice(-12);
   czUndoPush({flag:clone(n0.flag)},'the flag');commit(m);S.czFlag=null;render();toast('Your new flag is flying.');return true;
 }
 function czDisp(f,v){
@@ -44939,6 +44941,7 @@ CZ_EMBS.push('e-eye','e-bolt','e-wreath','e-keystone','e-rosette');
 for(const [a,u] of [['dip-board','fp-gyronny'],['dip-board5','fp-lozenge'],['odd-flag','fp-sunburst'],['odd-flag10','fp-checky'],['land-isles','fp-wavy'],['games-g1','e-wreath']]){const A=ACH_BY_ID[a];if(A&&!A.u){A.u=u;ACH_BY_U[u]=A;}}
 for(const [s,u] of [['spies','e-eye'],['engines','e-bolt']]){const T=COL_SET_BY_ID[s];if(T&&Array.isArray(T.u)&&!T.u.includes(u))T.u.push(u);}
 
+COMMIT_HOOKS.push(n=>{if(!n||!n.flag||!n.flag.ar||typeof czCleanArms!=='function')return;const a=czCleanArms((n.cz&&n.cz.a)||czDefaultArms(n,1));if(a&&JSON.stringify(n.flag.arm)!==JSON.stringify(a))n.flag.arm=a;});
 /* ── drawing ── */
 function flagSVG(f,label,opt){
   f=f||{};
@@ -44968,25 +44971,55 @@ function flagSVG(f,label,opt){
     case 'band':body=R(0,0,300,200,a)+`<path d="M-30,230L330,-30" stroke="${cc}" stroke-width="76"/><path d="M-30,230L330,-30" stroke="${b}" stroke-width="52"/>`;ex=58;ey=50;sc=.62;break;
     default:body=R(0,0,300,200,a);
   }
+  /* the designer's own stripes or quarters take the place of the pattern */
+  if(f.sn>=2)body=fgStripes(f,c);else if(Array.isArray(f.q4)&&f.q4.length===4)body=R(0,0,150,100,f.q4[0])+R(150,0,150,100,f.q4[1])+R(0,100,150,100,f.q4[2])+R(150,100,150,100,f.q4[3]);
   if(opt&&opt.emb)sc=opt.emb;
   /* the Flag Studio's free placement and scale of the emblem */
   const free=!(opt&&opt.emb)&&typeof f.ex==='number'&&typeof f.ey==='number';if(free){ex=f.ex*3;ey=f.ey*2;}if(!(opt&&opt.emb)&&f.esc)sc*=f.esc;
   const ff=free&&f.ep?Object.assign({},f,{ep:undefined}):f;
-  const em=e==='none'?'':f.ea&&!(opt&&opt.emb)?fgArrange(f,e,ex,ey,sc,ec):!(opt&&opt.emb)&&(f.es||ff.ep||f.en||f.eo)?fgEmbs(ff,p,e,ex,ey,sc,ec):emblemSVG(e,ex,ey,42*sc,ec);
+  let em=f.ar&&f.arm&&!(opt&&opt.emb)?fgArms(f,ex,ey,sc):e==='none'?'':f.ea&&!(opt&&opt.emb)?fgArrange(f,e,ex,ey,sc,ec):!(opt&&opt.emb)&&(f.es||ff.ep||f.en||f.eo)?fgEmbs(ff,p,e,ex,ey,sc,ec):emblemSVG(e,ex,ey,42*sc,ec);
+  if(em&&!(opt&&opt.emb)&&(f.er||f.esh)){const sid='fgs'+(++fid);em=`${f.esh?`<filter id="${sid}" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="2.5" dy="3" stdDeviation="2" flood-color="#000" flood-opacity=".45"/></filter>`:''}<g${f.esh?` filter="url(#${sid})"`:''}${f.er?` transform="rotate(${f.er} ${fgF(ex)} ${fgF(ey)})"`:''}>${em}</g>`;}
   const cant=f.cn?fgCanton(f):'',bord=f.bd?fgBorder(f):'',pr=FG_PR.includes(f.pr)?f.pr:'';
   const vb=pr==='r12'?'0 25 300 150':pr==='r35'?'0 10 300 180':pr==='r11'?'50 0 200 200':'0 0 300 200';
   const cid=pr==='swt'||pr==='pen'?'fgc'+(++fid):'',clip=cid?`<clipPath id="${cid}"><path d="${pr==='pen'?'M0 0L300 100L0 200Z':'M0 0H300L228 100L300 200H0Z'}"/></clipPath>`:'';
-  const inner=`${body}${cant}${bord}${em}${fglArt(f.layers)}`;
+  const inner=`${body}${cant}${bord}${em}${fglArt(f.layers)}${f.tx?fgWords(f,c):''}${f.fb?fgFabric(f):''}`;
   return `<svg viewBox="${vb}" preserveAspectRatio="xMidYMid slice" role="img" aria-label="${esc(label||'Flag')}"${pr?` data-pr="${pr}"`:''}>${clip}${cid?`<g clip-path="url(#${cid})">${inner}</g>`:inner}</svg>`;
 }
 /* the Flag Studio's canton: the upper hoist corner in its own colour, with its charges in a ring, in rows or one alone */
 function fgCanton(f){
+  if(f.cp==='fly'||f.cp==='both'){const one=fgCanton(Object.assign({},f,{cp:undefined}));return (f.cp==='both'?one:'')+`<g transform="translate(170 0)">${one}</g>`;}
   const W=130,H=100,ce=czHas(EMBLEMS,f.ce)&&f.ce!=='none'?f.ce:'star',k=f.ck||(f.ca==='one'?1:12),col=safeColor(f.cec,'#FFFFFF');let s=`<rect width="${W}" height="${H}" fill="${f.cn}"/>`;
   if(f.ca==='one'||k===1)s+=emblemSVG(ce,W/2,H/2,30,col);
   else if(f.ca==='rows'){const cols=Math.ceil(Math.sqrt(k*1.4)),rows=Math.ceil(k/cols),r=Math.min(W/cols,H/rows)*.34;let i=0;for(let y=0;y<rows;y++)for(let x=0;x<cols&&i<k;x++,i++)s+=emblemSVG(ce,(x+.5+(y%2?.25:0))*W/cols,(y+.5)*H/rows,r,col);}
   else{const R=H*.32,r=Math.min(H*.09,R*Math.sin(Math.PI/k)*1.1);for(let i=0;i<k;i++){const t=-Math.PI/2+i*2*Math.PI/k;s+=emblemSVG(ce,W/2+Math.cos(t)*R,H/2+Math.sin(t)*R,r,col);}}
   return s;
 }
+/* the designer's own stripes: how many, upright or across, each its width and colour, their edges straight, wavy,
+   zigzag or curved. Each stripe is drawn from its edge to the far side, so the next one lies over it */
+function fgStripes(f,c){
+  const n=f.sn,V=f.so==='v',ws=Array.isArray(f.sw)&&f.sw.length===n?f.sw:Array(n).fill(1),tot=ws.reduce((a,b)=>a+b,0),L=V?300:200,cs=Array.isArray(f.scs)&&f.scs.length===n?f.scs:Array.from({length:n},(_,i)=>i%2?c[1]:c[0]);
+  const edge=(at,i)=>{const A=6,k=f.sv;if(!k||i===0)return V?`L${fgF(at)} 200`:`L300 ${fgF(at)}`;let d='';
+    if(k==='curve')return V?`Q${fgF(at-14)} 100 ${fgF(at)} 200`:`Q150 ${fgF(at-14)} 300 ${fgF(at)}`;
+    const span=V?200:300,step=k==='zig'?span/10:span/5;for(let s=step;s<=span+.01;s+=step){const mid=s-step/2,o=(Math.round(s/step)%2?1:-1)*A;d+=k==='zig'?(V?`L${fgF(at+o)} ${fgF(mid)}L${fgF(at)} ${fgF(s)}`:`L${fgF(mid)} ${fgF(at+o)}L${fgF(s)} ${fgF(at)}`):(V?`Q${fgF(at+o*1.6)} ${fgF(mid)} ${fgF(at)} ${fgF(s)}`:`Q${fgF(mid)} ${fgF(at+o*1.6)} ${fgF(s)} ${fgF(at)}`);}return d;};
+  let out='',acc=0;for(let i=0;i<n;i++){const at=acc/tot*L;acc+=ws[i];
+    out+=V?`<path d="M300 0H${fgF(at)}${i?`${edge(at,i).replace(/^L/,'L')}`:'V200'}H300Z" fill="${cs[i]}"/>`:`<path d="M0 200V${fgF(at)}${edge(at,i)}V200Z" fill="${cs[i]}"/>`;}
+  return out;
+}
+/* the coat of arms on the flag (its copy f.arm, kept in step with the arms), where the emblem would stand */
+function fgArms(f,x,y,sc){const svg=typeof czArmsSVG==='function'?czArmsSVG(f.arm,f.ar==='full'?{full:1}:{shield:1}):'';if(!svg)return '';const h=(f.ar==='full'?112:96)*sc,w=h*(f.ar==='full'?1.1:.84);
+  return svg.replace(/^<svg\b([^>]*)>/,(m,a)=>`<svg x="${fgF(x-w/2)}" y="${fgF(y-h/2)}" width="${fgF(w)}" height="${fgF(h)}"${a.replace(/\s(class|role|aria-label|aria-hidden)="[^"]*"/g,'')} aria-hidden="true">`);}
+/* words on the flag: along the top or bottom, in the middle, or on a band of their own */
+function fgWords(f,c){const t=String(f.tx).toUpperCase(),col=safeColor(f.tc,'#FFFFFF'),fam=f.tf==='sans'?'Inter,Arial,sans-serif':f.tf==='script'?"'Great Vibes',cursive":f.tf==='mono'?"'IBM Plex Mono',monospace":'Cinzel,Georgia,serif',fs=Math.max(10,Math.min(26,520/(t.length+4)));
+  const T=(y,extra)=>`<text x="150" y="${y}" text-anchor="middle" font-family="${fam}" font-weight="700" font-size="${fgF(fs)}" letter-spacing="${f.tf==='script'?0:2}" fill="${col}"${extra||''}>${esc(f.tf==='script'?String(f.tx):t)}</text>`;
+  if(f.tp==='top')return T(10+fs);if(f.tp==='centre')return T(100+fs*.35);
+  if(f.tp==='band')return `<rect x="0" y="${fgF(160-fs)}" width="300" height="${fgF(fs+18)}" fill="${c[2]}" opacity=".92"/>`+T(fgF(160+fs*.35));
+  return T(192);}
+/* the cloth: woven threads, sewn seams, or a silk sheen, still */
+function fgFabric(f){const id='fgb'+(++fid);
+  if(f.fb==='woven')return `<pattern id="${id}" width="3" height="3" patternUnits="userSpaceOnUse"><path d="M0 1.5H3M1.5 0V3" stroke="#000" stroke-width=".35" opacity=".18"/></pattern><rect width="300" height="200" fill="url(#${id})"/>`;
+  if(f.fb==='seams'){const n=f.sn>=2?f.sn:3,ws=Array.isArray(f.sw)&&f.sw.length===n?f.sw:Array(n).fill(1),tot=ws.reduce((a,b)=>a+b,0),V=f.so==='v';let d='',acc=0;for(let i=1;i<n;i++){acc+=ws[i-1];const at=fgF(acc/tot*(V?300:200));d+=V?`M${at} 0V200`:`M0 ${at}H300`;}
+    return `<path d="${d}" stroke="#000" stroke-width="1.2" opacity=".22"/><path d="${d}" stroke="#fff" stroke-width=".6" stroke-dasharray="3 3" opacity=".55" transform="translate(${V?'2 0':'0 2'})"/><rect x="1.5" y="1.5" width="297" height="197" fill="none" stroke="#000" stroke-width="1" stroke-dasharray="3 3" opacity=".25"/>`;}
+  return `<linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".35" stop-color="#fff" stop-opacity=".28"/><stop offset=".5" stop-color="#fff" stop-opacity="0"/><stop offset=".7" stop-color="#000" stop-opacity=".12"/><stop offset="1" stop-color="#fff" stop-opacity=".2"/></linearGradient><rect width="300" height="200" fill="url(#${id})"/>`;}
 /* its border: edging, a wide frame, a sawtooth hoist or a fringe on the fly */
 function fgBorder(f){const c=safeColor(f.bdc,safeColor(f.c4,'#C9961A'));
   if(f.bd==='frame')return `<path d="M0 0H300V200H0ZM16 16V184H284V16Z" fill="${c}" fill-rule="evenodd"/>`;
@@ -45042,6 +45075,20 @@ function fgOpt(fl){
   if(EA.includes(fl.ea)){o.ea=fl.ea;o.ek=Number.isInteger(fl.ek)?clamp(fl.ek,2,24):6;}
   if(typeof fl.ex==='number'&&typeof fl.ey==='number'&&Number.isFinite(fl.ex)&&Number.isFinite(fl.ey)){o.ex=Math.round(clamp(fl.ex,0,100)*10)/10;o.ey=Math.round(clamp(fl.ey,0,100)*10)/10;}
   if(typeof fl.esc==='number'&&Number.isFinite(fl.esc)&&fl.esc!==1)o.esc=Math.round(clamp(fl.esc,.4,2.5)*100)/100;
+  /* Flag Studio, round two: the coat of arms on the flag (ar, with arm its copy, kept in step with the arms), stripes of
+     the designer's own (sn count, so 'v' upright, sw widths, scs a colour each, sv their edges), four quarters (q4),
+     the canton on the fly or both upper corners (cp), the emblem turned (er) or shadowed (esh), words (tx, tp, tc,
+     tf) and the cloth (fb) */
+  if(fl.ar==='shield'||fl.ar==='full'){o.ar=fl.ar;if(typeof czCleanArms==='function'){const a=czCleanArms(fl.arm);if(a)o.arm=a;}}
+  if(Number.isInteger(fl.sn)&&fl.sn>=2&&fl.sn<=13){const n=fl.sn;o.sn=n;if(fl.so==='v')o.so='v';
+    if(Array.isArray(fl.sw)&&fl.sw.length===n&&fl.sw.every(w=>Number.isInteger(w)&&w>=1&&w<=6)&&fl.sw.some(w=>w!==1))o.sw=fl.sw.slice();
+    if(Array.isArray(fl.scs)&&fl.scs.length===n){const cs=fl.scs.map(c=>safeColor(c,''));if(cs.every(Boolean))o.scs=cs;}
+    if(['wave','zig','curve'].includes(fl.sv))o.sv=fl.sv;}
+  if(Array.isArray(fl.q4)&&fl.q4.length===4){const q=fl.q4.map(c=>safeColor(c,''));if(q.every(Boolean))o.q4=q;}
+  if(o.cn&&(fl.cp==='fly'||fl.cp==='both'))o.cp=fl.cp;
+  if(typeof fl.er==='number'&&Number.isFinite(fl.er)&&Math.round(fl.er)%360!==0)o.er=Math.round(clamp(fl.er,-180,180));if(fl.esh===1)o.esh=1;
+  if(typeof fl.tx==='string'){const t=fl.tx.replace(/[<>"`\\{}]/g,'').replace(/\s+/g,' ').trim().slice(0,30);if(t){o.tx=t;if(['top','bottom','centre','band'].includes(fl.tp))o.tp=fl.tp;const tc=safeColor(fl.tc,'');if(tc)o.tc=tc;if(['sans','script','mono'].includes(fl.tf))o.tf=fl.tf;}}
+  if(['woven','seams','silk'].includes(fl.fb))o.fb=fl.fb;
   if(typeof fl.rx==='string'){const rx=fl.rx.replace(/[<>"`\\{}]/g,'').trim().slice(0,40);if(rx)o.rx=rx;}
   const layers=fglNorm(fl.layers);if(layers.length)o.layers=layers;
   return o;
@@ -45830,7 +45877,7 @@ function muLeaders(x,now,vis){
   const cab=cabOf(n),gone=(n.log||[]).filter(l=>l.k==='sack'||l.k==='resign'||(l.k==='retire'&&MU_PF_TITLES.has(l.a)));
   const GT={sack:l=>`${esc(l.b)} was sacked as ${esc(l.a)}.`,resign:l=>`${esc(l.b)} resigned as ${esc(l.a)}, and ${esc(l.fx)} took over.`,retire:l=>`${esc(l.b)} retired as ${esc(l.a)}, and ${esc(l.fx)} took over.`};
   const C=[['Ministers sacked',tallyOf(n,'log:sack')],['Resignations',tallyOf(n,'log:resign')],['Retirements',tallyOf(n,'log:retire')],['New leaders',tallyOf(n,'log:leader')]];
-  return `${head}${ptFormerHTML(x)}${cuPastHTML(x)}
+  return `${head}${ptFormerHTML(x)}${cuPastHTML(x)}${typeof fsHistHTML==='function'?fsHistHTML(x):''}
   <section class="section"><h2 class="h2">The cabinet</h2><div class="mu-gallery">${PF_KEYS.map(pf=>{const m=cab[pf];
     if(!m)return `<article class="mu-sitter vacant" style="--pc:var(--cv-${pf})">${muSitter({vac:1,pf,size:72})}<div><p class="lbl">${esc(PF[pf][2])}</p><p class="mu-sitter-n">Vacant</p><p class="mu-sitter-m">The post is waiting for a minister.</p></div></article>`;
     const sk=Math.max(1,Math.min(5,m.sk|0)),ag=typeof cvMinAge==='function'?cvMinAge(m,now):0;
@@ -48941,6 +48988,7 @@ function fsCheck(f){
   if(f.e!=='none'&&ctr(f.ec,f.c[0])<1.6)out.push({t:'The emblem barely shows on the field'});
   const lt=h=>lum(h)>.55;if(lt(f.c[0])&&lt(f.c[1])&&f.c[0]!==f.c[1])out.push({t:'Light beside light: the rule of tincture puts a dark colour between'});
   const parts=(f.layers||[]).length+(f.cn?1:0)+(f.bd?1:0)+(f.e!=='none'?1:0);out.push(parts<=4?{ok:1,t:'Simple enough to draw from memory'}:{t:'Many parts: simpler flags are easier to remember'});
+  if(f.tx)out.push({t:'Words are hard to read from afar'});
   const tiny=f.e!=='none'&&(f.es==='s'||(f.esc||1)<.6||(f.ea&&(f.ek||6)>12));out.push(tiny?{t:'The emblem is lost at 16 pixels'}:{ok:1,t:'Reads at 16 pixels'});
   return out;
 }
@@ -49004,7 +49052,7 @@ function fsStage(n,f){
   <div class="cst-hist" aria-label="History"><span class="hint">History</span>${FS.hist.length?FS.hist.map((h,i)=>`<button type="button" class="cst-b" data-fst="jump" data-i="${i}">${esc(h.l)}</button>`).join(''):'<span class="hint">Your changes will be listed here; click one to go back to before it.</span>'}</div>`;
 }
 function fsFilm(n,f){const U=fsUses(f);return `<span class="cst-film-l">In use</span>${Object.entries(FS_SEE).map(([k,l])=>`<button type="button" class="cst-card fs-use${FS.see===k?' on':''}" data-fst="see" data-v="${k}" aria-pressed="${FS.see===k}">${U[k]}<span>${esc(l)}</span></button>`).join('')}<span class="cst-film-l">Variants</span>${fsVariants(f,n).map(([k,l,,s])=>`<button type="button" class="cst-card fs-var" data-fst="tab" data-v="var">${s.replace('<svg','<svg class="fs-vsvg"')}<span>${esc(l)}</span></button>`).join('')}`;}
-const FS_TABS={style:'Style',colour:'Colour',charges:'Charges',var:'Variants',share:'Share'};
+const FS_TABS={style:'Style',stripes:'Stripes',colour:'Colour',charges:'Charges',words:'Words',var:'Variants',hist:'History',share:'Share'};
 function fsSeg(lab,f,opts,cur){return `<div class="cst-row"><span class="cst-lab">${lab}</span><div class="cst-seg">${opts.map(([v,l,locked,how])=>`<button type="button" class="cst-b${String(cur)===String(v)?' on':''}${locked?' lk':''}" data-fst="${locked?'locked':'set'}" data-f="${f}" data-v="${esc(String(v))}" aria-pressed="${String(cur)===String(v)}"${locked?` title="${esc(how||'')}"`:''}>${locked?CZ_LOCK:''}${esc(l)}</button>`).join('')}</div></div>`;}
 function fsLk(id,inner,nm){return `<span data-ux-unlock="${esc(id)}" class="tile cz-tl" role="img" aria-label="${esc(nm)}, locked. ${esc(unlockHow(id))}" title="${esc(nm)}: ${esc(unlockHow(id))}">${inner}${CZ_LOCK}</span>`;}
 function fsPatTiles(f){const pats=fgPatKeys(f),lockP=Object.keys(FG_PU).filter(p=>!pats.includes(p));
@@ -49018,9 +49066,11 @@ function fsRight(n,f){
   if(tab==='style')b=`<div class="cst-row"><span class="cst-lab">Traditions</span><div class="cst-seg">${Object.entries(FS_TRAD).map(([k,t])=>`<button type="button" class="cst-b cst-out" data-fst="trad" data-v="${k}">${esc(t.nm)}</button>`).join('')}</div></div>
     ${fsPatTiles(f)}${fsSeg('Proportion','pr',Object.entries(FS_PR),f.pr||'')}
     ${fsSeg('Canton','cnon',[['0','None'],['1','A canton']],f.cn?'1':'0')}
+    ${f.cn?fsSeg('Canton stands','cp',[['','At the hoist'],['fly','At the fly'],['both','At both corners']],f.cp||''):''}
     ${f.cn?`<div class="cst-row"><label class="cst-lab" for="fs-c-cn">Canton colour</label><input type="color" id="fs-c-cn" data-fst-col="cn" value="${f.cn.toLowerCase()}"></div>${fsSeg('Canton charges','ca',[['ring','A ring'],['rows','Rows'],['one','One']],f.ca||'ring')}${cstRange('How many','ck',f.ck||(f.ca==='one'?1:12),1,24,1).replace(/data-cst-in/g,'data-fst-in').replace(/cst-r-/g,'fs-r-').replace(/cst-v-/g,'fs-v-')}${fsSeg('Canton charge','ce',embs.filter(x=>x[0]!=='none'),f.ce||'star')}<div class="cst-row"><label class="cst-lab" for="fs-c-cec">Charge colour</label><input type="color" id="fs-c-cec" data-fst-col="cec" value="${safeColor(f.cec,'#FFFFFF').toLowerCase()}"></div>`:''}
     ${fsSeg('Border','bd',[['','None'],['edge','Edging'],['frame','Frame'],['saw','Sawtooth hoist'],['fringe','Fringe']],f.bd||'')}
     ${f.bd?`<div class="cst-row"><label class="cst-lab" for="fs-c-bdc">Border colour</label><input type="color" id="fs-c-bdc" data-fst-col="bdc" value="${safeColor(f.bdc,safeColor(f.c4,'#C9961A')).toLowerCase()}"></div>`:''}
+    ${fsSeg('Cloth','fb',[['','Flat'],['woven','Woven'],['seams','Sewn seams'],['silk','Silk']],f.fb||'')}
     ${f.rx?`<p class="hint">Remixed from the flag of ${esc(f.rx)}. <button type="button" class="linkish small" data-fst="unrx">Drop the credit</button></p>`:''}`;
   else if(tab==='colour'){const A=cz(n).a,arms=A&&Array.isArray(A.t)?A.t.map(t=>CZ_TINCT[t]&&CZ_TINCT[t][1]).filter(Boolean):[],note=(()=>{try{const N=cuOf(n).note;return [N.c1,N.c2];}catch(e){return [];}})(),sw=[...new Set(arms.concat(note).map(h=>safeColor(h,'')).filter(Boolean))];
     const col=(k,l,v)=>`<div class="cst-row"><label class="cst-lab" for="fs-c-${k}">${l} <b class="cst-mono">${esc(v)}</b></label><div class="cst-sws"><input type="color" id="fs-c-${k}" data-fst-col="${k}" value="${v.toLowerCase()}">${sw.map(h=>`<button type="button" class="cst-sw" style="background:${h}" data-fst="sw" data-k="${k}" data-v="${h}" aria-label="${h}"></button>`).join('')}</div></div>`;
@@ -49029,11 +49079,25 @@ function fsRight(n,f){
     <p class="hint">The swatches come from your coat of arms and your banknotes.</p>
     <div class="cst-row"><span class="cst-lab">Palettes</span><div class="cst-seg">${(n.cuP||[]).map((P,i)=>`<button type="button" class="cst-b cst-out" data-fst="pal" data-v="${i}"><i class="cst-dot" style="background:${P.c1}"></i><i class="cst-dot" style="background:${P.c2}"></i>${esc(P.nm)}</button>`).join('')}<button type="button" class="cst-b cst-out" data-fst="palsave">Save the first two</button></div><span class="hint">Shared with the Note Studio.</span></div>
     <div class="cst-row"><span class="cst-lab">Surprise me keeps</span><div class="cst-seg">${[['p','The pattern'],['c','The colours'],['e','The emblem']].map(([k,l])=>`<button type="button" class="cst-b cst-out${FS.locks[k]?' on':''}" data-fst="slock" data-v="${k}" aria-pressed="${FS.locks[k]}">${FS.locks[k]?'🔒':'🔓'} ${l}</button>`).join('')}</div></div>`;}
-  else if(tab==='charges')b=`${fsEmbTiles(f)}
+  else if(tab==='charges')b=`${fsSeg('Your coat of arms on the flag','ar',[['','No'],['shield','The shield'],['full','The full arms']],f.ar||'')}${f.ar?'<p class="hint">The arms take the emblem’s place and follow when you change them in the Arms Studio or on Customise.</p>':''}
+    ${cstRange('Turn the emblem','er',f.er||0,-180,180,5,(f.er||0)+'°').replace(/data-cst-in/g,'data-fst-in').replace(/cst-r-/g,'fs-r-').replace(/cst-v-/g,'fs-v-')}${fsSeg('Shadow','esh',[['','None'],['1','A soft shadow']],f.esh?'1':'')}
+    ${fsEmbTiles(f)}
     ${f.e!=='none'?fsSeg('Arrangement','arr',[['one','One'],['ring','A ring'],['row','A row'],['cons','Constellation'],['scat','Scattered']],f.ea||(f.en>1?'ring':'one'))
       +(f.ea||f.en>1?cstRange('How many','ek',f.ea?(f.ek||6):(f.en||7),f.ea?2:3,f.ea?24:12,1).replace(/data-cst-in/g,'data-fst-in').replace(/cst-r-/g,'fs-r-').replace(/cst-v-/g,'fs-v-'):'')
       +fsSeg('Size','es',[['s','Small'],['','Usual'],['l','Large']],f.es||'')+fsSeg('Frame','eo',[['','None'],['1','Outline'],['2','Ring'],['3','Disc']],f.eo||''):''}
     <p class="hint">Symmetry tools (mirror, rotate, repeat) work on the layer you pick in Layers.</p>`;
+  else if(tab==='stripes'){const n=f.sn||0,cs=Array.isArray(f.scs)&&f.scs.length===n?f.scs:Array.from({length:n},(_,i)=>i%2?f.c[1]:f.c[0]),ws=Array.isArray(f.sw)&&f.sw.length===n?f.sw:Array(n).fill(1);
+    b=`${fsSeg('Your own stripes','snon',[['0','No, the pattern'],['1','Yes']],n?'1':'0')}
+    ${n?`${fsSeg('They run','so',[['','Across'],['v','Upright']],f.so||'')}${cstRange('How many','sn',n,2,13,1).replace(/data-cst-in/g,'data-fst-in').replace(/cst-r-/g,'fs-r-').replace(/cst-v-/g,'fs-v-')}
+      ${fsSeg('Their edges','sv',[['','Straight'],['wave','Wavy'],['zig','Zigzag'],['curve','Curved']],f.sv||'')}
+      <div class="cst-row"><span class="cst-lab">Each stripe: its colour and width</span><div class="fs-stripes">${cs.map((c,i)=>`<div class="fs-sr"><span class="cst-mono">${i+1}</span><input type="color" id="fs-sc-${i}" data-fst-scol="${i}" value="${c.toLowerCase()}" aria-label="Colour of stripe ${i+1}"><input type="range" id="fs-sw-${i}" data-fst-sw="${i}" min="1" max="6" step="1" value="${ws[i]}" aria-label="Width of stripe ${i+1}"></div>`).join('')}</div></div>`:''}
+    ${fsSeg('Four quarters','q4on',[['0','No'],['1','Four fields of their own']],Array.isArray(f.q4)?'1':'0')}
+    ${Array.isArray(f.q4)?`<div class="cst-row"><span class="cst-lab">The quarters</span><div class="cst-sws">${f.q4.map((c,i)=>`<input type="color" id="fs-q-${i}" data-fst-q="${i}" value="${c.toLowerCase()}" aria-label="Quarter ${i+1}">`).join('')}</div></div>`:''}
+    <p class="hint">Your own stripes or quarters take the place of the pattern; the canton, emblem, border and layers stay on top.</p>`;}
+  else if(tab==='words')b=`<div class="cst-row"><label class="cst-lab" for="fs-t-tx">Words on the flag</label><input class="input" id="fs-t-tx" data-fst-txt="tx" maxlength="30" value="${esc(f.tx||'')}" placeholder="${esc(n.motto||'A motto, or your nation’s name')}"></div>
+    ${f.tx?`${fsSeg('Where','tp',[['','Along the foot'],['top','Along the top'],['centre','In the middle'],['band','On a band']],f.tp||'')}${fsSeg('Typeface','tf',[['','Roman capitals'],['sans','Plain'],['script','Script'],['mono','Typewriter']],f.tf||'')}
+      <div class="cst-row"><label class="cst-lab" for="fs-c-tc">Colour</label><input type="color" id="fs-c-tc" data-fst-col="tc" value="${safeColor(f.tc,'#FFFFFF').toLowerCase()}"></div>`:'<p class="hint">Up to thirty letters. Vexillologists warn that words are hard to read from afar; the check says so too.</p>'}`;
+  else if(tab==='hist'){const H=Array.isArray(n.fgH)?n.fgH:[];b=`<p class="hint">Every flag your nation has flown before this one. Open one to fly it again (Save flag keeps it).</p>${H.length?`<div class="fs-hist">${H.slice().reverse().map((h,i)=>{const j=H.length-1-i;return `<figure class="fs-hfig">${flagSVG(flagNorm(h.f,n),'')}<figcaption>${esc(h.a?fmtDate(h.a):'From the founding')} – ${esc(fmtDate(h.b))}<br><button type="button" class="cst-b cst-out" data-fst="hload" data-v="${j}">Open this flag</button></figcaption></figure>`;}).join('')}</div>`:'<p class="hint">Your nation has flown only this flag so far.</p>'}`;}
   else if(tab==='var')b=`<p class="hint">Each variant comes from your flag and follows it when you change it.</p>${fsVariants(f,n).map(([k,l,d,s])=>`<figure class="fs-vfig">${s.replace('<svg','<svg class="fs-vbig"')}<figcaption><b>${esc(l)}</b><br><span class="hint">${esc(d)}</span></figcaption></figure>`).join('')}`;
   else b=`<div class="cst-row"><span class="cst-lab">The flag competition</span><button type="button" class="cst-b cst-pri" data-fst="comp">Use this design in the competition</button><span class="hint">It becomes your entry’s draft on the Flag Competition page, where you enter it. Judging is blind, so it must differ from the flag your nation flies.</span></div>
     <div class="cst-row"><span class="cst-lab">One look</span><button type="button" class="cst-b cst-out" data-fst="look">Give the banknotes and coins this flag’s colours</button><span class="hint">The notes take the first two colours, and the coins carry the flag.</span></div>
@@ -49062,6 +49126,11 @@ function fsSet(k,v,label){
     else if(k==='arr'){delete f.ea;delete f.ek;delete f.en;if(v==='ring')f.en=7;else if(v!=='one'){f.ea=v;f.ek=v==='row'?3:6;}}
     else if(k==='es'){if(v)f.es=v;else delete f.es;}
     else if(k==='eo'){if(v)f.eo=+v;else delete f.eo;}
+    else if(k==='ar'){if(v){f.ar=v;f.arm=czCleanArms((n.cz&&n.cz.a)||czDefaultArms(n,1));}else{delete f.ar;delete f.arm;}}
+    else if(k==='snon'){if(v==='1'){f.sn=f.sn||3;}else for(const q of ['sn','so','sw','scs','sv'])delete f[q];}
+    else if(k==='q4on'){if(v==='1')f.q4=[f.c[0],f.c[1],f.c[1],f.c[0]];else delete f.q4;}
+    else if(k==='esh'){if(v)f.esh=1;else delete f.esh;}
+    else if(['cp','so','sv','tp','tf','fb'].includes(k)){if(v)f[k]=v;else delete f[k];}
   });
   fsPaint();
 }
@@ -49136,7 +49205,7 @@ document.addEventListener('click',e=>{
     case 'comp':fsComp();break;case 'look':fsLook();break;
     case 'pick':FS.sel=k;fsPaint();break;case 'lock':FS.lock[k]=!FS.lock[k];fsPaint();break;
     case 'tog':if(k==='emb')fsSet('e',S.czFlag.e==='none'?'star':'none',S.czFlag.e==='none'?'Emblem: Star':'Emblem: none');else if(k==='cn')fsSet('cnon',S.czFlag.cn?'0':'1',S.czFlag.cn?'Canton off':'Canton on');else if(k==='bd')fsSet('bd',S.czFlag.bd?'':'edge',S.czFlag.bd?'Border off':'Border: Edging');else if(/^l\d+$/.test(k)){fsDo('Deleted layer '+(+k.slice(1)+1),f=>{f.layers.splice(+k.slice(1),1);if(!f.layers.length)delete f.layers;});FS.sel='emb';fsPaint();}break;
-    case 'set':{const lab={p:'Pattern',pr:'Proportion',cnon:'Canton',ca:'Canton charges',ce:'Canton charge',bd:'Border',e:'Emblem',arr:'Arrangement',es:'Size',eo:'Frame'}[el.dataset.f]||el.dataset.f;fsSet(el.dataset.f,v,`${lab}: ${el.textContent.trim()}`);break;}
+    case 'set':{const lab={ar:'Arms on the flag',snon:'Own stripes',q4on:'Quarters',so:'Stripes run',sv:'Stripe edges',cp:'Canton stands',tp:'Words where',tf:'Typeface',fb:'Cloth',esh:'Shadow',p:'Pattern',pr:'Proportion',cnon:'Canton',ca:'Canton charges',ce:'Canton charge',bd:'Border',e:'Emblem',arr:'Arrangement',es:'Size',eo:'Frame'}[el.dataset.f]||el.dataset.f;fsSet(el.dataset.f,v,`${lab}: ${el.textContent.trim()}`);break;}
     case 'locked':toast('Locked. '+(el.title||''));break;
     case 'trad':{const T=FS_TRAD[v];if(T)fsDo('Tradition: '+T.nm,f=>{const keep=f.layers;for(const q of Object.keys(f))delete f[q];Object.assign(f,clone(T.f));if(keep)f.layers=keep;});fsPaint();break;}
     case 'sw':fsColour(k,v);break;
@@ -49144,6 +49213,7 @@ document.addEventListener('click',e=>{
     case 'pal':{const P=(S.nation.cuP||[])[+v];if(P)fsDo('Palette: '+P.nm,f=>{f.c[0]=P.c1;f.c[1]=P.c2;});fsPaint();break;}
     case 'palsave':{const f=S.czFlag,Lp=S.nation.cuP||[],m=clone(S.nation);m.cuP=Lp.concat({nm:'Palette '+(Lp.length+1),c1:f.c[0],c2:f.c[1]}).slice(-8);commit(m);toast('Saved as Palette '+(Lp.length+1)+'.');fsPaint();break;}
     case 'emb0':fsDo('Emblem back in place',f=>{delete f.ex;delete f.ey;delete f.esc;});fsPaint();break;
+    case 'hload':{const h=(S.nation.fgH||[])[+v];if(h)fsDo('Opened an old flag',f=>{const g=flagNorm(clone(h.f),S.nation);for(const q of Object.keys(f))delete f[q];Object.assign(f,g);});fsPaint();break;}
     case 'unrx':fsDo('Dropped the remix credit',f=>{delete f.rx;});fsPaint();break;
     case 'add':if(!fsLay())break;fsDo('Added a '+FGL_KINDS[v].toLowerCase(),f=>{const a2=f.layers||(f.layers=[]);if(a2.length>=FGL_MAX)return;a2.push({k:v,...(v==='emblem'?{e:'star'}:{}),x:50,y:50,w:v==='stripe'?100:v==='border'?92:24,h:v==='stripe'?15:v==='border'?88:36,r:0,c:safeColor(f.ec,'#F2C230'),...(v==='border'?{b:3}:{})});FS.sel='l'+(a2.length-1);});fsPaint();break;
     case 'up':case 'down':{const i=+k,j=a==='up'?i-1:i+1;fsDo('Reordered the layers',f=>{const a2=f.layers;if(!a2||j<0||j>=a2.length)return;[a2[i],a2[j]]=[a2[j],a2[i]];});FS.sel='l'+j;fsPaint();break;}
@@ -49160,11 +49230,21 @@ document.addEventListener('click',e=>{
 function fsColour(k,hex){const h=safeColor(hex,'');if(!h)return;fsDo({c0:'First colour',c1:'Second colour',c2:'Third colour',ec:'Emblem colour',cn:'Canton colour',cec:'Charge colour',bdc:'Border colour'}[k]||'Colour',f=>{if(/^c[012]$/.test(k))f.c[+k[1]]=h;else f[k]=h;});fsPaint();}
 document.addEventListener('input',e=>{
   if(!FS.on)return;const t=e.target,k=t.dataset&&t.dataset.fstIn,col=t.dataset&&t.dataset.fstCol;
+  if(t.dataset&&(t.dataset.fstScol||t.dataset.fstSw||t.dataset.fstQ)){const i=+(t.dataset.fstScol||t.dataset.fstSw||t.dataset.fstQ);
+    fsDo(t.dataset.fstQ?'Quarter '+(i+1):'Stripe '+(i+1)+(t.dataset.fstSw?' width':' colour'),f=>{const n=f.sn;
+      if(t.dataset.fstQ){if(Array.isArray(f.q4))f.q4[i]=String(t.value).toUpperCase();}
+      else if(t.dataset.fstSw){f.sw=Array.isArray(f.sw)&&f.sw.length===n?f.sw:Array(n).fill(1);f.sw[i]=+t.value;}
+      else{f.scs=Array.isArray(f.scs)&&f.scs.length===n?f.scs:Array.from({length:n},(_,j)=>j%2?f.c[1]:f.c[0]);f.scs[i]=String(t.value).toUpperCase();}});
+    fsPaint('stage');return;}
+  if(t.dataset&&t.dataset.fstTxt==='tx'){const had=!!S.czFlag.tx;fsDo('Words on the flag',f=>{const x=String(t.value).trim();if(x)f.tx=x;else{for(const q of ['tx','tp','tc','tf'])delete f[q];}});
+    if(had!==!!S.czFlag.tx){const pos=t.selectionStart;fsPaint();const x=document.getElementById('fs-t-tx');if(x){x.focus();try{x.setSelectionRange(pos,pos);}catch(e){}}}else fsPaint('stage');return;}
   if(t.dataset&&t.dataset.fstLc){const i=+FS.sel.slice(1),h=String(t.value).toUpperCase();fsDo('Layer '+(i+1)+' colour',f=>{const l=f.layers&&f.layers[i];if(l)l.c=h;});fsPaint('stage');return;}
   if(col){const h=String(t.value).toUpperCase();fsDo({c0:'First colour',c1:'Second colour',c2:'Third colour',ec:'Emblem colour',cn:'Canton colour',cec:'Charge colour',bdc:'Border colour'}[col]||'Colour',f=>{if(/^c[012]$/.test(col))f.c[+col[1]]=h;else f[col]=h;});fsPaint('stage');return;}
   if(!k)return;const v=+t.value;if(!Number.isFinite(v))return;
   if(k==='lo')fsDo('Layer opacity',f=>{const l=f.layers[+t.dataset.k];if(v>=100)delete l.o;else l.o=v/100;});
   else if(k==='ck')fsDo('Canton charges',f=>{f.ck=Math.round(v);});
+  else if(k==='er')fsDo('Turned the emblem',f=>{if(v)f.er=Math.round(v);else delete f.er;});
+  else if(k==='sn')fsDo('How many stripes',f=>{const m=Math.round(v);f.sn=m;if(f.sw)f.sw=Array.from({length:m},(_,i)=>f.sw[i]||1);if(f.scs)f.scs=Array.from({length:m},(_,i)=>f.scs[i]||(i%2?f.c[1]:f.c[0]));});
   else if(k==='ek')fsDo('How many',f=>{if(f.ea)f.ek=Math.round(v);else f.en=Math.round(v);});
   else if(k==='ex'||k==='ey')fsDo('Moved the emblem',f=>{const B=fsEmbBox(f);f.ex=k==='ex'?clamp(v,0,100):Math.round(B.x/3*10)/10;f.ey=k==='ey'?clamp(v,0,100):Math.round(B.y/2*10)/10;delete f.ep;});
   else if(k==='esc')fsDo('Emblem size',f=>{const s=clamp(v/100,.4,2.5);if(s===1)delete f.esc;else f.esc=s;});
@@ -49173,7 +49253,7 @@ document.addEventListener('input',e=>{
   fsPaint('stage');
 });
 document.addEventListener('change',e=>{
-  if(!FS.on)return;const t=e.target,s=t.dataset&&t.dataset.fstSel;if(t.dataset&&(t.dataset.fstCol||t.dataset.fstLc)){fsPaint();return;}
+  if(!FS.on)return;const t=e.target,s=t.dataset&&t.dataset.fstSel;if(t.dataset&&(t.dataset.fstCol||t.dataset.fstLc||t.dataset.fstScol||t.dataset.fstSw||t.dataset.fstQ||t.dataset.fstTxt)){fsPaint();return;}
   if(t.dataset&&t.dataset.fstLe){const i=+FS.sel.slice(1),v=t.value;if(!czHas(EMBLEMS,v)||v==='none'||(czU(v)&&!fgHeld(v)))return;fsDo('Layer '+(i+1)+' emblem',f=>{const l=f.layers&&f.layers[i];if(l)l.e=v;});fsPaint();return;}
   if(!s)return;const v=t.value;
   if(s==='see'){FS.see=cuHas(FS_SEE,v)?v:'pole';fsPaint('stage');return;}
@@ -49185,6 +49265,10 @@ document.addEventListener('change',e=>{
     else if(op==='del'&&V[+i]){const nm=V[+i].nm;fsVersions(L=>L.filter((x,j)=>j!==+i));if(FS.cmp===+i)FS.cmp=-1;toast(`“${nm}” is deleted.`);}
     fsPaint();}
 });
+/* the flags a nation has flown, in the museum */
+function fsHistHTML(x){const n=x&&x.n,H=n&&Array.isArray(n.fgH)?n.fgH:[];if(!n||n.npc||!H.length)return '';
+  return `<section class="section"><h2 class="h2">Flags of ${esc(n.name)}</h2><p class="hint">Every flag the nation has flown, newest first.</p><div class="fs-hist fs-hist-m"><figure class="fs-hfig">${flagSVG(n.flag,'')}<figcaption><b>Flying now</b>${H.length?', since '+esc(fmtDate(H[H.length-1].b)):''}</figcaption></figure>${H.slice().reverse().map(h=>`<figure class="fs-hfig">${flagSVG(flagNorm(h.f),'')}<figcaption>${esc(h.a?fmtDate(h.a):'From the founding')} – ${esc(fmtDate(h.b))}</figcaption></figure>`).join('')}</div></section>`;}
+NORM_HOOKS.push((n,d)=>{const h=Array.isArray(d&&d.fgH)?d.fgH.filter(x=>x&&typeof x==='object'&&x.f&&typeof x.f==='object').slice(-12).map(x=>({a:Math.max(0,+x.a||0),b:Math.max(0,+x.b||0),f:flagNorm(x.f)})):[];if(h.length)n.fgH=h;else delete n.fgH;});
 NORM_HOOKS.push((n,d)=>{const v=Array.isArray(d&&d.fgV)?d.fgV.filter(x=>x&&typeof x==='object'&&x.f&&typeof x.f==='object').slice(-FSV_MAX).map(x=>({nm:String(x.nm||'Version').replace(/[<>]/g,'').slice(0,40),t:Math.max(0,+x.t||0),f:flagNorm(x.f)})):[];if(v.length)n.fgV=v;else delete n.fgV;});
 
 /* ── the Arms Studio: the coat of arms on one screen, beside the Customise designer (which stays) ──
