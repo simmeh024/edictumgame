@@ -42,7 +42,7 @@ test('the people on every hex of land beyond the natural size burn 0.2 timber a 
   const z=ctx.budgetOf(10);assert.equal(z,21);
   assert.ok(near(E.burn[0],0.2*(400-z)));
   assert.ok(near(E.dem.timber[0],z*ctx.DEMAND.timber+0.2*(400-z)),'on top of what the natural size uses');
-  assert.ok(near(E.eat[0],1.4*(400-z)),'the food the same people eat is unchanged');
+  assert.ok(near(E.eat[0],1.54*(400-z)),'the food the same people eat (1.4, 10% more at 10M)');
   for(const r of ['iron','oil','goods'])assert.ok(near(E.dem[r][0],z*ctx.DEMAND[r]),`${r} is untouched`);
 });
 
