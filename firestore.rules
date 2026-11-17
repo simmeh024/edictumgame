@@ -67,6 +67,14 @@ service cloud.firestore {
     function isAdmin() {
       return signedIn() && request.auth.token.get('admin', false) == true;
     }
+    // a moderator (claim mod, appointed by an admin in the portal): reads the report queue, every region's chat and
+    // the silences; acts through the server (functions/admin.js MOD_ACTIONS, functions/regionchat.js)
+    function isMod() {
+      return signedIn() && request.auth.token.get('mod', false) == true;
+    }
+    function isStaff() {
+      return isAdmin() || isMod();
+    }
     function region(r) {
       return r in ['meridian', 'frostmarch', 'northernpale', 'driftlands', 'silentmoors', 'wildwood',
         'saffron', 'hollow', 'ashen', 'ironsteppe', 'gilded', 'verdantbasin', 'coralreach', 'emberisles',
@@ -505,13 +513,13 @@ service cloud.firestore {
     // whose saved record is in that region), and admins any region's. The world chat (rchat/world) is read by every
     // player with a saved nation, of any region. rcPace/ (the pacing of each player's lines) is the server's alone
     match /rchat/{reg}/chat/{id} {
-      allow read: if isAdmin() || signedIn() && (reg == 'world' && exists(/databases/$(database)/documents/nations/$(request.auth.uid))
+      allow read: if isStaff() || signedIn() && (reg == 'world' && exists(/databases/$(database)/documents/nations/$(request.auth.uid))
         || region(reg) && get(/databases/$(database)/documents/nations/$(request.auth.uid)).data.reg == reg);
     }
     // the picture an admin's line carries (rcimg/{reg}/chat/{line} {a, d, k, t, exp}): read as its line is, written only by
     // the server
     match /rcimg/{reg}/chat/{id} {
-      allow read: if isAdmin() || signedIn() && (reg == 'world' && exists(/databases/$(database)/documents/nations/$(request.auth.uid))
+      allow read: if isStaff() || signedIn() && (reg == 'world' && exists(/databases/$(database)/documents/nations/$(request.auth.uid))
         || region(reg) && get(/databases/$(database)/documents/nations/$(request.auth.uid)).data.reg == reg);
     }
     match /rcPace/{uid} { allow read, write: if false; }
@@ -524,7 +532,7 @@ service cloud.firestore {
     // rcMute). The player reads their own, so their game shows it in place of the writing box; admins read every one
     // (the admin portal's Region chats page); only the server writes
     match /rcMute/{uid} {
-      allow read: if isSelf(uid) || isAdmin();
+      allow read: if isSelf(uid) || isStaff();
     }
     // recruits/{uid} {r, t}: this player founded a nation through player r's recruiting link. Filed once, only by the
     // server (functions/accounts.js, 'recruit': a Registered Nation, newer than the recruiter's); the recruiter reads
@@ -752,7 +760,8 @@ service cloud.firestore {
       allow create: if signedIn() && validReport(request.resource.data)
         && exists(/databases/$(database)/documents/nations/$(request.auth.uid)) && !banned(request.auth.uid)
         && getAfter(/databases/$(database)/documents/rlimits/$(request.auth.uid)).data.r == request.time;
-      allow read, delete: if isAdmin();
+      allow read: if isStaff();
+      allow delete: if isAdmin();
     }
     // paces reporting: one report every 30 seconds (players with a nation report)
     match /rlimits/{uid} {
@@ -859,8 +868,10 @@ service cloud.firestore {
     // a claim cannot be forged, so neither can the mark. Rights taken away, the page clears it.
     match /staff/{uid} {
       allow read: if true;
-      allow create, update: if isSelf(uid) && isAdmin()
-        && request.resource.data.keys().hasOnly(['t']) && request.resource.data.t is number;
+      // m: a moderator's mark (green Mod pill); an admin's own page writes {t}, a moderator's {t, m: true}
+      allow create, update: if isSelf(uid) && (isAdmin() && request.resource.data.keys().hasOnly(['t'])
+          || isMod() && !isAdmin() && request.resource.data.keys().hasOnly(['t', 'm']) && request.resource.data.m == true)
+        && request.resource.data.t is number;
       allow delete: if isSelf(uid) || isAdmin();
     }
 

@@ -302,6 +302,30 @@ async function adOff(db, reg, key, now, field = 'x', keep = AD_KEEP) {
 // a removed Flock peep stays struck out this long: its author's game drops it from their record when it next reads
 // the list, and a peep older than this only shows inside an old quote
 const FLK_KEEP = 180 * 86400000;
+const MOD_ACTIONS = ['delete_post', 'close_report'];
+/* an admin appoints a moderator, or stands one down: the custom claim mod (the player's game sees it at the next load) and
+   staff/<uid> {t, m: true}, which shows the other players the green Mod pill at once */
+async function setMod(db, actor, data) {
+  const uid = id(data.uid), on = data.on === true;
+  if (!uid) throw new HttpsError('invalid-argument', 'Choose a player.');
+  let u;
+  try { u = await getAuth().getUser(uid); } catch (e) { throw new HttpsError('not-found', 'No such player.'); }
+  const claims = { ...(u.customClaims || {}) };
+  if (on && claims.admin === true) throw new HttpsError('failed-precondition', 'That player is already an admin.');
+  if (on) claims.mod = true; else delete claims.mod;
+  await getAuth().setCustomUserClaims(uid, claims);
+  if (on) await db.doc('staff/' + uid).set({ t: Date.now(), m: true });
+  else if (claims.admin !== true) await db.doc('staff/' + uid).delete();
+  const nation = await db.doc('nations/' + uid).get();
+  await db.collection('adminAudit').doc().set({ actor, action: on ? 'mod_appointed' : 'mod_removed', target: uid, ...(nation.exists ? { name: text(nation.get('name'), 80) } : {}),
+    reason: on ? 'Appointed as moderator' : 'No longer a moderator', outcome: 'completed', at: FieldValue.serverTimestamp() });
+  return { uid, mod: on };
+}
+async function modsList(db) {
+  const qs = await db.collection('staff').where('m', '==', true).get();
+  const rows = await Promise.all(qs.docs.map(async d => { const n = await db.doc('nations/' + d.id).get(); return { uid: d.id, name: text(n.get('name'), 80), reg: text(n.get('reg'), 40), t: +d.get('t') || 0 }; }));
+  return { mods: rows };
+}
 async function mutate(db, actor, data) {
   const action = text(data.action, 40), target = id(data.target), reason = text(data.reason, 300) || 'Admin console action';
   const allowed = ['hide', 'rename', 'unhide', 'remove', 'ban', 'unban', 'delete_post', 'close_report', 'press_reset', 'support_reply', 'support_answer', 'support_close', 'support_reopen', 'support_delete'];
@@ -518,8 +542,15 @@ async function allianceChat(db, actor, data) {
 }
 export const adminConsole = onCall({ region: 'europe-west1', maxInstances: 5, memory: '512MiB', timeoutSeconds: 300 }, async req => {
   if (!req.auth) throw new HttpsError('unauthenticated', 'Sign in first.');
-  if (req.auth.token.admin !== true) throw new HttpsError('permission-denied', 'Only Edictum admins can use the console.');
   const d = req.data || {}, db = getFirestore(), actor = req.auth.uid;
+  /* a moderator (claim mod, appointed below with op 'setMod') uses the console's moderation part only: the report queue
+     (close a report, remove the reported post or chat line). Silencing and the region chats are functions/regionchat.js's */
+  if (req.auth.token.admin !== true) {
+    if (req.auth.token.mod === true && d.op === 'moderate' && MOD_ACTIONS.includes(d.action)) return mutate(db, actor, d);
+    throw new HttpsError('permission-denied', 'Only Edictum admins can use the console.');
+  }
+  if (d.op === 'setMod') return setMod(db, actor, d);
+  if (d.op === 'mods') return modsList(db);
   if (d.op === 'search') return players(db, d);
   if (d.op === 'player') return player(db, id(d.uid));
   if (d.op === 'health') return health(db);

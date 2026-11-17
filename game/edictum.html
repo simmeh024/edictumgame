@@ -5763,6 +5763,7 @@ button.prv-rb{cursor:pointer}button.prv-rb:hover{border-color:var(--ink-3)}
 .obs-bar p{margin:0}
 .obs-bar .btn{padding:6px 12px;background:var(--stamp-ink);color:var(--stamp);border-color:var(--stamp-ink)}
 .side-who>.side-nation{flex:1;min-width:0}
+.adm-pill.mod,.staff-pill.mod{background:#1f7a46;color:#fff}
 .adm-pill{display:inline-flex;align-items:center;flex:none;margin-bottom:3px;padding:3px 9px;border-radius:999px;background:var(--stamp);color:var(--stamp-ink);font:600 11px/1.3 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;text-decoration:none;white-space:nowrap}
 a.adm-pill:hover{filter:brightness(1.12)}
 a.adm-pill:focus-visible{outline:2px solid var(--stamp);outline-offset:2px}
@@ -49241,6 +49242,7 @@ async function connect(){
   const uid=await user.id();if(!uid)return quit();
   S.db=db;S.uid=uid;
   S.isOwner=await user.isOwner();
+  S.isMod=!S.isOwner&&typeof user.isMod==='function'&&await user.isMod();
   if((OBS||PV)&&!S.isOwner)return quit();
   if(PV){S.uid=PV.uid;try{if(!(await pvLoad(db)))return;}catch(e){S.pvErr=e&&e.message||'unknown';render();return;}}
   await regionControls();
@@ -49350,9 +49352,10 @@ async function connect(){
   /* Edictum staff: an admin's page marks its player in staff/ (the rules let only an admin write their own),
      and clears the mark once the right is gone */
   listen(db.collection('staff'),qs=>{
-    const st=new Set(qs.docs.map(d=>d.id));S.staff=st;
+    const st=new Set(qs.docs.map(d=>d.id));S.staff=st;S.staffMod=new Set(qs.docs.filter(d=>(d.data()||{}).m===true).map(d=>d.id));
     if(S.isOwner&&!st.has(uid))db.doc('staff/'+uid).set({t:Date.now()}).catch(()=>{});
-    else if(!S.isOwner&&st.has(uid))db.doc('staff/'+uid).delete().catch(()=>{});
+    else if(S.isMod&&!S.staffMod.has(uid))db.doc('staff/'+uid).set({t:Date.now(),m:true}).catch(()=>{});
+    else if(!S.isOwner&&!S.isMod&&st.has(uid))db.doc('staff/'+uid).delete().catch(()=>{});
     if(['nation','visit','region','messages'].includes(S.view))quietRender();
   },()=>{});
   render();
@@ -49539,7 +49542,7 @@ function shell(){
       ${OBS?obsWho():`<div class="side-who"><button class="side-nation" data-act="go" data-v="nation" aria-label="Your nation: ${esc(fullName(n))}">
         <span class="side-flag">${flagSVG(n.flag,'Flag of '+n.name)}</span>
         <span class="side-name"><span class="side-pre">The ${esc(n.pretitle)} of</span><span class="side-nm">${esc(n.name)}</span>${czSide(n)}</span>
-      </button>${S.isOwner&&S.mode!=='local'?'<a class="adm-pill" href="#admin" data-act="admin-open" title="Open the admin portal">Admin</a>':''}</div>`}
+      </button>${S.isOwner&&S.mode!=='local'?'<a class="adm-pill" href="#admin" data-act="admin-open" title="Open the admin portal">Admin</a>':S.isMod&&S.mode!=='local'?'<a class="adm-pill mod" href="#admin-reports" data-act="admin-open" title="Open the moderator portal">Mod</a>':''}</div>`}
     </div>
     ${navSide(nar,nav)}
   </aside>${nar?navTabs(nb):''}
@@ -49580,8 +49583,15 @@ function heroDelegate(now){
   return HS_DEL.v;
 }
 /* staff are the game's admins; a player's own page knows its claim at once */
-function isStaff(id){return !!id&&((id===S.uid&&!!S.isOwner&&!PV)||!!(S.staff&&S.staff.has(id)));}
+function isStaff(id){return !!id&&((id===S.uid&&!!(S.isOwner||S.isMod)&&!PV)||!!(S.staff&&S.staff.has(id)));}
+/* a moderator (appointed by an admin in the portal, Moderators page): green, "Edictum Moderator", and a portal of its own
+   with the report queue and the region chats */
+function isModId(id){return !!id&&((id===S.uid&&!!S.isMod&&!PV)||!!(S.staffMod&&S.staffMod.has(id)));}
+function staffPillOf(id){return isModId(id)?MOD_PILL:STAFF_PILL;}
+function portalOk(v){return !!S.isOwner||!!S.isMod&&MOD_VIEWS.includes(v);}
+const MOD_VIEWS=['admin-reports','admin-chat'];
 const STAFF_PILL='<span class="staff-pill" title="A member of the Edictum team"><svg viewBox="0 0 12 14" aria-hidden="true"><path d="M6 .8 11 2.7v3.9c0 3.1-2.1 5.6-5 6.6-2.9-1-5-3.5-5-6.6V2.7Z" fill="currentColor"/><path d="m3.6 7 1.7 1.7 3.2-3.4" fill="none" stroke="var(--stamp)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Edictum staff</span>';
+const MOD_PILL='<span class="staff-pill mod" title="A moderator of Edictum"><svg viewBox="0 0 12 14" aria-hidden="true"><path d="M6 .8 11 2.7v3.9c0 3.1-2.1 5.6-5 6.6-2.9-1-5-3.5-5-6.6V2.7Z" fill="currentColor"/><path d="m3.6 7 1.7 1.7 3.2-3.4" fill="none" stroke="#1f7a46" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Edictum Moderator</span>';
 function heroStamps(n,id){
   const now=Date.now(),out=[],st=(cls,k,v,sub)=>`<span class="hs ${cls}"><span class="hs-k">${esc(k)}</span><span class="hs-v">${esc(v)}</span>${sub?`<span class="hs-s">${esc(sub)}</span>`:''}</span>`;
   let mem=!!n.npc;try{if(!mem)mem=asmMember(n);}catch(e){}
@@ -49604,7 +49614,7 @@ function hero(n,opt){
         <h1 class="hero-name" style="--lw:${Math.max(6,...String(n.name).split(/[\s-]+/).map(w=>w.length))}">${esc(n.name)}${czEpithet(n)}</h1>
         ${n.motto?`<p class="hero-motto">“${esc(n.motto)}”</p>`:''}
         ${heroLead(n)}
-        <div class="hero-cat"><span class="cat-pill">${esc(cat)}</span>${isStaff(id)?STAFF_PILL:''}${n.npc?'<span class="chip">Computer-run</span>':''}${opt.player?'<span class="chip">Player nation</span>':''}</div>
+        <div class="hero-cat"><span class="cat-pill">${esc(cat)}</span>${isStaff(id)?staffPillOf(id):''}${n.npc?'<span class="chip">Computer-run</span>':''}${opt.player?'<span class="chip">Player nation</span>':''}</div>
         <p class="hero-blurb">${esc(CAT_BLURB[cat])}</p>
         ${n.about?`<p class="hero-about">${esc(n.about)}</p>`:''}${heroStamps(n,id)}${idActs(n)}
       </div>
@@ -52023,7 +52033,7 @@ function admReports(list){
     `<ul class="adm-reps">${list.map(r=>{const post=r.kind==='post',hid=!!(S.mod&&S.mod[r.target]&&S.mod[r.target].hidden);
       return `<li class="adm-rep"><p class="adm-rep-h"><span class="chip">${post&&/^news:/.test(r.post||'')?'News comment':post&&/^cb:/.test(r.post||'')?'Community Board':post&&/^ad:/.test(r.post||'')?'Classified ad':post&&/^flk:/.test(r.post||'')?'Flock peep':post&&/^rc:world:/.test(r.post||'')?'World chat':post&&/^rc:/.test(r.post||'')?'Region chat':post?'Post':r.kind==='letter'?'Letter':'Nation'}</span> <b>${esc(r.name||'A nation')}</b> · ${esc(regName(r.reg))} · ${esc(REPORT_WHY[r.reason]||r.reason)} · ${esc(rel(r.t))}</p>
         ${r.x?`<blockquote class="adm-quote">${esc(String(r.x).slice(0,2500))}</blockquote>`:''}${r.note?`<p class="hint">The reporter adds: “${esc(r.note)}”</p>`:''}
-        <div class="row">${post&&r.post?`<button class="btn small" data-act="adm-delpost" data-id="${esc(r.id)}">${/^flk:/.test(r.post||'')?'Remove the peep':/^rc:/.test(r.post||'')?'Remove the line':'Remove the post'}</button>`:''}${hid?`<span class="hint">${S.mod[r.target].rename?'Hidden until its player chooses a new name.':'Hidden from other players.'}</span>`:`<button class="btn ghost small" data-act="adm-hide" data-id="${esc(r.id)}">Hide the nation</button>${post||r.kind==='letter'?'':`<button class="btn ghost small" data-act="adm-rename" data-id="${esc(r.id)}">Ask for a new name</button>`}`}<button class="btn ghost small" data-act="adm-remove" data-id="${esc(r.id)}">Remove the nation</button><button class="btn ghost small adm-danger" data-act="adm-ban" data-id="${esc(r.id)}">Ban the player</button><button class="btn ghost small" data-act="adm-close" data-id="${esc(r.id)}">Close ticket</button><button class="btn ghost small" data-act="admin-inspect" data-id="${esc(r.target)}">Inspect player</button></div>${ask(r)}</li>`;}).join('')}</ul>`}`;
+        <div class="row">${post&&r.post?`<button class="btn small" data-act="adm-delpost" data-id="${esc(r.id)}">${/^flk:/.test(r.post||'')?'Remove the peep':/^rc:/.test(r.post||'')?'Remove the line':'Remove the post'}</button>`:''}${!S.isOwner?'':`${hid?`<span class="hint">${S.mod[r.target].rename?'Hidden until its player chooses a new name.':'Hidden from other players.'}</span>`:`<button class="btn ghost small" data-act="adm-hide" data-id="${esc(r.id)}">Hide the nation</button>${post||r.kind==='letter'?'':`<button class="btn ghost small" data-act="adm-rename" data-id="${esc(r.id)}">Ask for a new name</button>`}`}<button class="btn ghost small" data-act="adm-remove" data-id="${esc(r.id)}">Remove the nation</button><button class="btn ghost small adm-danger" data-act="adm-ban" data-id="${esc(r.id)}">Ban the player</button>`}<button class="btn ghost small" data-act="adm-close" data-id="${esc(r.id)}">Close ticket</button>${S.isOwner?`<button class="btn ghost small" data-act="admin-inspect" data-id="${esc(r.target)}">Inspect player</button>`:''}</div>${ask(r)}</li>`;}).join('')}</ul>`}`;
 }
 function admHidden(){
   const ids=Object.keys(S.mod||{}).filter(id=>S.mod[id].hidden);
@@ -52243,13 +52253,13 @@ function admShell(v,body){
   const group=(label,links)=>`<section class="adm-nav-group" aria-label="${label}"><h2 class="adm-nav-label">${label}</h2>${links}</section>`;
   return `<div class="adm">
     <dialog id="adm-menu" class="adm-sidebar" role="${ADM_MOBILE.matches?'dialog':'complementary'}" aria-label="Admin navigation"${ADM_MOBILE.matches?'':' open'}>
-      <div class="adm-brand"><span class="wordmark">Edictum</span><span class="adm-pill">Admin</span><button type="button" class="btn ghost small adm-menu-close" data-act="adm-menu-close" aria-label="Close admin menu">Close</button></div>
+      <div class="adm-brand"><span class="wordmark">Edictum</span>${S.isOwner?'<span class="adm-pill">Admin</span>':'<span class="adm-pill mod">Mod</span>'}<button type="button" class="btn ghost small adm-menu-close" data-act="adm-menu-close" aria-label="Close admin menu">Close</button></div>
       <nav class="adm-nav" aria-label="Admin portal">
-        ${group('World',tab('admin','Overview')+tab('admin-stats','Statistics')+tab('admin-shop','Shop statistics')+tab('admin-letters','Letter statistics')+tab('admin-feed','Live feed')+tab('admin-players','Player search')+tab('admin-online','Online players',ADMX.online&&ADMX.online.players.length)+tab('admin-alliances','Alliances')+tab('admin-watch','Watchlist &amp; alerts',AW.unseen)+tab('admin-regions','Region control'))}
+        ${!S.isOwner?group('Moderation',tab('admin-reports','Reports',ADM.d&&ADM.d.reports&&ADM.d.reports.length)+tab('admin-chat','Region chats')):`${group('World',tab('admin','Overview')+tab('admin-stats','Statistics')+tab('admin-shop','Shop statistics')+tab('admin-letters','Letter statistics')+tab('admin-feed','Live feed')+tab('admin-players','Player search')+tab('admin-online','Online players',ADMX.online&&ADMX.online.players.length)+tab('admin-alliances','Alliances')+tab('admin-watch','Watchlist &amp; alerts',AW.unseen)+tab('admin-regions','Region control'))}
         ${group('Moderation',tab('admin-reports','Reports',ADM.d&&ADM.d.reports&&ADM.d.reports.length)+tab('admin-chat','Region chats')+tab('admin-sus','Suspicious',AUDIT.size)+tab('admin-hidden','Hidden nations')+tab('admin-bans','Banned players'))}
         ${group('Support',tab('admin-help','Help queries',n)+tab('admin-bugs','Bug reports',BGA.n)+tab('admin-gone','Recently dissolved'))}
         ${group('Game content',tab('admin-edicts','All edicts')+tab('admin-news','Development news')+tab('admin-board','Community boards')+tab('admin-flagc','Flag competition',window.fcaRep||0)+tab('admin-notes','Banknote design guide'))}
-        ${group('Operations',tab('admin-health','Save health')+tab('admin-audit','Admin audit log'))}
+        ${group('Operations',tab('admin-health','Save health')+tab('admin-audit','Admin audit log'))}`}
       </nav>
       <button type="button" class="btn ghost adm-return" data-act="admin-close">← Back to the game</button>
     </dialog>
@@ -52258,18 +52268,18 @@ function admShell(v,body){
 }
 ADM_MOBILE.addEventListener('change',()=>{admMenuOpen=false;const m=document.getElementById('adm-menu');if(!m)return;if(m.open)m.close();m.setAttribute('role',ADM_MOBILE.matches?'dialog':'complementary');if(!ADM_MOBILE.matches)m.show();});
 render=(f=>function(){const r=f.apply(this,arguments);if(admMenuOpen&&ADM_MOBILE.matches)admShowMenu();return r;})(render);
-shell=(f=>function(){if(ADM_PAGES.includes(S.view)&&S.isOwner)return adminView(S.view);if(ADM_EXTRA.includes(S.view)&&S.isOwner)return adminExtraView(S.view);if(S.view==='admin-help'&&S.isOwner)return adminHelpView();if(S.view==='admin-sus'&&S.isOwner)return adminSusView();if(S.view==='admin-edicts'&&S.isOwner)return adminEdictsView();if(S.view==='admin-stats'&&S.isOwner)return adminStatsView();if(S.view==='admin-notes'&&S.isOwner)return admShell('admin-notes',cuGuideHTML());if(S.view==='admin-shop'&&S.isOwner)return adminShopView();if(regBlocked())return maintenanceView();return f.apply(this,arguments);})(shell);
+shell=(f=>function(){if(ADM_PAGES.includes(S.view)&&portalOk(S.view))return adminView(S.view);if(ADM_EXTRA.includes(S.view)&&S.isOwner)return adminExtraView(S.view);if(S.view==='admin-help'&&S.isOwner)return adminHelpView();if(S.view==='admin-sus'&&S.isOwner)return adminSusView();if(S.view==='admin-edicts'&&S.isOwner)return adminEdictsView();if(S.view==='admin-stats'&&S.isOwner)return adminStatsView();if(S.view==='admin-notes'&&S.isOwner)return admShell('admin-notes',cuGuideHTML());if(S.view==='admin-shop'&&S.isOwner)return adminShopView();if(regBlocked())return maintenanceView();return f.apply(this,arguments);})(shell);
 go=(f=>function(v){if(v!==S.view){admMenuOpen=false;if(ADM_EXTRA.includes(v))ADMX.loaded[v]=false;}if(ADM_PAGES.includes(v)&&S.view!==v){if(!ADM_VIEWS.includes(S.view))ADM.seen=0;ADM.act='';ADM.ask=null;}if(v==='admin-help'&&S.view!=='admin-help'){ADMH.seen=0;ADMH.act='';ADMH.ask=null;}if(v==='help'&&S.view!=='help')supReset();return f.apply(this,arguments);})(go);
 document.addEventListener('click',e=>{
   const el=e.target.closest('[data-act]');if(!el)return;const a=el.dataset.act;
-  if(a==='admin-open'){e.preventDefault();go('admin');return;}
+  if(a==='admin-open'){e.preventDefault();go(S.isOwner?'admin':'admin-reports');return;}
   if(a==='adm-tab'){e.preventDefault();go(el.dataset.v);const m=document.getElementById('adm-main');if(m)m.focus({preventScroll:true});return;}
   if(a==='adm-menu-open'){admMenuOpen=true;admShowMenu();return;}
   if(a==='adm-menu-close'){admHideMenu();return;}
   if(a==='admin-close'){go('nation');return;}
   if(a==='admin-refresh'){admLoad(true);render();return;}
   if(a==='adm-ask-no'){ADM.ask=null;render();return;}
-  if(/^adm-(delpost|delpost-yes|hide|hide-yes|rename|rename-yes|remove|remove-yes|ban|ban-yes|close|unhide|unban)$/.test(a)){if(S.isOwner)admAct(a,el.dataset.id);return;}
+  if(/^adm-(delpost|delpost-yes|hide|hide-yes|rename|rename-yes|remove|remove-yes|ban|ban-yes|close|unhide|unban)$/.test(a)){if(S.isOwner||S.isMod&&/^adm-(delpost|delpost-yes|close)$/.test(a))admAct(a,el.dataset.id);return;}
   if(a==='report-nation'||a==='report-post'){
     const id=el.dataset.id||el.dataset.a,x=findNation(id);if(!x||x.npc)return;
     let info={kind:'nation',target:id,reg:REG.id,name:fullName(x.n),x:[x.n.motto,x.n.about].filter(Boolean).join(' · ').slice(0,600)};
@@ -52363,6 +52373,7 @@ ${adminCards(p)}
     <h3 class="help-h3">Reports and tickets</h3>${adminReports(p)}
     <h3 class="help-h3">Timeline</h3>${adminTimeline(p)}
     <div class="row"><button class="btn ghost small" data-act="admin-history" data-id="${esc(p.uid)}">View admin history</button>${p.exists?pvBtn(p.reg,p.uid):''}${p.exists&&p.reg===REG.id?`<button class="btn ghost small" data-act="visit" data-id="${esc(p.uid)}">View nation</button>`:p.exists?obsVisitBtn(p.reg,p.uid):''}</div>
+    <h3 class="help-h3">Moderator</h3>${adminModRole(p)}
     <h3 class="help-h3">The Chancery Club</h3>${adminClub(p)}
     <h3 class="help-h3">Shop packs</h3>${adminPacks(p)}
     <h3 class="help-h3">Staff notes</h3>${adminNotes(p)}
@@ -52429,6 +52440,21 @@ function adminTimeline(p){
   for(const x of p.actions||[])add(x.t,'Admin: '+esc(x.action.replace(/_/g,' '))+(x.reason?' · '+esc(x.reason):'')+(x.outcome==='failed'?' (failed)':''));
   ev.sort((x,y)=>y[0]-x[0]);
   return ev.length?`<ul class="adm-tl">${ev.slice(0,80).map(([t,x])=>`<li><time>${esc(adminTime(t))}</time>${x}</li>`).join('')}</ul>`:'<p class="hint">Nothing recorded yet.</p>';
+}
+/* a moderator: an admin appoints one here (functions/admin.js, setMod). They get the green Mod pill and badge, and a portal
+   with the report queue (close a report, remove the reported line) and every region's chat (silence, delete) */
+function adminModRole(p){
+  const on=isModId(p.uid),busy=ADMX.modRoleBusy?' disabled':'';
+  if(isStaff(p.uid)&&!on)return '<p class="hint">This player is an admin.</p>';
+  return `<p>${on?MOD_PILL:'<span class="chip">Not a moderator</span>'}</p><div class="row"><button class="btn small${on?' ghost':''}" data-act="admin-modrole" data-v="${on?'off':'on'}" data-id="${esc(p.uid)}"${busy}>${on?'Stand down as moderator':'Appoint as moderator'}</button></div>
+    <p class="hint">A moderator sees the Reports queue and every region’s chat in a small portal (the green Mod pill beside their nation), can silence players, delete chat lines, remove a reported line and close reports. Hiding, removing and banning stay with admins. They reload the game to get it.</p>${ADMX.modRoleMsg?`<p class="hint" aria-live="polite">${esc(ADMX.modRoleMsg)}</p>`:''}`;
+}
+async function adminModRoleSet(uid,on){
+  const p=ADMX.player;if(!p||p.uid!==uid||ADMX.modRoleBusy)return;
+  ADMX.modRoleBusy=true;ADMX.modRoleMsg='';render();
+  try{await adminRequest({op:'setMod',uid,on});if(!S.staffMod)S.staffMod=new Set();if(on)S.staffMod.add(uid);else S.staffMod.delete(uid);ADMX.modRoleMsg=on?'Appointed. They see the Mod pill once they reload the game.':'No longer a moderator.';}
+  catch(e){ADMX.modRoleMsg='That did not work: '+(e.message||e.code||'unknown error');}
+  ADMX.modRoleBusy=false;render();
 }
 /* the player's Chancery Club, and a free membership an admin turns on or off (functions/admin.js, club()) */
 const ADM_CLUB_DAYS=[[7,'A week'],[30,'30 days'],[90,'90 days'],[365,'A year'],[3650,'Ten years']];
@@ -52673,9 +52699,10 @@ document.addEventListener('click',async e=>{
   if(a==='admin-once-yes'){adminOnceDo(el.dataset.v,id);return;}
   if(a==='admin-once-copy'){const f=document.getElementById('admin-once-link');const done=ok=>{ADMX.onceMsg=ok?'Copied. Send it to the player yourself; it works once, within a day.':'Select the link and copy it.';render();};try{navigator.clipboard.writeText(ADMX.onceLink).then(()=>done(true),()=>{if(f){f.focus();f.select();}done(false);});}catch(err){done(false);}return;}
   if(a==='admin-club'){adminClubSet(id,el.dataset.v==='on');return;}
+  if(a==='admin-modrole'){adminModRoleSet(id,el.dataset.v==='on');return;}
   if(a==='admin-pack'){adminPackSet(id,el.dataset.v==='on'?ADMX.packP:el.dataset.p,el.dataset.v==='on');return;}
   if(a==='admin-inspect'){
-    ADMX.err='';ADMX.mod=null;ADMX.modReason='';ADMX.modMsg='';ADMX.note='';ADMX.noteFor='';ADMX.noteMsg='';ADMX.clubWhy='';ADMX.clubMsg='';ADMX.packWhy='';ADMX.packMsg='';ADMX.packP='';ADMX.watchWhy='';ADMX.watchFor='';ADMX.watchMsg='';ADMX.onceFor='';ADMX.onceAsk='';ADMX.onceMsg='';ADMX.onceLink='';
+    ADMX.err='';ADMX.mod=null;ADMX.modReason='';ADMX.modMsg='';ADMX.note='';ADMX.noteFor='';ADMX.noteMsg='';ADMX.clubWhy='';ADMX.clubMsg='';ADMX.modRoleMsg='';ADMX.packWhy='';ADMX.packMsg='';ADMX.packP='';ADMX.watchWhy='';ADMX.watchFor='';ADMX.watchMsg='';ADMX.onceFor='';ADMX.onceAsk='';ADMX.onceMsg='';ADMX.onceLink='';
     try{ADMX.player=await adminRequest({op:'player',uid:id});if(S.view!=='admin-players')go('admin-players');else render();}
     catch(err){ADMX.err=err.message;render();}
   }
@@ -56648,7 +56675,7 @@ function nwCommentRow(p,x,kids){
     nwStaff()&&!me?`<button type="button" class="linkish small nw-mod" data-act="nw-c-rm" data-p="${p.id}" data-id="${x.id}">Remove</button>`:'',
     adminTarget?`<button type="button" class="linkish small nw-mod" data-act="nw-c-hide" data-p="${p.id}" data-id="${x.id}">Hide nation…</button><button type="button" class="linkish small nw-mod" data-act="nw-c-ban" data-p="${p.id}" data-id="${x.id}">Ban player…</button>`:''].join('');
   const confirm=ask==='rm'?`Remove this comment by ${esc(x.nm)}? It is kept in the admin audit log.`:ask==='hide'?`Hide ${esc(x.nm)} from the other players? Its player still plays it and is told why. You can show it again in the admin portal, under Hidden nations.`:ask==='ban'?`Ban the player of ${esc(x.nm)}? Their nation, its posts and comments are deleted and the account can no longer play.`:'';
-  return `<li class="nw-c${x.st?' staff':''}${ans?' nw-ans':''}" id="nwc-${x.id}"><div class="nw-c-h">${nwFlag(x.fl,x.nm)}<b>${esc(x.nm)}</b>${x.a===S.uid&&S.nation?shopBadge(S.nation,1):x.a&&S.world&&S.world[x.a]?shopBadge(S.world[x.a],1):''}${x.st==='admin'?(p.as==='staff'&&p.by===x.a?'<span class="staff-pill nw-dev">Developer</span>':STAFF_PILL):x.st==='mod'?'<span class="staff-pill nw-modpill">Moderator</span>':''}${ans?'<span class="nw-ans-l">Team answer</span>':''}${answered?'<span class="nw-answered">Answered by the team</span>':''}${x.rg&&REG_BY_ID[x.rg]?`<span class="nw-c-r">${esc(REG_BY_ID[x.rg].name)}</span>`:''}<span class="post-t">${esc(rel(x.t))}</span></div>
+  return `<li class="nw-c${x.st?' staff':''}${ans?' nw-ans':''}" id="nwc-${x.id}"><div class="nw-c-h">${nwFlag(x.fl,x.nm)}<b>${esc(x.nm)}</b>${x.a===S.uid&&S.nation?shopBadge(S.nation,1):x.a&&S.world&&S.world[x.a]?shopBadge(S.world[x.a],1):''}${x.st==='admin'?(p.as==='staff'&&p.by===x.a?'<span class="staff-pill nw-dev">Developer</span>':STAFF_PILL):x.st==='mod'?MOD_PILL:''}${ans?'<span class="nw-ans-l">Team answer</span>':''}${answered?'<span class="nw-answered">Answered by the team</span>':''}${x.rg&&REG_BY_ID[x.rg]?`<span class="nw-c-r">${esc(REG_BY_ID[x.rg].name)}</span>`:''}<span class="post-t">${esc(rel(x.t))}</span></div>
     <p class="post-x">${esc(x.x)}</p><div class="nw-c-a">${acts}</div>
     ${confirm?`<div class="adm-ask"><p>${confirm}</p><div class="row"><button type="button" class="btn danger small" data-act="nw-c-${ask}-yes" data-p="${p.id}" data-id="${x.id}">${ask==='ban'?'Yes, ban':ask==='hide'?'Yes, hide it':'Yes, remove'}</button><button type="button" class="btn ghost small" data-act="nw-ask-no">Cancel</button></div></div>`:''}${kids&&kids.length?`<ol class="nw-cl nw-re">${kids.map(y=>nwCommentRow(p,y)).join('')}</ol>`:''}</li>`;
 }
@@ -57594,7 +57621,7 @@ function cbAuthor(p){
   if(p.as)return `<div class="cb-au cb-asm"><span class="nw-av cb-asm-av" aria-hidden="true">⚖</span><b class="cb-au-n">${esc(p.nm)}</b>${p.rl?`<span class="cb-au-r">${esc(p.rl)}</span>`:''}</div>`;
   if(p.of)return `<div class="cb-au cb-team">${cbTeamAv(p)}<b class="cb-au-n">${esc(p.nm)}</b>${STAFF_PILL}${p.rl?`<span class="cb-au-r">${esc(p.rl)}</span>`:''}</div>`;
   const on=cbOnline(p.a),R=REG_BY_ID[p.rg],U=cbUser(p.a),marks=cbAuthorMarks(p,U);
-  return `<div class="cb-au">${nwFlag(p.fl,p.nm)}<b class="cb-au-n">${esc(p.nm)}</b>${marks?`<span class="cb-au-mk">${marks}</span>`:''}<span class="cb-on${on?' on':''}"><i aria-hidden="true"></i>${on?'Online':'Offline'}</span>${p.st==='admin'?STAFF_PILL:p.st==='mod'?'<span class="staff-pill nw-modpill">Moderator</span>':''}${p.fd?`<span class="founder-pill cb-fd" title="Founding Supporter: among the first to help write the world of Edictum">${SHOP_BRASS}Founder</span>`:''}${R?`<span class="cb-au-r">${esc(R.name)}</span>`:''}${U&&U.n>0?`<span class="cb-au-pc">${fmt0(U.n)} ${U.n===1?'post':'posts'}</span>`:''}</div>`;
+  return `<div class="cb-au">${nwFlag(p.fl,p.nm)}<b class="cb-au-n">${esc(p.nm)}</b>${marks?`<span class="cb-au-mk">${marks}</span>`:''}<span class="cb-on${on?' on':''}"><i aria-hidden="true"></i>${on?'Online':'Offline'}</span>${p.st==='admin'?STAFF_PILL:p.st==='mod'?MOD_PILL:''}${p.fd?`<span class="founder-pill cb-fd" title="Founding Supporter: among the first to help write the world of Edictum">${SHOP_BRASS}Founder</span>`:''}${R?`<span class="cb-au-r">${esc(R.name)}</span>`:''}${U&&U.n>0?`<span class="cb-au-pc">${fmt0(U.n)} ${U.n===1?'post':'posts'}</span>`:''}</div>`;
 }
 function cbData(reg,t,rid){return `data-reg="${reg}" data-t="${t}"${rid?` data-r="${rid}"`:''}`;}
 function cbAsking(t,rid,a){return !!(CB.ask&&CB.ask.t===t&&(CB.ask.r||'')===rid&&(!a||CB.ask.a===a));}
@@ -76677,7 +76704,7 @@ function rgcLine(m,run,by,me,mod,memo){
   /* the world chat: a nation of another region shows the flag and marks its line carries, and its region */
   const wf=wd&&!x&&!m.tm&&m.fl?rgwFlag(m.fl,nm):'',from=wd&&!m.tm?rgwFrom(m.rg||(x?REG.id:'')):'';
   const who=m.tm?`<b class="rgc-nm rgc-team">${esc(nm)}</b>`:mine?`<b class="rgc-nm">${esc(nm)}</b>`:x&&!x.npc?`<button type="button" class="linkish rgc-nm" data-act="visit" data-id="${esc(m.a)}">${esc(nm)}</button>`:`<b class="rgc-nm">${esc(nm)}</b>`;
-  const pill=m.tm?'':m.st==='mod'?'<span class="staff-pill rgc-pill">Moderator</span>':m.st==='admin'||isStaff(m.a)?STAFF_PILL:'';
+  const pill=m.tm?'':m.st==='mod'||isModId(m.a)?MOD_PILL:m.st==='admin'||isStaff(m.a)?STAFF_PILL:'';
   const fl=m.tm?`<span class="mflag sm rgc-tmfl" aria-hidden="true">${RGC_TEAM_SVG}</span>`:`<span class="mflag sm${x||wf?'':' rgc-nofl'}">${x?flagSVG(x.n.flag,'Flag of '+nm):wf}</span>`;
   const head=run?'':`<p class="rgc-lh">${fl}${who}${x&&!x.npc?rgcBadges(x,memo):wd&&!m.tm?rgwBadges(m):''}${pill}${from}<time datetime="${new Date(m.t).toISOString()}" title="${esc(when)}">${esc(fmtTime(m.t))}</time></p>`;
   const staff=m.tm||!!m.st||isStaff(m.a);
@@ -77476,7 +77503,7 @@ async function acxMutesLoad(){
 }
 /* the chosen region's chat, live while the page is open */
 function acxListen(){
-  const reg=S.view==='admin-chat'&&S.isOwner&&S.db?ACX.reg:'';
+  const reg=S.view==='admin-chat'&&portalOk('admin-chat')&&S.db?ACX.reg:'';
   if(ACX.lsReg===reg)return;
   if(ACX.unsub)try{ACX.unsub();}catch(e){}
   Object.assign(ACX,{unsub:null,lsReg:reg,list:[],ready:false,err:''});
@@ -77502,7 +77529,7 @@ function acxLogHTML(){
   const sil=new Set((ACX.mutes||[]).map(x=>x.uid));let day='';
   return ACX.list.map(m=>{
     const k=rgcDay(m.t),d=k!==day?(day=k,`<li class="acx-day" role="separator">${esc(rgcDayWords(m.t))}</li>`):'',staff=m.tm||!!m.st,ask=ACX.ask&&ACX.ask.id===m.id,all=m.sys==='all';
-    const pill=m.sys==='found'?' <span class="chip acx-sys">Welcome line</span>':all?' <span class="chip acx-sys acx-cast-chip">System · To every region</span>':m.tm?' <span class="staff-pill rgc-pill">Team</span>':m.st==='mod'?' <span class="staff-pill rgc-pill">Moderator</span>':m.st==='admin'?' <span class="staff-pill rgc-pill">Staff</span>':'';
+    const pill=m.sys==='found'?' <span class="chip acx-sys">Welcome line</span>':all?' <span class="chip acx-sys acx-cast-chip">System · To every region</span>':m.tm?' <span class="staff-pill rgc-pill">Team</span>':m.st==='mod'?' '+MOD_PILL:m.st==='admin'?' <span class="staff-pill rgc-pill">Staff</span>':'';
     /* a system message is removed from this region alone or, with its own question, from every region */
     const acts=ask&&ACX.ask.all?`<button type="button" class="btn danger small" data-act="acx-uncast-yes" data-id="${esc(m.id)}">Remove everywhere</button><button type="button" class="btn ghost small" data-act="acx-ask-no">Keep</button>`
       :ask?`<button type="button" class="btn danger small" data-act="acx-del-yes" data-id="${esc(m.id)}">Remove it</button><button type="button" class="btn ghost small" data-act="acx-ask-no">Keep</button>`
@@ -77553,10 +77580,10 @@ function acxView(){
     ${R?(()=>{const pk=rgcPicCan(),pb=pk?rgcPicBarHTML(ACX,'acx'):'';return `<form class="acx-f" id="acx-f" novalidate><label class="lbl" for="acx-x">Write to ${esc(R.the||R.name)} as the Edictum team</label><div class="rgc-picbar acx-picbar" id="acx-picbar"${pb?'':' hidden'}>${pb}</div><div class="acx-fr"><textarea class="input" id="acx-x" rows="2" maxlength="${RGC_TEXT}" placeholder="Players see it at once, signed Edictum team.${pk?' Paste or drop a picture to add one.':''}">${esc(ACX.x)}</textarea>${pk?rgcPicPicker('acx'):''}<button class="btn" type="submit" id="acx-go"${ACX.busy?' disabled':''}>${ACX.busy?'Sending…':'Send'}</button></div>${ACX.msg?`<p class="err" role="alert">${esc(ACX.msg)}</p>`:''}</form>`;})():''}</section>`;
   const M=ACX.mutes,mutes=`<h2 class="h3 acx-mh">Silenced players</h2>${ACX.merr?`<p class="err">${esc(ACX.merr)}</p>`:!M?'<p class="hint">Fetching them…</p>':!M.length?'<p class="hint">Nobody is silenced.</p>'
     :`<div class="tbl-wrap"><table class="tbl acx-mt"><thead><tr><th>Nation</th><th>Region</th><th>Until</th><th>Reason</th><th>Since</th><th><span class="sr">Actions</span></th></tr></thead><tbody>${M.map(x=>`<tr data-uid="${esc(x.uid)}"><td>${esc(x.nm||'A nation')}</td><td>${esc(x.reg?regName(x.reg):'—')}</td><td>${x.perm?'Until lifted':esc(fmtDate(x.until)+', '+fmtTime(x.until))}</td><td>${esc(x.why||'—')}</td><td>${esc(rel(x.t))}</td><td class="acx-mb"><button type="button" class="btn ghost small" data-act="acx-lift" data-id="${esc(x.uid)}">Lift</button><button type="button" class="linkish small" data-act="admin-inspect" data-id="${esc(x.uid)}">Inspect</button></td></tr>`).join('')}</tbody></table></div>`}`;
-  return admShell('admin-chat',head+`<div class="acx">${regs}${chat}</div>`+acxCastHTML()+mutes);
+  return admShell('admin-chat',head+`<div class="acx">${regs}${chat}</div>`+(S.isOwner?acxCastHTML():'')+mutes);
 }
 document.addEventListener('click',async e=>{
-  const el=e.target.closest&&e.target.closest('[data-act]');if(!el||!S.isOwner)return;const a=el.dataset.act,id=el.dataset.id||'';
+  const el=e.target.closest&&e.target.closest('[data-act]');if(!el||!portalOk('admin-chat'))return;const a=el.dataset.act,id=el.dataset.id||'';
   if(!/^acx-/.test(a))return;
   const m=ACX.list.find(x=>x.id===id);
   if(a==='acx-reg'){if(ACX.reg!==el.dataset.v){ACX.reg=el.dataset.v;ACX.ask=null;ACX.mute=null;ACX.msg='';acxListen();}render();}
@@ -77601,14 +77628,14 @@ document.addEventListener('submit',e=>{
 document.addEventListener('submit',async e=>{
   if(!e.target||e.target.id!=='acx-f')return;e.preventDefault();
   if(ACX.pic&&ACX.pic.busy){ACX.msg='The picture is still being prepared. Send it in a moment.';render();return;}
-  const P=ACX.pic&&rgcPicCan()?ACX.pic:null,x=ACX.x.replace(/\s+/g,' ').trim();if((!x&&!P)||ACX.busy||!ACX.reg||!S.isOwner)return;
+  const P=ACX.pic&&rgcPicCan()?ACX.pic:null,x=ACX.x.replace(/\s+/g,' ').trim();if((!x&&!P)||ACX.busy||!ACX.reg||!portalOk('admin-chat'))return;
   ACX.busy=true;ACX.msg='';render();
   try{await rgcCivic({op:'rcPost',team:true,reg:ACX.reg,x,...(P?{pic:rgcPicOut(P)}:{})});ACX.x='';if(ACX.pic===P){ACX.pic=null;ACX.picErr='';}}catch(err){ACX.msg=alErrText(err);}
   ACX.busy=false;render();
   const f=document.getElementById('acx-x');if(f)f.focus({preventScroll:true});stickDown('acx:'+ACX.reg);
 });
 ADM_VIEWS.push('admin-chat');
-shell=(f=>function(){if(S.view==='admin-chat'&&S.isOwner)return acxView();return f.apply(this,arguments);})(shell);
+shell=(f=>function(){if(S.view==='admin-chat'&&portalOk('admin-chat'))return acxView();return f.apply(this,arguments);})(shell);
 go=(f=>function(v){
   if(v==='admin-chat'&&S.view!=='admin-chat')Object.assign(ACX,{last:null,lerr:'',mutes:null,merr:'',ask:null,mute:null,msg:''});
   const r=f.apply(this,arguments);if(S.view!=='admin-chat')acxListen();return r;})(go);
