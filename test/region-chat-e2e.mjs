@@ -339,7 +339,7 @@ await C.click(`#rgc-list .rgc-l[data-id="${sec}"] .rgc-q`);
 check('a click on the quote shows the line it answers', await until(async () => !!(await C.$(`#rgc-list .rgc-l.flash[data-id="${wid}"]`))));
 // reactions: one per nation, shown under the line, taken back with a second click
 await B.click(`#rgc-list .rgc-more[data-id="${sec}"]`);
-check('a line’s menu offers eight reactions', (await B.$$('.rgc-menu .rgc-rxp button')).length === 8);
+check('a line’s menu offers fourteen reactions', (await B.$$('.rgc-menu .rgc-rxp button')).length === 14);
 await B.click('.rgc-menu .rgc-rxp [data-k="hear"]');
 check('a reaction shows under the line for everyone', await until(async () => /1/.test(await text(C, `#rgc-list .rgc-l[data-id="${sec}"] .rgc-rx[data-k="hear"]`)) && await B.getAttribute(`#rgc-list .rgc-l[data-id="${sec}"] .rgc-rx[data-k="hear"]`, 'aria-pressed') === 'true', 15000));
 check('the server keeps one reaction for the nation', await until(async () => (await restListAdmin(`rchat/${reg}/chat`)).find(d => d.id === sec)?.fields.rv?.mapValue?.fields?.[uidB]?.stringValue === 'hear'));
