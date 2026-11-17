@@ -2,7 +2,7 @@
 // achievement of the first days (emulators).
 //   python3 build.py
 //   npx firebase emulators:exec --project demo-edictum --only auth,firestore,functions,hosting "node test/easy-icons-e2e.mjs"
-import { OUT, check, finish, sleep, until, player, open, found, settle, nav, czSection } from './lib.mjs';
+import { OUT, check, finish, sleep, until, player, open, found, settle, nav, czSection, flagStudio, closeFlagStudio } from './lib.mjs';
 const IC = [['spyglass', 'fs-map', 'Map Reader'], ['letter', 'dip-dm1', 'Dear Sir or Madam'], ['candle', 'fs-desk', 'On the Desk'],
   ['spade', 'eco-svc1', 'X Marks the Spot'], ['mace', 'fs-brief', 'First Briefing']];
 const KS = IC.map(i => i[0]);
@@ -16,9 +16,10 @@ const before = await A.evaluate(ic => ic.map(([k, , nm]) => { const b = document
 const lockedNow = before.filter(x => x.k !== 'spyglass');
 check('the new charges start locked', lockedNow.every(x => x.locked), JSON.stringify(before));
 check('and each says which Bronze achievement opens it', lockedNow.every(x => x.how.includes('bronze achievement') && x.how.includes(x.nm)), JSON.stringify(lockedNow.map(x => x.how)));
-await czSection(A, 'e');
+await flagStudio(A, 'charges');
 const embBefore = await A.evaluate(ic => ic.filter(([k]) => k !== 'spyglass').map(([k, , nm]) => [...document.querySelectorAll('.cz-tl[role="img"]')].some(t => (t.getAttribute('aria-label') || '').includes(nm))), IC);
 check('the flag emblems are locked too, with the same achievement', embBefore.every(Boolean), JSON.stringify(embBefore));
+await closeFlagStudio(A);
 // earn the five: open the map, and the four first steps as they are counted (a letter, a cache, a briefing, a desk task)
 await settle(A).catch(() => {}); await nav(A, 'map'); await sleep(400);
 await A.evaluate(() => { const n = G.clone(G.S.nation); n.tly = Object.assign({}, n.tly); for (const k of ['dm', 'svc', 'brf', 'ddt']) n.tly[k] = (n.tly[k] || 0) + 1; G.commit(n); });
@@ -26,13 +27,14 @@ const got = await until(() => A.evaluate(ic => ic.every(([, a]) => G.S.nation.ac
 check('a letter, a cache, a briefing, a desk task and the map earn the five achievements', !!got, JSON.stringify(await A.evaluate(() => Object.keys(G.S.nation.ach || {}))));
 await openCz('a'); await A.waitForSelector('#cz-a-s-heater');
 check('then all five charges can be chosen', await A.evaluate(ks => ks.every(k => { const b = document.querySelector('button#cz-a-c-c-' + k); return b && !b.classList.contains('locked') && b.querySelector('svg path'); }), KS));
-await czSection(A, 'e');
+await flagStudio(A, 'charges');
 check('and all five flag emblems, from the same achievements', await A.evaluate(ks => ks.every(k => { const b = document.querySelector('button#c-e-e-' + k); return b && b.querySelector('svg path'); }), KS));
 const emblemSvgs = await A.evaluate(ks => ks.map(k => (document.querySelector('#c-e-e-' + k + ' svg') || {}).outerHTML || ''), KS);
 // the flag is a draft in Customise until Save flag
 await A.evaluate(() => document.querySelector('button#c-e-e-mace').click());
 await A.waitForSelector('#c-flag-save'); await A.evaluate(() => document.querySelector('#c-flag-save').click());
 check('choosing a new emblem and saving puts it on the flag', await until(() => A.evaluate(() => G.S.nation.flag && G.S.nation.flag.e === 'e-mace')));
+await closeFlagStudio(A);
 await openCz('a'); await A.waitForSelector('#cz-a-s-heater');
 await A.evaluate(() => document.querySelector('button#cz-a-c-c-spade').click());
 check('choosing a new charge puts it on the arms, with its blazon', await until(() => A.evaluate(() => G.S.nation.cz && G.S.nation.cz.a && G.S.nation.cz.a.c === 'c-spade' && /a spade erect/.test(document.querySelector('.cz-blazon').textContent))));

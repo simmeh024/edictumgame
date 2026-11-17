@@ -1,7 +1,7 @@
 // Ten new icons, free: charges for the coat of arms and the same ten as flag emblems; five new shields, the Mural
 // shield opening with five cities (emulators). Five more free icons came on 2026-11-14: portcullis, escallop,
 // cornucopia, windmill and elephant.
-import { OUT, check, finish, until, player, open, found, czSection } from './lib.mjs';
+import { OUT, check, finish, until, player, open, found, czSection, flagStudio, closeFlagStudio } from './lib.mjs';
 const KS = ['acorn', 'torch', 'scales', 'hourglass', 'quill', 'helm', 'grapes', 'lighthouse', 'dove', 'pine', 'portcullis', 'escallop', 'cornucopia', 'windmill', 'elephant'];
 const SH = ['kite', 'round', 'polish', 'tudor', 'mural'];
 const A = await player('icons', { recovery: true });
@@ -9,10 +9,11 @@ await open(A); await found(A, 'Iconia');
 const openCz = async () => { await A.evaluate(() => { G.S.view = 'customise'; G.render(); }); await czSection(A, 'a'); await A.waitForSelector('#cz-a-s-heater'); };
 await openCz();
 check('the fifteen free charges can be chosen at once', await A.evaluate(ks => ks.every(k => { const b = document.querySelector('button#cz-a-c-c-' + k); return b && b.querySelector('svg path'); }), KS));
-// only the open section is on the page, so the flag's emblems need the Flag section
-await czSection(A, 'e');
+// the flag's emblems are chosen in the Flag Studio
+await flagStudio(A, 'charges');
 check('and the fifteen free flag emblems', await A.evaluate(ks => ks.every(k => { const b = document.querySelector('button#c-e-e-' + k); return b && b.querySelector('svg path'); }), KS));
 const emblemSvgs = await A.evaluate(ks => ks.map(k => (document.querySelector('#c-e-e-' + k + ' svg') || {}).outerHTML || ''), KS);
+await closeFlagStudio(A);
 await openCz();
 check('four new shields can be chosen at once', await A.evaluate(sh => sh.slice(0, 4).every(s => document.querySelector('button#cz-a-s-' + s)), SH));
 check('the Mural shield is locked, saying five cities open it', await A.evaluate(() => { const t = document.querySelector('#cz-a-s-mural'); return t && t.tagName === 'SPAN' && /five cities/.test(t.getAttribute('aria-label')); }));

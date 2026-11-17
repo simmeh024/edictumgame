@@ -55,11 +55,10 @@ check('viewing a requirement does not apply the locked design',JSON.stringify((a
 await search(A,'<img onerror=bad>');check('search treats unknown input as text',await A.locator('.qj-none').count()===1&&await A.locator('.qj-none img').count()===0);await A.keyboard.press('Escape');
 const C=await player('navigation phone',{vp:{width:390,height:844},storageState:await A.ctx.storageState({indexedDB:true})});await open(C);await C.waitForSelector('.layout');await view(C,'nation');
 check('phone search remains beside the notification bell',await C.locator('.brand-actions .bell + .ux-search-button').isVisible()&&await C.locator('.ux-search-button').count()===1);await C.screenshot({path:OUT+'/navigation-compact-390.png'});await search(C,'flag layers',true);await result(C,'focus:flag').click();await view(C,'customise');
-check('phone search opens the requested flag layer editor',await C.locator('[data-fgg="c:layers"]').evaluate(e=>e.open));
-await C.locator('[data-fgg="c:layers"]>summary').click();await sleep(150);await move(C,'map');await C.goBack();await view(C,'customise');
-check('native designer sections keep their collapsed state',!await C.locator('[data-fgg="c:layers"]').evaluate(e=>e.open));
+check('phone search leads to the Flag Studio button',await C.locator('#cz-sec-e [data-fst="open"]').isVisible());
+await move(C,'map');await C.goBack();await view(C,'customise');
 await search(C,'flag layers',true);await result(C,'focus:flag').click();await view(C,'customise');
-check('an explicit search opens a previously collapsed target',await C.locator('[data-fgg="c:layers"]').evaluate(e=>e.open));
+check('a second search lands there again',await C.locator('#cz-sec-e [data-fst="open"]').isVisible());
 await move(C,'customise');await C.click('#cz-tab-look');check('on a phone the group tabs pick a group and a row of chips its sections',await C.locator('#cz-sub-s').isVisible()&&!await C.locator('#cz-sub-a').isVisible()&&!await C.locator('.cz-rail').isVisible());
 await C.click('#cz-sub-s');check('and a chip shows that section alone',await shownSecs(C)==='cz-sec-s');
 await move(C,'nation');const legis=C.locator('section.ux-foldable').filter({has:C.locator('h2.ux-section-heading').filter({hasText:'Recent legislation'})}).first();await legis.locator('.ux-fold-toggle').click();const legisId=await legis.locator('h2.ux-section-heading').getAttribute('id');await C.selectOption('#ux-section-select',legisId);

@@ -2,10 +2,10 @@
 // more) and Three peaks (every survey cache of the day dug up on seven days) (emulators).
 //   python3 build.py
 //   npx firebase emulators:exec --project demo-edictum --only auth,firestore,functions,hosting "node test/flag-designs2-e2e.mjs"
-import { OUT, check, finish, until, player, open, found, nav, czSection } from './lib.mjs';
+import { OUT, check, finish, until, player, open, found, nav, czSection, flagStudio, closeFlagStudio } from './lib.mjs';
 const A = await player('flag designs two');
 await open(A); await found(A, 'Peakland');
-const openFlag = async () => { await A.evaluate(() => { G.S.view = 'customise'; G.render(); }); await czSection(A, 'e'); await A.waitForSelector('#c-p-tri-v'); };
+const openFlag = async () => { await A.evaluate(() => { G.S.view = 'customise'; G.render(); }); await flagStudio(A, 'style'); await A.waitForSelector('#c-p-tri-v'); };
 const label = id => A.evaluate(id => { const t = document.querySelector(`[data-ux-unlock="${id}"]`); return t ? t.getAttribute('aria-label') || t.getAttribute('title') || '' : ''; }, id);
 const earned = id => until(() => A.evaluate(id => !!(G.S.nation.ach && G.S.nation.ach[id]), id), 10000);
 
@@ -43,6 +43,7 @@ await A.waitForSelector('#c-flag-save'); await A.evaluate(() => document.querySe
 check('and Save flag flies it, with the unlock recorded for other players', await until(() => A.evaluate(() => G.S.nation.flag && G.S.nation.flag.p === 'embattled' && G.S.nation.cz && (G.S.nation.cz.u || []).includes('fp-embattled'))));
 
 // the achievement cards name the reward
+await closeFlagStudio(A);
 await nav(A, 'achievements'); await new Promise(r => setTimeout(r, 400));
 const rw = await A.evaluate(() => ['my-all', 'eco-svcall7'].map(id => { const c = document.getElementById('ach-' + id), r = c && c.querySelector('.ach-rw'); return r ? r.textContent : ''; }));
 check('the achievement cards name the flag patterns', /Embattled flag pattern/.test(rw[0]) && /Three peaks flag pattern/.test(rw[1]), JSON.stringify(rw));

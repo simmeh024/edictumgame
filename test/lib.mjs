@@ -118,6 +118,15 @@ export async function czSection(p, k) {
   await p.evaluate(h => { if (location.hash !== h) location.hash = h; else window.dispatchEvent(new PopStateEvent('popstate')); }, '#customise/' + CZ_SLUGS[k]);
   await p.waitForSelector('#cz-sec-' + k, { state: 'visible', timeout: 15000 }); await sleep(150);
 }
+/* the flag is designed only in the Flag Studio: open it from Customise › Flag, at a tab (style colour charges var share) */
+export async function flagStudio(p, tab) {
+  await czSection(p, 'e');
+  await p.evaluate(() => document.querySelector('#cz-sec-e [data-fst="open"]').click());
+  await p.waitForSelector('#fg-st:not([hidden]) .cst-bar', { timeout: 15000 });
+  if (tab) await p.evaluate(t => document.querySelector(`#fg-st [data-fst="tab"][data-v="${t}"]`).click(), tab);
+  await sleep(150);
+}
+export async function closeFlagStudio(p) { await p.evaluate(() => { const b = document.querySelector('#fg-st [data-fst="close"]'); if (b) b.click(); }); await sleep(150); }
 export const text = (p, sel) => p.$eval(sel, el => el.textContent.replace(/\s+/g, ' ').trim()).catch(() => '');
 export const sideName = p => text(p, '.side-nm');
 export const localNation = p => p.evaluate(() => JSON.parse(localStorage.getItem('statehood.nation.v1') || 'null'));

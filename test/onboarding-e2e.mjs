@@ -1,7 +1,7 @@
 import path from 'node:path';
 import {execFileSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
-import {OUT,PROJECT,FS_HOST,BASE,check,finish,sleep,until,player,open,found,nav,czSection,localNation,nationDoc,clearEmulators,errors} from './lib.mjs';
+import {OUT,PROJECT,FS_HOST,BASE,check,finish,sleep,until,player,open,found,nav,czSection,localNation,nationDoc,clearEmulators,errors,flagStudio,closeFlagStudio} from './lib.mjs';
 const comparisonReady=async p=>{await p.waitForFunction(()=>{const el=document.querySelector('#hh-account-types'),r=el?.getBoundingClientRect(),bar=document.querySelector('.ux-sections')?.getBoundingClientRect();return r&&r.top>=(bar?.bottom||0)&&r.top<innerHeight/2&&document.activeElement===el&&!document.getAnimations().some(a=>a.playState==='running'&&a.effect?.target?.closest?.('.main'));});await p.evaluate(()=>document.querySelector('#toast')?.style.setProperty('visibility','hidden'));};
 if(!PROJECT.startsWith('demo-'))throw Error('Onboarding tests require demo emulators');
 await clearEmulators();
@@ -55,7 +55,7 @@ await A.screenshot({path:OUT+'/account-types-1280.png'});
 await nav(A,'nation');check('new players see at most three next actions, one of them recommended',await A.locator('.tut-c .tut-pk-r').count()<=3&&await A.locator('.tut-c .tut-pk-r').count()>=1&&await A.locator('.tut-c .tut-pk-r.is-rec').count()===1);
 await A.click('[data-act="account-hint-hide"]');await A.reload();await A.waitForSelector('.layout');
 check('Not now keeps the linking suggestion dismissed after reload',await A.locator('.account-link-card').count()===0);
-await nav(A,'customise');check('flag layers become available after Finish charter',await A.locator('[data-fgg="c:layers"]').count()===1);
+await nav(A,'customise');await flagStudio(A);check('flag layers become available after Finish charter',await A.locator('#fg-st [data-fst="add"]').count()===4);await closeFlagStudio(A);
 await nav(A,'map');check('map planning and transport start out hidden',await A.locator('.mp-map-toolbar').count()===0&&await A.locator('[data-mp-opt="networks"]').count()===0);
 check('returning to the map picks a block again while the first land is unclaimed',await A.evaluate(()=>!!G.S.mapClaim)&&await A.locator('#lc-coach [data-act="lc-block"]').count()===1);
 for(let i=0;i<3&&await A.locator('#lc-coach [data-act="lc-block"]').count();i++){await A.click('#lc-coach [data-act="lc-block"]');await sleep(300);}
@@ -66,7 +66,7 @@ check('a city and three real claims reveal transport and expansion planning',awa
 check('the first claim starts presence',await A.evaluate(()=>G.S.nation.stk?.n===1));
 await nav(A,'issues');check('the edicts page sets three tasks and a rare one for today, with presence below them',await A.locator('.dd .dd-t:not(.dd-rare):not(.dd-fc)').count()===3&&await A.locator('.dd .dd-rare').count()===1&&/day 1/.test(await A.locator('.dd-stk').textContent()));
 await A.evaluate(()=>document.querySelector('#toast')?.style.setProperty('visibility','hidden'));await A.locator('.dd').screenshot({path:OUT+'/daily-desk-1280.png'});await A.evaluate(()=>document.querySelector('#toast')?.style.removeProperty('visibility'));
-await nav(A,'customise');await czSection(A,'e');check('the flag designer lives in Customise',await A.locator('#cz-sec-e #c-fgd').count()===1&&await A.locator('#c-flag-save').count()===1);
+await nav(A,'customise');await czSection(A,'e');check('the flag is designed in the Flag Studio, opened from Customise',await A.locator('#cz-sec-e [data-fst="open"]').count()===1&&await A.locator('#cz-sec-e #c-fgd').count()===0);
 await czSection(A,'s');check('the first day of presence unlocks the indigo stamp in Customise',await A.locator('#cz-st-s-indigo').count()===1);
 await nav(A,'map');check('after the first claims, a quick first building is offered',await A.locator('.ffb .ffb-go').isVisible());
 const ffbK=await A.locator('.ffb .ffb-go').getAttribute('data-k');await A.click('.ffb .ffb-go');

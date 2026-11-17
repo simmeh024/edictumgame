@@ -1,13 +1,13 @@
 // Five more flag patterns: three to choose at once, two earned on the Community Board (a visit, then visits on five
 // different days); the visit is counted once a day (emulators).
-import { OUT, check, finish, until, player, open, found, nav, czSection, localNation, clearEmulators } from './lib.mjs';
+import { OUT, check, finish, until, player, open, found, nav, czSection, localNation, clearEmulators, flagStudio } from './lib.mjs';
 await clearEmulators();
 // the guest recovery dialog opens a few seconds after founding, often while found() is still settling the capital: the
 // player's default handler (test/lib.mjs) acknowledges it whenever it covers a click, so this suite keeps it
 const A = await player('flag designs');
 await open(A); await found(A, 'Bannerland');
 const tile = (p, cls = 'button') => A.$(`${cls === 'button' ? 'button' : '[data-ux-unlock]'}#c-p-${p}`);
-const openFlag = async () => { await A.evaluate(() => { G.S.view = 'customise'; G.render(); }); await czSection(A, 'e'); await A.waitForSelector('#c-p-tri-v'); };
+const openFlag = async () => { await A.evaluate(() => { G.S.view = 'customise'; G.render(); }); await flagStudio(A, 'style'); await A.waitForSelector('#c-p-tri-v'); };
 
 await openFlag();
 check('Pile, Twin waves and Triple chevron can be chosen at once', !!await A.$('#c-p-pile') && !!await A.$('#c-p-wave2') && !!await A.$('#c-p-chev3'));
