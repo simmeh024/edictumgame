@@ -6,6 +6,7 @@
 //        node scripts/ci-browser.mjs --check   (every suite is in one group and its script exists)
 import {readFileSync,appendFileSync,readdirSync,mkdirSync,renameSync,existsSync} from 'node:fs';
 import {spawnSync} from 'node:child_process';
+import path from 'node:path';
 
 const BUILD='python3 build.py && ';
 const suites=JSON.parse(readFileSync(new URL('../test/browser-suites.json',import.meta.url),'utf8'));
@@ -29,7 +30,9 @@ if(problems.length||arg==='--check'){
 
 const group=Number(arg),mine=suites.filter(s=>s.group===group);
 if(!mine.length){console.error(`::error::no browser suites in group ${arg}`);process.exit(1);}
-const sh=(cmd)=>spawnSync(cmd,{shell:'/bin/bash',stdio:'inherit',env:process.env}).status;
+// like npm run: the project's own tools (firebase, playwright) come from node_modules/.bin
+const env={...process.env,PATH:`${path.resolve('node_modules/.bin')}${path.delimiter}${process.env.PATH}`};
+const sh=(cmd)=>spawnSync(cmd,{shell:'/bin/bash',stdio:'inherit',env}).status;
 const pngs=()=>existsSync('test/out')?readdirSync('test/out').filter(f=>f.endsWith('.png')):[];
 
 console.log(`::group::Build the game once for ${mine.length} suites`);
