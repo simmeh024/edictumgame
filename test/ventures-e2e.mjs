@@ -88,7 +88,8 @@ const filed = await until(async () => (await ventures()).find(v => v.a === uidA 
 check('the computer nation agrees at once: the venture is filed and being built', filed && filed.st === 'active' && filed.npc && filed.k === 'road', JSON.stringify(filed));
 check('the player is told', await toastHas(A, /agreed\. Work on the border road has begun/));
 const s1 = await stock(A);
-check('the half left the stockpile', s0.iron - s1.iron >= 118 && s0.food - s1.food >= 240 && s0.goods - s1.goods >= 18, JSON.stringify({ s0, s1 }));
+/* registering can bring a rank gift (RANK_GIFT: 15 iron and 15 goods) in the same save, so iron and goods allow for it */
+check('the half left the stockpile', s0.iron - s1.iron >= 103 && s0.food - s1.food >= 240 && s0.goods - s1.goods >= 3, JSON.stringify({ s0, s1 }));
 check('and is spent, counted for the achievements', await until(() => A.evaluate(() => !G.JV().jvEntries(G.S.nation).length && (G.S.nation.tly || {}).jvj === 1), 15000));
 check('Common Ground is earned', await until(() => A.evaluate(() => !!(G.S.nation.ach || {})['dip-jv1']), 15000));
 await tab(A);
