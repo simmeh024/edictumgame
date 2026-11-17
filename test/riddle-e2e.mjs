@@ -13,7 +13,10 @@ const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const job = (reg, now) => JSON.parse(execFileSync(process.execPath, [path.join(ROOT, 'jobs', 'fx', 'riddle.mjs'), '--project', PROJECT, '--region', reg, '--now', String(now)], { env: process.env, encoding: 'utf8', cwd: ROOT }));
 const admin = async doc => { const r = await fetch(`http://${FS_HOST}/v1/projects/${PROJECT}/databases/(default)/documents/${doc}`, { headers: { authorization: 'Bearer owner' } }); return r.ok ? (await r.json()).fields : null; };
 const watch = p => p.ctx.addInitScript(() => { window.__toasts = []; addEventListener('DOMContentLoaded', () => new MutationObserver(() => { const t = document.getElementById('toast'); if (t && !t.hidden) window.__toasts.push(t.textContent); }).observe(document.body, { subtree: true, childList: true, characterData: true, attributes: true })); });
-const toastHas = (p, re) => until(() => p.evaluate(src => (window.__toasts || []).some(t => new RegExp(src).test(t)), re.source), 30000);
+const toastHas = (p, re) => until(() => p.evaluate(src => (window.__toasts || []).some(t => new RegExp(src).test(t)), re.source), 60000);
+/* the notice queue keeps the newest five, so reward notices (a new nation earns several) can push out one shown just
+   before them: wait until no notice has shown for two seconds before a click whose notice is checked */
+const quiet = async p => { for (let calm = 0, end = Date.now() + 90000; calm < 2 && Date.now() < end; await sleep(1000)) calm = await p.evaluate(() => { const t = document.getElementById('toast'); return !t || t.hidden; }) ? calm + 1 : 0; };
 /* a screenshot of an element the page may draw again meanwhile (the paper refreshes itself): try again on a fresh copy */
 const shot = async (loc, file) => { for (let i = 0; ; i++) { try { return await loc.screenshot({ path: file }); } catch (e) { if (i >= 4 || !/not attached|not visible|stable/i.test(e.message)) throw e; await sleep(500); } } };
 const panelOn = (p, c) => p.evaluate(c => { G.S.mapSel = null; G.S.mapTarget = null; G.S.mapCell = c; G.RVN().updateMapPanel(); }, c);
@@ -51,6 +54,7 @@ await A.click('[data-act="rd-map"]'); await sleep(400);
 check('Look on the map opens the map', await A.evaluate(() => G.S.view === 'map'));
 const wrong = await A.evaluate(() => { const T = G.territory(), x = T.list.find(y => y.id === G.RD().RD.cur.cap); return x.cap; });
 await panelOn(A, wrong);
+await quiet(A);
 await A.click('#map-panel [data-act="rd-ask"]');
 check('the panel asks before it spends a guess', /Answer the riddle of the week with this hex\?/.test(await text(A, '#map-panel')));
 await A.click('#map-panel [data-act="rd-guess"]');
@@ -58,7 +62,7 @@ check('a wrong guess is told so, with the guesses left', await toastHas(A, /Not 
 check('and is kept, and marked on the hex', await until(() => A.evaluate(c => (G.RD().RD.mine?.g || []).includes(c), wrong), 10000) && /It was not the one/.test(await text(A, '#map-panel')));
 
 /* the answer */
-await panelOn(A, answer);
+await panelOn(A, answer); await quiet(A);
 await A.click('#map-panel [data-act="rd-ask"]'); await A.click('#map-panel [data-act="rd-guess"]');
 check('the right hex is found, the first in the region', await toastHas(A, /You found it! You are the 1st/));
 const doc = await until(async () => { const d = await admin('riddles/' + id); return Number(d.n?.integerValue) === 1 ? d : null; }, 10000);
