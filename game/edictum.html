@@ -3133,6 +3133,15 @@ canvas.wr-map:not([data-done]){background:linear-gradient(100deg,var(--sea) 30%,
 .edict-crisis{font:600 10.5px/1.4 var(--f-mono);padding:3px 6px;border-radius:3px;background:var(--down);color:var(--sheet);letter-spacing:.06em;text-transform:uppercase}
 .edict-gamble{font:500 10.5px/1.4 var(--f-mono);padding:2px 6px;border-radius:3px;border:1px solid var(--rule-2);color:var(--ink-2)}
 .issue-item.is-crisis .issue-card{border-color:var(--down);box-shadow:inset 4px 0 0 var(--down)}
+/* the Great Dam's edicts: blue on the desk and on the page */
+:root{--dam-blue:#2a65a8}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--dam-blue:#6aa3e0}}
+:root[data-theme="dark"]{--dam-blue:#6aa3e0}
+.edict-dam{font:600 10.5px/1.4 var(--f-mono);padding:3px 6px;border-radius:3px;background:var(--dam-blue);color:var(--sheet);letter-spacing:.06em;text-transform:uppercase;margin-left:6px}
+.issue-item:has(.edict-dam) .issue-card{border-color:var(--dam-blue);box-shadow:inset 4px 0 0 var(--dam-blue);background:color-mix(in srgb,var(--dam-blue) 7%,var(--sheet))}
+.paper.edict:has(.edict-dam){border-top:5px solid var(--dam-blue)}
+.paper.edict:has(.edict-dam) .h1{color:var(--dam-blue)}
+.wd-ph-r.dam-ed{color:var(--dam-blue)}
 .crs-clock b{color:var(--down);font-weight:650}
 .crs-bar{display:flex;gap:12px;align-items:flex-start;margin:6px 0 18px;padding:12px 14px;border:1px solid var(--down);border-left-width:4px;border-radius:4px;background:color-mix(in srgb,var(--down) 7%,var(--sheet))}
 .crs-bar p{margin:0;max-width:68ch}
@@ -61269,6 +61278,404 @@ achDef('bld','bld-lthtop','g','Top of the Plaque','Be one of the three nations t
 /* the browser tests' window into the lighthouse (EDICTUM_PROBE, LTH) */
 const lthProbe=()=>({state:lthState,give:lthGive,open:lthOpen,openAt:lthOpenAt,land:n=>lthLand(n),rewarded:n=>lthRewarded(n),top:n=>lthTop(n),PH:LTH_PH,N:LTH_N,share:lthShareOf,cap:lthCapOf,
   cell:lthCell,wcell:wndCell,svg:lthSVG,pat:p=>czPatSVG(p,1),reopen:()=>{lthOpenMemo.t=0;lthOpenMemo.v=false;},wndEndAt,reg:()=>REG.id});
+/* ───────── the Great Dam: the region's third wonder, begun once its Great Lighthouse is lit ─────────
+   Built like the lighthouse, from what every player nation keeps in its own record: n.dam = {r: region id, p: {phase:
+   {resource: amount}}, ph: phases it has seen finished, t: last gift, t0: first gift, h: its latest gifts for the
+   happenings, fx: {phase: time} the phases its own gift finished, s: 1 once its share was paid, k: 1-5 its place among the
+   five biggest givers at the opening}. Twenty phases and 22,100 resources, heavy in food and timber early and in oil for
+   the turbines. No nation may give more than DAM_CAP of a phase, so every phase takes at least DAM_HANDS nations. A nation
+   that gives DAM_SHARE of the whole dam (1,105) earns DAM_LAND land credits, and the five biggest givers at the opening earn
+   DAM_TOP more on top (5, 4, 3, 2 and 1), the Floodgate pattern and a place on the plaque. It stands on a river, as far from
+   the lighthouse as the region's rivers allow. Every five phases a dam edict (blue on the desk) reaches every player nation
+   of the region, outside the edict clock. Once open, the tier II works of every nation of the region make DAM_FTR more. */
+const DAM_PH=[
+  ['The survey','Surveyors walk the valley with chains, poles and a great deal of lunch, and agree where the wall should go after only three fights.',{timber:300,goods:100,food:500}],
+  ['Felling the valley','The woods that will one day be under the reservoir come down, and the timber goes into everything the dam needs next.',{timber:400,goods:100,food:450}],
+  ['The workers’ camp','Barracks, a canteen, a bathhouse and a cinema for two thousand workers, who will eat more than anyone planned.',{timber:300,goods:150,food:600}],
+  ['The cofferdam','A temporary wall of timber cribs and clay that pushes the river aside long enough to see what it has been hiding.',{timber:350,iron:100,goods:100,food:500}],
+  ['The diversion tunnel','A tunnel blasted through the valley side, so the river can run round the work instead of through it.',{timber:250,iron:200,oil:100,goods:150,food:450}],
+  ['Clearing the riverbed','Centuries of gravel, boulders, three carts and one very old boot dug out of the dry riverbed, down to the rock.',{timber:200,iron:150,oil:100,goods:200,food:450}],
+  ['Grouting the bedrock','Cement pumped into every crack of the rock, so the water cannot sneak under the wall it is not allowed through.',{timber:150,iron:250,oil:100,goods:250,food:400}],
+  ['The footings','The first concrete is poured, block by block, in a trench as long as a town and as deep as a church.',{timber:200,iron:250,oil:100,goods:300,food:400}],
+  ['The spillway','A great stone chute down the valley side, for the days when the river brings more than the dam can hold.',{timber:150,iron:200,oil:150,goods:400,food:350}],
+  ['The lower wall','The wall climbs out of its trench in courses of concrete, each poured, cooled and inspected by someone with a clipboard.',{timber:150,iron:250,oil:150,goods:350,food:350}],
+  ['The middle wall','Halfway up. The engineers stop saying “if” and start saying “when”, which the accountants find alarming.',{timber:100,iron:250,oil:150,goods:350,food:300}],
+  ['The upper wall','The wall rises above the treetops that are left, and the view from the top is now on postcards.',{timber:100,iron:200,oil:150,goods:450,food:300}],
+  ['The fish ladder','A staircase of pools beside the wall so the river’s fish can still get upstream, built after a strongly worded petition from the fish.',{timber:100,iron:150,oil:150,goods:300,food:300}],
+  ['The penstocks','Four steel pipes as wide as a tram, set into the wall to carry the water down to the turbines.',{timber:50,iron:250,oil:250,goods:350,food:250}],
+  ['The turbine hall','A long hall at the foot of the wall, with a travelling crane, tall windows and a floor polished for visitors.',{timber:80,iron:200,oil:300,goods:350,food:250}],
+  ['The turbines','Four turbines lowered into place by the crane, a centimetre at a time, while nobody in the hall dares to sneeze.',{iron:250,oil:350,goods:450,food:200}],
+  ['Generators and lines','Generators on the turbines and pylons marching out of the valley towards every city of the region.',{timber:70,iron:200,oil:350,goods:350,food:200}],
+  ['The crest road','A road along the top of the wall, wide enough for two carts and a brass band, with lamps every twenty metres.',{timber:50,iron:200,oil:150,goods:300,food:250}],
+  ['The floodgates','Six steel gates on the spillway, each as heavy as a ship, which open with a sound the valley will remember.',{iron:250,oil:250,goods:300,food:150}],
+  ['The opening','The diversion tunnel is closed, the reservoir fills, the floodgates open once for the crowd, and the region has a feast on the crest.',{iron:150,oil:200,goods:300,food:350}]];
+const DAM_N=DAM_PH.length,DAM_LAND=4,DAM_SHARE=0.05,DAM_CAP=0.4,DAM_HANDS=3,DAM_HAP_N=10,DAM_TOP=[5,4,3,2,1],DAM_FTR=0.1;
+const DAM_MEDAL=['gold','silver','bronze','fourth','fifth'];
+const damTot=d=>RES.reduce((s,r)=>s+(DAM_PH[d][2][r]||0),0);
+const DAM_TOTAL=DAM_PH.reduce((s,p,i)=>s+damTot(i),0),DAM_SHARE_AT=Math.ceil(DAM_TOTAL*DAM_SHARE);
+const damCapOf=d=>Math.floor(damTot(d)*DAM_CAP);
+const damName=()=>regText('The Great Dam of the Meridian Reach');
+const damMine=n=>!!(n&&n.dam&&n.dam.r===REG.id);
+const damGave=(w,d)=>{const o=w&&w.p&&w.p[d];return o?RES.reduce((s,r)=>s+num0(o[r]),0):0;};
+const damSum=w=>w&&w.p?Object.keys(w.p).reduce((s,k)=>s+damGave(w,k),0):0;
+const damRes=w=>{const c={};if(w&&w.p)for(const o of Object.values(w.p))for(const r of RES){const v=num0(o&&o[r]);if(v>0)c[r]=(c[r]||0)+v;}return c;};
+/* the region's dam, from every player nation's gifts, phase by phase; ft: when each phase was first seen finished */
+let damMemo={k:'',v:null};
+function damState(){
+  const L=allNations().filter(x=>!x.npc&&x.n&&damMine(x.n));
+  const key=REG.id+'|'+L.map(x=>x.id+':'+x.n.dam.t+':'+(x.n.dam.ph||0)).join(',');if(damMemo.k===key)return damMemo.v;
+  const P=Array.from({length:DAM_N},()=>({})),H=Array.from({length:DAM_N},()=>0),ft=Array.from({length:DAM_N},()=>0),who=[];let floor=0,start=0,end=0;
+  for(const x of L){const w=x.n.dam;floor=Math.max(floor,w.ph||0);let sum=0;
+    for(let i=0;i<DAM_N;i++){const o=w.p&&w.p[i];if(o){let s=0;for(const r of RES){const v=num0(o[r]);if(v>0){P[i][r]=(P[i][r]||0)+v;s+=v;}}if(s>0){H[i]++;sum+=s;}}
+      const f=w.fx&&w.fx[i];if(f>0&&(!ft[i]||f<ft[i]))ft[i]=f;}
+    if(sum>0){const t0=w.t0||w.t||0;who.push({id:x.id,name:x.n.name,me:!!x.me,sum,c:damRes(w),t0});if(t0>0&&(!start||t0<start))start=t0;end=Math.max(end,num0(w.t));}}
+  const full=d=>H[d]>=DAM_HANDS&&RES.every(r=>(P[d][r]||0)+1e-6>=(DAM_PH[d][2][r]||0));
+  let done=Math.min(DAM_N,floor);while(done<DAM_N&&full(done))done++;
+  const need={},cur=done<DAM_N?DAM_PH[done][2]:{};let want=0,have=0;
+  for(const r of RES){const q=cur[r]||0;if(!q)continue;const got=Math.min(q,P[done][r]||0);need[r]=Math.round((q-got)*10)/10;want+=q;have+=got;}
+  who.sort((a,b)=>b.sum-a.sum||a.t0-b.t0||(a.id<b.id?-1:1));
+  /* a phase finished without a recorded finishing gift (a record that left) is dated at the latest gift */
+  for(let i=0;i<done;i++)if(!ft[i])ft[i]=end||start;
+  damMemo={k:key,v:{done,need,frac:want?have/want:1,hands:done<DAM_N?H[done]:0,who,start,end:done>=DAM_N?end:0,ft}};return damMemo.v;
+}
+/* the dam opens once the lighthouse is lit (or someone has already given to it); once open it stays open */
+let damOpenMemo={r:'',v:false,t:0};
+function damOpen(){
+  const now=Date.now();if(damOpenMemo.r===REG.id&&(damOpenMemo.v||now-damOpenMemo.t<1500))return damOpenMemo.v;
+  let v=false;try{v=lthState().done>=LTH_N||damState().who.length>0;}catch(e){v=false;}
+  damOpenMemo={r:REG.id,v,t:now};return v;
+}
+const damDone=()=>{try{return damOpen()&&damState().done>=DAM_N;}catch(e){return false;}};
+const damPhase=()=>{try{return damOpen()?damState().done:0;}catch(e){return 0;}};
+function lthEndAt(){try{if(lthState().done<LTH_N)return 0;return lthState().end||0;}catch(e){return 0;}}
+const damOpenAt=()=>{const a=lthEndAt();if(a)return a;try{return damState().start;}catch(e){return 0;}};
+function damGive(r,amt){
+  const n0=S.nation;if(!n0||n0.npc||OBS||!RES.includes(r))return;
+  if(!damOpen()){toast('The Great Dam waits until the Great Lighthouse is lit.');return;}
+  const W=damState(),d=W.done;if(d>=DAM_N){toast('The dam is already open.');return;}
+  const left=W.need[r]||0;if(left<=0){toast(`This phase needs no more ${resName(r)}.`);return;}
+  const room=damCapOf(d)-(damMine(n0)?damGave(n0.dam,d):0);
+  if(room<1){toast(`${n0.name} has given all it may to this phase: no nation may give more than ${Math.round(DAM_CAP*100)}% of one. The rest must come from other nations.`);return;}
+  const now=Date.now(),st=stockNow(n0,now),give=Math.floor(Math.min(amt,left,room,st[r]));if(give<1){toast(`You have no ${resName(r)} to spare.`);return;}
+  const n=clone(n0);
+  if(n.dam&&!damMine(n)){const x=n.damx||{l:0},k=Math.min(x.k||9,n.dam.k||9);n.damx={l:(x.l||0)+damLandOf(n.dam)};if(k<=5)n.damx.k=k;}
+  const w=damMine(n)?clone(n.dam):{r:REG.id,p:{},ph:0,t:0};
+  st[r]-=give;n.stock=roundStock(st);n.stockAt=now;n._stockSet=true;
+  w.p=Object.assign({},w.p);const pd=w.p[d]=Object.assign({},w.p[d]);pd[r]=Math.round((num0(pd[r])+give)*10)/10;
+  if(!w.t0)w.t0=now;w.t=now;
+  const h=(Array.isArray(w.h)?w.h:[]).map(e=>({...e,c:{...e.c}})),top=h[0];
+  if(top&&!top.f&&top.d===d&&now-top.t<WND_HAP_JOIN){top.c[r]=Math.round((num0(top.c[r])+give)*10)/10;top.t=now;}
+  else h.unshift({t:now,d,c:{[r]:give}});
+  w.h=h.slice(0,DAM_HAP_N);n.dam=w;
+  const got0=damShareCheck(n,now);
+  commit(n);const after=damState();
+  if(after.done>d){const m=clone(S.nation);if(m.dam.h&&m.dam.h[0])m.dam.h[0].f=1;m.dam.fx=Object.assign({},m.dam.fx,{[d]:now});const got=got0.concat(damRaise(m,after.done,now));commit(m);
+    toast(after.done>=DAM_N?`${damName()} is open, and ${n.name} finished it.${got.length?' '+got.join(' '):''}`:`Phase ${after.done} of ${DAM_N} of the dam is finished: ${DAM_PH[d][0].toLowerCase()}. Next: ${DAM_PH[after.done][0].toLowerCase()}.${got.length?' '+got.join(' '):''}`);}
+  else{const mine=damSum(n.dam);
+    toast(`${n.name} gave ${give} ${resName(r)} to ${damName().replace(/^The /,'the ')}.${got0.length?' '+got0.join(' '):mine>=DAM_SHARE_AT?'':` Give ${fmt0(DAM_SHARE_AT-mine)} more in all to earn its ${DAM_LAND} land credits.`}`);}
+  render();
+}
+/* the share: once a nation has given DAM_SHARE of the whole dam, its land credits are paid (s) and noted in its log */
+function damShareCheck(n,now){
+  const w=n.dam;if(!w||w.s||damSum(w)<DAM_SHARE_AT)return [];
+  w.s=1;n.log=n.log||[];n.log.unshift({t:now||Date.now(),k:'damr',a:'s'});n.log=n.log.slice(0,60);return [damShareText()];
+}
+/* a record sees phases finish (ph rises); at the opening its place among the five biggest givers is kept (k) */
+function damRaise(n,d,now){
+  /* also once open for a record that saw the opening first (its ph already 20) and has no place yet */
+  const w=n.dam,was=w.ph||0;if(!(d>was)&&!(d>=DAM_N&&!w.k&&!w.kn))return [];
+  w.ph=Math.max(was,d);const out=[],t=now||Date.now();
+  if(d>=DAM_N&&!w.k){let i=-1;try{i=damState().who.findIndex(x=>x.me);}catch(e){}if(i>=0&&i<5){w.k=i+1;n.log=n.log||[];n.log.unshift({t,k:'damk',a:String(i+1)});n.log=n.log.slice(0,60);out.push(damTopText(i+1));}else if(i>=5)w.kn=1;}
+  return out;
+}
+const damShareText=()=>`${DAM_LAND} land credits for your part in ${damName().replace(/^The /,'the ')}: your nation has given ${fmt0(DAM_SHARE_AT)}, a twentieth of it.`;
+const damTopText=k=>`${damName()} is open, and your nation gave the ${['most','second most','third most','fourth most','fifth most'][k-1]} towards it: its name is on the plaque in ${DAM_MEDAL[k-1]}, with ${DAM_TOP[k-1]} more land credits and the Floodgate pattern in Customise.`;
+const damLandOf=w=>w?(w.s||damSum(w)>=DAM_SHARE_AT?DAM_LAND:0)+(w.k>=1&&w.k<=5?DAM_TOP[w.k-1]:0):0;
+const damLand=n=>n&&!n.npc?(n.dam?damLandOf(n.dam):0)+(n.damx&&Number.isInteger(n.damx.l)?n.damx.l:0):0;
+const damTop=n=>{if(!n||n.npc)return 0;const a=n.dam&&n.dam.k,b=n.damx&&n.damx.k;return Math.min(a>=1&&a<=5?a:9,b>=1&&b<=5?b:9)%9;};
+landEarned=(f=>function(n){return f.apply(this,arguments)+damLand(n);})(landEarned);
+earnedAt=(f=>function(n){return f.apply(this,arguments)+damLand(n);})(earnedAt);
+COMMIT_HOOKS.push((n,prev,now)=>{if(!damMine(n)||n.npc)return [];try{return damShareCheck(n,now).concat(damRaise(n,damState().done,now));}catch(e){return [];}});
+NORM_HOOKS.push((n,d)=>{
+  const w=d&&d.dam;if(!w||typeof w!=='object'||typeof w.r!=='string'||w.r.length>40)return;
+  const tm=v=>typeof v==='number'&&isFinite(v)&&v>0?v:0,amts=o=>{const a={};for(const r of RES){const v=Number(o&&o[r]);if(Number.isFinite(v)&&v>0)a[r]=Math.min(v,50000);}return a;};
+  const o={r:w.r,p:{},ph:Number.isInteger(w.ph)?clamp(w.ph,0,DAM_N):0,t:tm(w.t)};
+  if(w.p&&typeof w.p==='object'&&!Array.isArray(w.p))for(const [k,v] of Object.entries(w.p)){const i=+k;if(!Number.isInteger(i)||i<0||i>=DAM_N||!v||typeof v!=='object')continue;const a=amts(v);if(Object.keys(a).length)o.p[i]=a;}
+  if(tm(w.t0))o.t0=w.t0;
+  if(Array.isArray(w.h)){const h=[];for(const e of w.h.slice(0,DAM_HAP_N)){if(!e||typeof e!=='object'||!tm(e.t))continue;const g=amts(e.c);if(!Object.keys(g).length)continue;
+    const x={t:e.t,d:Number.isInteger(e.d)?clamp(e.d,0,DAM_N-1):0,c:g};if(e.f===1)x.f=1;h.push(x);}if(h.length)o.h=h;}
+  if(w.fx&&typeof w.fx==='object'&&!Array.isArray(w.fx)){const fx={};for(const [k,v] of Object.entries(w.fx)){const i=+k;if(Number.isInteger(i)&&i>=0&&i<DAM_N&&tm(v))fx[i]=v;}if(Object.keys(fx).length)o.fx=fx;}
+  if(w.s===1)o.s=1;
+  if(w.kn===1)o.kn=1;
+  if(Number.isInteger(w.k)&&w.k>=1&&w.k<=5)o.k=w.k;
+  n.dam=o;
+});
+NORM_HOOKS.push((n,d)=>{const x=d&&d.damx;if(!x||typeof x!=='object')return;n.damx={l:Number.isInteger(x.l)?clamp(x.l,0,99):0};if(Number.isInteger(x.k)&&x.k>=1&&x.k<=5)n.damx.k=x.k;});
+
+/* ── the opened dam powers the region: every tier II works of a nation of the region makes DAM_FTR more ── */
+const damFtrMemo=new Map();
+bEff=(f=>function(k,t,ln){
+  const v=f.apply(this,arguments);if(!(t>=2)||!v||!v.res||!damDone())return v;
+  const key=k+'|'+t+'|'+ln;let w=damFtrMemo.get(key);
+  if(!w||w.base0!==v){const res={};for(const [r,a] of Object.entries(v.res))res[r]=Array.isArray(a)?a.map(x=>Math.round(x*(1+DAM_FTR)*100)/100):a;w=Object.assign({},v,{res,dam:1,base0:v});damFtrMemo.set(key,w);}
+  return w;
+})(bEff);
+
+/* ── the Floodgate: a card pattern for the five biggest givers, earned no other way ── */
+UNLOCKS['p-flood']={k:'pattern',n:'Floodgate',src:'wonder'};
+UNLOCK_SOURCES.push({earned:n=>damTop(n)?['p-flood']:[],how:id=>id==='p-flood'?'Be one of the five nations that gave the most to your region’s Great Dam when it opens.':null});
+uxUnlockInfo=(f=>function(id){return id==='p-flood'?{label:'Visit the dam',view:'wonder',target:'.wd-who'}:f.apply(this,arguments);})(uxUnlockInfo);
+czPatSVG=(f=>function(p,seed,mini){
+  if(p!=='p-flood')return f.apply(this,arguments);
+  /* a curved dam wall on the right, its six gates open, water falling in sheets and spreading into ripples to the left */
+  let rip='';for(let i=0;i<6;i++){const y=230+i*14;rip+=`M${40+i*30},${y}q40,-8 80,0t80,0t80,0t80,0`;}
+  let gates='',falls='';for(let i=0;i<6;i++){const x=720+i*38;gates+=`M${x},96h24v18h-24Z`;falls+=`M${x+2},114C${x-6},170 ${x-30},200 ${x-60},226M${x+22},114C${x+16},170 ${x-4},204 ${x-34},230`;}
+  return `<svg class="czp${mini?' mini':''}" viewBox="0 0 1000 320" preserveAspectRatio="xMaxYMid slice" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1" stroke-linejoin="round">`
+    +`<path d="M690,80Q860,64 1000,80V96H690Z" fill="currentColor" fill-opacity=".14"/><path d="M690,96H1000V114H690Z" fill="currentColor" fill-opacity=".08"/>`
+    +`<path d="${gates}" fill="currentColor" fill-opacity=".22"/><path d="${falls}" stroke-opacity=".55"/>`
+    +`<path d="M0,228H1000V320H0Z" fill="currentColor" fill-opacity=".06" stroke="none"/><path d="${rip}" stroke-opacity=".45"/>`
+    +`<path d="M690,80V60M760,72V52M830,68V48M900,68V48M970,72V52M690,60Q830,40 1000,60" stroke-opacity=".5"/></g></svg>`;
+})(czPatSVG);
+
+/* ── the dam edicts: one every five phases, blue on the desk, to every player nation of the region ── */
+const DAM_ISSUES=[
+{id:'dam-valley',c:'society',dam:1,at:5,t:'The Valley Must Be Flooded',q:'The Great Dam is five phases along, and the engineers have published the map nobody wanted to see: when the reservoir fills, it will drown the meadows of the upper valley and the village of Lower Wending, with its church, its pub and two hundred families. Some of them are {D}. The families have written to {CAP}, very politely, asking what exactly {N} intends to do about it.',o:[
+ {t:'“Pay them properly, and pay them first,” says Welfare Minister Rosalind Ferrabee. “Every family gets the price of its house and its land, and a little more for the trouble. A wonder should not be built on anyone’s grudge.”',h:'paid the families of Lower Wending',e:{happy:3,equal:2,econ:-2,tax:1,dmst:{goods:-60}},fx:'{N} paid every family of Lower Wending the price of its home and a little more, out of the national stores'},
+ {t:'“Move them by decree and be done with it,” says Interior Minister {INT}. “The dam is for the whole region. A village is a village; there are others.”',h:'moved the village by decree',e:{econ:2,civil:-3,happy:-3,safety:1},fx:'{N} moved the families of Lower Wending by decree, and the village held a last, very angry fête'},
+ {t:'“Build them a new town upstream, above the waterline,” says architect Imelda Saxthorpe. “Same church, same pub, stone by stone, with a view of the reservoir. In ten years they will thank us.”',h:'built a new Wending above the waterline',e:{happy:2,culture:2,econ:-1,dmst:{timber:-80}},fx:'{N} rebuilt Lower Wending stone by stone above the waterline, and called it Upper Wending'}]},
+{id:'dam-cracks',c:'science',dam:1,at:10,t:'Cracks in the Foundation',q:'Ten phases in, an engineer has found water seeping through hairline cracks at the foot of the Great Dam’s lower wall. It is not much water, and the senior engineer says it is perfectly normal, but she said so while backing slowly away from it. Every nation of the region has been asked how it would like the matter handled, and the {D} newspapers are already printing diagrams.',o:[
+ {t:'“Pour more concrete, a lot more,” says Public Works Minister {WRK}. “Seal every crack twice and grout behind it. If we are going to be wrong, let us be wrong with extra concrete.”',h:'sent iron and goods to seal the cracks',e:{safety:3,sci:1,econ:-1,dmst:{iron:-40,goods:-40}},fx:'{N} sent iron and goods to seal the cracks in the Great Dam twice over, and the seepage stopped'},
+ {t:'“Let it settle and watch it,” says geologist Hamish Oyelaran-Ross. “New concrete always weeps a little. Measure it every morning, and only panic if the numbers do.”',h:'decided to watch the cracks',e:{sci:2,econ:1,safety:-2},fx:'{N} told the dam’s engineers to measure the seepage every morning, and they are still measuring it'},
+ {t:'“Hire the best foreign engineers money can buy,” says consulting engineer Margarethe Okonkwo-Lindqvist. “They will find what ours missed, and charge us for the privilege.”',h:'hired foreign engineers',e:{sci:3,safety:2,econ:-2,tax:1},fx:'{N} hired foreign engineers to inspect the Great Dam, who found three more cracks and an invoice'}]},
+{id:'dam-water',c:'econ',dam:1,at:15,t:'Who Gets the Water?',q:'Fifteen phases in, the reservoir behind the Great Dam is already filling, and every nation of the region wants its share: farmers want irrigation canals, factories want cheap electricity, and the cities want both, at once, for free. The regional water board has asked each nation to send it a proposal by Friday. {N} has been sent four forms, three of them in triplicate.',o:[
+ {t:'“Farms first,” says Agriculture Minister Gwenllian Ashdown-Paterson. “Water the fields, feed the people. Nobody ever starved for want of electricity.”',h:'asked for the water to go to the farms',e:{health:2,happy:1,env:1,dmst:{food:120}},fx:'{N} won irrigation canals from the Great Dam, and its harvest came in early'},
+ {t:'“Factories first,” says Finance Minister {FIN}. “Cheap power keeps the works running day and night. The fields can have what is left.”',h:'asked for the power to go to the factories',e:{econ:3,wealth:1,env:-2,dmst:{goods:80}},fx:'{N} won cheap power from the Great Dam for its factories, which now run all night'},
+ {t:'“A fair quota for everyone, agreed with our neighbours,” says diplomat Anselm Verhoeven-Kaur. “Less for us than we could grab, and no quarrel over it for a hundred years.”',h:'proposed a fair quota for every nation',e:{pol:1,happy:1,equal:2,dmst:{food:50,goods:30}},fx:'{N} proposed a fair water quota for every nation of the region, and the water board adopted it word for word'}]},
+{id:'dam-floodgates',c:'culture',dam:1,at:20,t:'Opening the Floodgates',q:'The Great Dam is finished. Tomorrow the floodgates open for the first time, the turbines turn and the lights come on in every city of the region at once, if the wiring holds. Every nation has been offered a place on the crest for the ceremony, and the organisers want to know what {N} will bring.',o:[
+ {t:'“A grand ceremony,” says festival director Ottoline Brackenridge. “A feast on the crest, a brass band, fireworks over the reservoir, and our flag on the tallest pole.”',h:'threw a grand feast on the crest',e:{happy:4,culture:2,tour:2,dmst:{food:-150}},fx:'{N} threw the grandest feast on the crest of the Great Dam, and the fireworks lit the reservoir'},
+ {t:'“Send the minister, shake the hands, come home,” says Finance Minister {FIN}. “It is a wall with water behind it. We have seen water.”',h:'sent a minister and went home',e:{econ:1,cons:1},fx:'{N} sent one minister to the opening of the Great Dam, who left before the speeches'},
+ {t:'“Name the turbines after the nations that gave the most,” says historian Leopold Whitcombe-Nakamura. “Let the names turn for a hundred years, and let ours be one of them.”',h:'proposed naming the turbines after the top builders',e:{culture:3,pol:1,happy:1},fx:'{N} proposed naming the Great Dam’s turbines after the nations that gave the most, and the plaque now has a second line'}]}];
+for(const is of DAM_ISSUES){is.fo=1;ISSUES.push(is);is.no=ISSUES.length;ISSUE_BY_ID[is.id]=is;is.nbx=false;}
+/* a dam edict's stock effect (dmst): what the nation sends or receives, never below nothing */
+applyEffects=(f=>function(n,e){
+  if(e&&e.dmst&&n&&!n.npc){const now=Date.now(),st=stockNow(n,now);for(const [r,v] of Object.entries(e.dmst))if(RES.includes(r))st[r]=Math.max(0,num0(st[r])+v);
+    n.stock=roundStock(st);n.stockAt=now;n._stockSet=true;e=Object.assign({},e);delete e.dmst;}
+  return f.call(this,n,e);
+})(applyEffects);
+/* due: a dam edict whose phase the region has finished, which this nation has neither on its desk nor seen; it lands
+   dated when that phase finished, outside the edict clock (only if the desk has room for it to stay) */
+function damDue(n){
+  if(!n||n.npc||OBS||!Array.isArray(n.inbox)||!(n.founded>0)||!damOpen())return [];
+  let L;try{L=damState();}catch(e){return [];}if(L.done<5)return [];
+  const seen=issLast(n),on=new Set(n.inbox.map(x=>x.id));
+  return DAM_ISSUES.filter(is=>L.done>=is.at&&!on.has(is.id)&&!seen.has(is.id)).map(is=>({id:is.id,at:Math.max(n.founded,L.ft[is.at-1]||Date.now())}));
+}
+syncInbox=(f=>function(n,now){
+  const m=f.apply(this,arguments),due=damDue(m);if(!due.length)return m;
+  const out=m===n?clone(m):m;for(const x of due)if(deskN(out.inbox)<EDICT_KEEP)out.inbox.push(x);return out;
+})(syncInbox);
+edictTopicBadge=(f=>function(is){return f.apply(this,arguments)+(is&&is.dam?'<span class="edict-dam">Great Dam</span>':'');})(edictTopicBadge);
+/* what each nation chose, in the region's happenings */
+HAP_SOURCES.push((x,now)=>{const n=x&&x.n;if(!n||n.npc||!damMine(n)||!Array.isArray(n.answered))return [];
+  const nm=nationLink(x.id,n.name,x.me),out=[];
+  for(const a of n.answered){const is=ISSUE_BY_ID[a.id];if(!is||!is.dam||!(a.o>=0)||!(a.t<=now))continue;const o=is.o[a.o];if(o&&o.h)out.push({t:a.t,txt:`On the Great Dam’s “${esc(is.t)}”, ${nm} ${esc(o.h)}.`});}
+  return out;});
+
+/* ── drawing: the dam, phase by phase, in a 240 × 320 box. The valley and the river are always there; finished parts are
+   solid, the part being built fills from the bottom as its phase fills, and later ones are faint outlines ── */
+const DAM_PARTS=[
+  {y:[284,300],d:'M14,300V286H40V300ZM44,300V290H58V300Z'},
+  {y:[270,286],d:'M190,286L196,270L202,286ZM206,286L212,272L218,286ZM222,286L228,268L234,286Z'},
+  {y:[270,300],d:'M10,284V272H46V284ZM12,270L28,262L44,270Z'},
+  {y:[278,300],d:'M66,300V280H82V300ZM158,300V280H174V300Z'},
+  {y:[262,300],d:'M178,300V268A10,10 0 0 1 198,268V300Z'},
+  {y:[294,300],d:'M84,300V294H156V294V300Z'},
+  {y:[288,294],d:'M84,294V288H156V294Z'},
+  {y:[276,288],d:'M80,288V276H160V288Z'},
+  {y:[226,290],d:'M162,290L170,226H182L176,290Z'},
+  {y:[246,276],d:'M84,276L88,246H152L156,276Z'},
+  {y:[214,246],d:'M88,246L92,214H148L152,246Z'},
+  {y:[186,214],d:'M92,214L95,186H145L148,214Z'},
+  {y:[200,286],d:'M60,286L64,276H70L74,266H80L84,256H88V286Z'},
+  {y:[214,276],d:'M100,276V214M110,276V214M120,276V214M130,276V214',pipe:1},
+  {y:[262,286],d:'M92,300V280H148V300ZM92,280L120,266L148,280Z'},
+  {y:[282,296],d:'M100,296a6,6 0 1 1 12,0ZM114,296a6,6 0 1 1 12,0ZM128,296a6,6 0 1 1 12,0Z'},
+  {y:[150,250],d:'M200,250L210,150L220,250ZM205,200H215M207,175H213',pipe:1},
+  {y:[178,186],d:'M90,186V178H150V186Z'},
+  {y:[190,226],d:'M165,226V194H181V226ZM167,206H179M167,216H179'}];
+function damSVG(done,frac,o){
+  o=o||{};const id='dm'+(++czSeq),open=done>=DAM_N;
+  /* the reservoir rises behind the wall from phase 15, full once open */
+  const lvl=open?192:done>=15?250-(done-15+(done===DAM_N-1?frac:0))*10:300;
+  const shape=(p,cls)=>p.pipe?`<path d="${p.d}" class="wd-p ${cls}" fill="none" stroke="#4a5052" stroke-width="3"/>`:`<path d="${p.d}" class="wd-p ${cls}" fill="url(#${id}c)" stroke="#5c5e58"/>`;
+  let body='';
+  DAM_PARTS.forEach((p,i)=>{
+    if(i<done)body+=shape(p,'wd-on');
+    else if(i===done){const cut=p.y[1]-(p.y[1]-p.y[0])*frac;
+      body+=`<path d="${p.d}" class="wd-ghost"${p.pipe?' fill="none"':''}/><clipPath id="${id}k${i}"><rect x="0" y="${cut.toFixed(1)}" width="240" height="320"/></clipPath><g clip-path="url(#${id}k${i})">${shape(p,'wd-on')}</g>`;}
+    else body+=`<path d="${p.d}" class="wd-ghost"${p.pipe?' fill="none"':''}/>`;});
+  let crane='';if(done>=7&&done<DAM_N-1)crane=`<g class="wd-crane"><path d="M30,286V60M23,286H37M30,64H120M30,64L46,80M120,64V${Math.max(150,lvl-60)}"/><rect x="116" y="${Math.max(150,lvl-60)}" width="8" height="6"/></g>`;
+  let crowd='';const ppl=open?14:done===DAM_N-1?Math.round(14*frac):0;
+  for(let i=0;i<ppl;i++){const x=94+(i*17%52),h=6;crowd+=`<g class="wd-ppl" transform="translate(${x},${172})"><circle cx="0" cy="0" r="2"/><path d="M-2.5,${h}C-2.5,3 2.5,3 2.5,${h}Z"/></g>`;}
+  const spill=open?`<path d="M168,226C160,250 150,280 140,300M176,226C170,256 162,284 154,300" stroke="#e9f4fb" stroke-width="2.4" fill="none" opacity=".85"/>`:'';
+  const lab=o.label||`${damName()}: ${open?'open':`phase ${done+1} of ${DAM_N}, ${Math.floor(frac*100)}% built`}`;
+  return `<svg class="wd-svg${o.cls?' '+o.cls:''}" viewBox="0 0 240 320" role="img" aria-label="${esc(lab)}"><defs>
+    <linearGradient id="${id}s" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#cfe2ec"/><stop offset="1" stop-color="#eef1ea"/></linearGradient>
+    <linearGradient id="${id}w" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5d93b8"/><stop offset="1" stop-color="#2f5f82"/></linearGradient>
+    <linearGradient id="${id}c" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#e2e0d6"/><stop offset="1" stop-color="#b4b2a6"/></linearGradient></defs>
+    <rect width="240" height="320" fill="url(#${id}s)"/>
+    <path d="M0,150L40,120L70,170L90,140V320H0Z" fill="#9aa88a" stroke="#6b7760"/><path d="M150,140L180,110L210,150L240,130V320H150Z" fill="#9aa88a" stroke="#6b7760"/>
+    ${lvl<300?`<path d="M90,${lvl}H150V184H90Z" fill="url(#${id}w)" opacity=".0"/><rect x="0" y="${lvl}" width="90" height="${300-lvl}" fill="url(#${id}w)" opacity=".75"/>`:''}
+    <path d="M0,300H240V320H0Z" fill="#7d8d6c"/><path d="M60,320C90,306 120,304 140,300C160,296 190,304 240,302V320Z" fill="url(#${id}w)"/>
+    ${body}${crane}${spill}${crowd}</svg>`;
+}
+
+/* ── the page: the dam being built, its rules, the plaque, and the region's past projects below ── */
+const damMedal=k=>k>=1&&k<=5?`<span class="wd-mt wd-mt${Math.min(k,3)}">${cap1(DAM_MEDAL[k-1])}</span>`:'';
+function damPlaque(L,open){
+  if(!L.who.length)return '<p class="hint">No nation has given anything yet. The first gift puts your name at the top of the plaque.</p>';
+  return `<ol class="wd-who">${L.who.slice(0,12).map((x,i)=>`<li class="${x.me?'me ':''}${i<3?'wd-m'+(i+1):''}"><span>${nationLink(x.id,x.name,x.me)}${i<5?' '+damMedal(i+1):''}</span><span class="hint">${esc(costText(Object.fromEntries(RES.filter(r=>x.c[r]>0).map(r=>[r,Math.round(x.c[r])]))))}</span></li>`).join('')}</ol>${L.who.length>12?`<p class="hint">And ${L.who.length-12} more.</p>`:''}
+    <p class="hint">${open?'The five biggest givers when the floodgates opened are named on the plaque, and have the Floodgate pattern for their nation card.':`When the floodgates open, the five biggest givers are named on the plaque and earn ${list(DAM_TOP.map(String))} more land credits, and the Floodgate pattern for their nation card, which nothing else gives.`}</p>`;
+}
+function damView(now){
+  const n=S.nation;if(!n)return '';const L=damState(),open=L.done>=DAM_N,d=L.done,st=stockNow(n,now),mine=L.who.find(x=>x.me);
+  const my=i=>damMine(n)?damGave(n.dam,i):0,tot=damMine(n)?damSum(n.dam):0;
+  const ph=DAM_PH.map(([t,ds,c],i)=>{const s=i<d?'done':i===d?'now':'later',g=my(i),ed=DAM_ISSUES.find(x=>x.at===i+1);
+    return `<li class="wd-ph ${s}"><span class="wd-ph-n num" aria-hidden="true">${i<d?'✓':i+1}</span><span class="wd-ph-b"><b>${esc(t)}</b><span class="hint">${esc(ds)}</span><span class="wd-ph-c">${esc(costText(c))}</span>${g>0?`<span class="wd-ph-r">You gave ${fmt0(g)}</span>`:''}${ed?`<span class="wd-ph-r dam-ed">When it is finished: the dam edict “${esc(ed.t)}” for every nation of the region</span>`:''}${s==='now'?`<span class="bar" role="img" aria-label="${Math.floor(L.frac*100)}% built"><i style="width:${(L.frac*100).toFixed(1)}%"></i></span>`:''}</span></li>`;}).join('');
+  let give='';
+  if(!open&&!OBS){const g=my(d),cap=damCapOf(d),room=Math.max(0,cap-g);
+    const rows=RES.filter(r=>(L.need[r]||0)>0).map(r=>{const left=L.need[r],have=Math.floor(st[r]),b=(k,l)=>{const v=Math.min(k,left,have,room);return `<button type="button" class="btn ${k===Infinity?'':'ghost '}sm" data-act="dm-give" data-r="${r}" data-v="${k===Infinity?'max':k}"${v<1?' disabled':''}>${l}</button>`;};
+      return `<div class="wd-give"><span class="wd-gr"><b>${esc(cap1(resName(r)))}</b><span class="hint">${fmtAmt(left)} still needed · you have ${have}</span></span><span class="wd-gb">${b(10,'Give 10')}${b(50,'Give 50')}${b(Infinity,'Give what I can')}</span></div>`;}).join('');
+    give=`<section class="wd-box"><h2 class="h2">Give to this phase</h2>
+      <p class="hint dm-share">You have given ${fmt0(tot)} to the dam in all. ${tot>=DAM_SHARE_AT?`That is your share: ${DAM_LAND} land credits are yours.`:`Give ${fmt0(DAM_SHARE_AT-tot)} more in all to earn its ${DAM_LAND} land credits.`} ${room>0?`You may give ${fmt0(room)} more to this phase; no nation may give more than ${fmt0(cap)}.`:'That is all one nation may give to this phase; the rest must come from other nations.'}</p>
+      <p class="hint dm-hands">${L.hands?`${L.hands===1?'One nation has':`${L.hands} nations have`} given to this phase`:'No nation has given to this phase yet'}${L.hands<DAM_HANDS?`: it needs at least ${DAM_HANDS} before it can be finished`:''}.</p>${rows}</section>`;}
+  else if(!open)give=`<section class="wd-box"><h2 class="h2">Gifts</h2><p class="hint">The players of ${esc(REG.the)} give to this phase from here. Observing, you see the dam as they do.</p></section>`;
+  const k=damTop(n),fin=open?`<section class="wd-box"><h2 class="h2">Open</h2><p>The Great Dam holds back its reservoir in ${esc(REG.the)}, and its turbines light every city of the region. Every tier II works of the region makes ${Math.round(DAM_FTR*100)}% more. ${mine?`${esc(n.name)} is on the plaque${k?`, in ${DAM_MEDAL[k-1]} place, and the Floodgate pattern is in Customise`:''}.`:'Your nation gave nothing towards it, which the turbine-hall guides mention on every tour.'}</p></section>`:'';
+  return `<header class="vh"><p class="eyebrow">A wonder of ${esc(REG.the)}</p><h1>${esc(damName())}</h1><p>With the Great Lighthouse lit, the Office of Monuments has turned inland, to a river far from the coast. The dam is three times the size of the lighthouse and built in twenty phases. No nation may give more than ${Math.round(DAM_CAP*100)}% of a phase, so every phase needs at least ${DAM_HANDS} nations.</p></header>${open?'':c3Strip(n,now)}
+  <div class="wd-grid">
+    <figure class="wd-fig paper">${damSVG(d,L.frac,{cls:'wd-big'})}<figcaption><span class="lbl">${open?'Open':`Phase ${d+1} of ${DAM_N}`}</span><b>${esc(open?'Open, and the turbines are turning':DAM_PH[d][0])}</b>${open?'':`<span class="hint">${Math.floor(L.frac*100)}% of this phase is built.</span>`}</figcaption></figure>
+    <div class="wd-side">
+      ${fin}${give}
+      <section class="wd-box dm-rules"><h2 class="h2">How it is built</h2><ul class="lt-rl">
+        <li>Twenty phases, from the survey to the opening: ${fmt0(DAM_TOTAL)} resources in all, with a great deal of food and timber at the start and oil for the turbines.</li>
+        <li>No nation may give more than ${Math.round(DAM_CAP*100)}% of a phase, so it takes at least ${DAM_HANDS} nations to finish one.</li>
+        <li>Every nation that gives at least ${fmt0(DAM_SHARE_AT)} in all (a twentieth of the dam) earns ${DAM_LAND} land credits.</li>
+        <li>When the floodgates open, the five biggest givers earn ${list(DAM_TOP.map(String))} more land credits, a place on the plaque and the Floodgate pattern.</li>
+        <li>Every five phases, a dam edict reaches the desk of every nation of the region, in blue.</li>
+        <li>Once open, every tier II works of the region makes ${Math.round(DAM_FTR*100)}% more.</li></ul></section>
+      <section class="wd-box"><h2 class="h2">The plaque</h2>${damPlaque(L,open)}</section>
+    </div>
+  </div>
+  <section class="wd-box wd-phs"><h2 class="h2">Twenty phases</h2><ol class="wd-phl">${ph}</ol></section>
+  ${lthPast(n)}${wndPast(n).replace('<h2 class="h2">Past projects</h2>','').replace(' id="wd-past"','')}`;
+}
+/* the lit lighthouse, among the past projects */
+function lthPast(n){
+  let L;try{L=lthState();}catch(e){return '';}if(L.done<LTH_N)return '';
+  const mine=L.who.find(x=>x.me),k=lthTop(n),rew=lthRewarded(n).length;
+  return `<section class="wd-box wd-past" id="wd-past"><h2 class="h2">Past projects</h2>
+    <article class="wd-pp"><div class="wd-pp-fig">${lthSVG(LTH_N,1,{label:`${lthName()}: lit`})}</div><div class="wd-pp-b">
+      <h3 class="h3">${esc(lthName())}</h3><p class="hint">Lit${L.end?' on '+fmtDate(L.end):''} · ${LTH_N} phases · ${L.who.length===1?'one nation':L.who.length+' nations'} on the plaque.</p>
+      <p>${mine?`${esc(n.name)} gave ${esc(costText(Object.fromEntries(RES.filter(r=>mine.c[r]>0).map(r=>[r,Math.round(mine.c[r])]))))}${rew?`, which earned it ${LTH_LAND*rew} land credits`:''}${k?`, and is on the plaque in ${LTH_MEDAL[k-1]}`:''}.`:'Your nation gave nothing towards it.'}</p>
+      <details class="wd-pd"><summary>The plaque</summary>${lthPlaque(L,true)}</details>
+    </div></article></section>`;
+}
+VIEWS_EXT.wonder=(f=>now=>damOpen()?damView(now):f(now))(VIEWS_EXT.wonder);
+document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-act="dm-give"]');if(!el||!S.nation)return;damGive(el.dataset.r,el.dataset.v==='max'?Infinity:+el.dataset.v);});
+const DAM_ICON=NAV_SVG('<path d="M3 20.5h18"/><path d="M6 20.5 7.5 7h9L18 20.5"/><path d="M7 11h10M6.6 15h10.8"/><path d="M9.5 7v13.5M14.5 7v13.5"/><path d="M3 9c1.5-1 3-1 4.5 0"/>');
+Object.defineProperty(NAV_LABELS,'wonder',{get:()=>damOpen()?'Great Dam':lthOpen()?'Great Lighthouse':'Great Statue',enumerable:true,configurable:true,set(){}});
+Object.defineProperty(NAV_ICONS,'wonder',{get:()=>damOpen()?DAM_ICON:lthOpen()?LTH_ICON:WND_ICON,enumerable:true,configurable:true,set(){}});
+NAV_WORDS.wonder+=' dam reservoir river turbine floodgate';
+Object.defineProperty(OFFICES['office-monuments'],'go',{get:()=>['wonder',damOpen()?'Visit the dam':lthOpen()?'Visit the lighthouse':'Visit the statue'],enumerable:true,configurable:true,set(){}});
+rgnStatueCard=(f=>function(){
+  if(!damOpen())return f.apply(this,arguments);let L;try{L=damState();}catch(e){return '';}
+  const open=L.done>=DAM_N,pct=Math.max(0,Math.min(100,Math.round((L.done+(open?0:L.frac))/DAM_N*100))),link=!OBS&&!!S.nation&&pgAvailable(S.nation,'wonder');
+  return `<section class="rgn-card" aria-labelledby="rgn-st-h"><p class="eyebrow">Region wonder</p><h2 class="h3" id="rgn-st-h">${esc(damName())}</h2>
+    <p>${open?'Open, and the turbines are turning.':`Phase ${L.done+1} of ${DAM_N}: ${esc(DAM_PH[L.done][0].replace(/^The /,'the '))}.`}</p>
+    <div class="rgn-bar" role="progressbar" aria-label="How far the dam has risen" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><i style="width:${pct}%"></i></div>
+    <p class="hint">${pct}% built${L.who.length?` · ${L.who.length} ${L.who.length===1?'nation has':'nations have'} given towards it`:' · no nation has given towards it yet'}. The Great Statue and the Great Lighthouse are finished.</p>
+    ${link?`<button type="button" class="linkish small" data-act="go" data-v="wonder">${open?'See the Great Dam':'Give towards it'}</button>`:''}</section>`;
+})(rgnStatueCard);
+
+/* ── on the map: the dam stands on a river hex (not a stream), as far from the lighthouse as the region's rivers allow,
+   by a lake if one is near. Asked again until the rivers are ready ── */
+let damCellMemo={m:null,c:-1};
+function damCell(){
+  if(damCellMemo.m===MAP)return damCellMemo.c;let R=null;try{R=rvData();}catch(e){R=null;}if(!R)return -1;
+  const from=(()=>{try{const c=lthCell();return c>=0?c:wndCell();}catch(e){return -1;}})();
+  let best=-1,bs=-Infinity;
+  for(const [c,rid] of R.at){const rv=R.list[rid];if(!rv||rv.kind==='stream'||MAP.T[c]<2||MAP.T[c]===4)continue;
+    let lake=false;for(let k=0;k<6&&!lake;k++){const j=MAP.nbr[c*6+k];if(j>=0&&(isLake(j)||(R.lakeAt&&R.lakeAt.has(j))))lake=true;}
+    const dd=from>=0?Math.sqrt((MAP.cx[c]-MAP.cx[from])**2+(MAP.cy[c]-MAP.cy[from])**2):0,sc=dd*(lake?1.15:1)+(rv.kind==='main'?1e-3:0);
+    if(sc>bs||(sc===bs&&c<best)){bs=sc;best=c;}}
+  damCellMemo={m:MAP,c:best};return best;
+}
+MAP_LAYERS.push({stage:'top',kinds:['main','visit'],draw:M=>{
+  if(!damOpen())return;const c=damCell();if(c<0)return;const [x,y]=M.scr(c);if(x<-60||y<-50||x>M.w+60||y>M.h+30)return;
+  const L=damState(),open=L.done>=DAM_N,g=M.g,H=4+10*Math.min(1,L.done/(DAM_N-1));
+  g.save();g.translate(x,y);g.lineJoin='round';g.strokeStyle=M.col.ink;g.lineWidth=1;
+  if(L.done>=15||open){g.fillStyle='rgba(70,130,180,.55)';g.beginPath();g.ellipse(-12,-H/2,10,5+H/3,0,0,Math.PI*2);g.fill();}
+  g.fillStyle=L.done>=8?'#d9d6cb':M.col.sheet;g.beginPath();g.moveTo(-3,-H);g.lineTo(3,-H);g.lineTo(6,1);g.lineTo(-6,1);g.closePath();g.fill();g.stroke();
+  if(open){g.strokeStyle='#e9f4fb';g.lineWidth=1.6;g.beginPath();g.moveTo(4,-H+3);g.quadraticCurveTo(9,-2,12,2);g.stroke();}
+  else{g.globalAlpha=0.55;g.beginPath();g.moveTo(-8,1);g.lineTo(-8,-H-3);g.moveTo(8,1);g.lineTo(8,-H-3);g.moveTo(-8,-H+3);g.lineTo(8,-H+3);g.stroke();g.globalAlpha=1;}
+  if(M.s*HEX_W>=13){g.font='italic 600 11.5px '+MAP_FONT;g.textAlign='left';g.fillStyle=M.col.ink;g.fillText(open?'The Great Dam':`The Great Dam · ${L.done}/${DAM_N}`,10,-H/2+2);}
+  g.restore();
+}});
+MAP_TIP.push(ctx=>ctx.cell>=0&&(ctx.kind==='main'||ctx.kind==='visit')&&damOpen()&&ctx.cell===damCell()?(()=>{const d=damState().done;return `${damName()} · ${d>=DAM_N?'open':`phase ${d+1} of ${DAM_N}`}`;})():null);
+MAP_PANEL.push(ctx=>{if(ctx.cell==null||!damOpen()||ctx.cell!==damCell())return '';const L=damState();
+  return `<div class="wd-pn"><p class="eyebrow">A wonder of the region</p><p><b>${esc(damName())}</b>: ${L.done>=DAM_N?'open.':`phase ${L.done+1} of ${DAM_N}, ${Math.floor(L.frac*100)}% built.`}</p><div class="row"><button type="button" class="btn ghost" data-act="go" data-v="wonder">Visit the dam</button></div></div>`;});
+MAP_LEGEND.push(()=>damOpen()?`<span class="lg"><svg width="16" height="14" viewBox="0 0 16 14" aria-hidden="true"><ellipse cx="4" cy="8" rx="4" ry="4" fill="rgba(70,130,180,.55)"/><path d="M6 13 7.5 3h3L12 13Z" fill="#d9d6cb" stroke="currentColor" stroke-width=".8"/></svg>The Great Dam</span>`:'');
+
+/* ── notices: the share, the place on the plaque, and a phase finished ── */
+NOTIF_SOURCES.push(n=>(n.log||[]).filter(l=>(l.k==='damr'&&l.a==='s')||(l.k==='damk'&&+l.a>=1&&+l.a<=5)).map(l=>l.k==='damr'?{t:l.t,k:'damr',kl:'The Great Dam',txt:damShareText(),go:'wonder'}
+  :{t:l.t,k:'damk',kl:'The Great Dam',txt:damTopText(+l.a),go:'wonder',links:[{kind:'unlock',id:'p-flood'}]}));
+NOTIF_SOURCES.push(n=>{if(!damMine(n))return [];const L=damState();return L.done>(n.dam.ph||0)?[{t:Date.now(),k:'dam',kl:'The Great Dam',txt:L.done>=DAM_N?`${damName()} is open.`:`Phase ${L.done} of ${DAM_N} of ${damName().replace(/^The /,'the ')} is finished.`,go:'wonder'}]:[];});
+HAP_SOURCES.push((x,now)=>{const n=x&&x.n;if(!n||n.npc||!damMine(n)||!Array.isArray(n.dam.h))return [];
+  const nm=nationLink(x.id,n.name,x.me),st=`<button type="button" class="linkish" data-act="go" data-v="wonder">${esc(damName().replace(/^The /,'the '))}</button>`;
+  return n.dam.h.filter(e=>e.t<=now).map(e=>({t:e.t,txt:`${nm} gave ${list(RES.filter(r=>e.c[r]>0).map(r=>fmt0(e.c[r])+' '+resName(r)))} to ${st}.${e.f&&DAM_PH[e.d]?(e.d===DAM_N-1?' That opened the dam.':` That finished phase ${e.d+1} of ${DAM_N}: ${esc(DAM_PH[e.d][0].toLowerCase())}.`):''}`}));
+});
+DM_SOURCES.push(n=>{
+  if(!damOpen())return [];const t0=damOpenAt();if(!t0)return [];const L=damState(),the=REG.the,nm=damName().replace(/^The /,'the ');
+  const out=[{peer:'office-monuments',t:t0+1,x:`To every nation of ${the},
+
+${cap1(lthName().replace(/^The /,'the '))} is lit, and this office has chosen the region’s next wonder. It turns inland, to the rivers.
+
+Work begins on ${nm}, on a river as far from the lighthouse as the region allows. It is three times the size of the lighthouse and built in twenty phases, from the survey of the valley to the opening of its floodgates. The first phases need a great deal of food and timber, for the camp and the cofferdam; the turbines will need oil.
+
+No nation may give more than ${Math.round(DAM_CAP*100)}% of any phase, so every phase needs at least ${DAM_HANDS} nations. Every nation that gives ${fmt0(DAM_SHARE_AT)} in all, a twentieth of the dam, earns ${DAM_LAND} land credits. When the floodgates open, the five nations that gave the most earn ${list(DAM_TOP.map(String))} more, a place on the plaque and the Floodgate pattern for their nation card.
+
+Every five phases the dam will raise a question for every nation of the region. You will find it on your desk, in blue.
+
+Give what your stores can spare on the Great Dam page, under Abroad.
+
+The Office of Monuments and Public Works, ${REG.name}`}];
+  if(L.done>=DAM_N&&L.end){const top=L.who.slice(0,5);
+    out.push({peer:'office-monuments',t:L.end,x:`To every nation of ${the},
+
+${cap1(nm)} is open. The diversion tunnel was closed at dawn, the reservoir rose all morning, and at noon the floodgates opened for the crowd on the crest with a roar the whole valley heard. The turbines are turning, and every tier II works of the region now makes ${Math.round(DAM_FTR*100)}% more.
+
+${L.who.length} nations gave towards it.${top.length?` The plaque names ${list(top.map((x,i)=>`${x.name} in ${DAM_MEDAL[i]} place`))}.`:''}
+
+This office is resting its feet, and will write when it has chosen the region’s next wonder.
+
+The Office of Monuments and Public Works, ${REG.name}`});}
+  return out;
+});
+HELP_EXT.push({k:'dam',t:'The Great Dam',body:()=>`<p>Once a region’s Great Lighthouse is lit, its player nations begin a third wonder: the Great Dam, on a river as far from the lighthouse as the region allows. The <button type="button" class="linkish" data-act="go" data-v="wonder">same page</button> under Abroad then shows the dam, with the lighthouse and the statue under Past projects. The dam has twenty phases and needs ${fmt0(DAM_TOTAL)} resources. No nation may give more than ${Math.round(DAM_CAP*100)}% of a phase, so each phase needs at least ${DAM_HANDS} nations. Every nation that gives ${fmt0(DAM_SHARE_AT)} in all earns ${DAM_LAND} land credits, and when the floodgates open the five that gave the most earn ${list(DAM_TOP.map(String))} more, a place on the plaque and the Floodgate pattern. Every five phases a dam edict, in blue, reaches every nation of the region. Once open, every tier II works of the region makes ${Math.round(DAM_FTR*100)}% more.</p>`});
+
+/* ── achievements ── */
+const aDam=x=>achM(x,'dam',()=>damSum(x.n&&x.n.dam));
+const aDamVoice=x=>achM(x,'damv',()=>!x.n||x.npc?0:DAM_ISSUES.filter(i=>(x.n.answered||[]).some(a=>a.id===i.id&&a.o>=0)).length);
+achDef('bld','bld-wonders3','g','Statue, Signal and Stream','Give to your region’s Great Statue, its Great Lighthouse and its Great Dam.',1,x=>achYes(aGifts(x)>0&&aLth(x)>0&&aDam(x)>0),{fm:'bool'});
+achDef('bld','bld-dam1000','g','Dam Builder','Give 1,000 resources towards the Great Dam.',1000,aDam);
+achDef('bld','bld-lastgate','s','The Last Gate','Give to the last phase of your region’s Great Dam, the opening.',1,x=>achYes(!!(x.n&&x.n.dam&&damGave(x.n.dam,DAM_N-1)>0)),{fm:'bool'});
+achDef('bld','bld-damtop','g','Top Five of the Dam','Be one of the five nations that gave the most when your region’s Great Dam opens.',1,x=>achYes(damTop(x.n)>0),{fm:'bool'});
+achDef('bld','bld-damvoice','s','Voice of the River','Answer all four of the Great Dam’s edicts.',4,aDamVoice);
+
+/* the browser tests' window into the dam (EDICTUM_PROBE, DAM) */
+const damProbe=()=>({state:damState,give:damGive,open:damOpen,openAt:damOpenAt,land:n=>damLand(n),top:n=>damTop(n),PH:DAM_PH,N:DAM_N,cap:damCapOf,SHARE_AT:DAM_SHARE_AT,TOTAL:DAM_TOTAL,
+  cell:damCell,lcell:lthCell,svg:damSVG,pat:p=>czPatSVG(p,1),due:damDue,ISSUES:DAM_ISSUES,bEff:(k,t,ln)=>bEff(k,t,ln),reopen:()=>{damOpenMemo.t=0;damOpenMemo.v=false;},reg:()=>REG.id});
+
 
 /* ───────── field digs: the museum's own expeditions, and two collections about the region's past ─────────
    A dig (n.dig: [{s: site, t0, t1, r: d20}]) sets out from the Museum's Field digs hall and comes back hours later
@@ -64784,7 +65191,7 @@ VIEWS_EXT.chronicle=now=>chrView(now);
 const NTF_KEY='statehood.notif';
 const NTF_GROUPS=[['ach','Achievements and rank',['ach']],['museum','Museum finds and digs',['museum','dig']],['build','Finished buildings',['build']],['city','City reminders: empty blocks, mayors, room for a city',['cxtodo']],['mile','Population milestones',['mile','mile0']],
   ['games','The Games',['games','gres','host','hostwin']],['news','The Dispatch and Flock',['dispatch','flock']],['space','Space and the belt',['space','belt']],['gift','Gifts',['gift']],
-  ['wnd','The Great Statue and the Great Lighthouse',['wnd','lth']],['sym','National symbols',['sym']],['alli','Alliance news',['aljoin','alleave','aladmit']],['rmbre','Replies to your messages on the region board',['rmbre']],['cbre','Replies on Community Board topics you follow',['cbre']],['devnews','Results of development news polls you voted in',['nwpoll']]];
+  ['wnd','The Great Statue, the Great Lighthouse and the Great Dam',['wnd','lth','dam']],['sym','National symbols',['sym']],['alli','Alliance news',['aljoin','alleave','aladmit']],['rmbre','Replies to your messages on the region board',['rmbre']],['cbre','Replies on Community Board topics you follow',['cbre']],['devnews','Results of development news polls you voted in',['nwpoll']]];
 const BELL_ACT=new Set(['msg','war','npcwar','conq','cede','hand','alremove','caught','cov','blockade','dig','gift','exp','land','trade','alli']);
 const NTF=(()=>{let d={};try{d=JSON.parse(localStorage.getItem(NTF_KEY)||'{}')||{};}catch(e){d={};}
   return {rw:['auto','on','off'].includes(d.rw)?d.rw:'auto',tut:d.tut===0?0:1,badge:d.badge==='all'?'all':'act',nws:d.nws==='off'?'off':'on',nwc:d.nwc===0?0:1,nvd:d.nvd===0?0:1,mute:Array.isArray(d.mute)?d.mute.filter(k=>NTF_GROUPS.some(g=>g[0]===k)):[]};})();
@@ -72847,7 +73254,7 @@ mapBox=(f=>function(kind){const h=f.apply(this,arguments),n=S.nation;if(kind!=='
 
 /* the browser tests' window into the game: test/lib.mjs sets EDICTUM_PROBE before the page loads (a
    player's own browser can reach all of this anyway) */
-if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({RPATCH,SC:()=>scProbe(),JV:()=>jvProbe(),M100P:()=>({M100,M100_N,M100_MC,M100_MCN,m100Bits,m100Got,m100In,m100Due,m100Count,m100Show,m100Open,ctgMcOk,nationColor,czShOk,czShieldPath,unlocksOf,czPatSVG,xsMax}),RVN:()=>({RV,rvData,rvSync,rvKey,rvHeld,rvStretch,rvMost,rvEdgeHolder,rvAt,rvNameAt,rvLabelAt,rvParts,rvRename,rvReset,rvNameProblem,rvTidy,rvLabel,rvnPanel,logLine,RVN_MAX,RVN_LEN,updateMapPanel,hexDist,HEX_W,REG}),CP2:()=>({BLD_ICO,bldIco,bldLead,cxDefTotal,cxOrder,qjBuilding,BUILDINGS}),PRVC:()=>({cxPrvOf,cxPrvSeatTrial,cxOvwCols,prvSeat,prvMine,prvOfCell,prvSetAut,prvAppoint,PRV}),NPX:()=>({fbTrend,fbYesterday,heroLead,heroOpen,opOf,OPEN_TO,hnOf,hnFill,hnLine,nbSection,ppWho,ppWhoHTML,ppHash,ppCarried,economy,territory,bordersOf,fillDeal,findNation,clsHide,MAP,hexDist,STAT_KEYS,popNow,myId}),PT:()=>ptProbe(),LTH:()=>lthProbe(),CHAT:()=>({RGC,RGW,tab:rgcTab(),count:rgcCount(),region:rgcUnread(),world:rgwUnread(),named:rgwNamedUnread(),hidden:document.hidden}),UXP2:()=>({edictDesk,edictStep,edictOpen,fill,ISSUE_BY_ID,ACH,keysOpen,dmOthers,dmPickList,stGroups,stTabLast,navRecent,vhData,VH_KEY,VH_AFTER,QJ_DO,qjItems:q=>navQjItems(q),NAV_REC_KEY,ST_KEY}),HID:()=>({HIDN,hidMask,iAmHidden,frontier,mapPanel,warControls}),WG:()=>({wgTakers,wgForField,wgForPick,warGiveHex,warGive,occupiedFrom,attack,offerPeace,declareWar,collectConquests,dedupeConq}),WAKE:()=>({dormFresh,dormQuiet,dormWelcome,moveTo,RSTAT,REGIONS,REG,regDisabled}),LAND:()=>({landWait,capLift,capWrong,capNote,raceKnown,RACE,worldHeardAt:()=>worldHeardAt,landQ:()=>S.landQ,landQueued,fdSites:(n,T)=>fdSites(n,T)}),BG:{gain:bldGain,html:bldGainHtml},IB:()=>({agRoster,agPick,agStatus,heatOf,cvRoll,cvKey,cvBlock,cvOdds,buLv,buGap,buAll,BU,BU_KEYS,ibFile,ibWanted,ibChatter,HEAT_MAX,DD_TASKS,DD_LEG,findNation,allNations,cvProtected}),VL:()=>({VL_SECS,VL_DEF,CLS,CLS_OPS,CLS_READ,vlOrder,clsOf,clsRaw,clsMax,clsSeen,clsHide,clsRead,vlSave,findNation}),IFC:()=>({plan:ifcPlan,works:ifcWorks,line:ifcLine,tab:ifcTab}),XP:()=>({BUILDINGS,XU,XU_KEYS,XU_TOTAL,LOST_KINDS,LOST_ORDER,xuLv,xuWhy,xuHave,xuStart,xuCost,xuGear,xpSeen,expFree,xpTeamOpen,nationBuilt,expBackTeam,SITES,SITE_KINDS,expPlan,expOdds,expRuns,expRange,flRange,flAlive,flPlan,flDebug,flNow,discoveries,sendExpedition,hearReport,xpRoute,xpRivals,xpRivalText,xpFinds,flOdds,territory}),SVC:()=>({SVC,SVC_N,SVC_V,SVC_NEED,svcPlan,svcOpen,svcDig,svcShort,svcRoll,svcAmt,svcDayOf,svcRoom,svcNext}),FLC:()=>({FLC,FLC_RULES,FLC_CAT,flcId,flcTimes,flcPhase,flcPrev,flcView,flcLoad,flcChamp,flcTodo,flcClaims,flcLand,flcStreak,flcAllDone,flcSeen,flcDuty,flcDeskOn,flcDraftPush,FCA}),LK:{lakeMap,isLake,claimLand,lakeShore,fillHeld,LAKE_MAX,LAKE_A,freeCell,claimFrontier,blockPlan,autoPlan,terrCount,placePhrase,claimWhy,swapCheck,inspectPanel,writeClaims,landCredits:n=>landCredits(n)},PST:()=>({PST,PST_LOOKS,PST_SHAPES,pstBar,pstKm,pstView,pstBox,pstPlace,pstKeyOf,pstRender,pstShow,pstHide}),MW:()=>({mwOf,mwPoints,mwVisitors,mwTakings,mwExhibit,mwExhibitItems,mwRanking,mwWorn,mwSlots,mwOnShow,COL_BY_ID,COL_ITEMS,DIG_SETS,MW_FLOORS}),GM:()=>({gamesResults,edOf,b1Now,gevWhy,baseScores,entryOf,medalsIn,gamesRecords,gamesCeremony,unlocksOf,myId,formOf,GAME_EVENTS,clone,commit}),GB:()=>({IRON_DEP,IRON_DEP_YIELD,CELL_RES,MAP_T:MAP.T,mapAt:c=>{centerMain(c,NEAR_Z*1.6);},stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,FOOD_SPOIL,FOOD_EAT,TIMBER_BURN,foodGrowth,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({dspShown,dspRegShown,dspRegs,dspPic,dspLocator,dspHtDefs,pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),ASMX:()=>({ASMX,ASMX_TABS,asmBookAt,asmState,asmArcLoad,REG}),RGNX:()=>({RGN,RGN_PAGE,notifItems,ONL,onlRefresh}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals}),TYX:()=>({TY,TY_RULES,TY_K,tyOf,tyList,tyWarBlock,tyIncoming,affinity,alPactLive,alRelationsHTML}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,achTierCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC,step:rcStepCheck,head:rcHead,sponsoring:rcSponsoring,qr:qrMatrix,card:rcCardDraw,invCap:rcInvCap,free:rcFreeLand,STEPS:RC_STEPS,UNL:RC_UNLOCKS}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend,card:n=>tutCard(n),phase:n=>tutPhase(n),picks:(n,ph)=>tutPicks(n,ph),group:(n,k)=>tutGroup(n,tutL(k)),hid:n=>tutHid(n)},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours},WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR,bell:now=>notifItems(now||Date.now())},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},TIER:()=>({BTIER,bEff,bTier,bTierNext,bTierLine,tierQuote,tierProblem,cxTier,cxTrMap,tierSettle,tierReady,cxGoldNow,cxUpQuote,cxUpList,cxUps}),CX:{upgradable:cxUpgradable,mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState,UG:CX_UG,LV:CX_LV,ups:cxUps,upMap:cxUpMap,extras:cxBldExtras,quote:cxUpQuote},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo,unlockTarget,unlockShow,unlockFresh,unlockQueue,ULK,UNLOCKS,unlocksOf,toast:m=>toast(m)},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{coinBackSVG:cuCoinBackSVG,noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,coinSVG:cuCoinSVG,guide:cuGuideHTML,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ACH_RANKS_V1,ID_BD,achVal,achCtx,achEvalNew,achState,stockRates:n=>stockRates(n),achPoints,achRank,achRankOf,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,flagNorm:(f,n)=>flagNorm(f,n),flagSVG:(f,l)=>flagSVG(f,l),mapTip:id=>{const T=mapTerr('main'),i=T.list.findIndex(x=>x.id===id);if(i<0)return '';const cell=Array.prototype.indexOf.call(T.owner,i);return MAP_TIP.map(h=>{try{return h({kind:'main',cell,cv:null,x:0,y:0});}catch(e){return '';}}).filter(x=>typeof x==='string').join(' | ');},cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
+if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({RPATCH,SC:()=>scProbe(),JV:()=>jvProbe(),M100P:()=>({M100,M100_N,M100_MC,M100_MCN,m100Bits,m100Got,m100In,m100Due,m100Count,m100Show,m100Open,ctgMcOk,nationColor,czShOk,czShieldPath,unlocksOf,czPatSVG,xsMax}),RVN:()=>({RV,rvData,rvSync,rvKey,rvHeld,rvStretch,rvMost,rvEdgeHolder,rvAt,rvNameAt,rvLabelAt,rvParts,rvRename,rvReset,rvNameProblem,rvTidy,rvLabel,rvnPanel,logLine,RVN_MAX,RVN_LEN,updateMapPanel,hexDist,HEX_W,REG}),CP2:()=>({BLD_ICO,bldIco,bldLead,cxDefTotal,cxOrder,qjBuilding,BUILDINGS}),PRVC:()=>({cxPrvOf,cxPrvSeatTrial,cxOvwCols,prvSeat,prvMine,prvOfCell,prvSetAut,prvAppoint,PRV}),NPX:()=>({fbTrend,fbYesterday,heroLead,heroOpen,opOf,OPEN_TO,hnOf,hnFill,hnLine,nbSection,ppWho,ppWhoHTML,ppHash,ppCarried,economy,territory,bordersOf,fillDeal,findNation,clsHide,MAP,hexDist,STAT_KEYS,popNow,myId}),PT:()=>ptProbe(),LTH:()=>lthProbe(),DAM:()=>damProbe(),CHAT:()=>({RGC,RGW,tab:rgcTab(),count:rgcCount(),region:rgcUnread(),world:rgwUnread(),named:rgwNamedUnread(),hidden:document.hidden}),UXP2:()=>({edictDesk,edictStep,edictOpen,fill,ISSUE_BY_ID,ACH,keysOpen,dmOthers,dmPickList,stGroups,stTabLast,navRecent,vhData,VH_KEY,VH_AFTER,QJ_DO,qjItems:q=>navQjItems(q),NAV_REC_KEY,ST_KEY}),HID:()=>({HIDN,hidMask,iAmHidden,frontier,mapPanel,warControls}),WG:()=>({wgTakers,wgForField,wgForPick,warGiveHex,warGive,occupiedFrom,attack,offerPeace,declareWar,collectConquests,dedupeConq}),WAKE:()=>({dormFresh,dormQuiet,dormWelcome,moveTo,RSTAT,REGIONS,REG,regDisabled}),LAND:()=>({landWait,capLift,capWrong,capNote,raceKnown,RACE,worldHeardAt:()=>worldHeardAt,landQ:()=>S.landQ,landQueued,fdSites:(n,T)=>fdSites(n,T)}),BG:{gain:bldGain,html:bldGainHtml},IB:()=>({agRoster,agPick,agStatus,heatOf,cvRoll,cvKey,cvBlock,cvOdds,buLv,buGap,buAll,BU,BU_KEYS,ibFile,ibWanted,ibChatter,HEAT_MAX,DD_TASKS,DD_LEG,findNation,allNations,cvProtected}),VL:()=>({VL_SECS,VL_DEF,CLS,CLS_OPS,CLS_READ,vlOrder,clsOf,clsRaw,clsMax,clsSeen,clsHide,clsRead,vlSave,findNation}),IFC:()=>({plan:ifcPlan,works:ifcWorks,line:ifcLine,tab:ifcTab}),XP:()=>({BUILDINGS,XU,XU_KEYS,XU_TOTAL,LOST_KINDS,LOST_ORDER,xuLv,xuWhy,xuHave,xuStart,xuCost,xuGear,xpSeen,expFree,xpTeamOpen,nationBuilt,expBackTeam,SITES,SITE_KINDS,expPlan,expOdds,expRuns,expRange,flRange,flAlive,flPlan,flDebug,flNow,discoveries,sendExpedition,hearReport,xpRoute,xpRivals,xpRivalText,xpFinds,flOdds,territory}),SVC:()=>({SVC,SVC_N,SVC_V,SVC_NEED,svcPlan,svcOpen,svcDig,svcShort,svcRoll,svcAmt,svcDayOf,svcRoom,svcNext}),FLC:()=>({FLC,FLC_RULES,FLC_CAT,flcId,flcTimes,flcPhase,flcPrev,flcView,flcLoad,flcChamp,flcTodo,flcClaims,flcLand,flcStreak,flcAllDone,flcSeen,flcDuty,flcDeskOn,flcDraftPush,FCA}),LK:{lakeMap,isLake,claimLand,lakeShore,fillHeld,LAKE_MAX,LAKE_A,freeCell,claimFrontier,blockPlan,autoPlan,terrCount,placePhrase,claimWhy,swapCheck,inspectPanel,writeClaims,landCredits:n=>landCredits(n)},PST:()=>({PST,PST_LOOKS,PST_SHAPES,pstBar,pstKm,pstView,pstBox,pstPlace,pstKeyOf,pstRender,pstShow,pstHide}),MW:()=>({mwOf,mwPoints,mwVisitors,mwTakings,mwExhibit,mwExhibitItems,mwRanking,mwWorn,mwSlots,mwOnShow,COL_BY_ID,COL_ITEMS,DIG_SETS,MW_FLOORS}),GM:()=>({gamesResults,edOf,b1Now,gevWhy,baseScores,entryOf,medalsIn,gamesRecords,gamesCeremony,unlocksOf,myId,formOf,GAME_EVENTS,clone,commit}),GB:()=>({IRON_DEP,IRON_DEP_YIELD,CELL_RES,MAP_T:MAP.T,mapAt:c=>{centerMain(c,NEAR_Z*1.6);},stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,FOOD_SPOIL,FOOD_EAT,TIMBER_BURN,foodGrowth,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({dspShown,dspRegShown,dspRegs,dspPic,dspLocator,dspHtDefs,pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),ASMX:()=>({ASMX,ASMX_TABS,asmBookAt,asmState,asmArcLoad,REG}),RGNX:()=>({RGN,RGN_PAGE,notifItems,ONL,onlRefresh}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals}),TYX:()=>({TY,TY_RULES,TY_K,tyOf,tyList,tyWarBlock,tyIncoming,affinity,alPactLive,alRelationsHTML}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,achTierCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC,step:rcStepCheck,head:rcHead,sponsoring:rcSponsoring,qr:qrMatrix,card:rcCardDraw,invCap:rcInvCap,free:rcFreeLand,STEPS:RC_STEPS,UNL:RC_UNLOCKS}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend,card:n=>tutCard(n),phase:n=>tutPhase(n),picks:(n,ph)=>tutPicks(n,ph),group:(n,k)=>tutGroup(n,tutL(k)),hid:n=>tutHid(n)},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours},WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR,bell:now=>notifItems(now||Date.now())},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},TIER:()=>({BTIER,bEff,bTier,bTierNext,bTierLine,tierQuote,tierProblem,cxTier,cxTrMap,tierSettle,tierReady,cxGoldNow,cxUpQuote,cxUpList,cxUps}),CX:{upgradable:cxUpgradable,mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState,UG:CX_UG,LV:CX_LV,ups:cxUps,upMap:cxUpMap,extras:cxBldExtras,quote:cxUpQuote},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo,unlockTarget,unlockShow,unlockFresh,unlockQueue,ULK,UNLOCKS,unlocksOf,toast:m=>toast(m)},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{coinBackSVG:cuCoinBackSVG,noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,coinSVG:cuCoinSVG,guide:cuGuideHTML,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ACH_RANKS_V1,ID_BD,achVal,achCtx,achEvalNew,achState,stockRates:n=>stockRates(n),achPoints,achRank,achRankOf,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,flagNorm:(f,n)=>flagNorm(f,n),flagSVG:(f,l)=>flagSVG(f,l),mapTip:id=>{const T=mapTerr('main'),i=T.list.findIndex(x=>x.id===id);if(i<0)return '';const cell=Array.prototype.indexOf.call(T.owner,i);return MAP_TIP.map(h=>{try{return h({kind:'main',cell,cv:null,x:0,y:0});}catch(e){return '';}}).filter(x=>typeof x==='string').join(' | ');},cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
 /* ───────── Letters by post: the player's email address, confirmed by a code, and the letters they choose ─────────
    Settings › Letters by post (src/shim.js mail; functions/mail.js). The address lives only on the server; this card
    asks for it each time Settings opens. Things this nation does to another player's nation (a letter, a war, a deal)
@@ -74018,7 +74425,7 @@ function nvxCompute(n,now){
   each(()=>{const s=nvxSeen(),{ev}=notifItems(now);
     /* the statue's "phase complete" is dated each time it is asked (until the next save raises the phase), so it is left
        out: its rewards ('wndr') are dated */
-    for(const x of ev){if(!x||x.read||!x.go||!(x.t<=now)||x.k==='wnd'||x.k==='lth')continue;const v=NAV_PARENT[x.go]||x.go;if(v===cur||x.t<=Math.max(s.t0,s.p[v]||0))continue;
+    for(const x of ev){if(!x||x.read||!x.go||!(x.t<=now)||x.k==='wnd'||x.k==='lth'||x.k==='dam')continue;const v=NAV_PARENT[x.go]||x.go;if(v===cur||x.t<=Math.max(s.t0,s.p[v]||0))continue;
       if(BELL_ACT.has(x.k)){if(!NVX_STATE.has(x.k))o(v).e++;}else o(v).d++;}});
   for(const x of Object.values(out))if(x.e)x.w.push(x.e===1?'1 new report':x.e+' new reports');
   return out;
@@ -75599,6 +76006,27 @@ DISPATCH_SOURCES.push(ctx=>{
       b:`${P[1]} ${who.length===1?'One nation':who.length+' nations'} gave to this phase.${top.length?` The plaque names ${list(top.map((x,k)=>`${dspClean(x.name,40)} in ${LTH_MEDAL[k]}`))}.`:''}`,who:(top.length?top.map(x=>x.id):who).slice(0,8),w:last?9:5,go:'wonder'});}
   return out;
 });
+
+/* the Great Dam in the Dispatch: work begun, each phase finished, and the opening on the front page with its top five */
+Object.defineProperty(DSP_GO,'wonder',{get:()=>damOpen()?'The Great Dam':lthOpen()?'The Great Lighthouse':'The Great Statue',enumerable:true,configurable:true,set(){}});
+DISPATCH_SOURCES.push(ctx=>{
+  if(!ctx||ctx.reg!==REG.id)return [];
+  const players=allNations().filter(x=>!x.npc&&x.n&&x.n.name&&damMine(x.n));if(!players.length)return [];
+  const out=[],inW=t=>typeof t==='number'&&t>=ctx.from&&t<ctx.to&&t<=ctx.now,ph=new Map(),name=damName(),kick='The Great Dam';
+  for(const x of players){const w=x.n.dam,mv=x.n.mvAt||0;
+    for(const [k,t] of Object.entries(w.fx||{})){const i=+k;if(!Number.isInteger(i)||i<0||i>=DAM_N||!inW(t)||t<mv)continue;const g=ph.get(i);ph.set(i,{t:g?Math.min(g.t,t):t});}}
+  let L=null;try{L=damState();}catch(e){}
+  if(L&&inW(L.start)){const f=players.find(x=>(x.n.dam.t0||0)===L.start);if(f)out.push({k:'dam:begun',t:L.start,sec:'culture',kick,h:`Work begins on ${name}`,b:`${dspClean(f.n.name,40)} has sent the first cartloads up the valley where ${name.replace(/^The /,'the ')} is to stand. It has twenty phases, and the first ones need a great deal of food and timber.`,who:[f.id],w:6,go:'wonder'});}
+  for(const [i,g] of ph){const P=DAM_PH[i],last=i===DAM_N-1,who=players.filter(x=>damGave(x.n.dam,i)>0).map(x=>x.id),top=last&&L?L.who.slice(0,5):[];
+    out.push({k:'dam:ph:'+i,t:g.t,sec:last?'front':'culture',kick,h:last?`${cap1(name)} is open`:`The Great Dam reaches phase ${i+1} of ${DAM_N}: ${P[0].toLowerCase()}`,
+      b:`${P[1]} ${who.length===1?'One nation':who.length+' nations'} gave to this phase.${top.length?` The plaque names ${list(top.map((x,k)=>`${dspClean(x.name,40)} in ${DAM_MEDAL[k]} place`))}.`:''}`,who:(top.length?top.map(x=>x.id):who).slice(0,8),w:last?9:(i+1)%5===0?6:4,go:'wonder'});}
+  return out;
+});
+dspPic=(f=>function(s,size,byId){
+  if(!s||!/Great Dam/.test(s.kick||''))return f.apply(this,arguments);
+  try{const L=damState(),nm=damName(),d=Math.min(L.done,DAM_N),fig=(cls,plate,cap)=>`<figure class="dsp-pic dsp-pic-${cls}">${plate}<figcaption class="dsp-cap">${cap}</figcaption></figure>`,k=size==='l'?'p':'s';
+    return fig(k,dspPlate(k,dspFit(damSVG(L.done,L.frac,{}),...DSP_PLATE[k]),nm),`${esc(nm)}${d>=DAM_N?', open.':`, at phase ${d+1} of ${DAM_N}: ${esc(DAM_PH[d][0].toLowerCase())}.`}`);}catch(e){return '';}
+})(dspPic);
 
 /* the new mayors of the day (c.my.t) and the cabinet reshuffles (two or more ministers appointed, n.cab[*].t) */
 DISPATCH_SOURCES.push(ctx=>{
