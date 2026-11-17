@@ -8410,7 +8410,7 @@ button[disabled] .gv-cost{opacity:.6}
 .spx-help-l{margin:8px 0 12px;padding-left:22px;display:grid;gap:6px;line-height:1.5}
 /* spx:end */
 .adm-oflag{display:inline-block;width:42px;line-height:0}.adm-oflag svg{width:42px;height:auto;border-radius:2px;box-shadow:0 0 0 1px var(--line,rgba(0,0,0,.15))}
-.tr-short{margin:0 0 12px}.tr-health{margin:0 0 10px}.deal-end{font-size:12px;color:var(--ink-3);margin-left:6px}.tr-spark{vertical-align:middle;margin:0 8px}.tr-spark polyline{fill:none;stroke:var(--ink-2);stroke-width:1.5}.tr-spark .z{stroke:var(--track);stroke-width:1}.tr-trends{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px 16px}.tr-trends>div{display:flex;align-items:center;gap:4px}.tr-log{list-style:none;padding:0;margin:0;font-size:14px}.tr-log li{padding:4px 0;border-bottom:1px solid var(--track)}.tr-favs,.tr-mf{margin:8px 0}.chip-btn.on{outline:2px solid var(--ink-2)}.tr-slots{margin:4px 0 16px}.tr-slots p{margin:0 0 6px}.tr-slots .sbar{display:block;max-width:320px;margin-bottom:6px}.tr-age{font-size:12px;margin-left:6px;padding:1px 6px;border-radius:9px;border:1px solid var(--track)}.tr-age.mid{border-color:#c9a227;color:#8a6d00}.tr-age.old{border-color:var(--down);color:var(--down)}.tr-meta{display:block}.tr-nu{margin-left:6px}.tb{margin-top:32px}.tb-sup{margin:6px 0}.tb-tbl td.tb-c{white-space:nowrap}.tb-c.plenty{background:color-mix(in srgb,var(--up) 22%,transparent)}.tb-c.some{background:color-mix(in srgb,var(--up) 10%,transparent)}.tb-c.short{background:color-mix(in srgb,var(--down) 14%,transparent)}.tb-c.want{outline:2px solid var(--up);outline-offset:-2px}.tb-cell{all:unset;cursor:pointer;text-decoration:underline dotted}.tb-cell:focus-visible{outline:2px solid var(--ink-2)}.tb-tr{font-style:normal;font-size:10px;margin-left:3px}.tb-tr.up{color:var(--up)}.tb-tr.down{color:var(--down)}.tb-star{all:unset;cursor:pointer}.tb-match{margin-left:6px;font-size:11px}.tb-tags{display:block;font-weight:400}.tb-war{opacity:.55}.tb-tbl th button.on{font-weight:700}
+.tr-short{margin:0 0 12px}.tr-health{margin:0 0 10px}.deal-end{font-size:12px;color:var(--ink-3);margin-left:6px}.tr-spark{vertical-align:middle;margin:0 8px}.tr-spark polyline{fill:none;stroke:var(--ink-2);stroke-width:1.5}.tr-spark .z{stroke:var(--track);stroke-width:1}.tr-trends{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px 16px}.tr-trends>div{display:flex;align-items:center;gap:4px}.tr-log{list-style:none;padding:0;margin:0;font-size:14px}.tr-log li{padding:4px 0;border-bottom:1px solid var(--track)}.tr-favs,.tr-mf{margin:8px 0}.chip-btn.on{outline:2px solid var(--ink-2)}.tr-slots{margin:4px 0 16px}.tr-slots p{margin:0 0 6px}.tr-slots .sbar{display:block;max-width:320px;margin-bottom:6px}.tr-age{font-size:12px;margin-left:6px;padding:1px 6px;border-radius:9px;border:1px solid var(--track)}.tr-age.mid{border-color:#c9a227;color:#8a6d00}.tr-age.old{border-color:var(--down);color:var(--down)}.tr-meta{display:block}.tr-nu{margin-left:6px}.tb{margin-top:32px}.tb-sup{margin:6px 0}.tb-tbl td.tb-c{white-space:nowrap}.tb-c.plenty{background:color-mix(in srgb,var(--up) 22%,transparent)}.tb-c.some{background:color-mix(in srgb,var(--up) 10%,transparent)}.tb-c.short{background:color-mix(in srgb,var(--down) 14%,transparent)}.tb-c.want{outline:2px solid var(--up);outline-offset:-2px}.tb-cell{all:unset;cursor:pointer;text-decoration:underline dotted}.tb-cell:focus-visible{outline:2px solid var(--ink-2)}.tb-tr{font-style:normal;font-size:10px;margin-left:3px}.tb-tr.up{color:var(--up)}.tb-tr.down{color:var(--down)}.tb-star{all:unset;cursor:pointer}.tb-match{margin-left:6px;font-size:11px}.tb-tags{display:block;font-weight:400}.tb-war{opacity:.55}.tb-tbl th button.on{font-weight:700}.tb-find{margin:8px 0}.tb-find input{width:100%;max-width:280px}.tb-more{margin:8px 0}
 /* ── the Expeditions page (exploreView): xp- ── */
 .xp{display:flex;flex-direction:column;gap:30px}
 .xp>.stk-strip{margin:0}
@@ -20326,6 +20326,11 @@ function awayEnd(){
 }
 document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-act]');if(!el)return;const a=el.dataset.act;
   if(a==='away-start'){awayStart();return;}if(a==='away-end'){awayEnd();return;}});
+document.addEventListener('input',e=>{const t=e.target;if(!t||t.id!=='tb-q')return;
+  S.trade.tbQ=t.value;const q=t.value.trim().toLowerCase(),n=S.trade.tbN||20,sec=t.closest('.tb');if(!sec)return;let any=false;
+  sec.querySelectorAll('tr[data-tbk]').forEach(r=>{const h=q?!r.dataset.tbn.includes(q):+r.dataset.tbk>=n;r.hidden=h;if(!h)any=true;});
+  const m=sec.querySelector('.tb-more');if(m)m.hidden=!!q||sec.querySelectorAll('tr[data-tbk]').length<=n;
+  const z=sec.querySelector('.tb-none');if(z)z.hidden=!q||any;});
 document.addEventListener('input',e=>{if(e.target&&e.target.id==='away-to'){S.awayTo=e.target.value;S.awayErr='';}});
 /* a calendar month after a, counted in this device's time zone: a device elsewhere, or across a clock change, may count it
    an hour or a day or two either way, so a holiday set there is kept within three days of that (once within a minute,
@@ -21806,17 +21811,22 @@ function trBoard(E,i,me,fav){
   rows.sort((a,b)=>(b.fav-a.fav)||(a.war-b.war)||(bs?b.sp[bs]-a.sp[bs]:(!!b.match-!!a.match))||String(a.x.n.name).localeCompare(String(b.x.n.name)));
   const arrow=(id,r,v)=>{const o=prev&&prev[id];if(!o||o[r]==null)return '';const d=v-o[r];return Math.abs(d)<0.5?'':d>0?'<i class="tb-tr up" title="Growing since an earlier day">▲</i>':'<i class="tb-tr down" title="Shrinking since an earlier day">▼</i>';};
   const head=`<tr><th scope="col">Nation</th>${RES.map(r=>`<th scope="col" class="num"><button type="button" class="linkish small${bs===r?' on':''}" data-act="tr-bs" data-v="${bs===r?'':r}" aria-pressed="${bs===r}" title="Rank suppliers of ${resName(r)}">${resIco(r,'s')}${RES_INFO[r][0]}${bs===r?' ▾':''}</button></th>`).join('')}</tr>`;
-  const body=rows.map(o=>{const id=o.x.id;
+  const tbN=S.trade.tbN||20,tbQ=(S.trade.tbQ||'').trim().toLowerCase();
+  const tbHide=(o,k)=>tbQ?!String(o.x.n.name).toLowerCase().includes(tbQ):k>=tbN;
+  const body=rows.map((o,k)=>{const id=o.x.id;
     const cells=RES.map(r=>{const v=o.sp[r],b=trBand(v),txt=trShow(id,v),need=lack.includes(r),can=!o.war&&v>=1;
       const inner=`${esc(txt)}${arrow(id,r,v)}`;
       return `<td class="num tb-c ${b[0]}${need&&v>=1?' want':''}">${can?`<button type="button" class="tb-cell" data-act="tr-fill" data-w="${esc(id)}" data-r="${r}" data-a="${Math.max(0.5,Math.min(8,Math.floor(v*2)/2))}" title="Propose: ${esc(o.x.n.name)} sends you ${resName(r)}">${inner}</button>`:inner}</td>`;}).join('');
     const tags=[o.x.npc?'computer':'',alSame(me,id)?'ally':'',tyOf(me,id,'trade')?'trade agreement':'',o.war?'at war':''].filter(Boolean);
     const mt=o.match?`<span class="pill up tb-match" title="${esc(`They can spare ${list(o.match.gets.map(resName))} and lack ${list(o.match.gives.map(resName))}, which you have spare`)}">Match</span>`:'';
-    return `<tr class="${o.war?'tb-war':''}${o.match?' tb-m':''}"><th scope="row"><button type="button" class="tb-star" data-act="tr-fav-id" data-id="${esc(id)}" aria-pressed="${o.fav}" title="${o.fav?'Unpin':'Pin to the top'}">${o.fav?'★':'☆'}</button> ${esc(o.x.n.name)}${mt}${tags.length?`<span class="hint tb-tags">${esc(tags.join(' · '))}</span>`:''}</th>${cells}</tr>`;}).join('');
+    return `<tr class="${o.war?'tb-war':''}${o.match?' tb-m':''}" data-tbk="${k}" data-tbn="${esc(String(o.x.n.name).toLowerCase())}"${tbHide(o,k)?' hidden':''}><th scope="row"><button type="button" class="tb-star" data-act="tr-fav-id" data-id="${esc(id)}" aria-pressed="${o.fav}" title="${o.fav?'Unpin':'Pin to the top'}">${o.fav?'★':'☆'}</button> ${esc(o.x.n.name)}${mt}${tags.length?`<span class="hint tb-tags">${esc(tags.join(' · '))}</span>`:''}</th>${cells}</tr>`;}).join('');
   const top=bs?rows.filter(o=>!o.war&&o.sp[bs]>=1).slice(0,3).map(o=>o.x.n.name):[];
   return `<section class="tb"><h2 class="h2">Market board</h2><p class="hint">What every nation in your region can spare each day, and what it is short of. Exact figures for allies and trade-agreement partners, bands for the rest. Choose a resource to rank suppliers; select a figure to fill in a deal. Matches have what you lack and lack what you have spare.</p>
   ${bs?`<p class="tb-sup">${top.length?`Best suppliers of ${resName(bs)}: <b>${esc(list(top))}</b>`:`Nobody can spare ${resName(bs)} right now.`} <button type="button" class="linkish small" data-act="tr-bs" data-v="">Clear</button></p>`:''}
-  <div class="tbl-wrap"><table class="tbl tb-tbl"><thead>${head}</thead><tbody>${body||`<tr><td colspan="${RES.length+1}">No other nations in your region yet.</td></tr>`}</tbody></table></div></section>`;
+  ${rows.length>20?`<p class="tb-find"><input type="search" id="tb-q" aria-label="Find a nation" placeholder="Find a nation…" value="${esc(S.trade.tbQ||'')}" autocomplete="off"></p>`:''}
+  <div class="tbl-wrap"><table class="tbl tb-tbl"><thead>${head}</thead><tbody>${body||`<tr><td colspan="${RES.length+1}">No other nations in your region yet.</td></tr>`}</tbody></table></div>
+  <p class="tb-more"${tbQ||rows.length<=tbN?' hidden':''}><button type="button" class="linkish" data-act="tr-more">Show ${Math.min(20,rows.length-tbN)} more</button> <span class="hint">${Math.min(tbN,rows.length)} of ${rows.length} nations</span></p>
+  <p class="tb-none hint"${tbQ&&!rows.some(o=>!tbHide(o,0))?'':' hidden'}>No nation by that name.</p></section>`;
 }
 function tradeNotice(){
   if(!S.nation)return '';
@@ -51848,6 +51858,7 @@ document.addEventListener('click',e=>{
   if(a==='tr-fav'){trFavToggle(S.trade.w);return;}
   if(a==='tr-mf'){S.trade.mf=el.dataset.v||'';render();return;}
   if(a==='tr-bs'){S.trade.bs=el.dataset.v||'';render();return;}
+  if(a==='tr-more'){S.trade.tbN=(S.trade.tbN||20)+20;render();return;}
   if(a==='tr-nudge'){trNudge(el.dataset.id);return;}
   if(a==='tr-stale'){S.trade.stale=!S.trade.stale;render();return;}
   if(a==='tr-fav-id'){trFavToggle(el.dataset.id);return;}
