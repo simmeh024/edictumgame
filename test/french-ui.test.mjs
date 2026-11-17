@@ -9,5 +9,6 @@ test('French interface: setting, dictionary and text swap',()=>{
   assert.equal(f.uiLang(),'en');f.setUiLang('fr');assert.equal(f.uiLang(),'fr');
   const n={nodeValue:'  Settings ',parentNode:null};f.frText(n);assert.equal(n.nodeValue,'  Paramètres ');
   const u={nodeValue:'my own words',parentNode:null};f.frText(u);assert.equal(u.nodeValue,'my own words');
+  let sets=0;const same={parentNode:null};Object.defineProperty(same,'nodeValue',{get:()=>'Nation',set:()=>{sets++}});f.frText(same);assert.equal(sets,0,'a word that is the same in French is never rewritten (that looped forever)');
   for(const [k,v] of Object.entries(f.FR_UI))assert.ok(k.trim()&&v.trim(),k);
 });
