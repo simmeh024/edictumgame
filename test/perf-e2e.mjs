@@ -57,7 +57,9 @@ const t=traces(B),start=t.find(x=>x.name==='game_start'),save=t.find(x=>x.name==
 check('start-up is recorded in steps, as a first visit of a guest',start&&['script_ms','config_ms','firebase_ms','sign_in_ms','account_ms'].every(k=>k in (start.counters||{}))&&start.custom_attributes?.account==='guest'&&start.custom_attributes?.visit==='first'&&start.duration_us>0,JSON.stringify(start));
 check('the first read of the nation is recorded',load&&load.custom_attributes?.found==='no',JSON.stringify(load));
 check('saves are recorded with their result',save&&save.custom_attributes?.result==='saved'&&save.duration_us>0,JSON.stringify(save));
-await until(()=>{const u=requests(B);return u.some(x=>x.includes('cdn.discordapp.com'))&&u.some(x=>x.includes('firestore.googleapis.com'));},20000,500);
+// the speed script sends what it recorded in batches, one every ten seconds, so the two downloads above can land in
+// different batches: wait for both before looking at their addresses
+await until(()=>{const u=requests(B);return u.some(x=>x.includes('cdn.discordapp.com'))&&u.some(x=>x.startsWith('https://firestore.googleapis.com/'));},30000,500);
 const urls=requests(B);
 check('download addresses keep Firebase’s path with the player ID masked',urls.includes('https://firestore.googleapis.com/v1/projects/demo-edictum/databases/(default)/documents/nations/*'),JSON.stringify(urls.filter(u=>/googleapis/.test(u))));
 check('another site’s address is its host alone',urls.includes('https://cdn.discordapp.com/')&&!urls.some(u=>u.includes('avatars')));

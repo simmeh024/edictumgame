@@ -869,6 +869,47 @@ test('Joint ventures: a half the saved record holds is proposed once, accepted w
   assert.equal((await db.collection('ventures').where('p', 'array-contains', b.uid).get()).size, 0);
 });
 
+test('Riddle of the week: a guess is told right or wrong, never where; three a week, the same hex once; the first ten are named; a deleted account leaves', async () => {
+  const a = await player(true, true), g = await player(false, true), far = await player(false, true, 'frostmarch'), now = Date.now();
+  const ymd = t => new Date(t).toISOString().slice(0, 10).replace(/-/g, ''), rid = 'meridian_' + ymd(now), old = 'meridian_20200106';
+  await db.doc('riddles/' + rid).set({ reg: 'meridian', t: now - 1000, x: now + DAY, q: ['From the capital of Vellmark, count 3 hexes to the east.'], n: 0, top: [], tu: [] });
+  await db.doc('riddleKeys/' + rid).set({ c: 1234 });
+  await db.doc('riddles/' + old).set({ reg: 'meridian', t: now - 30 * DAY, x: now - 23 * DAY, q: ['old'], n: 0, top: [], tu: [] });
+  await db.doc('riddleKeys/' + old).set({ c: 99 });
+  await assert.rejects(civic(a, { op: 'rdGuess', rid: 'BAD', c: 5 }));
+  await assert.rejects(civic(a, { op: 'rdGuess', rid, c: -1 }));
+  await rejects(civic(far, { op: 'rdGuess', rid, c: 5 }), 'rd_region');
+  await rejects(civic(a, { op: 'rdGuess', rid: old, c: 99 }), 'rd_closed');
+  /* wrong, then the same hex again counts once, then right; the answer itself never comes back */
+  let r = await civic(a, { op: 'rdGuess', rid, c: 5 });
+  assert.equal(r.right, false); assert.equal(r.left, 2); assert.ok(!JSON.stringify(r).includes('1234'));
+  r = await civic(a, { op: 'rdGuess', rid, c: 5 });
+  assert.equal(r.same, true); assert.equal(r.left, 2);
+  r = await civic(a, { op: 'rdGuess', rid, c: 1234 });
+  assert.equal(r.right, true); assert.equal(r.rank, 1); assert.equal(r.left, 1);
+  assert.equal((await civic(a, { op: 'rdGuess', rid, c: 1234 })).again, true);
+  let R = (await db.doc('riddles/' + rid).get()).data();
+  assert.equal(R.n, 1); assert.equal(R.top.length, 1); assert.equal(R.top[0].u, a.uid); assert.equal(R.top[0].nm, a.uid); assert.deepEqual(R.tu, [a.uid]);
+  let G = (await db.doc('riddles/' + rid + '/guesses/' + a.uid).get()).data();
+  assert.deepEqual(G.g, [5, 1234]); assert.ok(G.ok >= now); assert.equal(G.r, 1); assert.equal(G.u, a.uid);
+  /* a guest guesses too: three wrong, and that is the week */
+  for (const c of [1, 2, 3]) assert.equal((await civic(g, { op: 'rdGuess', rid, c })).right, false);
+  await rejects(civic(g, { op: 'rdGuess', rid, c: 1234 }), 'rd_out');
+  G = (await db.doc('riddles/' + rid + '/guesses/' + g.uid).get()).data();
+  assert.deepEqual(G.g, [1, 2, 3]); assert.equal(G.ok, 0);
+  /* only the first ten are named; everyone who finds it is counted */
+  const more = [];
+  for (let i = 0; i < 10; i++) more.push(await player());
+  for (const p of more) await civic(p, { op: 'rdGuess', rid, c: 1234 });
+  R = (await db.doc('riddles/' + rid).get()).data();
+  assert.equal(R.n, 11); assert.equal(R.top.length, 10); assert.equal(R.tu.length, 10); assert.ok(!R.tu.includes(more[9].uid));
+  /* a deleted account: off the list, and its guesses gone */
+  await db.doc('nations/' + a.uid).delete(); await account(a, { op: 'close' });
+  R = (await db.doc('riddles/' + rid).get()).data();
+  assert.ok(!R.top.some(x => x.u === a.uid) && !R.tu.includes(a.uid)); assert.equal(R.top.length, 9);
+  assert.equal((await db.doc('riddles/' + rid + '/guesses/' + a.uid).get()).exists, false);
+});
+
 test('Alliances: pacts are offered and signed by leaders, ended with notice or broken at a cost; rivals earn renown for battles won against each other', async () => {
   const L1 = await player(true, true), L2 = await player(true, true), m2 = await player(true, true), L3 = await player(true, true), now = Date.now();
   const A1 = (await civic(L1, { op: 'alFound', name: 'North ' + crypto.randomUUID().slice(0, 8), acc: 'open' })).aid;
