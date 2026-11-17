@@ -76,6 +76,28 @@ const saved = await until(() => page.evaluate(() => { const c = window.__game.S.
 check('Save keeps every Studio choice on the currency', !!saved, saved);
 const art = await page.evaluate(() => { const s = document.querySelector('.cst-front svg.cu-note'); return { part: !!s.querySelector('[data-part="v"][transform]'), paths: s.querySelectorAll('path').length }; });
 check('the saved note draws the moved part', art.part, JSON.stringify(art));
+// vertical notes
+await page.click('[data-cst="tab"][data-v="style"]'); await page.click('[data-cst="set"][data-f="note.or"][data-v="v"]');
+const vt = await until(() => page.evaluate(() => { const s = document.querySelector('.cst-front svg.cu-note'), o = document.querySelector('.cst-front .cst-ov'), b = document.querySelectorAll('#cst-stage svg.cu-note-v').length; return s && s.dataset.or === 'v' && o.getAttribute('viewBox') === '0 0 160 320' && b >= 2 && s.getBBox().height > 200 ? true : false; }));
+check('a vertical note draws upright, front and back, with its own guides', vt);
+const vh = await page.$('.cst-front .cst-ov [data-part="e"]'), vb = await vh.boundingBox();
+await page.mouse.move(vb.x + vb.width / 2, vb.y + vb.height / 2); await page.mouse.down(); await page.mouse.move(vb.x + vb.width / 2, vb.y + vb.height / 2 + 30, { steps: 6 }); await page.mouse.up();
+await page.click('[data-cst="pick"][data-k="e"]');
+check('parts move on a vertical note too', await until(() => page.evaluate(() => +document.getElementById('cst-i-y').value > 5)));
+await page.screenshot({ path: path.join(OUT, 'note-studio-vertical.png') });
+// the coin
+await page.click('[data-cst="mode"][data-v="coin"]');
+check('the coin mode shows both faces and the set', await until(() => page.evaluate(() => document.querySelectorAll('#cst-stage .cst-coin').length === 2 && document.querySelectorAll('.cst-cs svg').length >= 4 && !!document.querySelector('.cst-coin.cu-coin-b'))));
+await page.click('[data-cst="set"][data-f="coin.fin"][data-v="proof"]');
+await page.click('[data-cst="ctab"][data-v="faces"]'); await page.click('[data-cst="set"][data-f="coin.rev"][data-v="wreath"]'); await page.click('[data-cst="set"][data-f="coin.emb"][data-v="portrait"]');
+await page.click('[data-cst="ctab"][data-v="edge"]'); await page.click('[data-cst="set"][data-f="coin.edge"][data-v="letter"]'); await page.click('[data-cst="set"][data-f="coin.rim"][data-v="wide"]');
+await page.click('[data-cst="ctab"][data-v="field"]'); await page.click('[data-cst="set"][data-f="coin.fld"][data-v="rays"]');
+await page.$eval('#cst-r-dsz', e => { e.value = 1.2; e.dispatchEvent(new Event('input', { bubbles: true })); });
+await page.click('[data-cst="ctab"][data-v="words"]'); await page.fill('#cst-t-lo', 'Fair weights');
+await page.screenshot({ path: path.join(OUT, 'note-studio-coin.png') });
+await page.click('[data-cst="save"]');
+const cs = await until(() => page.evaluate(() => { const c = window.__game.S.nation.cur, K = c && c.coin, N = c && c.note; return K && K.fin === 'proof' && K.rev === 'wreath' && K.emb === 'portrait' && K.edge === 'letter' && K.rim === 'wide' && K.fld === 'rays' && K.dsz === 1.2 && K.lo === 'Fair weights' && N.or === 'v' ? JSON.stringify(K) : false; }));
+check('Save keeps the vertical note and every coin choice', !!cs, cs);
 await page.setViewportSize({ width: 390, height: 844 });
 check('on a phone the Studio does not scroll sideways', await page.evaluate(() => { const e = document.getElementById('cu-st'); return e.scrollWidth <= innerWidth + 1; }));
 await page.screenshot({ path: path.join(OUT, 'note-studio-phone.png') });

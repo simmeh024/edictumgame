@@ -5890,6 +5890,11 @@ html.cst-on{overflow:hidden}
 .cst-film-l{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-2);writing-mode:vertical-rl;transform:rotate(180deg)}
 .cst-card{flex:0 0 auto;display:grid;gap:2px;justify-items:center;background:none;border:2px solid transparent;border-radius:7px;padding:2px;cursor:pointer;font:500 11px 'IBM Plex Mono',monospace;color:var(--ink)}.cst-card.on{border-color:var(--accent)}
 .cst-card svg{width:96px;height:auto;display:block}.cst-ovr{font-style:normal;color:#8A5A10}
+svg.cu-note.cu-note-v{width:28%!important;min-width:56px;height:auto!important;margin-inline:auto;display:block}
+.cst-fig.v{width:min(230px,100%)}.cst-fig svg.cu-note.cu-note-v,.cst-mini svg.cu-note-v{width:100%!important}.cst-card svg.cu-note.cu-note-v{width:46px!important;min-width:0}
+.cst-cfig{width:min(280px,100%)}.cst-coin{width:100%;height:auto;display:block;filter:drop-shadow(0 3px 6px rgba(0,0,0,.25))}
+.cst-cset{width:100%}.cst-csets{display:flex;align-items:flex-end;justify-content:center;gap:8px;flex-wrap:wrap;line-height:1}.cst-cs{display:grid;justify-items:center;gap:2px}.cst-cs svg{width:100%;height:auto}.cst-cs i{font:500 10px 'IBM Plex Mono',monospace;font-style:normal;color:var(--ink-2)}
+.cst-ccard svg{width:54px!important}
 .cu-st-open{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;margin:4px 0 10px}
 /* see it: the note in the world */
 .cst-cv[data-see="uv"]{background:#0b0718}.cst-cv[data-see="uv"] .cst-note{filter:invert(1) hue-rotate(180deg) brightness(.55) saturate(2.4) contrast(1.4)}
@@ -46801,7 +46806,11 @@ const CU_LOCK={pat:{moire:'cn-moire',basket:'cn-basket',mosaic:'cn-mosaic',stars
   shape:{octo:'cs-octo',holed:'cs-holed',sqhole:'cs-sqhole'},strip:{2:'cx-holo',3:'cx-gold',4:'cx-window'}};
 /* whether nation n holds unlock id (set outside this block; everything is allowed without it) */
 let CU_HOLDS=null;
-const CU_CEMB={arms:'Coat of arms',flag:'Flag emblem',star:'Star of state',wreath:'Laurel wreath'};
+const CU_CEMB={arms:'Coat of arms',portrait:'Leader’s profile',flag:'Flag emblem',star:'Star of state',wreath:'Laurel wreath'};
+/* the coin designer: finish, rim, edge, field and the other side */
+const CU_FINS={bright:'Bright',proof:'Proof',matte:'Matte',antique:'Antique'},CU_RIMS={beaded:'Beaded',thin:'Thin',wide:'Wide',double:'Double'};
+const CU_EDGES={reed:'Reeded',beads:'Beaded',letter:'Lettered',groove:'Security groove'},CU_FIELDS={guil:'Guilloché',plain:'Plain',rays:'Sunrays',waves:'Waves',grid:'Lattice',rings:'Rings'};
+const CU_REVS={value:'The value',wreath:'Value in a wreath',star:'Star of state',arms:'The arms',animal:'The national animal'};
 const cuHas=(o,k)=>typeof k==='string'&&Object.prototype.hasOwnProperty.call(o,k);
 /* text a player typed: no control or layout characters, no markup, single spaces, at most max characters */
 const cuStr=(v,max)=>typeof v==='string'?[...v.normalize('NFC').replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2066-\u2069<>"`\\{}]/g,'').replace(/\s+/g,' ').trim()].slice(0,max).join('').trim():'';
@@ -46828,7 +46837,7 @@ function cuNoteClean(r){
   if([1,2].includes(r.tp))o.tp=r.tp;if(Number.isFinite(+r.ls)&&+r.ls&&r.ls!==null&&r.ls!=='')o.ls=cl(r.ls,-.5,3);if(r.cs==='t'||r.cs==='s')o.cs=r.cs;if(r.vf==='t'||r.vf==='m')o.vf=r.vf;
   const mt=cuStr(r.mt,48);if(mt)o.mt=mt;if(['arms','cap','none'].includes(r.wm))o.wm=r.wm;
   if(obj(r.ov)){const q={};for(const d of CU_DENOMS){const x=r.ov[d];if(obj(x)){const y={};for(const k of ['c1','c2']){const c=cuHex(x[k]);if(c)y[k]=c;}if(Object.keys(y).length)q[d]=y;}}if(Object.keys(q).length)o.ov=q;}
-  const rx=cuName(r.rx,40);if(rx)o.rx=rx;
+  const rx=cuName(r.rx,40);if(rx)o.rx=rx;if(r.or==='v')o.or='v';
   return Object.keys(o).length?o:null;
 }
 function cuCoinClean(r){
@@ -46836,6 +46845,9 @@ function cuCoinClean(r){
   if(cuHas(CU_METALS,r.met))o.met=r.met;if(cuHas(CU_SHAPES,r.shape))o.shape=r.shape;if(cuHas(CU_CEMB,r.emb))o.emb=r.emb;
   if(CU_COINS.includes(r.den))o.den=r.den;if(r.dk==='s'||r.dk==='u')o.dk=r.dk;
   const ins=cuStr(r.ins,28);if(ins)o.ins=ins;if(r.yr===0||r.yr===1)o.yr=r.yr;
+  if(cuHas(CU_FINS,r.fin))o.fin=r.fin;if(cuHas(CU_RIMS,r.rim))o.rim=r.rim;if(cuHas(CU_EDGES,r.edge))o.edge=r.edge;if(cuHas(CU_FIELDS,r.fld))o.fld=r.fld;if(cuHas(CU_REVS,r.rev))o.rev=r.rev;
+  if(r.dsz!==null&&r.dsz!==''&&Number.isFinite(+r.dsz)&&+r.dsz!==1)o.dsz=Math.round(Math.min(1.4,Math.max(.6,+r.dsz))*100)/100;if(Number.isFinite(+r.dy)&&+r.dy)o.dy=Math.round(Math.min(12,Math.max(-12,+r.dy))*2)/2;
+  const lo=cuStr(r.lo,28);if(lo)o.lo=lo;
   return Object.keys(o).length?o:null;
 }
 /* a stored n.cur: only known fields, each valid, or nothing */
@@ -47165,9 +47177,9 @@ function cuSerial(n,den,x,y,anchor,ink,red){
   return `<text x="${x}" y="${y}" text-anchor="${anchor}" font-family="${CU_F.m}" font-weight="500" fill="${ink}"><tspan fill="${red}" font-size="5.6">${L} </tspan>${[...D].map((ch,i)=>`<tspan font-size="${cuR2(4.4+i*.5)}">${ch}</tspan>`).join('')}</text>`;
 }
 /* the inner border, written in microtext: the bank's name, over and over, too small to copy */
-function cuMicro(id,txt,ink){
+function cuMicro(id,txt,ink,V){
   const s=Array(Math.ceil(900/(txt.length*1.7+4))).fill(txt).join(' · ');
-  return `<path id="${id}" d="M14 11H306A3 3 0 0 1 309 14V146A3 3 0 0 1 306 149H14A3 3 0 0 1 11 146V14A3 3 0 0 1 14 11Z" fill="none"/><text font-family="${CU_F.t}" font-size="2.2" letter-spacing=".15" fill="${ink}" opacity=".7" dy=".75"><textPath href="#${id}">${esc(s)}</textPath></text>`;
+  return `<path id="${id}" d="${V?'M14 11H146A3 3 0 0 1 149 14V306A3 3 0 0 1 146 309H14A3 3 0 0 1 11 306V14A3 3 0 0 1 14 11Z':'M14 11H306A3 3 0 0 1 309 14V146A3 3 0 0 1 306 149H14A3 3 0 0 1 11 146V14A3 3 0 0 1 14 11Z'}" fill="none"/><text font-family="${CU_F.t}" font-size="2.2" letter-spacing=".15" fill="${ink}" opacity=".7" dy=".75"><textPath href="#${id}">${esc(s)}</textPath></text>`;
 }
 /* a guilloche rosette, the medallion that carries the emblem */
 function cuRosette(cx,cy,r,ink,k){
@@ -47241,14 +47253,14 @@ function cuCorner(k,x,y,r,ink,lite){
   return cuRosette(x,y,r,ink,lite?6:12);
 }
 /* a border band (note.bd) round the note's edge, k repeats along the long side, w thick */
-function cuBand(kind,k,w,ink){
+function cuBand(kind,k,w,ink,V){const W=V?160:320,H=V?320:160;
   const strip=len=>{const n=Math.max(2,Math.round(k*len/312)),st=len/n,A=1.3*w;let d='';
     if(kind==='plain')return `M0 ${-A}H${len}M0 ${A}H${len}`;
     if(kind==='wave'){for(let i=0;i<n;i++){const x=i*st;d+=(i?'':`M0 0`)+`Q${cuR2(x+st/4)} ${-A*1.6} ${cuR2(x+st/2)} 0T${cuR2(x+st)} 0`;}return d;}
     if(kind==='rope'){for(let i=0;i<n*2;i++){const x=i*st/2;d+=`M${cuR2(x)} ${A}L${cuR2(x+st*.45)} ${-A}`;}return d+`M0 ${A}H${len}M0 ${-A}H${len}`;}
     for(let i=0;i<n;i++){const x=i*st,u=st/4;d+=(i?'':`M0 ${A}`)+`H${cuR2(x+u)}V${-A}H${cuR2(x+3*u)}V${cuR2(A*.2)}H${cuR2(x+2*u)}V${A}H${cuR2(x+st)}`;}return d;};
-  const sw=cuR2(.35*w+.15),t=strip(312),l=strip(152);
-  return `<g fill="none" stroke="${ink}" stroke-width="${sw}" opacity=".8"><path d="${t}" transform="translate(4 4.2)"/><path d="${t}" transform="translate(4 155.8)"/><path d="${l}" transform="translate(4.2 4) rotate(90)"/><path d="${l}" transform="translate(315.8 4) rotate(90)"/></g>`;
+  const sw=cuR2(.35*w+.15),t=strip(W-8),l=strip(H-8);
+  return `<g fill="none" stroke="${ink}" stroke-width="${sw}" opacity=".8"><path d="${t}" transform="translate(4 4.2)"/><path d="${t}" transform="translate(4 ${H-4.2})"/><path d="${l}" transform="translate(4.2 4) rotate(90)"/><path d="${l}" transform="translate(${W-4.2} 4) rotate(90)"/></g>`;
 }
 /* coloured fibres in the paper, seeded */
 function cuFibres(seed,cols){const r=rng(hash('cuf:'+seed));let b='';for(let i=0;i<34;i++){const x=r()*320,y=r()*160,a=r()*6.283,l=2+r()*3.5;b+=`<path d="M${cuR2(x)} ${cuR2(y)}q${cuR2(Math.cos(a)*l/2+1)} ${cuR2(Math.sin(a)*l/2-1)} ${cuR2(Math.cos(a)*l)} ${cuR2(Math.sin(a)*l)}" stroke="${cols[i%cols.length]}" stroke-width=".35" fill="none" opacity=".55"/>`;}return `<g>${b}</g>`;}
@@ -47271,8 +47283,8 @@ function cuMemoKey(n,c,o,back){let x='';try{x=JSON.stringify([ptLead(n),cuArmsOf
   return JSON.stringify([back?1:0,n.name,n.seed,n.leader,n.ruler,n.capital,n.animal,n.motto,n.flag,n.cuF,n.lt,n.founded,Array.isArray(n.cuS)?n.cuS.length:0,Array.isArray(n.cities)?n.cities.length:0,!!(n.sp&&n.sp.moon),n.npc,c,o])+x;}
 function cuMemo(key,f){if(CU_MEMO.has(key)){const v=CU_MEMO.get(key);CU_MEMO.delete(key);CU_MEMO.set(key,v);return v;}const v=f();CU_MEMO.set(key,v);if(CU_MEMO.size>80)CU_MEMO.delete(CU_MEMO.keys().next().value);return v;}
 function cuWith(n,c,f){const was=CU_F;CU_F=cuFonts(cuEraOf(n,c.note.era),c.note.tp);try{return f();}finally{CU_F=was;}}
-function cuNoteSVG(n,c,o){o=o||{};const run=()=>cuWith(n,c,()=>cuNoteSVG0(n,c,o));return o.nocache?run():cuMemo(cuMemoKey(n,c,o,0),run);}
-function cuNoteBackSVG(n,c,o){o=o||{};const L=cuLand(n);return cuMemo(cuMemoKey(n,c,o,1)+'|'+(L?L.cells+':'+L.rings.length+':'+L.cities.length:'-'),()=>cuWith(n,c,()=>cuNoteBackSVG0(n,c,o)));}
+function cuNoteSVG(n,c,o){o=o||{};const run=()=>cuWith(n,c,()=>(c.note.or==='v'&&!o.hz?cuNoteVSVG0:cuNoteSVG0)(n,c,o));return o.nocache?run():cuMemo(cuMemoKey(n,c,o,0),run);}
+function cuNoteBackSVG(n,c,o){o=o||{};const L=cuLand(n);return cuMemo(cuMemoKey(n,c,o,1)+'|'+(L?L.cells+':'+L.rings.length+':'+L.cities.length:'-'),()=>cuWith(n,c,()=>(c.note.or==='v'&&!o.hz?cuNoteBackVSVG0:cuNoteBackSVG0)(n,c,o)));}
 /* the front of a banknote: 320 × 160. o: cls and label; den, another note of the series (in its own colours);
    who, a past series' leader ({r name, l title, a and b its years}) with series, its number; lite, a small copy
    without the finest work (microtext, signatures, half the rosette); mini, a thumbnail (the designer's series),
@@ -47358,6 +47370,111 @@ ${Y('emblem',PT('e',X,ey,`<circle cx="${X}" cy="${ey}" r="13" fill="${c1}" opaci
 ${Y('frame',frame)}
 ${Y('text',text)}
 </g>${win?cuWindow(id,wX,den,denS,mini?null:arms,rule):''}</svg>`;
+}
+/* a vertical note (note.or 'v'), 160 × 320 and read upright, the way some modern series are printed: the vignette
+   at the top, the bank and the currency under it, the emblem and the strip across the middle, the value at the foot */
+const CU_PARTS_V={v:[38,38,84,124],e:[60,204,40,40],f:[112,212,36,24],t:[98,282,48,26]};
+const CU_ROT='translate(-80 80) rotate(90 160 80)';
+function cuNoteVSVG0(n,c,o){
+  o=o||{};const id='cuv'+(++cuSeq),N=c.note,base=CU_DENOMS.includes(N.den)?N.den:100,den=CU_DENOMS.includes(o.den)?o.den:base,mini=!!o.mini,lite=mini||!!o.lite;
+  const T=cuTok(n,c,den,base),{c1,c2,ink,soft,vc,pin,rule,lay,era}=T,F=T.F,flR=N.fl==='r';
+  const denS=den.toLocaleString('en-US'),name=String(n.name||''),code=c.cd,motto=c.mo||n.motto||'';
+  const Y=(k,b)=>{if(o.only&&!o.only.includes(k))return '';const op=N.lop&&N.lop[k]!=null?+N.lop[k]:1;return op<=0?'':`<g data-layer="${k}"${op<1?` opacity="${op}"`:''}>${b}</g>`;};
+  const PT=(k,cx,cy,b)=>{const q=N.pos&&N.pos[k];if(!q)return `<g data-part="${k}">${b}</g>`;return `<g data-part="${k}" transform="translate(${cuR2(cx+q[0])} ${cuR2(cy+q[1])}) scale(${q[2]}) translate(${cuR2(-cx)} ${cuR2(-cy)})">${b}</g>`;};
+  const CS=x=>N.cs==='t'||N.cs==='s'?cuCapW(String(x).toLowerCase()):String(x).toUpperCase(),SC=N.cs==='s'?' font-variant="small-caps"':'',LS=+N.ls||0,VF=N.vf==='t'?F.t:N.vf==='m'?F.m:F.d;
+  const pat=mini||lay==='minimal'?'':N.pat==='seeded'&&Array.isArray(N.gp)?`<g id="${id}p">${cuGuillocheP(String(n.seed||n.name||''),160,80,150,soft,N.gp)}</g>`:cuPattern(N.pat,id+'p',soft,n),pOp=lay==='ornate'?.75:.55;
+  const patUse=!pat?'':/^<pattern/.test(pat)?`<rect width="160" height="320" fill="url(#${id}p)" opacity="${pOp}"/>`:`<use href="#${id}p" opacity="${pOp+.05}" transform="${CU_ROT}"/>`;
+  /* the vignette: an upright oval (Modern frames it square), its caption on a ribbon under it */
+  const sub=cuSubject(n,c,den,o),px=80,py=96,rx=40,ry=52,sq=lay==='modern',wx=flR?130:30,wy=236;
+  const V=(dx,a)=>sq?`<rect x="${px-rx+dx}" y="${py-ry+dx}" width="${2*(rx-dx)}" height="${2*(ry-dx)}" rx="${Math.max(1,6-dx)}" ${a}/>`:`<ellipse cx="${px}" cy="${py}" rx="${rx-dx}" ry="${ry-dx}" ${a}/>`;
+  let art='',ghost='';
+  if(mini){art=sub.k==='bust'?`<g transform="translate(${px} ${py-41}) scale(1.15) translate(-48 -21)">${ptSilhouette(sub,pin,'.85')}</g>`:cuNest(czArmsSVG(cuArmsOf(n)),px-26,py-33,52,62);}
+  else if(sub.k==='bust'){art=cuBustArt(id+'v',sub.seed,pin,px,py-41,1.15,1,sub.old,sub.look);ghost=`<g transform="translate(${wx} ${wy-17}) scale(.4) translate(-48 -21)">${ptSilhouette(sub,pin)}</g>`;}
+  else if(sub.k==='beast'){art=cuBeastArt(id+'v',n.animal,pin,vc,px,py-4,78,1);ghost=`<g opacity=".9">${cuBeastArt(id+'w',n.animal,pin,vc,wx,wy,30,1)}</g>`;}
+  else if(sub.k==='city'){const sk=cuSkyline(n.capital||name);
+    art=`<g transform="translate(${px-40} ${py-34}) scale(.8)">${cuEngrave(id+'v',`<path d="${sk.d}" fill="#fff"/>`,pin,[0,0,100,80],{ang:-35,gap:1.6,w:.55,lit:'r',tint:.22})}<path d="${sk.d}" fill="none" stroke="${pin}" stroke-width=".7"/><path d="${sk.w}" fill="${vc}" opacity=".85"/><path d="M0 78.4H100" stroke="${pin}" stroke-width="1.1"/></g>`;
+    ghost=`<g transform="translate(${wx-15} ${wy-14}) scale(.3)"><path d="${sk.d}" fill="${pin}"/></g>`;}
+  else{const A=czArmsSVG(cuArmsOf(n));art=era==='polymer'||era==='future'?cuNest(A,px-26,py-33,52,62):cuEngraveAny(id+'v',cuNest(A,px-26,py-33,52,62),pin,[px-rx,py-ry,2*rx,2*ry],{lit:'r'});ghost=cuNest(A,wx-9,wy-11,18,22);}
+  if(!mini&&N.wm==='none')ghost='';else if(!mini&&N.wm==='arms')ghost=cuNest(czArmsSVG(cuArmsOf(n)),wx-9,wy-11,18,22);else if(!mini&&N.wm==='cap')ghost=`<g transform="translate(${wx-15} ${wy-14}) scale(.3)"><path d="${cuSkyline(n.capital||name).d}" fill="${pin}"/></g>`;
+  const cap=String(sub.cap||'').toUpperCase().slice(0,34);
+  const vig=`<defs><clipPath id="${id}o">${V(0,'')}</clipPath>${cuHatch(id+'g',pin,0,1.5,.22)}</defs>
+${V(0,`fill="${vc}" opacity=".94"`)}<g clip-path="url(#${id}o)">${mini||lay==='minimal'?'':`<rect x="${px-rx}" y="${py-ry}" width="${2*rx}" height="${2*ry}" fill="url(#${id}g)" opacity=".28"/>`}${art}</g>
+${V(0,`fill="none" stroke="${rule}" stroke-width="1.4"`)}${V(2.4,`fill="none" stroke="${pin}" stroke-width=".35" stroke-dasharray=".7 1.1" opacity=".75"`)}
+<path d="M${px-44} 150H${px+44}L${px+40} 155.5L${px+44} 161H${px-44}L${px-40} 155.5Z" fill="${vc}" stroke="${rule}" stroke-width=".6"/><text x="${px}" y="157" text-anchor="middle" font-family="${F.t}" font-size="4.2" letter-spacing=".5" fill="${pin}"${cuFit(cap,4.2,.82,74)}>${esc(cap)}</text>`;
+  const X=80,ey=224,arms=cuArmsOf(n),bank=CS('Bank of '+name).slice(0,34),words=CS(CU_WORDS[den]+' '+(den===1?c.nm:c.pl)).slice(0,44);
+  let emb='';
+  if(N.emb==='arms'&&arms)emb=cuNest(czArmsSVG(arms),X-8.5,ey-10.5,17,21);
+  else if(N.emb==='flag'){const e=n.flag&&n.flag.e&&n.flag.e!=='none'?n.flag.e:'star';emb=`<circle cx="${X}" cy="${ey}" r="9" fill="${c2}"/>`+cuNest(flagSVG({p:'plain',c:[c2,c2,c2],e,ec:ink},''),X-11,ey-7.5,22,15);}
+  else if(N.emb==='seal')emb=`<circle cx="${X}" cy="${ey}" r="9" fill="none" stroke="${ink}" stroke-width=".7"/><text x="${X}" y="${ey+1.8}" text-anchor="middle" font-family="${F.t}" font-size="5" fill="${ink}">${esc(code)}</text>`;
+  else emb=`<text x="${X}" y="${ey+5}" text-anchor="middle" font-family="${F.d}" font-weight="700" font-size="${den>=1000?9:den>=100?12:15}" fill="none" stroke="${ink}" stroke-width=".5">${denS}</text>`;
+  const sNo=o.who?o.series:((Array.isArray(n.cuS)?n.cuS.length:0)+1),sAt=o.who?o.who.a:Math.max(typeof n.lt==='number'?n.lt:n.founded||0,+n.cuI||0),series=`SERIES ${roman(sNo||1)}${sAt>0?' · '+new Date(sAt).getUTCFullYear():''}`;
+  const sh=N.strip>1?9:7,sf=N.strip===2?`url(#${id}h)`:N.strip===3?`url(#${id}au)`:N.strip===4?vc:c2,strip=N.strip?`<rect x="0" y="192" width="160" height="${sh}" fill="${sf}" opacity="${N.strip===4?.45:N.strip>1?.92:.6}"${N.strip===4?` stroke="#B9C6CF" stroke-width=".8"`:''}/>`:'';
+  const foil=N.strip===3?'#C9961A':N.strip===2?'#A6D8F4':N.strip===4?'#B9C6CF':rule,fx=flR?12:112;
+  const flag=N.fl==='n'||lay==='minimal'?'':mini?`<rect x="${fx}" y="212" width="36" height="24" rx="2" fill="${vc}" opacity=".75" stroke="${foil}" stroke-width=".9"/>`:cuFlagPatch(id+'f',n,fx,212,36,24,cuMix(c1,'#0B1312',.55),cuMix(c1,'#FFFFFF',.86),foil);
+  const wm=mini?'':`<defs><radialGradient id="${id}w"><stop offset=".55" stop-color="${vc}" stop-opacity=".38"/><stop offset="1" stop-color="${vc}" stop-opacity="0"/></radialGradient></defs><ellipse cx="${wx}" cy="${wy}" rx="18" ry="22" fill="url(#${id}w)"/><g opacity=".16">${ghost}</g>`;
+  const shift=era==='polymer'||era==='future'||N.strip===2||N.strip===3;
+  const sec=strip+(lite?'':`<g transform="${CU_ROT}">${cuFibres(name,[c2,'#C0392B','#2E86C1',rule])}</g>`+cuRegister(id+'r',80,288,c.sy||'¤',ink,true))+(mini?'':cuTactile(den,148,56,ink));
+  const corners=(lay==='ornate'||N.ros)&&lay!=='minimal'&&!mini?[[22,22],[138,22],[22,298],[138,298]].map(([x,y])=>cuCorner(N.ros||'rosette',x,y,8,rule,lite)).join(''):'';
+  const band=N.bd&&lay!=='minimal'&&!mini?cuBand(N.bd,N.bdn||20,N.bdw||1,rule,1):'';
+  const frame=lay==='minimal'?`<rect x="8" y="8" width="144" height="304" rx="4" fill="none" stroke="${rule}" stroke-width=".8"/>`
+    :`<rect x="7" y="7" width="146" height="306" rx="4" fill="none" stroke="${rule}" stroke-width="1.6"/>${lay==='ornate'?`<rect x="3.5" y="3.5" width="153" height="313" rx="6" fill="none" stroke="${rule}" stroke-width=".7" stroke-dasharray="2 1.2"/>`:''}${lite?`<rect x="11" y="11" width="138" height="298" rx="3" fill="none" stroke="${ink}" stroke-width=".5" stroke-dasharray="1 1.4" opacity=".6"/>`:cuMicro(id+'m',N.mt?N.mt.toUpperCase():bank,ink,1)}${band}${corners}`;
+  const big=lay==='modern'?`<text x="80" y="300" text-anchor="middle" font-family="${F.d}" font-weight="700" font-size="${den>=1000?40:den>=100?52:70}" fill="${ink}" opacity=".1">${denS}</text>`:'';
+  const label=o.label||`A vertical ${denS} ${c.nm} banknote of ${name}${sub.cap?', showing '+sub.cap:''}`;
+  const text=`${big}<text x="80" y="24" text-anchor="middle" font-family="${F.t}" font-size="6.4" letter-spacing="${cuR2((era==='deco'?1.6:1)+LS)}" fill="${ink}"${SC}${cuFit(bank,6.4,era==='deco'?1.05:.9,132)}>${esc(bank)}</text>
+<text x="80" y="177" text-anchor="middle" font-family="${F.d}"${era==='classic'||era==='antique'?' font-style="italic"':''} font-size="12" fill="${ink}"${cuFit(c.nm,12,era==='future'?.62:.5,136)}>${esc(c.nm)}</text>
+${motto?`<text x="80" y="187" text-anchor="middle" font-family="${F.d}" font-style="italic" font-size="5" fill="${ink}" opacity=".85"${cuFit('“'+motto+'”',5,.45,136)}>“${esc(motto.slice(0,48))}”</text>`:''}
+<text x="${flR?146:14}" y="40" text-anchor="${flR?'end':'start'}" font-family="${VF}" font-weight="700" font-size="${den>=1000?11:13}" fill="${ink}">${denS}</text>
+${cuSerial(n,den,flR?14:146,40,flR?'start':'end',ink,T.red)}
+${PT('t',122,295,`<text x="146" y="306" text-anchor="end" font-family="${VF}" font-weight="700" font-size="${den>=1000?20:den>=100?24:28}" fill="${shift&&!mini?`url(#${id}cs)`:ink}">${denS}</text>`)}
+<text x="12" y="306" font-family="${F.m}" font-size="5" fill="${ink}" opacity=".85">${esc(code)}</text>
+${lite?'':cuSigs(n,o,80,254,ink)}
+<text x="80" y="272" text-anchor="middle" font-family="${F.t}" font-size="4.4" letter-spacing="${cuR2(.5+LS*.5)}" fill="${ink}"${SC}${cuFit(words,4.4,.8,136)}>${esc(words)}</text>
+<text x="80" y="279" text-anchor="middle" font-family="${F.t}" font-size="3" letter-spacing=".5" fill="${ink}" opacity=".8">${esc(series)}</text>`;
+  const g0a=era==='future'?cuMix(c1,'#39E6FF',.12):cuMix(c1,'#FFFFFF',T.dark?0.12:era==='polymer'?.2:0.35),g0b=cuMix(c1,'#000000',era==='polymer'?.08:0.18);
+  return `<svg class="cu-note cu-note-v${o.cls?' '+o.cls:''}" viewBox="0 0 160 320" role="img" aria-label="${esc(label)}" data-era="${era}" data-lay="${lay}" data-or="v"><defs><linearGradient id="${id}g0" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${g0a}"/><stop offset=".55" stop-color="${c1}"/><stop offset="1" stop-color="${g0b}"/></linearGradient>
+<linearGradient id="${id}h" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#f4a6c9"/><stop offset=".25" stop-color="#a6d8f4"/><stop offset=".5" stop-color="#b9f4c4"/><stop offset=".75" stop-color="#f4eda6"/><stop offset="1" stop-color="#c9a6f4"/></linearGradient>
+<linearGradient id="${id}au" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f7e3a1"/><stop offset=".5" stop-color="#c9961a"/><stop offset="1" stop-color="#f2d27a"/></linearGradient>
+<linearGradient id="${id}cs" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${cuMix(c2,ink,.3)}"/><stop offset=".5" stop-color="${era==='future'?'#39E6FF':'#C9961A'}"/><stop offset="1" stop-color="${cuMix(c2,'#2E8B57',.5)}"/></linearGradient>
+${/^<pattern/.test(pat)?pat:''}<clipPath id="${id}c"><rect width="160" height="320" rx="7"/></clipPath></defs>
+<g clip-path="url(#${id}c)">${Y('paper',`<rect width="160" height="320" fill="url(#${id}g0)"/>${pat&&!/^<pattern/.test(pat)?`<defs>${pat}</defs>`:''}${patUse}${wm}`)}
+${Y('security',sec)}${Y('vignette',(flag?PT('f',fx+18,224,flag):'')+PT('v',px,100,vig))}
+${Y('emblem',PT('e',X,ey,`<circle cx="${X}" cy="${ey}" r="13" fill="${c1}" opacity=".8"/>${cuRosette(X,ey,18,ink,mini?6:lite?10:20)}${emb}`))}
+${Y('frame',frame)}
+${Y('text',text)}
+</g></svg>`;
+}
+/* the back of a vertical note: the territory at the top, the value and the national symbols under it */
+function cuNoteBackVSVG0(n,c,o){
+  o=o||{};const id='cuw'+(++cuSeq),N=c.note,base=CU_DENOMS.includes(N.den)?N.den:100,den=CU_DENOMS.includes(o.den)?o.den:base;
+  const T=cuTok(n,c,den,base),{c1,c2,dark,ink,vc,pin,rule}=T,soft=dark?'rgba(246,241,226,.45)':'rgba(22,32,30,.4)',flR=N.fl==='r';
+  const denS=den.toLocaleString('en-US'),name=String(n.name||''),pat=cuPattern('waves',id+'p',soft,n),bank=('Bank of '+name).toUpperCase().slice(0,34),words=(CU_WORDS[den]+' '+(den===1?c.nm:c.pl)).toUpperCase().slice(0,44);
+  const fx=14,fy=34,fw=132,fh=140,L=cuLand(n);let map='';
+  if(L){const bw=fw-16,bh=fh-30,s=Math.min(bw/L.w,bh/L.h),ox=fx+8+(bw-L.w*s)/2,oy=fy+16+(bh-L.h*s)/2,P=([x,y])=>`${cuR2(ox+(x-L.x0)*s)} ${cuR2(oy+(y-L.y0)*s)}`;
+    const d=L.rings.map(r=>'M'+r.map(P).join('L')+'Z').join('');
+    map=cuEngrave(id+'l',`<path d="${d}" fill="#fff" fill-rule="evenodd"/>`,pin,[fx,fy,fw,fh],{ang:-38,gap:1.15,w:.42,tint:.24,lit:'r',fade:.4})
+      +`<path d="${d}" fill="none" stroke="${pin}" stroke-width=".7" stroke-linejoin="round"/>`
+      +L.cities.map(p=>{const [x,y]=P(p).split(' ').map(Number);return `<circle cx="${x}" cy="${y}" r="1.3" fill="${vc}" stroke="${pin}" stroke-width=".5"/>`;}).join('')
+      +(L.cap?(([x,y])=>`<path d="${czStarPts(x,y,5,4.4,1.9,-90)}" fill="${pin}" stroke="${vc}" stroke-width=".5"/>`)(P(L.cap).split(' ').map(Number)):'');}
+  else{const sk=cuSkyline(n.capital||name),s=1.2,ox=fx+fw/2-50*s,oy=fy+fh-12-78*s;map=`<g transform="translate(${cuR2(ox)} ${cuR2(oy)}) scale(${s})">${cuEngrave(id+'v',`<path d="${sk.d}" fill="#fff"/>`,pin,[0,0,100,80],{ang:-35,gap:1.4,w:.5,tint:.22})}<path d="${sk.d}" fill="none" stroke="${pin}" stroke-width=".6"/><path d="${sk.w}" fill="${vc}" opacity=".85"/></g>`;}
+  const ttl=(L?'The territory of '+name:n.capital||name).toUpperCase().slice(0,36),area=L?fmtArea(L.cells):'';
+  const facts=[['Capital',n.capital]].concat(n.founded>0?[['Founded',String(new Date(n.founded).getUTCFullYear())]]:[]);try{const y=cz(n).sy||{};for(const [k,l] of [['bird','National bird'],['flower','National flower'],['tree','National tree']])if(y[k]&&symOpen(n,k))facts.push([l,y[k]]);}catch(e){}
+  const sh=N.strip>1?9:7,sf=N.strip===2?`url(#${id}h)`:N.strip===3?`url(#${id}au)`:N.strip===4?vc:c2,strip=N.strip?`<rect x="0" y="192" width="160" height="${sh}" fill="${sf}" opacity="${N.strip===4?.45:N.strip>1?.92:.6}"/>`:'';
+  const wx=flR?30:130,wy=236;
+  return `<svg class="cu-note cu-note-b cu-note-v${o.cls?' '+o.cls:''}" viewBox="0 0 160 320" role="img" aria-label="${esc(o.label||`The back of a vertical ${denS} ${c.nm} banknote of ${name}`)}" data-or="v"><defs><linearGradient id="${id}g0" x1="1" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${cuMix(c1,'#FFFFFF',dark?0.12:0.35)}"/><stop offset=".55" stop-color="${c1}"/><stop offset="1" stop-color="${cuMix(c1,'#000000',0.18)}"/></linearGradient>
+<linearGradient id="${id}h" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#a6f0f4"/><stop offset=".5" stop-color="#f4eda6"/><stop offset="1" stop-color="#f4a6c9"/></linearGradient><linearGradient id="${id}au" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f2d27a"/><stop offset=".5" stop-color="#c9961a"/><stop offset="1" stop-color="#f7e3a1"/></linearGradient>
+${pat}${cuHatch(id+'q',pin,0,1.6,.2)}<radialGradient id="${id}w"><stop offset=".55" stop-color="${vc}" stop-opacity=".38"/><stop offset="1" stop-color="${vc}" stop-opacity="0"/></radialGradient><clipPath id="${id}c"><rect width="160" height="320" rx="7"/></clipPath></defs>
+<g clip-path="url(#${id}c)"><rect width="160" height="320" fill="url(#${id}g0)"/><rect width="160" height="320" fill="url(#${id}p)" opacity=".5"/>${strip}<ellipse cx="${wx}" cy="${wy}" rx="18" ry="22" fill="url(#${id}w)"/>
+<rect x="${fx}" y="${fy}" width="${fw}" height="${fh}" rx="3" fill="${vc}" opacity=".92"/><rect x="${fx}" y="${fy}" width="${fw}" height="${fh}" rx="3" fill="url(#${id}q)" opacity=".3"/>${map}
+<rect x="${fx}" y="${fy}" width="${fw}" height="${fh}" rx="3" fill="none" stroke="${rule}" stroke-width="1.2"/>
+<text x="${fx+fw/2}" y="${fy+11}" text-anchor="middle" font-family="${CU_F.t}" font-size="4.4" letter-spacing=".8" fill="${pin}"${cuFit(ttl,4.4,.85,fw-16)}>${esc(ttl)}</text>
+${area?`<text x="${fx+fw-5}" y="${fy+fh-5}" text-anchor="end" font-family="${CU_F.m}" font-size="3.8" fill="${pin}" opacity=".85">${esc(area)}</text>`:''}
+<rect x="7" y="7" width="146" height="306" rx="4" fill="none" stroke="${rule}" stroke-width="1.6"/>${o.lite?'':cuMicro(id+'m',N.mt?N.mt.toUpperCase():bank,ink,1)}${N.bd&&!o.lite?cuBand(N.bd,N.bdn||20,N.bdw||1,rule,1):''}
+<text x="80" y="24" text-anchor="middle" font-family="${CU_F.t}" font-size="5.4" letter-spacing=".8" fill="${ink}"${cuFit(bank,5.4,.9,132)}>${esc(bank)}</text>
+<text x="80" y="236" text-anchor="middle" font-family="${CU_F.d}" font-weight="700" font-size="${den>=1000?26:32}" fill="${ink}">${denS}</text>
+<text x="80" y="248" text-anchor="middle" font-family="${CU_F.t}" font-size="4" letter-spacing=".5" fill="${ink}"${cuFit(words,4,.8,132)}>${esc(words)}</text>
+${facts.slice(0,3).map(([l,v],i)=>`<text x="80" y="${260+i*6.4}" text-anchor="middle" font-family="${CU_F.t}" font-size="3.3" letter-spacing=".4" fill="${ink}" opacity=".9"${cuFit(l+' · '+v,3.3,.82,132)}>${esc((l+' · '+v).toUpperCase().slice(0,44))}</text>`).join('')}
+${o.lite?'':cuRegister(id+'r',80,288,c.sy||'¤',ink,false)+cuTactile(den,12,56,ink)}<text x="80" y="304" text-anchor="middle" font-family="${CU_F.t}" font-size="3.2" letter-spacing=".6" fill="${ink}" opacity=".85">${esc(('Legal tender in '+name).toUpperCase().slice(0,44))}</text>
+</g></svg>`;
 }
 /* the outline of a nation's land on the map, for the back of its notes: the edges its hexes share with no other
    hex of its own, joined into rings (map units), with its capital and cities */
@@ -47448,26 +47565,73 @@ function cuShapePath(sh){
 }
 function cuCoinSVG(n,c,o){return cuWith(n,c,()=>cuCoinSVG0(n,c,o));}
 /* the coin shares the note's kit: its era's type, and the nation's own guilloché faint in the field */
+/* the coin's blank, shared by both faces: metal and finish (coin.fin), shape, rim (coin.rim), edge (coin.edge) */
+function cuCoinBase(id,n,c,o){
+  const K=c.coin,M=CU_METALS[K.met]||CU_METALS.bi,bi=K.met==='bi',fin=cuHas(CU_FINS,K.fin)?K.fin:'bright';
+  let outer=M[1],inner=bi?M[2]:M[1],deep=bi?'#6F6A55':M[2];
+  if(fin==='antique'){outer=cuMix(outer,'#3A2E22',.3);inner=cuMix(inner,'#3A2E22',.3);deep=cuMix(deep,'#000000',.35);}
+  const hi={bright:.45,proof:.6,matte:.12,antique:.16}[fin],lo={bright:.35,proof:.4,matte:.14,antique:.5}[fin];
+  const hole=K.shape==='holed'||K.shape==='sqhole',sp=cuShapePath(K.shape),dk=cuMix(outer,'#000000',.45),dev=fin==='proof'?cuMix(inner,'#FFFFFF',.5):deep;
+  const defs=`<radialGradient id="${id}o" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="${cuMix(outer,'#FFFFFF',hi)}"/><stop offset=".6" stop-color="${outer}"/><stop offset="1" stop-color="${cuMix(outer,'#000000',lo)}"/></radialGradient>
+<radialGradient id="${id}i" cx=".4" cy=".35" r=".75"><stop offset="0" stop-color="${cuMix(inner,'#FFFFFF',hi+.05)}"/><stop offset=".7" stop-color="${inner}"/><stop offset="1" stop-color="${cuMix(inner,'#000000',lo-.1)}"/></radialGradient>`;
+  const rim=K.rim||'beaded',R=bi?38:47;
+  const rims=rim==='thin'?`<circle cx="60" cy="60" r="${R}" fill="none" stroke="${dk}" stroke-width=".7"/>`
+    :rim==='wide'?`<circle cx="60" cy="60" r="${R-2}" fill="none" stroke="${cuMix(bi?inner:outer,'#FFFFFF',.25)}" stroke-width="3.6"/><circle cx="60" cy="60" r="${R-4.2}" fill="none" stroke="${dk}" stroke-width=".6"/>`
+    :rim==='double'?`<circle cx="60" cy="60" r="${R}" fill="none" stroke="${dk}" stroke-width=".8"/><circle cx="60" cy="60" r="${R-3.5}" fill="none" stroke="${dk}" stroke-width=".8"/>`
+    :`<circle cx="60" cy="60" r="${R}" fill="none" stroke="${dk}" stroke-width=".7"/><circle cx="60" cy="60" r="${R-3}" fill="none" stroke="${dk}" stroke-width="1.6" stroke-dasharray=".1 3.2" stroke-linecap="round"/>`;
+  const e=K.edge,edge=e==='reed'?`<path d="${sp}" fill="none" fill-rule="evenodd" stroke="${cuMix(outer,'#000000',.5)}" stroke-width="2.4" stroke-dasharray=".45 .75"/>`
+    :e==='beads'?`<path d="${sp}" fill="none" stroke="${cuMix(outer,'#FFFFFF',.35)}" stroke-width="2" stroke-dasharray=".01 2.6" stroke-linecap="round"/>`
+    :e==='groove'?`<path d="${sp}" fill="none" stroke="${cuMix(outer,'#000000',.6)}" stroke-width=".6" transform="translate(60 60) scale(.96) translate(-60 -60)"/><path d="${sp}" fill="none" stroke="${cuMix(outer,'#FFFFFF',.4)}" stroke-width=".4" transform="translate(60 60) scale(.95) translate(-60 -60)"/>`
+    :e==='letter'&&!o.mini?`<path id="${id}e" d="M60 11.6a48.4 48.4 0 1 1-.01 0" fill="none"/><text font-family="${CU_F.m}" font-size="2.7" letter-spacing=".7" fill="${cuMix(outer,'#000000',.55)}"><textPath href="#${id}e">${esc(Array(4).fill(String(n.name||'').toUpperCase().slice(0,16)+' ✦').join(' '))}</textPath></text>`:'';
+  const disc=`<path d="${sp}" fill="url(#${id}o)" fill-rule="evenodd" stroke="${dk}" stroke-width="1.2"/>${edge}
+${bi?`<path d="M60 22a38 38 0 1 1 0 76a38 38 0 1 1 0-76Z${K.shape==='holed'?'M60 49a11 11 0 1 0 0 22a11 11 0 1 0 0-22Z':K.shape==='sqhole'?'M50 50h20v20H50Z':''}" fill-rule="evenodd" fill="url(#${id}i)" stroke="${cuMix(inner,'#000000',.35)}" stroke-width=".8"/>`:''}${rims}
+${fin==='proof'?`<circle cx="60" cy="60" r="${bi?35:42}" fill="#000" opacity=".16"/>`:''}`;
+  return {defs,disc,deep,dev,inner,outer,hole,fin};
+}
+/* the field behind the device (coin.fld) */
+function cuCoinField(k,seed,ink,mini){
+  if(mini||k==='plain')return '';
+  if(k==='rays'){let d='';for(let i=0;i<48;i++){const a=i*Math.PI/24;d+=`M${cuR2(60+Math.cos(a)*14)} ${cuR2(60+Math.sin(a)*14)}L${cuR2(60+Math.cos(a)*36)} ${cuR2(60+Math.sin(a)*36)}`;}return `<path d="${d}" stroke="${ink}" stroke-width=".35" opacity=".3"/>`;}
+  if(k==='waves'){let b='';for(let j=0;j<5;j++){const r0=16+j*4.4;let d='';for(let i=0;i<=120;i++){const a=i/120*2*Math.PI,r=r0+1.1*Math.sin(a*12+j);d+=(i?'L':'M')+cuR2(60+Math.cos(a)*r)+' '+cuR2(60+Math.sin(a)*r);}b+=`<path d="${d}" fill="none" stroke="${ink}" stroke-width=".35"/>`;}return `<g opacity=".3">${b}</g>`;}
+  if(k==='grid'){let d='';for(let i=-36;i<=36;i+=4.5){const h=Math.sqrt(Math.max(0,36*36-i*i));d+=`M${cuR2(60+i)} ${cuR2(60-h)}V${cuR2(60+h)}M${cuR2(60-h)} ${cuR2(60+i)}H${cuR2(60+h)}`;}return `<path d="${d}" stroke="${ink}" stroke-width=".3" opacity=".25" transform="rotate(45 60 60)"/>`;}
+  if(k==='rings'){let b='';for(let r=12;r<=37;r+=2.6)b+=`<circle cx="60" cy="60" r="${cuR2(r)}"/>`;return `<g fill="none" stroke="${ink}" stroke-width=".3" opacity=".3">${b}</g>`;}
+  return `<g opacity=".28">${CU_KIT.guilloche(seed,60,60,30,ink,2,.35,1)}</g>`;
+}
+const cuWreath=(ink,cy,s)=>`<g fill="none" stroke="${ink}" stroke-width="1.4" opacity=".8" transform="translate(60 ${cy}) scale(${s}) translate(-60 -47)"><path d="M44 62c-6-12-2-24 8-30M76 62c6-12 2-24-8-30"/>${[0,1,2,3].map(i=>`<ellipse cx="${46-i*0.6}" cy="${56-i*7}" rx="2.4" ry="4.4" transform="rotate(${-30+i*12} ${46-i*0.6} ${56-i*7})"/><ellipse cx="${74+i*0.6}" cy="${56-i*7}" rx="2.4" ry="4.4" transform="rotate(${30-i*12} ${74+i*0.6} ${56-i*7})"/>`).join('')}</g>`;
+function cuCoinWords(n,c){const K=c.coin,sub=K.dk==='s'&&c.sn>1,den=K.den||1;return {den,unit:sub?(den===1?c.su:plural(c.su)):(den===1?c.nm.split(' ').pop():c.pl.split(' ').pop()),yr:K.yr&&c.year?String(c.year):''};}
+/* the coin's face (obverse): the device, the inscription round the top, the value, the legend round the foot */
 function cuCoinSVG0(n,c,o){
-  o=o||{};const id='cuc'+(++cuSeq),K=c.coin,M=CU_METALS[K.met]||CU_METALS.bi,bi=K.met==='bi',outer=M[1],inner=bi?M[2]:M[1],deep=bi?'#6F6A55':M[2];
-  const sub=K.dk==='s'&&c.sn>1,den=K.den||1,unit=sub?(den===1?c.su:plural(c.su)):(den===1?c.nm.split(' ').pop():c.pl.split(' ').pop());
-  const ins=(K.ins||n.name||'').toUpperCase().slice(0,28),yr=K.yr&&c.year?String(c.year):'',arms=cuArmsOf(n);
+  o=o||{};const id='cuc'+(++cuSeq),K=c.coin,B=cuCoinBase(id,n,c,o),{deep,dev,hole}=B,{den,unit,yr}=cuCoinWords(n,c);
+  const ins=(K.ins||n.name||'').toUpperCase().slice(0,28),arms=cuArmsOf(n);
   let emb='';
   /* a holed coin has no device, and its value sits lower, clear of the hole */
-  const hole=K.shape==='holed'||K.shape==='sqhole';if(hole)emb='';
+  if(hole)emb='';
   else if(K.emb==='arms'&&arms)emb=cuNest(czArmsSVG(arms),45,30,30,36);
-  else if(K.emb==='flag'){const e=n.flag&&n.flag.e&&n.flag.e!=='none'?n.flag.e:'star';emb=cuNest(flagSVG({p:'plain',c:[inner,inner,inner],e,ec:deep},''),36,30,48,32);}
-  else if(K.emb==='wreath')emb=`<g fill="none" stroke="${deep}" stroke-width="1.4" opacity=".8"><path d="M44 62c-6-12-2-24 8-30M76 62c6-12 2-24-8-30"/>${[0,1,2,3].map(i=>`<ellipse cx="${46-i*0.6}" cy="${56-i*7}" rx="2.4" ry="4.4" transform="rotate(${-30+i*12} ${46-i*0.6} ${56-i*7})"/><ellipse cx="${74+i*0.6}" cy="${56-i*7}" rx="2.4" ry="4.4" transform="rotate(${30-i*12} ${74+i*0.6} ${56-i*7})"/>`).join('')}</g>`;
-  else emb=`<path d="M60 30l5.5 12.5 13.5.9-10.4 8.7 3.4 13.2L60 58.1l-12 7.2 3.4-13.2-10.4-8.7 13.5-.9z" fill="${deep}" opacity=".75"/>`;
-  return `<svg class="cu-coin${o.cls?' '+o.cls:''}" viewBox="0 0 120 120" role="img" aria-label="${esc(o.label||`A ${den} ${unit} coin of ${n.name}, ${CU_METALS[K.met]?CU_METALS[K.met][0].toLowerCase():'bimetallic'}`)}"><defs>
-<radialGradient id="${id}o" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="${cuMix(outer,'#FFFFFF',.45)}"/><stop offset=".6" stop-color="${outer}"/><stop offset="1" stop-color="${cuMix(outer,'#000000',.35)}"/></radialGradient>
-<radialGradient id="${id}i" cx=".4" cy=".35" r=".75"><stop offset="0" stop-color="${cuMix(inner,'#FFFFFF',.5)}"/><stop offset=".7" stop-color="${inner}"/><stop offset="1" stop-color="${cuMix(inner,'#000000',.25)}"/></radialGradient>
+  else if(K.emb==='flag'){const e=n.flag&&n.flag.e&&n.flag.e!=='none'?n.flag.e:'star';emb=cuNest(flagSVG({p:'plain',c:[B.inner,B.inner,B.inner],e,ec:dev},''),36,30,48,32);}
+  else if(K.emb==='portrait'){const s=cuSubject(n,Object.assign({},c,{note:Object.assign({},c.note,{por:'leader'})}),100,{});emb=s.k==='bust'?`<g transform="translate(60 25) scale(.4) translate(-48 -21)">${ptSilhouette(s,dev,'.9')}</g>`:'';}
+  else if(K.emb==='wreath')emb=cuWreath(dev,47,1);
+  else emb=`<path d="M60 30l5.5 12.5 13.5.9-10.4 8.7 3.4 13.2L60 58.1l-12 7.2 3.4-13.2-10.4-8.7 13.5-.9z" fill="${dev}" opacity=".75"/>`;
+  const sz=+K.dsz||1,dy=+K.dy||0;if(emb&&(sz!==1||dy))emb=`<g transform="translate(60 ${cuR2(48+dy)}) scale(${sz}) translate(-60 -48)">${emb}</g>`;
+  const leg=K.lo?K.lo.toUpperCase()+(yr?' · '+yr:''):yr;
+  return `<svg class="cu-coin${o.cls?' '+o.cls:''}" viewBox="0 0 120 120" role="img" aria-label="${esc(o.label||`A ${den} ${unit} coin of ${n.name}, ${CU_METALS[K.met]?CU_METALS[K.met][0].toLowerCase():'bimetallic'}`)}"><defs>${B.defs}
 <path id="${id}a" d="M24 60a36 36 0 0 1 72 0"/><path id="${id}b" d="M20 62a40 40 0 0 0 80 0"/></defs>
-<path d="${cuShapePath(K.shape)}" fill="url(#${id}o)" fill-rule="evenodd" stroke="${cuMix(outer,'#000000',.45)}" stroke-width="1.2"/>
-${bi?`<path d="M60 22a38 38 0 1 1 0 76a38 38 0 1 1 0-76Z${K.shape==='holed'?'M60 49a11 11 0 1 0 0 22a11 11 0 1 0 0-22Z':K.shape==='sqhole'?'M50 50h20v20H50Z':''}" fill-rule="evenodd" fill="url(#${id}i)" stroke="${cuMix(inner,'#000000',.35)}" stroke-width=".8"/>`:`<circle cx="60" cy="60" r="47" fill="none" stroke="${cuMix(outer,'#000000',.3)}" stroke-width=".7"/><circle cx="60" cy="60" r="44" fill="none" stroke="${cuMix(outer,'#000000',.3)}" stroke-width="1.6" stroke-dasharray=".1 3.2" stroke-linecap="round"/>`}
-${o.mini?'':`<g opacity=".28">${CU_KIT.guilloche(String(n.seed||n.name||''),60,60,30,deep,2,.35,1)}</g>`}${emb}<text font-family="${CU_F.t}" font-size="${ins.length>16?6.2:7.4}" letter-spacing="1" fill="${deep}"><textPath href="#${id}a" startOffset="50%" text-anchor="middle">${esc(ins)}</textPath></text>
+${B.disc}${cuCoinField(K.fld,String(n.seed||n.name||''),deep,o.mini)}${emb}<text font-family="${CU_F.t}" font-size="${ins.length>16?6.2:7.4}" letter-spacing="1" fill="${deep}"><textPath href="#${id}a" startOffset="50%" text-anchor="middle">${esc(ins)}</textPath></text>
 <text x="60" y="${hole?85:82}" text-anchor="middle" font-family="${CU_F.d}" font-weight="700" font-size="${hole?14:17}" fill="${deep}">${den}</text>
 <text x="60" y="${hole?93:91}" text-anchor="middle" font-family="${CU_F.t}" font-size="5.6" letter-spacing=".6" fill="${deep}">${esc(String(unit).toUpperCase().slice(0,16))}</text>
+${leg?`<text font-family="${CU_F.m}" font-size="${leg.length>20?4.6:6}" fill="${deep}"><textPath href="#${id}b" startOffset="50%" text-anchor="middle">${esc(leg)}</textPath></text>`:''}
+</svg>`;
+}
+/* the coin's other face (reverse, coin.rev): the value large, in a wreath, under the star of state, the arms or the
+   national animal, with the currency's name round the top */
+function cuCoinBackSVG(n,c,o){return cuWith(n,c,()=>cuCoinBackSVG0(n,c,o||{}));}
+function cuCoinBackSVG0(n,c,o){
+  const id='cur'+(++cuSeq),K=c.coin,B=cuCoinBase(id,n,c,o),{deep,dev,hole}=B,{den,unit,yr}=cuCoinWords(n,c),rev=cuHas(CU_REVS,K.rev)?K.rev:'value',nm=c.nm.toUpperCase().slice(0,26);
+  let mid='';const vy=hole?88:rev==='value'?72:rev==='wreath'?67:82,fs=hole?14:rev==='value'?32:rev==='wreath'?22:17;
+  if(!hole){if(rev==='wreath')mid=cuWreath(dev,58,1.25);else if(rev==='star')mid=`<path d="${czStarPts(60,46,5,15,6.4,-90)}" fill="${dev}" opacity=".8"/>`;else if(rev==='arms'&&cuArmsOf(n))mid=cuNest(czArmsSVG(cuArmsOf(n)),45,26,30,36);else if(rev==='animal')mid=cuBeastArt(id+'b',n.animal,dev,B.inner,60,46,40,1,1);}
+  return `<svg class="cu-coin cu-coin-b${o.cls?' '+o.cls:''}" viewBox="0 0 120 120" role="img" aria-label="${esc(o.label||`The other side of the ${den} ${unit} coin of ${n.name}`)}"><defs>${B.defs}<path id="${id}a" d="M24 60a36 36 0 0 1 72 0"/><path id="${id}b" d="M20 62a40 40 0 0 0 80 0"/></defs>
+${B.disc}${cuCoinField(K.fld,String(n.seed||n.name||'')+':r',deep,o.mini)}${mid}<text font-family="${CU_F.t}" font-size="${nm.length>16?6:7}" letter-spacing="1" fill="${deep}"><textPath href="#${id}a" startOffset="50%" text-anchor="middle">${esc(nm)}</textPath></text>
+<text x="60" y="${vy}" text-anchor="middle" font-family="${CU_F.d}" font-weight="700" font-size="${fs}" fill="${deep}">${den}</text>
+<text x="60" y="${vy+9}" text-anchor="middle" font-family="${CU_F.t}" font-size="5.4" letter-spacing=".6" fill="${deep}">${esc(String(unit).toUpperCase().slice(0,16))}</text>
 ${yr?`<text font-family="${CU_F.m}" font-size="6" fill="${deep}"><textPath href="#${id}b" startOffset="50%" text-anchor="middle">${yr}</textPath></text>`:''}
 </svg>`;
 }
@@ -47812,6 +47976,7 @@ function cuCzBody(n){
     <div class="cu-st-open"><button type="button" class="btn" data-cst="open">Open the Note Studio</button><span class="hint">Every part of the note on one screen: move parts on the note, layers, your own guilloché, ornaments, type and the whole series.</span></div>
     ${cuPresetRow()}
     ${seg('Layout','cu-l-lay',Object.entries(CU_LAYS),N.lay||'classic','note','lay')}
+    ${seg('Orientation','cu-l-or',[['','Horizontal'],['v','Vertical']],N.or||'','note','or')}
     <div class="cz-drow"><span class="cz-dl" id="cu-l-era">Era</span><div class="seg cz-seg" role="group" aria-labelledby="cu-l-era">${Object.entries(CU_ERAS).map(([v,l])=>{const on=(N.era||'classic')===v;return cuEraOpen(n,v)?`<button type="button" id="cu-l-era-${v}" class="seg-b${on?' on':''}" data-act="cu-set" data-f="note.era" data-v="${v}" aria-pressed="${on}">${esc(l)}</button>`:`<button type="button" id="cu-l-era-${v}" class="seg-b cu-lk" aria-disabled="true" title="${esc(l+': '+CU_ERA_HOW[v])}" data-act="cu-era-locked" data-v="${v}">${CZ_LOCK}${esc(l)}</button>`;}).join('')}</div></div>
     ${col('c1','Main colour')}${col('c2','Second colour')}
     ${lseg('Engraving','cu-l-pat',Object.entries(CU_PATS),N.pat,'note','pat','pat')}
@@ -47821,6 +47986,7 @@ function cuCzBody(n){
     ${lseg('Security strip','cu-l-st',Object.entries(CU_STRIPS),N.strip,'note','strip','strip')}
     ${seg('Denomination','cu-l-den',CU_DENOMS.map(v=>[v,v.toLocaleString('en-US')]),N.den,'note','den')}
     <h3 class="sub-h">Coin</h3>
+    <div class="cu-st-open"><button type="button" class="btn ghost" data-cst="open" data-v="coin">Design the coin in the Studio</button><span class="hint">Both faces, finish, rim, edge, field and the whole set to scale.</span></div>
     ${lseg('Metal','cu-l-met',Object.entries(CU_METALS).map(([k,v])=>[k,v[0]]),K.met,'coin','met','met')}
     ${lseg('Shape','cu-l-sh',Object.entries(CU_SHAPES),K.shape,'coin','shape','shape')}
     ${seg('Device','cu-l-ce',Object.entries(CU_CEMB),K.emb,'coin','emb')}
@@ -47869,11 +48035,12 @@ const CU_VERS=6;
 const CU_PARTS={v:{l:'Vignette',ly:'vignette',b:[211,31,80,87]},f:{l:'Flag',ly:'vignette',b:[20,46,52,34]},e:{l:'Emblem',ly:'emblem',b:[139,58,40,40]},t:{l:'Value',ly:'text',b:[255,130,54,18]}};
 const CU_SAFE=[12,12,308,148];
 const CU_SEE={flat:'Flat',wallet:'In a wallet',hand:'In a hand',worn:'Worn',phone:'Phone size',uv:'Under UV light',light:'Against the light'};
-const CST={on:false,z:1,px:0,py:0,sel:'v',hist:[],fut:[],tab:'style',see:'flat',split:true,guides:true,proof:true,lock:{},cmp:-1,one:false,snap:null,drag:null,el:null,opener:null};
+const CST={mode:'note',ctab:'metal',on:false,z:1,px:0,py:0,sel:'v',hist:[],fut:[],tab:'style',see:'flat',split:true,guides:true,proof:true,lock:{},cmp:-1,one:false,snap:null,drag:null,el:null,opener:null};
 function cstN(){return S.nation;}
 function cstCur(){return cuDraftCur(S.nation,CU.d);}
 /* a part's box on the note as drawn now: its place, mirrored when the flag is on the right, moved and scaled */
-function cstBox(k,N){const P=CU_PARTS[k],[x,y,w,h]=P.b,fx=N.fl==='r'&&k!=='t'?320-x-w:N.fl==='r'?320-x-w:x,q=N.pos&&N.pos[k]||[0,0,1],cx=fx+w/2+q[0],cy=y+h/2+q[1];return {cx,cy,w:w*q[2],h:h*q[2],x:cx-w*q[2]/2,y:cy-h*q[2]/2,q,c0:[fx+w/2,y+h/2]};}
+function cstGeo(N){const V=N.or==='v';return {V,W:V?160:320,H:V?320:160,safe:V?[12,12,148,308]:CU_SAFE,mx:V?80:160,my:V?160:80};}
+function cstBox(k,N){const V=N.or==='v',[x,y,w,h]=V?CU_PARTS_V[k]:CU_PARTS[k].b,fx=V?(k==='f'&&N.fl==='r'?160-x-w:x):N.fl==='r'?320-x-w:x,q=N.pos&&N.pos[k]||[0,0,1],cx=fx+w/2+q[0],cy=y+h/2+q[1];return {cx,cy,w:w*q[2],h:h*q[2],x:cx-w*q[2]/2,y:cy-h*q[2]/2,q,c0:[fx+w/2,y+h/2]};}
 function cstHas(k,N){return k==='f'?N.fl!=='n'&&N.lay!=='minimal':true;}
 /* one change: what it was before goes on the history, with its name (a run of the same change in a moment is one) */
 function cstDo(label,f){
@@ -47886,9 +48053,9 @@ function cstRedo(){const h=CST.fut.pop();if(!h)return;CST.hist.push({l:h.l,d:JSO
 function cstJump(i){while(CST.hist.length>i)cstUndo();}
 function cstSet(path,v,label){cstDo(label,()=>cuSetDraft(path,v));cstPaint();}
 function cstNote(){CU.d.note=CU.d.note||{};return CU.d.note;}
-function cstOpen(){
+function cstOpen(mode){
   const n=cstN();if(!n)return;if(!CU.d)CU.d=cuDraft(n);
-  Object.assign(CST,{on:true,hist:[],fut:[],z:1,px:0,py:0,cmp:-1,opener:document.activeElement});
+  Object.assign(CST,{on:true,mode:mode==='coin'?'coin':'note',hist:[],fut:[],z:1,px:0,py:0,cmp:-1,opener:document.activeElement});
   let el=document.getElementById('cu-st');if(!el){el=document.createElement('div');el.id='cu-st';el.className='cst';el.setAttribute('role','dialog');el.setAttribute('aria-modal','true');el.setAttribute('aria-label','Note Studio');document.body.appendChild(el);}
   CST.el=el;el.hidden=false;document.documentElement.classList.add('cst-on');cstPaint();
   requestAnimationFrame(()=>{const b=document.getElementById('cst-close');if(b)b.focus({preventScroll:true});});
@@ -47905,9 +48072,10 @@ function cstBar(n,c){
   const rem=cstRemixList();
   return `<div class="cst-bar">
   <h2 class="cst-h">Note Studio</h2>
+  <div class="cst-g" role="group" aria-label="Design">${b('mode','Banknote',CST.mode==='note').replace('data-cst="mode"','data-cst="mode" data-v="note"')}${b('mode','Coin',CST.mode==='coin').replace('data-cst="mode"','data-cst="mode" data-v="coin"')}</div>
   <div class="cst-g">${b('undo','↶ Undo',null,'Undo (Ctrl+Z)').replace('<button',CST.hist.length?'<button':'<button disabled')}${b('redo','↷ Redo',null,'Redo (Ctrl+Y)').replace('<button',CST.fut.length?'<button':'<button disabled')}</div>
   <div class="cst-g" role="group" aria-label="Zoom">${b('zout','−',null,'Zoom out')}${b('z1',Math.round(CST.z*100)+'%',null,'Back to 100%')}${b('zin','+',null,'Zoom in')}</div>
-  <div class="cst-g">${b('split','Front + back',CST.split)}${b('guides','Guides',CST.guides)}${b('proof','Proof',CST.proof)}</div>
+  ${CST.mode==='coin'?'':`<div class="cst-g">${b('split','Front + back',CST.split)}${b('guides','Guides',CST.guides)}${b('proof','Proof',CST.proof)}</div>`}
   <label class="cst-g cst-sel"><span>See it</span><select data-cst-sel="see">${Object.entries(CU_SEE).map(([k,l])=>`<option value="${k}"${CST.see===k?' selected':''}>${l}</option>`).join('')}</select></label>
   <span class="cst-sp"></span>
   <div class="cst-g"><label class="cst-sel"><span class="u-sr">Versions</span><select data-cst-sel="ver"><option value="">Versions${V.length?` (${V.length})`:''}…</option>${V.map((v,i)=>`<option value="load:${i}">Open “${esc(v.nm)}”</option>`).join('')}${V.map((v,i)=>`<option value="cmp:${i}">${CST.cmp===i?'Stop comparing':'Compare with'} “${esc(v.nm)}”</option>`).join('')}<option value="save">Save this as a version</option>${V.length?V.map((v,i)=>`<option value="del:${i}">Delete “${esc(v.nm)}”</option>`).join(''):''}</select></label>
@@ -47930,14 +48098,14 @@ function cstLeft(n,c){
   <button type="button" class="cst-b" data-cst="pos0">Put the ${esc(P.l.toLowerCase())} back</button></div>`;
 }
 function cstOverlay(N){
-  const S0=CU_SAFE,g=CST.guides,sn=CST.snap||{};let o='';
-  if(g)o+=`<rect x="${S0[0]}" y="${S0[1]}" width="${S0[2]-S0[0]}" height="${S0[3]-S0[1]}" class="cst-safe"/><path d="M160 0V160M0 80H320" class="cst-mid"/>`;
+  const G=cstGeo(N),S0=G.safe,g=CST.guides,sn=CST.snap||{};let o='';
+  if(g)o+=`<rect x="${S0[0]}" y="${S0[1]}" width="${S0[2]-S0[0]}" height="${S0[3]-S0[1]}" class="cst-safe"/><path d="M${G.mx} 0V${G.H}M0 ${G.my}H${G.W}" class="cst-mid"/>`;
   const bad=CST.proof?cstProof().filter(p=>p.k).map(p=>p.k):[];
   for(const k of Object.keys(CU_PARTS)){if(!cstHas(k,N))continue;const b=cstBox(k,N),lk=CST.lock[CU_PARTS[k].ly];
     o+=`<rect x="${cuR2(b.x)}" y="${cuR2(b.y)}" width="${cuR2(b.w)}" height="${cuR2(b.h)}" class="cst-hit${bad.includes(k)?' bad':''}${lk?' lk':''}" data-part="${k}"><title>${CU_PARTS[k].l}${lk?' (layer locked)':''}</title></rect>`;}
   if(cstHas(CST.sel,N)){const b=cstBox(CST.sel,N);o+=`<rect x="${cuR2(b.x)}" y="${cuR2(b.y)}" width="${cuR2(b.w)}" height="${cuR2(b.h)}" class="cst-selb"/>`+[[b.x,b.y],[b.x+b.w,b.y],[b.x,b.y+b.h],[b.x+b.w,b.y+b.h]].map(([x,y],i)=>`<rect x="${cuR2(x-3)}" y="${cuR2(y-3)}" width="6" height="6" class="cst-hd" data-h="${i}"/>`).join('');}
-  if(sn.x!=null)o+=`<path d="M${sn.x} 0V160" class="cst-snap"/>`;if(sn.y!=null)o+=`<path d="M0 ${sn.y}H320" class="cst-snap"/>`;
-  return `<svg class="cst-ov" viewBox="0 0 320 160" aria-hidden="true">${o}</svg>`;
+  if(sn.x!=null)o+=`<path d="M${sn.x} 0V${G.H}" class="cst-snap"/>`;if(sn.y!=null)o+=`<path d="M0 ${sn.y}H${G.W}" class="cst-snap"/>`;
+  return `<svg class="cst-ov" viewBox="0 0 ${G.W} ${G.H}" aria-hidden="true">${o}</svg>`;
 }
 function cstStage(n,t,c){
   const N=c.note,front=cuNoteSVG(t,c,{cls:'cst-note'}),back=CST.split?cuNoteBackSVG(t,c,{cls:'cst-note'}):'';
@@ -47948,12 +48116,44 @@ function cstStage(n,t,c){
   const deco=see==='wallet'?'<div class="cst-wallet" aria-hidden="true"></div>':see==='hand'?'<div class="cst-thumb" aria-hidden="true"></div>':see==='worn'?'<div class="cst-worn" aria-hidden="true"></div>':'';
   const mini=CST.z>1?`<div class="cst-mini" aria-hidden="true">${cuNoteSVG(t,c,{mini:1,cls:'cst-mini-n'})}<span style="${cstMiniBox()}"></span></div>`:'';
   return `<div class="cst-cv" id="cst-cv" data-see="${see}"><div class="cst-notes" style="transform:translate(${CST.px}px,${CST.py}px) scale(${CST.z})">
-    <figure class="cst-fig cst-front"><div class="cst-pap">${front}${see==='flat'||see==='phone'?cstOverlay(N):''}${deco}</div><figcaption>Front${N.rx?` · after the ${esc(N.rx)} note`:''}</figcaption></figure>
-    ${back?`<figure class="cst-fig"><div class="cst-pap">${back}${deco}</div><figcaption>Back · the see-through ${esc(c.sy||'¤')} meets its other half against the light</figcaption></figure>`:''}${cmp}
+    <figure class="cst-fig cst-front${N.or==='v'?' v':''}"><div class="cst-pap">${front}${see==='flat'||see==='phone'?cstOverlay(N):''}${deco}</div><figcaption>Front${N.rx?` · after the ${esc(N.rx)} note`:''}</figcaption></figure>
+    ${back?`<figure class="cst-fig${N.or==='v'?' v':''}"><div class="cst-pap">${back}${deco}</div><figcaption>Back · the see-through ${esc(c.sy||'¤')} meets its other half against the light</figcaption></figure>`:''}${cmp}
   </div>
   ${proof.length?`<ul class="cst-proof" aria-label="Proof">${proof.map(p=>`<li class="${p.ok?'ok':'w'}">${p.ok?'✓':'!'} ${esc(p.t)}</li>`).join('')}</ul>`:''}${mini}</div>
-  <div class="cst-hist" aria-label="History"><span class="hint">History</span>${CST.hist.length?CST.hist.map((h,i)=>`<button type="button" class="cst-b" data-cst="jump" data-i="${i}" title="Go back to before this">${esc(h.l)}</button>`).join(''):'<span class="hint">Your changes will be listed here; click one to go back to before it.</span>'}</div>`;
+  ${cstHistHTML()}`;
 }
+function cstHistHTML(){return `<div class="cst-hist" aria-label="History"><span class="hint">History</span>${CST.hist.length?CST.hist.map((h,i)=>`<button type="button" class="cst-b" data-cst="jump" data-i="${i}" title="Go back to before this">${esc(h.l)}</button>`).join(''):'<span class="hint">Your changes will be listed here; click one to go back to before it.</span>'}</div>`;}
+/* ── the coin, in the same Studio: both faces, the whole set to scale, its own tabs ── */
+const CST_CTABS={metal:'Metal',faces:'Faces',edge:'Rim & edge',field:'Field',words:'Lettering'};
+function cstSeeDeco(){const see=CST.see;return see==='wallet'?'<div class="cst-wallet" aria-hidden="true"></div>':see==='hand'?'<div class="cst-thumb" aria-hidden="true"></div>':see==='worn'?'<div class="cst-worn" aria-hidden="true"></div>':'';}
+function cstCoinStage(n,t,c){
+  const d=cstSeeDeco(),set=CU_COINS.map((v,i)=>{const cc=Object.assign({},c,{coin:Object.assign({},c.coin,{den:v})});return `<span class="cst-cs" style="width:${34+i*7}px">${cuCoinSVG(t,cc,{mini:1})}<i>${v}</i></span>`;}).join('');
+  return `<div class="cst-cv" id="cst-cv" data-see="${CST.see}"><div class="cst-notes" style="transform:translate(${CST.px}px,${CST.py}px) scale(${CST.z})">
+    <figure class="cst-fig cst-cfig"><div class="cst-pap">${cuCoinSVG(t,c,{cls:'cst-coin'})}${d}</div><figcaption>Face</figcaption></figure>
+    <figure class="cst-fig cst-cfig"><div class="cst-pap">${cuCoinBackSVG(t,c,{cls:'cst-coin'})}${d}</div><figcaption>Other side</figcaption></figure>
+    <figure class="cst-fig cst-cset"><div class="cst-csets">${set}</div><figcaption>The whole set, each value a little larger</figcaption></figure>
+  </div></div>${cstHistHTML()}`;
+}
+function cstCoinLeft(n,t,c){
+  const K=c.coin,D=CU.d.coin||{};
+  return `<div class="cst-ph">Coin</div><div class="cst-insp">
+  <p class="hint">One design strikes every value of the set; pick a value along the bottom to see it.</p>
+  ${cstRange('Device size','dsz',D.dsz||1,.6,1.4,.05,Math.round((D.dsz||1)*100)+'%')}${cstRange('Device height','dy',D.dy||0,-12,12,.5)}
+  <div class="cst-grid"><span>Metal</span><span>${esc((CU_METALS[K.met]||CU_METALS.bi)[0])}</span><span>Shape</span><span>${esc(CU_SHAPES[K.shape]||'')}</span><span>Finish</span><span>${esc(CU_FINS[K.fin]||'Bright')}</span></div>
+  ${K.shape==='holed'||K.shape==='sqhole'?'<p class="hint">A holed coin has no device on its face, and its value sits below the hole.</p>':''}</div>`;
+}
+function cstCoinRight(n,t,c){
+  const K=c.coin,D=CU.d.coin||{},tab=CST.ctab;let b='';
+  if(tab==='metal')b=`${cstSeg('Metal','coin.met',cstLockOpts(Object.fromEntries(Object.entries(CU_METALS).map(([k,v])=>[k,v[0]])),'met'),K.met)}${cstSeg('Shape','coin.shape',cstLockOpts(CU_SHAPES,'shape'),K.shape)}${cstSeg('Finish','coin.fin',Object.entries(CU_FINS),K.fin||'bright')}`;
+  else if(tab==='faces')b=`${cstSeg('On the face','coin.emb',Object.entries(CU_CEMB),K.emb)}${cstSeg('On the other side','coin.rev',Object.entries(CU_REVS),K.rev||'value')}`;
+  else if(tab==='edge')b=`${cstSeg('Rim','coin.rim',Object.entries(CU_RIMS),K.rim||'beaded')}${cstSeg('Edge','coin.edge',[['','Smooth']].concat(Object.entries(CU_EDGES)),K.edge||'')}`;
+  else if(tab==='field')b=`${cstSeg('Behind the device','coin.fld',Object.entries(CU_FIELDS),K.fld||'guil')}`;
+  else b=`<div class="cst-row"><label class="cst-lab" for="cst-t-ins">Round the top</label><input class="input" id="cst-t-ins" data-cst-txt="coin.ins" maxlength="28" value="${esc(D.ins||'')}" placeholder="${esc(String(n.name||'').toUpperCase())}"></div>
+    <div class="cst-row"><label class="cst-lab" for="cst-t-lo">Round the foot</label><input class="input" id="cst-t-lo" data-cst-txt="coin.lo" maxlength="28" value="${esc(D.lo||'')}" placeholder="A motto, or leave it for the year"></div>
+    ${cstSeg('Mint year','coin.yr',[[1,'Shown'],[0,'None']],K.yr)}${+c.sn>1?cstSeg('Value in','coin.dk',[['u',c.pl.split(' ').pop()],['s',plural(c.su)]],K.dk):''}`;
+  return `<div class="cst-tabs" role="tablist">${Object.entries(CST_CTABS).map(([k,l])=>`<button type="button" role="tab" class="cst-tab${k===tab?' on':''}" data-cst="ctab" data-v="${k}" aria-selected="${k===tab}">${l}</button>`).join('')}</div><div class="cst-tp">${b}</div>`;
+}
+function cstCoinFilm(n,t,c){const K=c.coin;return `<span class="cst-film-l">Coins</span>${CU_COINS.map(v=>`<button type="button" class="cst-card cst-ccard${v===K.den?' on':''}" data-cst="cden" data-v="${v}" aria-pressed="${v===K.den}">${cuCoinSVG(t,Object.assign({},c,{coin:Object.assign({},K,{den:v})}),{mini:1})}<span>${v}</span></button>`).join('')}`;}
 function cstMiniBox(){const z=CST.z,el=document.getElementById('cst-cv'),W=el?el.clientWidth:800,H=el?el.clientHeight:400;const w=100/z,h=100/z,l=50-w/2-CST.px/(W*z)*100,tp=50-h/2-CST.py/(H*z)*100;return `left:${cuR2(Math.max(0,Math.min(100-w,l)))}%;top:${cuR2(Math.max(0,Math.min(100-h,tp)))}%;width:${cuR2(w)}%;height:${cuR2(h)}%`;}
 function cstFilm(n,t,c){
   const N=c.note,ov=N.ov||{};
@@ -47969,6 +48169,7 @@ function cstRight(n,t,c){
   if(tab==='style'){
     const ks=Object.keys(CU_FLAV);
     b=`<div class="cst-row"><span class="cst-lab">Presets</span><div class="cst-seg">${ks.map(k=>`<button type="button" class="cst-b" data-cst="preset" data-v="${k}">${esc(CU_FLAV[k].nm)}</button>`).join('')}</div></div>
+    ${cstSeg('Orientation','note.or',[['','Horizontal'],['v','Vertical']],D.or||'')}
     ${cstSeg('Layout','note.lay',Object.entries(CU_LAYS),N.lay)}
     ${cstSeg('Era','note.era',Object.entries(CU_ERAS).map(([v,l])=>[v,l,!cuEraOpen(n,v),CU_ERA_HOW[v]]),cuEraOf(n,N.era))}
     ${cstSeg('Vignette','note.por',Object.entries(CU_POR),N.por)}
@@ -48030,7 +48231,7 @@ function cstProof(){
   if(lop.text===0)out.push({t:'The text layer is hidden: the note shows no value'});
   if(cuContrast(T.rule,T.c1)<1.2)out.push({t:'The frame barely shows against the ground'});
   const ks=Object.keys(CU_PARTS).filter(k=>cstHas(k,N)&&!(lop[CU_PARTS[k].ly]===0)),B={};for(const k of ks)B[k]=cstBox(k,N);
-  for(const k of ks){const b=B[k],o=Math.max(CU_SAFE[0]-b.x,CU_SAFE[1]-b.y,b.x+b.w-CU_SAFE[2],b.y+b.h-CU_SAFE[3]);if(o>1)out.push({k,t:`The ${CU_PARTS[k].l.toLowerCase()} reaches ${Math.round(o)} past the safe edge`});}
+  const SF=cstGeo(N).safe;for(const k of ks){const b=B[k],o=Math.max(SF[0]-b.x,SF[1]-b.y,b.x+b.w-SF[2],b.y+b.h-SF[3]);if(o>1)out.push({k,t:`The ${CU_PARTS[k].l.toLowerCase()} reaches ${Math.round(o)} past the safe edge`});}
   for(let i=0;i<ks.length;i++)for(let j=i+1;j<ks.length;j++){const a=B[ks[i]],b=B[ks[j]],w=Math.min(a.x+a.w,b.x+b.w)-Math.max(a.x,b.x),h=Math.min(a.y+a.h,b.y+b.h)-Math.max(a.y,b.y);
     if(w>0&&h>0&&w*h>.15*Math.min(a.w*a.h,b.w*b.h)&&(N.pos&&(N.pos[ks[i]]||N.pos[ks[j]])))out.push({k:ks[j],t:`The ${CU_PARTS[ks[i]].l.toLowerCase()} and the ${CU_PARTS[ks[j]].l.toLowerCase()} overlap`});}
   const tq=N.pos&&N.pos.t;if(tq&&tq[2]<.8)out.push({k:'t',t:'The value is small to read at a glance'});
@@ -48063,11 +48264,12 @@ function cstVerSave(){
 function cstSpec(svg){return svg.replace(/<\/svg>$/,`<text x="160" y="92" text-anchor="middle" font-family="Arial,sans-serif" font-weight="700" font-size="30" letter-spacing="8" fill="#C0392B" opacity=".55" transform="rotate(-12 160 80)">SPECIMEN</text></svg>`).replace('<svg ','<svg xmlns="http://www.w3.org/2000/svg" ');}
 function cstDown(blob,name){const u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),4000);}
 function cstExport(kind){
-  const [t,c]=cstCur(),N=c.note,base=`${c.cd}-${N.den}`.toLowerCase();
-  const f=cstSpec(cuNoteSVG(t,c,{nocache:1})),b=cstSpec(cuNoteBackSVG(t,c,{}));
+  const [t,c]=cstCur(),N=c.note,CO=CST.mode==='coin',base=CO?`${c.cd}-coin-${c.coin.den}`.toLowerCase():`${c.cd}-${N.den}`.toLowerCase();
+  const f=CO?cuCoinSVG(t,c,{}).replace('<svg ','<svg xmlns="http://www.w3.org/2000/svg" '):cstSpec(cuNoteSVG(t,c,{nocache:1})),b=CO?cuCoinBackSVG(t,c,{}).replace('<svg ','<svg xmlns="http://www.w3.org/2000/svg" '):cstSpec(cuNoteBackSVG(t,c,{}));
   if(kind==='svg'){cstDown(new Blob([f],{type:'image/svg+xml'}),base+'-front.svg');setTimeout(()=>cstDown(new Blob([b],{type:'image/svg+xml'}),base+'-back.svg'),300);toast('The front and back are saved as specimens.');return;}
   const img=new Image(),u=URL.createObjectURL(new Blob([f],{type:'image/svg+xml'}));
-  img.onload=()=>{const cv=document.createElement('canvas');cv.width=1600;cv.height=800;const g=cv.getContext('2d');g.drawImage(img,0,0,1600,800);URL.revokeObjectURL(u);cv.toBlob(bl=>{if(bl){cstDown(bl,base+'-front.png');toast('The front is saved as a picture.');}},'image/png');};
+  const vb=(f.match(/viewBox="0 0 (\d+) (\d+)"/)||[0,320,160]).slice(1).map(Number),k=1600/Math.max(vb[0],vb[1]);
+  img.onload=()=>{const cv=document.createElement('canvas');cv.width=Math.round(vb[0]*k);cv.height=Math.round(vb[1]*k);const g=cv.getContext('2d');g.drawImage(img,0,0,cv.width,cv.height);URL.revokeObjectURL(u);cv.toBlob(bl=>{if(bl){cstDown(bl,base+'-front.png');toast('The front is saved as a picture.');}},'image/png');};
   img.onerror=()=>{URL.revokeObjectURL(u);toast('The picture could not be made in this browser. Export SVG instead.');};img.src=u;
 }
 /* ── issue a new series: the notes in use go to the museum ── */
@@ -48079,9 +48281,10 @@ function cstIssue(){
 function cstPaint(only){
   const el=document.getElementById('cu-st');if(!el||!CST.on)return;const n=cstN();if(!n){cstClose();return;}if(!CU.d)CU.d=cuDraft(n);
   const [t,c]=cstCur();
-  if(only==='stage'){const s=document.getElementById('cst-stage'),f=document.getElementById('cst-film'),l=document.getElementById('cst-left');if(s)s.innerHTML=cstStage(n,t,c);if(f)f.innerHTML=cstFilm(n,t,c);if(l&&!l.contains(document.activeElement))l.innerHTML=cstLeft(n,c);const bar=document.getElementById('cst-bar');if(bar)bar.innerHTML=cstBar(n,c);return;}
+  const CO=CST.mode==='coin',fS=CO?cstCoinStage:cstStage,fF=CO?cstCoinFilm:cstFilm,fL=CO?()=>cstCoinLeft(n,t,c):()=>cstLeft(n,c),fR=CO?cstCoinRight:cstRight;
+  if(only==='stage'){const s=document.getElementById('cst-stage'),f=document.getElementById('cst-film'),l=document.getElementById('cst-left');if(s)s.innerHTML=fS(n,t,c);if(f)f.innerHTML=fF(n,t,c);if(l&&!l.contains(document.activeElement))l.innerHTML=fL();const bar=document.getElementById('cst-bar');if(bar)bar.innerHTML=cstBar(n,c);return;}
   const foc=document.activeElement&&el.contains(document.activeElement)?document.activeElement:null,fk=foc&&(foc.id||foc.dataset.cst&&foc.dataset.cst+':'+(foc.dataset.v||foc.dataset.k||foc.dataset.f||''));
-  el.innerHTML=`<div id="cst-bar">${cstBar(n,c)}</div><div class="cst-main"><aside class="cst-pane" id="cst-left">${cstLeft(n,c)}</aside><section class="cst-pane cst-stage" id="cst-stage">${cstStage(n,t,c)}</section><aside class="cst-pane" id="cst-right">${cstRight(n,t,c)}</aside></div><div class="cst-film" id="cst-film">${cstFilm(n,t,c)}</div>`;
+  el.innerHTML=`<div id="cst-bar">${cstBar(n,c)}</div><div class="cst-main"><aside class="cst-pane" id="cst-left">${fL()}</aside><section class="cst-pane cst-stage" id="cst-stage">${fS(n,t,c)}</section><aside class="cst-pane" id="cst-right">${fR(n,t,c)}</aside></div><div class="cst-film" id="cst-film">${fF(n,t,c)}</div>`;
   if(fk){const x=document.getElementById(fk)||[...el.querySelectorAll('[data-cst]')].find(b=>b.dataset.cst+':'+(b.dataset.v||b.dataset.k||b.dataset.f||'')===fk);if(x)x.focus({preventScroll:true});}
 }
 /* ── dragging a part, or the whole view when zoomed in ── */
@@ -48091,7 +48294,7 @@ function cstPtDown(e){
   if(ov){const hd=e.target.closest('[data-h]'),pt=e.target.closest('[data-part]');const k=hd?CST.sel:pt?pt.dataset.part:null;
     if(k){if(CST.lock[CU_PARTS[k].ly]){toast(`The ${CU_PARTS[k].ly} layer is locked. Unlock it in Layers to move this.`);return;}
       e.preventDefault();CST.sel=k;const r=ov.getBoundingClientRect(),b=cstBox(k,N);
-      CST.drag={k,mode:hd?'size':'move',x0:e.clientX,y0:e.clientY,u:320/r.width,q:b.q.slice(),c0:b.c0,ov,started:false};ov.setPointerCapture(e.pointerId);cstPaint('stage');
+      CST.drag={k,mode:hd?'size':'move',x0:e.clientX,y0:e.clientY,u:cstGeo(N).W/r.width,q:b.q.slice(),c0:b.c0,ov,started:false};ov.setPointerCapture(e.pointerId);cstPaint('stage');
       const o2=document.querySelector('#cst-cv .cst-ov');if(o2){CST.drag.ov=o2;o2.setPointerCapture(e.pointerId);}return;}}
   if(CST.z>1){e.preventDefault();CST.drag={mode:'pan',x0:e.clientX,y0:e.clientY,p0:[CST.px,CST.py]};cv.setPointerCapture(e.pointerId);}
 }
@@ -48102,10 +48305,10 @@ function cstPtMove(e){
   if(!D.started){D.started=true;cstDo(`${D.mode==='size'?'Resized':'Moved'} the ${CU_PARTS[D.k].l.toLowerCase()}`,()=>{});}
   let q=D.q.slice();CST.snap={};
   if(D.mode==='move'){q[0]=D.q[0]+dx;q[1]=D.q[1]+dy;
-    if(!e.altKey){const N=cstCur()[1].note,tx=[160].concat(Object.keys(CU_PARTS).filter(k=>k!==D.k&&cstHas(k,N)).map(k=>cstBox(k,N).cx)),ty=[80].concat(Object.keys(CU_PARTS).filter(k=>k!==D.k&&cstHas(k,N)).map(k=>cstBox(k,N).cy));
+    if(!e.altKey){const N=cstCur()[1].note,G=cstGeo(N),tx=[G.mx].concat(Object.keys(CU_PARTS).filter(k=>k!==D.k&&cstHas(k,N)).map(k=>cstBox(k,N).cx)),ty=[G.my].concat(Object.keys(CU_PARTS).filter(k=>k!==D.k&&cstHas(k,N)).map(k=>cstBox(k,N).cy));
       const cx=D.c0[0]+q[0],cy=D.c0[1]+q[1],sx=tx.find(v=>Math.abs(v-cx)<3),sy=ty.find(v=>Math.abs(v-cy)<3);if(sx!=null){q[0]=sx-D.c0[0];CST.snap.x=sx;}if(sy!=null){q[1]=sy-D.c0[1];CST.snap.y=sy;}}
     q[0]=Math.max(-80,Math.min(80,Math.round(q[0]*2)/2));q[1]=Math.max(-50,Math.min(50,Math.round(q[1]*2)/2));}
-  else{const P=CU_PARTS[D.k].b,s=D.q[2]*(1+(dx+dy)/(P[2]+P[3]));q[2]=Math.max(.5,Math.min(1.8,Math.round(s*100)/100));}
+  else{const P=cstGeo(cstCur()[1].note).V?CU_PARTS_V[D.k]:CU_PARTS[D.k].b,s=D.q[2]*(1+(dx+dy)/(P[2]+P[3]));q[2]=Math.max(.5,Math.min(1.8,Math.round(s*100)/100));}
   const N=cstNote();N.pos=Object.assign({},N.pos,{[D.k]:q});
   /* while dragging, only the part's group moves; the note is drawn again when the drag ends */
   const g=document.querySelector(`#cst-cv .cst-front [data-part="${D.k}"]`);if(g){const [cx,cy]=D.c0;g.setAttribute('transform',`translate(${cuR2(cx+q[0])} ${cuR2(cy+q[1])}) scale(${q[2]}) translate(${-cx} ${-cy})`);}
@@ -48125,13 +48328,14 @@ document.addEventListener('keydown',e=>{
   if((e.ctrlKey||e.metaKey)&&!typing){const k=e.key.toLowerCase();if(k==='z'&&!e.shiftKey){e.preventDefault();cstUndo();return;}if(k==='y'||k==='z'&&e.shiftKey){e.preventDefault();cstRedo();return;}}
   if(typing||e.ctrlKey||e.metaKey||e.altKey)return;
   const ar={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]}[e.key];
-  if(ar&&tg&&(tg.closest('#cst-stage')||tg===document.body||tg.closest('.cst-parts'))){const N=cstCur()[1].note,k=CST.sel;if(!cstHas(k,N)||CST.lock[CU_PARTS[k].ly])return;e.preventDefault();const m=e.shiftKey?5:1,q=(N.pos&&N.pos[k]||[0,0,1]).slice();q[0]=Math.max(-80,Math.min(80,q[0]+ar[0]*m));q[1]=Math.max(-50,Math.min(50,q[1]+ar[1]*m));
+  if(ar&&CST.mode==='note'&&tg&&(tg.closest('#cst-stage')||tg===document.body||tg.closest('.cst-parts'))){const N=cstCur()[1].note,k=CST.sel;if(!cstHas(k,N)||CST.lock[CU_PARTS[k].ly])return;e.preventDefault();const m=e.shiftKey?5:1,q=(N.pos&&N.pos[k]||[0,0,1]).slice();q[0]=Math.max(-80,Math.min(80,q[0]+ar[0]*m));q[1]=Math.max(-50,Math.min(50,q[1]+ar[1]*m));
     cstDo(`Nudged the ${CU_PARTS[k].l.toLowerCase()}`,()=>{const D=cstNote();D.pos=Object.assign({},D.pos,{[k]:q});});cstPaint('stage');return;}
   if((e.key==='+'||e.key==='=')&&tg&&tg.closest&&tg.closest('#cu-st')){cstZoom(1.25);}else if(e.key==='-'&&tg&&tg.closest&&tg.closest('#cu-st')){cstZoom(1/1.25);}
 });
+const v0=el=>el.dataset.v;
 document.addEventListener('click',e=>{
   const el=e.target.closest&&e.target.closest('[data-cst]');if(!el||!S.nation)return;const a=el.dataset.cst;
-  if(a==='open'){e.preventDefault();cstOpen();return;}
+  if(a==='open'){e.preventDefault();cstOpen(v0(el));return;}
   if(!CST.on)return;const N0=()=>cstNote(),k=el.dataset.k,v=el.dataset.v;
   switch(a){
     case 'close':cstClose();break;
@@ -48141,15 +48345,17 @@ document.addEventListener('click',e=>{
     case 'save':if(cuSave()){CU.d=cuDraft(S.nation);CST.hist=[];CST.fut=[];cstPaint();}break;
     case 'issue':cstIssue();break;
     case 'svg':cstExport('svg');break;case 'png':cstExport('png');break;
-    case 'tab':CST.tab=v;cstPaint();break;
+    case 'tab':CST.tab=v;cstPaint();break;case 'ctab':CST.ctab=v;cstPaint();break;
+    case 'mode':CST.mode=v==='coin'?'coin':'note';CST.z=1;CST.px=0;CST.py=0;cstPaint();break;
+    case 'cden':cstSet('coin.den',v,`Showed the ${v} coin`);break;
     case 'pick':CST.sel=k;cstPaint();break;
     case 'laysel':{const p=Object.keys(CU_PARTS).find(x=>CU_PARTS[x].ly===k&&cstHas(x,cstCur()[1].note));if(p)CST.sel=p;cstPaint();break;}
     case 'eye':{const op=(N0().lop||{})[k],on=op==null||op>0;cstDo(`${on?'Hid':'Showed'} the ${k} layer`,()=>{const D=N0();D.lop=Object.assign({},D.lop);if(on)D.lop[k]=0;else delete D.lop[k];});cstPaint();break;}
     case 'lock':CST.lock[k]=!CST.lock[k];cstPaint();break;
     case 'pos0':cstDo(`Put the ${CU_PARTS[CST.sel].l.toLowerCase()} back`,()=>{const D=N0();if(D.pos){D.pos=Object.assign({},D.pos);delete D.pos[CST.sel];}});cstPaint();break;
     case 'den':cstSet('note.den',v,`Showed the ${(+v).toLocaleString('en-US')}`);break;
-    case 'set':{const f=el.dataset.f,[g,kk]=f.split('.');const lab={lay:'Layout',era:'Era',por:'Vignette',emb:'Emblem',fl:'Flag',pat:'Engraving',strip:'Security strip',wm:'Watermark',tp:'Typefaces',cs:'Case',vf:'Value face',ros:'Corners',bd:'Border band'}[kk]||kk;
-      const num=['tp','strip'].includes(kk);cstDo(`${lab}: ${el.textContent.trim()}`,()=>{const D=N0();if(v===''){delete D[kk];if(kk==='bd'){delete D.bdn;delete D.bdw;}}else D[kk]=num?+v:v;});cstPaint();break;}
+    case 'set':{const f=el.dataset.f,[g,kk]=f.split('.');const lab={or:'Orientation',met:'metal',shape:'shape',fin:'finish',emb:'Emblem',rev:'other side',rim:'rim',edge:'edge',fld:'field',dk:'value in',lay:'Layout',era:'Era',por:'Vignette',emb:'Emblem',fl:'Flag',pat:'Engraving',strip:'Security strip',wm:'Watermark',tp:'Typefaces',cs:'Case',vf:'Value face',ros:'Corners',bd:'Border band'}[kk]||kk;
+      const num=['tp','strip','den','yr'].includes(kk);cstDo(`${g==='coin'?'Coin ':''}${lab}: ${el.textContent.trim()}`,()=>{const D=g==='coin'?(CU.d.coin=CU.d.coin||{}):N0();if(v===''){delete D[kk];if(kk==='bd'){delete D.bdn;delete D.bdw;}}else D[kk]=num?+v:v;});cstPaint();break;}
     case 'locked':toast('Locked. '+(el.title||''));break;
     case 'preset':cstDo('Preset: '+CU_FLAV[v].nm,()=>cuPreset(v));cstPaint();break;
     case 'one':CST.one=v==='1';cstPaint();break;
@@ -48175,11 +48381,12 @@ document.addEventListener('input',e=>{
     else if(k==='pos'){const P=CST.sel,q=(D().pos&&D().pos[P]||[0,0,1]).slice(),i={x:0,y:1,s:2}[t.dataset.k];if(!Number.isFinite(v))return;q[i]=i===2?Math.max(.5,Math.min(1.8,v/100)):Math.max(i?-50:-80,Math.min(i?50:80,v));cstDo(`Moved the ${CU_PARTS[P].l.toLowerCase()}`,()=>{const x=D();x.pos=Object.assign({},x.pos,{[P]:q});});}
     else if(/^g[0-3]$/.test(k)){const i=+k[1];cstDo('Guilloché '+['petals','depth','lines','weight'][i],()=>{const x=D();x.gp=(Array.isArray(x.gp)?x.gp:[7,.6,3,.35]).slice();x.gp[i]=v;});}
     else if(k==='ls')cstDo('Letter-spacing',()=>{D().ls=v;});
+    else if(k==='dsz'||k==='dy')cstDo(k==='dsz'?'Coin device size':'Coin device height',()=>{CU.d.coin=CU.d.coin||{};CU.d.coin[k]=v;});
     else if(k==='bdn'||k==='bdw')cstDo(k==='bdn'?'Band repeats':'Band thickness',()=>{D()[k]=v;});
-    const o=document.getElementById('cst-v-'+k);if(o)o.textContent=k==='ls'?v.toFixed(1):String(v);
+    const o=document.getElementById('cst-v-'+k);if(o)o.textContent=k==='ls'?v.toFixed(1):k==='dsz'?Math.round(v*100)+'%':String(v);
     cstPaint('stage');return;}
   const tx=t.dataset&&t.dataset.cstTxt;
-  if(tx){cstDo(tx==='mo'?'Motto':'Microtext',()=>{if(tx==='mo')CU.d.mo=t.value;else cstNote().mt=t.value;});cstPaint('stage');return;}
+  if(tx){cstDo(tx==='mo'?'Motto':tx==='note.mt'?'Microtext':'Coin lettering',()=>{if(tx==='mo')CU.d.mo=t.value;else if(tx.startsWith('coin.')){CU.d.coin=CU.d.coin||{};CU.d.coin[tx.slice(5)]=t.value;}else cstNote().mt=t.value;});cstPaint('stage');return;}
   const col=t.dataset&&t.dataset.cstCol;if(col&&e.type==='input'){const h=String(t.value).toUpperCase(),den=cstCur()[1].note.den;cstDo(`${col==='c1'?'Main':'Second'} colour${CST.one?' of the '+den:''}`,()=>{const D=cstNote();if(CST.one){D.ov=Object.assign({},D.ov);D.ov[den]=Object.assign({},D.ov[den],{[col]:h});}else D[col]=h;});cstPaint('stage');}
 });
 document.addEventListener('change',e=>{
@@ -63125,7 +63332,7 @@ function shopMayaPack(n){
   </section>`;
 }
 /* the Central Bank Pack: the nation's own currency in the pack's designs, then the card, stamp, marker and paper */
-function shopCbCur(n,note,coin){const c=cuOf(n);return Object.assign({},c,{note:Object.assign({},c.note,note),coin:Object.assign({},c.coin,coin)});}
+function shopCbCur(n,note,coin){const c=cuOf(n);return Object.assign({},c,{note:Object.assign({},c.note,{or:''},note),coin:Object.assign({},c.coin,coin)});}
 function shopCbArt(n){try{return `<span class="shop-cb-art">${cuNoteSVG(n,shopCbCur(n,{pat:'deco',strip:4},{}),{mini:1,label:'A banknote in the Art Deco engraving, with a clear window'})}${cuCoinSVG(n,shopCbCur(n,{},{met:'patina',shape:'sqhole'}),{label:'A square-holed coin in Patina'})}</span>`;}catch(e){return '';}}
 function shopCbWorn(n,c){let k={};try{k=cuOf(n);}catch(e){}const N=k.note||{},K=k.coin||{};
   return [N.pat==='deco'?'cn-deco':'',N.pat==='acanthus'?'cn-acanthus':'',N.strip===4?'cx-window':'',K.met==='patina'?'cm-patina':'',K.shape==='sqhole'?'cs-sqhole':'',...SHOP_IDS.cbpack.filter(id=>Object.values(c).includes(id))].filter(Boolean);}
@@ -71918,7 +72125,7 @@ mapBox=(f=>function(kind){const h=f.apply(this,arguments),n=S.nation;if(kind!=='
 
 /* the browser tests' window into the game: test/lib.mjs sets EDICTUM_PROBE before the page loads (a
    player's own browser can reach all of this anyway) */
-if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({RPATCH,SC:()=>scProbe(),JV:()=>jvProbe(),M100P:()=>({M100,M100_N,M100_MC,M100_MCN,m100Bits,m100Got,m100In,m100Due,m100Count,m100Show,m100Open,ctgMcOk,nationColor,czShOk,czShieldPath,unlocksOf,czPatSVG,xsMax}),RVN:()=>({RV,rvData,rvSync,rvKey,rvHeld,rvStretch,rvMost,rvEdgeHolder,rvAt,rvNameAt,rvLabelAt,rvParts,rvRename,rvReset,rvNameProblem,rvTidy,rvLabel,rvnPanel,logLine,RVN_MAX,RVN_LEN,updateMapPanel,hexDist,HEX_W,REG}),CP2:()=>({BLD_ICO,bldIco,bldLead,cxDefTotal,cxOrder,qjBuilding,BUILDINGS}),PRVC:()=>({cxPrvOf,cxPrvSeatTrial,cxOvwCols,prvSeat,prvMine,prvOfCell,prvSetAut,prvAppoint,PRV}),NPX:()=>({fbTrend,fbYesterday,heroLead,heroOpen,opOf,OPEN_TO,hnOf,hnFill,hnLine,nbSection,ppWho,ppWhoHTML,ppHash,ppCarried,economy,territory,bordersOf,fillDeal,findNation,clsHide,MAP,hexDist,STAT_KEYS,popNow,myId}),PT:()=>ptProbe(),LTH:()=>lthProbe(),CHAT:()=>({RGC,RGW,tab:rgcTab(),count:rgcCount(),region:rgcUnread(),world:rgwUnread(),named:rgwNamedUnread(),hidden:document.hidden}),UXP2:()=>({edictDesk,edictStep,edictOpen,fill,ISSUE_BY_ID,ACH,keysOpen,dmOthers,dmPickList,stGroups,stTabLast,navRecent,vhData,VH_KEY,VH_AFTER,QJ_DO,qjItems:q=>navQjItems(q),NAV_REC_KEY,ST_KEY}),HID:()=>({HIDN,hidMask,iAmHidden,frontier,mapPanel,warControls}),WG:()=>({wgTakers,wgForField,wgForPick,warGiveHex,warGive,occupiedFrom,attack,offerPeace,declareWar,collectConquests,dedupeConq}),WAKE:()=>({dormFresh,dormQuiet,dormWelcome,moveTo,RSTAT,REGIONS,REG,regDisabled}),LAND:()=>({landWait,capLift,capWrong,capNote,raceKnown,RACE,worldHeardAt:()=>worldHeardAt,landQ:()=>S.landQ,landQueued,fdSites:(n,T)=>fdSites(n,T)}),BG:{gain:bldGain,html:bldGainHtml},IB:()=>({agRoster,agPick,agStatus,heatOf,cvRoll,cvKey,cvBlock,cvOdds,buLv,buGap,buAll,BU,BU_KEYS,ibFile,ibWanted,ibChatter,HEAT_MAX,DD_TASKS,DD_LEG,findNation,allNations,cvProtected}),VL:()=>({VL_SECS,VL_DEF,CLS,CLS_OPS,CLS_READ,vlOrder,clsOf,clsRaw,clsMax,clsSeen,clsHide,clsRead,vlSave,findNation}),IFC:()=>({plan:ifcPlan,works:ifcWorks,line:ifcLine,tab:ifcTab}),XP:()=>({BUILDINGS,XU,XU_KEYS,XU_TOTAL,LOST_KINDS,LOST_ORDER,xuLv,xuWhy,xuHave,xuStart,xuCost,xuGear,xpSeen,expFree,xpTeamOpen,nationBuilt,expBackTeam,SITES,SITE_KINDS,expPlan,expOdds,expRuns,expRange,flRange,flAlive,flPlan,flDebug,flNow,discoveries,sendExpedition,hearReport,xpRoute,xpRivals,xpRivalText,xpFinds,flOdds,territory}),SVC:()=>({SVC,SVC_N,SVC_V,SVC_NEED,svcPlan,svcOpen,svcDig,svcShort,svcRoll,svcAmt,svcDayOf,svcRoom,svcNext}),FLC:()=>({FLC,FLC_RULES,FLC_CAT,flcId,flcTimes,flcPhase,flcPrev,flcView,flcLoad,flcChamp,flcTodo,flcClaims,flcLand,flcStreak,flcAllDone,flcSeen,flcDuty,flcDeskOn,flcDraftPush,FCA}),LK:{lakeMap,isLake,claimLand,lakeShore,fillHeld,LAKE_MAX,LAKE_A,freeCell,claimFrontier,blockPlan,autoPlan,terrCount,placePhrase,claimWhy,swapCheck,inspectPanel,writeClaims,landCredits:n=>landCredits(n)},PST:()=>({PST,PST_LOOKS,PST_SHAPES,pstBar,pstKm,pstView,pstBox,pstPlace,pstKeyOf,pstRender,pstShow,pstHide}),MW:()=>({mwOf,mwPoints,mwVisitors,mwTakings,mwExhibit,mwExhibitItems,mwRanking,mwWorn,mwSlots,mwOnShow,COL_BY_ID,COL_ITEMS,DIG_SETS,MW_FLOORS}),GM:()=>({gamesResults,edOf,b1Now,gevWhy,baseScores,entryOf,medalsIn,gamesRecords,gamesCeremony,unlocksOf,myId,formOf,GAME_EVENTS,clone,commit}),GB:()=>({IRON_DEP,IRON_DEP_YIELD,CELL_RES,MAP_T:MAP.T,mapAt:c=>{centerMain(c,NEAR_Z*1.6);},stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,FOOD_SPOIL,FOOD_EAT,TIMBER_BURN,foodGrowth,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({dspShown,dspRegShown,dspRegs,dspPic,dspLocator,dspHtDefs,pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),ASMX:()=>({ASMX,ASMX_TABS,asmBookAt,asmState,asmArcLoad,REG}),RGNX:()=>({RGN,RGN_PAGE,notifItems,ONL,onlRefresh}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals}),TYX:()=>({TY,TY_RULES,TY_K,tyOf,tyList,tyWarBlock,tyIncoming,affinity,alPactLive,alRelationsHTML}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,achTierCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC,step:rcStepCheck,head:rcHead,sponsoring:rcSponsoring,qr:qrMatrix,card:rcCardDraw,invCap:rcInvCap,free:rcFreeLand,STEPS:RC_STEPS,UNL:RC_UNLOCKS}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend,card:n=>tutCard(n),phase:n=>tutPhase(n),picks:(n,ph)=>tutPicks(n,ph),group:(n,k)=>tutGroup(n,tutL(k)),hid:n=>tutHid(n)},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours},WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR,bell:now=>notifItems(now||Date.now())},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},TIER:()=>({BTIER,bEff,bTier,bTierNext,bTierLine,tierQuote,tierProblem,cxTier,cxTrMap,tierSettle,tierReady,cxGoldNow,cxUpQuote,cxUpList,cxUps}),CX:{upgradable:cxUpgradable,mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState,UG:CX_UG,LV:CX_LV,ups:cxUps,upMap:cxUpMap,extras:cxBldExtras,quote:cxUpQuote},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo,unlockTarget,unlockShow,unlockFresh,unlockQueue,ULK,UNLOCKS,unlocksOf,toast:m=>toast(m)},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,coinSVG:cuCoinSVG,guide:cuGuideHTML,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ACH_RANKS_V1,ID_BD,achVal,achCtx,achEvalNew,achState,stockRates:n=>stockRates(n),achPoints,achRank,achRankOf,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,flagNorm:(f,n)=>flagNorm(f,n),flagSVG:(f,l)=>flagSVG(f,l),mapTip:id=>{const T=mapTerr('main'),i=T.list.findIndex(x=>x.id===id);if(i<0)return '';const cell=Array.prototype.indexOf.call(T.owner,i);return MAP_TIP.map(h=>{try{return h({kind:'main',cell,cv:null,x:0,y:0});}catch(e){return '';}}).filter(x=>typeof x==='string').join(' | ');},cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
+if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({RPATCH,SC:()=>scProbe(),JV:()=>jvProbe(),M100P:()=>({M100,M100_N,M100_MC,M100_MCN,m100Bits,m100Got,m100In,m100Due,m100Count,m100Show,m100Open,ctgMcOk,nationColor,czShOk,czShieldPath,unlocksOf,czPatSVG,xsMax}),RVN:()=>({RV,rvData,rvSync,rvKey,rvHeld,rvStretch,rvMost,rvEdgeHolder,rvAt,rvNameAt,rvLabelAt,rvParts,rvRename,rvReset,rvNameProblem,rvTidy,rvLabel,rvnPanel,logLine,RVN_MAX,RVN_LEN,updateMapPanel,hexDist,HEX_W,REG}),CP2:()=>({BLD_ICO,bldIco,bldLead,cxDefTotal,cxOrder,qjBuilding,BUILDINGS}),PRVC:()=>({cxPrvOf,cxPrvSeatTrial,cxOvwCols,prvSeat,prvMine,prvOfCell,prvSetAut,prvAppoint,PRV}),NPX:()=>({fbTrend,fbYesterday,heroLead,heroOpen,opOf,OPEN_TO,hnOf,hnFill,hnLine,nbSection,ppWho,ppWhoHTML,ppHash,ppCarried,economy,territory,bordersOf,fillDeal,findNation,clsHide,MAP,hexDist,STAT_KEYS,popNow,myId}),PT:()=>ptProbe(),LTH:()=>lthProbe(),CHAT:()=>({RGC,RGW,tab:rgcTab(),count:rgcCount(),region:rgcUnread(),world:rgwUnread(),named:rgwNamedUnread(),hidden:document.hidden}),UXP2:()=>({edictDesk,edictStep,edictOpen,fill,ISSUE_BY_ID,ACH,keysOpen,dmOthers,dmPickList,stGroups,stTabLast,navRecent,vhData,VH_KEY,VH_AFTER,QJ_DO,qjItems:q=>navQjItems(q),NAV_REC_KEY,ST_KEY}),HID:()=>({HIDN,hidMask,iAmHidden,frontier,mapPanel,warControls}),WG:()=>({wgTakers,wgForField,wgForPick,warGiveHex,warGive,occupiedFrom,attack,offerPeace,declareWar,collectConquests,dedupeConq}),WAKE:()=>({dormFresh,dormQuiet,dormWelcome,moveTo,RSTAT,REGIONS,REG,regDisabled}),LAND:()=>({landWait,capLift,capWrong,capNote,raceKnown,RACE,worldHeardAt:()=>worldHeardAt,landQ:()=>S.landQ,landQueued,fdSites:(n,T)=>fdSites(n,T)}),BG:{gain:bldGain,html:bldGainHtml},IB:()=>({agRoster,agPick,agStatus,heatOf,cvRoll,cvKey,cvBlock,cvOdds,buLv,buGap,buAll,BU,BU_KEYS,ibFile,ibWanted,ibChatter,HEAT_MAX,DD_TASKS,DD_LEG,findNation,allNations,cvProtected}),VL:()=>({VL_SECS,VL_DEF,CLS,CLS_OPS,CLS_READ,vlOrder,clsOf,clsRaw,clsMax,clsSeen,clsHide,clsRead,vlSave,findNation}),IFC:()=>({plan:ifcPlan,works:ifcWorks,line:ifcLine,tab:ifcTab}),XP:()=>({BUILDINGS,XU,XU_KEYS,XU_TOTAL,LOST_KINDS,LOST_ORDER,xuLv,xuWhy,xuHave,xuStart,xuCost,xuGear,xpSeen,expFree,xpTeamOpen,nationBuilt,expBackTeam,SITES,SITE_KINDS,expPlan,expOdds,expRuns,expRange,flRange,flAlive,flPlan,flDebug,flNow,discoveries,sendExpedition,hearReport,xpRoute,xpRivals,xpRivalText,xpFinds,flOdds,territory}),SVC:()=>({SVC,SVC_N,SVC_V,SVC_NEED,svcPlan,svcOpen,svcDig,svcShort,svcRoll,svcAmt,svcDayOf,svcRoom,svcNext}),FLC:()=>({FLC,FLC_RULES,FLC_CAT,flcId,flcTimes,flcPhase,flcPrev,flcView,flcLoad,flcChamp,flcTodo,flcClaims,flcLand,flcStreak,flcAllDone,flcSeen,flcDuty,flcDeskOn,flcDraftPush,FCA}),LK:{lakeMap,isLake,claimLand,lakeShore,fillHeld,LAKE_MAX,LAKE_A,freeCell,claimFrontier,blockPlan,autoPlan,terrCount,placePhrase,claimWhy,swapCheck,inspectPanel,writeClaims,landCredits:n=>landCredits(n)},PST:()=>({PST,PST_LOOKS,PST_SHAPES,pstBar,pstKm,pstView,pstBox,pstPlace,pstKeyOf,pstRender,pstShow,pstHide}),MW:()=>({mwOf,mwPoints,mwVisitors,mwTakings,mwExhibit,mwExhibitItems,mwRanking,mwWorn,mwSlots,mwOnShow,COL_BY_ID,COL_ITEMS,DIG_SETS,MW_FLOORS}),GM:()=>({gamesResults,edOf,b1Now,gevWhy,baseScores,entryOf,medalsIn,gamesRecords,gamesCeremony,unlocksOf,myId,formOf,GAME_EVENTS,clone,commit}),GB:()=>({IRON_DEP,IRON_DEP_YIELD,CELL_RES,MAP_T:MAP.T,mapAt:c=>{centerMain(c,NEAR_Z*1.6);},stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,FOOD_SPOIL,FOOD_EAT,TIMBER_BURN,foodGrowth,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({dspShown,dspRegShown,dspRegs,dspPic,dspLocator,dspHtDefs,pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),ASMX:()=>({ASMX,ASMX_TABS,asmBookAt,asmState,asmArcLoad,REG}),RGNX:()=>({RGN,RGN_PAGE,notifItems,ONL,onlRefresh}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals}),TYX:()=>({TY,TY_RULES,TY_K,tyOf,tyList,tyWarBlock,tyIncoming,affinity,alPactLive,alRelationsHTML}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,achTierCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC,step:rcStepCheck,head:rcHead,sponsoring:rcSponsoring,qr:qrMatrix,card:rcCardDraw,invCap:rcInvCap,free:rcFreeLand,STEPS:RC_STEPS,UNL:RC_UNLOCKS}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend,card:n=>tutCard(n),phase:n=>tutPhase(n),picks:(n,ph)=>tutPicks(n,ph),group:(n,k)=>tutGroup(n,tutL(k)),hid:n=>tutHid(n)},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours},WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR,bell:now=>notifItems(now||Date.now())},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},TIER:()=>({BTIER,bEff,bTier,bTierNext,bTierLine,tierQuote,tierProblem,cxTier,cxTrMap,tierSettle,tierReady,cxGoldNow,cxUpQuote,cxUpList,cxUps}),CX:{upgradable:cxUpgradable,mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState,UG:CX_UG,LV:CX_LV,ups:cxUps,upMap:cxUpMap,extras:cxBldExtras,quote:cxUpQuote},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo,unlockTarget,unlockShow,unlockFresh,unlockQueue,ULK,UNLOCKS,unlocksOf,toast:m=>toast(m)},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{coinBackSVG:cuCoinBackSVG,noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,coinSVG:cuCoinSVG,guide:cuGuideHTML,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ACH_RANKS_V1,ID_BD,achVal,achCtx,achEvalNew,achState,stockRates:n=>stockRates(n),achPoints,achRank,achRankOf,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,flagNorm:(f,n)=>flagNorm(f,n),flagSVG:(f,l)=>flagSVG(f,l),mapTip:id=>{const T=mapTerr('main'),i=T.list.findIndex(x=>x.id===id);if(i<0)return '';const cell=Array.prototype.indexOf.call(T.owner,i);return MAP_TIP.map(h=>{try{return h({kind:'main',cell,cv:null,x:0,y:0});}catch(e){return '';}}).filter(x=>typeof x==='string').join(' | ');},cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
 /* ───────── Letters by post: the player's email address, confirmed by a code, and the letters they choose ─────────
    Settings › Letters by post (src/shim.js mail; functions/mail.js). The address lives only on the server; this card
    asks for it each time Settings opens. Things this nation does to another player's nation (a letter, a war, a deal)
