@@ -94,18 +94,17 @@ check('Customise has a Currency section with a live banknote and coin', !!(await
 await A.fill('#cu-f-nm', 'Aldorian Thaler'); await A.fill('#cu-f-cd', 'ald'); await A.fill('#cu-f-sy', '₮');
 await sleep(150);
 check('the preview follows as you type', /Aldorian Thaler/.test(await text(A, '#cu-prev')));
-await A.click('[data-act="cu-set"][data-f="note.pat"][data-v="waves"]'); await sleep(150);
-await A.click('[data-act="cu-set"][data-f="coin.met"][data-v="gold"]'); await sleep(150);
-await A.click('[data-act="cu-set"][data-f="note.den"][data-v="500"]'); await sleep(150);
+/* the notes and coins are designed only in the Note Studio */
+const studio = async (P, mode) => { await P.click(`#cz-sec-c [data-cst="open"]${mode === 'coin' ? '[data-v="coin"]' : ':not([data-v])'}`); await P.waitForSelector('#cu-st:not([hidden]) .cst-bar'); if (mode !== 'coin') await P.click('[data-cst="tab"][data-v="style"]'); else await P.click('[data-cst="ctab"][data-v="metal"]'); };
+const unstudio = async P => { await P.keyboard.press('Escape'); await P.waitForSelector('#cu-st[hidden]', { state: 'attached' }); await sleep(200); };
+check('Customise offers no design controls of its own, only the way into the Studio', !(await A.$('#cz-sec-c [data-act="cu-set"][data-f="note.pat"]')) && !(await A.$('#cz-sec-c [data-act="cu-set"][data-f="coin.met"]')) && (await A.$$('#cz-sec-c [data-cst="open"]')).length === 2);
+await studio(A, 'note');
+await A.click('[data-cst="set"][data-f="note.pat"][data-v="waves"]'); await sleep(150);
+await A.click('[data-cst="den"][data-v="500"]'); await sleep(150);
+await A.click('[data-cst="mode"][data-v="coin"]'); await A.click('[data-cst="ctab"][data-v="metal"]');
+await A.click('[data-cst="set"][data-f="coin.met"][data-v="gold"]'); await sleep(150);
+await unstudio(A);
 check('the designer shows the whole series, a note for every value', (await A.$$('#cu-prev .cu-fan-b')).length === 10 && !!(await A.$('#cu-prev .cu-fan-b.on[data-v="500"]')));
-/* a choice draws the page again, and the page stays where the player had it: it used to jump down by the height the
-   unlock links add above, or, near the foot of the page, be clamped while the page was drawn shorter */
-const stays = async sel => {
-  const id = await A.evaluate(s => { const e = document.querySelector(s); e.scrollIntoView({ block: 'center' }); return e.id; }, sel); await sleep(200);
-  const y0 = await A.evaluate(() => window.scrollY); await A.click('#' + id); await sleep(400);
-  return Math.abs(await A.evaluate(() => window.scrollY) - y0) <= 1;
-};
-check('choosing a design keeps the page where it was', await stays('[data-act="cu-set"][data-f="note.emb"]:not(.on)') && await stays('[data-act="cu-set"][data-f="coin.den"]:not(.on)'));
 await A.click('#cu-prev [data-act="cu-flip"]'); await sleep(300);
 check('turning the note over draws its back, with the land of the nation', !!(await A.$('#cu-prev .cu-flip.on .cu-back svg.cu-note-b')) && /territory/i.test(await A.getAttribute('#cu-prev .cu-back svg', 'aria-label') || ''));
 await A.click('#cu-prev [data-act="cu-flip"]'); await sleep(150);
@@ -147,7 +146,8 @@ await nav(T, 'nation');
 await nav(T, 'help');
 check('the ledger of ambitions offers the Bureau and the currency’s design at 6 land credits and 10 oil each',
   /\+6 land\s*10 oil/.test(await text(T, '#help-tut [data-k="fxv"]')) && /\+6 land\s*10 oil/.test(await text(T, '#help-tut [data-k="fxd"]')));
-check('the designs still to be earned are locked', await (async () => { await nav(T, 'customise'); await czSection(T, 'c'); return !!(await T.$('#cu-l-pat-moire.cu-lk')) && !!(await T.$('#cu-l-met-platinum.cu-lk')) && !!(await T.$('#cu-l-st-3.cu-lk')); })());
+const lockedT = async (f, v) => !!(await T.$(`#cu-st [data-cst="locked"][data-f="${f}"][data-v="${v}"]`));
+check('the designs still to be earned are locked', await (async () => { await nav(T, 'customise'); await czSection(T, 'c'); await studio(T, 'note'); const a = await lockedT('note.pat', 'moire') && await lockedT('note.strip', '3'); await T.click('[data-cst="mode"][data-v="coin"]'); await T.click('[data-cst="ctab"][data-v="metal"]'); const b = await lockedT('coin.met', 'platinum'); await unstudio(T); return a && b; })());
 const c0 = await credits(), o0 = await oil();
 await nav(T, 'exchange');
 check('visiting the Bureau pays the first step: 6 land credits and 10 oil', await until(async () => (await localNation(T)).tut && (await localNation(T)).tut.lc.includes('fxv'))
@@ -172,11 +172,15 @@ check('and earns Legal Tender and the Proof Coin', tn.ach['cur-design'] && tn.co
 await nav(T, 'help');
 check('with both done, both are stamped', /Paid/.test(await text(T, '#help-tut [data-k="fxd"]')) && /Paid/.test(await text(T, '#help-tut [data-k="fxv"]')));
 await nav(T, 'customise');
-check('Legal Tender unlocks the Moiré engraving; the rest stay locked', !(await T.$('#cu-l-pat-moire.cu-lk')) && !!(await T.$('#cu-l-pat-moire')) && !!(await T.$('#cu-l-met-platinum.cu-lk')));
+await czSection(T, 'c'); await studio(T, 'note');
+const moireOpen = !(await lockedT('note.pat', 'moire')) && !!(await T.$('#cu-st [data-cst="set"][data-f="note.pat"][data-v="moire"]'));
+await T.click('[data-cst="mode"][data-v="coin"]'); await T.click('[data-cst="ctab"][data-v="metal"]');
+check('Legal Tender unlocks the Moiré engraving; the rest stay locked', moireOpen && await lockedT('coin.met', 'platinum'));
 await T.mouse.move(1, 1); // a toast waits while the pointer rests on it
-await T.$eval('#cu-l-met-platinum', b => b.click()); await sleep(200); // aria-disabled: Playwright will not click it, a player can
+await T.click('#cu-st [data-cst="locked"][data-f="coin.met"][data-v="platinum"]'); await sleep(200);
 check('a locked design says how to earn it', await until(async () => /Locked\. Earn the gold achievement ‘Sound Money’/.test(await toastsT()), 30000));
-await T.click('#cu-l-pat-moire'); await sleep(200); await T.click('#cu-form button[type="submit"]'); await sleep(400);
+await T.click('[data-cst="mode"][data-v="note"]'); await T.click('[data-cst="tab"][data-v="style"]');
+await T.click('#cu-st [data-cst="set"][data-f="note.pat"][data-v="moire"]'); await sleep(200); await T.click('#cu-st [data-cst="save"]'); await sleep(400); await unstudio(T);
 const tm = await localNation(T);
 check('an earned design is saved, and the record lists it for other players', tm.cur.note && tm.cur.note.pat === 'moire' && tm.cz && tm.cz.u.includes('cn-moire'));
 const uidT = await T.evaluate(() => window.claude.use('user').then(u => u.id()));

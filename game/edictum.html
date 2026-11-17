@@ -48134,7 +48134,7 @@ function cuCzBody(n){
   return `<div class="cu-cz">
   <div class="cu-cz-prev" id="cu-prev" aria-live="polite">${cuPrevHTML(n,d)}</div>
   <form id="cu-form" novalidate>
-    <p class="cu-quick hint">A currency is ready the moment a nation is founded: the suggestion below is yours already. Change anything, then save. Names and designs never change what the currency is worth or how far it is trusted.</p>
+    <p class="cu-quick hint">A currency is ready the moment a nation is founded: the suggestion below is yours already. Name it here; design its notes and coins in the Note Studio. Save keeps both. Names and designs never change what the currency is worth or how far it is trusted.</p>
     <h3 class="sub-h">Name and code</h3>
     <div class="fields">${f('unit','Everyday name (singular)',30,'crown','The word edicts and statistics use: “a hundred crowns”.')}${f('nm','Official name',30,c.nm,'Leave empty for the suggestion.')}${f('pl','Plural',34,c.pl,'')}${f('cd','Code, 3 to 5 letters',5,c.cd,'Shown in rates: 1 '+esc(c.cd)+' = …')}${f('sy','Symbol',3,c.sy,'Up to three characters.')}${f('mo','Motto printed on the currency',48,n.motto||'In Paperwork We Trust','')}</div>
     <h3 class="sub-h">Writing amounts</h3>
@@ -48142,26 +48142,9 @@ function cuCzBody(n){
     ${seg('Symbol goes','cu-l-sp',[['b','Before: '+c.sy+'10'],['a','After: 10 '+c.sy]],d.sp,'cu','sp')}
     ${seg('Separators','cu-l-nf',Object.keys(CU_NF).map(k=>[k,CU_NF[k][2]]),d.nf,'cu','nf')}
     <h3 class="sub-h">Banknote</h3>
-    <div class="cu-st-open"><button type="button" class="btn" data-cst="open">Open the Note Studio</button><span class="hint">Every part of the note on one screen: move parts on the note, layers, your own guilloché, ornaments, type and the whole series.</span></div>
-    ${cuPresetRow()}
-    ${seg('Layout','cu-l-lay',Object.entries(CU_LAYS),N.lay||'classic','note','lay')}
-    ${seg('Orientation','cu-l-or',[['','Horizontal'],['v','Vertical']],N.or||'','note','or')}
-    <div class="cz-drow"><span class="cz-dl" id="cu-l-era">Era</span><div class="seg cz-seg" role="group" aria-labelledby="cu-l-era">${Object.entries(CU_ERAS).map(([v,l])=>{const on=(N.era||'classic')===v;return cuEraOpen(n,v)?`<button type="button" id="cu-l-era-${v}" class="seg-b${on?' on':''}" data-act="cu-set" data-f="note.era" data-v="${v}" aria-pressed="${on}">${esc(l)}</button>`:`<button type="button" id="cu-l-era-${v}" class="seg-b cu-lk" aria-disabled="true" title="${esc(l+': '+CU_ERA_HOW[v])}" data-act="cu-era-locked" data-v="${v}">${CZ_LOCK}${esc(l)}</button>`;}).join('')}</div></div>
-    ${col('c1','Main colour')}${col('c2','Second colour')}
-    ${lseg('Engraving','cu-l-pat',Object.entries(CU_PATS),N.pat,'note','pat','pat')}
-    ${seg('Vignette','cu-l-por',Object.entries(CU_POR),N.por,'note','por')}
-    ${seg('Emblem','cu-l-emb',Object.entries(CU_EMBS),N.emb,'note','emb')}
-    ${seg('Flag','cu-l-fl',Object.entries(CU_FLS),N.fl,'note','fl')}
-    ${lseg('Security strip','cu-l-st',Object.entries(CU_STRIPS),N.strip,'note','strip','strip')}
-    ${seg('Denomination','cu-l-den',CU_DENOMS.map(v=>[v,v.toLocaleString('en-US')]),N.den,'note','den')}
+    <div class="cu-st-open"><button type="button" class="btn" data-cst="open">Design the banknotes in the Note Studio</button><span class="hint">The notes are designed in the Studio: every part on one screen, the whole series, effects and security features.</span></div>
     <h3 class="sub-h">Coin</h3>
-    <div class="cu-st-open"><button type="button" class="btn ghost" data-cst="open" data-v="coin">Design the coin in the Studio</button><span class="hint">Both faces, finish, rim, edge, field and the whole set to scale.</span></div>
-    ${lseg('Metal','cu-l-met',Object.entries(CU_METALS).map(([k,v])=>[k,v[0]]),K.met,'coin','met','met')}
-    ${lseg('Shape','cu-l-sh',Object.entries(CU_SHAPES),K.shape,'coin','shape','shape')}
-    ${seg('Device','cu-l-ce',Object.entries(CU_CEMB),K.emb,'coin','emb')}
-    ${seg('Value','cu-l-cd',CU_COINS.map(v=>[v,String(v)]),K.den,'coin','den')}${+d.sn>1?seg('In','cu-l-dk',[['u',c.pl.split(' ').pop()],['s',plural(c.su)]],K.dk,'coin','dk'):''}
-    <div class="fields">${f('coin.ins','Inscription',28,String(n.name||'').toUpperCase(),'Round the top of the coin.')}</div>
-    ${seg('Mint year','cu-l-yr',[[1,'Shown'],[0,'None']],K.yr,'coin','yr')}
+    <div class="cu-st-open"><button type="button" class="btn" data-cst="open" data-v="coin">Design the coins in the Note Studio</button><span class="hint">Both faces, metals, shape, finish, rim, edge, marks and the whole set to scale.</span></div>
     <div class="row cu-bar"><button class="btn" type="submit">Save the currency</button><button type="button" class="btn ghost" data-act="cu-reset">Back to the suggestion</button><span class="hint" id="cu-msg"></span></div>
   </form></div>`;
 }
@@ -64120,13 +64103,16 @@ function unlockTarget(id){
   if(pt)return {view:'customise',href:'#customise/passport',sec:'p',setup:()=>{PP.dtab=pt;},target:`#cz-sec-p [data-act="pp-set"][data-f^="${pt}."][data-v="${id}"]`};
   const k=CZ_SEC_OF[u.k]||UNLOCK_CZ_SEC[u.k];if(!k)return null;
   let target=u.k==='emblem'?`#cz-sec-e [data-act="flag"][data-f="e"][data-val="${id}"]`:`#cz-sec-${k} [data-czid="${id}"]`;
-  if(k==='c')for(const [g,row] of Object.entries(CU_LOCK))for(const [v,uid] of Object.entries(row))if(uid===id&&UNLOCK_CU_ROW[g])target='#'+UNLOCK_CU_ROW[g]+'-'+v;
-  return {view:'customise',href:'#customise'+(CZ_SLUG[k]?'/'+CZ_SLUG[k]:''),sec:k,target};
+  /* a currency design opens the Note Studio at the tab that offers it */
+  let studio=null;if(k==='c')for(const [g,row] of Object.entries(CU_LOCK))for(const [v,uid] of Object.entries(row))if(uid===id&&UNLOCK_CU_ROW[g]){const coin=g==='met'||g==='shape';studio={mode:coin?'coin':'note',f:(coin?'coin.':'note.')+g,v};target='#cz-sec-c [data-cst="open"]';}
+  return {view:'customise',href:'#customise'+(CZ_SLUG[k]?'/'+CZ_SLUG[k]:''),sec:k,target,studio};
 }
 function unlockShow(id){
   const t=unlockTarget(id);if(!t||!S.nation)return false;
   S.notifOpen=false;S.openIssue=null;S.result=null;if(t.sec)czTabFor('cz-sec-'+t.sec);
   UXP.pulse=t.target;uxOpen(t.view,t.setup||null,t.target);
+  if(t.studio)setTimeout(()=>{if(S.view!=='customise')return;if(t.studio.mode==='coin')CST.ctab='metal';else CST.tab='style';cstOpen(t.studio.mode);
+    const el=document.querySelector(`#cu-st [data-f="${t.studio.f}"][data-v="${t.studio.v}"]`);if(el){el.scrollIntoView({block:'center'});el.classList.add('cz-pulse');setTimeout(()=>el.classList.remove('cz-pulse'),2600);}},450);
   /* a thing not drawn where it was expected (a designer folded away) still lands in its section, not at the top */
   setTimeout(()=>{if(S.view===t.view&&!document.querySelector(t.target)){const s=t.sec?'#cz-sec-'+t.sec:t.view==='passport'?'.pp-tabs':null;if(s)uxJump(s);}},400);
   return true;
