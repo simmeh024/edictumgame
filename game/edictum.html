@@ -5921,6 +5921,14 @@ svg.cu-note.cu-note-v{width:28%!important;min-width:56px;height:auto!important;m
 .fs-use svg{width:84px!important;height:auto}.fs-var svg.fs-vsvg{width:60px;height:40px;display:block}
 .fs-vfig{margin:0;display:grid;grid-template-columns:96px 1fr;gap:10px;align-items:center}.fs-vbig{width:96px;height:64px;display:block;box-shadow:0 1px 4px rgba(0,0,0,.2)}
 .fs-ud{display:flex;gap:0}.fs-tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(54px,1fr));gap:5px}.fs-tiles .tile{padding:2px;min-height:0;height:auto;aspect-ratio:3/2;width:100%}.fs-tiles .tile svg{width:100%;height:100%;display:block}.fst .cst-lay{grid-template-columns:22px 1fr 50px 44px 22px!important}
+.as-pap{position:relative;width:min(440px,92%);line-height:0}.as-pap .as-big{width:100%;height:auto;display:block}.as-pap .cst-ov{position:absolute;inset:0;width:100%;height:100%}
+.as-see{width:min(380px,90%)}.as-see svg{width:100%;height:auto;display:block}
+.as-blazon{margin:0;padding:6px 10px;border-top:1px solid var(--rule);font-family:Cinzel,Georgia,serif;font-size:12.5px;line-height:1.5}
+.as-tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(50px,1fr));gap:5px}.as-tile{position:relative;padding:3px;border:1px solid var(--rule);border-radius:6px;background:var(--sheet);cursor:pointer;aspect-ratio:5/6;display:grid;place-items:center}
+.as-tile svg{width:100%;height:100%;display:block}.as-tile.on{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}.as-tile.lk{opacity:.55}.as-tile .lock,.as-tile>svg+svg{position:absolute;right:2px;top:2px;width:12px;height:12px}
+.as-none{font-size:11px;color:var(--ink-2)}
+.as-tincs{display:flex;flex-wrap:wrap;gap:4px}.as-tn{padding:2px;border:1px solid var(--rule);border-radius:50%;background:none;cursor:pointer;line-height:0}.as-tn.on{outline:2px solid var(--accent);outline-offset:1px}.as-tn.lk{opacity:.5}
+.as-use svg{width:72px!important;height:auto}.ast .cst-lay{grid-template-columns:22px 1fr 22px!important}
 .cst-out{border-color:var(--rule)!important}.cst-fx{font:inherit;font-size:11px;background:var(--paper);color:var(--ink);border:1px solid var(--rule);border-radius:4px;padding:1px;width:100%}
 .cst-lay{grid-template-columns:22px 1fr 44px 58px 22px!important}
 .cst-rule{stroke:var(--ink-2);stroke-width:.4;opacity:.7;pointer-events:none}
@@ -28210,11 +28218,14 @@ const CZ_TN_U={lime:'tn-lime',turq:'tn-turq',nuit:'tn-nuit',gilt:'tn-gilt'},CZ_T
 const czTnOk=t=>!CZ_TN_U[t]||czMine().has(CZ_TN_U[t]);
 const czTnKey=id=>Object.keys(CZ_TN_U).find(t=>CZ_TN_U[t]===id)||'';
 /* swap any earned tincture a nation does not hold for its free neighbour (holds: id => bool) */
-function czTnKeep(a,holds){if(!a)return a;const f=t=>CZ_TN_U[t]&&!holds(CZ_TN_U[t])?CZ_TN_FB[t]:t;a.t=[f(a.t[0]),f(a.t[1])];a.ct=f(a.ct);return a;}
+function czTnKeep(a,holds){if(!a)return a;const f=t=>CZ_TN_U[t]&&!holds(CZ_TN_U[t])?CZ_TN_FB[t]:t;a.t=[f(a.t[0]),f(a.t[1])];a.ct=f(a.ct);for(const k of ['ot','ct2','sut'])if(a[k])a[k]=f(a[k]);return a;}
 const czTnCls=t=>(CZ_METAL[t]?' met':'')+(t==='gilt'?' gilt':'');
 /* a round swatch of a tincture; Shining gold's paint and glint come from the stylesheet */
 const czTnSw=t=>`<span class="cz-tsw${czTnCls(t)}"${t==='gilt'?'':` style="background:${CZ_TINCT[t][1]}"`} aria-hidden="true"></span>`;
 const CZ_DIVS={plain:'Plain',pale:'Per pale',fess:'Per fess',bend:'Per bend',bendsin:'Per bend sinister',quarterly:'Quarterly',perchev:'Per chevron',persalt:'Per saltire',chief:'Chief',fessb:'Fess',paleb:'Pale',bendb:'Bend',cross:'Cross',saltire:'Saltire',chevron:'Chevron',bordure:'Bordure',paly:'Paly',barry:'Barry',chequy:'Chequy',gyronny:'Gyronny',pile:'Pile'};
+const CZ_CREST={helm:'a helm',crown:'a crown',coronet:'a coronet',mural:'a mural crown',star:'a star on a wreath',wreath:'a wreath of the colours'};
+const CZ_SUP={lion:'two lions',eagle:'two eagles',stag:'two stags',animal:'two of the national animal'};
+const CZ_COMP={grass:'a grassy mount',rock:'a rock',waves:'waves of the sea'};
 const CZ_ORD={chief:'a chief',fessb:'a fess',paleb:'a pale',bendb:'a bend',cross:'a cross',saltire:'a saltire',chevron:'a chevron',bordure:'a bordure',pile:'a pile'};
 const CZ_CHB={lion:'a lion rampant',eagle:'an eagle displayed',tower:'a tower',sheaf:'a garb',star:'a mullet',sun:'a sun in splendour',tree:'an oak tree',rose:'a rose',crown:'a crown',book:'a book open',hammer:'a hammer',key:'a key',owl:'an owl',ship:'a ship',anchor:'an anchor',fish:'a fish naiant',stag:'a stag’s head caboshed',bee:'a bee volant',moon:'a crescent',fleur:'a fleur-de-lis',mount:'a trimount',sword:'a sword erect',bell:'a bell',harp:'a harp',acorn:'an acorn slipped',torch:'a torch inflamed',scales:'a pair of scales',hourglass:'an hourglass',quill:'a quill pen',helm:'a ship’s wheel',grapes:'a bunch of grapes',lighthouse:'a lighthouse',dove:'a dove volant',pine:'a pine tree',horseshoe:'a horseshoe',heart:'a heart',compass:'a compass rose',axe:'an axe erect',
   spyglass:'a spyglass bendwise',letter:'a letter sealed',candle:'a candle in a chamberstick',lantern:'a lantern',signpost:'a signpost',spade:'a spade erect',mace:'a mace of office',
@@ -28262,6 +28273,16 @@ function czCleanArms(a,u){
   /* the Midnight Tag shield is the Shop's: shown only with the piece held (u: what the nation holds, vouched for) */
   let sh=czHas(CZ_SHIELDS,a.s)?a.s:'heater';if(CZ_SH_SHOP[sh]&&u&&!u.includes(CZ_SH_SHOP[sh]))sh='heater';
   const o={s:sh,d:czHas(CZ_DIVS,a.d)?a.d:'plain',t,c,ct:T(a.ct)||'or',m:a.m===1?1:0,on:a.on===1?1:0};
+  /* the Arms Studio: an ordinary over the division (or, ot), one to three charges arranged (cn, ca) and placed (px, py,
+     ps), a second charge in chief (c2, ct2), and the full achievement: crest (cr), supporters (su, sut, san), mantling
+     (mn), compartment (cm) and the scroll's own words (mt) */
+  if(czHas(CZ_ORD,a.or)){o.or=a.or;o.ot=T(a.ot)||'or';}
+  if(c&&(a.cn===2||a.cn===3)){o.cn=a.cn;if(['fess','pale'].includes(a.ca))o.ca=a.ca;}
+  const num=(v,lo,hi)=>typeof v==='number'&&Number.isFinite(v)?Math.round(Math.min(hi,Math.max(lo,v))*10)/10:null;
+  if(c&&num(a.px,0,100)!==null&&num(a.py,0,120)!==null){o.px=num(a.px,0,100);o.py=num(a.py,0,120);}if(c&&num(a.ps,.5,1.8)!==null&&a.ps!==1)o.ps=num(a.ps,.5,1.8);
+  let c2=czU(a.c2)&&UNLOCKS[a.c2].k==='charge'?a.c2:'';if(c2&&u&&UNLOCKS[c2].src!=='free'&&!u.includes(c2))c2='';if(c2){o.c2=c2;o.ct2=T(a.ct2)||'or';}
+  if(CZ_CREST[a.cr])o.cr=a.cr;if(CZ_SUP[a.su]){o.su=a.su;o.sut=T(a.sut)||'or';if(a.su==='animal'&&typeof a.san==='string'){const sn=a.san.replace(/[<>"`\\{}]/g,'').trim().slice(0,30);if(sn)o.san=sn;}}
+  if(a.mn===1)o.mn=1;if(CZ_COMP[a.cm])o.cm=a.cm;if(typeof a.mt==='string'){const mt=czText(a.mt,60);if(mt)o.mt=mt;}
   return u?czTnKeep(o,id=>u.includes(id)):o;
 }
 function czCleanSym(s){
@@ -28328,7 +28349,13 @@ function czDate(hd){if(!hd)return '';const m=+hd.slice(0,2),d=+hd.slice(3);retur
 function czBlazon(a){
   const T=k=>CZ_TINCT[k][0].toLowerCase(),t0=T(a.t[0]),t1=T(a.t[1]),d=a.d;
   let s=d==='plain'?t0:CZ_ORD[d]?`${t0}, ${CZ_ORD[d]} ${t1}`:d==='paly'?`paly of six ${t0} and ${t1}`:d==='barry'?`barry of eight ${t0} and ${t1}`:d==='gyronny'?`gyronny of eight ${t0} and ${t1}`:`${CZ_DIVS[d].toLowerCase()} ${t0} and ${t1}`;
-  if(a.c&&czU(a.c))s+=`, ${CZ_ORD[d]&&d!=='chief'&&d!=='bordure'?'over all ':''}${CZ_CHB[a.c.slice(2)]||'a '+UNLOCKS[a.c].n.toLowerCase()} ${T(a.ct)}`;
+  if(a.or&&CZ_ORD[a.or])s+=`, ${CZ_ORD[a.or]} ${T(a.ot||'or')}`;
+  if(a.c&&czU(a.c)){const one=CZ_CHB[a.c.slice(2)]||'a '+UNLOCKS[a.c].n.toLowerCase(),k=a.cn>1?a.cn:1;
+    const many=k>1?(['','','two ','three '][k]+plural(UNLOCKS[a.c].n.toLowerCase())+(a.ca==='fess'?' in fess':a.ca==='pale'?' in pale':'')):one;
+    s+=`, ${(CZ_ORD[d]&&d!=='chief'&&d!=='bordure')||a.or&&a.or!=='chief'&&a.or!=='bordure'?'over all ':''}${many} ${T(a.ct)}`;}
+  if(a.c2&&czU(a.c2))s+=`, in chief ${CZ_CHB[a.c2.slice(2)]||'a '+UNLOCKS[a.c2].n.toLowerCase()} ${T(a.ct2||'or')}`;
+  const ext=[a.cr&&CZ_CREST[a.cr]?'for a crest, '+CZ_CREST[a.cr]:'',a.su&&CZ_SUP[a.su]?'supporters, '+(a.su==='animal'&&a.san?'two '+plural(a.san.toLowerCase()):CZ_SUP[a.su])+' '+T(a.sut||'or'):'',a.cm&&CZ_COMP[a.cm]?'on '+CZ_COMP[a.cm]:''].filter(Boolean);
+  if(ext.length)s+='; '+ext.join('; ');
   return cap1(s);
 }
 
@@ -28564,12 +28591,42 @@ function czChargePos(a){
   if(a.d==='chief'){y+=13;s*=.8;}else if(a.d==='bordure')s*=.8;else if(CZ_ORD[a.d])s*=.92;
   return {x,y,s};
 }
+/* where the charges stand: one, or two or three in their arrangement (a.ca: two and one, in fess, in pale), moved and
+   scaled by the Arms Studio (a.px, a.py, a.ps); each [x, y, scale] of the 100-unit charge box */
+function czChargeSpots(a){
+  const p=czChargePos(a),x=typeof a.px==='number'?a.px:p.x,y=typeof a.py==='number'?a.py:p.y,s=p.s*(a.ps||1),n=a.cn>1?a.cn:1;
+  if(n===1)return [[x,y,s]];const k=s*(n===2?.6:.48);
+  if(a.ca==='pale')return n===2?[[x,y-15,k],[x,y+15,k]]:[[x,y-24,k],[x,y,k],[x,y+24,k]];
+  if(a.ca==='fess')return n===2?[[x-17,y,k],[x+17,y,k]]:[[x-26,y,k],[x,y,k],[x+26,y,k]];
+  return n===2?[[x-17,y,k],[x+17,y,k]]:[[x-17,y-12,k],[x+17,y-12,k],[x,y+15,k]];
+}
+/* the full achievement round the shield: mantling behind, a crest above, supporters beside, a compartment beneath */
+function czArmsExt(a,id,F,c1,c2){
+  const dk='#151515',sup=CZ_SUP[a.su]?a.su:'',cr=CZ_CREST[a.cr]?a.cr:'',cm=CZ_COMP[a.cm]?a.cm:'';let back='',front='';
+  if(a.mn===1)back+=`<path d="M50,-12C14,-8 -24,12 -32,58C-26,48 -16,45 -8,51C-18,68 -22,88 -12,104C-4,82 0,52 6,22Z" fill="${c1}" stroke="${dk}" stroke-width="1"/><path d="M50,-12C86,-8 124,12 132,58C126,48 116,45 108,51C118,68 122,88 112,104C104,82 100,52 94,22Z" fill="${c1}" stroke="${dk}" stroke-width="1"/><path d="M-32,58C-26,48 -16,45 -8,51M132,58C126,48 116,45 108,51M-12,104C-6,90 -6,74 -2,60M112,104C106,90 106,74 102,60" fill="none" stroke="${c2}" stroke-width="4" stroke-linecap="round"/>`;
+  if(cm==='grass')back+=`<path d="M-58,134Q50,106 158,134V150H-58Z" fill="#3F7A3A" stroke="${dk}" stroke-width="1"/><path d="M-40,128l3,-6l3,6M-10,121l3,-7l3,7M104,121l3,-7l3,7M134,128l3,-6l3,6" fill="none" stroke="#2C5A28" stroke-width="1.2"/>`;
+  else if(cm==='rock')back+=`<path d="M-58,150L-44,124L-20,118L8,112L40,116L72,110L104,116L132,120L150,128L158,150Z" fill="#8A8D90" stroke="${dk}" stroke-width="1"/><path d="M-20,118L-12,132M40,116L46,134M104,116L98,132" stroke="#5E6164" stroke-width="1"/>`;
+  else if(cm==='waves')back+=`<path d="M-58,128Q-44,120 -30,128T-2,128T26,128T54,128T82,128T110,128T138,128T158,126V150H-58Z" fill="#2E6FA6" stroke="${dk}" stroke-width="1"/><path d="M-58,138Q-44,130 -30,138T-2,138T26,138T54,138T82,138T110,138T138,138" fill="none" stroke="#BFE0F2" stroke-width="1.4"/>`;
+  if(sup){const col=F(a.sut||'or'),one=sup==='animal'?(typeof cuBeastArt==='function'?cuBeastArt(id+'s',a.san||'otter',dk,col,0,0,58,1,1):''):czCharge(sup,col,a.sut==='sable'?'#8d8d8d':dk);
+    front+=sup==='animal'?`<g transform="translate(-34 56) scale(.8)">${one}</g><g transform="translate(134 56) scale(-.8 .8)">${one}</g>`:`<g transform="translate(-66 22) scale(.64)">${one}</g><g transform="translate(166 22) scale(-.64 .64)">${one}</g>`;}
+  if(cr==='helm')front+=`<path d="M37,-4Q37,-33 50,-35Q63,-33 63,-4Z" fill="#9AA3AA" stroke="${dk}" stroke-width="1.2"/><path d="M40,-22H60M41,-16H59M42,-10H58" stroke="${dk}" stroke-width="1"/><path d="M33,-39Q50,-47 67,-39L63,-33Q50,-39 37,-33Z" fill="${c2}" stroke="${dk}" stroke-width="1"/>`;
+  else if(cr==='crown')front+=`<path d="M30,-4L27,-30L39,-18L50,-36L61,-18L73,-30L70,-4Z" fill="#E2B13C" stroke="${dk}" stroke-width="1.2"/><circle cx="27" cy="-31" r="2.6" fill="#E2B13C" stroke="${dk}"/><circle cx="50" cy="-37" r="2.6" fill="#E2B13C" stroke="${dk}"/><circle cx="73" cy="-31" r="2.6" fill="#E2B13C" stroke="${dk}"/><rect x="30" y="-10" width="40" height="6" fill="#C0282D" stroke="${dk}"/>`;
+  else if(cr==='coronet')front+=`<rect x="28" y="-12" width="44" height="8" rx="2" fill="#E2B13C" stroke="${dk}" stroke-width="1.2"/>${[32,41,50,59,68].map(x=>`<circle cx="${x}" cy="-15" r="3" fill="#F2F1EA" stroke="${dk}" stroke-width=".8"/>`).join('')}`;
+  else if(cr==='mural')front+=`<path d="M28,-4V-22H34V-28H40V-22H46V-28H54V-22H60V-28H66V-22H72V-4Z" fill="#B9A588" stroke="${dk}" stroke-width="1.2"/><path d="M28,-13H72M40,-22V-13M60,-22V-13M50,-13V-4" stroke="${dk}" stroke-width=".8"/>`;
+  else if(cr==='star'||cr==='wreath'){front+=`<path d="M28,-4Q50,-12 72,-4L72,-10Q50,-18 28,-10Z" fill="${c1}" stroke="${dk}" stroke-width="1"/>${[33,43,53,63].map(x=>`<path d="M${x},-6l5,-6" stroke="${c2}" stroke-width="3"/>`).join('')}`;if(cr==='star')front+=`<path d="${czStarPts(50,-26,5,12,5,-90)}" fill="${c2}" stroke="${dk}" stroke-width="1"/>`;}
+  return {back,front,top:cr?-50:a.mn===1?-16:-4,bot:cm?152:124,side:sup||a.mn===1||cm};
+}
 function czArmsSVG(a,o){
-  o=o||{};const id='cza'+(++czSeq),sp=czShieldPath(a.s),F=t=>t==='gilt'?`url(#${id}au)`:CZ_TINCT[t][1],c1=F(a.t[0]),c2=F(a.t[1]),mot=o.motto?czText(o.motto,80):'';
-  let ch='';if(a.c&&czU(a.c)){const p=czChargePos(a),col=F(a.ct);ch=`<g transform="translate(${(p.x-50*p.s).toFixed(2)},${(p.y-50*p.s).toFixed(2)}) scale(${p.s})">${czCharge(a.c.slice(2),col,a.ct==='sable'||a.ct==='nuit'?'#8d8d8d':'#151515')}</g>`;}
-  const au=a.t[0]==='gilt'||(a.d!=='plain'&&a.t[1]==='gilt')||(ch&&a.ct==='gilt')?czGiltDef(id+'au',!o.label):'';
-  return `<svg class="cz-arms${o.cls?' '+o.cls:''}" viewBox="${mot?'-16 -3 132 164':'-3 -3 106 126'}" ${o.label?`role="img" aria-label="${esc(o.label)}"`:'aria-hidden="true"'}><defs>${au}<clipPath id="${id}"><path d="${sp}"/></clipPath><radialGradient id="${id}g" cx=".3" cy=".2" r=".95"><stop offset="0" stop-color="#fff" stop-opacity=".34"/><stop offset=".5" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".24"/></radialGradient></defs>
-<g clip-path="url(#${id})"><rect x="-5" y="-5" width="110" height="130" fill="${c1}"/>${czDivBody(a.d,c2,sp)}${ch}<rect x="-5" y="-5" width="110" height="130" fill="url(#${id}g)"/></g><path d="${sp}" class="cz-ol" fill="none" stroke-width="2.6" stroke-linejoin="round"/>${mot?czScroll(mot,id):''}</svg>`;
+  o=o||{};const id='cza'+(++czSeq),sp=czShieldPath(a.s),F=t=>t==='gilt'?`url(#${id}au)`:CZ_TINCT[t][1],c1=F(a.t[0]),c2=F(a.t[1]),mot0=a.m&&a.mt?a.mt:o.motto,mot=mot0?czText(mot0,80):'';
+  let ch='';if(a.c&&czU(a.c)){const col=F(a.ct),dk=a.ct==='sable'||a.ct==='nuit'?'#8d8d8d':'#151515',art=czCharge(a.c.slice(2),col,dk);ch=czChargeSpots(a).map(([x,y,s])=>`<g transform="translate(${(x-50*s).toFixed(2)},${(y-50*s).toFixed(2)}) scale(${s.toFixed(3)})">${art}</g>`).join('');}
+  if(a.c2&&czU(a.c2)){const s=.24;ch+=`<g transform="translate(${(50-50*s).toFixed(2)},${(17-50*s).toFixed(2)}) scale(${s})">${czCharge(a.c2.slice(2),F(a.ct2||'or'),a.ct2==='sable'||a.ct2==='nuit'?'#8d8d8d':'#151515')}</g>`;}
+  const ord=a.or&&CZ_ORD[a.or]?czDivBody(a.or,F(a.ot||'or'),sp):'';
+  const au=a.t[0]==='gilt'||(a.d!=='plain'&&a.t[1]==='gilt')||(ch&&a.ct==='gilt')||a.ot==='gilt'||a.ct2==='gilt'||a.sut==='gilt'?czGiltDef(id+'au',!o.label):'';
+  /* the full achievement shows where the arms stand as themselves (with a label, or o.full); small places keep the shield */
+  const X=(o.label||o.full)&&!o.shield&&(a.cr||a.su||a.mn===1||a.cm)?czArmsExt(a,id,F,c1,c2):null;
+  const vb=X?`${X.side?-66:-16} ${X.top} ${X.side?232:132} ${Math.max(mot?162:X.bot,X.bot)-X.top}`:mot?'-16 -3 132 164':'-3 -3 106 126';
+  return `<svg class="cz-arms${o.cls?' '+o.cls:''}" viewBox="${vb}" ${o.label?`role="img" aria-label="${esc(o.label)}"`:'aria-hidden="true"'}><defs>${au}<clipPath id="${id}"><path d="${sp}"/></clipPath><radialGradient id="${id}g" cx=".3" cy=".2" r=".95"><stop offset="0" stop-color="#fff" stop-opacity=".34"/><stop offset=".5" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".24"/></radialGradient></defs>
+${X?X.back:''}<g clip-path="url(#${id})"><rect x="-5" y="-5" width="110" height="130" fill="${c1}"/>${czDivBody(a.d,c2,sp)}${ord}${ch}<rect x="-5" y="-5" width="110" height="130" fill="url(#${id}g)"/></g><path d="${sp}" class="cz-ol" fill="none" stroke-width="2.6" stroke-linejoin="round"/>${X?X.front:''}${mot?czScroll(mot,id):''}</svg>`;
 }
 /* Shining gold: gold shaded like metal, its highlight sweeping slowly across the shield. The gradient repeats every
    220×260 units, so a translate of one period loops without a seam. Only the arms shown as themselves (with a label:
@@ -28844,7 +28901,7 @@ VIEWS_EXT.customise=now=>{
   const tr=SHOP.tryOn&&SHOP.tryOn.k==='c'?SHOP.tryOn.id:'';
   const charges=U('charge').map(id=>has(id)?armB('c',id,czArmsSVG({...a,d:'plain',c:id,s:'heater'}),UNLOCKS[id].n,a.c===id,fr.has(id)):`<button type="button" data-ux-unlock="${esc(id)}" class="cz-mt locked${tr===id?' on':''}" data-act="cz-try" data-k="c" data-id="${esc(id)}" aria-pressed="${tr===id}" title="${esc(UNLOCKS[id].n)}: ${esc(unlockHow(id))}"><span class="cz-mtv" aria-hidden="true">${czArmsSVG({...a,d:'plain',c:id,s:'heater'})}</span><span class="cz-mtn">${CZ_LOCK}${esc(UNLOCKS[id].n)}</span><span class="cz-how">${tr===id?'<b>Trying it on.</b> ':''}${esc(unlockHow(id))}</span></button>`).join('');
   const rot=a.c&&(CZ_METAL[a.ct]?1:0)===(CZ_METAL[a.t[0]]?1:0)&&(a.d==='plain'||CZ_ORD[a.d]);
-  const armsBody=`<div class="cz-arms-wrap"><figure class="cz-arms-fig">${czArmsSVG(a,{motto:a.m?n.motto:'',label:'Coat of arms of '+n.name,cls:'cz-arms-big'})}<figcaption><span class="lbl">Blazon</span><span class="cz-blazon">${esc(czBlazon(a))}</span></figcaption>
+  const armsBody=`<div class="cu-st-open cz-st-top"><button type="button" class="btn" data-ars="open">Design in the Arms Studio</button><span class="hint">More than the designer below: an ordinary over the division, two or three charges and where they stand, a charge in chief, and the full achievement with crest, supporters, mantling, compartment and your own motto.</span></div><div class="cz-arms-wrap"><figure class="cz-arms-fig">${czArmsSVG(a,{motto:a.m?n.motto:'',label:'Coat of arms of '+n.name,cls:'cz-arms-big'})}<figcaption><span class="lbl">Blazon</span><span class="cz-blazon">${esc(czBlazon(a))}</span></figcaption>
     ${czSeg('On your nation page','cz-l-on',[['1','Shown'],['0','Hidden']],c.a&&c.a.on?'1':'0','cz-arm','on')}</figure>
     <div class="cz-arms-ctl">
       <p class="sw-l">Shield</p><div class="cz-mgrid">${Object.keys(CZ_SHIELDS).map(s=>czShOk(n,s)?armB('s',s,czArmsSVG({...a,s,c:''}),CZ_SHIELDS[s],a.s===s)
@@ -49136,6 +49193,199 @@ document.addEventListener('change',e=>{
     fsPaint();}
 });
 NORM_HOOKS.push((n,d)=>{const v=Array.isArray(d&&d.fgV)?d.fgV.filter(x=>x&&typeof x==='object'&&x.f&&typeof x.f==='object').slice(-FSV_MAX).map(x=>({nm:String(x.nm||'Version').replace(/[<>]/g,'').slice(0,40),t:Math.max(0,+x.t||0),f:flagNorm(x.f)})):[];if(v.length)n.fgV=v;else delete n.fgV;});
+
+/* ── the Arms Studio: the coat of arms on one screen, beside the Customise designer (which stays) ──
+   It edits a draft of the arms (AS.d) and Save keeps it the way the designer does (czSave). Parts and an inspector on
+   the left, the full achievement with its blazon in the middle, tabs on the right, and the arms in use below. */
+const AS={on:false,d:null,hist:[],fut:[],tab:'shield',full:true,check:true,see:'page',sel:'ch',lock:{},drag:null,opener:null};
+const AS_SEE={page:'On the nation page',note:'On a banknote',coin:'On a coin',passport:'On the passport',city:'As a city crest',tiny:'At 32 pixels'};
+const asN=()=>S.nation;
+const asHas=id=>!id||!UNLOCKS[id]||UNLOCKS[id].src==='free'||czMine().has(id);
+function asDo(label,f){const now=Date.now(),last=AS.hist[AS.hist.length-1],snap=JSON.stringify(AS.d);if(!(last&&last.l===label&&now-last.t<900))AS.hist.push({l:label,d:snap,t:now});else last.t=now;if(AS.hist.length>80)AS.hist.shift();AS.fut=[];f(AS.d);}
+function asUndo(){const h=AS.hist.pop();if(!h)return;AS.fut.push({l:h.l,d:JSON.stringify(AS.d)});AS.d=JSON.parse(h.d);asPaint();}
+function asRedo(){const h=AS.fut.pop();if(!h)return;AS.hist.push({l:h.l,d:JSON.stringify(AS.d),t:0});AS.d=JSON.parse(h.d);asPaint();}
+function asOpen(){
+  const n=asN();if(!n)return;AS.d=clone(cz(n).a||czDefaultArms(n,1));Object.assign(AS,{on:true,hist:[],fut:[],opener:document.activeElement});
+  let el=document.getElementById('ar-st');if(!el){el=document.createElement('div');el.id='ar-st';el.className='cst ast';el.setAttribute('role','dialog');el.setAttribute('aria-modal','true');el.setAttribute('aria-label','Arms Studio');document.body.appendChild(el);}
+  el.hidden=false;document.documentElement.classList.add('cst-on');asPaint();requestAnimationFrame(()=>{const b=document.getElementById('as-close');if(b)b.focus({preventScroll:true});});
+}
+function asClose(){AS.on=false;const el=document.getElementById('ar-st');if(el){el.hidden=true;el.innerHTML='';}document.documentElement.classList.remove('cst-on');render();const o=AS.opener;if(o&&o.isConnected)o.focus({preventScroll:true});}
+const asDirty=()=>!!(AS.d&&S.nation&&JSON.stringify(czCleanArms(AS.d))!==JSON.stringify(czCleanArms(cz(S.nation).a||czDefaultArms(S.nation,1))));
+function asSave(){
+  const n=asN(),a=czCleanArms(Object.assign({},AS.d,AS.d.su==='animal'?{san:n.animal||''}:{}));if(!a)return;
+  if(!asDirty()){toast('Your arms are already as they are here.');return;}
+  czSave(o=>{o.a=a;},'the coat of arms',true);AS.d=clone(a);AS.hist=[];AS.fut=[];toast('Your coat of arms is saved.');asPaint();
+}
+/* ── heraldry's rules, as a check ── */
+function asCheck(a){
+  const out=[],M=t=>!!CZ_METAL[t],nm=t=>CZ_TINCT[t][0],ground=a.or&&a.or!=='bordure'&&a.or!=='chief'?a.ot:a.t[0];
+  if(a.c){const ok=M(a.ct)!==M(ground);out.push(ok?{ok:1,t:`${M(a.ct)?'Metal on colour':'Colour on metal'}: the charges stand out`}:{t:`${nm(a.ct)} on ${nm(ground)}: put metal on colour or colour on metal`});}
+  if(a.or&&M(a.ot)===M(a.t[0]))out.push({t:`The ${CZ_ORD[a.or].replace(/^an? /,'')} and the field are both ${M(a.ot)?'metals':'colours'}`});
+  if(a.c2&&a.or==='chief'&&M(a.ct2)===M(a.ot))out.push({t:'The charge in chief does not stand out on the chief'});
+  const used=new Set([a.t[0]].concat(a.d!=='plain'?[a.t[1]]:[],a.or?[a.ot]:[],a.c?[a.ct]:[],a.c2?[a.ct2]:[]));
+  out.push(used.size<=4?{ok:1,t:`${used.size} tincture${used.size===1?'':'s'}: simple and strong`}:{t:`${used.size} tinctures: good arms use three or four`});
+  return out;
+}
+/* ── the arms in use ── */
+function asUses(n,a){const sh=czArmsSVG(a,{shield:1}),nest=(x,y,w,h)=>cuNest(sh,x,y,w,h);
+  return {page:czArmsSVG(a,{full:1,motto:a.m?(a.mt||n.motto||''):''}),
+    note:`<svg viewBox="0 0 160 80"><rect width="160" height="80" rx="4" fill="#1D6A5C"/><ellipse cx="120" cy="40" rx="26" ry="30" fill="#E7F1EC"/>${nest(104,18,32,44)}<text x="12" y="26" font-family="Cinzel,serif" font-size="11" fill="#F4E9C8">100</text></svg>`,
+    coin:`<svg viewBox="0 0 80 80"><circle cx="40" cy="40" r="38" fill="#E2B13C"/><circle cx="40" cy="40" r="30" fill="#D3DADC"/>${nest(26,20,28,40)}</svg>`,
+    passport:`<svg viewBox="0 0 60 84"><rect width="60" height="84" rx="4" fill="#6B1D2A"/><g opacity=".9">${nest(16,22,28,38)}</g><text x="30" y="74" text-anchor="middle" font-family="Cinzel,serif" font-size="6" fill="#D9B45A">PASSPORT</text></svg>`,
+    city:`<svg viewBox="0 0 80 80"><rect width="80" height="80" rx="8" fill="#EFE8D8"/>${nest(20,8,40,56)}<text x="40" y="76" text-anchor="middle" font-family="Cinzel,serif" font-size="6" fill="#555">CAPITAL</text></svg>`,
+    tiny:`<svg viewBox="0 0 80 80"><rect width="80" height="80" fill="#F4F4F0"/>${nest(30,26,20,26)}<text x="40" y="70" text-anchor="middle" font-size="8" fill="#555">32 px</text></svg>`};}
+/* ── painting ── */
+function asBar(n,a){
+  const b=(k,l,on,t)=>`<button type="button" class="cst-b${on?' on':''}" data-ars="${k}"${on!=null?` aria-pressed="${!!on}"`:''}${t?` title="${esc(t)}"`:''}>${l}</button>`;
+  return `<div class="cst-bar"><h2 class="cst-h">Arms Studio</h2>
+  <div class="cst-g">${b('undo','↶ Undo',null,'Undo (Ctrl+Z)').replace('<button',AS.hist.length?'<button':'<button disabled')}${b('redo','↷ Redo',null,'Redo (Ctrl+Y)').replace('<button',AS.fut.length?'<button':'<button disabled')}</div>
+  <div class="cst-g">${b('check','Heraldry check',AS.check)}${b('full','Full achievement',AS.full)}</div>
+  <label class="cst-g cst-sel"><span>See it</span><select data-ars-sel="see">${Object.entries(AS_SEE).map(([k,l])=>`<option value="${k}"${AS.see===k?' selected':''}>${l}</option>`).join('')}</select></label>
+  <span class="cst-sp"></span>
+  <div class="cst-g">${b('surprise','🎲 Surprise me',null,'New arms from your nation’s seed')}${b('svg','Export SVG')}${b('png','PNG')}</div>
+  <div class="cst-g"><button type="button" class="cst-b" data-ars="discard"${asDirty()?'':' disabled'}>Discard</button><button type="button" class="cst-b cst-pri" id="as-save" data-ars="save">Save arms</button><button type="button" class="cst-b" id="as-close" data-ars="close" aria-label="Close the Arms Studio">✕</button></div></div>`;
+}
+const AS_PARTS=[['m','Motto'],['su','Supporters'],['cr','Crest'],['mn','Mantling'],['cm','Compartment'],['c2','Charge in chief'],['ch','Charges'],['or','Ordinary'],['fd','Field']];
+function asLeft(n,a){
+  const on={m:!!a.m,su:!!a.su,cr:!!a.cr,mn:a.mn===1,cm:!!a.cm,c2:!!a.c2,ch:!!a.c,or:!!a.or,fd:true};
+  const nm={ch:a.c?'Charges · '+(a.cn>1?a.cn+' × ':'')+UNLOCKS[a.c].n:'Charges (none)',or:a.or?'Ordinary · '+CZ_ORD[a.or].replace(/^an? /,''):'Ordinary (none)',fd:'Field · '+CZ_DIVS[a.d].toLowerCase(),c2:a.c2?'In chief · '+UNLOCKS[a.c2].n:'Charge in chief (none)'};
+  const rows=AS_PARTS.map(([k,l])=>`<div class="cst-lay as-lay${AS.sel===k?' sel':''}">${k==='fd'?'<span></span>':`<button type="button" class="cst-ic" data-ars="tog" data-k="${k}" aria-pressed="${on[k]}" aria-label="${on[k]?'Remove':'Add'} the ${esc(l.toLowerCase())}">${on[k]?'◉':'○'}</button>`}<button type="button" class="cst-lnm" data-ars="pick" data-k="${k}">${esc(nm[k]||l)}</button><button type="button" class="cst-ic" data-ars="lock" data-k="${k}" aria-pressed="${!!AS.lock[k]}" aria-label="${AS.lock[k]?'Unlock':'Lock'} the ${esc(l.toLowerCase())}">${AS.lock[k]?'🔒':'🔓'}</button></div>`).join('');
+  let insp='';
+  if(a.c){const p=czChargePos(a),x=typeof a.px==='number'?a.px:p.x,y=typeof a.py==='number'?a.py:p.y;
+    insp=`<div class="cst-grid"><label for="as-i-px">Across</label><input type="number" id="as-i-px" data-ars-in="px" value="${x}" min="0" max="100"><label for="as-i-py">Down</label><input type="number" id="as-i-py" data-ars-in="py" value="${y}" min="0" max="120"><label for="as-i-ps">Size %</label><input type="number" id="as-i-ps" data-ars-in="ps" value="${Math.round((a.ps||1)*100)}" min="50" max="180" step="5"></div>
+    ${asSeg('How many','cn',[[1,'One'],[2,'Two'],[3,'Three']],a.cn||1)}${(a.cn||1)>1?asSeg('Arranged','ca',[['','Two and one'],['fess','In fess (a row)'],['pale','In pale (a column)']],a.ca||''):''}
+    <button type="button" class="cst-b cst-out" data-ars="ch0">Back to their place</button><p class="hint">Drag the charges on the shield; they snap to the centre line and the middle. Arrow keys nudge them.</p>`;}
+  else insp='<p class="hint">Choose a charge in the Charges tab to place it here.</p>';
+  return `<div class="cst-ph">Parts</div><div class="cst-lays">${rows}</div><div class="cst-ph">Inspector · Charges</div><div class="cst-insp">${insp}</div>`;
+}
+function asSeg(lab,f,opts,cur){return `<div class="cst-row"><span class="cst-lab">${lab}</span><div class="cst-seg">${opts.map(([v,l,locked,how])=>`<button type="button" class="cst-b${String(cur)===String(v)?' on':''}${locked?' lk':''}" data-ars="${locked?'locked':'set'}" data-f="${f}" data-v="${esc(String(v))}" aria-pressed="${String(cur)===String(v)}"${locked?` title="${esc(how||'')}"`:''}>${locked?CZ_LOCK:''}${esc(l)}</button>`).join('')}</div></div>`;}
+function asOverlay(a,vb){
+  if(!a.c)return '';const sp=czChargeSpots(a);let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;for(const [x,y,s] of sp){x0=Math.min(x0,x-46*s);y0=Math.min(y0,y-46*s);x1=Math.max(x1,x+46*s);y1=Math.max(y1,y+46*s);}
+  const sn=AS.snap||{};
+  return `<svg class="cst-ov" viewBox="${vb}" aria-hidden="true">${AS.check?'<path d="M50 -4V124M-4 58H104" class="cst-mid"/>':''}<rect x="${cuR2(x0)}" y="${cuR2(y0)}" width="${cuR2(x1-x0)}" height="${cuR2(y1-y0)}" class="cst-hit${AS.lock.ch?' lk':''}" data-apart="ch"><title>Charges</title></rect>${AS.sel==='ch'?`<rect x="${cuR2(x0)}" y="${cuR2(y0)}" width="${cuR2(x1-x0)}" height="${cuR2(y1-y0)}" class="cst-selb"/><rect x="${cuR2(x1-3)}" y="${cuR2(y1-3)}" width="6" height="6" class="cst-hd" data-ah="1"/>`:''}${sn.x!=null?`<path d="M${sn.x} -60V200" class="cst-snap"/>`:''}${sn.y!=null?`<path d="M-80 ${sn.y}H200" class="cst-snap"/>`:''}</svg>`;
+}
+function asStage(n,a){
+  const U=asUses(n,a),chk=AS.check?asCheck(a):[],big=czArmsSVG(a,{label:'Coat of arms of '+n.name,cls:'as-big',full:AS.full,shield:!AS.full,motto:a.m?(a.mt||n.motto||''):''}),vb=(big.match(/viewBox="([^"]+)"/)||[0,'-3 -3 106 126'])[1];
+  const main=AS.see==='page'?`<div class="cst-pap as-pap">${big}${asOverlay(a,vb)}</div>`:`<div class="as-see">${U[AS.see]}</div>`;
+  return `<div class="cst-cv" id="as-cv" tabindex="0" aria-label="The arms: arrow keys move the charges">${main}${chk.length?`<ul class="cst-proof" aria-label="Heraldry check">${chk.map(p=>`<li class="${p.ok?'ok':'w'}">${p.ok?'✓':'!'} ${esc(p.t)}</li>`).join('')}</ul>`:''}</div>
+  <p class="as-blazon"><span class="hint">Blazon</span> ${esc(czBlazon(a))}</p>
+  <div class="cst-hist" aria-label="History"><span class="hint">History</span>${AS.hist.length?AS.hist.map((h,i)=>`<button type="button" class="cst-b" data-ars="jump" data-i="${i}">${esc(h.l)}</button>`).join(''):'<span class="hint">Your changes will be listed here; click one to go back to before it.</span>'}</div>`;
+}
+function asFilm(n,a){const U=asUses(n,a);return `<span class="cst-film-l">In use</span>${Object.entries(AS_SEE).map(([k,l])=>`<button type="button" class="cst-card as-use${AS.see===k?' on':''}" data-ars="see" data-v="${k}" aria-pressed="${AS.see===k}">${U[k]}<span>${esc(l)}</span></button>`).join('')}`;}
+const AS_TABS={shield:'Shield',tinct:'Tinctures',charges:'Charges',ach:'Achievement'};
+function asTiles(f,keys,cur,draw,locked,how,label){return `<div class="as-tiles">${keys.map(k=>{const lk=locked(k);return `<button type="button" class="as-tile${String(cur)===String(k)?' on':''}${lk?' lk':''}" id="as-${f}-${k||'none'}" data-ars="${lk?'locked':'set'}" data-f="${f}" data-v="${esc(k)}" aria-pressed="${String(cur)===String(k)}" title="${esc(label(k)+(lk?': '+how(k):''))}" aria-label="${esc(label(k)+(lk?', locked. '+how(k):''))}">${draw(k)}${lk?CZ_LOCK:''}</button>`;}).join('')}</div>`;}
+function asTinc(f,cur,lab){return `<div class="cst-row"><span class="cst-lab">${lab} <b>${esc(CZ_TINCT[cur]?CZ_TINCT[cur][0]:'')}</b></span><div class="as-tincs">${Object.keys(CZ_TINCT).map(t=>{const lk=!czTnOk(t),nm=CZ_TINCT[t][0];return `<button type="button" class="as-tn${cur===t?' on':''}${lk?' lk':''}" data-ars="${lk?'locked':'set'}" data-f="${f}" data-v="${t}" aria-pressed="${cur===t}" title="${esc(nm+(lk?': '+unlockHow(CZ_TN_U[t]):CZ_METAL[t]?' (a metal)':' (a colour)'))}" aria-label="${esc(nm)}">${czTnSw(t)}</button>`;}).join('')}</div></div>`;}
+function asRight(n,a){
+  const tab=AS.tab,charges=Object.keys(UNLOCKS).filter(k=>UNLOCKS[k].k==='charge');let b='';
+  const mini=x=>czArmsSVG(x,{shield:1});
+  if(tab==='shield')b=`<div class="cst-row"><span class="cst-lab">Shape</span>${asTiles('s',Object.keys(CZ_SHIELDS),a.s,k=>mini({...a,s:k,c:'',c2:'',or:''}),k=>!czShOk(n,k),k=>czShHow(k),k=>CZ_SHIELDS[k])}</div>
+    <div class="cst-row"><span class="cst-lab">Division</span>${asTiles('d',Object.keys(CZ_DIVS),a.d,k=>mini({...a,d:k,c:'',c2:'',or:''}),()=>false,()=>'',k=>CZ_DIVS[k])}</div>
+    <div class="cst-row"><span class="cst-lab">An ordinary on top</span>${asTiles('or',[''].concat(Object.keys(CZ_ORD)),a.or||'',k=>k?mini({...a,c:'',c2:'',or:k,ot:a.ot||'or'}):'<span class="as-none">None</span>',()=>false,()=>'',k=>k?cap1(CZ_ORD[k].replace(/^an? /,'')):'No ordinary')}</div>`;
+  else if(tab==='tinct')b=`${asTinc('t0',a.t[0],'Field')}${a.d!=='plain'?asTinc('t1',a.t[1],'Second tincture'):''}${a.or?asTinc('ot',a.ot||'or','Ordinary'):''}${a.c?asTinc('ct',a.ct,'Charges'):''}${a.c2?asTinc('ct2',a.ct2||'or','Charge in chief'):''}${a.su?asTinc('sut',a.sut||'or','Supporters'):''}
+    <p class="hint">Or and argent (gold and silver) are the metals. Heraldry puts metal on colour and colour on metal, so everything stands out.</p>`;
+  else if(tab==='charges')b=`<div class="cst-row"><span class="cst-lab">Charge</span>${asTiles('c',[''].concat(charges),a.c||'',k=>k?mini({...a,d:'plain',or:'',c2:'',c:k,cn:1,px:undefined,py:undefined,ps:undefined,s:'heater'}):'<span class="as-none">None</span>',k=>!!k&&!asHas(k),k=>unlockHow(k),k=>k?UNLOCKS[k].n:'No charge')}</div>
+    ${a.c?asSeg('How many','cn',[[1,'One'],[2,'Two'],[3,'Three']],a.cn||1):''}
+    <div class="cst-row"><span class="cst-lab">A second charge, in chief</span>${asTiles('c2',[''].concat(charges),a.c2||'',k=>k?mini({...a,d:'plain',or:'chief',ot:a.ot||'or',c:'',c2:k,ct2:a.ct2||'gules',s:'heater'}):'<span class="as-none">None</span>',k=>!!k&&!asHas(k),k=>unlockHow(k),k=>k?UNLOCKS[k].n:'None')}</div>`;
+  else b=`${asSeg('Crest','cr',[['','None']].concat(Object.keys(CZ_CREST).map(k=>[k,cap1(CZ_CREST[k].replace(/^an? /,''))])),a.cr||'')}
+    ${asSeg('Supporters','su',[['','None'],['lion','Lions'],['eagle','Eagles'],['stag','Stags',!asHas('c-stag'),unlockHow('c-stag')],['animal',n.animal?'Your '+n.animal+(/s$/.test(n.animal)?'':'s'):'Your national animal']],a.su||'')}
+    ${asSeg('Mantling','mn',[['','None'],[1,'In the shield’s tinctures']],a.mn===1?1:'')}
+    ${asSeg('Compartment','cm',[['','None']].concat(Object.keys(CZ_COMP).map(k=>[k,cap1(CZ_COMP[k].replace(/^an? /,''))])),a.cm||'')}
+    ${asSeg('Motto scroll','m',[[0,'None'],[1,'Shown']],a.m?1:0)}
+    <div class="cst-row"><label class="cst-lab" for="as-t-mt">Words on the scroll</label><input class="input" id="as-t-mt" data-ars-txt="mt" maxlength="60" value="${esc(a.mt||'')}" placeholder="${esc(n.motto||'Your nation’s motto')}"></div>
+    <p class="hint">The full achievement shows where your arms stand alone, as on your nation page. Coins, notes and other small places keep the shield.</p>`;
+  return `<div class="cst-tabs" role="tablist">${Object.entries(AS_TABS).map(([k,l])=>`<button type="button" role="tab" class="cst-tab${k===tab?' on':''}" data-ars="tab" data-v="${k}" aria-selected="${k===tab}">${l}</button>`).join('')}</div><div class="cst-tp">${b}</div>`;
+}
+function asPaint(only){
+  const el=document.getElementById('ar-st');if(!el||!AS.on)return;const n=asN();if(!n){asClose();return;}const a=AS.d;
+  if(only==='stage'){const s=document.getElementById('as-stage'),f=document.getElementById('as-film'),l=document.getElementById('as-left'),bar=document.getElementById('as-bar');if(s)s.innerHTML=asStage(n,a);if(f)f.innerHTML=asFilm(n,a);if(l&&!l.contains(document.activeElement))l.innerHTML=asLeft(n,a);if(bar)bar.innerHTML=asBar(n,a);return;}
+  const foc=document.activeElement&&el.contains(document.activeElement)?document.activeElement.id:'';
+  el.innerHTML=`<div id="as-bar">${asBar(n,a)}</div><div class="cst-main"><aside class="cst-pane" id="as-left">${asLeft(n,a)}</aside><section class="cst-pane cst-stage" id="as-stage">${asStage(n,a)}</section><aside class="cst-pane" id="as-right">${asRight(n,a)}</aside></div><div class="cst-film" id="as-film">${asFilm(n,a)}</div>`;
+  if(foc){const x=document.getElementById(foc);if(x)x.focus({preventScroll:true});}
+}
+/* ── the actions ── */
+const AS_LAB={s:'Shield',d:'Division',or:'Ordinary',t0:'Field',t1:'Second tincture',ot:'Ordinary tincture',ct:'Charge tincture',ct2:'Chief charge tincture',sut:'Supporters tincture',c:'Charge',c2:'Charge in chief',cn:'How many',ca:'Arranged',cr:'Crest',su:'Supporters',mn:'Mantling',cm:'Compartment',m:'Motto scroll'};
+function asSet(f,v,label){
+  asDo(label,a=>{
+    if(f==='t0'||f==='t1')a.t[+f[1]]=v;
+    else if(f==='or'){if(v){a.or=v;a.ot=a.ot||(CZ_METAL[a.t[0]]?'gules':'or');}else{delete a.or;delete a.ot;}}
+    else if(f==='c'){a.c=v;if(!v){for(const k of ['cn','ca','px','py','ps'])delete a[k];}}
+    else if(f==='c2'){if(v){a.c2=v;a.ct2=a.ct2||'or';}else{delete a.c2;delete a.ct2;}}
+    else if(f==='cn'){const k=+v;if(k>1)a.cn=k;else{delete a.cn;delete a.ca;}}
+    else if(['ca','cr','cm'].includes(f)){if(v)a[f]=v;else delete a[f];}
+    else if(f==='su'){if(v){a.su=v;a.sut=a.sut||'or';}else{delete a.su;delete a.sut;delete a.san;}}
+    else if(f==='mn'){if(v)a.mn=1;else delete a.mn;}
+    else if(f==='m')a.m=+v?1:0;
+    else a[f]=v;
+  });
+  asPaint();
+}
+function asSurprise(){
+  const n=asN(),r=rng(hash(String(n.seed||n.name)+':as:'+Date.now())),pk=x=>x[Math.floor(r()*x.length)],met=['or','argent'],col=['gules','azure','vert','purpure','sable'];
+  const shields=Object.keys(CZ_SHIELDS).filter(k=>czShOk(n,k)),charges=Object.keys(UNLOCKS).filter(k=>UNLOCKS[k].k==='charge'&&asHas(k));
+  asDo('Surprise me',a=>{if(!AS.lock.fd){a.s=pk(shields);a.d=pk(Object.keys(CZ_DIVS).slice(0,9));const m=pk(met),c=pk(col);a.t=r()<.5?[c,m]:[m,c];}
+    if(!AS.lock.or){if(r()<.4){a.or=pk(Object.keys(CZ_ORD));a.ot=CZ_METAL[a.t[0]]?pk(col):pk(met);}else{delete a.or;delete a.ot;}}
+    if(!AS.lock.ch){a.c=pk(charges);a.ct=CZ_METAL[a.t[0]]?pk(col):pk(met);a.cn=pk([1,1,2,3]);if(a.cn===1)delete a.cn;delete a.ca;delete a.px;delete a.py;delete a.ps;}
+    if(!AS.lock.cr)a.cr=pk(['',...Object.keys(CZ_CREST)])||undefined;if(!AS.lock.su)a.su=pk(['','lion','eagle','animal'])||undefined;if(a.su)a.sut=a.sut||'or';if(!AS.lock.cm)a.cm=pk(['',...Object.keys(CZ_COMP)])||undefined;if(!AS.lock.mn)a.mn=r()<.5?1:undefined;
+    for(const k of Object.keys(a))if(a[k]===undefined)delete a[k];});
+  asPaint();
+}
+function asExport(kind){
+  const n=asN(),svg=czArmsSVG(AS.d,{full:AS.full,motto:AS.d.m?(AS.d.mt||n.motto||''):''}).replace('<svg ','<svg xmlns="http://www.w3.org/2000/svg" ').replace(/class="cz-ol"/g,'stroke="#151515"').replace(/class="cz-sc"/g,'fill="#F4ECD8" stroke="#151515"').replace(/class="cz-sc-e"/g,'fill="#E3D6B8" stroke="#151515"').replace(/class="cz-sc-t"/g,'font-family="Cinzel,Georgia,serif" fill="#151515"'),base=String(n.name||'arms').toLowerCase().replace(/[^a-z0-9]+/g,'-');
+  if(kind==='svg'){cstDown(new Blob([svg],{type:'image/svg+xml'}),base+'-arms.svg');toast('Your arms are saved as an SVG.');return;}
+  const vb=(svg.match(/viewBox="(-?[\d.]+) (-?[\d.]+) ([\d.]+) ([\d.]+)"/)||[0,0,0,106,126]).slice(3).map(Number),k=1200/Math.max(vb[0],vb[1]),img=new Image(),u=URL.createObjectURL(new Blob([svg],{type:'image/svg+xml'}));
+  img.onload=()=>{const cv=document.createElement('canvas');cv.width=Math.round(vb[0]*k);cv.height=Math.round(vb[1]*k);cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);URL.revokeObjectURL(u);cv.toBlob(b=>{if(b){cstDown(b,base+'-arms.png');toast('Your arms are saved as a picture.');}},'image/png');};
+  img.onerror=()=>{URL.revokeObjectURL(u);toast('The picture could not be made in this browser. Export SVG instead.');};img.src=u;
+}
+document.addEventListener('click',e=>{
+  const el=e.target.closest&&e.target.closest('[data-ars]');if(!el||!S.nation)return;const a=el.dataset.ars,v=el.dataset.v,k=el.dataset.k;
+  if(a==='open'){e.preventDefault();asOpen();return;}if(!AS.on)return;
+  switch(a){
+    case 'close':asClose();break;case 'undo':asUndo();break;case 'redo':asRedo();break;case 'jump':while(AS.hist.length>+el.dataset.i)asUndo();break;
+    case 'check':case 'full':AS[a]=!AS[a];asPaint();break;
+    case 'see':AS.see=v;asPaint('stage');break;case 'tab':AS.tab=v;asPaint();break;
+    case 'save':asSave();break;case 'discard':AS.d=clone(cz(S.nation).a||czDefaultArms(S.nation,1));AS.hist=[];AS.fut=[];asPaint();toast('Back to your saved arms.');break;
+    case 'svg':asExport('svg');break;case 'png':asExport('png');break;case 'surprise':asSurprise();break;
+    case 'pick':AS.sel=k;if(k==='ch'||k==='c2')AS.tab='charges';else if(k==='or'||k==='fd')AS.tab='shield';else AS.tab='ach';asPaint();break;
+    case 'lock':AS.lock[k]=!AS.lock[k];asPaint();break;
+    case 'tog':{const d=AS.d,on={m:!!d.m,su:!!d.su,cr:!!d.cr,mn:d.mn===1,cm:!!d.cm,c2:!!d.c2,ch:!!d.c,or:!!d.or}[k];
+      const add={m:['m',1],su:['su','lion'],cr:['cr','helm'],mn:['mn',1],cm:['cm','grass'],c2:['c2','c-star'],ch:['c','c-lion'],or:['or','chief']}[k];if(!add)break;
+      asSet(add[0],on?(add[0]==='m'?0:''):add[1],`${on?'Removed':'Added'} the ${AS_PARTS.find(p=>p[0]===k)[1].toLowerCase()}`);break;}
+    case 'set':asSet(el.dataset.f,el.dataset.f==='cn'||el.dataset.f==='m'||el.dataset.f==='mn'?(v===''?'':+v):v,`${AS_LAB[el.dataset.f]||el.dataset.f}: ${(el.getAttribute('title')||el.textContent).trim().split(':')[0]}`);break;
+    case 'locked':toast('Locked. '+((el.getAttribute('title')||'').split(': ').slice(1).join(': ')||''));break;
+    case 'ch0':asDo('Charges back in place',d=>{delete d.px;delete d.py;delete d.ps;});asPaint();break;
+  }
+});
+document.addEventListener('input',e=>{
+  if(!AS.on)return;const t=e.target,k=t.dataset&&t.dataset.arsIn;
+  if(t.dataset&&t.dataset.arsTxt==='mt'){asDo('Words on the scroll',a=>{const v=czText(t.value,60);if(v){a.mt=v;a.m=1;}else delete a.mt;});asPaint('stage');return;}
+  if(!k)return;const v=+t.value;if(!Number.isFinite(v))return;
+  asDo('Charges '+{px:'across',py:'down',ps:'size'}[k],a=>{const p=czChargePos(a);if(k==='ps'){const s=Math.min(1.8,Math.max(.5,v/100));if(s===1)delete a.ps;else a.ps=s;}else{if(typeof a.px!=='number'){a.px=p.x;a.py=p.y;}a[k]=Math.min(k==='px'?100:120,Math.max(0,v));}});
+  asPaint('stage');
+});
+document.addEventListener('change',e=>{if(!AS.on)return;const t=e.target;if(t.dataset&&t.dataset.arsSel==='see'){AS.see=cuHas(AS_SEE,t.value)?t.value:'page';asPaint('stage');}});
+/* dragging the charges, nudging them with the keys */
+document.addEventListener('pointerdown',e=>{
+  if(!AS.on||e.button>0)return;const ov=e.target.closest&&e.target.closest('#ar-st .cst-ov');if(!ov)return;const hit=e.target.closest('[data-apart]'),hd=e.target.closest('[data-ah]');if(!hit&&!hd)return;
+  if(AS.lock.ch){toast('The charges are locked. Unlock them in Parts to move them.');return;}
+  e.preventDefault();AS.sel='ch';const r=ov.getBoundingClientRect(),vb=ov.viewBox.baseVal,u=Math.max(vb.width/r.width,vb.height/r.height),a=AS.d,p=czChargePos(a);
+  AS.drag={x0:e.clientX,y0:e.clientY,u,size:!!hd,ox:typeof a.px==='number'?a.px:p.x,oy:typeof a.py==='number'?a.py:p.y,os:a.ps||1,started:false};
+});
+document.addEventListener('pointermove',e=>{
+  const D=AS.drag;if(!D)return;const dx=(e.clientX-D.x0)*D.u,dy=(e.clientY-D.y0)*D.u;if(!D.started&&Math.abs(dx)+Math.abs(dy)<1)return;
+  if(!D.started){D.started=true;AS.hist.push({l:D.size?'Resized the charges':'Moved the charges',d:JSON.stringify(AS.d),t:Date.now()});AS.fut=[];}
+  const a=AS.d;AS.snap={};
+  if(D.size){a.ps=Math.round(Math.min(1.8,Math.max(.5,D.os*(1+(dx+dy)/90)))*100)/100;}
+  else{let x=D.ox+dx,y=D.oy+dy;if(!e.altKey){if(Math.abs(x-50)<3){x=50;AS.snap.x=50;}if(Math.abs(y-58)<3){y=58;AS.snap.y=58;}}a.px=Math.round(Math.min(100,Math.max(0,x))*10)/10;a.py=Math.round(Math.min(120,Math.max(0,y))*10)/10;}
+  const pap=document.querySelector('#ar-st .as-pap');if(pap){const n=asN(),big=czArmsSVG(a,{label:'Coat of arms of '+n.name,cls:'as-big',full:AS.full,shield:!AS.full,motto:a.m?(a.mt||n.motto||''):''});pap.innerHTML=big+asOverlay(a,(big.match(/viewBox="([^"]+)"/)||[0,'-3 -3 106 126'])[1]);}
+});
+document.addEventListener('pointerup',()=>{const D=AS.drag;if(!D)return;AS.drag=null;AS.snap=null;if(D.started)asPaint();});
+document.addEventListener('keydown',e=>{
+  if(!AS.on)return;const tg=e.target,typing=tg&&/^(INPUT|TEXTAREA|SELECT)$/.test(tg.tagName);
+  if(e.key==='Escape'){e.preventDefault();asClose();return;}
+  if((e.ctrlKey||e.metaKey)&&!typing){const k=e.key.toLowerCase();if(k==='z'&&!e.shiftKey){e.preventDefault();asUndo();return;}if(k==='y'||k==='z'&&e.shiftKey){e.preventDefault();asRedo();return;}}
+  const ar={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]}[e.key];if(!ar||typing||!AS.d.c||AS.lock.ch||!tg||!tg.closest||!tg.closest('#as-stage'))return;
+  e.preventDefault();const m=e.shiftKey?5:1;asDo('Nudged the charges',a=>{const p=czChargePos(a);if(typeof a.px!=='number'){a.px=p.x;a.py=p.y;}a.px=Math.min(100,Math.max(0,a.px+ar[0]*m));a.py=Math.min(120,Math.max(0,a.py+ar[1]*m));});asPaint('stage');document.getElementById('as-cv')?.focus({preventScroll:true});
+});
 
 /* ── hooks ── */
 EXT_PAGES.push('exchange');NAV_LABELS.exchange='Exchange Bureau';
