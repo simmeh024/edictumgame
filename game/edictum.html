@@ -8390,7 +8390,7 @@ button[disabled] .gv-cost{opacity:.6}
 .spx-help-l{margin:8px 0 12px;padding-left:22px;display:grid;gap:6px;line-height:1.5}
 /* spx:end */
 .adm-oflag{display:inline-block;width:42px;line-height:0}.adm-oflag svg{width:42px;height:auto;border-radius:2px;box-shadow:0 0 0 1px var(--line,rgba(0,0,0,.15))}
-.tr-short{margin:0 0 12px}.tr-health{margin:0 0 10px}.deal-end{font-size:12px;color:var(--ink-3);margin-left:6px}.tr-spark{vertical-align:middle;margin:0 8px}.tr-spark polyline{fill:none;stroke:var(--ink-2);stroke-width:1.5}.tr-spark .z{stroke:var(--track);stroke-width:1}.tr-trends{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px 16px}.tr-trends>div{display:flex;align-items:center;gap:4px}.tr-log{list-style:none;padding:0;margin:0;font-size:14px}.tr-log li{padding:4px 0;border-bottom:1px solid var(--track)}.tr-favs,.tr-mf{margin:8px 0}.chip-btn.on{outline:2px solid var(--ink-2)}.tr-slots{margin:4px 0 16px}.tr-slots p{margin:0 0 6px}.tr-slots .sbar{display:block;max-width:320px;margin-bottom:6px}
+.tr-short{margin:0 0 12px}.tr-health{margin:0 0 10px}.deal-end{font-size:12px;color:var(--ink-3);margin-left:6px}.tr-spark{vertical-align:middle;margin:0 8px}.tr-spark polyline{fill:none;stroke:var(--ink-2);stroke-width:1.5}.tr-spark .z{stroke:var(--track);stroke-width:1}.tr-trends{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px 16px}.tr-trends>div{display:flex;align-items:center;gap:4px}.tr-log{list-style:none;padding:0;margin:0;font-size:14px}.tr-log li{padding:4px 0;border-bottom:1px solid var(--track)}.tr-favs,.tr-mf{margin:8px 0}.chip-btn.on{outline:2px solid var(--ink-2)}.tr-slots{margin:4px 0 16px}.tr-slots p{margin:0 0 6px}.tr-slots .sbar{display:block;max-width:320px;margin-bottom:6px}.tr-age{font-size:12px;margin-left:6px;padding:1px 6px;border-radius:9px;border:1px solid var(--track)}.tr-age.mid{border-color:#c9a227;color:#8a6d00}.tr-age.old{border-color:var(--down);color:var(--down)}.tr-meta{display:block}.tr-nu{margin-left:6px}.tb{margin-top:32px}.tb-sup{margin:6px 0}.tb-tbl td.tb-c{white-space:nowrap}.tb-c.plenty{background:color-mix(in srgb,var(--up) 22%,transparent)}.tb-c.some{background:color-mix(in srgb,var(--up) 10%,transparent)}.tb-c.short{background:color-mix(in srgb,var(--down) 14%,transparent)}.tb-c.want{outline:2px solid var(--up);outline-offset:-2px}.tb-cell{all:unset;cursor:pointer;text-decoration:underline dotted}.tb-cell:focus-visible{outline:2px solid var(--ink-2)}.tb-tr{font-style:normal;font-size:10px;margin-left:3px}.tb-tr.up{color:var(--up)}.tb-tr.down{color:var(--down)}.tb-star{all:unset;cursor:pointer}.tb-match{margin-left:6px;font-size:11px}.tb-tags{display:block;font-weight:400}.tb-war{opacity:.55}.tb-tbl th button.on{font-weight:700}
 /* ── the Expeditions page (exploreView): xp- ── */
 .xp{display:flex;flex-direction:column;gap:30px}
 .xp>.stk-strip{margin:0}
@@ -21626,7 +21626,7 @@ function collectDeals(){
     if(NPC_SET.has(x.w)){active.push({id:x.id,a:id,b:x.w,ag:x.g,bg:x.r,t:x.t,e:x.e||0,npc:true});continue;}
     const pd=by.get(x.w),m=pd&&(pd.deals||[]).find(y=>y.id===x.id&&y.a&&y.w===id&&mirrored(x,y));
     if(m)active.push({id:x.id,a:id,b:x.w,ag:x.g,bg:x.r,t:Math.max(x.t,m.t),e:x.e||0});
-    else pending.push({id:x.id,from:id,to:x.w,g:x.g,r:x.r,t:x.t,e:x.e||0,declined:!!(pd&&(pd.dealNo||[]).includes(x.id))});
+    else if(!(Date.now()-x.t>TR_OFFER_MS))pending.push({id:x.id,from:id,to:x.w,g:x.g,r:x.r,t:x.t,e:x.e||0,nu:x.nu||0,declined:!!(pd&&(pd.dealNo||[]).includes(x.id))});
   }
   return {active,pending};
 }
@@ -21692,7 +21692,7 @@ function npcVerdict(id,g,r){
 }
 
 /* trade actions */
-function liveDeals(n){const E=economy(),now=Date.now();return (n.deals||[]).filter(x=>!(x.e&&x.e<=now)&&(!x.a||E.active.some(d=>d.id===x.id)));}
+function liveDeals(n){const E=economy(),now=Date.now();return (n.deals||[]).filter(x=>!(x.e&&x.e<=now)&&(x.a?E.active.some(d=>d.id===x.id):(E.active.some(d=>d.id===x.id)||now-x.t<=TR_OFFER_MS)));}
 function dealSlots(){const E=economy(),me=myId();return E.active.filter(d=>d.a===me||d.b===me).length+E.pending.filter(p=>p.from===me&&!p.declined).length;}
 function proposeDeal(){
   const t=S.trade,x=findNation(t.w),g=[t.gr,roundAmt(t.ga)],r=[t.rr,roundAmt(t.ra)];
@@ -21720,7 +21720,7 @@ function acceptDeal(id){
   if(warWith(p.from).war){S.tradeMsg=`You are at war with ${nameOf(p.from)}.`;render();return;}
   if(dealSlots()>=maxDeals()){S.tradeMsg=`You already have ${maxDeals()} deals and offers. End one first.`;render();return;}
   const n=clone(S.nation),now=Date.now();
-  const acc={id,w:p.from,g:p.r,r:p.g,t:now,a:1};if(p.e)acc.e=p.e;
+  const acc={id,w:p.from,g:p.r,r:p.g,t:now,a:1,s:p.t};if(p.e)acc.e=p.e;
   n.deals=liveDeals(n).concat(acc);
   n.log.unshift({t:now,k:'trade',a:p.from,b:nameOf(p.from),d:[p.r,p.g]});n.log=n.log.slice(0,60);
   commit(n);S.tradeMsg=`Deal agreed with ${nameOf(p.from)}.`;render();toast('Trade deal signed with '+nameOf(p.from)+'.');
@@ -21747,11 +21747,60 @@ function fillDeal(w,rr,ra,quiet){
   S.trade.ra=String(ra);S.trade.touched=true;if(quiet)return;S.tradeMsg='';render();
   const f=document.getElementById('deal-form');if(f)f.scrollIntoView({block:'nearest',behavior:'smooth'});
 }
+
+/* ── waiting offers (2026-11-17): how long an offer has waited, when the other side was last about, a one-time reminder
+   after a day, and offers nobody answers lapse after TR_OFFER_DAYS (their slot frees itself) ── */
+const TR_OFFER_DAYS=7,TR_OFFER_MS=TR_OFFER_DAYS*864e5,TR_NUDGE_MS=864e5;
+function trDur(ms){const h=Math.floor(ms/36e5),d=Math.floor(h/24);return d?`${d} d ${h%24} h`:h?`${h} h`:`${Math.max(1,Math.round(ms/6e4))} min`;}
+function trAgeCls(ms){return ms>=3*864e5?'old':ms>=864e5?'mid':'new';}
+function trWait(p,now){const a=now-p.t,left=Math.max(0,Math.ceil((p.t+TR_OFFER_MS-now)/864e5));
+  return `<span class="tr-age ${trAgeCls(a)}" title="Sent ${esc(fmtDate(p.t))}">Waiting ${trDur(a)}</span><span class="deal-end">lapses ${left<=1?'within a day':'in '+left+' days'}</span>`;}
+function trSeen(id,now){const x=findNation(id);if(!x||x.npc)return '';const o=onlSeen(x,now);if(o)return 'online now';const t=x.n&&x.n.updatedAt;return t?'last active '+rel(t):'';}
+/* how quickly a player usually answers offers: the median wait of the offers they accepted (two or more) */
+function trResp(id){const d=id===myId()?S.nation:S.world[id];if(!d)return '';const w=(d.deals||[]).filter(x=>x.a&&x.s&&x.t>=x.s).map(x=>x.t-x.s).sort((a,b)=>a-b);if(w.length<2)return '';return 'usually answers within ~'+trDur(w[w.length>>1]);}
+function trMeta(id,now){const b=[trSeen(id,now),trResp(id)].filter(Boolean);return b.length?`<span class="deal-end tr-meta">${esc(nameOf(id))}: ${esc(b.join(' · '))}</span>`:'';}
+function trNudge(id){const n=clone(S.nation),x=(n.deals||[]).find(d=>d.id===id&&!d.a);if(!x||x.nu||Date.now()-x.t<TR_NUDGE_MS)return;x.nu=Date.now();commit(n);S.tradeMsg=`Reminder sent to ${nameOf(x.w)}.`;render();}
+/* ── the trade market board: every nation in the region against every resource, how much each can spare. Exact for
+   allies and trade-agreement partners, in bands for the rest. Click a column to rank suppliers; click a cell with a
+   surplus to fill in the deal form. Trend arrows compare with this device's snapshot from an earlier day. ── */
+function trExact(id){const me=myId();return alSame(me,id)||!!tyOf(me,id,'trade');}
+function trBand(v){return v>=5?['plenty','Plenty']:v>=1?['some','Some']:v>-1?['even','Even']:['short','Short'];}
+function trShow(id,v){return trExact(id)?(v>0?'+':v<0?'−':'')+fmtAmt(Math.abs(v)):trBand(v)[1].toLowerCase();}
+function trSnap(E){
+  const k='edictum.trb.'+myId(),day=Math.floor(Date.now()/864e5);let h={};
+  try{h=JSON.parse(localStorage.getItem(k)||'{}')||{};}catch(e){h={};}
+  const cur={d:day,v:{}};E.T.list.forEach((x,j)=>{cur.v[x.id]={};for(const r of RES)cur.v[x.id][r]=Math.round((E.sup[r][j]-E.dem[r][j])*10)/10;});
+  if(h.cur&&h.cur.d!==day)h.prev=h.cur;h.cur=cur;
+  try{localStorage.setItem(k,JSON.stringify(h));}catch(e){}
+  return h.prev&&h.prev.v||null;
+}
+function trBoard(E,i,me,fav){
+  const now=Date.now(),prev=trSnap(E),bs=S.trade.bs||'';
+  const lack=RES.filter(r=>E.ratio[r][i]<0.9),extra=RES.filter(r=>E.ratio[r][i]>1.1&&E.sup[r][i]-E.dem[r][i]>=1);
+  const rows=[];E.T.list.forEach((x,j)=>{if(x.me||x.id===me)return;const sp={};for(const r of RES)sp[r]=E.sup[r][j]-E.dem[r][j];
+    const gets=lack.filter(r=>sp[r]>=1),gives=extra.filter(r=>E.ratio[r][j]<0.9);
+    rows.push({x,j,sp,war:!!warWith(x.id).war,fav:fav.includes(x.id),match:gets.length&&gives.length?{gets,gives}:null});});
+  rows.sort((a,b)=>(b.fav-a.fav)||(a.war-b.war)||(bs?b.sp[bs]-a.sp[bs]:(!!b.match-!!a.match))||String(a.x.n.name).localeCompare(String(b.x.n.name)));
+  const arrow=(id,r,v)=>{const o=prev&&prev[id];if(!o||o[r]==null)return '';const d=v-o[r];return Math.abs(d)<0.5?'':d>0?'<i class="tb-tr up" title="Growing since an earlier day">▲</i>':'<i class="tb-tr down" title="Shrinking since an earlier day">▼</i>';};
+  const head=`<tr><th scope="col">Nation</th>${RES.map(r=>`<th scope="col" class="num"><button type="button" class="linkish small${bs===r?' on':''}" data-act="tr-bs" data-v="${bs===r?'':r}" aria-pressed="${bs===r}" title="Rank suppliers of ${resName(r)}">${resIco(r,'s')}${RES_INFO[r][0]}${bs===r?' ▾':''}</button></th>`).join('')}</tr>`;
+  const body=rows.map(o=>{const id=o.x.id;
+    const cells=RES.map(r=>{const v=o.sp[r],b=trBand(v),txt=trShow(id,v),need=lack.includes(r),can=!o.war&&v>=1;
+      const inner=`${esc(txt)}${arrow(id,r,v)}`;
+      return `<td class="num tb-c ${b[0]}${need&&v>=1?' want':''}">${can?`<button type="button" class="tb-cell" data-act="tr-fill" data-w="${esc(id)}" data-r="${r}" data-a="${Math.max(0.5,Math.min(8,Math.floor(v*2)/2))}" title="Propose: ${esc(o.x.n.name)} sends you ${resName(r)}">${inner}</button>`:inner}</td>`;}).join('');
+    const tags=[o.x.npc?'computer':'',alSame(me,id)?'ally':'',tyOf(me,id,'trade')?'trade agreement':'',o.war?'at war':''].filter(Boolean);
+    const mt=o.match?`<span class="pill up tb-match" title="${esc(`They can spare ${list(o.match.gets.map(resName))} and lack ${list(o.match.gives.map(resName))}, which you have spare`)}">Match</span>`:'';
+    return `<tr class="${o.war?'tb-war':''}${o.match?' tb-m':''}"><th scope="row"><button type="button" class="tb-star" data-act="tr-fav-id" data-id="${esc(id)}" aria-pressed="${o.fav}" title="${o.fav?'Unpin':'Pin to the top'}">${o.fav?'★':'☆'}</button> ${esc(o.x.n.name)}${mt}${tags.length?`<span class="hint tb-tags">${esc(tags.join(' · '))}</span>`:''}</th>${cells}</tr>`;}).join('');
+  const top=bs?rows.filter(o=>!o.war&&o.sp[bs]>=1).slice(0,3).map(o=>o.x.n.name):[];
+  return `<section class="tb"><h2 class="h2">Market board</h2><p class="hint">What every nation in your region can spare each day, and what it is short of. Exact figures for allies and trade-agreement partners, bands for the rest. Choose a resource to rank suppliers; select a figure to fill in a deal. Matches have what you lack and lack what you have spare.</p>
+  ${bs?`<p class="tb-sup">${top.length?`Best suppliers of ${resName(bs)}: <b>${esc(list(top))}</b>`:`Nobody can spare ${resName(bs)} right now.`} <button type="button" class="linkish small" data-act="tr-bs" data-v="">Clear</button></p>`:''}
+  <div class="tbl-wrap"><table class="tbl tb-tbl"><thead>${head}</thead><tbody>${body||`<tr><td colspan="${RES.length+1}">No other nations in your region yet.</td></tr>`}</tbody></table></div></section>`;
+}
 function tradeNotice(){
   if(!S.nation)return '';
   const me=myId(),inc=economy().pending.filter(p=>p.to===me&&!p.declined&&!(S.nation.dealNo||[]).includes(p.id));
   if(!inc.length)return '';
-  return `<button class="notice" data-act="go" data-v="trade"><span class="notice-k">Board of Trade</span><span>${esc(list([...new Set(inc.map(p=>nameOf(p.from)))]))} ${inc.length===1?'offers you a trade deal':'offer you trade deals'}.</span><span class="notice-go">Open trade →</span></button>`;
+  const nu=[...new Set(inc.filter(p=>p.nu).map(p=>nameOf(p.from)))];
+  return `<button class="notice" data-act="go" data-v="trade"><span class="notice-k">Board of Trade</span><span>${esc(list([...new Set(inc.map(p=>nameOf(p.from)))]))} ${inc.length===1?'offers you a trade deal':'offer you trade deals'}.${nu.length?` ${esc(list(nu))} sent a reminder.`:''}</span><span class="notice-go">Open trade →</span></button>`;
 }
 
 /* the trade page */
@@ -21764,7 +21813,7 @@ function dealPreview(){
     if(g[1]>E.prod[g[0]][i]-E.exp[g[0]][i]+1e-9)bits.push('That is more than you have free, so your deals for it will only be delivered in part.');
     const after=(E.sup[g[0]][i]-g[1])/E.dem[g[0]][i];if(after<0.9)bits.push(`Sending it leaves you with ${Math.max(0,Math.round(after*100))}% of the ${resName(g[0])} you need.`);
   }
-  if(j!==undefined){const sp=Math.max(0,E.sup[r[0]][j]-E.dem[r[0]][j]);bits.push(sp<0.05?`${x.n.name} has no ${resName(r[0])} to spare${!x.npc?', so they may not be able to deliver it':''}.`:`${x.n.name} has ${fmtAmt(sp)} ${resName(r[0])} a day to spare${!x.npc&&sp<r[1]?', so they may only be able to deliver part of it':''}.`);}
+  if(j!==undefined){const sp=Math.max(0,E.sup[r[0]][j]-E.dem[r[0]][j]);bits.push(sp<0.05?`${x.n.name} has no ${resName(r[0])} to spare${!x.npc?', so they may not be able to deliver it':''}.`:`${x.n.name} has ${trExact(x.id)?fmtAmt(sp)+' '+resName(r[0])+' a day':(sp>=5?'plenty of ':'some ')+resName(r[0])} to spare${!x.npc&&sp<r[1]?', so they may only be able to deliver part of it':''}.`);}
   bits.push(cuTradeText(x.id));
   bits.push(`At world prices, ${fmtAmt(r[1])} ${resName(r[0])} is worth about ${fmtAmt(r[1]*E.price[r[0]]/E.price[g[0]])} ${resName(g[0])}.`);
   if(+t.end)bits.push(`The deal ends by itself after ${t.end} days.`);
@@ -21865,8 +21914,10 @@ function tradeView(){
     const st=d.frz?`<span class="pill down">Frozen</span><span class="deal-warn">${esc(nameOf(partner))} regards you as hostile and has frozen this deal. It resumes once relations improve.</span>`:d.sus?'<span class="pill down">Suspended by war</span>':f<0.995?`<span class="pill">${Math.round(f*100)}% delivered</span>`:'<span class="pill up">Active</span>';
     return dealRow(partner,give,get,trDealSt(d,partner,f,st),`<button class="linkish small" data-act="tr-cancel" data-id="${esc(d.id)}">End deal</button>`,d.e);
   }).join('');
-  const incoming=E.pending.filter(p=>p.to===me&&!p.declined&&!(n.dealNo||[]).includes(p.id)).map(p=>dealRow(p.from,p.r,p.g,'<span class="pill">Offer</span>'+(()=>{const a=spareOf(E,p.from,p.g[0]),b=spareOf(E,myId(),p.r[0]),w=[];if(a<p.g[1]-1e-9)w.push(`${nameOf(p.from)} can spare only ${fmtAmt(a)} ${resName(p.g[0])} a day`);if(b<p.r[1]-1e-9)w.push(`you can spare only ${fmtAmt(b)} ${resName(p.r[0])} a day`);return w.length?`<span class="deal-warn">${esc(cap1(list(w)))}, so both sides would deliver only that share.</span>`:'';})(),`<button class="btn" data-act="tr-accept" data-id="${esc(p.id)}">Accept</button>${findNation(p.from)&&!findNation(p.from).npc?`<button class="btn ghost" data-act="tr-counter" data-id="${esc(p.id)}">Counter</button>`:''}<button class="btn ghost" data-act="tr-decline" data-id="${esc(p.id)}">Decline</button>`,p.e)).join('');
-  const outgoing=E.pending.filter(p=>p.from===me).map(p=>dealRow(p.to,p.g,p.r,p.declined?'<span class="pill down">Declined</span>':'<span class="pill">Waiting</span>',`<button class="linkish small" data-act="tr-cancel" data-id="${esc(p.id)}">Withdraw</button>`,p.e)).join('');
+  const now=Date.now(),stale=!!S.trade.stale;
+  const incoming=E.pending.filter(p=>p.to===me&&!p.declined&&!(n.dealNo||[]).includes(p.id)).sort((a,b)=>a.t-b.t).map(p=>dealRow(p.from,p.r,p.g,'<span class="pill">Offer</span>'+trWait(p,now)+(p.nu?'<span class="pill tr-nu">Reminder sent</span>':'')+(()=>{const a=spareOf(E,p.from,p.g[0]),b=spareOf(E,myId(),p.r[0]),w=[];if(a<p.g[1]-1e-9)w.push(`${nameOf(p.from)} can spare only ${fmtAmt(a)} ${resName(p.g[0])} a day`);if(b<p.r[1]-1e-9)w.push(`you can spare only ${fmtAmt(b)} ${resName(p.r[0])} a day`);return w.length?`<span class="deal-warn">${esc(cap1(list(w)))}, so both sides would deliver only that share.</span>`:'';})(),`<button class="btn" data-act="tr-accept" data-id="${esc(p.id)}">Accept</button>${findNation(p.from)&&!findNation(p.from).npc?`<button class="btn ghost" data-act="tr-counter" data-id="${esc(p.id)}">Counter</button>`:''}<button class="btn ghost" data-act="tr-decline" data-id="${esc(p.id)}">Decline</button>`,p.e)).join('');
+  const outAll=E.pending.filter(p=>p.from===me).sort((a,b)=>a.t-b.t),nStale=outAll.filter(p=>!p.declined&&now-p.t>=3*864e5).length;
+  const outgoing=outAll.filter(p=>!stale||(!p.declined&&now-p.t>=3*864e5)).map(p=>dealRow(p.to,p.g,p.r,p.declined?'<span class="pill down">Declined</span>':'<span class="pill">Waiting</span>'+trWait(p,now)+trMeta(p.to,now),`${!p.declined&&!p.nu&&now-p.t>=TR_NUDGE_MS&&!(findNation(p.to)||{}).npc?`<button class="linkish small" data-act="tr-nudge" data-id="${esc(p.id)}">Send a reminder</button> `:p.nu?'<span class="deal-end">Reminded</span> ':''}<button class="linkish small" data-act="tr-cancel" data-id="${esc(p.id)}">Withdraw</button>`,p.e)).join('');
   const partners=allNations().filter(x=>!x.me);
   if(!partners.some(p=>p.id===S.trade.w))S.trade.w=(partners.find(p=>p.npc&&!warWith(p.id).war)||partners[0]||{}).id||'';
   const resOpts=v=>RES.map(r=>`<option value="${r}"${r===v?' selected':''}>${RES_INFO[r][0]}</option>`).join('');
@@ -21890,8 +21941,8 @@ function tradeView(){
       ${trSlotsLine()}
       ${incoming?`<h3 class="lbl-h tr-in-h">Offers to you</h3><ul class="deals">${incoming}</ul>`:''}
       ${active?`<h3 class="lbl-h"${incoming?' style="margin-top:20px"':''}>Active deals</h3>${trHealth(E,me)}<ul class="deals">${active}</ul>`:''}
-      ${outgoing?`<h3 class="lbl-h" style="margin-top:20px">Your offers</h3><ul class="deals">${outgoing}</ul>`:''}
-      ${!incoming&&!active&&!outgoing?'<div class="empty"><p class="empty-h">No trade deals yet</p><p>Propose one with the form, or pick an offer from the world market below it.</p></div>':''}
+      ${outAll.length?`<h3 class="lbl-h" style="margin-top:20px">Your offers</h3><p class="hint">Oldest first. Unanswered offers lapse after ${TR_OFFER_DAYS} days and free their slot.${nStale||stale?` <button type="button" class="linkish small" data-act="tr-stale" aria-pressed="${stale}">${stale?'Show all offers':`Only those waiting over 3 days (${nStale})`}</button>`:''}</p><ul class="deals">${outgoing||'<li class="hint">None waiting that long.</li>'}</ul>`:''}
+      ${!incoming&&!active&&!outAll.length?'<div class="empty"><p class="empty-h">No trade deals yet</p><p>Propose one with the form, or pick an offer from the world market below it.</p></div>':''}
       <h3 class="lbl-h" style="margin-top:28px">World prices</h3>
       <ul class="prices">${RES.map(r=>`<li><span>${resIco(r,'s')}${RES_INFO[r][0]}</span>${spark(hist.map(h=>h.p[r]||0),RES_INFO[r][0]+' world price trend')}<b>${E.price[r].toFixed(2)}</b></li>`).join('')}</ul>
       <p class="hint" style="margin-top:8px">How much the world needs of each resource compared with what it produces. Above 1 is scarce.</p>
@@ -21913,10 +21964,11 @@ function tradeView(){
       </form>
       ${offers.length?`<h3 class="lbl-h" style="margin-top:24px">World market</h3><p class="hint" style="margin-bottom:10px">Nations with spare resources you could use. Select one to fill in the form.${af.tariffFree?' Allies in your trade bloc pay no tariffs.':''}</p>
       <div class="market tr-mf" role="group" aria-label="Filter by resource"><button type="button" class="chip-btn${mf?'':' on'}" data-act="tr-mf" data-v="" aria-pressed="${!mf}">All</button>${RES.map(r=>`<button type="button" class="chip-btn${mf===r?' on':''}" data-act="tr-mf" data-v="${r}" aria-pressed="${mf===r}">${resIco(r,'s')}${RES_INFO[r][0]}</button>`).join('')}</div>
-      <div class="market">${shown.slice(0,mAll?60:12).map(o=>`<button class="chip-btn" data-act="tr-fill" data-w="${esc(o.x.id)}" data-r="${o.r}" data-a="${Math.max(0.5,Math.min(8,Math.floor(o.spare*2)/2))}">${fav.includes(o.x.id)?'★ ':''}${esc(o.x.n.name)}${ally(o.x.id)?' (ally'+(af.tariffFree?', no tariff':'')+')':''} · ${resName(o.r)} +${fmtAmt(o.spare)}</button>`).join('')||`<p class="hint">Nobody has this to spare right now. <button type="button" class="linkish small" data-act="gb-market"${mf?` data-r="${mf}"`:''}>Try the Bureau’s market</button></p>`}</div>
+      <div class="market">${shown.slice(0,mAll?60:12).map(o=>`<button class="chip-btn" data-act="tr-fill" data-w="${esc(o.x.id)}" data-r="${o.r}" data-a="${Math.max(0.5,Math.min(8,Math.floor(o.spare*2)/2))}">${fav.includes(o.x.id)?'★ ':''}${esc(o.x.n.name)}${ally(o.x.id)?' (ally'+(af.tariffFree?', no tariff':'')+')':''} · ${resName(o.r)} ${esc(trShow(o.x.id,o.spare))}</button>`).join('')||`<p class="hint">Nobody has this to spare right now. <button type="button" class="linkish small" data-act="gb-market"${mf?` data-r="${mf}"`:''}>Try the Bureau’s market</button></p>`}</div>
       ${shown.length>12?`<p><button type="button" class="linkish small" data-act="tr-mall">${mAll?'Show fewer':`Show all ${Math.min(60,shown.length)}`}</button></p>`:''}`:''}
     </section>
-  </div>`;
+  </div>
+  ${trBoard(E,i,me,fav)}`;
 }
 
 /* ───────── cities ───────── */
@@ -51370,6 +51422,10 @@ document.addEventListener('click',e=>{
   if(a==='tr-rent'){rentSlot();return;}
   if(a==='tr-fav'){trFavToggle(S.trade.w);return;}
   if(a==='tr-mf'){S.trade.mf=el.dataset.v||'';render();return;}
+  if(a==='tr-bs'){S.trade.bs=el.dataset.v||'';render();return;}
+  if(a==='tr-nudge'){trNudge(el.dataset.id);return;}
+  if(a==='tr-stale'){S.trade.stale=!S.trade.stale;render();return;}
+  if(a==='tr-fav-id'){trFavToggle(el.dataset.id);return;}
   if(a==='tr-mall'){S.trade.mAll=!S.trade.mAll;render();return;}
   if(a==='found-suggest'){const c=suggestSpot(territory());if(c<0)S.mapMsg='No free land is left. Choose a spot on the map yourself.';else{S.draft.loc=locOf(c);S.mapMsg='';if(!S.mapViews)S.mapViews={};S.mapViews.found={z:4.5,cx:MAP.cx[c],cy:MAP.cy[c]};}updateFoundLoc();redrawMaps();return;}
   if(a==='map-suggest'){const c=suggestSpot(territory());if(c<0)S.mapMsg='No free land is left. Choose a spot on the map yourself.';else{S.mapPick=c;S.mapMsg='';centerMain(c,NEAR_Z);}updateMapPanel();redrawMaps();return;}
