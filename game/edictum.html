@@ -46821,6 +46821,8 @@ const CU_LOCK={pat:{moire:'cn-moire',basket:'cn-basket',mosaic:'cn-mosaic',stars
 let CU_HOLDS=null;
 const CU_CEMB={arms:'Coat of arms',portrait:'Leader’s profile',flag:'Flag emblem',star:'Star of state',wreath:'Laurel wreath'};
 /* the coin designer: finish, rim, edge, field and the other side */
+/* eight classic banknote inks, offered in every colour picker beside the flag's colours */
+const CU_SWATCH={'#3B5F3A':'Banknote green','#5B3A6B':'Royal purple','#B5832E':'Ochre','#2F5D8A':'Steel blue','#7A5A3C':'Sepia','#B5546B':'Rose','#1F7A7A':'Teal','#C8642B':'Burnt orange'};
 const CU_FINS={bright:'Bright',proof:'Proof',matte:'Matte',antique:'Antique'},CU_RIMS={beaded:'Beaded',thin:'Thin',wide:'Wide',double:'Double'};
 const CU_EDGES={reed:'Reeded',beads:'Beaded',letter:'Lettered',groove:'Security groove'},CU_FIELDS={guil:'Guilloché',plain:'Plain',rays:'Sunrays',waves:'Waves',grid:'Lattice',rings:'Rings'};
 const CU_REVS={value:'The value',wreath:'Value in a wreath',star:'Star of state',arms:'The arms',animal:'The national animal'};
@@ -48048,7 +48050,7 @@ function cuCzBody(n){
       /* a design sold in the Shop can be tried on: the preview shows it, and saving leaves it out */
       :shopIs(u)?`<button type="button" id="${id}-${v}" class="seg-b cu-lk cu-try${on?' on':''}" data-act="cu-set" data-f="${grp}.${key}" data-v="${v}" aria-pressed="${on}" title="${esc(l+': try it on. '+unlockHow(u))}">${CZ_LOCK}${esc(l)}</button>`
       :`<button type="button" id="${id}-${v}" class="seg-b cu-lk" data-act="cu-locked" data-u="${u}" aria-disabled="true" title="${esc(l+': '+unlockHow(u))}">${CZ_LOCK}${esc(l)}</button>`;}).join('')}</div></div>`;
-  const flagC=(n.flag&&n.flag.c||[]).map(cuHex).filter(Boolean),sw=[...new Set(flagC.concat(Object.values(CZ_TINCT).map(t=>t[1].toUpperCase())).concat(['#1D6A5C','#6A3DB3','#7A2E2E','#2D3E6B']))].slice(0,12);
+  const flagC=(n.flag&&n.flag.c||[]).map(cuHex).filter(Boolean),sw=[...new Set(flagC.concat(Object.values(CZ_TINCT).map(t=>t[1].toUpperCase())).concat(['#1D6A5C','#6A3DB3','#7A2E2E','#2D3E6B']))].slice(0,12).concat(Object.keys(CU_SWATCH).filter(h=>!flagC.includes(h)));
   const col=(k,l)=>`<div class="cz-drow"><span class="cz-dl" id="cu-l-${k}">${l}</span><div class="cu-sws" role="group" aria-labelledby="cu-l-${k}">${sw.map(h=>`<button type="button" class="cu-sw${N[k]===h?' on':''}" style="background:${h}" data-act="cu-set" data-f="note.${k}" data-v="${h}" aria-pressed="${N[k]===h}" aria-label="${esc(h)}${flagC.includes(h)?', from your flag':''}"></button>`).join('')}<label class="cu-sw-c"><span class="cz-sr">Another colour</span><input type="color" value="${esc((N[k]||'#1D6A5C').toLowerCase())}" data-cu="note.${k}"></label></div></div>`;
   return `<div class="cu-cz">
   <div class="cu-cz-prev" id="cu-prev" aria-live="polite">${cuPrevHTML(n,d)}</div>
@@ -48326,7 +48328,7 @@ function cstRight(n,t,c){
     const den=N.den,ov=(D.ov||{})[den],one=CST.one,cur=k=>one&&ov&&ov[k]?ov[k]:(D[k]||N[k]);
     const flagC=(n.flag&&n.flag.c||[]).map(cuHex).filter(Boolean),arms=(()=>{try{return Object.values(CZ_TINCT).map(x=>x[1].toUpperCase());}catch(e){return [];}})();
     const T=cuTok(t,c,den,den),r=cuContrast(T.c1,T.ink);
-    const col=k=>`<div class="cst-row"><label class="cst-lab" for="cst-c-${k}">${k==='c1'?'Main colour':'Second colour'} <b class="cst-mono">${esc(cur(k)||'')}</b></label><div class="cst-sws"><input type="color" id="cst-c-${k}" data-cst-col="${k}" value="${esc((cur(k)||'#1D6A5C').toLowerCase())}">${[...new Set(flagC.concat(arms.slice(0,8)))].slice(0,12).map(h=>`<button type="button" class="cst-sw" style="background:${h}" data-cst="sw" data-k="${k}" data-v="${h}" aria-label="${h}${flagC.includes(h)?', from your flag':''}"></button>`).join('')}</div></div>`;
+    const col=k=>`<div class="cst-row"><label class="cst-lab" for="cst-c-${k}">${k==='c1'?'Main colour':'Second colour'} <b class="cst-mono">${esc(cur(k)||'')}</b></label><div class="cst-sws"><input type="color" id="cst-c-${k}" data-cst-col="${k}" value="${esc((cur(k)||'#1D6A5C').toLowerCase())}">${[...new Set(flagC.concat(arms.slice(0,8)))].slice(0,12).concat(Object.keys(CU_SWATCH)).map(h=>`<button type="button" class="cst-sw" style="background:${h}" data-cst="sw" data-k="${k}" data-v="${h}" aria-label="${h}${flagC.includes(h)?', from your flag':CU_SWATCH[h]?', '+CU_SWATCH[h]:''}" title="${esc(CU_SWATCH[h]||h)}"></button>`).join('')}</div></div>`;
     b=`<div class="cst-row"><span class="cst-lab">Colours for</span><div class="cst-seg"><button type="button" class="cst-b${one?'':' on'}" data-cst="one" data-v="0" aria-pressed="${!one}">The whole series</button><button type="button" class="cst-b${one?' on':''}" data-cst="one" data-v="1" aria-pressed="${one}">The ${den.toLocaleString('en-US')} only</button></div></div>
     ${col('c1')}${col('c2')}
     <div class="cst-seg"><button type="button" class="cst-b cst-out${CST.lockc.c1?' on':''}" data-cst="lockc" data-v="c1" aria-pressed="${!!CST.lockc.c1}">${CST.lockc.c1?'🔒':'🔓'} Main</button><button type="button" class="cst-b cst-out${CST.lockc.c2?' on':''}" data-cst="lockc" data-v="c2" aria-pressed="${!!CST.lockc.c2}">${CST.lockc.c2?'🔒':'🔓'} Second</button><span class="hint">A locked colour stays when you try a preset, a harmony or a remix.</span></div>

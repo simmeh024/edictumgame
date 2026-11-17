@@ -62,6 +62,9 @@ await page.$eval('#cst-r-g0', e => { e.value = 11; e.dispatchEvent(new Event('in
 await page.click('[data-cst="tab"][data-v="orn"]'); await page.click('[data-cst="set"][data-f="note.bd"][data-v="key"]'); await page.click('[data-cst="set"][data-f="note.ros"][data-v="compass"]');
 await page.click('[data-cst="tab"][data-v="type"]'); await page.click('[data-cst="set"][data-f="note.tp"][data-v="1"]');
 await page.click('[data-cst="tab"][data-v="colour"]'); await page.click('[data-cst="one"][data-v="1"]'); await page.click('[data-cst="harm"][data-v="comp"]');
+check('the eight banknote inks are in the picker', await page.evaluate(() => ['#3B5F3A','#5B3A6B','#B5832E','#2F5D8A','#7A5A3C','#B5546B','#1F7A7A','#C8642B'].every(h => document.querySelector(`[data-cst="sw"][data-k="c1"][data-v="${h}"]`))));
+await page.click('[data-cst="sw"][data-k="c2"][data-v="#B5832E"]');
+check('picking one sets the colour', await until(() => page.evaluate(() => /B5832E/i.test(document.querySelector('label[for="cst-c-c2"]').textContent))));
 check('one value can have its own colours', await until(() => page.evaluate(() => !!document.querySelector('.cst-card.on .cst-ovr'))));
 await page.click('[data-cst="split"]'); await page.click('[data-cst="split"]');
 for (const see of ['uv', 'wallet', 'hand', 'worn', 'phone', 'light', 'flat']) await page.selectOption('[data-cst-sel="see"]', see);
