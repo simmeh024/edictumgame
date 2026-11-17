@@ -38,6 +38,15 @@ await page.click('#found-btn');
 await page.waitForFunction(() => window.__game && window.__game.S.nation && window.__game.S.view, null, { timeout: 30000 });
 await page.evaluate(() => { location.hash = '#customise'; });
 await until(() => page.evaluate(() => window.__game.S.view === 'customise'));
+/* the Banknote preview at the top of Customise has its own way into the Studio */
+await page.evaluate(() => { const b = document.querySelector('[data-act="cz-ctx"][data-v="note"]'); if (b) b.click(); else { const x = document.createElement('button'); x.dataset.act = 'cz-ctx'; x.dataset.v = 'note'; document.body.appendChild(x); x.click(); x.remove(); } });
+check('the Banknote preview shows a Design in Studio button', await until(() => page.evaluate(() => !!document.querySelector('.cz-live .cz-lv-studio[data-cst="open"]'))));
+const hid = await page.evaluate(() => { const b = document.querySelector('[data-act="cz-ctx"][data-v="card"]'); if (!b) return 'no-tabs'; b.click(); const h = document.querySelector('.cz-lv-studio').hidden; document.querySelector('[data-act="cz-ctx"][data-v="note"]').click(); return h && !document.querySelector('.cz-lv-studio').hidden; });
+check('the button shows only on the Banknote preview', hid === true || hid === 'no-tabs', String(hid));
+await page.screenshot({ path: path.join(OUT, 'customise-banknote-preview.png') });
+await page.click('.cz-live .cz-lv-studio');
+check('it opens the Studio', await until(() => page.evaluate(() => { const e = document.getElementById('cu-st'); return e && !e.hidden; })));
+await page.keyboard.press('Escape'); await until(() => page.evaluate(() => document.getElementById('cu-st').hidden));
 await page.evaluate(() => { const b = document.querySelector('[data-cst="open"]'); if (b) b.click(); else { const x = document.createElement('button'); x.dataset.cst = 'open'; document.body.appendChild(x); x.click(); x.remove(); } });
 check('the Studio opens', await until(() => page.evaluate(() => { const e = document.getElementById('cu-st'); return e && !e.hidden && !!e.querySelector('.cst-front svg.cu-note'); })));
 const fit = await page.evaluate(() => { const e = document.getElementById('cu-st'), r = e.getBoundingClientRect(); return { sh: e.scrollHeight, h: r.height, w: e.scrollWidth, vw: innerWidth, docScroll: document.documentElement.scrollHeight > innerHeight && getComputedStyle(document.documentElement).overflow !== 'hidden' }; });

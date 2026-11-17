@@ -2173,6 +2173,8 @@ button.stk-i{padding:8px 8px 11px;border:1px solid var(--rule);border-radius:6px
 .cz-lv-pin svg{display:block;width:100%;height:auto}
 .cz-lv-note{width:min(100%,380px)}
 .cz-lv-note svg{display:block;width:100%;height:auto}
+.cz-live{position:relative}.cz-lv-studio{position:absolute;right:10px;bottom:10px;z-index:1}
+@media (max-width:700px){.cz-lv-studio{position:static;display:block;margin:8px 10px 10px auto}}
 .cz-lv-dec{position:relative;width:min(100%,460px);min-height:120px;padding:16px 18px;border:1px solid var(--rule);border-radius:4px;background:var(--sheet)}
 .cz-lv-dt{font-family:var(--f-display);font-size:17px;line-height:1.35;max-width:60%}
 .cz-lv-dec .stamp{position:absolute;right:14px;top:12px}
@@ -63961,7 +63963,7 @@ function czDock(n){
       <div class="cz-lv-bar">${pv?`<div class="seg cz-ctx" role="group" aria-label="Preview as">${CZ_CTX.map(([k,l])=>`<button type="button" class="seg-b${CZ.ctx===k?' on':''}" data-act="cz-ctx" data-v="${k}" aria-pressed="${CZ.ctx===k}">${l}</button>`).join('')}</div>`
         :`<span class="cz-lv-mini"><span class="mflag">${flagSVG(n.flag,'')}</span><b>${esc(n.name)}</b>${czEpiRow(n)}</span>`}
         <span class="cz-lv-acts">${u?`<button type="button" class="btn ghost sm" data-act="cz-undo" title="Undo the change to ${esc(u.lb)}">Undo<span class="cz-sr"> the change to ${esc(u.lb)}</span></button>`:''}<button type="button" class="linkish small" data-act="cz-pv" aria-expanded="${pv}">${pv?'Hide preview':'Show preview'}</button></span></div>
-      ${czTryLine()}${pv?`<div class="cz-lv-body" id="cz-lv-body" aria-hidden="true" inert>${czLiveBody(n)}</div>`:''}
+      ${czTryLine()}${pv?`<div class="cz-lv-body" id="cz-lv-body" aria-hidden="true" inert>${czLiveBody(n)}</div><button type="button" class="btn small cz-lv-studio" data-cst="open"${CZ.ctx==='note'?'':' hidden'}>Design in Studio</button>`:''}
     </div>
     <div class="cz-tabs" role="tablist" aria-label="Customise">${tabs}</div><!--cz-subs--></div>`;
 }
@@ -64201,7 +64203,7 @@ go=(f=>function(v){
 document.addEventListener('click',e=>{
   const el=e.target.closest&&e.target.closest('[data-act]');if(!el||!S.nation)return;const a=el.dataset.act,v=el.dataset.v;
   if(a==='cz-tab')czSetTab(v,false);
-  else if(a==='cz-ctx'){if(!CZ_CTX.some(c=>c[0]===v))return;CZ.ctx=v;czLs('statehood.cz.ctx',v);for(const b of document.querySelectorAll('[data-act="cz-ctx"]')){b.classList.toggle('on',b.dataset.v===v);b.setAttribute('aria-pressed',b.dataset.v===v);}czLivePaint();}
+  else if(a==='cz-ctx'){if(!CZ_CTX.some(c=>c[0]===v))return;CZ.ctx=v;czLs('statehood.cz.ctx',v);for(const b of document.querySelectorAll('[data-act="cz-ctx"]')){b.classList.toggle('on',b.dataset.v===v);b.setAttribute('aria-pressed',b.dataset.v===v);}{const sb=document.querySelector('.cz-lv-studio');if(sb)sb.hidden=v!=='note';}czLivePaint();}
   else if(a==='cz-pv'){CZ.pv=!czPvOn();czLs('statehood.cz.pv',CZ.pv?'1':'0');render();}
   else if(a==='cz-undo')czUndo();
   else if(a==='cz-fil'){CZ.f=['own','locked','new'].includes(v)?v:'all';for(const b of document.querySelectorAll('[data-act="cz-fil"]')){b.classList.toggle('on',b.dataset.v===CZ.f);b.setAttribute('aria-pressed',b.dataset.v===CZ.f);}czFilterPaint();}
