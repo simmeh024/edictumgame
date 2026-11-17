@@ -31492,14 +31492,17 @@ COMMIT_HOOKS.push((n,old,now)=>{
   }
   /* the rulebook: a member follows every resolution in it; what has left it, or everything for a nation without a seat,
      is lifted. The census before and after goes with the newest outcome, for its result card */
-  const inside=asmMemberAt(n,now),want=new Set(inside?bk.map(e=>e.k):[]),s0=Object.assign({},n.s),notes=[],newest=rec[rec.length-1];
+  const inside=asmMemberAt(n,now),want=new Set(inside?bk.map(e=>e.k):[]),s0=Object.assign({},n.s),notes=[],newest=rec[rec.length-1],fresh=now-(n.founded||0)<120000;
+  let joined=0;
   for(const f of a.f.slice())if(!want.has(f.k)){asmLift(n,f);a.f=a.f.filter(x=>x!==f);if(!newest||!newest.rp||newest.rp!==f.k)notes.push(asmLiftText(f,n,inside,st));}
   for(const e of bk){if(!want.has(e.k)||a.f.some(f=>f.k===e.k))continue;const f=asmBind(n,e,now);a.f.push(f);
-    const h=rec.find(x=>x.k===e.k);if(h){if(f.pn)h.pn=f.pn;}else notes.push(`“${e.ti}” is in the rulebook, so ${n.name} follows it: ${asmFxItems(e.cat,e.g).filter(x=>!x.law).map(x=>x.t).join(', ')}.${e.g&&f.pn?' '+asmLawNote(e.cat,f.pn):''}`);}
+    const h=rec.find(x=>x.k===e.k);if(h){if(f.pn)h.pn=f.pn;}else if(fresh)joined++;else notes.push(`“${e.ti}” is in the rulebook, so ${n.name} follows it: ${asmFxItems(e.cat,e.g).filter(x=>!x.law).map(x=>x.t).join(', ')}.${e.g&&f.pn?' '+asmLawNote(e.cat,f.pn):''}`);}
+  /* a nation just founded takes on the whole rulebook at once: one line that says what that is, not a toast a law */
+  if(joined)notes.push(`${n.name} has a seat in the ${REGION} Assembly. ${joined===1?'One law it passed is':joined+' laws it passed are'} already in force, and ${n.name} follows ${joined===1?'it':'them'}. The Assembly page has the rulebook.`);
   if(newest){const dx=[];for(const k of Object.keys(n.s))if(typeof s0[k]==='number'&&Math.abs(n.s[k]-s0[k])>=0.05)dx.push([k,Math.round(s0[k]*10)/10,Math.round(n.s[k]*10)/10]);if(dx.length)newest.dx=dx.slice(0,8);}
-  for(const e of rec)out.push(asmResultText(e,n,e.ok&&!e.rp&&e.m?a.f.some(f=>f.k===e.k):undefined));
+  if(!fresh)for(const e of rec)out.push(asmResultText(e,n,e.ok&&!e.rp&&e.m?a.f.some(f=>f.k===e.k):undefined));
   out.push(...notes);
-  const isD=!!(st.D&&st.D.id===me),ld=a.d.filter(x=>x.r===REG.id).pop(),fresh=now-(n.founded||0)<120000;
+  const isD=!!(st.D&&st.D.id===me),ld=a.d.filter(x=>x.r===REG.id).pop();
   if(isD&&!(ld&&ld.on)){a.d.push({t:now,r:REG.id,on:1});if(!fresh)out.push(`${n.name} is now the Delegate of the ${REGION} Assembly, with ${st.D.k} ${st.D.k===1?'endorsement':'endorsements'}. Its vote counts ${asmDW(st.D.k)} times, it chooses which proposal goes to the vote next, and it may address the region.`);}
   else if(!isD&&ld&&ld.on){a.d.push({t:now,r:REG.id,on:0});out.push(`${n.name} is no longer the Delegate of the ${REGION} Assembly. ${st.D?`${st.D.r.n.name} has the chair.`:'The chair stands empty.'}`);}
   asmPrune(a,now,st.c);
