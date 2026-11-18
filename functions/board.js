@@ -1,6 +1,7 @@
 import { HttpsError } from 'firebase-functions/v2/https';
 import { FieldValue, FieldPath } from 'firebase-admin/firestore';
 import { eligibility, refuse } from './eligibility.js';
+import { rcPicIn } from './regionchat.js';
 
 /* The Community Board: one board per region, read by everyone, written only here (civic ops cb*), so every post
    carries what the server knows rather than what a browser claims.
@@ -30,6 +31,37 @@ const line = (x, max) => typeof x === 'string' ? x.replace(/[\u0000-\u001f\u007f
 const body = (x, max) => typeof x === 'string' ? x.replace(/\r\n?/g, '\n').replace(/[\u0000-\u0009\u000b-\u001f\u007f]/g, ' ').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim().slice(0, max) : '';
 const day = t => new Date(t).toISOString().slice(0, 10);
 export const CB_TITLE = 120, CB_TEXT = 4000;
+
+/* What a post may carry besides its words (2026-11-18):
+     am  the author's coat of arms as JSON, when the words show it ([my arms]); the game sends its own arms, at most
+         CB_ARMS characters. The flag needs nothing more: every post keeps the author's flag already (fl).
+     pc  {w, h, k}: a picture, kept beside the post: its small copy in cbPic/{postId} {a, reg, tid, ch?, th, w, h, fw,
+         fh, k, t} and the picture in cbPicD/{postId} {a, ch?, d} (both checked as the chat's are, rcPicIn), so a board's list of topics stays small;
+         readers fetch it on opening the topic. At most CB_PIC_DAY pictures a player a day (cbPicPace/{uid} {p}).
+   Deleting the post, its topic, the nation or the account deletes the picture too. */
+export const CB_ARMS = 4000, CB_PIC_DAY = 6;
+const picRef = (db, id) => db.doc('cbPic/' + id), picDRef = (db, id) => db.doc('cbPicD/' + id);
+function armsIn(d, x) {
+  if (!/\[my arms\]/i.test(x) || !d.am || typeof d.am !== 'object' || Array.isArray(d.am)) return {};
+  const j = JSON.stringify(d.am);
+  return j.length > 2 && j.length <= CB_ARMS ? { am: j } : {};
+}
+/* the picture a post carries (rcPicIn checks it), and the player's pictures today */
+async function picIn(tx, db, who, d, now) {
+  if (d.pic == null) return null;
+  const pic = rcPicIn(d.pic), pr = db.doc('cbPicPace/' + who.uid), ps = await tx.get(pr);
+  const p = (ps.exists && Array.isArray(ps.get('p')) ? ps.get('p') : []).filter(t => typeof t === 'number' && now - t < 86400000);
+  if (p.length >= CB_PIC_DAY) refuse('cb_pic_day', `You can post ${CB_PIC_DAY} pictures a day on the boards. Try again tomorrow.`);
+  return { pic, mark: () => tx.set(pr, { p: p.concat(now) }) };
+}
+function picOut(tx, db, who, P, id, reg, tid, now) {
+  const im = P.pic.im;
+  const ch = reg === CB_CHANCERY ? { ch: true } : {};
+  tx.set(picRef(db, id), { a: who.uid, reg, tid, ...ch, th: im.s, w: im.w, h: im.h, fw: im.fw, fh: im.fh, k: im.k, t: now });
+  tx.set(picDRef(db, id), { a: who.uid, ...ch, d: P.pic.d });
+  P.mark();
+  return { pc: { w: im.w, h: im.h, k: im.k } };
+}
 
 /* The Chancery: one more board, not a region's, for Chancery Club members (a paid-up vip.until) and Founding
    Supporters (owns.founder), both read from the server's own shop/{uid}; staff always. firestore.rules keeps the
@@ -176,9 +208,9 @@ export async function cbTopic(db, who, d, regions) {
   return db.runTransaction(async tx => {
     const me = await signer(tx, db, who, d), metaRef = db.doc('cb/' + reg), [meta, u] = await tx.getAll(metaRef, userRef(db, who.uid));
     const now = Date.now(), ref = db.collection('cb/' + reg + '/posts').doc(), mark = await paced(tx, db, who, true, now);
-    const mn = await mentioned(tx, db, who, d, reg, ti + ' ' + x);
+    const mn = await mentioned(tx, db, who, d, reg, ti + ' ' + x), P = await picIn(tx, db, who, d, now);
     mark();
-    tx.create(ref, { ...me, ti, x, tg, t: now, la: now, rc: 0, ...(Object.keys(mn).length ? { mn } : {}) });
+    tx.create(ref, { ...me, ti, x, tg, t: now, la: now, rc: 0, ...(Object.keys(mn).length ? { mn } : {}), ...(me.of ? {} : armsIn(d, x)), ...(P ? picOut(tx, db, who, P, ref.id, reg, ref.id, now) : {}) });
     notifyMentions(tx, db, mn, me, reg, ref.id, '', ti, x, now);
     tx.set(metaRef, counted(meta, now, { n: 1 }));
     // the author follows their topic
@@ -205,9 +237,9 @@ export async function cbReply(db, who, d, regions) {
     if (topic.get('lk') && !who.admin && !who.mod) refuse('cb_locked', 'This topic is locked: it takes no more replies.');
     if (qp && (!qp.exists || qp.get('hd'))) refuse('cb_quote_missing', 'The post you quoted is no longer there.');
     const now = Date.now(), ref = topicRef.collection('posts').doc(), mark = await paced(tx, db, who, false, now);
-    const mn = await mentioned(tx, db, who, d, reg, x);
+    const mn = await mentioned(tx, db, who, d, reg, x), P = await picIn(tx, db, who, d, now);
     mark();
-    tx.create(ref, { ...me, x, t: now, ...(q ? { q } : {}), ...(Object.keys(mn).length ? { mn } : {}) });
+    tx.create(ref, { ...me, x, t: now, ...(q ? { q } : {}), ...(Object.keys(mn).length ? { mn } : {}), ...(me.of ? {} : armsIn(d, x)), ...(P ? picOut(tx, db, who, P, ref.id, reg, tid, now) : {}) });
     notifyMentions(tx, db, mn, me, reg, tid, ref.id, topic.get('ti'), x, now);
     tx.update(topicRef, { rc: (topic.get('rc') || 0) + 1, la: now });
     tx.set(metaRef, counted(meta, now, { r: 1 }));
@@ -264,7 +296,8 @@ export async function cbEdit(db, who, d, regions) {
     if (p.exists && p.get('a') !== who.uid && !team) throw new HttpsError('permission-denied', 'You can only edit your own posts.');
     await eligibility(tx, who, team ? TEAM_OK : {});
     if (!p.exists || p.get('hd')) refuse('cb_missing', 'This post is no longer there.');
-    tx.update(ref, { x, ...(rid ? {} : { ti, ...(CB_TAGS.includes(d.tg) ? { tg: d.tg } : {}) }), ed: Date.now() });
+    const am = p.get('of') ? {} : armsIn(d, x);
+    tx.update(ref, { x, ...(rid ? {} : { ti, ...(CB_TAGS.includes(d.tg) ? { tg: d.tg } : {}) }), ...am, ed: Date.now() });
     return { ok: true };
   });
 }
@@ -275,7 +308,7 @@ async function dropTopic(db, ref) {
   for (;;) {
     const qs = await ref.collection('posts').limit(400).get();
     if (qs.empty) break;
-    const b = db.batch(); qs.docs.forEach(r => { const a = r.get('a'); if (!r.get('of')) tally.set(a, (tally.get(a) || 0) + 1); b.delete(r.ref); b.delete(db.doc('cbHidden/' + r.id)); }); await b.commit();
+    const b = db.batch(); qs.docs.forEach(r => { const a = r.get('a'); if (!r.get('of')) tally.set(a, (tally.get(a) || 0) + 1); b.delete(r.ref); b.delete(db.doc('cbHidden/' + r.id)); if (r.get('pc')) { b.delete(picRef(db, r.id)); b.delete(picDRef(db, r.id)); } }); await b.commit();
   }
   return tally;
 }
@@ -303,7 +336,7 @@ export async function cbDelete(db, who, d, regions) {
     const m = meta.exists ? meta.data() : {};
     tx.set(metaRef, { n: Math.max(0, (m.n || 0) - (rid ? 0 : 1)), r: Math.max(0, (m.r || 0) - (rid ? 1 : replies)) }, { merge: true });
     if (rid && topic.exists) tx.update(topicRef, { rc: Math.max(0, (topic.get('rc') || 0) - 1) });
-    tx.delete(ref); tx.delete(db.doc('cbHidden/' + (rid || tid)));
+    tx.delete(ref); tx.delete(db.doc('cbHidden/' + (rid || tid))); tx.delete(picRef(db, rid || tid)); tx.delete(picDRef(db, rid || tid));
   });
   await uncount(db, tally);
   if (!rid) await dropSubs(db, tid);
@@ -456,6 +489,11 @@ export async function cbForget(db, uid) {
   for (const s of ws.docs) done.push(quiet(w.update(subsRef(db, s.id), new FieldPath('f', uid), FieldValue.delete())));
   await Promise.all([Promise.all(done), w.close()]);
   await db.recursiveDelete(db.collection('cbWatch/' + uid + '/t'));
+  for (const c of ['cbPic', 'cbPicD']) {
+    const pics = await db.collection(c).where('a', '==', uid).select().get();
+    for (let i = 0; i < pics.docs.length; i += 400) { const b = db.batch(); pics.docs.slice(i, i + 400).forEach(r => b.delete(r.ref)); await b.commit(); }
+  }
+  await db.doc('cbPicPace/' + uid).delete();
   await Promise.all([db.doc('cbRx/' + uid).delete(), userRef(db, uid).delete()]);
 }
 

@@ -1584,6 +1584,27 @@
     return { kind: 'linked', uid: u.uid, email: (g && g.email) || (m && m.email) || u.email || '', name: u.displayName || (g && g.displayName) || '',
       discord: dc ? dc.name || 'Discord' : '', google: !!g, via: via };
   }
+  /* The two versions of a nation after a save conflict, side by side, so the player sees what each holds before
+     choosing (Account menu › Keep this copy instead): the save now loaded, and this device's copy set aside. */
+  function versionsCompared(cur, kept) {
+    var b = isObj(kept) && isObj(kept.nation) ? kept.nation : null;
+    if (!isObj(cur) || !b) return '';
+    var when = function (t) { t = num(t); if (!t) return '—'; var d = new Date(t); return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' }) + ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); };
+    var len = function (x) { return Array.isArray(x) ? x.length : 0; };
+    var names = function (n) { return (Array.isArray(n.cities) ? n.cities : []).map(function (c) { return isObj(c) ? str(c.nm, 60) || str(n.capital, 60) || 'Capital' : ''; }).filter(Boolean); };
+    var ca = names(cur), cb = names(b), onlyA = ca.filter(function (x) { return cb.indexOf(x) < 0; }), onlyB = cb.filter(function (x) { return ca.indexOf(x) < 0; });
+    var mats = function (n) { var s = isObj(n.stock) ? n.stock : {}; return ['food', 'timber', 'iron', 'oil', 'goods'].map(function (r) { return Math.round(num(s[r])) + ' ' + r; }).join(', '); };
+    var rows = [
+      ['Last change', when(cur.updatedAt), when(b.updatedAt)],
+      ['Population', (num(cur.pop)).toFixed(2) + ' M', (num(b.pop)).toFixed(2) + ' M'],
+      ['Cities', ca.length + (onlyA.length ? ' (only here: ' + onlyA.join(', ') + ')' : ''), cb.length + (onlyB.length ? ' (only here: ' + onlyB.join(', ') + ')' : '')],
+      ['Land', len(cur.claims) + ' hexes', len(b.claims) + ' hexes'],
+      ['Edicts answered', String(len(cur.answered)), String(len(b.answered))],
+      ['Materials', mats(cur), mats(b)]
+    ];
+    return '<table class="ed-vs"><caption>Your two versions</caption><thead><tr><th scope="col"></th><th scope="col">Current save</th><th scope="col">This device’s copy</th></tr></thead><tbody>' +
+      rows.map(function (r) { return '<tr><th scope="row">' + esc(r[0]) + '</th><td>' + esc(r[1]) + '</td><td>' + esc(r[2]) + '</td></tr>'; }).join('') + '</tbody></table>';
+  }
   function paintSync() {
     if (!ui.sync) return;
     ui.sync.hidden = ui.box.classList.contains('ed-head') || !localNation();
@@ -1597,6 +1618,29 @@
     ui.sync.title = tips[state];
   }
   window.addEventListener('edictum:sync', paintSync);
+  /* Changes that have not reached the server for a while (offline, or saves that never get an answer, as through a
+     VPN that drops them) are said plainly over the page, not only by the small status label: a player who goes on
+     playing elsewhere meanwhile has a second save that wins, and this device's changes are set aside (18 Nov, Tela
+     tyhate: nine hours on a phone). */
+  var stuckSince = 0;
+  function stuckLimit() { var v = Number(window.EDICTUM_UNSAVED_WARN); return v > 0 ? v : 180000; }
+  function paintStuck() {
+    var st = observing() || !localNation() ? 'none' : !A.online || navigator.onLine === false ? 'offline' : E.syncStatus || 'saving';
+    if (st === 'synced' || st === 'none') stuckSince = 0; else if (!stuckSince) stuckSince = Date.now();
+    var show = !!stuckSince && Date.now() - stuckSince >= stuckLimit(), el = document.getElementById('ed-unsaved-warn');
+    if (!show) { if (el) el.hidden = true; return; }
+    if (!el) {
+      el = document.createElement('div'); el.id = 'ed-unsaved-warn'; el.className = 'ed-unsaved-warn'; el.setAttribute('role', 'alert');
+      document.body.appendChild(el);
+    }
+    var since = new Date(stuckSince), hm = String(since.getHours()).padStart(2, '0') + ':' + String(since.getMinutes()).padStart(2, '0');
+    var txt = 'Your changes since ' + hm + ' have not reached the server yet. They are kept on this device. Until this says Synced, do not play on another device: its save would set these changes aside.';
+    if (el.textContent !== txt) el.textContent = txt;
+    el.hidden = false;
+  }
+  window.addEventListener('edictum:sync', paintStuck);
+  window.addEventListener('online', paintStuck); window.addEventListener('offline', paintStuck);
+  setInterval(paintStuck, 15000);
   // Coalesce status changes; heartbeat only visible sessions. Offline browsers cannot report a live status.
   var healthTimer = 0, healthLast = -15000;
   var healthSession = SS.get('edictum.health.session') || (window.crypto && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2));
@@ -1865,7 +1909,10 @@
         h = '<p class="eyebrow">Your account</p><h2 class="ed-h" id="ed-dlg-h">Playing offline</h2><p>Sign-in is not available right now, so ' + (n ? nm + ' is' : 'your nation is') + ' saved in this browser only. Reload the page when you are back online, and it joins the region again.</p>';
       }
       if (w.uid && n) h += '<p class="ed-id">Player ID <code>' + esc(w.uid) + '</code></p>';
-      if (w.uid && L.get('edictum.unsaved.' + w.uid)) h += '<div class="ed-sec"><p>Changes from a save conflict are kept on this device.</p>' + row('<button type="button" class="btn ghost" data-ed="unsaved">Download unsaved copy</button>') + '</div>';
+      if (w.uid && L.get('edictum.unsaved.' + w.uid)) h += '<div class="ed-sec"><p>Changes from a save conflict are kept on this device.</p>' + row('<button type="button" class="btn ghost" data-ed="unsaved">Download unsaved copy</button>' + (ui.useAsk ? '' : ' <button type="button" class="btn ghost" data-ed="unsaved-use">Keep this copy instead</button>')) +
+        (ui.useAsk ? versionsCompared(n, parse(L.get('edictum.unsaved.' + w.uid))) +
+          '<p>The version you keep becomes your nation’s save. The other one stays available as a download.</p>' +
+          row('<button type="button" class="btn" data-ed="unsaved-use-yes">Keep this device’s copy</button> <button type="button" class="btn ghost" data-ed="unsaved-use-no">Keep the current save</button>') : '') + '</div>';
       if (w.kind !== 'local' && n) h += '<div class="ed-sec">' + row('<button type="button" class="linkish ed-danger" data-ed="delete">Delete my nation and account</button>') + '</div>';
       if (GA.id) h += '<p class="ed-fine ed-stats-set">Visit statistics (Google Analytics and Firebase speed): ' + (statsChoice() === 'y' ? 'allowed. <button type="button" class="linkish" data-ed="stats-n">Turn off</button>' : 'off. <button type="button" class="linkish" data-ed="stats-y">Allow</button>') + '</p>';
       if (w.kind !== 'guest') h += '<p class="ed-fine ed-legal"><a href="/privacy" target="_blank" rel="noopener">Privacy</a> · <a href="/terms" target="_blank" rel="noopener">Terms</a></p>';
@@ -1899,6 +1946,14 @@
       var u = A.auth && A.auth.currentUser, copy = u && L.get('edictum.unsaved.' + u.uid);
       if (copy) { var url = URL.createObjectURL(new Blob([copy], { type: 'application/json' })), link = document.createElement('a');
         link.href = url; link.download = 'edictum-unsaved.json'; link.click(); setTimeout(function () { URL.revokeObjectURL(url); }, 1000); }
+      return;
+    }
+    if (a === 'unsaved-use' || a === 'unsaved-use-no') { ui.useAsk = a === 'unsaved-use'; draw(); return; }
+    if (a === 'unsaved-use-yes') {
+      ui.useAsk = false;
+      Promise.resolve(typeof E.useUnsaved === 'function' ? E.useUnsaved() : false).catch(function () { return false; }).then(function (ok) {
+        draw(); setMsg(ok ? 'Your copy is back and being saved.' : 'That copy could not be put back. Download it and write to support.', !ok);
+      });
       return;
     }
     if (a === 'close') { if (!ui.busy) ui.dlg.close(); return; }
