@@ -45724,6 +45724,21 @@ function cvSummary(n,cab){
 }
 
 /* ── a minister's card: a portrait card on wide screens, a row that opens on phones ── */
+/* renaming a minister or a mayor: plain words, at most 40 characters */
+function offNm(v){return String(v||'').replace(/[\u0000-\u001f\u007f<>{}]/g,'').replace(/\s+/g,' ').trim().slice(0,40);}
+function renForm(k,id,v,who){return `<form class="row ren-f" data-ren="${k}" data-id="${esc(id)}"><label class="u-sr" for="ren-${k}-${esc(id)}">New name for ${esc(who)}</label><input class="input" id="ren-${k}-${esc(id)}" maxlength="40" value="${esc(v)}" autocomplete="off"><button class="btn small-btn" type="submit">Save</button><button class="linkish small" type="button" data-act="ren-no">Cancel</button></form>`;}
+function renSave(k,id,raw){
+  const nm=offNm(raw);if(nm.length<2){toast('A name needs at least two letters.');return;}
+  const n=clone(S.nation);let old;
+  if(k==='min'){n.cab=n.cab||clone(cabOf(n));const m=n.cab[id];if(!m)return;old=m.nm;m.nm=nm;}
+  else{ensureCities(n);const c=n.cities.find(x=>x.id===id);if(!c||!c.my)return;old=c.my.nm;c.my.nm=nm;}
+  S.renK=null;if(old!==nm){commit(n);toast(`${old} is now known as ${nm}.`);}render();
+}
+document.addEventListener('submit',e=>{const f=e.target;if(!f||!f.dataset||!f.dataset.ren)return;e.preventDefault();const i=f.querySelector('input');renSave(f.dataset.ren,f.dataset.id,i?i.value:'');});
+document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-act]');if(!el)return;const a=el.dataset.act;
+  if(a==='ren-no'){S.renK=null;render();return;}
+  if(a==='ren'){S.renK=el.dataset.k+':'+el.dataset.id;render();setTimeout(()=>{const i=document.getElementById('ren-'+el.dataset.k+'-'+el.dataset.id);if(i){i.focus();i.select();}},30);}
+});
 function cvCard(pf,m,n,now){
   const pick=S.cabPick===pf,open=!!(S.cvOpen&&S.cvOpen[pf])||pick,role=PF[pf][2];
   const head=(nm,brief,sub)=>`<header class="cv-mh">${m?cvMed(ptMin(n,pf,m,now,{cls:'cv-med-m',plot:m.lo<20})):cvMed({cls:'cv-med-m',vac:1})}
@@ -45743,7 +45758,7 @@ function cvCard(pf,m,n,now){
       ${cvTraits(m.tr,pf)}
       ${cvLedger(fx)}
       ${m.lo<20?'<p class="cv-warn">Plotting: their skill counts half, and they may resign.</p>':''}
-      <div class="cv-act">${btn}<button type="button" class="linkish small pt-edit-m" id="pt-edit-${pf}" data-act="pt-edit" data-v="${pf}">Edit portrait</button>${gvCalmBtn(pf,m,n)}</div>
+      ${S.renK==='min:'+pf?renForm('min',pf,m.nm,role):''}<div class="cv-act">${btn}<button type="button" class="linkish small pt-edit-m" id="pt-edit-${pf}" data-act="pt-edit" data-v="${pf}">Edit portrait</button><button type="button" class="linkish small" id="cv-ren-${pf}" data-act="ren" data-k="min" data-id="${pf}">Rename</button>${gvCalmBtn(pf,m,n)}</div>
     </div>
   </article>`;
 }
@@ -68199,7 +68214,7 @@ function cxPeople(ct,T,n,st,now,ok){
   let mayor;
   if(my){const fire=S.cxFire===ct.id,L=CX_LETTERS[my.tr],lead=({Thriving:'The city is in fine spirits.',Content:'The city is calm.',Uneasy:'There is grumbling in the market.',Restless:'I will be frank: the people are unhappy.'})[band[1]];
     const wk=Math.floor(now/(7*DAY));
-    mayor=`<section class="cx-sec" id="cx-mayor"><h4 class="lbl-h">Mayor</h4><div class="cx-mayor"><div class="cx-my">${cxMayorMed(ct,my,'cx-my-med')}<div class="cx-my-id"><p><b>${esc(my.nm)}</b> <span class="chip">${esc(CX_TRAITS[my.tr][0])}</span></p><p class="hint">${esc(CX_TRAITS[my.tr][1])} In office since ${fmtDate(my.t)}.</p>${ok&&/^[\w-]{1,40}$/.test(ct.id)?`<button type="button" class="linkish small pt-edit-my" id="pt-edit-my-${esc(ct.id)}" data-act="pt-edit" data-v="my-${esc(ct.id)}">Edit portrait</button>`:''}</div></div>
+    mayor=`<section class="cx-sec" id="cx-mayor"><h4 class="lbl-h">Mayor</h4><div class="cx-mayor"><div class="cx-my">${cxMayorMed(ct,my,'cx-my-med')}<div class="cx-my-id"><p><b>${esc(my.nm)}</b> <span class="chip">${esc(CX_TRAITS[my.tr][0])}</span></p><p class="hint">${esc(CX_TRAITS[my.tr][1])} In office since ${fmtDate(my.t)}.</p>${ok&&/^[\w-]{1,40}$/.test(ct.id)?`<button type="button" class="linkish small pt-edit-my" id="pt-edit-my-${esc(ct.id)}" data-act="pt-edit" data-v="my-${esc(ct.id)}">Edit portrait</button> <button type="button" class="linkish small" id="cx-ren-${esc(ct.id)}" data-act="ren" data-k="my" data-id="${esc(ct.id)}">Rename</button>`:''}${ok&&S.renK==='my:'+ct.id?renForm('my',ct.id,my.nm,'the mayor'):''}</div></div>
       <figure class="cx-lt"><figcaption class="cx-lt-h">${ct.rec&&ct.fn?ccSVG(ct,'cc-s'):''}<span>The Mayor’s office, ${esc(ct.nm)}</span><span class="cx-lt-d">${fmtDate(Math.max(wk*7*DAY,my.t||0))}</span></figcaption><blockquote class="cx-letter"><p>${esc(lead)} ${esc(L[hash(ct.id+':'+wk)%L.length])}</p><footer>${esc(my.nm)}, Mayor of ${esc(ct.nm)}</footer></blockquote></figure>
       ${ok?(fire?`<div class="row"><span class="hint">Dismiss ${esc(my.nm)}? A new mayor costs ${esc(costText(CX_MAYOR_COST))}.</span><button class="btn danger small-btn" data-act="cx-fire" data-id="${esc(ct.id)}">Dismiss</button><button class="linkish small" data-act="cx-fire-no">Keep</button></div>`:`<button class="linkish small" data-act="cx-fire-ask" data-id="${esc(ct.id)}">Dismiss the mayor…</button>`):''}</div></section>`;}
   else mayor=`<section class="cx-sec" id="cx-mayor"><h4 class="lbl-h">Mayor</h4><p class="hint">${esc(ct.nm)} has no mayor. Appointing one costs ${esc(costText(CX_MAYOR_COST))}, lifts the city’s mood by 3 and brings one trait. New candidates come forward every week.</p>${ok?`<ul class="cx-cands">${cxCands(ct,now).map((c,i)=>`<li class="opt cx-cand">${cxMayorMed(ct,c,'cx-cand-med')}<div class="opt-h"><b>${esc(c.nm)}</b></div><p class="opt-d"><span class="chip">${esc(CX_TRAITS[c.tr][0])}</span> ${esc(CX_TRAITS[c.tr][1])}</p><button class="btn" data-act="cx-mayor" data-id="${esc(ct.id)}" data-i="${i}"${lacking(CX_MAYOR_COST,st).length?' disabled':''}>Appoint</button></li>`).join('')}</ul>`:''}</section>`;
