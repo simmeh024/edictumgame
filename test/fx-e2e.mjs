@@ -29,6 +29,11 @@ check('the Bureau is in the menu, under its own address', /#exchange$/.test(A.ur
 check('before the first publication it says so, and offers the designer', /No rates have been published yet|Fetching/.test(await text(A, '.cu-empty')) && !!(await A.$('.cu-empty [data-v="customise"]')));
 await nav(A, 'nation');
 check('a new nation has a currency at once (Aldorian Crown, ALC)', /Aldorian Crown/.test(await text(A, '.cu-nsec')) && /ALC/.test(await text(A, '.cu-nsec')) && /next publication/.test(await text(A, '.cu-nsec')));
+await A.click('.cu-nsec [data-act="cu-view"]'); await sleep(300);
+check('the note and coin open up close: both faces of the note, both sides of the coin, the coin set', await A.evaluate(() => { const d = document.querySelector('dialog#cu-view[open]'); return !!d && d.querySelectorAll('.cuv-notes svg').length === 2 && d.querySelectorAll('.cuv-coins svg').length === 2 && d.querySelectorAll('.cuv-cs').length === 6 && /Aldorian Crown/.test(d.textContent); }));
+await A.screenshot({ path: path.join(OUT, 'currency-view-1280.png'), fullPage: false });
+await A.click('#cu-view [data-cuv-close]'); await sleep(200);
+check('and Close puts it away', !(await A.$('dialog#cu-view')));
 
 /* ── four days of the job ── */
 const now = Date.now();
