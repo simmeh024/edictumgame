@@ -37,12 +37,12 @@ await C.evaluate(()=>{const n=G.clone(G.S.nation);n.policies.centralBankIndepend
 await nav(C,'exchange');
 check('the Bureau explains the policy confidence and income trade-off',/monetary credibility \+/.test(await text(C,'.cu-connections'))&&/income per person −/.test(await text(C,'.cu-connections')));
 check('policy reports are saved in the private half only',await until(async()=>{const d=await nationDoc(uidC);return d?.rec.cuJournal?.length&&!d.shared.cuJournal;}));
-await nav(C,'nation');const ownProse=await text(C,'.overview > p:last-child');
+await nav(C,'nation');const ownProse=await text(C,'.overview > p:last-of-type');
 check('the nation overview has a separate currency paragraph grounded in its institutions',(await C.$$('.overview > p')).length===4&&/Coinlander Crown/.test(ownProse)&&/independent central bank/.test(ownProse),ownProse);
 await C.locator('.overview').screenshot({path:path.join(OUT,'currency-overview-1280.png')});
 await nav(D,'region');await regionTab(D);await D.click(`.tbl [data-act="visit"][data-id="${uidC}"]`);
-check('visiting that nation shows the same distinctive currency paragraph',await until(async()=>await text(D,'.overview > p:last-child')===ownProse));
-await nav(D,'nation');const otherProse=await text(D,'.overview > p:last-child');
+check('visiting that nation shows the same distinctive currency paragraph',await until(async()=>await text(D,'.overview > p:last-of-type')===ownProse));
+await nav(D,'nation');const otherProse=await text(D,'.overview > p:last-of-type');
 check('another nation has its own currency story',otherProse!==ownProse&&/Notelander Crown/.test(otherProse));
 
 await nav(C,'intel');await C.selectOption('#cv-tg',uidD);await C.click('[data-act="cv-k"][data-k="c"]');
