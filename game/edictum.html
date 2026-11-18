@@ -6030,6 +6030,31 @@ svg.cu-note.cu-note-v{width:28%!important;min-width:56px;height:auto!important;m
 .adst-heat .adst-hx{grid-column:span 6}
 .adst-list h3{margin:22px 0 2px;font-size:15px;color:var(--ink)}
 .adst-list h3 .hint{font-weight:400}
+/* the tabs and what nations do (Activity, Nations) */
+.adst-tabs{margin:22px 0 0}
+.adst-panel>.adst-sec:first-child,.adst-panel>.adm-kpis:first-child{margin-top:22px}
+.adst-acts{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
+.adst-style{display:inline-block;padding:1px 9px;border-radius:999px;border:1px solid var(--rule-2);background:var(--sheet-2);color:var(--ink);font-size:12px;font-weight:600;line-height:1.55;white-space:nowrap}
+.adst-style.s-builder{background:color-mix(in srgb,#c98a1a 24%,transparent)}.adst-style.s-expander{background:color-mix(in srgb,#2f9e5b 24%,transparent)}
+.adst-style.s-warlord{background:color-mix(in srgb,#c0392b 24%,transparent)}.adst-style.s-trader{background:color-mix(in srgb,#1f8a9c 24%,transparent)}
+.adst-style.s-diplomat{background:color-mix(in srgb,#5b5bd6 24%,transparent)}.adst-style.s-politician{background:color-mix(in srgb,#8e44ad 24%,transparent)}
+.adst-style.s-explorer{background:color-mix(in srgb,#2d7dd2 24%,transparent)}.adst-style.s-quiet{background:transparent;color:var(--ink-2);font-weight:500}
+.adst-ev{display:grid;grid-template-columns:88px minmax(0,1fr);align-items:baseline;gap:8px;padding:8px 2px;border-bottom:1px solid var(--rule-2);overflow-wrap:anywhere}
+.adst-ev time{font-size:12px;color:var(--ink-3);font-variant-numeric:tabular-nums}
+.adst-evt .adst-g th{padding-top:14px;text-align:left;font-size:13px;font-weight:650;color:var(--ink-2)}
+.adst-nfilt .field{flex:1 1 200px}
+.adst-ntbl td,.adst-ntbl th{white-space:nowrap}
+.adst-ntbl tr.on td{background:color-mix(in srgb,var(--accent) 10%,transparent)}
+.adst-nat{margin:18px 0 26px;padding:16px 18px;border:1px solid var(--rule);border-left:4px solid var(--accent);border-radius:4px;background:var(--sheet)}
+.adst-nat-top{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px}
+.adst-nat-top .h2{margin:0}
+.adst-nat-btns{margin:10px 0 4px}
+.adst-b{display:inline-block;margin:2px 12px 2px 0;white-space:nowrap}
+.adst-b.wip{color:var(--ink-2);font-style:italic}
+.adst-ug{font-size:10px;letter-spacing:1px;color:var(--accent)}
+.adst-grow{margin:12px 0 0}
+.adst-lead{display:block;margin-top:2px;font-size:13px}
+@media (max-width:640px){.adst-ev{grid-template-columns:64px minmax(0,1fr)}.adst-nat{padding:12px}.adst-b{white-space:normal}}
 @media (max-width:640px){.adst-row{grid-template-columns:minmax(0,1fr) 100px}.adst-row .adst-meter{grid-column:1/-1;grid-row:2}.adst-grid{grid-template-columns:minmax(0,1fr)}.adst-heat{grid-template-columns:28px repeat(24,minmax(0,1fr));gap:1px}}
 .adst-c.rel::before{content:'';position:absolute;top:0;bottom:0;left:50%;border-left:1px dashed var(--ink-3);pointer-events:none}
 .adst-c.rel::after{content:'';position:absolute;top:-13px;left:50%;width:7px;height:7px;transform:translateX(-50%) rotate(45deg);background:var(--ink-2);pointer-events:none}
@@ -53409,7 +53434,7 @@ const ADMST={reg:'',d:{},busy:false,err:'',exp:'',expMsg:''};
 const ST_FEAT={settled:'Settled a capital',land:'Claimed land',build:'Has a building',cities:'Has two cities or more',trade:'In a trade deal',explore:'Explored a site',alliance:'In an alliance',war:'At war',letters:'Wrote to another nation',assembly:'Took part in the Assembly',games:'Entered an event at the Games',covert:'Ran a covert operation',desk:'Cleared a daily desk',space:'On the Moon, Mars or the belt',moved:'Moved to another region',holiday:'On holiday now'};
 async function stLoad(refresh){
   if(ADMST.busy)return;const reg=ADMST.reg;ADMST.busy=true;ADMST.err='';render();
-  try{const d=await adminRequest({op:'stats',reg,refresh:!!refresh});if(refresh)ADMST.d={};ADMST.d[reg]=d;}
+  try{const d=await adminRequest({op:'stats',reg,refresh:!!refresh});if(refresh){ADMST.d={};ADMST.natD={};}ADMST.d[reg]=d;}
   catch(e){ADMST.err=e.message||'The statistics could not be counted.';}
   finally{ADMST.busy=false;if(S.view==='admin-stats')render();}
 }
@@ -53455,12 +53480,6 @@ function stRegions(d){
   const R=d.regions.slice().sort((a,b)=>b.a30-a.a30||b.nations-a.nations||(regName(a.reg)<regName(b.reg)?-1:1));
   return `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Region</th><th class="num">Nations</th><th class="num">Active today</th><th class="num">This week</th><th class="num">This month</th><th class="num">New this week</th><th class="num">Edicts today</th><th class="num">Board posts this week</th></tr></thead><tbody>
     ${R.map(r=>`<tr><td><button type="button" class="linkish" data-act="st-reg" data-v="${esc(r.reg)}">${esc(regName(r.reg))}</button></td><td class="num">${stN(r.nations)}</td><td class="num">${stN(r.a1)}</td><td class="num">${stN(r.a7)}</td><td class="num">${stN(r.a30)}</td><td class="num">${stN(r.new7)}</td><td class="num">${stN(r.dec1)}</td><td class="num">${stN(r.posts&&r.posts.week)}</td></tr>`).join('')}</tbody></table></div>`;
-}
-function stNations(d){
-  const L=d.list||[];if(!L.length)return '<p class="hint">No nations live here yet.</p>';
-  return `<p class="hint">${L.length<d.nationCount?`The ${stN(L.length)} most recently active of ${stN(d.nationCount)}`:`All ${stN(L.length)}`}, the most recently active first.</p>
-    <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Nation</th><th class="num">Population</th><th>Founded</th><th>Last active</th><th class="num">Edicts decided</th><th class="num">Today</th><th class="num">Cities</th><th class="num">Hexes claimed</th><th class="num">Tutorial steps</th><th>Player</th></tr></thead><tbody>
-    ${L.map(x=>`<tr><td>${esc(x.name)}</td><td class="num">${fmtPop(Number(x.pop)||0)}</td><td>${x.founded?esc(fmtDate(x.founded)):'–'}</td><td>${x.t?esc(rel(x.t)):'–'}</td><td class="num">${stN(x.dec)}</td><td class="num">${stN(x.ruled1)}</td><td class="num">${stN(x.cities)}</td><td class="num">${stN(x.claims)}</td><td class="num">${stN(x.tut)}</td><td><div class="row"><button class="btn ghost small" data-act="admin-inspect" data-id="${esc(x.id)}">Inspect player</button>${ADMST.reg===REG.id?`<button class="btn ghost small" data-act="visit" data-id="${esc(x.id)}">View nation</button>`:obsVisitBtn(ADMST.reg,x.id)}</div></td></tr>`).join('')}</tbody></table></div>`;
 }
 /* ───────── more statistics: content use, regions and social, operations (functions/stats-more.js) ───────── */
 const ST_REACH={museum:'Has a Museum collection',press:'Runs a newspaper (Dispatch)',mission:'Mission Control letters',willow:'Willow Street letters',edicts:'Has an edict in force',achievements:'Has an achievement'};
@@ -53514,6 +53533,155 @@ function stOps(d){
   <h3 class="help-h3">Bugs and support</h3><p class="hint">The last 90 days. ${stN(B.n)} bug ${B.n===1?'report':'reports'} (${Object.entries(B.st).map(([k,v])=>`${stN(v)} ${esc(k)}`).join(', ')||'none'}); ${stN(T.n)} support ${T.n===1?'ticket':'tickets'}, ${stN(T.open)} open of which ${stN(T.unanswered)} unanswered. The team’s first answer came after ${stN(T.firstAnswerH)} hours (the median of ${stN(T.answered)}).</p>
   ${stTbl([['Week from'],['Bug reports',1],['Tickets',1]],O.weeks.slice().reverse().map(w=>`<tr><td>${esc(fmtDate(w.w))}</td><td class="num">${stN(w.bugs)}</td><td class="num">${stN(w.tickets)}</td></tr>`))}`;
 }
+/* ───────── what nations do: the Activity and Nations tabs (functions/stats-acts.js) ─────────
+   Activity counts the timed actions nations' records keep (an edict decided, a building or an upgrade started, a hex
+   claimed, a war declared …) today, this week and day by day, the event log's last week, the buildings standing and each
+   nation's play style this week. Nations lists every nation (500 at most, the most recently active first) with what it
+   did lately, filtered, sorted and opened in full (admin op 'statsNation'). The page is split into tabs (ST_TABS). */
+const ST_TABS=[['overview','Overview'],['activity','Activity'],['nations','Nations'],['players','Players'],['content','Content'],['regions','Regions'],['ops','Operations']];
+Object.assign(ADMST,{tab:'overview',act:'build',q:'',sort:'t',style:'',nat:'',natD:{},natBusy:'',natErr:''});
+const ST_ACT={edict:['Edicts decided','edicts'],build:['Buildings started','buildings'],upgrade:['Upgrades and retools started','upgrades'],claim:['Hexes claimed','hexes'],city:['Cities founded','cities'],trade:['Trades signed or offered','trades'],war:['Wars declared','wars'],conq:['Hexes taken in war','hexes'],peace:['Peace made','treaties'],ally:['Alliance moves','moves'],spy:['Spy missions','missions'],exp:['Expeditions','expeditions'],vote:['Assembly votes','votes']};
+const ST_STYLE={builder:['Builder','buildings and upgrades'],expander:['Expander','land and new cities'],warlord:['Warlord','wars, conquests and spies'],trader:['Trader','trade deals and offers'],diplomat:['Diplomat','alliances and peace'],politician:['Politician','votes in the Assembly'],explorer:['Explorer','expeditions'],edicts:['Edicts only','decided edicts and nothing else'],quiet:['Quiet','nothing this week']};
+const ST_LIFE={iss:'Edicts decided',build:'Buildings finished',wonder:'Wonders finished',claim:'Hexes claimed',cities:'Cities founded',conq:'Hexes taken in war',lostc:'Hexes lost in war','log:war':'Wars declared','log:peace':'Peace made','log:trade':'Trade deals signed',deal:'Trade offers made',spy:'Spy missions',exp:'Expeditions',dm:'Letters written','asm:vote':'Assembly votes',games:'Games entered','medal:g':'Gold medals'};
+/* the event log's kinds: [group, what happened]; {a}, {b} and {fx} are the entry's own fields */
+const ST_LOG_G={war:'War and spies',dip:'Diplomacy and trade',land:'Land and cities',gov:'Government',cult:'Culture, wonders and the Games',other:'Other'};
+const ST_LOG={found:['land','Was founded'],war:['war','Declared war on {b}'],npcwar:['war','{b} declared war on it'],conq:['war','Took a hex of {fx} from {b}'],lost:['war','Lost a hex of {fx} to {b}'],peace:['war','Made peace with {b}'],hand:['war','Handed a hex on {fx} taken in war to {b}'],caught:['war','Had a spy caught by {b}'],incident:['war','Had an expedition stray onto {b}’s land'],cta:['war','Called {b} to arms against {fx}'],
+  trade:['dip','Signed a trade deal with {b}'],tradeend:['dip','Saw a trade deal with {b} end'],tradeno:['dip','Declined a trade offer from {b}'],shared:['dip','Shared an edict with {b}'],reply:['dip','Answered an edict {b} shared'],cede:['dip','Ceded a border hex on {fx} to {b}'],take:['dip','Annexed a border hex on {fx} from {b}'],lswap:['dip','Gave up a hex on {a} for free land on {fx}'],
+  alfound:['dip','Founded the alliance {b}'],aljoin:['dip','Joined {b}'],aladmit:['dip','Admitted {b} to its alliance'],alremove:['dip','Removed {b} from its alliance'],alleave:['dip','Left {b}'],aldisband:['dip','Dissolved {b}'],npcleft:['dip','Was left by {b}'],
+  settle:['land','Settled on {a}'],city:['land','Founded the city of {a} on {fx}'],cityren:['land','Renamed the city of {b} {a}'],cityab:['land','Abandoned the city of {a}'],move:['land','Moved to {fx}'],wake:['land','Woke after {a} days asleep'],autoland:['land','Took {a} hexes of land on its own'],rec:['land','Reclaimed land off {fx} from the sea'],provon:['land','Drew {a} provinces'],provmrg:['land','Merged the provinces {a} and {b}'],rvren:['land','Named a river {a}'],warehouse:['land','Fitted {fx} in {a}'],mile:['land','Passed {a} people'],
+  govnew:['gov','Made {b} Governor of {a}'],govsack:['gov','Sacked {b}, Governor of {a}'],sack:['gov','Sacked the {a}, {b}'],leader:['gov','Saw {a} {b} take office'],resign:['gov','Saw its leader resign'],retire:['gov','Saw its leader retire'],repeal:['gov','Repealed a law'],restore:['gov','Restored {b}'],cur:['gov','Renamed its currency the {b}'],fxm:['gov','Passed a currency milestone'],flag:['gov','Adopted a new flag'],sym:['gov','Could choose a new national symbol'],cat:['gov','Was reclassified as {b}'],
+  wonder:['cult','Finished the {b} in {a}'],wndr:['cult','Earned a region wonder reward'],damr:['cult','Took a share of the Great Dam'],games:['cult','Won {fx} at {a}'],gres:['cult','Took part in {a}'],host:['cult','Hosted {a}'],hostwin:['cult','Won the right to host {a}'],bid:['cult','Bid to host {a}'],bidoff:['cult','Withdrew a bid to host the Games'],disc:['cult','Made a discovery']};
+function stLogText(e){
+  const L=ST_LOG[e.k];if(!L)return `Logged “${esc(e.k)}”`;
+  return L[1].replace(/\{(a|b|fx)\}/g,(m,f)=>{const v=String(e[f]||'');return v&&!/^[A-Za-z0-9_-]{20,}$/.test(v)?esc(v):f==='b'?'another nation':'somewhere';});
+}
+const stSec=(t,hint,body,id)=>`<section class="adst-sec"${id?` id="${id}"`:''}><h2 class="h2">${t}</h2>${hint?`<p class="hint">${hint}</p>`:''}${body}</section>`;
+const stStyleChip=s=>s&&ST_STYLE[s]?`<span class="adst-style s-${esc(s)}" data-tip="${esc(ST_STYLE[s][0]+': mostly '+ST_STYLE[s][1])}">${esc(ST_STYLE[s][0])}</span>`:'<span class="hint">–</span>';
+const stActWord=(k,n)=>`${stN(n)} ${ST_ACT[k]?ST_ACT[k][0].toLowerCase():k}`;
+const stNatBtn=(id,name)=>`<button type="button" class="linkish" data-act="st-nat" data-id="${esc(id)}">${esc(name||'A nation')}</button>`;
+const ST_LAST={found:'Was founded',war:'Declared war',conq:'Took a hex in war',peace:'Made peace',hand:'Handed over a hex',cta:'Called an ally to arms',trade:'Signed a trade deal',tradeend:'A trade deal ended',tradeno:'Declined a trade offer',shared:'Shared an edict',reply:'Answered a shared edict',cede:'Ceded a hex',take:'Annexed a hex',lswap:'Swapped a hex',
+  alfound:'Founded an alliance',aljoin:'Joined an alliance',aladmit:'Admitted an ally',alremove:'Removed an ally',alleave:'Left an alliance',aldisband:'Dissolved an alliance',settle:'Settled',city:'Founded a city',cityren:'Renamed a city',cityab:'Abandoned a city',move:'Moved region',autoland:'Took land',rec:'Reclaimed land',provon:'Drew provinces',provmrg:'Merged provinces',rvren:'Named a river',warehouse:'Upgraded a warehouse',
+  govnew:'Appointed a governor',govsack:'Sacked a governor',sack:'Sacked a minister',leader:'Changed leader',resign:'Leader resigned',retire:'Leader retired',repeal:'Repealed a law',cur:'Renamed the currency',flag:'Adopted a flag',wonder:'Finished a wonder',wndr:'Earned a wonder reward',damr:'Shared in the Great Dam',games:'Won a medal',gres:'Took part in the Games',host:'Hosted the Games',hostwin:'Won a bid to host',bid:'Bid to host the Games',bidoff:'Withdrew a bid',disc:'Made a discovery'};
+/* the latest thing a nation did: [time, kind] with a kind of ACT or 'log:<kind>' (functions/stats-acts.js) */
+function stLast(l){
+  if(!Array.isArray(l))return '<span class="hint">Nothing recorded</span>';
+  const k=String(l[1]||''),w=k.startsWith('log:')?ST_LAST[k.slice(4)]||k.slice(4):ST_ACT[k]?ST_ACT[k][0]:k;
+  return `${esc(w)} <span class="hint">${esc(rel(l[0]))}</span>`;
+}
+function stTabBar(tab){
+  return `<div class="stabs adst-tabs" role="tablist" aria-label="Statistics">${ST_TABS.map(([k,l])=>`<button type="button" role="tab" class="stab adst-tab${k===tab?' on':''}" id="adst-t-${k}" data-act="st-tab" data-v="${k}" aria-selected="${k===tab}" aria-controls="adst-p-${k}" tabindex="${k===tab?0:-1}">${l}</button>`).join('')}</div>`;
+}
+
+/* ── Activity ── */
+function stActivity(d,R){
+  const A=d.act;if(!A)return '<p class="hint">Count again to see what nations do.</p>';
+  const kinds=Object.keys(ST_ACT),k=ST_ACT[ADMST.act]?ADMST.act:'build';
+  const tile=x=>`<div class="adm-kpi"><b>${stN(A.d7[x]||0)}</b><span>${esc(ST_ACT[x][0].toLowerCase())} this week · ${stN(A.d1[x]||0)} today${A.nat7[x]?` · by ${stN(A.nat7[x])} ${A.nat7[x]===1?'nation':'nations'}`:''}</span></div>`;
+  const recd=A.days.filter(x=>x.rec).length;
+  const daysTbl=`<details class="adst-tbl"><summary>Every kind, day by day</summary><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Day</th>${kinds.map(x=>`<th class="num">${esc(ST_ACT[x][0])}</th>`).join('')}</tr></thead><tbody>${A.days.slice().reverse().map(x=>`<tr><td>${esc(stDay(x.d))}${x.rec?'':' <span class="hint">live</span>'}</td>${kinds.map(y=>`<td class="num">${stN(x[y]||0)}</td>`).join('')}</tr>`).join('')}</tbody></table></div></details>`;
+  /* play styles: of the nations active this week */
+  const S7=A.active7,st=Object.keys(ST_STYLE).map(s=>[s,A.styles[s]||0]).sort((a,b)=>b[1]-a[1]);
+  const styles=`<div class="adst-rows">${st.map(([s,v])=>stBar(`${stStyleChip(s)} <span class="hint">mostly ${esc(ST_STYLE[s][1])}</span>${(A.lead[s]||[]).length?`<span class="adst-lead">${A.lead[s].map(x=>stNatBtn(x.id,x.name)).join(', ')}</span>`:''}`,v,S7)).join('')}</div>
+    ${A.styleRegs&&Object.keys(A.styleRegs).length?stFold('By region',stTbl([['Region'],...Object.keys(ST_STYLE).map(s=>[esc(ST_STYLE[s][0]),1])],Object.entries(A.styleRegs).sort((a,b)=>regName(a[0])<regName(b[0])?-1:1).map(([r,o])=>`<tr><td>${esc(regName(r))}</td>${Object.keys(ST_STYLE).map(s=>`<td class="num">${stN(o[s]||0)}</td>`).join('')}</tr>`))):''}`;
+  /* buildings by kind */
+  const B=Object.entries(A.builds).filter(([b])=>BUILDINGS[b]).sort((a,b)=>b[1].n-a[1].n||b[1].wk-a[1].wk),never=Object.keys(BUILDINGS).filter(b=>!(A.builds[b]&&(A.builds[b].n||A.builds[b].wk)));
+  const builds=B.length?`${stTbl([['Building'],['Standing',1],['Nations with one',1],['Started this week',1],['Upgrades each',1],['At gold',1],['Tier II',1]],B.map(([b,e])=>`<tr><td>${esc(BUILDINGS[b].n)}</td><td class="num">${stN(e.n)}</td><td class="num">${stN(e.nations)}</td><td class="num">${stN(e.wk)}</td><td class="num">${e.n?stN(Math.round(e.ug/e.n*10)/10):'–'}</td><td class="num">${stN(e.gold)}</td><td class="num">${stN(e.t2)}</td></tr>`))}
+    ${never.length?stFold(`Never built (${stN(never.length)})`,`<p class="hint">${never.map(b=>esc(BUILDINGS[b].n)).join(' · ')}</p>`):''}`:'<p class="hint">No buildings stand here yet.</p>';
+  /* the event log's last week, by group */
+  const ev=Object.entries(A.events.kinds),groups=Object.keys(ST_LOG_G).map(g=>[g,ev.filter(([kk])=>(ST_LOG[kk]?ST_LOG[kk][0]:'other')===g).sort((a,b)=>b[1][1]-a[1][1])]).filter(g=>g[1].length);
+  const evTbl=groups.length?`<div class="tbl-wrap"><table class="tbl adst-evt"><thead><tr><th>What happened</th><th class="num">Last 24 hours</th><th class="num">Last 7 days</th><th class="num">Nations</th></tr></thead>${groups.map(([g,L])=>`<tbody><tr class="adst-g"><th colspan="4" scope="colgroup">${esc(ST_LOG_G[g])}</th></tr>${L.map(([kk,v])=>`<tr><td>${ST_LOG[kk]?esc(ST_LOG[kk][1].replace(/\{(a|b|fx)\}/g,'…')):`<code>${esc(kk)}</code>`}</td><td class="num">${stN(v[0])}</td><td class="num">${stN(v[1])}</td><td class="num">${stN(v[2])}</td></tr>`).join('')}</tbody>`).join('')}</table></div>`:'<p class="hint">Nothing in any nation’s event log this week.</p>';
+  const latest=A.events.latest.length?`<ol class="adin-feed adst-latest">${A.events.latest.slice(0,40).map(e=>`<li class="adst-ev"><time datetime="${new Date(e.t).toISOString()}" data-tip="${esc(adminTime(e.t))}">${esc(rel(e.t))}</time><span>${stNatBtn(e.id,e.name)}${ADMST.reg?'':` <span class="hint">${esc(regName(e.reg))}</span>`}: ${stLogText(e)}</span></li>`).join('')}</ol>`:'<p class="hint">Nothing logged this week.</p>';
+  const life=Object.entries(ST_LIFE).filter(([x])=>A.life[x]);
+  return `<div class="adm-kpis adst-acts">${kinds.map(tile).join('')}</div>
+    <p class="hint">Of the ${stN(S7)} ${S7===1?'nation':'nations'} that played this week, each took ${stN(A.perNation7)} ${A.perNation7===1?'action':'actions'} (the median). Counted from the times each record keeps: the event log keeps 60 entries and the rulings 80, so further back the busiest nations count a little low.</p>
+    ${stSec('Actions each day',`The last 60 days. ${recd?`${stN(recd)} ${recd===1?'day was':'days were'} recorded the night after; the rest are counted now.`:'Each night’s count is recorded from tonight on; until then every day is counted now.'} ◆ marks a day with a development news post.`,
+      `<div class="adin-chips" role="group" aria-label="Kind of action">${kinds.map(x=>`<button type="button" class="btn ghost small" data-act="st-act" data-v="${x}" aria-pressed="${x===k}">${esc(ST_ACT[x][0])}</button>`).join('')}</div>
+      ${stCols(ST_ACT[k][0],'',A.days.map(x=>[stDay(x.d),x[k]||0,R[x.d]]),ST_ACT[k][1])}${daysTbl}`)}
+    ${stSec('Play styles this week',`What each of the ${stN(S7)} nations active this week did most, weighed: a city counts as four hexes, a war as two hexes taken. Click a name to open the nation.`,styles)}
+    ${stSec('What they build',`${stN(A.withBuildings)} ${A.withBuildings===1?'nation has':'nations have'} a building; ${stN(A.wip)} ${A.wip===1?'is':'are'} going up now, and ${stN(A.upgrades7)} ${A.upgrades7===1?'upgrade was':'upgrades were'} started this week. Upgrades run from 0 to 5 (gold).`,builds)}
+    ${stSec('Events this week','From every nation’s event log: what happened to it or what it did, by kind.',evTbl)}
+    ${stSec('Latest events','The newest 40 across '+(ADMST.reg?esc(regName(ADMST.reg)):'every region')+'. Click a name to open the nation.',latest)}
+    ${life.length?stSec('In all','What these nations have done over their lives, from each nation’s own tally (kept since the tally began).',`<div class="adst-rows">${life.map(([x,l])=>`<div class="adst-row adsh-row"><span class="adst-l">${esc(l)}</span><span class="adst-v">${stN(A.life[x])}</span></div>`).join('')}</div>`):''}`;
+}
+
+/* ── Nations ── */
+const ST_SORT=[['t','Last active'],['wk','Actions this week'],['pop','Population'],['eng','Engagement'],['dec','Edicts decided'],['founded','Newest'],['name','Name']];
+function stNationsTab(d){
+  const L=d.list||[],all=!ADMST.reg;if(!L.length)return '<p class="hint">No nations live here yet.</p>';
+  const q=ADMST.q.trim().toLowerCase(),sk=ST_SORT.some(s=>s[0]===ADMST.sort)?ADMST.sort:'t';
+  const F=L.filter(x=>(!q||String(x.name).toLowerCase().includes(q))&&(!ADMST.style||x.style===ADMST.style));
+  const by={name:(a,b)=>String(a.name).localeCompare(String(b.name)),t:(a,b)=>b.t-a.t},cmp=by[sk]||((a,b)=>(b[sk]||0)-(a[sk]||0)||b.t-a.t);
+  F.sort(cmp);
+  const wkTip=x=>Object.entries(x.a7||{}).sort((a,b)=>b[1]-a[1]).map(([k,n])=>stActWord(k,n)).join(' · ')||'Nothing this week';
+  const panel=ADMST.nat?stNatPanel():'';
+  return `${panel}<p class="hint">${L.length<d.nationCount?`The ${stN(L.length)} most recently active of ${stN(d.nationCount)}`:`All ${stN(L.length)}`}${all?' across every region':''}. Click a name to see what the nation has done.</p>
+    <div class="adst-pick adst-nfilt"><div class="field"><label for="st-nq">Find a nation</label><input class="input" id="st-nq" type="search" autocomplete="off" value="${esc(ADMST.q)}"></div>
+      <div class="field"><label for="st-nstyle">Style this week</label><select class="input" id="st-nstyle"><option value="">Every style</option>${Object.entries(ST_STYLE).map(([s,v])=>`<option value="${s}"${s===ADMST.style?' selected':''}>${esc(v[0])}</option>`).join('')}</select></div>
+      <div class="field"><label for="st-nsort">Sort by</label><select class="input" id="st-nsort">${ST_SORT.map(([s,l])=>`<option value="${s}"${s===sk?' selected':''}>${esc(l)}</option>`).join('')}</select></div></div>
+    <p class="hint" role="status">${F.length===L.length?'':`${stN(F.length)} of ${stN(L.length)} shown.`}</p>
+    ${F.length?`<div class="tbl-wrap"><table class="tbl adst-ntbl"><thead><tr><th>Nation</th>${all?'<th>Region</th>':''}<th>Style this week</th><th class="num">Actions this week</th><th>Last action</th><th>Last active</th><th class="num">Population</th><th class="num">Cities</th><th class="num">Hexes</th><th class="num">Buildings</th><th class="num">Edicts decided</th><th class="num">Engagement</th><th>Player</th></tr></thead><tbody>
+      ${F.map(x=>`<tr${x.id===ADMST.nat?' class="on"':''}><td>${stNatBtn(x.id,x.name)}</td>${all?`<td>${esc(regName(x.reg))}</td>`:''}<td>${stStyleChip(x.style)}</td><td class="num" data-tip="${esc(wkTip(x))}">${stN(x.wk||0)}</td><td>${stLast(x.last)}</td><td>${x.t?esc(rel(x.t)):'–'}</td><td class="num">${fmtPop(Number(x.pop)||0)}</td><td class="num">${stN(x.cities)}</td><td class="num">${stN(x.claims)}</td><td class="num">${stN(x.bld||0)}</td><td class="num">${stN(x.dec)}</td><td class="num">${stN(x.eng||0)}</td>
+        <td><div class="row"><button class="btn ghost small" data-act="admin-inspect" data-id="${esc(x.id)}">Inspect player</button>${(ADMST.reg||x.reg)===REG.id?`<button class="btn ghost small" data-act="visit" data-id="${esc(x.id)}">View nation</button>`:obsVisitBtn(ADMST.reg||x.reg,x.id)}</div></td></tr>`).join('')}</tbody></table></div>`:'<p class="hint">No nation matches.</p>'}`;
+}
+async function stNatOpen(id){
+  ADMST.nat=id;ADMST.natErr='';
+  if(!ADMST.natD[id]){ADMST.natBusy=id;render();
+    try{ADMST.natD[id]=await adminRequest({op:'statsNation',uid:id});}catch(e){ADMST.natErr=e.message||'The nation could not be read.';}
+    finally{ADMST.natBusy='';}}
+  if(ADMST.tab!=='nations')ADMST.tab='nations';
+  if(S.view==='admin-stats')render();
+  setTimeout(()=>{const h=document.getElementById('adst-nat-h');if(h){h.focus({preventScroll:true});h.scrollIntoView({block:'start'});}},0);
+}
+/* one nation in full: what it did lately and over its life, its cities and buildings, its laws and stock */
+function stNatPanel(){
+  const id=ADMST.nat,D=ADMST.natD[id],close=`<button type="button" class="btn ghost small" data-act="st-nat-close">Close</button>`;
+  if(ADMST.natBusy===id)return `<section class="adst-nat" id="adst-nat"><h3 class="h2" id="adst-nat-h" tabindex="-1">Reading the nation…</h3><p class="hint" role="status">Reading its record.</p></section>`;
+  if(!D)return `<section class="adst-nat" id="adst-nat"><h3 class="h2" id="adst-nat-h" tabindex="-1">The nation could not be read</h3><p class="err" role="alert">${esc(ADMST.natErr||'Try again.')}</p>${close}</section>`;
+  const now=Date.now(),wk=Object.entries(D.a7||{}).sort((a,b)=>b[1]-a[1]);
+  /* the timeline: its event log, its rulings, the buildings it started and the cities it founded, newest first */
+  const tl=[];
+  for(const l of D.log||[])tl.push([l.t,stLogText(l),ST_LOG[l.k]?ST_LOG[l.k][0]:'other']);
+  for(const r of D.rulings||[]){const is=ISSUE_BY_ID[r.id];tl.push([r.t,r.o<0?`Set aside “${is?admeText(is.t):esc(r.id)}”`:`Decided “${is?admeText(is.t):esc(r.id)}”${is&&is.o[r.o]?`: ${admeText(String(is.o[r.o].t).slice(0,120))}`:''}`,'edict']);}
+  for(const c of D.cities||[]){if(c.t)tl.push([c.t,`Founded ${esc(c.nm||'a city')}`,'land']);for(const b of c.b||[])if(b.s)tl.push([b.s,`Started ${esc(BUILDINGS[b.k]?BUILDINGS[b.k].n:b.k)} in ${esc(c.nm||'a city')}${b.d>now?` <span class="hint">· done ${esc(rel(b.d))}</span>`:''}`,'build']);}
+  tl.sort((a,b)=>b[0]-a[0]);
+  const tlHTML=L=>`<ol class="adin-feed adst-tl">${L.map(([t,x,g])=>`<li class="adst-ev"><time datetime="${new Date(t).toISOString()}" data-tip="${esc(adminTime(t))}">${esc(rel(t))}</time><span class="adst-tg g-${g}">${x}</span></li>`).join('')}</ol>`;
+  const ugDots=b=>b.ug?`<span class="adst-ug" aria-label="${b.ug} of 5 upgrades">${'●'.repeat(b.ug)}${'○'.repeat(Math.max(0,5-b.ug))}</span>`:'';
+  const cities=(D.cities||[]).map(c=>`<tr><td>${esc(c.nm||'A city')}${c.cap?' <span class="hint">capital</span>':''}</td><td>${c.t?esc(fmtDate(c.t)):'–'}</td><td>${(c.b||[]).length?c.b.map(b=>`<span class="adst-b${b.d>now?' wip':''}" data-tip="${esc((BUILDINGS[b.k]?BUILDINGS[b.k].n:b.k)+(b.d>now?': going up, done '+rel(b.d):b.ug?': '+b.ug+' of 5 upgrades':'')+(b.tr>=2?', tier '+TIER_ROMAN[b.tr]:'')+(b.up?'; an upgrade is being fitted':''))}">${esc(BUILDINGS[b.k]?BUILDINGS[b.k].n:b.k)}${b.tr>=2?' '+TIER_ROMAN[b.tr]:''} ${ugDots(b)}</span>`).join(''):'<span class="hint">None</span>'}</td></tr>`);
+  const T=D.tally||{},main=Object.entries(ST_LIFE).filter(([k])=>T[k]),byB=Object.entries(T).filter(([k])=>k.startsWith('build:')).map(([k,v])=>[BUILDINGS[k.slice(6)]?BUILDINGS[k.slice(6)].n:k.slice(6),v]).sort((a,b)=>b[1]-a[1]);
+  const byI=Object.entries(T).filter(([k])=>/^iss:[a-z]+$/.test(k)&&!['iss:ny','iss:nb'].includes(k)&&k!=='iss:chain').map(([k,v])=>[cap1(k.slice(4)),v]).sort((a,b)=>b[1]-a[1]);
+  const firsts=Object.entries(D.firsts||{}).filter(([k])=>ST_LIFE[k]||['build','claim','cities','iss','conq','spy','exp','dm','deal','games','wonder'].includes(k)).sort((a,b)=>a[1]-b[1]);
+  const hist=D.hist||[],p0=hist.length?hist[0][1]:0,p1=hist.length?hist[hist.length-1][1]:0;
+  const days=(D.days||[]).map(x=>[stDay(x.d),Object.keys(ST_ACT).reduce((s,k)=>s+(x[k]||0),0)]);
+  const pol=(D.policies||[]).filter(k=>POLICIES[k]).map(k=>POLICIES[k][0]),stock=Object.entries(D.stock||{});
+  return `<section class="adst-nat" id="adst-nat" aria-labelledby="adst-nat-h">
+    <div class="adst-nat-top"><h3 class="h2" id="adst-nat-h" tabindex="-1">${esc(D.name||'A nation')}</h3>${close}</div>
+    <p class="hint">${esc(regName(D.reg))} · founded ${D.founded?esc(fmtDate(D.founded)):'–'} · last saved ${D.t?esc(rel(D.t)):'–'} · ${fmtPop(D.pop||0)} people · ${stStyleChip(D.style)} this week · engagement ${admEng(D.eng)}${D.wars?` · at war with ${stN(D.wars)}`:''}${D.ally?' · in an alliance':''}</p>
+    <div class="row adst-nat-btns"><button class="btn ghost small" data-act="admin-inspect" data-id="${esc(D.id)}">Inspect player</button>${D.reg===REG.id?`<button class="btn ghost small" data-act="visit" data-id="${esc(D.id)}">View nation</button>`:obsVisitBtn(D.reg,D.id)}</div>
+    <div class="adst-grid">
+      <div class="adst-fig"><h3>This week</h3>${wk.length?`<div class="adst-rows">${wk.map(([k,n])=>`<div class="adst-row adsh-row"><span class="adst-l">${esc(ST_ACT[k]?ST_ACT[k][0]:k)}</span><span class="adst-v">${stN(n)}</span></div>`).join('')}</div>`:'<p class="hint">Nothing recorded this week.</p>'}
+        ${hist.length>1?`<p class="hint adst-grow">Population ${fmtPop(p0)} → ${fmtPop(p1)} since ${esc(fmtDate(hist[0][0]))} ${spark(hist.map(h=>h[1]),'Population over time')}</p><p class="hint adst-grow">Prosperity ${spark(hist.map(h=>h[2]),'Prosperity over time')} · productivity ×${stN(Math.round(hist[hist.length-1][3]*100)/100)}</p>`:''}</div>
+      ${stCols('Actions each day','The last 30 days, every kind together.',days,'actions')}
+    </div>
+    <h3 class="help-h3">What it did</h3>${tl.length?tlHTML(tl.slice(0,30))+(tl.length>30?stFold(`Older (${stN(tl.length-30)})`,tlHTML(tl.slice(30))):''):'<p class="hint">Nothing recorded.</p>'}
+    <h3 class="help-h3">Cities and buildings</h3>${cities.length?stTbl([['City'],['Founded'],['Buildings (● an upgrade)']],cities):'<p class="hint">No cities.</p>'}
+    <div class="adst-grid">
+      <div class="adst-fig"><h3>Over its life</h3>${main.length?`<div class="adst-rows">${main.map(([k,l])=>`<div class="adst-row adsh-row"><span class="adst-l">${esc(l)}${D.firsts&&D.firsts[k]?` <span class="hint">first ${esc(fmtDate(D.firsts[k]))}</span>`:''}</span><span class="adst-v">${stN(T[k])}</span></div>`).join('')}</div>`:'<p class="hint">No tally yet.</p>'}
+        ${byB.length?stFold('Buildings finished, by kind',stTbl([['Building'],['Finished',1]],byB.map(([n,v])=>`<tr><td>${esc(n)}</td><td class="num">${stN(v)}</td></tr>`))):''}
+        ${byI.length?stFold('Edicts decided, by topic',stTbl([['Topic'],['Decided',1]],byI.map(([n,v])=>`<tr><td>${esc(n)}</td><td class="num">${stN(v)}</td></tr>`))):''}
+        ${firsts.length?stFold('When each began',`<ul class="adm-tl">${firsts.map(([k,t])=>`<li><time>${esc(fmtDate(t))}</time>${esc(ST_LIFE[k]||k)}</li>`).join('')}</ul>`):''}</div>
+      <div class="adst-fig"><h3>Laws and stock</h3><p class="hint">${pol.length?`${stN(pol.length)} ${pol.length===1?'edict':'edicts'} in force: ${pol.map(esc).join(' · ')}`:'No edict in force.'}</p>
+        ${stock.length?`<p class="hint">Stock${D.stockAt?` when last saved (${esc(rel(D.stockAt))})`:''}: ${stock.map(([r,v])=>`${stN(v)} ${esc(resName(r))}`).join(' · ')}</p>`:''}</div>
+    </div></section>`;
+}
+document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-act]');if(!el||!S.isOwner)return;const a=el.dataset.act;
+  if(a==='st-tab'){ADMST.tab=el.dataset.v;render();setTimeout(()=>document.getElementById('adst-t-'+ADMST.tab)?.focus({preventScroll:true}),0);return;}
+  if(a==='st-act'){ADMST.act=el.dataset.v;render();return;}
+  if(a==='st-nat'){stNatOpen(el.dataset.id);return;}
+  if(a==='st-nat-close'){const id=ADMST.nat;ADMST.nat='';render();setTimeout(()=>{const b=document.querySelector(`.adst-ntbl [data-act="st-nat"][data-id="${CSS.escape(id)}"]`);if(b)b.focus();},0);}});
+document.addEventListener('keydown',e=>{const t=e.target;if(!t||!t.matches||!t.matches('.adst-tab')||!['ArrowLeft','ArrowRight','Home','End'].includes(e.key))return;
+  const tabs=[...document.querySelectorAll('.adst-tab')],i=tabs.indexOf(t),j=e.key==='Home'?0:e.key==='End'?tabs.length-1:(i+(e.key==='ArrowRight'?1:-1)+tabs.length)%tabs.length;e.preventDefault();tabs[j].click();});
+document.addEventListener('input',e=>{if(e.target.id==='st-nq'&&S.isOwner){ADMST.q=e.target.value;render();}});
+document.addEventListener('change',e=>{if(!S.isOwner)return;if(e.target.id==='st-nsort'){ADMST.sort=e.target.value;render();}else if(e.target.id==='st-nstyle'){ADMST.style=e.target.value;render();}});
 /* Export everything: the server sends the world, every region, every nation's row and the shop in one piece; the page
    adds a glossary and saves one JSON file, made for a spreadsheet or for an AI to read. */
 const ST_GLOSSARY={
@@ -53544,13 +53712,14 @@ function adminStatsView(){
   let body='';
   if(d){
     const A=d.accounts,days=d.days,hist=d.history.filter(h=>h.a1!=null),dev=d.devices||{},devAll=(dev.Desktop||0)+(dev.Mobile||0),R=stRelDays(d);
-    body=`<div class="adm-kpis">
+    const tab=ST_TABS.some(t=>t[0]===ADMST.tab)?ADMST.tab:'overview';
+    const T={
+      overview:()=>`<div class="adm-kpis">
       ${kpi(d.now15,'playing now (saved in the last 15 minutes)')}${kpi(d.a1,'active today (the last 24 hours)')}${kpi(d.a7,'active this week')}${kpi(d.a30,'active this month (30 days)')}
       ${kpi(stPc(d.a1,d.a30),'of this month’s players played today')}${kpi(d.new7,'new nations this week')}
       ${kpi(d.dec1,`edicts decided today, by ${stN(d.deciders1)} ${d.deciders1===1?'nation':'nations'}${d.deciders1?` (${stN(d.medRuled1)} each, the median)`:''}`)}${kpi(d.nations,'nations in all, dormant ones included')}
       ${all?kpi(stPc(A.new30Founded,A.new30),`of this month’s ${stN(A.new30)} new visitors founded a nation`):''}${kpi(stPc(A.registered,A.withNation),'of nations have a linked sign-in')}
     </div>
-    ${sec('Onboarding funnel','From founding to a nation that has settled in, for the nations founded in the last eight weeks.',stFunnel(d))}
     ${sec('Day by day',(d.releases||[]).length?'◆ marks a day with a development news post.':'',`<div class="adst-grid">
       ${hist.length?stCols('Players active each day','Nations saved in the 24 hours up to midnight UTC, recorded every night'+(hist.length<7?`; the record began ${esc(stDay(hist[0].d))}`:'')+'.',hist.map(h=>[stDay(h.d),h.a1,R[h.d]]),'players'):`<figure class="adst-fig"><h3>Players active each day</h3><p class="hint">Recorded every night from now on by the Statistics workflow (jobs/stats): the first day appears after the next midnight UTC. Until then, the active counts above are today’s.</p></figure>`}
       ${stCols('Nations founded each day','Nations still in the game, by the day they were founded.',days.map(x=>[stDay(x.d),x.founded,R[x.d]]),'nations')}
@@ -53561,15 +53730,12 @@ function adminStatsView(){
       <h3 class="help-h3">By the week they were founded</h3><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Week from</th><th class="num">Founded</th><th class="num">Back after a day</th><th class="num">Back after a week</th><th class="num">Active in the last 7 days</th></tr></thead><tbody>
         ${d.weeks.slice().reverse().map(w=>`<tr><td>${esc(fmtDate(w.w))}</td><td class="num">${stN(w.n)}</td><td class="num">${w.d1.of?`${stPc(w.d1.kept,w.d1.of)} <span class="hint">${stN(w.d1.kept)}</span>`:'–'}</td><td class="num">${w.d7.of?`${stPc(w.d7.kept,w.d7.of)} <span class="hint">${stN(w.d7.kept)}</span>`:'–'}</td><td class="num">${w.n?`${stPc(w.a7,w.n)} <span class="hint">${stN(w.a7)}</span>`:'–'}</td></tr>`).join('')}</tbody></table></div>
       <p class="hint">Active nations have played for ${stN(Math.round(d.ageDays))} days, the median. The median population is ${fmtPop(d.pop.p50||0)}; the top tenth have ${fmtPop(d.pop.p90||0)} or more, and the largest ${fmtPop(d.pop.max||0)}.</p>`)}
-    ${sec('When nations play','',stHours(d.hours))}
-    ${sec('Edicts',`${stN(d.dec7)} edicts decided and ${stN(d.skip7)} set aside in the last 7 days (${stPc(d.skip7,d.dec7+d.skip7)} set aside); ${stN(d.edicts.distinct)} different edicts in the last 30 days.`,`<div class="adst-grid">
-      <div class="adst-fig"><h3>Edict pace</h3><p class="hint">What the ${stN(d.active30)} nations active this month chose in Settings.</p><div class="adst-rows">${FREQS.map(([m,l])=>stBar(esc(l),d.pace[m]||0,d.active30)).join('')}</div></div>
-      <div class="adst-fig"><h3>Edicts waiting</h3><p class="hint">On the desks of the ${stN(d.active7)} nations active this week. Five fill a desk (ten for the Chancery Club).</p><div class="adst-rows">${[['none','None waiting'],['some','One to four'],['full','Five or more']].map(([k,l])=>stBar(l,d.waiting[k]||0,d.active7)).join('')}</div></div></div>
-      <h3 class="help-h3">Most decided in the last 30 days</h3>${stEdicts(d)}`)}
+    ${sec('When nations play','',stHours(d.hours))}`,
+      activity:()=>stActivity(d,R),
+      nations:()=>sec(all?'Every nation':`Nations in ${esc(regName(reg))}`,'',stNationsTab(d)),
+      players:()=>`${sec('Onboarding funnel','From founding to a nation that has settled in, for the nations founded in the last eight weeks.',stFunnel(d))}
     ${sec('Getting started',`How many of the ${stN(d.nationCount)} nations have done each step of the tutorial, group by group.`,`<div class="adst-list">${TUT_LISTS.map(L=>`<h3>${esc(L.eb)}: ${esc(stTxt(L.t,L.k))} ${L.c?`<span class="hint">· bonus paid to ${stPc(d.lists[L.c]||0,d.nationCount)}</span>`:''}</h3>
       <div class="adst-rows">${L.tasks.map(s=>stBar(esc(stTxt(s.t,s.k)),d.tut[s.k]||0,d.nationCount)).join('')}</div>`).join('')}</div>`)}
-    ${sec('What nations use',`Of the ${stN(d.active30)} nations active this month.`,`<div class="adst-rows">${Object.entries(ST_FEAT).map(([k,l])=>[l,d.features[k]||0]).sort((a,b)=>b[1]-a[1]).map(([l,k])=>stBar(l,k,d.active30)).join('')}</div>`)}
-    ${sec('Feature use over time','Night by night, with the days of development news marked: did players take up what was released?',stFeatHist(d,R))}
     ${sec('Engagement','',stEngage(d))}
     ${sec('Accounts and devices','',`<div class="adst-grid">
       <div class="adst-fig"><h3>Sign-ins</h3><p class="hint">The accounts behind the ${stN(A.withNation)} nations${all?`, among ${stN(A.total)} accounts in all (${stN(A.total-A.withNation)} without a nation: visitors who never founded one, or a second device). ${stN(A.new7)} new accounts this week`:''}${A.limited?'; the first 50,000 accounts were counted':''}.</p>
@@ -53577,9 +53743,18 @@ function adminStatsView(){
       <div class="adst-fig"><h3>Devices</h3><p class="hint">Players whose game reported from each kind of device in the last 24 hours; one playing on both counts twice.</p>
         <div class="adst-rows">${stBar('Desktop',dev.Desktop||0,devAll)}${stBar('Phone or tablet',dev.Mobile||0,devAll)}</div>
         <p class="hint" style="margin-top:14px">${stN(d.finery)} ${d.finery===1?'player owns':'players own'} cosmetics from the Shop. ${d.posts?`${stN(d.posts.week)} board posts this week, ${stN(d.posts.all)} on the ${all?'boards':'board'} in all.`:''}</p></div></div>`)}
-    ${d.more?sec('Content use','What players use: edicts, achievements, the daily desk and each part of the game.',stContent(d))+sec(all?'Regions and social':'Region and social','',stSocial(d))+sec('Operations','Save health, pages, bug reports and support.',stOps(d)):''}
-    ${sec('Recruiting','Players who founded a nation through another player’s recruiting link, and whether they stayed.',stRecruits(d))}
-    ${all?sec('Regions','Choose a region to see its figures and its nations.',stRegions(d)):sec(`Nations in ${esc(regName(reg))}`,'',stNations(d))}`;
+    ${sec('Recruiting','Players who founded a nation through another player’s recruiting link, and whether they stayed.',stRecruits(d))}`,
+      content:()=>`${sec('Edicts',`${stN(d.dec7)} edicts decided and ${stN(d.skip7)} set aside in the last 7 days (${stPc(d.skip7,d.dec7+d.skip7)} set aside); ${stN(d.edicts.distinct)} different edicts in the last 30 days.`,`<div class="adst-grid">
+      <div class="adst-fig"><h3>Edict pace</h3><p class="hint">What the ${stN(d.active30)} nations active this month chose in Settings.</p><div class="adst-rows">${FREQS.map(([m,l])=>stBar(esc(l),d.pace[m]||0,d.active30)).join('')}</div></div>
+      <div class="adst-fig"><h3>Edicts waiting</h3><p class="hint">On the desks of the ${stN(d.active7)} nations active this week. Five fill a desk (ten for the Chancery Club).</p><div class="adst-rows">${[['none','None waiting'],['some','One to four'],['full','Five or more']].map(([k,l])=>stBar(l,d.waiting[k]||0,d.active7)).join('')}</div></div></div>
+      <h3 class="help-h3">Most decided in the last 30 days</h3>${stEdicts(d)}`)}
+    ${sec('What nations use',`Of the ${stN(d.active30)} nations active this month.`,`<div class="adst-rows">${Object.entries(ST_FEAT).map(([k,l])=>[l,d.features[k]||0]).sort((a,b)=>b[1]-a[1]).map(([l,k])=>stBar(l,k,d.active30)).join('')}</div>`)}
+    ${sec('Feature use over time','Night by night, with the days of development news marked: did players take up what was released?',stFeatHist(d,R))}
+    ${d.more?sec('Content use','What players use: edicts, achievements, the daily desk and each part of the game.',stContent(d)):''}`,
+      regions:()=>`${d.more?sec(all?'Regions and social':'Region and social','',stSocial(d)):''}${all?sec('Regions','Choose a region to see its figures and its nations.',stRegions(d)):''}`,
+      ops:()=>d.more?sec('Operations','Save health, pages, bug reports and support.',stOps(d)):'<p class="hint">Count again to see the operations figures.</p>',
+    };
+    body=`${stTabBar(tab)}<div class="adst-panel" role="tabpanel" id="adst-p-${tab}" aria-labelledby="adst-t-${tab}">${T[tab]()}</div>`;
   }
   return admShell('admin-stats',`<p class="eyebrow">Admin portal</p><h1 class="display">Statistics</h1>
     <p class="lede">How players use Edictum in ${esc(where)}: counted on the server from every nation’s save and every sign-in account, and kept for ten minutes.${d?` Counted ${esc(rel(d.at))}.`:''} <button type="button" class="linkish" data-act="st-refresh"${ADMST.busy?' disabled':''}>${ADMST.busy?'Counting…':'Count again'}</button></p>
@@ -53587,7 +53762,7 @@ function adminStatsView(){
     ${ADMST.exp||ADMST.expMsg?`<p class="hint" role="status">${esc(ADMST.exp||ADMST.expMsg)}${ADMST.exp?'':' One JSON file with every figure, every region, every nation and the shop, with a glossary: ready for a spreadsheet or an AI to analyse.'}</p>`:''}
     ${ADMST.busy?`<p class="hint" role="status">Counting every nation${all?'':' in '+esc(regName(reg))}…</p>`:''}${ADMST.err?`<p class="err" role="alert">${esc(ADMST.err)} <button type="button" class="linkish" data-act="st-retry">Try again</button></p>`:''}${body}`);
 }
-function stPick(reg){ADMST.reg=REG_BY_ID[reg]?reg:'';ADMST.err='';ADIN.fun=null;if(!ADMST.d[ADMST.reg])stLoad(false);else render();const m=document.getElementById('adm-main');if(m)m.focus({preventScroll:true});window.scrollTo(0,0);}
+function stPick(reg){ADMST.reg=REG_BY_ID[reg]?reg:'';ADMST.err='';ADIN.fun=null;ADMST.nat='';if(!ADMST.d[ADMST.reg])stLoad(false);else render();const m=document.getElementById('adm-main');if(m)m.focus({preventScroll:true});window.scrollTo(0,0);}
 document.addEventListener('change',e=>{if(e.target.id==='st-reg'&&S.isOwner)stPick(e.target.value);});
 document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-act]');if(!el||!S.isOwner)return;const a=el.dataset.act;
   if(a==='st-reg'){stPick(el.dataset.v);return;}

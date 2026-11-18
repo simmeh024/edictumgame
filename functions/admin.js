@@ -5,6 +5,7 @@ import { getAuth } from 'firebase-admin/auth';
 import { registered, banMarks } from './eligibility.js';
 import { nationText } from './nationtext.js';
 import { gather, summarize, nationRow, saveEngage, loadEngage } from './stats.js';
+import { nationDetail } from './stats-acts.js';
 import { feed, SPANS, GROUP } from './feed.js';
 import { alertConfig, ALERT_DEFAULTS } from './alerts.js';
 import { setComp, setGrant, packState } from './shop.js';
@@ -231,6 +232,20 @@ async function stats(db, data) {
   if (!counted.more) counted.more = await gatherMore(db, counted.at);
   return { ...summarize(counted, reg), more: moreSummary(counted, counted.more, reg) };
 }
+/* One nation in full for the Statistics page's Nations tab (functions/stats-acts.js, nationDetail): read fresh, both
+   halves joined as functions/stats.js nationRow joins them. Never the own half (nationp): a player's letters stay theirs. */
+async function statsNation(db, data) {
+  const uid = id(data.uid);
+  const [s, x] = await Promise.all([db.doc('nations/' + uid).get(), db.doc('nationx/' + uid).get()]);
+  if (!s.exists) throw new HttpsError('not-found', 'That nation no longer exists.');
+  const parse = t => { try { const v = JSON.parse(t); return v && typeof v === 'object' && !Array.isArray(v) ? v : null; } catch { return null; } };
+  const shared = s.data(), txt = nationText(shared), own = txt != null ? parse(txt) : shared;
+  if (!own) throw new HttpsError('failed-precondition', 'That nation’s record could not be read.');
+  const r = Object.assign({}, parse(x.exists ? x.get('j') : null) || {}, own);
+  if (!r.reg) r.reg = shared.reg; if (!r.name) r.name = shared.name; if (!r.updatedAt) r.updatedAt = shared.updatedAt;
+  const now = Date.now(), row = nationRow(uid, shared, x.exists ? x.data() : null, now);
+  return { ...nationDetail(uid, r, now), eng: row?.eng || null, style: row?.style || '', features: row ? row.f.concat(row.f2 || []) : [] };
+}
 /* Export everything (the Statistics page's Export button): the world and every region as the page counts them, every
    nation's row (no account details: no email, IP or sign-in), the shop, for a spreadsheet or an AI to read. */
 async function statsExport(db) {
@@ -240,7 +255,8 @@ async function statsExport(db) {
   const shop = await shopStats(db);
   const nations = counted.rows.map(x => ({ id: x.id, reg: x.reg, name: x.name, pop: x.pop, founded: x.founded, lastActive: x.t, decided: x.dec,
     decided14d: x.r14, daysPlayed14d: x.d14, cities: x.cities, claims: x.claims, edictPace: x.freq, inbox: x.inbox, engagement: x.eng?.[0] ?? null,
-    tutorialSteps: x.tut.length, tutorialLists: x.lists, features: x.f.concat(x.f2 || []), edictsInForce: x.pol || [], achievements: x.ach || [] }));
+    tutorialSteps: x.tut.length, tutorialLists: x.lists, features: x.f.concat(x.f2 || []), edictsInForce: x.pol || [], achievements: x.ach || [],
+    styleThisWeek: x.style, actionsThisWeek: x.a7, lastAction: x.last, buildings: x.bld, lifetime: x.life }));
   return { at: counted.at, world, regions, shop, nations };
 }
 /* The Shop statistics page (functions/shop-stats.js): the shop's billing records are few, so they are read whole
@@ -564,6 +580,7 @@ export const adminConsole = onCall({ region: 'europe-west1', maxInstances: 5, me
   if (d.op === 'stats') return stats(db, d);
   if (d.op === 'shopStats') return shopStats(db);
   if (d.op === 'statsExport') return statsExport(db);
+  if (d.op === 'statsNation') return statsNation(db, d);
   if (d.op === 'audit') return audit(db, d);
   if (d.op === 'region') return setRegion(db, actor, d);
   if (d.op === 'moderate') return mutate(db, actor, d);
