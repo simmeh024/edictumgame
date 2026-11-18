@@ -17,7 +17,7 @@ vm.runInContext([
   grab(/function hash\(str\)\{.*\}/), grab(/function rng\(seed\)\{.*\}/), grab(/const esc = .*;/),
   slice('const SCR_FAM={', '/* the script inside another drawing'),
   grab(/function scrFmt\(v,a,b\)\{[\s\S]*?\n\}/),
-  'this.X={hash,SCR_FAM0,SCR_FAM,SCR_ABC,SCR_ON,SCR_B,scrClean,scrDef,scrOf,scrGlyphs,scrChars,scrLay,scrSVG,scrFmt,scrCodeOk,scrCustom,scrNode,scrSet,scrFamOf,scrMirror};'
+  'this.X={scrEdParse,scrEdCode,scrPaths,hash,SCR_FAM0,SCR_FAM,SCR_ABC,SCR_ON,SCR_B,scrClean,scrDef,scrOf,scrGlyphs,scrChars,scrLay,scrSVG,scrFmt,scrCodeOk,scrCustom,scrNode,scrSet,scrFamOf,scrMirror};'
 ].join('\n'), ctx);
 const X = ctx.X, plain = v => JSON.parse(JSON.stringify(v));
 
@@ -118,8 +118,9 @@ test('a sign drawn by hand: strokes on a 5 × 8 grid, curves, closed shapes and 
   assert.equal(g.w, 10);
   assert.ok(X.scrCodeOk('0z'));
   assert.ok(X.scrCodeOk('.0,.1,.2,.3'));
-  assert.equal(X.scrCodeOk('.0,.1,.2,.3,.4'), false, 'five dots');
-  assert.equal(X.scrCodeOk('01,02,03,04,05,06,07'), false, 'seven strokes');
+  assert.ok(X.scrCodeOk('.0,.1,.2,.3,.4,.5'), 'six dots');
+  assert.equal(X.scrCodeOk('.0,.1,.2,.3,.4,.5,.6'), false, 'seven dots');
+  assert.equal(X.scrCodeOk('01,02,03,04,05,06,07,08,09,0a,0b'), false, 'eleven strokes');
   assert.equal(X.scrCodeOk('0123456789ab'), false, 'twelve points');
   assert.equal(X.scrCodeOk('0'), false);
   assert.equal(X.scrCodeOk('0E'), false, 'no point beyond the grid');
@@ -162,4 +163,47 @@ test('the words run left to right, right to left, in columns, or ox-turning', ()
   assert.equal(at(ox, 'C').g, X.scrMirror(G[2]), 'its letters mirrored');
   assert.equal(X.scrLay({ ...sp, dr: 'bou' }, 'CD', { wi: 1 }).items[0].g, X.scrMirror(G[3]), 'a line drawn a word at a time keeps count');
   assert.match(X.scrSVG({ ...sp, dr: 'ttb' }, 'AB', { v: 1 }), /style="--k:[0-9.]+"/);
+});
+
+test('the letter editor’s strokes: half units, straight or curved, a brush with its pressure and width, dots of three sizes', () => {
+  const code = '@s02000s,@c23k0agks,@s12a0ac0ca0,:3a8', g = X.scrCustom(code);
+  assert.ok(X.scrCodeOk(code));
+  assert.deepEqual(plain(g.S), [
+    { p: [[0, 0], [0, 14]], sm: 0 },
+    { p: [[10, 0], [5, 8], [10, 14]], sm: 1, br: 1, pf: 0, wm: 1.6 },
+    { p: [[5, 0], [5, 6], [0, 6]], sm: 0, z: 1, br: 1, pf: 4, wm: 1 }]);
+  assert.deepEqual(plain(g.D), [[[5, 4], 1.5]]);
+  assert.ok(g.x0 < 0 && g.w > 10, 'room either side for a thick brush');
+  assert.ok(X.scrCodeOk('@c12' + '0a'.repeat(20)), 'twenty points');
+  assert.equal(X.scrCodeOk('@c12' + '0a'.repeat(22)), false, 'not twenty-two');
+  assert.equal(X.scrCodeOk('@c120l'), false, 'one point is not a stroke');
+  assert.equal(X.scrCodeOk('@c12lo0a'), false, 'nothing right of the box (l is 10.5)');
+  assert.equal(X.scrCodeOk('@c120t0a'), false, 'nothing below it (t is 14.5)');
+  assert.equal(X.scrCodeOk('@x12000s'), false);
+  assert.equal(X.scrCodeOk('@s62000s'), false, 'six brushes, 0 to 5');
+  assert.equal(X.scrCodeOk(':4a8'), false, 'three dot sizes');
+});
+
+test('the editor reads a sign and writes it back; the old grid comes over as pen strokes', () => {
+  const code = '@s02000s,@c23k0agks,@s12a0ac0ca0,:3a8', m = X.scrEdParse(code);
+  assert.equal(m.st.length, 3);
+  assert.deepEqual(plain(m.st[1]), { c: 'c', b: '2', w: '3', p: [[10, 0], [5, 8], [10, 14]] });
+  assert.equal(X.scrEdCode(m), code);
+  const old = X.scrEdParse('0z,~4mD,2hf2,.c');
+  assert.deepEqual(plain(old.st.map(t => [t.c, t.b, t.p.length])), [['s', '0', 2], ['c', '0', 3], ['s', '0', 4]]);
+  assert.deepEqual(plain(old.dt), [{ z: '2', p: [5, 4] }]);
+  const back = X.scrEdCode(old);
+  assert.equal(back, '@s02000s,@c02k0agks,@s02a0ac0ca0,:2a8');
+  assert.deepEqual(plain(X.scrCustom(back).S.map(t => t.p)), plain(X.scrCustom('0z,~4mD,2hf2,.c').S.map(t => t.p)), 'the same shape on the finer grid');
+  assert.equal(X.scrEdCode({ st: [{ c: 's', b: '1', w: '2', p: [[1, 1]] }], dt: [] }), '', 'a stroke of one point is dropped');
+});
+
+test('a brush stroke is filled: an even one ends round, the pen stays a line', () => {
+  const sp = { w: 2, tm: 'round' }, even = X.scrPaths(X.scrCustom('@s12000s'), 0, sp), pen = X.scrPaths(X.scrCustom('@s02000s'), 0, sp);
+  assert.equal(even.st, '');
+  assert.match(even.fl, /^M[-0-9. L]+Z$/);
+  const ys = even.fl.match(/-?[0-9.]+/g).map(Number).filter((v, i) => i % 2 === 1);
+  assert.ok(Math.min(...ys) < 0 && Math.max(...ys) > 14, 'round ends reach past the first and last point');
+  assert.equal(pen.fl, '');
+  assert.match(pen.st, /^M0 0L0 14$/);
 });
