@@ -26,7 +26,7 @@ const kind = id => /^nbr-.+-r$/.test(id) ? 'nbr-r' : /^nbr-/.test(id) ? 'nbr' : 
 test('two hundred, numbered after every older edict, placed after the productivity edicts with nothing after them', () => {
   const a = code.indexOf('const NBR_ISSUES=['), b = code.indexOf('/* ───────── the browser tab');
   assert.ok(a > code.indexOf('for(const is of PRD_ISSUES)') && a < b, 'after the productivity edicts, before the browser tab');
-  assert.equal(code.indexOf('ISSUES.push(', code.indexOf(LOOP) + LOOP.length + 1), -1, 'nothing is added after them');
+  assert.equal(code.indexOf('ISSUES.push(', code.indexOf(LOOP) + LOOP.length + 1), code.indexOf('for(const is of HX_ISSUES){ISSUES.push(') + 27, 'only the history edicts (their own test, edicts-history) are added after them');
   const { L, R } = load();
   assert.equal(L.length, 200);
   assert.deepEqual(L.map(x => x.no), Array.from({ length: 200 }, (_, i) => 10 + i), 'numbered in order');

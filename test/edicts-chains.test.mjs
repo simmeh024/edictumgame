@@ -34,7 +34,7 @@ test('a hundred edicts, numbered after every older one, in twenty chains of five
   assert.equal(Object.keys(chains).length,20);
   for(const [k,steps] of Object.entries(chains))assert.deepEqual(steps,[1,2,3,4,5],k+' in order');
   assert(/'CHN_ISSUES'/.test(readFileSync(new URL('../scripts/split-content.mjs',import.meta.url),'utf8')),'the content split carries them');
-  assert(source.includes('Rule on over 2,800 edicts'),'the front page counts them');
+  assert(source.includes('Rule on over 2,900 edicts'),'the front page counts them');
 });
 
 test('only the first of each chain is drawn at random; every option of steps one to four leads on',()=>{
