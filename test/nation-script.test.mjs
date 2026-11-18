@@ -17,12 +17,12 @@ vm.runInContext([
   grab(/function hash\(str\)\{.*\}/), grab(/function rng\(seed\)\{.*\}/), grab(/const esc = .*;/),
   slice('const SCR_FAM={', '/* the script inside another drawing'),
   grab(/function scrFmt\(v,a,b\)\{[\s\S]*?\n\}/),
-  'this.X={SCR_FAM,SCR_ABC,SCR_ON,SCR_B,scrClean,scrDef,scrOf,scrGlyphs,scrChars,scrLay,scrSVG,scrFmt,scrCodeOk,scrCustom,scrNode,scrSet,scrFamOf,scrMirror};'
+  'this.X={hash,SCR_FAM0,SCR_FAM,SCR_ABC,SCR_ON,SCR_B,scrClean,scrDef,scrOf,scrGlyphs,scrChars,scrLay,scrSVG,scrFmt,scrCodeOk,scrCustom,scrNode,scrSet,scrFamOf,scrMirror};'
 ].join('\n'), ctx);
 const X = ctx.X, plain = v => JSON.parse(JSON.stringify(v));
 
-test('six families, 36 different signs each, for any seed', () => {
-  assert.deepEqual(Object.keys(X.SCR_FAM), ['ang', 'brush', 'wedge', 'loop', 'dot', 'knot']);
+test('nine families, 36 different signs each, for any seed', () => {
+  assert.deepEqual(Object.keys(X.SCR_FAM), ['ang', 'brush', 'wedge', 'loop', 'dot', 'knot', 'ink', 'stamp', 'mod']);
   assert.equal(X.SCR_ABC.length, 36);
   for (const f of Object.keys(X.SCR_FAM)) for (const s of [0, 7, 4242, 99991, 4294967295]) {
     const G = X.scrGlyphs(s, f);
@@ -45,6 +45,25 @@ test('a nation without a choice writes in the script its seed gives it', () => {
   assert.deepEqual(plain(X.scrOf(n)), plain(d));
   assert.deepEqual(plain(X.scrOf({ ...n, scr: { f: 'dot', on: ['sign'] } })), { ...plain(d), f: 'dot', on: ['sign'] });
   assert.notEqual(X.scrDef({ seed: 'abd' }).s, d.s);
+});
+
+test('families added later never change the script of a nation that did not choose', () => {
+  const six = ['ang', 'brush', 'wedge', 'loop', 'dot', 'knot'];
+  assert.deepEqual([...X.SCR_FAM0], six);
+  for (let i = 0; i < 300; i++) { const k = 'seed' + i; assert.equal(X.scrDef({ seed: k }).f, six[X.hash('scrf:' + k) % 6], k); }
+});
+
+test('the new families: brushed squares, stamped signs, one modern line', () => {
+  const ink = X.scrGlyphs(11, 'ink'), stamp = X.scrGlyphs(11, 'stamp'), mod = X.scrGlyphs(11, 'mod');
+  assert.ok(ink.every(g => g.br === 1 && g.S.length >= 1 && g.S.length <= 4 && g.S.every(t => [1, 2, 3].includes(t.pf))), 'ink: one to four brush strokes, each with its pressure');
+  assert.ok(stamp.every(g => g.S.length >= 1 && !g.br), 'stamped: drawn with the pen');
+  assert.ok(stamp.some(g => g.S.some(t => t.z)), 'stamped: closed shapes');
+  for (const g of mod) {
+    const ys = g.S[0].p.map(q => q[1]);
+    assert.ok(Math.min(...ys) === 0 && Math.max(...ys) === 14, 'modern: the line reaches from the top to the foot');
+    assert.ok(g.S[0].p.length >= 4);
+  }
+  for (const f of ['ink', 'stamp', 'mod']) assert.match(X.scrSVG({ s: 3, f, w: 2 }, 'Saffron Coast'), /<path d="M/);
 });
 
 test('the stored choice is cleaned: only what is understood is kept', () => {
