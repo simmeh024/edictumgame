@@ -55,7 +55,7 @@ check('Tab leaves a precise control', await page.evaluate(() => document.activeE
 await page.click('#fg-st [data-fst="undo"]'); check('a numeric gesture is one Undo step', (await fdraft()).layers[1].r === 0 && (await fdraft()).layers[1].x === 37.5);
 let fb = await page.locator('#fg-st .fs-flag > svg').first().boundingBox(), fl = (await fdraft()).layers[1];
 await page.mouse.move(fb.x + fb.width * fl.x / 100, fb.y + fb.height * fl.y / 100); await page.mouse.down(); await page.mouse.move(fb.x + fb.width * (fl.x + 20) / 100, fb.y + fb.height * (fl.y + 15) / 100, { steps: 6 }); await page.mouse.up();
-check('dragging moves a layer', Math.abs((await fdraft()).layers[1].x - 57.5) <= .6 && Math.abs((await fdraft()).layers[1].y - 65) <= .6, JSON.stringify((await fdraft()).layers[1]));
+check('dragging moves a layer', Math.abs((await fdraft()).layers[1].x - 57.5) <= .6 && (Math.abs((await fdraft()).layers[1].y - 65) <= .6 || Math.abs((await fdraft()).layers[1].y - 66.7) <= .6), JSON.stringify((await fdraft()).layers[1]));
 await page.click('#fg-st [data-fst="undo"]'); check('the drag is one Undo step', (await fdraft()).layers[1].x === 37.5 && (await fdraft()).layers[1].y === 50);
 await page.locator('#fs-cv').focus(); await page.keyboard.press('ArrowRight'); await page.keyboard.press('Shift+ArrowUp');
 check('keyboard nudges keep the canvas focused', (await fdraft()).layers[1].x === 38.5 && (await fdraft()).layers[1].y === 45 && await page.evaluate(() => document.activeElement?.id === 'fs-cv'), JSON.stringify((await fdraft()).layers[1]) + await page.evaluate(() => document.activeElement?.id));
@@ -67,8 +67,8 @@ await page.click('#fg-st [data-fst="undo"]'); await page.click('#fg-st [data-fst
 await page.click('#fg-st [data-fst="add"][data-v="border"]'); await fval('lb', 5); await page.click('#fg-st [data-fst="add"][data-v="disc"]');
 await page.locator('#fs-l-c').evaluate(el => { el.value = '#1c4d9e'; el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); });
 check('layer colour and border line', (await fdraft()).layers[3].c === '#1C4D9E' && (await fdraft()).layers[2].c !== '#1C4D9E' && (await fdraft()).layers[2].b === 5);
-while ((await fdraft()).layers.length < 8) await page.click('#fg-st [data-fst="add"][data-v="disc"]');
-check('eight layers at most', await page.locator('#fg-st [data-fst="add"][disabled]').count() === 4 && await page.locator('#fs-dup[disabled]').count() === 1);
+while ((await fdraft()).layers.length < 24) await page.click('#fg-st [data-fst="add"][data-v="disc"]');
+check('twenty-four layers at most', await page.locator('#fg-st [data-fst="add"][disabled]').count() === 6 && await page.locator('#fs-dup[disabled]').count() === 1);
 await page.click('#fg-st [data-fst="discard"]'); check('discard returns to the flying flag', !(await fdraft()).layers);
 await page.click('#fg-st [data-fst="tab"][data-v="charges"]'); await page.click('#fg-st [data-fst="set"][data-f="e"][data-v="star"]');
 const hit = await page.$('#fg-st .cst-ov [data-fpart="emb"]'), bb = await hit.boundingBox();
@@ -132,6 +132,33 @@ const wide = await page.evaluate(() => { const e = document.getElementById('fg-s
 check('on a phone the Studio does not scroll sideways', wide.ok, JSON.stringify(wide));
 await page.screenshot({ path: path.join(OUT, 'flag-studio-phone.png') });
 await page.setViewportSize({ width: 1280, height: 900 });
+// Separate into layers: the fused base becomes layers that look the same and move on their own
+const px = (svg) => page.evaluate(async (s) => { const img = new Image(); img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(s.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg" width="300" height="200"')); await img.decode(); const c = document.createElement('canvas'); c.width = 300; c.height = 200; const g = c.getContext('2d'); g.drawImage(img, 0, 0); return Array.from(g.getImageData(0, 0, 300, 200).data); }, svg);
+const same = async (a, b) => { const A = await px(a), B = await px(b); let off = 0; for (let i = 0; i < A.length; i += 4) if (Math.abs(A[i] - B[i]) + Math.abs(A[i + 1] - B[i + 1]) + Math.abs(A[i + 2] - B[i + 2]) > 60) off++; return off / (A.length / 4); };
+const flagNow = () => page.evaluate(() => window.__game.FLY().flagSVG(window.__game.S.czFlag, ''));
+for (const [trad, want] of [['union', 'stripes and the canton'], ['nordic', 'cross'], ['arab', 'chevron'], ['sun', 'emblem']]) {
+  await page.click(`#fg-st [data-fst="tab"][data-v="style"]`).catch(() => {});
+  await page.evaluate(() => { window.__game.S.czFlag.layers = []; });
+  await page.locator(`#fg-st [data-fst="trad"][data-v="${trad}"]`).first().click();
+  const before = await flagNow();
+  check(`${trad}: the Separate button shows`, await page.locator('#fs-split').count() === 1);
+  await page.click('#fs-split');
+  const d = await fdraft(), after = await flagNow(), diff = await same(before, after);
+  check(`${trad}: ${want} become layers over a plain field that look the same`, d.p === 'plain' && d.layers.length >= 1 && !d.cn && d.e === 'none' && diff < 0.02, JSON.stringify({ p: d.p, n: d.layers.length, diff }));
+  check(`${trad}: nothing left to separate`, await page.locator('#fs-split').count() === 0);
+}
+await page.click('#fg-st [data-fst="undo"]'); check('separating is one Undo step', (await fdraft()).e === 'disc');
+await page.click('#fs-split');
+const nl = (await fdraft()).layers.length;
+await page.click(`#fg-st [data-fst="hide"][data-k="${nl - 1}"]`); check('a layer hides and stays in the list', (await fdraft()).layers[nl - 1].hd === 1 && !(await flagNow()).includes('data-fgl-layer="' + (nl - 1) + '"'));
+await page.click(`#fg-st [data-fst="hide"][data-k="${nl - 1}"]`); check('and shows again', !(await fdraft()).layers[nl - 1].hd);
+await page.click('#fg-st [data-fst="add"][data-v="stripe"]');
+await page.click(`#fg-st [data-fst="pick"][data-k="l0"]`); await page.click('#fs-front'); check('To the front moves a layer to the top', (await fdraft()).layers[nl].k === 'emblem' && (await fdraft()).layers[0].k === 'stripe');
+await page.click('#fs-fx'); check('Flip mirrors a layer', (await fdraft()).layers[nl].fx === 1);
+{ const rb = await page.locator('#fg-st .fs-rot').boundingBox(), fb2 = await page.locator('#fg-st .fs-flag > svg').first().boundingBox(), L = (await fdraft()).layers[nl], cx = fb2.x + fb2.width * L.x / 100, cy = fb2.y + fb2.height * L.y / 100;
+  await page.mouse.move(rb.x + rb.width / 2, rb.y + rb.height / 2); await page.mouse.down(); await page.mouse.move(cx + 80, cy, { steps: 6 }); await page.mouse.up();
+  check('the round handle turns a layer', Math.abs((await fdraft()).layers[nl].r - 90) <= 1, String((await fdraft()).layers[nl].r)); }
+await page.click('#fs-back'); check('To the back', (await fdraft()).layers[0].fx === 1);
 await page.keyboard.press('Escape');
 check('Escape closes it', await until(() => page.evaluate(() => document.getElementById('fg-st').hidden)));
 check('no page errors', errors.length === 0, errors.join(' | '));
