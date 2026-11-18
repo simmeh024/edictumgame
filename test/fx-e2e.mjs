@@ -30,7 +30,8 @@ check('before the first publication it says so, and offers the designer', /No ra
 await nav(A, 'nation');
 check('a new nation has a currency at once (Aldorian Crown, ALC)', /Aldorian Crown/.test(await text(A, '.cu-nsec')) && /ALC/.test(await text(A, '.cu-nsec')) && /next publication/.test(await text(A, '.cu-nsec')));
 await A.click('.cu-nsec [data-act="cu-view"]'); await sleep(300);
-check('the note and coin open up close: both faces of the note, both sides of the coin, the coin set', await A.evaluate(() => { const d = document.querySelector('dialog#cu-view[open]'); return !!d && d.querySelectorAll('.cuv-notes svg').length === 2 && d.querySelectorAll('.cuv-coins svg').length === 2 && d.querySelectorAll('.cuv-cs').length === 6 && /Aldorian Crown/.test(d.textContent); }));
+const cuv = await A.evaluate(() => { const d = document.querySelector('dialog#cu-view[open]'); if (!d) return null; const q = s => [...d.querySelectorAll(s)].filter(f => f.querySelector('svg')).length; return { notes: q('.cuv-notes > .cuv-f'), coins: q('.cuv-coins > .cuv-f'), set: d.querySelectorAll('.cuv-cs').length, name: /Aldorian Crown/.test(d.textContent) }; });
+check('the note and coin open up close: both faces of the note, both sides of the coin, the coin set', !!cuv && cuv.notes === 2 && cuv.coins === 2 && cuv.set === 6 && cuv.name, JSON.stringify(cuv));
 await A.screenshot({ path: path.join(OUT, 'currency-view-1280.png'), fullPage: false });
 await A.click('#cu-view [data-cuv-close]'); await sleep(200);
 check('and Close puts it away', !(await A.$('dialog#cu-view')));
