@@ -1055,6 +1055,16 @@ textarea.input{resize:vertical;min-height:84px;line-height:1.5}
 .gc-in h2{font-family:var(--f-display);font-size:26px;margin:2px 0 14px}
 .dwb{border:none;border-radius:12px;padding:0;width:min(640px,calc(100vw - 24px));max-height:calc(100vh - 32px);background:var(--sheet);color:var(--ink);box-shadow:0 20px 60px rgba(0,0,0,.35)}
 .dwb::backdrop{background:rgba(10,16,20,.6)}
+.cuv{width:min(920px,calc(100vw - 24px))}
+.cuv-in h2 .cu-code{font-size:13px;vertical-align:middle}
+.cuv-h3{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3,#888);margin:18px 0 8px}
+.cuv-notes{display:grid;grid-template-columns:1fr 1fr;gap:16px}.cuv-notes.cuv-v{grid-template-columns:repeat(2,minmax(0,260px));justify-content:center}
+.cuv-f{margin:0;text-align:center}.cuv-f svg{width:100%;height:auto;display:block}.cuv-f figcaption{font-size:12.5px;color:var(--ink-3,#888);margin-top:6px}
+.cuv-coins{display:flex;gap:32px;justify-content:center}.cuv-coins .cuv-f{width:min(170px,40vw)}
+.cuv-set{display:flex;align-items:flex-end;justify-content:center;gap:12px;flex-wrap:wrap;margin:16px 0 4px}.cuv-cs{display:inline-flex;flex-direction:column;align-items:center;gap:4px}.cuv-cs svg{width:100%;height:auto}.cuv-cs i{font-style:normal;font-size:12px;color:var(--ink-3,#888)}
+.cuv-kv{margin-top:16px}.cuv-foot{display:flex;justify-content:flex-end;margin-top:16px}
+.cu-view{display:block;margin:4px auto 0}
+@media (max-width:640px){.cuv-notes{grid-template-columns:1fr}.cuv-in{padding:18px 16px}}
 .dwb-in{padding:24px 24px 20px}
 .dwb-in h2{font-family:var(--f-display);font-size:26px;line-height:1.15;margin:2px 0 12px;outline:none}
 .dwb-in>p{margin:0 0 10px}
@@ -48488,6 +48498,30 @@ function cuPastHTML(x){
   const now=fig({},`<b>Series ${roman(past.length+1)}</b>, in circulation since ${yr(Math.max(typeof n.lt==='number'?n.lt:n.founded||0,+n.cuI||0))}: ${esc(n.leader+(n.ruler?' '+n.ruler:''))}`);
   return `<section class="section"><h2 class="h2">Banknotes of every series</h2><p class="hint">Each new leader gives the ${esc(c.nm)} a new series of notes. The old ones are kept here.</p><div class="cu-past">${now}${cstCommFigs(n)}${past.map((p,i)=>({p,i})).reverse().map(({p,i})=>fig({who:p,series:i+1,c:p.c},`<b>Series ${roman(i+1)}</b>, ${yr(p.a)}–${yr(p.b)}: ${esc([p.l,p.r].filter(Boolean).join(' ')||'a leader whose name is not on record')}`)).join('')}</div></section>`;
 }
+/* the currency up close: both faces of the note, the coin's two sides and the whole coin set, in a dialog */
+function cuViewHTML(n,c){
+  const K=c.coin||{},N=c.note||{},met=CU_METALS[K.met],tile=(svg,cap)=>`<figure class="cuv-f">${svg}<figcaption>${cap}</figcaption></figure>`;
+  let coins='';try{coins=CU_COINS.map((v,i)=>{const cc=Object.assign({},c,{coin:Object.assign({},K,{den:v})});return `<span class="cuv-cs" style="width:${44+i*9}px">${cuCoinSVG(n,cc,{mini:1})}<i>${v}</i></span>`;}).join('');}catch(e){}
+  const rows=[['Name',`The ${esc(c.nm)} (${esc(c.cd)})`],['Symbol',esc(c.sy||'')],['Subunit',c.sn===1?'None':`${c.sn} ${esc(plural(c.su))}`],
+    ['Note engraving',esc(CU_PATS[N.pat]||'')],['Portrait',esc(CU_POR[N.por]||'')],c.mo?['Motto',`“${esc(c.mo)}”`]:null,
+    ['Coin metal',esc(met?met[0]:'')],['Coin shape',esc(CU_SHAPES[K.shape]||'')]].filter(r=>r&&r[1]);
+  return `<div class="dwb-in cuv-in"><p class="eyebrow">National currency · ${esc(n.name)}</p><h2 id="cuv-h" tabindex="-1">The ${esc(c.nm)} <span class="cu-code">${esc(c.cd)}</span></h2>
+  <h3 class="cuv-h3">Banknote</h3><div class="cuv-notes${N.or==='v'?' cuv-v':''}">${tile(cuNoteSVG(n,c,{cls:'cuv-note'}),'Front')}${tile(cuNoteBackSVG(n,c,{cls:'cuv-note'}),'Back')}</div>
+  <h3 class="cuv-h3">Coin</h3><div class="cuv-coins">${tile(cuCoinSVG(n,c,{cls:'cuv-coin'}),'Face')}${tile(cuCoinBackSVG(n,c,{cls:'cuv-coin'}),'Reverse')}</div>
+  ${coins?`<div class="cuv-set" aria-label="The coin set">${coins}</div>`:''}
+  <dl class="cu-kv cuv-kv">${rows.map(r=>`<dt>${r[0]}</dt><dd>${r[1]}</dd>`).join('')}</dl>
+  <div class="cuv-foot"><button type="button" class="btn" data-cuv-close>Close</button></div></div>`;
+}
+function cuViewOpen(k){
+  const nc=cuFlipNC(k);if(!nc)return;
+  let d=document.getElementById('cu-view');if(d)d.remove();
+  d=document.createElement('dialog');if(typeof d.showModal!=='function')return;
+  d.id='cu-view';d.className='dwb cuv';d.setAttribute('aria-labelledby','cuv-h');
+  try{d.innerHTML=cuViewHTML(nc[0],nc[1]);}catch(e){return;}
+  document.body.appendChild(d);d.addEventListener('close',()=>d.remove(),{once:true});
+  d.addEventListener('click',ev=>{if(ev.target===d||ev.target.closest('[data-cuv-close]'))d.close();});
+  d.showModal();try{d.querySelector('#cuv-h').focus({preventScroll:true});}catch(e){}
+}
 function cuFlipNC(k){if(k==='prev')return S.nation&&CU.d?cuDraftCur(S.nation,CU.d):null;const x=k==='me'?{n:S.nation}:findNation(k);return x&&x.n?[x.n,cuOf(x.n)]:null;}
 function cuSection(x,mine){
   const n=x&&x.n;if(!n)return '';cuLoad();
@@ -48495,7 +48529,7 @@ function cuSection(x,mine){
   let rt='',vsTop='';
   if(e&&!x.me&&m0&&mc)rt=`1 ${esc(c.cd)} = ${esc(cuFig(cuRate(e.v,m0.v),mc.nf))} ${esc(mc.cd)}`;
   else if(e&&x.me){const t=cuList().filter(r=>r.e&&!r.x.me).sort((a,b)=>a.e.r-b.e.r)[0];if(t){rt=`1 ${esc(c.cd)} = ${esc(cuFig(cuRate(e.v,t.e.v),c.nf))} ${esc(t.c.cd)}`;vsTop=` <span class="hint">against the ${esc(t.c.nm)}, ${pgAvailable(S.nation,'finance')?'the region’s most trusted':'another regional currency'}</span>`;}}
-  return `<section class="${mine?'section ':''}cu-nsec${mine?'':' cu-nsec-v'}"><div class="cu-nsec-in"><div class="cu-nsec-art">${cuFlipHTML(n,c,'cu-note-sm',x.me?'me':x.id)}</div>
+  return `<section class="${mine?'section ':''}cu-nsec${mine?'':' cu-nsec-v'}"><div class="cu-nsec-in"><div class="cu-nsec-art">${cuFlipHTML(n,c,'cu-note-sm',x.me?'me':x.id)}<button type="button" class="linkish small cu-view" data-act="cu-view" data-k="${esc(x.me?'me':x.id)}">See notes and coins up close</button></div>
   <div><p class="eyebrow">National currency</p><p class="cu-nsec-nm">The ${esc(c.nm)} <span class="cu-code">${esc(c.cd)}</span></p>
   <dl class="cu-kv">${rt?`<dt>Exchange rate</dt><dd>${rt}${vsTop}</dd>`:''}${pgAvailable(S.nation,'finance')?(e?`<dt>Currency prestige</dt><dd>${cuBadge(e.p)} <span class="hint">${esc(cuOrd(e.r))} in ${esc(REG.name)}</span></dd>`:`<dt>Currency prestige</dt><dd class="hint">Rated from the Bureau’s next publication</dd>`):''}
   <dt>Subunit</dt><dd>1 ${esc(c.nm)} = ${c.sn===1?'no smaller coin':c.sn+' '+esc(plural(c.su))}</dd></dl>
@@ -49695,6 +49729,7 @@ document.addEventListener('click',e=>{
   else if(a==='cu-era-locked'){toast(`The ${CU_ERAS[el.dataset.v]||''} era opens later. ${CU_ERA_HOW[el.dataset.v]||''}`);}
   else if(a==='cu-preset'){if(!CU.d)CU.d=cuDraft(S.nation);cuPreset(el.dataset.v);render();}
   else if(a==='cu-shop'){SHOP.dr=el.dataset.p||'';SHOP.drNew=true;go('shop');}
+  else if(a==='cu-view'){cuViewOpen(el.dataset.k);}
   else if(a==='cu-flip'){
     const box=el.closest('.cu-flip'),k=el.dataset.k;if(!box)return;const on=!box.classList.contains('on'),front=box.querySelector('.cu-face:not(.cu-back)'),back=box.querySelector('.cu-back');
     (u.flip||(u.flip={}))[k]=on;
