@@ -8770,6 +8770,12 @@ button.rgc-nm{text-align:left}
 .rgc-rt{position:absolute;left:0;top:3px;width:30px;font:500 10px/1.2 var(--f-mono);color:var(--ink-3);opacity:0}
 .rgc-l:hover .rgc-rt,.rgc-l:focus-within .rgc-rt{opacity:1}
 .rgc-x{flex:1;min-width:0;margin:0;font-size:14px;line-height:1.45;overflow-wrap:anywhere}
+.rgc-cd{flex:1;min-width:0;max-width:340px;margin:2px 0;padding:8px 10px;border:1px solid var(--line);border-left:3px solid var(--stamp);border-radius:6px;background:var(--paper-2,var(--paper))}
+.rgc-cd-t{margin:0;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-2)}
+.rgc-cd-big{display:flex;align-items:center;gap:6px;margin:2px 0 4px;font-size:15px;font-weight:600}
+.rgc-cd-g{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:2px 12px;margin:4px 0 0}
+.rgc-cd-g div{display:flex;justify-content:space-between;gap:6px;font-size:13px}.rgc-cd-g dt{display:flex;align-items:center;gap:4px;color:var(--ink-2)}
+.rgc-cd-g dd{margin:0;font-weight:600;text-align:right}.rgc-cd-g small{display:block;font-weight:400;font-size:11px;color:var(--ink-2)}
 .rgc-x mark{padding:0 2px;border-radius:2px;background:var(--stamp-soft);color:inherit;font-weight:600}
 .rgc-l.named .rgc-x mark{background:transparent}
 .rgc-l.pend .rgc-x{color:var(--ink-3)}
@@ -77947,7 +77953,7 @@ function rgcLineOf(d,w){
   const v=d.data()||{},r=v.r&&typeof v.r==='object'&&typeof v.r.id==='string'?v.r:null;
   return {id:d.id,a:String(v.a||''),nm:String(v.nm||'A nation').slice(0,80),x:String(v.x||'').slice(0,RGC_TEXT),t:Number(v.t)||0,st:v.st==='admin'||v.st==='mod'?v.st:'',tm:v.tm===true,wn:typeof v.wn==='string'?v.wn.slice(0,80):'',sys:!w&&v.sys==='found'?'found':!w&&v.sys==='all'&&v.tm===true?'all':'',
     r:r?{id:r.id,a:String(r.a||''),nm:String(r.nm||'A nation').slice(0,80),x:String(r.x||'').slice(0,90),tm:r.tm===true,im:r.im===true}:null,im:rgcImOf(v.im),
-    mn:v.mn&&typeof v.mn==='object'&&!Array.isArray(v.mn)?v.mn:null,rv:v.rv&&typeof v.rv==='object'&&!Array.isArray(v.rv)?v.rv:null,
+    cd:rgcCardOf(v.cd),mn:v.mn&&typeof v.mn==='object'&&!Array.isArray(v.mn)?v.mn:null,rv:v.rv&&typeof v.rv==='object'&&!Array.isArray(v.rv)?v.rv:null,
     ...(w?{w:true,rg:typeof v.rg==='string'?v.rg.slice(0,40):'',fl:typeof v.fl==='string'&&v.fl.length<=4000?v.fl:'',rk:Number.isInteger(v.rk)&&v.rk>=0?v.rk:-1,
       al:v.al&&typeof v.al==='object'&&typeof v.al.n==='string'&&v.al.n?{n:v.al.n.slice(0,40),c:typeof v.al.c==='string'?v.al.c:''}:null,fd:v.fd===true}:{})};
 }
@@ -78210,7 +78216,7 @@ function rgcPaint(){
       if(tab!=='ally'&&!fresh&&C.mark&&m.t>C.mark&&m.t<=C.markTop&&m.a!==me){fresh=true;h+='<li class="rgc-new" role="separator"><span>New</span></li>';prev=null;}
       h+=rgcLine(m,!!prev&&prev.a===m.a&&!prev.tm===!m.tm&&!prev.sys&&!m.sys&&!m.r&&m.t-prev.t<RGC_RUN,by,me,mod,memo);prev=m;
     }
-    if(tab!=='ally')for(const p of C.pend)h+=`<li class="rgc-l me pend"><div class="rgc-xw">${p.im?`<div class="rgc-xc">${p.x?`<p class="rgc-x">${esc(p.x)}</p>`:''}${rgcPicHTML(p.im,'',S.nation?S.nation.name:'')}</div>`:`<p class="rgc-x">${esc(p.x)}</p>`}<span class="rgc-wait">Sending…</span></div></li>`;
+    if(tab!=='ally')for(const p of C.pend)h+=`<li class="rgc-l me pend"><div class="rgc-xw">${p.cd?rgcCardHTML(rgcCardOf(p.cd),p,S.nation?S.nation.name:''):p.im?`<div class="rgc-xc">${p.x?`<p class="rgc-x">${esc(p.x)}</p>`:''}${rgcPicHTML(p.im,'',S.nation?S.nation.name:'')}</div>`:`<p class="rgc-x">${esc(p.x)}</p>`}<span class="rgc-wait">Sending…</span></div></li>`;
     const err=tab==='ally'?(AL.chat&&AL.chat.err)||'':C.err;
     if(!vis.length&&(tab==='ally'||!C.pend.length))h+=`<li class="rgc-empty">${err?esc(err):tab==='ally'?'No messages yet. Say hello to your allies.':C.ready?`No lines yet. Say hello to ${tab==='world'?'every region':esc(rgcIn())}.`:'Opening the chat…'}</li>`;
     else if(err)h+=`<li class="rgc-empty err">${esc(err)}</li>`;
@@ -78291,10 +78297,12 @@ async function rgcSend(){
   if(RGC.pic&&RGC.pic.busy){RGC.msg='The picture is still being prepared. Send it in a moment.';rgcFoot();return;}
   const P=RGC.pic&&rgcPicCan()?RGC.pic:null;
   const x=ta.value.replace(/\s+/g,' ').trim();if(!x&&!P)return;
-  const p={x:x.slice(0,RGC_TEXT),t:Date.now(),top:C.top,id:'',...(P?{im:{s:P.th,w:P.w,h:P.h}}:{})},reg=wd?'world':RGC.reg,reo=C.re,re=reo&&reo.id||'',mn=rgcMnIds(p.x);
+  const cmd=!P?rgcCmd(x):null;if(cmd&&cmd.err){RGC.msg=cmd.err;rgcFoot();return;}
+  const cd=cmd?cmd.cd:null;
+  const p={x:x.slice(0,RGC_TEXT),t:Date.now(),top:C.top,id:'',...(P?{im:{s:P.th,w:P.w,h:P.h}}:{}),...(cd?{cd:{...cd,nm:cd.k==='nation'?(allNations().find(o=>o.id===cd.id||(o.me&&cd.id===S.uid))||{n:{name:''}}).n.name:''}}:{})},reg=wd?'world':RGC.reg,reo=C.re,re=reo&&reo.id||'',mn=rgcMnIds(p.x);
   RGC.busy=true;RGC.msg='';C.pend.push(p);ta.value='';C.draft='';C.re=null;RGC.pic=null;RGC.picErr='';rgcMnShow(ta);rgcGrow(ta);RGC.stick=true;rgcPaint();
   try{
-    const r=await rgcCivic({op:'rcPost',reg,x:p.x,...(re?{re}:{}),...(mn.length?{mn}:{}),...(P?{pic:rgcPicOut(P)}:{}),...(wd?{rk:rgwRank()}:{})});
+    const r=await rgcCivic({op:'rcPost',reg,x:p.x,...(re?{re}:{}),...(mn.length?{mn}:{}),...(P?{pic:rgcPicOut(P)}:{}),...(cd?{cd}:{}),...(wd?{rk:rgwRank()}:{})});
     p.id=typeof r.id==='string'?r.id:'';achPend('rch');if(re)achPend('rchr');if(mn.length)achPend('mnt');
     if(r.guest===true&&Array.isArray(r.gt))RGC.gt=r.gt.map(Number).filter(t=>t>0).slice(-RGC_GUEST);
     if(!p.id||C.list.some(m=>m.id===p.id))C.pend=C.pend.filter(q=>q!==p);
@@ -78766,7 +78774,52 @@ function rgcPicHTML(im,attrs,nm,small){
   return attrs?`<button type="button" class="rgc-pic" ${attrs} aria-label="Open the picture${nm?' from '+esc(nm):''}" title="Open the picture">${img}${g}</button>`:`<span class="rgc-pic">${img}${g}</span>`;
 }
 /* the words of a line, and its picture under them */
+/* quick commands (2026-11-18, the owner picked idea 34): /stock, /rank and /nation <name> post a small card instead of
+   words. The writer's game fills it (functions/regionchat.js, rcCardIn, keeps only its fields; a nation card's nation must
+   be in the region, any region in the world chat, and goes under its saved name). /help, or an unknown command, says what
+   there is and sends nothing. A game from before shows the command as words. */
+const RGC_CMDS=[['/stock','your stockpile and what it gains a day'],['/rank','your rank and achievements'],['/nation <name>','a card of a nation in your region']];
+const rgcCmdHelp=()=>'Quick commands: '+RGC_CMDS.map(([c,d])=>`${c} (${d})`).join(', ')+'.';
+function rgcCardOf(c){
+  if(!c||typeof c!=='object'||Array.isArray(c))return null;
+  const n=v=>Number.isFinite(Number(v))?Number(v):0,i=v=>Number.isInteger(v)&&v>=0?v:0;
+  if(c.k==='stock'&&Array.isArray(c.v)&&Array.isArray(c.r)&&c.v.length===5&&c.r.length===5)return {k:'stock',v:c.v.map(n),r:c.r.map(n)};
+  if(c.k==='rank')return {k:'rank',i:i(c.i),p:i(c.p),n:i(c.n)};
+  if(c.k==='nation'&&typeof c.id==='string'&&c.id)return {k:'nation',id:c.id.slice(0,128),nm:String(c.nm||'A nation').slice(0,80),pop:n(c.pop),ci:i(c.ci),hx:i(c.hx),i:i(c.i),al:typeof c.al==='string'?c.al.slice(0,40):''};
+  return null;
+}
+function rgcAllyName(id){try{for(const a of AL.docs.values())if(a&&a.mem&&a.mem[id])return String(a.name||'').slice(0,40);}catch(e){}return '';}
+function rgcNationCard(x){
+  const T=territory(),k=T.byId?T.byId[x.id]:undefined;let hx=0;if(k!==undefined)for(let c=0;c<T.owner.length;c++)if(T.owner[c]===k)hx++;
+  let r=0;try{r=Math.max(0,achRankOf(x.n).i|0);}catch(e){}
+  return {k:'nation',id:x.me?S.uid:x.id,pop:Math.round((popNow(x.n)||0)*10)/10,ci:cityList(x.n).length,hx,i:r,al:rgcAllyName(x.me?S.uid:x.id)};
+}
+/* the command in the words, as a card to send, an error to show, or null for ordinary words */
+function rgcCmd(x){
+  const m=/^\/(\w+)(?:\s+(.*))?$/.exec(x);if(!m)return null;
+  const c=m[1].toLowerCase(),arg=(m[2]||'').trim(),n=S.nation;
+  if(c==='help'||c==='commands')return {err:rgcCmdHelp()};
+  if(!RGC_CMDS.some(([k])=>k.split(' ')[0]==='/'+c))return /^\/[a-z]+$/i.test(x)?{err:`There is no command /${c}. ${rgcCmdHelp()}`}:null;
+  if(!n)return {err:'Found a nation first.'};
+  if(c==='stock'){const st=stockNow(n),rt=stockRates(n);return {cd:{k:'stock',v:RES.map(r=>Math.round((st[r]||0)*10)/10),r:RES.map(r=>Math.round((rt[r]||0)*10)/10)}};}
+  if(c==='rank'){let p=0;try{p=achPoints(n);}catch(e){}return {cd:{k:'rank',i:rgwRank(),p,n:achEarnedIds(n).length}};}
+  if(!arg)return {err:'Name a nation: /nation <name>.'};
+  const low=arg.toLowerCase().replace(/^@/,''),all=allNations().filter(x=>!x.npc&&x.n&&x.n.name);
+  let hit=all.filter(x=>x.n.name.toLowerCase()===low);if(!hit.length)hit=all.filter(x=>x.n.name.toLowerCase().startsWith(low));
+  if(!hit.length)return {err:`No nation called “${arg}” in your region.`};
+  if(hit.length>1)return {err:`More than one nation starts with “${arg}”: ${hit.slice(0,4).map(x=>x.n.name).join(', ')}.`};
+  return {cd:rgcNationCard(hit[0])};
+}
+function rgcCardHTML(c,m,nm){
+  const rows=a=>`<dl class="rgc-cd-g">${a.map(([k,v])=>`<div><dt>${k}</dt><dd>${v}</dd></div>`).join('')}</dl>`;
+  if(c.k==='stock')return `<div class="rgc-cd"><p class="rgc-cd-t">Stockpile of ${esc(nm)}</p>${rows(RES.map((r,j)=>[`${resIco(r)}${esc(RES_INFO[r][0])}`,`${fmt0(c.v[j])}<small>${c.r[j]>=0?'+':''}${fmtAmt(c.r[j])} a day</small>`]))}</div>`;
+  if(c.k==='rank'){const R=ACH_RANKS[Math.min(c.i,ACH_RANKS.length-1)];return `<div class="rgc-cd"><p class="rgc-cd-t">Rank of ${esc(nm)}</p><p class="rgc-cd-big">${esc(R[1])}</p>${rows([['Points',fmt0(c.p)],['Achievements',fmt0(c.n)]])}</div>`;}
+  const x=allNations().find(o=>o.id===c.id||(o.me&&c.id===S.uid)),R=ACH_RANKS[Math.min(c.i,ACH_RANKS.length-1)];
+  const name=x&&!x.me?`<button type="button" class="linkish" data-act="visit" data-id="${esc(c.id)}">${esc(c.nm)}</button>`:esc(c.nm);
+  return `<div class="rgc-cd"><p class="rgc-cd-t">Nation card</p><p class="rgc-cd-big">${x?`<span class="mflag sm">${flagSVG(x.n.flag,'Flag of '+c.nm)}</span>`:''}${name}</p>${rows([['People',esc(fmtPop(c.pop))],['Cities',fmt0(c.ci)],['Land',fmt0(c.hx)+' hexes'],['Rank',esc(R[1])],...(c.al?[['Alliance',esc(c.al)]]:[])])}</div>`;
+}
 function rgcBody(m,nm){
+  if(m.cd)return rgcCardHTML(m.cd,m,nm);
   const p=`<p class="rgc-x">${rgcText(m.x,m.mn)}</p>`;if(!m.im)return p;
   return `<div class="rgc-xc">${m.x?p:''}${rgcPicHTML(m.im,`data-pic="open" data-box="rgc" data-id="${esc(m.id)}"`,nm)}</div>`;
 }

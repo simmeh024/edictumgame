@@ -107,3 +107,13 @@ test('a line’s picture: a small copy (no GIF) and the picture, with their size
   refused({ ...ok, w: 0 }); refused({ ...ok, h: 641 }); refused({ ...ok, fw: 4097 }); refused({ ...ok, fh: 1.5 }); refused({ ...ok, fw: '1920' });
   const { th, ...noThumb } = ok; refused(noThumb);
 });
+
+test('a quick-command card keeps only its own fields, in range', async () => {
+  const { rcCardIn } = await import('../functions/regionchat.js');
+  assert.deepEqual(rcCardIn({ k: 'stock', v: [1, 2.26, 3, 4, 2e9], r: [1, -2, 0, 0, 0], x: 1 }), { k: 'stock', v: [1, 2.3, 3, 4, 1e9], r: [1, -2, 0, 0, 0] });
+  assert.deepEqual(rcCardIn({ k: 'rank', i: 3, p: 120, n: 9, evil: '<b>' }), { k: 'rank', i: 3, p: 120, n: 9 });
+  assert.deepEqual(rcCardIn({ k: 'nation', id: 'abc', pop: 12.34, ci: 3, hx: 400, i: 5, al: '  The   Pact ', nm: 'ignored' }), { k: 'nation', id: 'abc', pop: 12.3, ci: 3, hx: 400, i: 5, al: 'The Pact' });
+  const refused = c => assert.throws(() => rcCardIn(c), e => e.code === 'invalid-argument' && e.details?.code === 'rc_card', JSON.stringify(c));
+  for (const c of [null, [], { k: 'gold' }, { k: 'stock', v: [1, 2, 3], r: [1, 2, 3] }, { k: 'stock', v: [1, 2, 3, 4, 'x'], r: [0, 0, 0, 0, 0] },
+    { k: 'rank', i: -1, p: 0, n: 0 }, { k: 'rank', i: 1.5, p: 0, n: 0 }, { k: 'nation', id: 'a/b', pop: 1, ci: 1, hx: 1, i: 0 }, { k: 'nation', id: 'abc', pop: 1, ci: 1, hx: 1 }]) refused(c);
+});
