@@ -113,11 +113,43 @@ export function rcWait(p, now, hour = RC_HOUR) {
   return { wait: Math.max(0, wait), recent };
 }
 
+/* a card a line may carry (2026-11-18, the owner picked "quick commands"): the writer typed /stock, /rank or /nation <name>
+   and their game sends what it shows, as cd. Only these fields, in these ranges, are kept; the words of the line are the
+   command as typed. A nation card names a nation of the writer's region (any region, in the world chat) that the server
+   finds, under the name saved on it. The figures are the writer's game's, as a /stock or /rank line is about the writer.
+     {k: 'stock', v: [5 amounts], r: [5 a day]}   food, timber, iron, oil, goods
+     {k: 'rank', i: rank, p: points, n: achievements}
+     {k: 'nation', id, nm, pop, ci: cities, hx: hexes, i: rank, al?: alliance name}  */
+export const RC_CARDS = ['stock', 'rank', 'nation'];
+const num = (v, lo, hi) => { const x = Number(v); return Number.isFinite(x) ? Math.min(hi, Math.max(lo, Math.round(x * 10) / 10)) : null; };
+const int = (v, lo, hi) => { const x = Number(v); return Number.isInteger(x) && x >= lo && x <= hi ? x : null; };
+export function rcCardIn(c) {
+  const bad = () => { throw new HttpsError('invalid-argument', 'That card cannot be shown.', { code: 'rc_card' }); };
+  if (!c || typeof c !== 'object' || Array.isArray(c) || !RC_CARDS.includes(c.k)) bad();
+  if (c.k === 'stock') {
+    if (!Array.isArray(c.v) || !Array.isArray(c.r) || c.v.length !== 5 || c.r.length !== 5) bad();
+    const v = c.v.map(x => num(x, 0, 1e9)), r = c.r.map(x => num(x, -1e7, 1e7));
+    if (v.includes(null) || r.includes(null)) bad();
+    return { k: 'stock', v, r };
+  }
+  if (c.k === 'rank') {
+    const i = int(c.i, 0, RC_RANKS), p = int(c.p, 0, 1e8), n = int(c.n, 0, 1e5);
+    if (i == null || p == null || n == null) bad();
+    return { k: 'rank', i, p, n };
+  }
+  const id = typeof c.id === 'string' && /^[\w-]{1,128}$/.test(c.id) ? c.id : '', pop = num(c.pop, 0, 1e9), ci = int(c.ci, 0, 1e4), hx = int(c.hx, 0, 1e6), i = int(c.i, 0, RC_RANKS);
+  if (!id || pop == null || ci == null || hx == null || i == null) bad();
+  const al = line(c.al, 40);
+  return { k: 'nation', id, pop, ci, hx, i, ...(al ? { al } : {}) };
+}
+
 async function rcPost(db, who, d, regions) {
   const x = line(d.x, RC_TEXT), team = d.team === true, re = d.re ? id20(d.re) : '', world = d.reg === RC_WORLD;
   /* a picture: an admin's alone, with or without words */
   if (d.pic != null && !who.admin) throw new HttpsError('permission-denied', 'Only Edictum admins can post pictures in the chat.');
   const pic = d.pic != null ? rcPicIn(d.pic) : null;
+  const cd = d.cd != null ? rcCardIn(d.cd) : null;
+  if (cd && pic) throw new HttpsError('invalid-argument', 'A card goes on its own line.');
   if (!x && !pic) throw new HttpsError('invalid-argument', 'Write something first.');
   if (team) staffOnly(who);
   if (d.re && !re) throw new HttpsError('invalid-argument', 'Choose a line to answer.');
@@ -150,6 +182,12 @@ async function rcPost(db, who, d, regions) {
     /* the same words again, or the same picture with the same words (the world chat's on their own) */
     const h = hash(sameKey(x) + (pic ? '#' + pic.im.s.length + pic.im.s.slice(-48) : '')), last = world ? wLast : recent.length ? recent[recent.length - 1] : 0;
     if (ps.exists && ps.get(world ? 'wh' : 'h') === h && now - last < RC_SAME) refuse('rc_same', 'You just wrote that.');
+    /* a nation card: the nation is there, in this region (any, in the world chat), and goes under its saved name */
+    if (cd && cd.k === 'nation') {
+      const ns = await tx.get(db.doc('nations/' + cd.id)), nm = ns.exists ? line(ns.get('name'), 80) : '';
+      if (!nm || (!world && ns.get('reg') !== reg)) refuse('rc_card', 'That nation is not in this region.');
+      cd.nm = nm;
+    }
     /* the line answered: in the same chat, still there */
     let r = null;
     if (re) {
@@ -185,7 +223,7 @@ async function rcPost(db, who, d, regions) {
     tx.set(pace, { p: recent.concat(now).slice(-RC_HOUR), ...(world ? { w: now, wh: h } : { h }) }, { merge: true });
     const exp = Timestamp.fromMillis(now + RC_KEEP);
     tx.create(ref, { a: who.uid, nm: me, x, t: now, exp, ...marks,
-      ...(who.admin ? { st: 'admin' } : who.mod ? { st: 'mod' } : {}), ...(team ? { tm: true, ...(wn ? { wn } : {}) } : {}), ...(r ? { r } : {}), ...(Object.keys(mn).length ? { mn } : {}), ...(pic ? { im: pic.im } : {}) });
+      ...(who.admin ? { st: 'admin' } : who.mod ? { st: 'mod' } : {}), ...(team ? { tm: true, ...(wn ? { wn } : {}) } : {}), ...(r ? { r } : {}), ...(Object.keys(mn).length ? { mn } : {}), ...(pic ? { im: pic.im } : {}), ...(cd ? { cd } : {}) });
     if (pic) tx.create(db.doc('rcimg/' + reg + '/chat/' + ref.id), { a: who.uid, d: pic.d, k: pic.kind, t: now, exp });
     for (const [u, rp] of toTell) tx.create(db.collection('mentions/' + u + '/m').doc(), { k: 'chat', by: who.uid, nm: me, reg, rc: ref.id, x: line(x, 160) || '📷 A picture', t: now, ...(rp ? { rp: true } : {}) });
     tell = [...toTell].map(([u, rp]) => ({ u, rp, nm: me }));

@@ -272,3 +272,11 @@ repo's `firestore.indexes.json` leaves TTL out, so deploys leave the policy alon
   drawers and on a phone; opening it (fetched at full size, then at its own size) and closing it; answering it; the
   server refusing a player's; the admin portal's log, its newest-line preview and the team's picture; removing a line
   takes its picture.
+
+## Quick commands
+
+`/stock`, `/rank` and `/nation <name>` (a nation of the writer's region, matched by its name or the start of it) post a
+card instead of words, in the region chat and the world chat. The writer's game fills the card (`rgcCmd`); rcPost keeps
+it as `cd` after `rcCardIn` has kept only its fields in range, and a nation card's nation must be in the region (any
+region in the world chat), named as saved. `/help` and an unknown command show what there is and send nothing. Tests:
+`npm run test:chat-commands`, `test/regionchat.test.mjs`.
