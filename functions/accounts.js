@@ -11,6 +11,7 @@ import { onceUse, forgetOnce } from './once.js';
 import { lettersStep, forgetLetters } from './letters.js';
 import { alDrop } from './alliances.js';
 import { trDrop } from './treaties.js';
+import { bdDrop } from './borders.js';
 import { scForget } from './supply.js';
 import { jvDrop } from './ventures.js';
 import { rdForget } from './riddles.js';
@@ -187,6 +188,8 @@ export const accounts = onCall({ region: 'europe-west1', maxInstances: 10, memor
     await alDrop(db, uid);
     // the treaties it was party to (functions/treaties.js)
     await trDrop(db, uid);
+    // the border agreements it was party to (functions/borders.js)
+    await bdDrop(db, uid);
     // the Supply Caches it sent and received, with their messages (functions/supply.js)
     await scForget(db, uid);
     // the joint ventures it took part in (functions/ventures.js)
