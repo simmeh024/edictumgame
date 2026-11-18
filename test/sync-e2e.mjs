@@ -147,6 +147,19 @@ check('the desktop receives the replayed change', await until(async () => (await
 check('nothing needed keeping aside after a clean replay', await B.evaluate(uid => localStorage.getItem('edictum.unsaved.' + uid), uid) === null);
 await saved(B);
 
+// More waiting actions than ACT_MAX are not replayed: the page's copy is set aside instead (the cap is 1000; 2 here).
+await B.evaluate(() => { window.EDICTUM_ACT_MAX = 2; });
+await B.ctx.setOffline(true);
+for (const m of ['Over the cap 1', 'Over the cap 2', 'Over the cap 3']) await edit(B, m);
+await sleep(2500);
+await edit(A, 'Desktop beats a long session'); await saved(A);
+await B.ctx.setOffline(false);
+await B.evaluate(() => window.dispatchEvent(new Event('online')));
+check('past the replay cap the other save is loaded', await until(async () => (await localNation(B)).motto === 'Desktop beats a long session', 20000));
+check('and the long session is kept as a copy', await until(async () => (await B.evaluate(uid => JSON.parse(localStorage.getItem('edictum.unsaved.' + uid) || 'null'), uid))?.nation?.motto === 'Over the cap 3', 10000));
+await B.evaluate(uid => { localStorage.removeItem('edictum.unsaved.' + uid); delete window.EDICTUM_ACT_MAX; }, uid);
+await saved(B);
+
 // Failed saves remain pending and retry automatically without needing another gameplay action.
 await B.ctx.setOffline(true);
 await edit(B, 'Retry after reconnect'); await sleep(2500);
