@@ -53,7 +53,7 @@ const core = await page.evaluate(() => {
   out.def = JSON.stringify(X.scrOf(n)) === JSON.stringify(X.scrDef(n)) && !n.scr;
   return out;
 });
-check('six families, each with 36 different signs for every seed', core.fams === 6 && core.distinct);
+check('nine families, each with 36 different signs for every seed', core.fams === 9 && core.distinct);
 check('the same seed draws the same letters, another seed others', core.same && core.differ);
 check('accents fall off, ß and Œ are spelled out, signs it has no letter for are left out', core.chars === 'CA VA, OEUVRE SS! 3', core.chars);
 check('the plain words are escaped into the label', core.esc);
@@ -82,13 +82,18 @@ await page.click('#scr-card [data-scs="open"]');
 check('the Script Studio opens', await until(() => page.evaluate(() => { const e = document.getElementById('sc-st'); return e && !e.hidden && !!e.querySelector('.scs-sheet .scr-big'); })));
 const fit = await page.evaluate(() => { const e = document.getElementById('sc-st'); return { sh: e.scrollHeight, h: e.getBoundingClientRect().height, w: e.scrollWidth, vw: innerWidth }; });
 check('everything fits in one view on a desktop screen', fit.sh <= fit.h + 1 && fit.w <= fit.vw + 1, JSON.stringify(fit));
-check('six families, four places to show it, six views', await page.evaluate(() => document.querySelectorAll('#sc-st .scs-fam').length === 6 && document.querySelectorAll('#sc-st [data-scs-on]').length === 4 && document.querySelectorAll('#sc-st .scs-use').length === 6));
+check('nine families, four places to show it, six views', await page.evaluate(() => document.querySelectorAll('#sc-st .scs-fam').length === 9 && document.querySelectorAll('#sc-st [data-scs-on]').length === 4 && document.querySelectorAll('#sc-st .scs-use').length === 6));
 const S1 = () => page.evaluate(() => document.querySelector('#sc-st .scs-key').innerHTML);
 const k0 = await S1();
 // a new nation's family comes from its seed: choose one it does not have yet
 const fam = await page.evaluate(() => window.__game.SCR().SCS.d.f === 'wedge' ? 'knot' : 'wedge');
 await page.click(`#sc-st .scs-fam[data-v="${fam}"]`);
 check('choosing a family redraws the letters', await until(async () => (await S1()) !== k0 && await page.evaluate(f => window.__game.SCR().SCS.d.f === f, fam)));
+// the three families added later: brushed squares, stamped signs, one modern line
+const k9 = {};
+for (const f of ['ink', 'stamp', 'mod']) { await page.click(`#sc-st .scs-fam[data-v="${f}"]`); k9[f] = await until(async () => await page.evaluate(x => window.__game.SCR().SCS.d.f === x, f) && (await S1())); if (f === 'stamp') await page.screenshot({ path: path.join(OUT, 'script-studio-stamped.png') }); }
+check('Ink squares, Stamped and Modern each draw their own alphabet', new Set(Object.values(k9).filter(Boolean)).size === 3);
+await page.click(`#sc-st .scs-fam[data-v="${fam}"]`);
 await page.click('#sc-st [data-scs="tab"][data-v="pen"]');
 await page.click('#sc-st [data-scs="set"][data-f="w"][data-v="3"]');
 await page.click('#sc-st [data-scs="set"][data-f="tm"][data-v="serif"]');
