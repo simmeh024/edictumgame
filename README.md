@@ -1159,13 +1159,32 @@ regions or any one region: who is active (now, today, this week, this month), na
 day by day, how many keep playing after a day, a week or a month (also per founding week), when edicts are
 decided (weekday by hour, in the admin's own time zone), edict pace and full desks, the most decided edicts and
 their favourite answers, every tutorial step, which features active nations use, guests against linked
-sign-ins, desktop against phone, and a table of the regions. Choosing a region lists its nations (public data:
-name, population, founding, last activity, edicts decided) with **Inspect player** beside each.
+sign-ins, desktop against phone, and a table of the regions. The page is in tabs: **Overview**, **Activity**,
+**Nations**, **Players**, **Content**, **Regions** and **Operations** (arrow keys move between them).
+
+**Activity** shows what nations do (`functions/stats-acts.js`): the timed actions their records keep (edicts
+decided, buildings and upgrades started, hexes claimed, cities founded, trades, wars, hexes taken, peace,
+alliance moves, spy missions, expeditions, Assembly votes) today and this week, and day by day for 60 days; each
+nation's **play style** this week (the kind of action it took most, weighed: Builder, Expander, Warlord, Trader,
+Diplomat, Politician, Explorer, Edicts only or Quiet) with the leaders of each; the buildings standing by kind
+(upgrades, gold, tier II, started this week, never built); the event log's last week by kind; the latest 40
+events; and the lifetime tally's totals. The game caps the lists those times come from (60 log entries, 80
+rulings), so days further back count the busiest nations a little low; the nightly record keeps each day's
+counts (`act`) as they were just after it ended, and the chart uses them where it has them.
+
+**Nations** lists every nation (500 at most, the most recently active first; one region's when a region is
+chosen) with its style, actions this week, latest action, population, cities, hexes, buildings, edicts decided
+and engagement, found by name, filtered by style and sorted. A name opens the nation in full
+(`adminConsole({op: 'statsNation', uid})`, read fresh): what it did (event log, rulings, buildings and cities,
+newest first), actions each day, population and prosperity over time, its cities and buildings with upgrades,
+its lifetime tally (never the keys that name another nation), edicts in force and stock, with **Inspect player**
+and **View nation**. Letters stay out: only the tally's count of them.
 
 `adminConsole({op: 'stats', reg})` counts it on the server (`functions/stats.js`): it reads every nation and
 its private half once, lists every Firebase Authentication account, and keeps the result ten minutes per
 instance (**Count again** counts afresh). That is two document reads per nation, plus one per 1,000 accounts,
-each time it counts. Only counts leave the server, apart from one region's nation list.
+each time it counts. Only counts leave the server, apart from the nations list, the funnel, the most engaged,
+the recruiters and the Activity tab's latest events and style leaders, which name nations (public in the game).
 
 How many played on a given day cannot be worked out later (a nation keeps only the time of its last save), so
 `.github/workflows/stats.yml` runs `jobs/stats/run.mjs` every night at 00:07 UTC (and 03:53 as a safety net; a

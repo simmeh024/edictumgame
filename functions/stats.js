@@ -1,11 +1,12 @@
 // Player statistics: how players use the game, for the admin portal's Statistics page (functions/admin.js, op
 // 'stats') and the daily record of it (jobs/stats). Every nation's record and every sign-in account is boiled down
 // to a few numbers per nation (nationRow, accountRow), and those to counts for the whole world or one region
-// (summarize). Nation names leave here only for the admin portal (a region's nations, the onboarding funnel, the most
-// engaged players and the recruiters), and they are public in the game anyway.
+// (summarize). Nation names leave here only for the admin portal (the nations list, the onboarding funnel, the most
+// engaged players, the recruiters, the latest events and the play styles' leaders), and they are public in the game anyway.
 // Pure: it is handed a Firestore instance and a way to list accounts, so the job and the tests can use it as well.
 import { nationText } from './nationtext.js';
 import { rowMore } from './stats-more.js';
+import { rowActs, actSummary, actDay } from './stats-acts.js';
 
 export const DAY = 86400000;
 const KEEP = 30 * DAY;   // rulings older than this are not kept per nation (a record holds its latest 80 at most)
@@ -60,7 +61,7 @@ export function nationRow(id, shared, priv, now) {
     d14: days.size, r14: ans.filter(a => a[2] >= 0 && a[0] > from).length,
   };
   row.eng = engagement(row);
-  Object.assign(row, rowMore(r, now));
+  Object.assign(row, rowMore(r, now), rowActs(r, now));
   return row;
 }
 /* How engaged a player is, 0 to 100, from four parts: the days of the last fortnight they played (40), the edicts they
@@ -198,6 +199,7 @@ function headline(R, now) {
 /* the Statistics page for the whole world (reg '') or one region */
 export function summarize(g, reg = '', now = g.at) {
   const R = reg ? g.rows.filter(x => x.reg === reg) : g.rows, since = d => now - d * DAY, H = headline(R, now);
+  const history = g.days.map(s => ({ d: s.d, ...(reg ? (s.regs || {})[reg] || {} : s.all || {}) }));
   const mine = new Set(R.map(x => x.id)), A = reg ? g.accts.filter(a => mine.has(a.id)) : g.accts, nationIds = new Set(g.rows.map(x => x.id));
   /* day by day: nations founded, accounts opened, rulings and the nations that ruled; the last SPAN UTC days */
   const today = Date.parse(dayKey(now)), days = [];
@@ -249,10 +251,14 @@ export function summarize(g, reg = '', now = g.at) {
     devices, finery: g.finery.filter(r => !reg || r === reg).length,
     posts: reg ? g.posts[reg] || null : Object.values(g.posts).reduce((s, p) => ({ all: s.all + (p.all || 0), week: s.week + (p.week || 0) }), { all: 0, week: 0 }),
     regions: regionsList,
-    list: reg ? R.slice().sort((a, b) => b.t - a.t).slice(0, LIST).map(x => ({ id: x.id, name: x.name, pop: x.pop, founded: x.founded, t: x.t, dec: x.dec,
-      ruled1: x.ans.filter(a => a[2] >= 0 && a[0] > since(1)).length, cities: x.cities, claims: x.claims, tut: x.tut.length })) : null,
+    /* the nations, the most recently active first, with what each did lately (functions/stats-acts.js) */
+    list: R.slice().sort((a, b) => b.t - a.t).slice(0, LIST).map(x => ({ id: x.id, name: x.name, reg: x.reg, pop: x.pop, founded: x.founded, t: x.t, dec: x.dec,
+      ruled1: x.ans.filter(a => a[2] >= 0 && a[0] > since(1)).length, cities: x.cities, claims: x.claims, tut: x.tut.length,
+      last: x.last, wk: x.wk, a7: x.a7, style: x.style, eng: x.eng ? x.eng[0] : 0, bld: (x.bld || []).length })),
     nationCount: R.length,
-    history: g.days.map(s => ({ d: s.d, ...(reg ? (s.regs || {})[reg] || {} : s.all || {}) })),
+    history,
+    /* what nations do: actions day by day and this week, the event log, buildings, play styles (functions/stats-acts.js) */
+    act: actSummary(R, now, history, !reg),
     /* the nations founded in the last eight weeks with the steps each has taken (FUNNEL), for the onboarding funnel */
     funnel: funnelList(R, g, monday - 7 * 7 * DAY),
     /* development news published in the charts' span: the page marks those days as releases */
@@ -276,9 +282,10 @@ function engageBands(active30) {
 /* the day's record (jobs/stats writes it as statsDays/<date>): the headline figures, for the world and each region,
    and what this month's players use (act30 of them; feat counts each part of the game) for the feature history */
 export function snapshot(g, now = g.at) {
-  const regs = {}, since = d => now - d * DAY;
+  const regs = {}, since = d => now - d * DAY, d = dayKey(now - DAY / 2), A = actDay(g.rows, Date.parse(d));
   const use = rows => { const a = rows.filter(x => x.t > since(30)); return { act30: a.length, feat: tally(a, x => x.f) }; };
-  for (const r of new Set(g.rows.map(x => x.reg))) if (r) { const rows = g.rows.filter(x => x.reg === r); regs[r] = { ...headline(rows, now), ...use(rows) }; }
-  return { d: dayKey(now - DAY / 2), at: now, all: { ...headline(g.rows, now), ...use(g.rows), accounts: g.accts.length, visitors1: g.accts.filter(a => a.created > since(1)).length,
+  for (const r of new Set(g.rows.map(x => x.reg))) if (r) { const rows = g.rows.filter(x => x.reg === r); regs[r] = { ...headline(rows, now), ...use(rows), act: A.regs[r] || {} }; }
+  /* act: the day's actions by kind (functions/stats-acts.js), counted just after it ended */
+  return { d, at: now, all: { ...headline(g.rows, now), ...use(g.rows), act: A.all, accounts: g.accts.length, visitors1: g.accts.filter(a => a.created > since(1)).length,
     registered: g.accts.filter(a => a.registered).length }, regs };
 }
