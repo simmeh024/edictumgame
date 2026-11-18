@@ -72,6 +72,13 @@ try {
   /* the slips */
   check('the builders are busy until a time, not "until at" one', /The builders are busy until \d/.test(await txt('.cx-qend') || ''), await txt('.cx-qend'));
   const todo = await txt('.cx-todo') || '';
+  /* a chip under Needs your attention lands on the matter itself */
+  let chip = await page.$('.cx-todo [data-act="cx-go"][data-k="ev"], .cx-todo [data-act="cx-go"][data-k="blk"]');
+  if (!chip && await page.$('.cx-todo-l')) { await page.evaluate(id => { const b = document.createElement('button'); b.className = 'chip-btn t-jump'; Object.assign(b.dataset, { act: 'cx-go', id, tab: 'build', k: 'blk' }); document.querySelector('.cx-todo-l').append(b); }, cid); chip = await page.$('.t-jump'); }
+  if (chip) { const k = await chip.getAttribute('data-k'); await chip.click(); await sleep(700);
+    const at = await page.evaluate(k => { const m = document.querySelector(k === 'ev' ? '#cx-main #cx-matter' : '#cx-main .cat-wrap'); if (!m) return null; const r = m.getBoundingClientRect(); return { focus: document.activeElement === m, top: Math.round(r.top), h: innerHeight }; }, k);
+    check('a Needs-your-attention chip brings the player to that matter', !!at && at.focus && at.top >= -2 && at.top < at.h / 2, k + ' ' + JSON.stringify(at)); }
+  else console.log('     (no matter or empty block chip to click)');
   await page.click('.cx-add'); await sleep(300);
   const form = await txt('#cx-new') || '';
   console.log('     (found a city: ' + form.slice(0, 90) + ')');

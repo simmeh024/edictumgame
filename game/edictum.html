@@ -67896,7 +67896,7 @@ function cxTodoList(T,mine,now,canFound){
 function cxTodo(T,mine,now,canFound){
   const it=cxTodoList(T,mine,now,canFound);
   if(!it.length)return '';
-  return `<section class="cx-todo" aria-labelledby="cx-todo-h"><p class="lbl-h" id="cx-todo-h">Needs your attention</p><div class="cx-todo-l">${it.slice(0,6).map(([t,tab,id])=>`<button class="chip-btn" data-act="cx-go" data-id="${esc(id)}" data-tab="${tab}">${esc(t)} →</button>`).join('')}${it.length>6?`<span class="hint">and ${it.length-6} more</span>`:''}</div></section>`;
+  return `<section class="cx-todo" aria-labelledby="cx-todo-h"><p class="lbl-h" id="cx-todo-h">Needs your attention</p><div class="cx-todo-l">${it.slice(0,6).map(([t,tab,id,k])=>`<button class="chip-btn" data-act="cx-go" data-id="${esc(id)}" data-tab="${tab}" data-k="${k||''}">${esc(t)} →</button>`).join('')}${it.length>6?`<span class="hint">and ${it.length-6} more</span>`:''}</div></section>`;
 }
 function cxItem(ct,T,now,on){
   const b=blkOf(ct,T),u=blkUsed(ct),cur=ct.prog.find(x=>x.s<=now)||ct.prog[0],band=ct.mood!=null&&ct.active?cxBand(ct.mood):null,ev=cxEvDue(ct,now);
@@ -68048,11 +68048,13 @@ function cxCrestEdit(cid,f,v){
   const a=czCleanArms(cur,null);if(!a)return;c.cr={s:a.s,d:a.d,t:a.t,c:a.c,ct:a.ct};
   commit(n);render();
 }
-function cxShow(){if(!mapxNarrow())return;requestAnimationFrame(()=>{const m=document.getElementById('cx-main');if(m)m.scrollIntoView({block:'start',behavior:mfxRM()?'auto':'smooth'});});}
+/* a "Needs your attention" chip lands on the matter itself: the event card, the mayor, the building plans */
+const CX_GO_AT={ev:'#cx-matter',my:'#cx-mayor',blk:'.cat-wrap'};
+function cxShow(at){if(!at&&!mapxNarrow())return;requestAnimationFrame(()=>{const m=(at&&document.querySelector('#cx-main '+at))||document.getElementById('cx-main');if(!m)return;m.scrollIntoView({block:'start',behavior:mfxRM()?'auto':'smooth'});if(at&&m.id!=='cx-main'){if(!m.hasAttribute('tabindex'))m.setAttribute('tabindex','-1');try{m.focus({preventScroll:true});}catch{}}});}
 document.addEventListener('click',e=>{
   const el=e.target.closest('[data-act]');if(!el)return;const a=el.dataset.act,id=el.dataset.id;
   if(a==='cx-sel'){S.cxSel=id;S.cityOpen=null;S.cxTab='b';S.cityMsg='';S.confirmDemo=null;S.c3Ren=null;S.c3Ab=null;render();cxShow();return;}
-  if(a==='cx-go'){S.cxSel=id;S.cityMsg='';S.cityOpen=el.dataset.tab==='build'?id:null;S.cxTab=el.dataset.tab==='build'||el.dataset.tab==='new'?'b':el.dataset.tab;render();cxShow();return;}
+  if(a==='cx-go'){S.cxSel=id;S.cityMsg='';S.cityOpen=el.dataset.tab==='build'?id:null;S.cxTab=el.dataset.tab==='build'||el.dataset.tab==='new'?'b':el.dataset.tab;render();cxShow(CX_GO_AT[el.dataset.k]);return;}
   if(a==='cx-tab'){S.cxTab=el.dataset.k;S.cityOpen=null;S.cityMsg='';render();return;}
   if(a==='cx-cat'){S.cxCat=el.dataset.k;render();return;}
   if(a==='cx-afford'){S.cxAfford=!!el.checked;render();return;}
