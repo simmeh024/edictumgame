@@ -57,6 +57,31 @@ test('the Dispatch prints it, the map panel takes a guess, and the first ten ear
   assert.match(html, /alReq\(\{op:'rdGuess',rid:R\.id,c\}\)/);
 });
 
+test('a solved riddle pays 5 land credits, once a week and never from before the founding, and 50 goods once per riddle', () => {
+  const G = vm.runInNewContext('(' + lineOf('const RD_RULES=').slice('const RD_RULES='.length).replace(/;$/, '') + ')');
+  assert.equal(G.lc, 5); assert.equal(G.goods, 50);
+  const a = html.indexOf('\nfunction rdCredits(n){'), b = html.indexOf('\n}\n', a);
+  const src = html.slice(a, b + 3);
+  assert.match(src, new RegExp('return ' + G.lc + '\\*wk\\.size;'), 'rdCredits pays RD_RULES.lc a week');
+  const rdCredits = new Function(src + ';return rdCredits;')();
+  const f = Date.UTC(2026, 10, 10);
+  assert.equal(rdCredits({ founded: f, rdo: ['meridian_20261116'] }), 5);
+  assert.equal(rdCredits({ founded: f, rdo: ['meridian_20261116', 'meridian_20261116', 'greywater_20261116'] }), 5, 'one a week, whatever the region');
+  assert.equal(rdCredits({ founded: f, rdo: ['meridian_20261109', 'meridian_20261116'] }), 10);
+  assert.equal(rdCredits({ founded: f, rdo: ['meridian_20261026'] }), 0, 'not from before the founding week');
+  assert.equal(rdCredits({ founded: f, rdo: ['meridian_29990101'] }), 0, 'not from the future');
+  assert.equal(rdCredits({ founded: f, rdo: ['bad', 7, null] }), 0);
+  assert.equal(rdCredits({ npc: true, rdo: ['meridian_20261116'] }), 0);
+  assert.equal(rdCredits({}), 0);
+  /* every count of earned credits has them, so other nations' land checks agree */
+  assert.match(lineOf('function landEarned(n)'), /\+rdCredits\(n\)/);
+  assert.match(lineOf('function earnedAt(n,p)'), /\+rdCredits\(n\)/);
+  /* the goods, the happening and the task */
+  assert.match(html, /st\.goods=stockLimit\(n,'goods',num0\(st\.goods\)\+RD_RULES\.goods\*due\.length,st\.goods\)/);
+  assert.match(html, /HAP_SOURCES\.push\(\(x,now\)=>\{const n=x&&x\.n;if\(!n\|\|n\.npc\|\|!Array\.isArray\(n\.rdh\)\)return \[\];/);
+  assert.match(html, /\{k:'rdl',sec:'x',t:'Solve the weekly riddle',[^\n]+\n\s+v:'dispatch',b:'Open the Dispatch',lc:4,gift:\{goods:20\},f:n=>tallyOf\(n,'rdl'\)>0\}/);
+});
+
 test('the server takes the guesses and keeps the answer to itself', () => {
   const civic = fs.readFileSync(new URL('../functions/civic.js', import.meta.url), 'utf8');
   assert.match(civic, /isRiddleOp\(d\.op\)\) return riddle\(db, who, d\)/);

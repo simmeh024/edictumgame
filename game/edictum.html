@@ -23071,7 +23071,16 @@ NORM_HOOKS.push((n,d)=>{const k=d&&d.prpk;if(Number.isInteger(k)&&k>0)n.prpk=Mat
    25 million after 100 million 2 more. Counted from the population now, like the milestones. */
 function popMarkCredits(p){if(!(p>=10-1e-9))return 0;let k=0;for(let m=10;m<=100&&p>=m-1e-9;m+=10)k+=m/5;if(p>=125-1e-9)k+=2*Math.floor((p-100+1e-9)/25);return k;}
 function popMarkNext(p){if(p<100-1e-9){const m=10*Math.floor(p/10+1e-9)+10;return {p:m,c:m/5};}return {p:100+25*(Math.floor((p-100+1e-9)/25)+1),c:2};}
-function landEarned(n){const p=popNow(n);return Math.max(0,Math.max(0,budgetOf(p)-CORE_HEXES)+mileOf(n).bonus+(n&&n.npc?0:popMarkCredits(p))+(n.lcb||0)+achRankCredits(n)+achTierCredits(n)+prvCredits(n)-(n.mvl||0));}
+/* the riddle of the week: 5 land credits (RD_RULES.lc; test/riddle.test.mjs keeps the two equal) for each riddle the
+   nation solved, from n.rdo, at most one a week and none from before its founding week. A function declaration with
+   its own numbers, as land credits are counted long before the riddle's part of the script has run */
+function rdCredits(n){
+  const L=n&&!n.npc&&Array.isArray(n.rdo)?n.rdo:null;if(!L)return 0;const f=Number(n.founded)||0,now=Date.now(),wk=new Set();
+  for(const id of L){const m=typeof id==='string'&&/^[a-z0-9-]{1,40}_(\d{4})(\d{2})(\d{2})$/.exec(id);if(!m)continue;
+    const t=Date.UTC(+m[1],+m[2]-1,+m[3],8);if(t>now||(f&&t+7*864e5<=f))continue;wk.add(m[1]+m[2]+m[3]);}
+  return 5*wk.size;
+}
+function landEarned(n){const p=popNow(n);return Math.max(0,Math.max(0,budgetOf(p)-CORE_HEXES)+mileOf(n).bonus+(n&&n.npc?0:popMarkCredits(p))+(n.lcb||0)+achRankCredits(n)+achTierCredits(n)+prvCredits(n)+rdCredits(n)-(n.mvl||0));}
 function landCredits(n){
   if(!n||!Array.isArray(n.claims)||cellOf(n.loc)<0)return 0;
   const T=territory(),i=T.byId[myId()];if(i===undefined)return 0;
@@ -25521,7 +25530,7 @@ function spareOf(E,id,res){const j=E.T.byId[id];return j===undefined?0:Math.max(
 /* the credits earned at population p: everything landEarned counts at today's population, rank and province credits
    included (and the dig credits below), so the next credit's population is reckoned from the same total. Province credits
    were once left out here, and a nation with 25 provinces was told its next credit came at 286 million instead of 35. */
-function earnedAt(n,p){const r=milesReached(p);return Math.max(0,budgetOf(p)-CORE_HEXES)+r.reduce((s,m,i)=>s+mileCredit(n,i),0)+(n.lcb||0)+prvCredits(n)+achRankCredits(n)+achTierCredits(n)-(n.mvl||0);}
+function earnedAt(n,p){const r=milesReached(p);return Math.max(0,budgetOf(p)-CORE_HEXES)+r.reduce((s,m,i)=>s+mileCredit(n,i),0)+(n.lcb||0)+prvCredits(n)+rdCredits(n)+achRankCredits(n)+achTierCredits(n)-(n.mvl||0);}
 function nextCreditPop(n){
   const T=territory(),i=T.byId[myId()],used=i===undefined?0:claimsUsed(n,T,i),need=used+1,p0=popNow(n);
   if(earnedAt(n,p0)>=need)return p0;let lo=p0,hi=p0;
@@ -42466,6 +42475,8 @@ const TUT_LISTS=[
     {k:'fleet',sec:'x',lc:4,t:'Send a party to a fleeting find',h:'Shipwrecks, whales and fairs last only hours, and only the first five parties to arrive share the spoils.',v:'explore',b:'Expeditions',gift:{timber:10},f:n=>Array.isArray(n.fl)&&n.fl.length>0},
     {k:'mdig',sec:'x',t:'Do a museum dig',h:'The Museum’s Field digs hall sends diggers to an old site. They come back hours later with finds for your collection.',
      act:'tut-dig',b:'Open the digs',lc:4,gift:{food:20,timber:20,iron:20,oil:20,goods:20},f:n=>(n.dig||[]).length>0||(n.digF||[]).length>0},
+    {k:'rdl',sec:'x',t:'Solve the weekly riddle',h:'Every Monday the Dispatch prints a riddle that points at one hex of your region. Find it on the map and open the hex: solving it pays 5 land credits and 50 goods, and the first ten are named.',
+     v:'dispatch',b:'Open the Dispatch',lc:4,gift:{goods:20},f:n=>tallyOf(n,'rdl')>0},
     {k:'world',sec:'x',t:'Look round the known world',h:()=>`${REGIONS.length} regions, each with its own lands, climate and nations, and you may move to any of them.`,v:'world',b:'Open the World page',lc:6,gift:{oil:20},
      f:(n,d)=>d.includes('w')||(n.log||[]).some(l=>l&&l.k==='move')},
     {k:'cab',sec:'g',lc:4,gift:{iron:10,oil:10},t:'Appoint a minister',h:'Your cabinet governs between edicts. A new minister pleases some colleagues and unsettles the rest.',v:'government',to:'cv-h',b:'Open the cabinet',f:n=>(+n.cabAt||0)>0},
@@ -76572,7 +76583,7 @@ HELP_EXT.push({k:'ventures',t:'Joint ventures',body:()=>`<p>A joint venture is s
    says right or wrong; RD_RULES.tries a week, the same hex twice counts once. The player's own guesses come back from
    riddles/{id}/guesses/{uid} and are marked on the map. A right answer is counted once per riddle (n.rdo, the ids solved)
    in the tally: rdl solved, rdlt among the first ten, rdl1 the very first. Among the first ten earns "the Sharp-Eyed". */
-const RD_RULES={tries:3,top:10,week:7*86400000};
+const RD_RULES={tries:3,top:10,week:7*86400000,lc:5,goods:50};
 const RD_ID=/^[a-z0-9-]{1,40}_\d{8}$/;
 const RD={id:'',cur:null,prev:null,mine:null,un:[],busy:false,ask:-1,drawn:''};
 function rdIdAt(t){const d=new Date(weekStart(t));return REG.id+'_'+d.getUTCFullYear()+String(d.getUTCMonth()+1).padStart(2,'0')+String(d.getUTCDate()).padStart(2,'0');}
@@ -76611,19 +76622,31 @@ async function rdGuessAt(c){
   RD.busy=true;updateMapPanel();
   try{const r=(await alReq({op:'rdGuess',rid:R.id,c}))||{};
     if(r.right){if(!r.again){const n=clone(S.nation);n._rdw={id:R.id,rank:r.rank};commit(n);setTimeout(()=>{try{if(S.nation&&!OBS)commit(clone(S.nation));}catch(e){}},60);}
-      toast(r.rank<=RD_RULES.top?`You found it! You are the ${rdOrd(r.rank)} to solve this week’s riddle, so ${REGION} will remember you.`:`You found it! You are the ${rdOrd(r.rank)} to solve this week’s riddle.`);}
+      toast(`You found it! You are the ${rdOrd(r.rank)} to solve this week’s riddle${r.rank<=RD_RULES.top?`, so ${REGION} will remember you`:''}. +${RD_RULES.lc} land credits and +${RD_RULES.goods} goods.`);}
     else toast(r.same?'You already guessed that hex.':r.left>0?`Not this hex. ${r.left} ${r.left===1?'guess':'guesses'} left this week.`:'Not this hex, and that was your last guess this week. The answer comes out on Monday.');
   }catch(e){toast(alErrText(e));}
   finally{RD.busy=false;RD.ask=-1;updateMapPanel();redrawMaps();}
 }
-/* a right answer counts once per riddle; n.rdo keeps the ids solved */
+/* a right answer counts once per riddle: n.rdo keeps the ids solved (each worth RD_RULES.lc land credits: rdCredits,
+   beside landEarned), n.rdh the solves with their time and place for the region's happenings, and n.rdp the ids whose
+   RD_RULES.goods were paid, so a riddle solved before the reward existed is paid at the next commit */
 COMMIT_HOOKS.push((n,old,now)=>{
-  if(!n)return [];const w=n._rdw;delete n._rdw;
-  if(w&&typeof w.id==='string'&&RD_ID.test(w.id)&&!(n.rdo||[]).includes(w.id)){now=now||Date.now();
-    n.rdo=(n.rdo||[]).concat(w.id).slice(-30);gbBump(n,'rdl',1,now);if(w.rank>0&&w.rank<=RD_RULES.top)gbBump(n,'rdlt',1,now);if(w.rank===1)gbBump(n,'rdl1',1,now);}
+  if(!n||n.npc)return [];const w=n._rdw;delete n._rdw;now=now||Date.now();
+  if(w&&typeof w.id==='string'&&RD_ID.test(w.id)&&!(n.rdo||[]).includes(w.id)){
+    n.rdo=(n.rdo||[]).concat(w.id).slice(-30);gbBump(n,'rdl',1,now);if(w.rank>0&&w.rank<=RD_RULES.top)gbBump(n,'rdlt',1,now);if(w.rank===1)gbBump(n,'rdl1',1,now);
+    n.rdh=(n.rdh||[]).concat({i:w.id,t:now,r:Number.isInteger(w.rank)&&w.rank>0?w.rank:0}).slice(-12);}
+  const due=(n.rdo||[]).filter(id=>!(n.rdp||[]).includes(id));
+  if(due.length){const st=stockNow(n,now);st.goods=stockLimit(n,'goods',num0(st.goods)+RD_RULES.goods*due.length,st.goods);n.stock=roundStock(st);n.stockAt=now;n.rdp=(n.rdp||[]).concat(due).slice(-30);}
   return [];
 });
-NORM_HOOKS.push((n,d)=>{if(d&&Array.isArray(d.rdo)){const a=[...new Set(d.rdo.filter(v=>typeof v==='string'&&RD_ID.test(v)))].slice(-30);if(a.length)n.rdo=a;else delete n.rdo;}else delete n.rdo;});
+NORM_HOOKS.push((n,d)=>{
+  const ids=k=>{if(d&&Array.isArray(d[k])){const a=[...new Set(d[k].filter(v=>typeof v==='string'&&RD_ID.test(v)))].slice(-30);if(a.length)n[k]=a;else delete n[k];}else delete n[k];};
+  ids('rdo');ids('rdp');
+  if(d&&Array.isArray(d.rdh)){const a=d.rdh.filter(e=>e&&typeof e.i==='string'&&RD_ID.test(e.i)&&typeof e.t==='number'&&isFinite(e.t)&&e.t>0).slice(-12).map(e=>({i:e.i,t:e.t,r:Number.isInteger(e.r)&&e.r>0?e.r:0}));if(a.length)n.rdh=a;else delete n.rdh;}else delete n.rdh;
+});
+/* in the region's happenings (Region › Happenings and the region chat's): who solved the riddle, and how soon */
+HAP_SOURCES.push((x,now)=>{const n=x&&x.n;if(!n||n.npc||!Array.isArray(n.rdh))return [];const nm=nationLink(x.id,n.name,x.me);
+  return n.rdh.filter(e=>e.t<=now).map(e=>({t:e.t,txt:`${nm} solved the <button type="button" class="linkish" data-act="go" data-v="dispatch">riddle of the week</button>${e.r>0&&e.r<=RD_RULES.top?`, the ${rdOrd(e.r)} in ${esc(REGION)} to find it`:''}.`}));});
 
 /* the Dispatch's box: the riddle, how this nation stands, the first to find it, and last week's answer */
 function rdCapName(R){const x=R&&R.cap?findNation(R.cap):null;return x?x.n.name:'';}
@@ -76631,7 +76654,7 @@ function rdBox(now){
   const R=RD.cur&&RD.cur.reg===REG.id?RD.cur:null,P=RD.prev&&RD.prev.reg===REG.id&&RD.prev.a>=0?RD.prev:null;if(!R&&!P)return '';
   const M=RD.mine,left=rdLeft(),open=rdOpen(now);
   const st=!R?'':M&&M.ok?`<b>You found it</b>: the ${rdOrd(M.r)} in ${esc(REGION)}.`:!open?'This riddle is closed.':left<=0?`You have used your ${RD_RULES.tries} guesses. The answer comes out on Monday.`
-    :`You have ${left} of ${RD_RULES.tries} guesses. Find the hex on the map, open it, and choose <b>This is the riddle’s answer</b>. The first ${RD_RULES.top} to find it are named here.`;
+    :`You have ${left} of ${RD_RULES.tries} guesses. Find the hex on the map, open it, and choose <b>This is the riddle’s answer</b>. Finding it pays ${RD_RULES.lc} land credits and ${RD_RULES.goods} goods, and the first ${RD_RULES.top} to find it are named here.`;
   const who=L=>L.map(x=>`<b>${esc(x.nm)}</b>`).join(', ');
   return `${R?`<div class="rd-now"><p class="dsp-vh">Where am I?</p><ol class="rd-q">${R.q.map(l=>`<li>${esc(l)}</li>`).join('')}</ol>
       <p class="rd-st">${st}</p>
@@ -76679,11 +76702,12 @@ achDef('press','rdl-top','s','Sharp-Eyed','Be among the first ten in your region
 achDef('press','rdl-first','g','First to the Answer','Be the first in your region to solve a riddle of the week.',1,x=>aT(x,'rdl1'),{mp:1});
 
 HELP_EXT.push({k:'riddle',t:'Riddle of the week',body:()=>`<p>Every Monday at 08:00 UTC each region gets a riddle in the Dispatch, in its features column. Its lines point at one hex of your region’s map: they count hexes from the capital of one of the computer nations, name a direction and the ground, and add what is needed until only one hex fits.</p>
-  <p>Find it on the map and open the hex. Its panel offers <b>This is the riddle’s answer…</b>. You have ${RD_RULES.tries} guesses a week; a wrong guess is marked with a cross on your map. The first ten nations to find it are named in the Dispatch, and earn the title “the Sharp-Eyed”.</p>
+  <p>Find it on the map and open the hex. Its panel offers <b>This is the riddle’s answer…</b>. You have ${RD_RULES.tries} guesses a week; a wrong guess is marked with a cross on your map. Finding it pays ${RD_RULES.lc} land credits and ${RD_RULES.goods} goods, and the region’s Happenings tell everyone you did. The first ten nations to find it are named in the Dispatch, and earn the title “the Sharp-Eyed”.</p>
   <p>When the week is over, the Dispatch shows last week’s answer, and the map rings it. Directions are as on the map, north at the top, and “3 hexes” means three steps from the capital’s own hex.</p>`});
 
 /* the browser tests' window (EDICTUM_PROBE, RD) */
-function rdProbe(){return {RD,RD_RULES,rdIdAt,rdBox,rdGuessAt,rdLeft,rdOpen};}
+function rdProbe(){return {RD,RD_RULES,rdIdAt,rdBox,rdGuessAt,rdLeft,rdOpen,rdCredits,landEarned,stockNow,
+  task:()=>{const L=TUT_LISTS.find(l=>l.k==='ambitions'),t=L&&L.tasks.find(t=>t.k==='rdl');return t?!!t.f(S.nation,'',false):null;}};}
 
 /* ───────── cities that need you, in the bell (CA) ─────────
    What the Cities page lists under "Needs your attention" also goes in the bell as pinned notices: a matter waiting for an

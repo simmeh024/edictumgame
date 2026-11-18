@@ -31,6 +31,7 @@ function game(used){
     ${line('const PRV_CREDITS=')}
     ${line('function prvPeak(n){')}
     ${line('function prvCredits(n){')}
+    ${block('function rdCredits(n){','\n}')}
     ${line('function earnedAt(n,p){')}
     ${block('function nextCreditPop(n){','\n}')}
     function achRankCredits(){return 0;}function achTierCredits(){return 0;}

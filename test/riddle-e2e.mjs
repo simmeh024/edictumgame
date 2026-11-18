@@ -62,9 +62,15 @@ check('a wrong guess is told so, with the guesses left', await toastHas(A, /Not 
 check('and is kept, and marked on the hex', await until(() => A.evaluate(c => (G.RD().RD.mine?.g || []).includes(c), wrong), 10000) && /It was not the one/.test(await text(A, '#map-panel')));
 
 /* the answer */
+const before = await A.evaluate(() => ({ rd: G.RD().rdCredits(G.S.nation), lc: G.RD().landEarned(G.S.nation), goods: Math.floor(G.RD().stockNow(G.S.nation, Date.now()).goods) }));
 await panelOn(A, answer); await quiet(A);
 await A.click('#map-panel [data-act="rd-ask"]'); await A.click('#map-panel [data-act="rd-guess"]');
-check('the right hex is found, the first in the region', await toastHas(A, /You found it! You are the 1st/));
+check('the right hex is found, the first in the region, with its reward', await toastHas(A, /You found it! You are the 1st[^.]*\. \+5 land credits and \+50 goods/));
+/* the achievements and the ledger's task pay their own rewards at the same moment, so the riddle's share is read apart */
+const after = await until(() => A.evaluate(id => { const n = G.S.nation; return (n.rdp || []).includes(id) ? { rd: G.RD().rdCredits(n), lc: G.RD().landEarned(n), goods: Math.floor(G.RD().stockNow(n, Date.now()).goods) } : null; }, id), 10000);
+check('it pays 5 land credits, counted among the credits earned', after && before.rd === 0 && after.rd === 5 && after.lc - before.lc >= 5, JSON.stringify({ before, after }));
+check('and 50 goods (beside what the achievements and the task pay)', after && after.goods - before.goods >= 50, JSON.stringify({ before, after }));
+check('and the Ledger’s task Solve the weekly riddle is done', await until(() => A.evaluate(() => G.RD().task() === true), 10000));
 const doc = await until(async () => { const d = await admin('riddles/' + id); return Number(d.n?.integerValue) === 1 ? d : null; }, 10000);
 check('the riddle counts it and names the nation', doc && doc.top.arrayValue.values[0].mapValue.fields.nm.stringValue === 'Riddleton');
 check('counted once, among the first ten and the very first', await until(() => A.evaluate(() => { const t = G.S.nation.tly || {}; return t.rdl === 1 && t.rdlt === 1 && t.rdl1 === 1; }), 10000));
@@ -77,6 +83,9 @@ await A.evaluate(c => { G.MD.centerMain(c, 9); G.render(); }, answer); await sle
 await shot(A.locator('canvas[data-map="main"]'), path.join(OUT, 'riddle-map.png'));
 await nav(A, 'dispatch'); await A.waitForSelector('#dsp-p-riddle');
 check('the Dispatch says it was found, and by whom', /You found it: the 1st/.test(await text(A, '#dsp-p-riddle')) && /first Riddleton/.test(await text(A, '#dsp-p-riddle')));
+/* the region's happenings say who solved it */
+await nav(A, 'region'); await A.click('#rgn-tab-happenings').catch(() => {}); await sleep(400);
+check('the region’s Happenings say who solved it', await until(async () => /Riddleton solved the riddle of the week, the 1st in /.test(await text(A, '#main')), 10000));
 check('no page errors', !errors.length, JSON.stringify(errors));
 void uid;
 await finish();

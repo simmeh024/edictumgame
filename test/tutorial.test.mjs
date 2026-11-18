@@ -62,7 +62,8 @@ test('seven groups: the main path, Build your future, the region, Make it your o
   const sp=G(r,'space').tasks,n0={sp:null,cities:[]};assert.ok(sp.every(s=>s.f(n0)===false));assert.ok(sp.filter(s=>s.lock).every(s=>typeof s.lock(n0)==='string'&&s.lock(n0).length>0));
   const keys=L.flatMap(x=>x.tasks.map(s=>s.k));assert.equal(new Set(keys).size,keys.length);
   for(const k of [...Object.keys(V25),'charter','google'])assert.ok(keys.includes(k),'an earlier key is kept: '+k);
-  assert.equal(keys.length,Object.keys(V25).length+2+BONUS.length+6,'no task is lost, and the bonus tasks and the six of To the Moon are the only ones added');
+  assert.equal(keys.length,Object.keys(V25).length+2+BONUS.length+6+1,'no task is lost, and the bonus tasks, the six of To the Moon and the weekly riddle (rdl) are the only ones added');
+  assert.ok(G(r,'ambitions').tasks.some(s=>s.k==='rdl'&&s.sec==='x'),'Solve the weekly riddle, in the ledger’s Exploration');
   assert.deepEqual([...L.flatMap(x=>x.tasks.filter(s=>s.own).map(s=>s.k))],['google']);
   assert.deepEqual([...G(r,'establish').tasks.map(s=>s.k)],['settle','land','build','issue','charter'],'settle, claim, build, three edicts, then the charter');
   assert.deepEqual([...G(r,'future').tasks.map(s=>s.k)],['city2','trade','exp','stamp']);assert.equal(G(r,'future').need,2);
