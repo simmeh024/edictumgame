@@ -77,7 +77,7 @@ test('a ban marks the sign-ins it used: the same Google account comes back banne
 test('staff endpoints reject visitors and ordinary players', async () => {
   const g = await user();
   await assert.rejects(call(null, { op: 'search' }), e => e.status === 'UNAUTHENTICATED');
-  for (const op of ['search', 'player', 'health', 'stats', 'audit', 'region', 'moderate', 'note']) await assert.rejects(call(g, { op }), e => e.status === 'PERMISSION_DENIED');
+  for (const op of ['search', 'player', 'health', 'stats', 'statsNation', 'audit', 'region', 'moderate', 'note']) await assert.rejects(call(g, { op }), e => e.status === 'PERMISSION_DENIED');
 });
 test('search includes legacy summaries, case-insensitive names and exact player IDs', async () => {
   const a = await user(true), p = await user(); await seed(p.uid);
@@ -378,13 +378,20 @@ test('a support ticket is a conversation: a reply keeps it open, the player writ
 test('statistics count every nation and account, for the world or one region, and the nightly job records them', async () => {
   const a = await user(true), p = await user(), q = await user(); await user();
   const now = Date.now(), rec = (name, reg, extra) => JSON.stringify({ name, reg, pop: 5, founded: now - 3 * 86400000, updatedAt: now, ...extra });
-  await put('nations/' + p.uid, { name: 'Statland', reg: 'meridian', pop: 6, updatedAt: now, j: rec('Statland', 'meridian', { answered: [{ id: 'tax', o: 1, t: now - 60000 }] }) });
+  await put('nations/' + p.uid, { name: 'Statland', reg: 'meridian', pop: 6, updatedAt: now, j: rec('Statland', 'meridian', { answered: [{ id: 'tax', o: 1, t: now - 60000 }],
+    cities: [{ id: 'c1', c: 4, nm: 'Statburg', t: now - 10 * 86400000, b: [{ k: 'farm', s: now - 3600000, d: now - 60000 }] }], tly: { build: 1, 'dm:x': 2 } }) });
   await put('nationx/' + p.uid, { j: JSON.stringify({ freq: 60, tut: { lc: ['settle'] } }) });
   await put('nations/' + q.uid, { name: 'Frostland', reg: 'frostmarch', pop: 5, updatedAt: now - 2 * 86400000, j: rec('Frostland', 'frostmarch') });
   await assert.rejects(call(a, { op: 'stats', reg: 'atlantis' }), e => e.status === 'INVALID_ARGUMENT');
   const w = await call(a, { op: 'stats', refresh: true });
   assert.ok(w.nations >= 2 && w.a1 >= 1 && w.dec1 >= 1, JSON.stringify({ nations: w.nations, a1: w.a1, dec1: w.dec1 }));
-  assert.equal(w.list, null, 'no nation list for the whole world');
+  assert.ok(w.list.some(x => x.id === p.uid && x.reg === 'meridian' && x.style === 'builder'), 'every nation in the world list, with what it did this week');
+  assert.ok(w.act.d1.build >= 1 && w.act.d7.edict >= 1 && w.act.builds.farm.n >= 1 && w.act.days.length === 60, JSON.stringify(w.act.d1));
+  // one nation in full, for the Nations tab
+  await assert.rejects(call(a, { op: 'statsNation', uid: 'nobody-here' }), e => e.status === 'NOT_FOUND');
+  const one = await call(a, { op: 'statsNation', uid: p.uid });
+  assert.equal(one.name, 'Statland'); assert.equal(one.cities[0].b[0].k, 'farm'); assert.equal(one.rulings[0].id, 'tax'); assert.equal(one.style, 'builder');
+  assert.deepEqual(one.tally, { build: 1 }, 'no tally key naming another nation');
   assert.ok(w.accounts.total >= 4 && w.accounts.withNation >= 2 && w.tut.settle >= 1 && w.pace[60] >= 1);
   assert.ok(w.regions.some(r => r.reg === 'frostmarch' && r.nations >= 1) && w.regions.some(r => r.reg === 'saffron'), 'every region, with or without nations');
   const f = await call(a, { op: 'stats', reg: 'frostmarch' });
@@ -395,6 +402,7 @@ test('statistics count every nation and account, for the world or one region, an
   assert.equal(first.day, '2030-01-01'); assert.equal(first.recorded, true); assert.equal(again.recorded, false);
   assert.ok(first.nations >= 2 && first.accounts >= 4);
   assert.ok((await get('statsDays/2030-01-01')).fields.all.mapValue.fields.nations);
+  assert.ok((await get('statsDays/2030-01-01')).fields.all.mapValue.fields.act, 'the day’s actions are recorded too');
   const h = await call(a, { op: 'stats', refresh: true });
   assert.equal(h.history.at(-1).d, '2030-01-01'); assert.ok(h.history.at(-1).nations >= 2);
 });

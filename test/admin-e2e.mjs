@@ -263,10 +263,38 @@ check('and the forced rename, the player’s new name and the notes, without the
 // Statistics: how players use the game, for the whole world and then for one region, whose nations it lists
 await page('admin-stats');
 const stText = () => text(A, '.adm-main');
-check('Statistics counts the players, their edicts, the tutorial and every region', await until(async () => { const t = await stText(); return /active today/.test(t) && /Coming back/.test(t) && /Getting started/.test(t) && /Settle your capital/.test(t) && /Meridian Reach/.test(t) && /Sign-ins/.test(t); }, 30000), (await stText()).slice(0, 400));
+/* the page is in tabs: choose one and wait for its panel */
+const stTab = async k => { await A.click(`[data-act="st-tab"][data-v="${k}"]`); await until(async () => !!await A.$(`#adst-p-${k}`)); };
+check('Statistics counts the players and how they come back on its Overview', await until(async () => { const t = await stText(); return /active today/.test(t) && /Coming back/.test(t) && /When nations play/.test(t) && !!await A.$('#adst-t-overview[aria-selected="true"]'); }, 30000), (await stText()).slice(0, 400));
+await stTab('players');
+check('and the tutorial and sign-ins under Players', await until(async () => { const t = await stText(); return /Getting started/.test(t) && /Settle your capital/.test(t) && /Sign-ins/.test(t) && !/Coming back/.test(t); }), (await stText()).slice(0, 400));
+await A.focus('#adst-t-players'); await A.keyboard.press('ArrowRight');
+check('the arrow keys move between the tabs', await until(async () => await A.evaluate(() => document.activeElement?.id) === 'adst-t-content' && !!await A.$('#adst-p-content')));
+await stTab('regions');
+check('and every region under Regions', await until(async () => /Meridian Reach/.test(await text(A, '#adst-p-regions'))));
+await stTab('overview');
 check('a chart names the day and its count under the pointer', await (async () => { await A.hover('.adst-cols .adst-c:last-child'); return await until(async () => /^\d+ \w+: \d+ nations$/.test(await A.evaluate(() => { const t = document.getElementById('vtip'); return t && !t.hidden ? t.textContent : ''; }))); })());
 await A.screenshot({ path: OUT + '/admin-stats.png', fullPage: true });
-check('Statistics shows content use, regions and social, and operations', await until(async () => { const t = await stText(); return /Content use/.test(t) && /Edicts in force/.test(t) && /Achievement rarity/.test(t) && /Region fill and growth/.test(t) && /Operations/.test(t) && /Pages visited/.test(t); }, 30000), (await stText()).slice(0, 400));
+await stTab('content');
+check('Statistics shows content use, regions and social, and operations', await until(async () => { const t = await stText(); return /Content use/.test(t) && /Edicts in force/.test(t) && /Achievement rarity/.test(t); }, 30000) && (await stTab('regions'), await until(async () => /Region fill and growth/.test(await stText())))
+  && (await stTab('ops'), await until(async () => { const t = await stText(); return /Operations/.test(t) && /Pages visited/.test(t); })), (await stText()).slice(0, 400));
+// what nations do: actions this week and day by day, play styles, buildings, the event log
+await stTab('activity');
+check('Activity shows what nations do: actions, play styles, buildings and the latest events', await until(async () => { const t = await stText(); return /buildings started this week/.test(t) && /Actions each day/.test(t) && /Play styles this week/.test(t) && /What they build/.test(t) && /Events this week/.test(t) && /Latest events/.test(t); }, 30000), (await stText()).slice(0, 600));
+await A.click('[data-act="st-act"][data-v="claim"]');
+check('choosing a kind of action draws its chart', await until(async () => await A.$eval('[data-act="st-act"][data-v="claim"]', b => b.getAttribute('aria-pressed')) === 'true' && /Hexes claimed/.test(await text(A, '#adst-p-activity .adst-fig h3'))));
+await A.screenshot({ path: OUT + '/admin-stats-activity.png', fullPage: true });
+await stTab('nations');
+check('Nations lists every nation with its style and actions this week', await until(async () => { const t = await text(A, '#adst-p-nations'); return /Every nation/.test(t) && /Adminland/.test(t) && /Style this week/.test(t) && /Actions this week/.test(t); }, 30000));
+await A.fill('#st-nq', 'zzz-no-such');
+check('and finds a nation by name', await until(async () => /No nation matches/.test(await text(A, '#adst-p-nations'))) && await A.evaluate(() => document.activeElement?.id) === 'st-nq');
+await A.fill('#st-nq', 'adminl');
+await A.click(`.adst-ntbl [data-act="st-nat"][data-id="${uidA}"]`);
+check('a nation opens in full: what it did, its cities and buildings, its life', await until(async () => { const t = await text(A, '#adst-nat'); return /Adminland/.test(t) && /What it did/.test(t) && /Cities and buildings/.test(t) && /Over its life/.test(t); }, 30000) && await A.evaluate(() => document.activeElement?.id) === 'adst-nat-h', await text(A, '#adst-nat').catch(() => ''));
+await A.screenshot({ path: OUT + '/admin-stats-nation.png', fullPage: true });
+await A.click('[data-act="st-nat-close"]');
+check('and closes back to its name in the list', await until(async () => !await A.$('#adst-nat') && await A.evaluate(() => document.activeElement?.dataset?.act) === 'st-nat'));
+await A.fill('#st-nq', '');
 {
   const [dl] = await Promise.all([A.waitForEvent('download', { timeout: 120000 }), A.click('[data-act="st-export"]')]);
   const j = JSON.parse(await (await import('node:fs/promises')).readFile(await dl.path(), 'utf8'));
@@ -301,7 +329,10 @@ await A.screenshot({ path: OUT + '/admin-shop-phone.png', fullPage: true }); awa
 // Admin insights: the onboarding funnel and engagement on Statistics and Player search, the watchlist, the alerts and
 // the Live feed
 await page('admin-stats');
-check('Statistics shows the onboarding funnel, feature use over time, engagement and recruiting', await until(async () => { const t = await stText(); return /Onboarding funnel/.test(t) && /Settled a capital/.test(t) && /Linked a sign-in/.test(t) && /Feature use over time/.test(t) && /The most engaged/.test(t) && /Recruiting/.test(t); }, 30000));
+await stTab('content');
+check('Statistics shows feature use over time under Content', await until(async () => /Feature use over time/.test(await stText()), 30000));
+await stTab('players');
+check('and the onboarding funnel, engagement and recruiting under Players', await until(async () => { const t = await stText(); return /Onboarding funnel/.test(t) && /Settled a capital/.test(t) && /Linked a sign-in/.test(t) && /The most engaged/.test(t) && /Recruiting/.test(t); }, 30000));
 await A.click('.adin-fun tr.adin-all [data-act="st-fun"][data-s="0"]');
 check('choosing a funnel cell lists who is stuck there', await until(async () => /stuck before “Settled a capital”/.test(await text(A, '#adin-stuck')) && /Inspect player|No one is stuck here/.test(await text(A, '#adin-stuck'))));
 await A.screenshot({ path: OUT + '/admin-funnel.png', fullPage: true });
