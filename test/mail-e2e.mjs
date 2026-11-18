@@ -23,12 +23,12 @@ await B.click('#set-mail [data-f="verify"]');
 check('a short code is refused in the page', /six figures/.test(await text(B, '#set-mail')));
 await B.fill('#ml-code', seal.subject.slice(0, 6));
 await B.click('#set-mail [data-f="verify"]');
-check('the confirmed address and seven kinds of letter show', await until(async () => (await B.$$('#set-mail [data-ml-pref]')).length === 7 && /Letters go to reader@example\.test/.test(await text(B, '#set-mail'))), await text(B, '#set-mail'));
+check('the confirmed address and seven kinds of letter show', await until(async () => (await B.$$('#sg-p-notif [data-ml-pref]')).length === 7 && /Letters go to reader@example\.test/.test(await text(B, '#set-mail'))), await text(B, '#set-mail'));
 check('a welcome letter followed', await until(async () => (await outbox()).some(l => /^Welcome to the rolls, Postland/.test(l.subject))), JSON.stringify((await restListAdmin('mailOutbox')).map(d => [d.fields.to?.stringValue, d.fields.subject?.stringValue])));
-await B.uncheck('#set-mail [data-ml-pref="away"]');
+await B.uncheck('#sg-p-notif [data-ml-pref="away"]');
 await sleep(1500);
 await nav(B, 'nation'); await nav(B, 'settings'); await B.click('#sg-tab-notif');
-check('switching a kind off is kept', await until(async () => (await B.$('#set-mail [data-ml-pref="away"]')) && !(await B.isChecked('#set-mail [data-ml-pref="away"]')) && await B.isChecked('#set-mail [data-ml-pref="msg"]')));
+check('switching a kind off is kept', await until(async () => (await B.$('#sg-p-notif [data-ml-pref="away"]')) && !(await B.isChecked('#sg-p-notif [data-ml-pref="away"]')) && await B.isChecked('#sg-p-notif [data-ml-pref="msg"]')));
 
 // A writes to B: a ping, with the writer's nation name and no text
 await A.evaluate(uid => { G.S.msgPeer = uid; }, uidB);

@@ -132,8 +132,8 @@ await sleep(3500);
 await openThread(A, uidB); await A.fill('#dm-text', 'Are you there?'); await A.click('#dm-form button[type="submit"]');
 check('a letter to a nation that blocked you says it was not delivered', await until(async () => /Not delivered/.test(await text(A, '.thread')), 30000));
 check('and never reaches it', !(await find(uidA, uidB, 'Are you there?')));
-await nav(B, 'settings'); await B.click('#sg-tab-letters');
-check('Settings › Letters lists the blocked nation', /Inkwell/.test(await text(B, '#set-letters-bl')));
+await nav(B, 'settings'); await B.click('#sg-tab-privacy');
+check('Settings › Privacy lists the blocked nation', /Inkwell/.test(await text(B, '#set-letters-bl')));
 await B.click('#set-letters-bl [data-act="dm-block"]');
 check('and unblocks it', await until(async () => !(await blk()) && /not blocked anyone/.test(await text(B, '#set-letters-bl')), 15000));
 

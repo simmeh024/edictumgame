@@ -167,8 +167,8 @@ check('the blocked nation still sees its own lines', await until(async () => (aw
 await sleep(2500);
 check('new lines from the blocked nation are not counted, nor shown', await C.$eval('.rgc-btn .rgc-n', n => n.hidden) && (await openChat(C), await sleep(300), !(await shown(C)).includes('Is anyone there?')));
 await C.keyboard.press('Escape');
-await nav(C, 'settings'); await C.click('#sg-tab-letters');
-check('Settings › Letters lists the blocked nation; the chat’s switches have a tab of their own', await until(async () => /Chatterly/.test(await text(C, '#set-letters-bl')) && !(await C.$('#set-letters-chat')) && /Show the region chat/.test(await text(C, '#sg-p-chat #set-chat-on'))));
+await nav(C, 'settings'); await C.click('#sg-tab-privacy');
+check('Settings › Privacy lists the blocked nation; the chat’s switches have a tab of their own', await until(async () => /Chatterly/.test(await text(C, '#set-letters-bl')) && !(await C.$('#set-letters-chat')) && /Show the region chat/.test(await text(C, '#sg-p-chat #set-chat-on'))));
 await C.click('#set-letters-bl [data-act="dm-block"][data-off="1"]');
 await openChat(C);
 check('unblocking shows its lines again', await until(async () => (await shown(C)).includes('Is anyone there?')));
@@ -201,7 +201,7 @@ await nav(P, 'settings'); await P.click('#sg-tab-chat'); await P.click('#rgcs-p-
 check('on a phone the button floats above the tab bar, on the right', await until(async () => { const f = await fabAt(P); return f && f.shown && f.r === 16 && f.tab != null && Math.abs(f.t + f.w - (f.tab - 12)) <= 1; }), JSON.stringify(await fabAt(P)));
 await P.evaluate(() => G.UX.toast('A notice while the chat button floats above the tab bar.'));
 check('on a phone a notice stands above it, not over it', await until(async () => await clearOfToast(P) === true));
-await P.click('#sg-tab-nation');
+await P.click('.sg-back'); await P.click('#sg-tab-nation');
 await P.fill('#s-motto', 'Small but chatty');
 check('it hides while the player types in the page', await until(async () => !(await fabAt(P)).shown));
 await P.evaluate(() => document.activeElement?.blur());

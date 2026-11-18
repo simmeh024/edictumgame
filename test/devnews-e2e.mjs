@@ -328,10 +328,10 @@ await B.evaluate(id => { const n = G.clone(G.S.nation); n.nwp = n.nwp.map(x => x
 check('a closed poll says the results are in', await until(async () => /The results are in: a tie between “Roads” and “Canals”/.test(await text(B, `#nw-${pid4} .nw-pl-res`)) && /Final results/.test(await text(B, `#nw-${pid4} .nw-pl`))));
 check('and the bell tells the nation that voted', await B.evaluate(id => G.NEWS.bell().ev.some(x => x.k === 'nwpoll' && x.nw === id && /The results are in: “What should we build\?”/.test(x.txt)), pid4));
 
-// Settings › Letters: notifications for important news can be turned off
-await go(C, 'settings'); await C.click('#sg-tab-letters');
+// Settings › Notifications: notifications for important news can be turned off
+await go(C, 'settings'); await C.click('#sg-tab-notif');
 await C.waitForSelector('[data-act="sl-np"]'); await C.uncheck('[data-act="sl-np"]');
-check('Settings › Letters turns off notifications for important news', await until(() => C.evaluate(() => G.S.nation.dmx?.np === 0)));
+check('Settings › Notifications turns off notifications for important news', await until(() => C.evaluate(() => G.S.nation.dmx?.np === 0)));
 
 // the portal's totals: reactions, votes and reads
 await A.click('.side-who .adm-pill'); await A.click('.adm-nav [data-v="admin-news"]'); await A.waitForSelector('[data-act="nwe-new"]');

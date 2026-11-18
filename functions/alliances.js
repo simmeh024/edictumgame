@@ -1,5 +1,7 @@
 import { HttpsError } from 'firebase-functions/v2/https';
 import { eligibility, refuse, nationJSON, DAY } from './eligibility.js';
+/* Settings › Privacy › Who can reach me: a nation that takes none of a kind (rch[k] 'n') is kept to here too */
+const closed = (N, k) => !!(N && N.rch && typeof N.rch === 'object' && N.rch[k] === 'n');
 import { cabinetAffinity } from './affinity.js';
 import DATA from './civic-data.json' with { type: 'json' };
 import { AL_TYPES, AL_ACCESS, AL_RES, AL_PROJECTS, AL_OFFICERS, AL_XP, AL_ALLY_MIN, AL_FOUND_POP, AL_REL_MAX, AL_REL_NOTICE, alLevel, alPlaces, alRelLive } from './alliance-rules.js';
@@ -198,6 +200,7 @@ async function alInvite(db, who, d) {
     if (!isUid(id) || id === who.uid) throw new HttpsError('invalid-argument', 'Choose a nation to invite.');
     const [target, held] = await Promise.all([tx.get(db.doc('nations/' + id)), belongs(tx, db, id)]);
     if (!target.exists || (target.get('reg') || '') !== A.reg) refuse('al_region', 'That nation is not in this region.');
+    if (closed(nationJSON(target), 'a')) refuse('al_closed', 'That nation takes no alliance invitations.');
     if (held && !held.stale) refuse('al_taken', held.aid === aid ? 'That nation is already a member.' : 'That nation is already in another alliance.');
     if (A.rq[id]) {
       roomFor(A);

@@ -116,7 +116,7 @@ try {
   /* Settings › Notifications: the reminders can go, the matters stay */
   await page.evaluate(() => { location.hash = '#settings'; }); await until(() => page.evaluate(() => window.__game.S.view === 'settings'));
   await page.click('#sg-tab-notif'); await page.waitForSelector('[data-ntf-mute="city"]');
-  check('Settings › Notifications offers the city reminders', /City reminders/.test(await page.evaluate(() => document.querySelector('[data-ntf-mute="city"]').closest('label').textContent)));
+  check('Settings › Notifications offers the city reminders', /City reminders/.test(await page.evaluate(() => document.querySelector('[data-ntf-mute="city"]').closest('label,tr').textContent)));
   await page.uncheck('[data-ntf-mute="city"]'); await sleep(200);
   await edit((n, now) => { n.cities[0].ne = now - 1000; }); await sleep(3200);
   await openBell(); notes = await cityNotes();

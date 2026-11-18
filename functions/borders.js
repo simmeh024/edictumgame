@@ -31,12 +31,15 @@ async function load(tx, db, d) {
   return { bid, ref, B: s.exists ? s.data() : null };
 }
 /* the other nations, in the caller's region and still as they signed */
-async function others(tx, db, ids, reg) {
+/* Settings › Privacy › Who can reach me: a nation that takes none of a kind (rch[k] 'n') is kept to here too */
+const closed = (N, k) => !!(N && N.rch && typeof N.rch === 'object' && N.rch[k] === 'n');
+async function others(tx, db, ids, reg, offer) {
   const snaps = await Promise.all(ids.map(id => tx.get(db.doc('nations/' + id))));
   const recs = {};
   snaps.forEach((s, i) => {
     if (!s.exists || (s.get('reg') || '') !== reg) refuse('bd_region', 'Every nation in a border agreement must be a player of your region.');
     recs[ids[i]] = nationJSON(s);
+    if (offer && closed(recs[ids[i]], 'b')) refuse('bd_closed', 'One of those nations takes no border proposals.');
   });
   return recs;
 }
@@ -57,7 +60,7 @@ async function bdOffer(db, who, d) {
       if (!prev || prev.st !== 'offered' || !Array.isArray(prev.p) || !prev.p.includes(who.uid)) refuse('bd_gone', 'That proposal is no longer there.');
       if (prev.p.length !== p.length || prev.p.some(id => !p.includes(id))) refuse('bd_parties', 'A counter-proposal keeps the same nations.');
     }
-    const rest = p.filter(id => id !== who.uid), recs = await others(tx, db, rest, reg);
+    const rest = p.filter(id => id !== who.uid), recs = await others(tx, db, rest, reg, true);
     const lists = await Promise.all(p.map(id => partyTo(tx, db, id)));
     if (!bid) { bid = newId(); ref = db.doc('borders/' + bid); }
     lists.forEach((L, i) => {
