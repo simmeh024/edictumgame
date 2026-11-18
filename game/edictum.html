@@ -318,6 +318,11 @@ textarea.input{resize:vertical;min-height:84px;line-height:1.5}
 .cen-row{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(60px,1fr) 116px 66px;gap:14px;align-items:center;width:100%;padding:10px 12px;text-align:left;cursor:pointer;background:transparent;border:0;border-top:1px solid var(--rule)}
 .cen-row:hover{background:var(--sheet-2)}
 .cen-row.on{background:var(--accent-soft)}
+.cen-tl{display:flex;align-items:center;gap:6px;margin-top:2px;font:500 11px var(--f-mono)}.cen-sp polyline{fill:none;stroke:var(--ink-3);stroke-width:1.3}
+.cen-tr.up,.cen-mv.up{color:var(--up)}.cen-tr.down,.cen-mv.down{color:var(--down)}.cen-tr.flat{color:var(--ink-3)}.cen-mv{margin-left:4px;font:600 11px var(--f-mono)}
+.cen-row .bar{position:relative}.cen-mk{position:absolute;top:-3px;bottom:-3px;width:2px;margin-left:-1px;background:var(--ink)}.cen-cv{display:block;margin-top:3px;color:var(--ink-3);font-size:11px;line-height:1.2;white-space:normal;overflow-wrap:anywhere}.cen-v{min-width:0}
+.br{grid-template-columns:minmax(26px,auto) 34px minmax(0,1fr) auto}.cen-pick{margin:0 0 10px}.cen-pick select{max-width:100%}.br.cmp{background:var(--sheet-2)}
+.cen-rh{margin:0 0 12px}.cen-rh svg{display:block}.cen-rh polyline{fill:none;stroke:var(--accent);stroke-width:2}.cen-rh circle{fill:var(--accent)}.cen-rh text{font:10px var(--f-mono);fill:var(--ink-3)}
 .cen-n{font-weight:600;min-width:0}
 .cen-v{font:500 13px/1 var(--f-mono);text-align:right;white-space:nowrap}
 .cen-r{font:500 12px/1 var(--f-mono);color:var(--ink-3);text-align:right}
@@ -27564,6 +27569,7 @@ document.addEventListener('click',e=>{
   if(a==='mu-ren-reset'){S.muRenVal=muDefaultName(S.nation);muRename(S.muRenVal);return;}
 });
 document.addEventListener('input',e=>{if(e.target&&e.target.id==='mu-name'){S.muRenVal=e.target.value;S.muRenErr='';}});
+document.addEventListener('change',e=>{if(e.target&&e.target.id==='cen-cmp'){S.censusCmp=e.target.value||null;render();const c=document.getElementById('cen-cmp');if(c)try{c.focus();}catch(_){}}});
 document.addEventListener('change',e=>{if(e.target&&e.target.id==='col-fset'){S.colF=Object.assign({own:'all',rar:'',set:''},S.colF||{});S.colF.set=e.target.value;render();colFocus('#col-fset');}});
 document.addEventListener('submit',e=>{if(e.target&&e.target.id==='mu-ren-form'){e.preventDefault();const i=document.getElementById('mu-name');muRename(i?i.value:'');}});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&S.colDetail&&S.view==='museum'){const id=S.colDetail;S.colDetail=null;render();colFocus(`.col-case[data-id="${id}"]`);}});
@@ -51207,25 +51213,61 @@ function gvPublicCabinet(x){
 }
 function statVal(k,x,now){return k==='dev'?devOf(x.id):k==='army'?armyPower(x.n)*10:k==='area'?areaOf(x.id):k==='pop'?popNow(x.n,now):k==='wealth'?avgIncome(x.n,x.id):x.n.s[k];}
 function statFmt(k,x,now){if(k==='wealth')return fmt0(avgIncome(x.n,x.id));if(k==='dev'&&!areaOf(x.id))return 'Not yet settled';if(k==='army')return brig(x.n);if(k==='dev'){const v=devOf(x.id);return v+(v===1?' building':' buildings');}if(k==='area'){const a=areaOf(x.id);return a?a.toLocaleString('en-US')+' km²':'Not yet settled';}return fmtVal(k,x.n,now);}
+/* Census trends: the snapshots each record keeps (n.hist every few hours, the last 90; an NPC's _hist) give the
+   20 scores and population back in time, so the Census can show a week's change, a sparkline, rank moves and
+   a rank history. Area, buildings, army and income are not in the snapshots and show no trend. */
+const CEN_WEEK=7*DAY,CEN_SN=new WeakMap();
+function cenTracked(k){return k==='pop'||STAT_KEYS.includes(k);}
+function cenSnaps(x){
+  const n=x.n,src=n.npc?n._hist:n.hist;if(!Array.isArray(src)||!src.length)return [];
+  const c=CEN_SN.get(src);if(c&&c.len===src.length)return c.r;
+  const r=[];for(const h of src){if(!h||!isFinite(h.t)||!h.s)continue;const s={};
+    if(Array.isArray(h.s)){if(h.s.length!==STAT_KEYS.length)continue;STAT_KEYS.forEach((k,j)=>{s[k]=+h.s[j];});}else STAT_KEYS.forEach(k=>{s[k]=+h.s[k];});
+    s.pop=n.npc?npcPop(n,h.t):+h.p;r.push({t:h.t,s});}
+  r.sort((a,b)=>a.t-b.t);CEN_SN.set(src,{len:src.length,r});return r;}
+function cenAt(k,x,t){let b=null;for(const h of cenSnaps(x)){if(h.t>t)break;b=h;}const v=b&&b.s[k];return b&&isFinite(v)?v:null;}
+/* the moment to compare with: a week ago, or the oldest snapshot if the record is younger (but at least a day old) */
+function cenAgo(x,now){const H=cenSnaps(x).filter(h=>h.t<now);if(!H.length)return null;const w=now-CEN_WEEK;if(H[0].t<=w)return w;return H[0].t<=now-DAY?H[0].t:null;}
+function cenRankAt(k,y,all,t){const v=cenAt(k,y,t);if(v==null)return 0;return 1+all.filter(x=>{const u=cenAt(k,x,t);return u!=null&&u>v+1e-9;}).length;}
+function cenDelta(k,x,now){if(!cenTracked(k))return null;const t=cenAgo(x,now);if(t==null)return null;const p=cenAt(k,x,t),c=statVal(k,x,now);if(p==null||!isFinite(c))return null;
+  const d=k==='pop'?(p>0?(c/p-1)*100:0):c-p,days=Math.max(1,Math.round((now-t)/DAY));return {d,days,good:Math.abs(d)<0.05?0:(d>0)===(STATS[k].g>=0)?1:-1};}
+function cenTrend(k,x,now){const q=cenDelta(k,x,now);if(!q)return '';const a=Math.abs(q.d),txt=a<0.05?'no change':(q.d>0?'▲ ':'▼ ')+(k==='pop'?fmt1(a)+'%':fmt1(a));
+  return `<span class="cen-tr ${q.good>0?'up':q.good<0?'down':'flat'}" title="Change over the last ${q.days} day${q.days===1?'':'s'}">${txt}</span>`;}
+function cenSpark(k,x,now){if(!cenTracked(k))return '';const P=cenSnaps(x).filter(h=>h.t<now&&isFinite(h.s[k])).map(h=>h.s[k]);const c=statVal(k,x,now);if(isFinite(c))P.push(c);if(P.length<3)return '';
+  const lo=Math.min(...P),hi=Math.max(...P),sp=hi-lo||1,W=56,Hh=14,pts=P.map((v,i)=>`${(i/(P.length-1)*W).toFixed(1)},${(Hh-1-(v-lo)/sp*(Hh-2)).toFixed(1)}`).join(' ');
+  return `<svg class="cen-sp" width="${W}" height="${Hh}" viewBox="0 0 ${W} ${Hh}" aria-hidden="true"><polyline points="${pts}"/></svg>`;}
+function cenMove(k,y,all,now){if(!cenTracked(k))return '';const t=cenAgo(y,now);if(t==null)return '';const a=cenRankAt(k,y,all,t),b=cenRankOf(k,y,all,now);if(!a||!b||a===b)return '';
+  return `<span class="cen-mv ${b<a?'up':'down'}" title="Was #${a} ${Math.max(1,Math.round((now-t)/DAY))} days ago">${b<a?'↑':'↓'}${Math.abs(a-b)}</span>`;}
+function cenRankHist(k,me,all,now){if(!cenTracked(k)||!me)return '';const H=cenSnaps(me).filter(h=>h.t<now);if(H.length<2)return '';
+  const step=Math.max(1,Math.ceil(H.length/24)),T=H.filter((h,i)=>i%step===0).map(h=>h.t);
+  const pts=T.map(t=>({t,r:cenRankAt(k,me,all,t)})).filter(p=>p.r>0);const r0=cenRankOf(k,me,all,now);if(r0)pts.push({t:now,r:r0});if(pts.length<2)return '';
+  const W=280,Hh=70,t0=pts[0].t,span=Math.max(1,now-t0),mx=Math.max(2,...pts.map(p=>p.r)),X=t=>((t-t0)/span*(W-8)+4).toFixed(1),Y=r=>(6+(r-1)/(mx-1)*(Hh-12)).toFixed(1);
+  const best=Math.min(...pts.map(p=>p.r)),days=Math.max(1,Math.round(span/DAY)),f=pts[0].r,l=pts[pts.length-1].r;
+  return `<figure class="cen-rh"><figcaption class="hint">Your rank over the last ${days} day${days===1?'':'s'}: from #${f} to #${l}${best<Math.min(f,l)?`, best #${best}`:''}.</figcaption>
+    <svg viewBox="0 0 ${W} ${Hh}" width="100%" height="${Hh}" role="img" aria-label="Rank from #${f} to #${l}"><text x="${W-2}" y="10" text-anchor="end">#1</text><text x="${W-2}" y="${Hh-2}" text-anchor="end">#${mx}</text><polyline points="${pts.map(p=>X(p.t)+','+Y(p.r)).join(' ')}"/><circle cx="${X(now)}" cy="${Y(l)}" r="3"/></svg></figure>`;}
 function censusView(now){
   const all=allNations(),sel=S.censusKey,me=all.find(x=>x.me),N=all.length;
   /* observing a region (OBS) nobody is "me": each scale shows the nation at its top instead */
   const ref=k=>me||all.filter(x=>cenHas(k,x)).reduce((b,x)=>!b||statVal(k,x,now)>statVal(k,b,now)?x:b,null)||all[0];
-  const rankOf=(k,y)=>cenRankOf(k,y,all,now),rank=k=>me?cenRankText(k,me,all,now):'Led by '+esc(ref(k).n.name);
+  const rankOf=(k,y)=>cenRankOf(k,y,all,now),rank=k=>me?cenRankText(k,me,all,now)+cenMove(k,me,all,now):'Led by '+esc(ref(k).n.name);
   const maxOf=k=>Math.max(1e-9,...all.map(x=>statVal(k,x,now)));
-  const barW=k=>k==='pop'||k==='area'||k==='army'||k==='dev'||k==='wealth'?statVal(k,ref(k),now)/maxOf(k)*100:ref(k).n.s[k];
-  const groups=CENSUS_GROUPS.map(([g,keys])=>`<div class="cen-group"><h2 class="lbl-h">${g}</h2>${keys.map(k=>`<button class="cen-row${k===sel?' on':''}" id="cen-${k}" data-act="census" data-k="${k}" aria-pressed="${k===sel}"><span class="cen-n">${cenName(k)}</span><span class="bar"><i style="width:${barW(k).toFixed(1)}%"></i></span><span class="cen-v">${statFmt(k,ref(k),now)}</span><span class="cen-r">${rank(k)}</span></button>`).join('')}</div>`).join('');
+  const wOf=(k,x)=>k==='pop'||k==='area'||k==='army'||k==='dev'||k==='wealth'?statVal(k,x,now)/maxOf(k)*100:x.n.s[k];
+  const barW=k=>wOf(k,ref(k));
+  const cmp=me&&S.censusCmp?all.find(x=>x.id===S.censusCmp&&!x.me):null;
+  const pick=me&&N>1?`<p class="cen-pick"><label for="cen-cmp">Compare with</label> <select id="cen-cmp"><option value="">No one</option>${all.filter(x=>!x.me).sort((a,b)=>a.n.name.localeCompare(b.n.name)).map(x=>`<option value="${esc(x.id)}"${cmp&&cmp.id===x.id?' selected':''}>${esc(x.n.name)}</option>`).join('')}</select></p>`:'';
+  const groups=CENSUS_GROUPS.map(([g,keys])=>`<div class="cen-group"><h2 class="lbl-h">${g}</h2>${keys.map(k=>`<button class="cen-row${k===sel?' on':''}" id="cen-${k}" data-act="census" data-k="${k}" aria-pressed="${k===sel}"><span class="cen-n">${cenName(k)}${me?`<span class="cen-tl">${cenSpark(k,me,now)}${cenTrend(k,me,now)}</span>`:''}</span><span class="bar"><i style="width:${clamp(barW(k),0,100).toFixed(1)}%"></i>${cmp&&cenHas(k,cmp)?`<b class="cen-mk" style="left:${clamp(wOf(k,cmp),0,100).toFixed(1)}%"></b>`:''}</span><span class="cen-v">${statFmt(k,ref(k),now)}${cmp?`<small class="cen-cv">${esc(cmp.n.name)}: ${statFmt(k,cmp,now)}</small>`:''}</span><span class="cen-r">${rank(k)}</span></button>`).join('')}</div>`).join('');
   const sorted=all.slice().sort((a,b)=>statVal(sel,b,now)-statVal(sel,a,now));
   const unit=sel==='wealth'?'Average annual income per person, in each nation’s own currency. It follows the prosperity score, trade, buildings and the cabinet.':sel==='pop'?'Current population.':sel==='army'?'Brigades, from population, the military score, defence spending and technology.':sel==='area'?`Land held, in square kilometres. Each hex of the map is ${AREA_PER_HEX.toLocaleString('en-US')} km².`:sel==='dev'?'Completed buildings in the cities each nation holds, wonders included.':sel==='tax'?'Average income tax rate.':'Index from 0 to 100.';
   return `<header class="vh"><p class="eyebrow">Office of Statistics</p><h1>Census</h1><p>${me?`How ${esc(me.n.name)} measures up across ${STAT_KEYS.length+4} scales, ranked against the ${N} nations of ${REGION}.`:`How the ${N} nations of ${REGION} measure up across ${STAT_KEYS.length+4} scales, with the nation at the top of each.`} Select a scale to see the regional ranking.</p></header>
   <div class="census">
-    <div>${groups}</div>
+    <div>${pick}${groups}</div>
     <aside class="board" id="board" aria-live="polite">
       <button class="linkish small board-back" data-act="census-back">↑ Back to all scales</button>
       <p class="eyebrow">Regional ranking</p>
       <h2>${STATS[sel].r}</h2>
       <p class="board-s">${cenName(sel)}. ${unit}${STATS[sel].g<0?' Lower is better.':''}</p>
-      <ol class="br-list">${sorted.map((x,i)=>`<li class="br${x.me?' me':''}"><span class="br-r">${rankOf(sel,x)||'—'}</span><span class="mflag">${flagSVG(x.n.flag,'Flag of '+x.n.name)}</span><span>${x.me?`<b>${esc(x.n.name)}</b>`:`<button class="linkish" data-act="visit" data-id="${esc(x.id)}">${esc(x.n.name)}</button>`}</span><span class="br-v">${statFmt(sel,x,now)}${sel==='wealth'?' '+esc(plural(x.n.currency)):''}</span></li>`).join('')}</ol>
+      ${cenRankHist(sel,me,all,now)}
+      <ol class="br-list">${sorted.map((x,i)=>`<li class="br${x.me?' me':''}${cmp&&cmp.id===x.id?' cmp':''}"><span class="br-r">${rankOf(sel,x)||'—'}${cenMove(sel,x,all,now)}</span><span class="mflag">${flagSVG(x.n.flag,'Flag of '+x.n.name)}</span><span>${x.me?`<b>${esc(x.n.name)}</b>`:`<button class="linkish" data-act="visit" data-id="${esc(x.id)}">${esc(x.n.name)}</button>`}</span><span class="br-v">${statFmt(sel,x,now)}${sel==='wealth'?' '+esc(plural(x.n.currency)):''}</span></li>`).join('')}</ol>
     </aside>
   </div>${idHonoursCensus(all)}${cuCensus(me)}${fpCensus(all)}`;
 }
@@ -55528,7 +55570,7 @@ HELP_EXT.push({k:'warehouses',t:'Warehouses and resource storage',body:()=>'<p>Y
 
 /* ── navigation memory, search, long-page sections and actionable requirements ── */
 const UXP={scope:'',route:'',entry:'',data:{pages:{},entries:{},folds:{}},snapshot:null,pop:false,pending:null,generation:0,restoring:false,saveTimer:null,resource:null,hold:0};
-const UX_FIELDS={issues:['edictTopic','edictState'],stats:['statsTab','statsFor'],census:['censusKey'],cities:['cityOpen','citySite'],map:['mapViews','mapCell','mapSel'],museum:['muHall','colF','museumFor','colDetail'],achievements:['achCat','achF','achFor'],region:['regSort','rSort'],provinces:['prvSort']};
+const UX_FIELDS={issues:['edictTopic','edictState'],stats:['statsTab','statsFor'],census:['censusKey','censusCmp'],cities:['cityOpen','citySite'],map:['mapViews','mapCell','mapSel'],museum:['muHall','colF','museumFor','colDetail'],achievements:['achCat','achF','achFor'],region:['regSort','rSort'],provinces:['prvSort']};
 function uxScope(){if(!S.nation)return '';let uid=S.uid;try{if(!uid)uid=localStorage.getItem('edictum.uid');}catch(e){}return String(uid&&uid!=='-'?uid:'local')+':'+S.nation.seed+':'+S.nation.founded+':'+REG.id;}
 function uxKey(){return S.view+(S.view==='visit'?':'+(S.visit||''):S.view==='issues'?':'+(S.result?'result':S.openIssue||'list'):'');}
 function uxCleanField(k,v){
