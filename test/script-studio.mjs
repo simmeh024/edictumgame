@@ -108,6 +108,49 @@ check('a line typed in Try a line is written in the script', await until(() => p
 const seed0 = await page.evaluate(() => window.__game.SCR().SCS.d.s);
 await page.click('#sc-st [data-scs="new"]');
 check('New letters draws another alphabet in the same family', await page.evaluate(([s, f]) => { const d = window.__game.SCR().SCS.d; return d.s !== s && d.f === f; }, [seed0, fam]));
+// a second family blended in, for a share of the letters
+await page.click('#sc-st [data-scs="tab"][data-v="style"]');
+const kBlend = await S1();
+const mx = await page.evaluate(() => document.querySelector('#sc-st [data-scs="set"][data-f="mx"]:not([data-v=""])').dataset.v);
+await page.click(`#sc-st [data-scs="set"][data-f="mx"][data-v="${mx}"]`);
+await page.evaluate(() => { const r = document.getElementById('scs-mp'); r.value = '50'; r.dispatchEvent(new Event('input', { bubbles: true })); });
+check('a second family blends into half the letters', await until(async () => (await S1()) !== kBlend && await page.evaluate(m => { const d = window.__game.SCR().SCS.d; return d.mx === m && d.mp === 50; }, mx)));
+// the direction
+await page.click('#sc-st [data-scs="set"][data-f="dr"][data-v="rtl"]');
+check('right to left: the words run from the right', await until(() => page.evaluate(() => window.__game.SCR().SCS.d.dr === 'rtl' && !!document.querySelector('#sc-st .scs-sheet .scr-l.scr-rtl'))));
+const ox = await page.evaluate(() => { const X = window.__game.SCR(), d = { ...X.SCS.d, dr: 'bou' }, L = X.scrLay(d, 'AB CD'), at = c => L.items.find(i => i.c === c); return at('C').x > at('D').x && at('A').x < at('B').x; });
+check('ox-turning: every other word runs back', ox);
+await page.click('#sc-st [data-scs="set"][data-f="dr"][data-v="ttb"]');
+check('in columns: each word stands in a column on the stage', await until(() => page.evaluate(() => { const l = document.querySelector('#sc-st .scs-sheet .scr-l.scr-v'), sv = l && l.querySelector('svg.scr'); return !!sv && /--k:/.test(sv.getAttribute('style') || '') && sv.getBoundingClientRect().height > sv.getBoundingClientRect().width; })));
+// one letter: its own sign, drawn on the grid
+await page.click('#sc-st .scs-key [data-scs="ed"][data-v="A"]');
+check('a letter in the key opens the drawing grid and the One letter tab', await until(() => page.evaluate(() => !!document.getElementById('scs-grid') && document.querySelector('#sc-st .cst-tab.on').dataset.v === 'one' && document.querySelectorAll('#scs-grid [data-scs="node"]').length === 40)));
+const N = i => page.click(`#scs-grid [data-scs="node"][data-i="${i}"]`), CG = () => page.evaluate(() => (window.__game.SCR().SCS.d.cg || {}).A || '');
+for (const i of [0, 35, 35]) await N(i);
+await page.click('#sc-st [data-scs="tool"][data-v="curve"]');
+for (const i of [4, 22, 39, 39]) await N(i);
+await page.click('#sc-st [data-scs="tool"][data-v="line"]');
+for (const i of [2, 17, 15, 2]) await N(i);
+await page.click('#sc-st [data-scs="tool"][data-v="dot"]');
+await N(12);
+check('lines, a curve, a closed shape and a dot are drawn into the sign', (await CG()) === '0z,~4mD,2hf2,.c', await CG());
+await page.click('#sc-st [data-scs="tool"][data-v="line"]');
+await page.focus('#scs-grid');
+for (const k of ['Space', 'ArrowRight', 'Space', 'ArrowDown', 'Space', 'Enter']) await page.keyboard.press(k);
+check('the keyboard draws too: arrows move, Space adds a point, Enter finishes', await until(async () => (await CG()) === '0z,~4mD,2hf2,.c,cdi'), await CG());
+await page.keyboard.press('Backspace');
+check('Backspace takes the last stroke back', await until(async () => (await CG()) === '0z,~4mD,2hf2,.c'), await CG());
+await page.keyboard.press('Space');
+await page.keyboard.press('Escape');
+check('Escape drops a stroke being drawn and leaves the Studio open', await page.evaluate(() => !document.getElementById('sc-st').hidden && window.__game.SCR().SCS.ed.cur.length === 0));
+check('the key shows the sign drawn by hand', await page.evaluate(() => { const X = window.__game.SCR(), d = X.SCS.d; return /M0 0L0 14/.test(X.scrSVG(d, 'A', { label: '' })); }));
+await page.screenshot({ path: path.join(OUT, 'script-studio-draw.png') });
+// another letter from another family
+await page.click('#sc-st [data-scs="step"][data-d="1"]');
+const famB = await page.evaluate(() => { const X = window.__game.SCR(), d = X.SCS.d; return Object.keys(X.SCR_FAM).find(k => k !== d.f && k !== d.mx); });
+await page.click(`#sc-st [data-scs="lfam"][data-v="${famB}"]`);
+check('the next letter, B, takes its sign from another family', await until(() => page.evaluate(f => window.__game.SCR().SCS.ed.c === 'B' && (window.__game.SCR().SCS.d.lf || {}).B === f, famB)));
+await page.click('#sc-st [data-scs="done"]');
 const views = {};
 for (const v of ['title', 'arms', 'note', 'letter', 'charter', 'key']) {
   await page.click(`#sc-st .scs-use[data-v="${v}"]`);
@@ -121,7 +164,7 @@ let dlOk = false, dlInfo = 'no download';
 if (dl) { const f = path.join(OUT, 'script-charter.png'); await dl.saveAs(f); const b = fs.readFileSync(f); dlInfo = dl.suggestedFilename() + ' ' + b.length; dlOk = /^scriptmark-script-charter\.png$/.test(dl.suggestedFilename()) && b.length > 20000 && b.slice(1, 4).toString() === 'PNG'; }
 check('the charter card is saved as a picture', dlOk, dlInfo);
 await page.click('#scs-save');
-const saved = await until(() => page.evaluate(f => { const v = window.__game.S.nation.scr; return v && v.f === f && v.w === 3 && v.tm === 'serif' && v.ink === 'oxblood' && v.sl === 8 && v.on.length === 4 && Number.isInteger(v.s) ? JSON.stringify(v) : false; }, fam));
+const saved = await until(() => page.evaluate(f => { const v = window.__game.S.nation.scr; return v && v.f === f && v.dr === 'ttb' && v.mp === 50 && !!v.mx && v.cg && v.cg.A === '0z,~4mD,2hf2,.c' && v.lf && !!v.lf.B && v.w === 3 && v.tm === 'serif' && v.ink === 'oxblood' && v.sl === 8 && v.on.length === 4 && Number.isInteger(v.s) ? JSON.stringify(v) : false; }, fam));
 check('Save keeps the script on the nation', !!saved, saved);
 await page.setViewportSize({ width: 390, height: 844 });
 check('on a phone the Studio does not scroll sideways', await page.evaluate(() => document.getElementById('sc-st').scrollWidth <= innerWidth + 1));
@@ -135,6 +178,8 @@ await until(() => page.evaluate(() => !!document.querySelector('.hero .hero-scr'
 const seen = await page.evaluate(() => ({ title: document.querySelector('.hero .hero-scr .scr-l')?.getAttribute('aria-label'), ink: getComputedStyle(document.querySelector('#scr-card .scr-l')).color, note: !!document.querySelector('svg.cu-note .scr-in') }));
 check('the name is written under the title, in oxblood', seen.title === 'Scriptmark, in its own script' && seen.ink === 'rgb(122, 31, 31)', JSON.stringify(seen));
 check('the banknote on the nation page has its motto in the script', seen.note);
+check('the nation page sets the name and motto in columns, the title under the name keeps a line', await page.evaluate(() => document.querySelectorAll('#scr-card .scr-row .scr-l.scr-v').length === 2 && !document.querySelector('.hero .hero-scr .scr-v')));
+check('the key on the nation page has the sign drawn by hand', await page.evaluate(() => /M0 0L0 14/.test(document.querySelector('#scr-card .scr-k').innerHTML)));
 await page.evaluate(() => scrollTo(0, 0));
 await page.screenshot({ path: path.join(OUT, 'script-nation-page.png') });
 await page.evaluate(() => { location.hash = '#customise/arms'; });
