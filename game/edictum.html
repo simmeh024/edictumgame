@@ -47008,7 +47008,7 @@ async function syncOwnNation(force=false){
           else render();
           return;}
         const kept=conflictCopy||keepUnsaved(S.nation);conflictCopy=0;carried=false;
-        toast('Another device saved your nation. The latest save has been loaded. Please repeat your unsaved changes.'+(kept?' A copy of them is available in your account menu.':''));}
+        toast('Another device saved your nation. The latest save has been loaded. Please repeat your unsaved changes.'+(kept?' A copy of them is in your account menu, where “Keep this copy instead” puts it back.':''));}
       useSavedNation(n);
     }
   }catch(e){saveFailed=true;/* keep the local copy and try again on focus, reconnect, or the next snapshot */}
@@ -47098,6 +47098,20 @@ async function flushNow(){
 if(window.__edictum)window.__edictum.beforeSignOut=async()=>{await flushNow();if(S.nation&&(S.nation._dirty||remoteDirty||remoteBusy||saveFailed)){const kept=keepUnsaved(S.nation);if(!remoteBusy&&(OBS||PV||tabPassive||S.mode==='readonly'||regBlocked()))return kept?'kept':'';throw new Error('Your latest changes are not yet synced. Keep this session open and try signing out again once the status says Synced.');}};
 /* src/shim.js doSwitch: a sign-in failed after the guest's region copy was taken away. rev is the revision the region
    holds now: 1 when the copy was put back, 0 when it could not be, so that the next save starts the record again */
+/* Account menu › "Keep this copy instead": the newest copy a save conflict set aside becomes this device's nation
+   again, saved over the region's record as its next revision (the other device's changes since are replaced). For
+   a long session played while saves could not get through (a VPN dropping them for hours), replaying it action by
+   action is past rebaseActs, and repeating it by hand is not a fair ask. */
+if(window.__edictum)window.__edictum.useUnsaved=async()=>{
+  if(OBS||PV||tabPassive||!S.db||!S.uid||S.mode!=='world')return false;
+  const c=unsavedCopies()[0];if(!c||!c.nation)return false;
+  const snap=await S.db.doc('nations/'+S.uid).get(),cur=snap.exists?normalize(snap.data()):null;
+  const n=normalize(clone(c.nation));if(!n||cur&&cur.founded&&n.founded&&cur.founded!==n.founded)return false;
+  n._rev=cur?saveRev(cur):0;n._dirty=true;n.updatedAt=Date.now();
+  ownActs=[];ownActsBroken=0;conflictPending=false;carried=false;ownLatest=cur;
+  unsavedDrop(c.at);S.nation=n;S.openIssue=null;S.result=null;saveLocal(n);render();queueRemote(true);publishSync();
+  return true;
+};
 if(window.__edictum)window.__edictum.reviseOwn=rev=>{if(OBS||PV||tabPassive||!S.nation||!Number.isSafeInteger(rev)||rev<0)return;S.nation._rev=rev;S.nation._dirty=true;ownActs=[];ownActsBroken=0;conflictPending=false;carried=false;saveLocal(S.nation);queueRemote(true);};
 /* a reload for a newer build (src/shim.js, versionCheck) first sends the latest changes, and leaves alone a page that
    holds something the player is writing that lives only here: a message, a resolution, a notice, a post, a history */

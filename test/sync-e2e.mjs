@@ -100,7 +100,33 @@ check('the rejected changes are preserved on their original device', copy && cop
 await openAccount(B);
 const [download] = await Promise.all([B.waitForEvent('download'), B.click('[data-ed="unsaved"]')]);
 check('the player can download their unsaved copy', download.suggestedFilename() === 'edictum-unsaved.json');
+// … or put back over the other device's save (a long session whose saves never got through cannot be replayed)
+await B.click('[data-ed="unsaved-use"]');
+check('keeping the copy asks first', await B.locator('[data-ed="unsaved-use-yes"]').isVisible() && await motto() === 'Desktop wins the race');
+const vs = await B.locator('.ed-vs').innerText().catch(() => '');
+check('both versions are shown side by side', /Current save/.test(vs) && /This device’s copy/.test(vs) && /Last change/.test(vs) && /Edicts answered/.test(vs), vs);
+await B.locator('.ed-vs').screenshot({ path: OUT + '/sync-versions-phone.png' });
+await B.click('[data-ed="unsaved-use-no"]');
+check('keeping the current save changes nothing', !(await B.locator('.ed-vs').count()) && await motto() === 'Desktop wins the race');
+await B.click('[data-ed="unsaved-use"]');
+await B.click('[data-ed="unsaved-use-yes"]');
+check('the kept copy becomes the next revision', await until(async () => await motto() === 'Unsaved phone edit', 15000) && await rev() === winningRevision + 1);
+check('the other device takes up the kept copy', await until(async () => (await localNation(A)).motto === 'Unsaved phone edit', 15000));
+check('a copy put back is no longer offered', await B.evaluate(uid => localStorage.getItem('edictum.unsaved.' + uid), uid) === null);
 await B.keyboard.press('Escape');
+await saved(B);
+
+// Changes that have not reached the server for a while are said over the page, not only by the small label.
+await B.evaluate(() => { window.EDICTUM_UNSAVED_WARN = 1500; });
+await B.ctx.setOffline(true);
+await edit(B, 'Long unsaved stretch');
+check('changes stuck on this device are warned about plainly', await until(async () => B.locator('#ed-unsaved-warn').isVisible(), 25000)
+  && /do not play on another device/.test(await B.locator('#ed-unsaved-warn').textContent()));
+await B.ctx.setOffline(false);
+await B.evaluate(() => window.dispatchEvent(new Event('online')));
+await saved(B);
+check('the warning goes once the changes are saved', await until(async () => !(await B.locator('#ed-unsaved-warn').isVisible()), 20000));
+await B.evaluate(() => { delete window.EDICTUM_UNSAVED_WARN; });
 await edit(B, 'Phone can save again'); await saved(B);
 check('the conflicted device can save a subsequent action', await motto() === 'Phone can save again');
 
