@@ -12,6 +12,7 @@ import { cbDelete, rmbForget, cbForget } from './board.js';
 import { rcForget, RC_WORLD } from './regionchat.js';
 import { alDrop } from './alliances.js';
 import { trDrop } from './treaties.js';
+import { bdDrop } from './borders.js';
 import { jvDrop } from './ventures.js';
 import { rdForget } from './riddles.js';
 import { fcForget } from './flagcomp.js';
@@ -366,6 +367,7 @@ async function mutate(db, actor, data) {
       await b.commit();
       await alDrop(db, target);
       await trDrop(db, target);
+      await bdDrop(db, target);
       await jvDrop(db, target);
       await rdForget(db, target);
       const chat = await db.collectionGroup('chat').where('a', '==', target).get();

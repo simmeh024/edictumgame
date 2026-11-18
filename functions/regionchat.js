@@ -119,8 +119,9 @@ export function rcWait(p, now, hour = RC_HOUR) {
    finds, under the name saved on it. The figures are the writer's game's, as a /stock or /rank line is about the writer.
      {k: 'stock', v: [5 amounts], r: [5 a day]}   food, timber, iron, oil, goods
      {k: 'rank', i: rank, p: points, n: achievements}
-     {k: 'nation', id, nm, pop, ci: cities, hx: hexes, i: rank, al?: alliance name}  */
-export const RC_CARDS = ['stock', 'rank', 'nation'];
+     {k: 'nation', id, nm, pop, ci: cities, hx: hexes, i: rank, al?: alliance name}
+     {k: 'border', id: a border agreement of this region (functions/borders.js), drawn by each reader's game}  */
+export const RC_CARDS = ['stock', 'rank', 'nation', 'border'];
 const num = (v, lo, hi) => { const x = Number(v); return Number.isFinite(x) ? Math.min(hi, Math.max(lo, Math.round(x * 10) / 10)) : null; };
 const int = (v, lo, hi) => { const x = Number(v); return Number.isInteger(x) && x >= lo && x <= hi ? x : null; };
 export function rcCardIn(c) {
@@ -136,6 +137,11 @@ export function rcCardIn(c) {
     const i = int(c.i, 0, RC_RANKS), p = int(c.p, 0, 1e8), n = int(c.n, 0, 1e5);
     if (i == null || p == null || n == null) bad();
     return { k: 'rank', i, p, n };
+  }
+  if (c.k === 'border') {
+    const id = typeof c.id === 'string' && /^[a-z0-9]{12}$/.test(c.id) ? c.id : '';
+    if (!id) bad();
+    return { k: 'border', id };
   }
   const id = typeof c.id === 'string' && /^[\w-]{1,128}$/.test(c.id) ? c.id : '', pop = num(c.pop, 0, 1e9), ci = int(c.ci, 0, 1e4), hx = int(c.hx, 0, 1e6), i = int(c.i, 0, RC_RANKS);
   if (!id || pop == null || ci == null || hx == null || i == null) bad();
@@ -187,6 +193,11 @@ async function rcPost(db, who, d, regions) {
       const ns = await tx.get(db.doc('nations/' + cd.id)), nm = ns.exists ? line(ns.get('name'), 80) : '';
       if (!nm || (!world && ns.get('reg') !== reg)) refuse('rc_card', 'That nation is not in this region.');
       cd.nm = nm;
+    }
+    /* a border card: the agreement is of this region, never in the world chat */
+    if (cd && cd.k === 'border') {
+      const bs = await tx.get(db.doc('borders/' + cd.id));
+      if (world || !bs.exists || bs.get('reg') !== reg) refuse('rc_card', 'That border agreement is not of this region.');
     }
     /* the line answered: in the same chat, still there */
     let r = null;
