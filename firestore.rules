@@ -468,6 +468,9 @@ service cloud.firestore {
     // a nation's board profile beside its posts: its count of posts, rank, alliance, marks and signature; only the
     // server writes it (functions/board.js), everyone reads it
     match /cbUser/{uid} { allow read: if true; }
+    // a board post's picture (functions/board.js, cbPic): readable as its board is; written only by the server
+    match /cbPic/{id} { allow read: if resource.data.get('ch', false) != true || chanceryMember(); }
+    match /cbPicD/{id} { allow read: if resource.data.get('ch', false) != true || chanceryMember(); }
 
     // The flag competition (functions/flagcomp.js): a month's summary and, once judging has closed, its hall of every
     // flag with its owner and score are public; the entries, whose they are and every rating stay with the server,

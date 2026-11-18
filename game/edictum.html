@@ -6589,6 +6589,15 @@ html.ux-has-sections{--ux-index-height:54px}.ux-has-sections .flag-preview-row>.
 .fd-qb b{font-size:15px}.fd-qb span{font-size:12.5px;font-weight:400;opacity:.85}
 .fd-or{margin:10px 0 0}
 .fd-card{margin:0 0 18px;padding:16px 18px;background:var(--sheet);border:2px solid var(--accent);border-radius:4px}
+/* the Community Board, round two: search, the jump to unread, embeds, trade offers, pictures */
+.cb-sf{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 14px}.cb-sf .input{flex:1 1 240px;min-width:0}
+.cb-sr{margin:0 0 18px}.cb-sr-reg{font-weight:600;color:var(--ink-2)}.cb-jump{margin:0 0 10px}
+.cb-tools2{margin-top:-2px}.cb-picbar{display:flex;align-items:center;gap:8px;margin:4px 0}
+.cb-emb{margin:10px 0;padding:10px 12px;border:1px solid var(--rule);border-radius:6px;background:var(--sheet);max-width:360px}
+.cb-emb-art svg{display:block;width:100%;height:auto;max-height:220px}.cb-emb-flag .cb-emb-art svg{aspect-ratio:3/2;box-shadow:0 1px 4px rgba(0,0,0,.2)}
+.cb-emb figcaption{margin-top:6px;font-size:12.5px;color:var(--ink-2)}.cb-emb-arms .cb-emb-art svg{max-width:180px;margin:0 auto}
+.cb-offer-k{margin:0;font:600 11px/1 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}.cb-offer-t{margin:6px 0;font-weight:600}.cb-offer-b{margin:0}
+.cb-pic{margin:8px 0}.cb-pic-wait{display:inline-block;background:var(--rule);border-radius:6px}
 /* the Community Board: every region's board, the player's own first; posts with the author on the left */
 .cb-start{margin:0 0 18px}
 .cb-regs{display:flex;flex-direction:column;gap:10px;max-width:900px}
@@ -58168,6 +58177,7 @@ function cbPost(id,d){
     of:d.of===true,as:d.as===true,rl:String(d.rl||'').slice(0,60),ti:String(d.ti||'').slice(0,CB_TITLE),x:String(d.x||'').slice(0,CB_TEXT),tg:CB_TAG[d.tg]?d.tg:'general',t:cbMs(d.t),la:cbMs(d.la)||cbMs(d.t),rc:Number(d.rc)||0,
     pn:d.pn===true,lk:d.lk===true,hd:d.hd===true,ed:cbMs(d.ed),mn:d.mn&&typeof d.mn==='object'?Object.fromEntries(Object.entries(d.mn).filter(([u,v])=>typeof v==='string').slice(0,5).map(([u,v])=>[u,v.slice(0,80)])):{},
     /* the post it quotes (a reply's), and the reactions {uid: kind} of the known kinds */
+    am:typeof d.am==='string'&&d.am.length<=4000?d.am:'',pc:d.pc&&typeof d.pc==='object'&&Number.isInteger(d.pc.w)&&Number.isInteger(d.pc.h)&&d.pc.w>0&&d.pc.h>0?{w:Math.min(d.pc.w,1000),h:Math.min(d.pc.h,1000),k:String(d.pc.k||'')}:null,
     q:typeof d.q==='string'&&CB_ID.test(d.q)?d.q:'',rv:d.rv&&typeof d.rv==='object'?Object.fromEntries(Object.entries(d.rv).filter(([u,v])=>/^[\w-]{1,128}$/.test(u)&&RMB_RX.some(x=>x[0]===v)).slice(0,500)):{}};
 }
 const cbDay=()=>new Date().toISOString().slice(0,10);
@@ -58264,7 +58274,7 @@ function cbEditForm(rid){
 function cbArticle(reg,p,tid){
   const rid=tid?p.id:'',editing=!!(CB.edit&&CB.edit.t===(tid||p.id)&&(CB.edit.r||'')===rid);
   const head=tid?'':`<div class="cb-th"><span class="cb-tag t-${p.tg}">${esc(CB_TAG[p.tg])}</span>${p.pn?'<span class="chip cb-pin">Pinned</span>':''}${p.lk?'<span class="chip">Locked</span>':''}</div><h2 class="cb-ti">${p.hd?'<i>Hidden by staff</i>':esc(p.ti)}</h2>`;
-  const body=p.hd?`<p class="hint">${S.isOwner?'Hidden by staff: other players do not see this.':'This post was hidden by Edictum staff.'}</p>`:editing?cbEditForm(rid):`${tid?cbQuoteBox(p,tid):''}<div class="post-x cb-x">${cbText(p.x,p.mn)}</div>`;
+  const body=p.hd?`<p class="hint">${S.isOwner?'Hidden by staff: other players do not see this.':'This post was hidden by Edictum staff.'}</p>`:editing?cbEditForm(rid):`${tid?cbQuoteBox(p,tid):''}<div class="post-x cb-x">${cbText(p.x,p.mn,p)}</div>${cbPicHTML(p)}`;
   const U=!p.of&&!p.as?cbUser(p.a):null,sig=U&&U.sg&&!p.hd&&!editing?`<p class="cb-sig">${esc(U.sg)}</p>`:'';
   return `<article class="cb-post${p.st?' staff':''}${p.hd?' hd':''}" id="cb-${p.id}">${cbAuthor(p)}<div class="cb-body">${head}<p class="cb-when"><time datetime="${new Date(p.t||Date.now()).toISOString()}">${esc(rel(p.t))}</time>${p.ed?` · edited ${esc(rel(p.ed))}`:''}</p>${body}${sig}${editing||p.hd?'':cbReacts(reg,p,tid)}${editing?'':cbOwnBar(reg,p,tid)}${cbModBar(reg,p,tid)}</div></article>`;
 }
@@ -58316,7 +58326,7 @@ function cbTopicView(head){
     `<form class="rmb-form cb-rf" id="cb-rf"><label class="lbl" for="cb-r-x">${S.isOwner?'Your reply':'Reply as '+esc(fullName(S.nation))}</label>${cbQuoting(T)}${cbTools('cb-r-x')}<textarea class="input" id="cb-r-x" rows="4" maxlength="${CB_TEXT}" placeholder="Your reply…"${CB.pv['cb-r-x']?' hidden':''}>${esc(CB.rx)}</textarea>${cbPreview('cb-r-x',CB.rx)}<div class="rmb-bar"><span class="hint" id="cb-r-c">${CB.rx.length} / ${CB_TEXT}</span><button class="btn" type="submit"${CB.busy?' disabled':''}>${CB.busy==='reply'?'Posting…':'Post reply'}</button></div></form>`}`;
   /* the New line: before the first reply by someone else since the player last read the topic */
   const nu=list&&T.since?list.findIndex(x=>x.t>T.since&&x.a!==S.uid):-1;
-  return head+back+cbArticle(T.reg,p)+cbFollowBar(T)+`<h2 class="h3 cb-rh">${p.rc} ${p.rc===1?'reply':'replies'}</h2>`+
+  return head+back+cbJumpBar(T,list,nu)+cbArticle(T.reg,p)+cbFollowBar(T)+`<h2 class="h3 cb-rh">${p.rc} ${p.rc===1?'reply':'replies'}</h2>`+
     (reps&&reps.err?`<p class="err">${esc(reps.err)}</p>`:list==null?'<p class="hint">Loading the replies…</p>':`<div class="cb-reps">${list.map((x,i)=>(i===nu?`<div class="cb-newl" id="cb-newl"><span>New since you last read</span></div>`:'')+cbArticle(T.reg,x,p.id)).join('')}</div>`)+form;
 }
 /* the Chancery board (functions/board.js CB_CHANCERY): for Chancery Club members and Founding Supporters, read and
@@ -58334,7 +58344,7 @@ function cbView(){
   if(CB.pend){const [g,t]=CB.pend;CB.pend=null;cbOpenTopic(g,t);}
   if(CB.topic)return cbTopicView(head);
   const regs=regionsByAvail().filter(R=>!regDisabled(R.id)||(REG&&R.id===REG.id)||(CB.meta[R.id]&&CB.meta[R.id].n)),own=regs.filter(R=>REG&&R.id===REG.id),rest=regs.filter(R=>!REG||R.id!==REG.id);
-  return head+cbForm()+cbFollowing()+`<div class="cb-regs">${own.map(cbBoard).join('')}${cbChancery()?cbBoard(CB_CH):cbChanceryLocked()}${rest.map(cbBoard).join('')}</div>`;
+  return head+cbSearchBox()+(CB.sq?'':cbForm()+cbFollowing())+`<div class="cb-regs"${CB.sq?' hidden':''}>${own.map(cbBoard).join('')}${cbChancery()?cbBoard(CB_CH):cbChanceryLocked()}${rest.map(cbBoard).join('')}</div>`;
 }
 /* ── @mentions: typing @ in a topic or reply offers the nations of the player's region and the authors on the boards
    they have open; the server (functions/board.js mentioned) checks each name and leaves a notice in their bell ── */
@@ -58420,9 +58430,10 @@ function cbErr(e,what){toast(e&&CB_SAY.includes(e.code)&&e.message?e.message:`Th
 async function cbSendTopic(){
   const f=CB.f;if(CB.busy)return;
   if(f.ti.trim().length<3){toast('Give the topic a title of at least three characters.');return;}
+  if(CB.pic&&CB.pic['cb-f-x']&&CB.pic['cb-f-x'].busy){toast('The picture is still being prepared.');return;}
   if(!f.x.trim()){toast('Write something first.');return;}
   CB.busy='new';render();
-  try{const mn0=cbMnIds(f.ti+' '+f.x),r=await cbCall({op:'cbTopic',reg:f.reg,ti:f.ti.trim(),x:f.x.trim(),tg:f.tg,mn:mn0,...cbRankArg()}),reg=f.reg;achPend('cbt');achPend('cbp');if(mn0.length)achPend('mnt');CB.f={reg:'',ti:'',x:'',tg:'general'};CB.form=false;CB.pv={};CB.users.delete(S.uid);
+  try{const mn0=cbMnIds(f.ti+' '+f.x),pic=cbPicArg('cb-f-x'),r=await cbCall({op:'cbTopic',reg:f.reg,ti:f.ti.trim(),x:f.x.trim(),tg:f.tg,mn:mn0,...cbRankArg(),...cbArmsArg(f.x),...pic}),reg=f.reg;achPend('cbt');achPend('cbp');if(mn0.length)achPend('mnt');cbPostAch(f.x,reg,!!pic.pic);cbPicDone('cb-f-x');CB.f={reg:'',ti:'',x:'',tg:'general'};CB.form=false;CB.pv={};CB.users.delete(S.uid);
     cbOpenSet().add(reg);cbKeepOpen();if(r&&r.id){cbOpenTopic(reg,r.id);window.scrollTo(0,0);}toast('Your topic is posted.');}
   catch(e){cbErr(e,'topic');}
   CB.busy='';render();
@@ -58431,7 +58442,9 @@ async function cbSendReply(){
   const T=CB.topic,x=CB.rx.trim();if(!T||!x||CB.busy)return;
   CB.busy='reply';render();
   const q=CB.rq&&CB.rq.t===T.id?CB.rq.id:'';
-  try{await cbCall({op:'cbReply',reg:T.reg,topic:T.id,x,mn:cbMnIds(x),...(q?{q}:{}),...(cbReplyAs()==='team'?{as:'team',...cbaSign()}:cbRankArg())});achPend('cbp');if(cbMnIds(x).length)achPend('mnt');CB.rx='';CB.rq=null;CB.pv['cb-r-x']=false;CB.users.delete(S.uid);cbUserWant([S.uid]);}
+  if(CB.pic&&CB.pic['cb-r-x']&&CB.pic['cb-r-x'].busy){toast('The picture is still being prepared.');CB.busy='';render();return;}
+  const pic=cbPicArg('cb-r-x'),team=cbReplyAs()==='team';
+  try{await cbCall({op:'cbReply',reg:T.reg,topic:T.id,x,mn:cbMnIds(x),...(q?{q}:{}),...(team?{as:'team',...cbaSign()}:{...cbRankArg(),...cbArmsArg(x)}),...pic});achPend('cbp');if(cbMnIds(x).length)achPend('mnt');if(!team)cbPostAch(x,T.reg,!!pic.pic);cbPicDone('cb-r-x');CB.rx='';CB.rq=null;CB.pv['cb-r-x']=false;CB.users.delete(S.uid);cbUserWant([S.uid]);}
   catch(e){cbErr(e,'reply');}
   CB.busy='';render();
   const t=document.getElementById('cb-r-x');if(t&&!CB.rx)try{t.focus({preventScroll:true});}catch(e){}
@@ -58439,7 +58452,7 @@ async function cbSendReply(){
 async function cbSendEdit(){
   const E=CB.edit;if(!E||CB.busy)return;
   CB.busy='edit';render();
-  try{await cbCall({op:'cbEdit',reg:E.reg,topic:E.t,...(E.r?{reply:E.r}:{ti:E.ti.trim()}),x:E.x.trim()});CB.edit=null;CB.pv['cb-e-x']=false;toast('Your post is updated.');}
+  try{await cbCall({op:'cbEdit',reg:E.reg,topic:E.t,...(E.r?{reply:E.r}:{ti:E.ti.trim()}),x:E.x.trim(),...cbArmsArg(E.x)});CB.edit=null;CB.pv['cb-e-x']=false;toast('Your post is updated.');}
   catch(e){cbErr(e,'change');}
   CB.busy='';render();
 }
@@ -58613,11 +58626,11 @@ function cbLinkRe(){
     CB_LINK_RE=new RegExp('https?:\\/\\/(?:www\\.)?(?:'+h.join('|')+')(?:\\/[^\\s<>"\'`]*)?|#visit\\/[\\w-]{1,128}|#community\\/[a-z]{2,40}\\/[A-Za-z0-9]{20}','gi');}
   return CB_LINK_RE;
 }
-function cbText(x,mn){
+function cbText(x,mn,p){
   const out=[];let list=null,para=[];
   const fp=()=>{if(para.length){out.push(para.map(l=>cbInline(l,mn)).join('<br>'));para=[];}};
   const fl=()=>{if(list){out.push(`<${list.t} class="cb-ls">${list.i.map(l=>`<li>${cbInline(l,mn)}</li>`).join('')}</${list.t}>`);list=null;}};
-  for(const l of String(x||'').split('\n')){const m=/^\s*(?:([-*•])|(\d{1,3})[.)])\s+(\S.*)$/.exec(l);
+  for(const l of String(x||'').split('\n')){const E=p?cbEmbedOf(l):null;if(E){fp();fl();out.push(cbEmbedHTML(E,p));continue;}const m=/^\s*(?:([-*•])|(\d{1,3})[.)])\s+(\S.*)$/.exec(l);
     if(m){fp();const t=m[1]?'ul':'ol';if(!list||list.t!==t){fl();list={t,i:[]};}list.i.push(m[3]);}
     else{fl();para.push(l);}}
   fp();fl();
@@ -58670,12 +58683,12 @@ function cbTcFetch(reg,tid){
 /* above each writing box: bold, italic, the two lists and a preview of the post as it will read */
 function cbTools(id){
   const pv=!!CB.pv[id],b=(v,l,h)=>`<button type="button" class="cb-tl" data-act="cb-fmt" data-v="${v}" data-for="${id}" title="${esc(l)}" aria-label="${esc(l)}"${pv?' disabled':''}>${h}</button>`;
-  return `<div class="cb-tools" role="toolbar" aria-label="Formatting">${b('b','Bold (Ctrl+B)','<b>B</b>')}${b('i','Italic (Ctrl+I)','<i>I</i>')}${b('ul','Bulleted list','• List')}${b('ol','Numbered list','1. List')}<button type="button" class="cb-tl cb-tl-pv" data-act="cb-pv" data-for="${id}" aria-pressed="${pv}">${pv?'Back to writing':'Preview'}</button><span class="cb-tl-h">A link to a nation or a topic shows as a card</span></div>`;
+  return `<div class="cb-tools" role="toolbar" aria-label="Formatting">${b('b','Bold (Ctrl+B)','<b>B</b>')}${b('i','Italic (Ctrl+I)','<i>I</i>')}${b('ul','Bulleted list','• List')}${b('ol','Numbered list','1. List')}<button type="button" class="cb-tl cb-tl-pv" data-act="cb-pv" data-for="${id}" aria-pressed="${pv}">${pv?'Back to writing':'Preview'}</button><span class="cb-tl-h">A link to a nation or a topic shows as a card</span></div>${cbToolsPlus(id)}`;
 }
 function cbPreview(id,x){
   if(!CB.pv[id])return '';
   const mn={};try{const pick=CB.mnPick instanceof Map?[...CB.mnPick.entries()]:[];for(const u of cbMnIds(x)){const e=pick.find(([,v])=>v===u);if(e)mn[u]=e[0];}}catch(e){}
-  return `<div class="cb-pv post-x cb-x" id="${id}-pv">${String(x||'').trim()?cbText(x,mn):'<p class="hint">Nothing to preview yet.</p>'}</div>`;
+  return `<div class="cb-pv post-x cb-x" id="${id}-pv">${String(x||'').trim()?cbText(x,mn,cbMePost()):'<p class="hint">Nothing to preview yet.</p>'}</div>`;
 }
 function cbFmtApply(id,v){
   const t=document.getElementById(id);if(!t||t.hidden)return;
@@ -58787,6 +58800,146 @@ document.addEventListener('click',e=>{
   if(a==='cb-rep'){const p=cbFind(reg,t,r);if(!p)return;Promise.resolve(window.claude.use('report')).then(R=>{if(R)R.open({kind:'post',target:p.a,post:'cb:'+reg+':'+t+(r?':'+r:''),reg:REG_BY_ID[p.rg]?p.rg:reg,name:p.nm,x:((p.ti?p.ti+': ':'')+p.x).slice(0,600)});else toast('Reporting needs a connection.');});return;}
 });
 
+/* ───────── Community Board, round two (2026-11-18: the owner picked ideas 3, 5, 8, 9, 10 and 14) ─────────
+   Search every board; a button to the first unread reply; a post may show the author's flag ([my flag]) or coat of arms
+   ([my arms], its copy kept with the post, am), a trade offer ([offer: 10 iron for 8 food], a day, as the Trade page
+   counts) or a picture (functions/board.js: cbPic/<post> its small copy, cbPicD/<post> the picture); and achievements for
+   all of these. */
+let CB_EMB_RE=null;
+const cbEmbRe=()=>CB_EMB_RE||(CB_EMB_RE=new RegExp(String.raw`^\[\s*(?:(my flag)|(my arms)|(offer|want)\s*:\s*(\d+(?:\.\d+)?)\s+(${RES.join('|')})(?:\s+for\s+(\d+(?:\.\d+)?)\s+(${RES.join('|')}))?)\s*\]$`,'i'));
+const CB_SR_TTL=5*60e3,CB_SR_N=60,CB_SR_SHOW=50;
+/* a line that is only an embed: what it shows */
+function cbEmbedOf(l){
+  const m=cbEmbRe().exec(String(l||'').trim());if(!m)return null;
+  if(m[1])return {k:'flag'};if(m[2])return {k:'arms'};
+  const amt=v=>Math.round(clamp(Number(v)||0,.5,100)*2)/2;
+  return {k:m[3].toLowerCase(),a:amt(m[4]),r:m[5].toLowerCase(),fa:m[6]?amt(m[6]):0,fr:m[7]?m[7].toLowerCase():''};
+}
+function cbArmsOf(p){if(!p||typeof p.am!=='string'||!p.am)return null;try{const a=JSON.parse(p.am);return a&&typeof a==='object'&&!Array.isArray(a)?a:null;}catch(e){return null;}}
+function cbFlagOf(p){if(!p||!p.fl)return null;try{const f=JSON.parse(p.fl);return f&&typeof f==='object'?f:null;}catch(e){return null;}}
+function cbEmbedHTML(E,p){
+  const who=esc(p&&p.nm||'');
+  if(E.k==='flag'){const f=cbFlagOf(p);return f?`<figure class="cb-emb cb-emb-flag"><div class="cb-emb-art">${flagSVG(f,'Flag of '+(p.nm||''))}</div><figcaption>The flag of ${who}</figcaption></figure>`:'<p class="hint">[my flag]</p>';}
+  if(E.k==='arms'){const a=cbArmsOf(p);let svg='';try{svg=a&&typeof czArmsSVG==='function'?czArmsSVG(a,{full:1}):'';}catch(e){svg='';}
+    return svg?`<figure class="cb-emb cb-emb-arms"><div class="cb-emb-art">${svg}</div><figcaption>The arms of ${who}</figcaption></figure>`:'<p class="hint">[my arms]</p>';}
+  const R=r=>`${resIco(r)}${esc(RES_INFO[r][0])}`,give=`${fmtAmt(E.a)} ${R(E.r)}`,back=E.fr?`${fmtAmt(E.fa)} ${R(E.fr)}`:'';
+  const t=E.k==='offer'?`Offers ${give} a day${back?` for ${back}`:''}`:`Wants ${give} a day${back?`, paying ${back}`:''}`;
+  /* the deal from the reader's side: what they would send and receive */
+  const send=E.k==='offer'?(E.fr||''):E.r,sa=E.k==='offer'?E.fa:E.a,get=E.k==='offer'?E.r:(E.fr||''),ga=E.k==='offer'?E.a:E.fa;
+  const x=p&&p.a&&p.a!==S.uid&&S.nation?allNations().find(o=>o.id===p.a&&!o.npc&&!o.me):null;
+  const btn=!p||!p.a?'':p.a===S.uid?'<span class="hint">Your offer</span>':x?`<button type="button" class="btn small" data-act="cb-deal" data-w="${esc(p.a)}" data-gr="${send}" data-ga="${sa||10}" data-rr="${get}" data-ra="${ga||10}">Propose this deal</button>`:'<span class="hint">Trade is between nations of one region.</span>';
+  return `<div class="cb-emb cb-offer"><p class="cb-offer-k">${E.k==='offer'?'Trade offer':'Wanted'}</p><p class="cb-offer-t">${t}</p><p class="cb-offer-b">${btn}</p></div>`;
+}
+/* the reader's own look, for the preview before posting */
+function cbMePost(){const n=S.nation;if(!n)return null;let am='';try{const a=cuArmsOf(n);am=a?JSON.stringify(a):'';}catch(e){}return {a:S.uid,nm:n.name,fl:JSON.stringify(n.flag||{}),am};}
+/* what to send with a post: the arms, when the words show them */
+function cbArmsArg(x){if(!/\[my arms\]/i.test(x)||!S.nation)return {};try{const a=cuArmsOf(S.nation);const j=a?JSON.stringify(a):'';return j&&j.length<=4000?{am:a}:{};}catch(e){return {};}}
+/* the achievements a post earns as it goes */
+function cbPostAch(x,reg,pic){
+  const E=String(x||'').split('\n').map(cbEmbedOf).filter(Boolean);
+  if(E.some(e=>e.k==='flag'))achPend('cbfl');if(E.some(e=>e.k==='arms'))achPend('cbar');if(E.some(e=>e.k==='offer'||e.k==='want'))achPend('cbof');
+  if(pic)achPend('cbpic');if(REG&&reg&&reg!==REG.id&&reg!==CB_CH.id)achPend('cbfar');
+}
+
+/* ── the toolbar's extras: the flag, the arms, a trade offer and a picture ── */
+function cbToolsPlus(id){
+  const pv=!!CB.pv[id],b=(v,l,h)=>`<button type="button" class="cb-tl" data-act="cb-ins" data-v="${v}" data-for="${id}" title="${esc(l)}"${pv?' disabled':''}>${h}</button>`;
+  const pic=id!=='cb-e-x'&&S.mode==='world'&&!OBS?`<button type="button" class="cb-tl" data-act="cb-pic" data-for="${id}" title="Add a picture (PNG, JPEG, WebP or GIF; or paste one)"${pv?' disabled':''}>${RGC_PIC_SVG} Picture</button><input type="file" id="${id}-file" class="rgc-file" data-cb-file="${id}" accept="${RGC_PIC_ACCEPT}" tabindex="-1" aria-hidden="true" hidden>`:'';
+  return `<div class="cb-tools cb-tools2" role="toolbar" aria-label="Add to the post">${b('flag','Show your flag','⚑ My flag')}${b('arms','Show your coat of arms','⛨ My arms')}${b('offer','A trade offer: change the amounts and goods','⇄ Trade offer')}${pic}</div>${id==='cb-e-x'?'':`<div class="cb-picbar" id="${id}-picbar"${CB.pic&&(CB.pic[id]||CB.picErr&&CB.picErr[id])?'':' hidden'}>${cbPicBar(id)}</div>`}`;
+}
+function cbIns(id,v){
+  const t=document.getElementById(id);if(!t||t.hidden)return;
+  const s=v==='flag'?'[my flag]':v==='arms'?'[my arms]':'[offer: 10 iron for 8 food]';
+  const a=t.selectionStart,val=t.value,st=val.lastIndexOf('\n',a-1)+1,pre=val.slice(0,a).length&&a>st?'\n':'',post=val.slice(a).startsWith('\n')||a>=val.length?'':'\n';
+  const nv=val.slice(0,a)+pre+s+post+val.slice(a);if(nv.length>CB_TEXT){toast('That would make the post too long.');return;}
+  t.value=nv;const s0=a+pre.length;try{t.focus();if(v==='offer')t.setSelectionRange(s0+8,s0+s.length-1);else t.setSelectionRange(s0+s.length,s0+s.length);}catch(e){}
+  t.dispatchEvent(new Event('input',{bubbles:true}));
+  if(v==='offer')toast('A trade offer: amounts a day, any of food, timber, iron, oil and goods. Use “want:” for what you are after.');
+}
+
+/* ── pictures ── */
+function cbPicBar(id){
+  const P=CB.pic&&CB.pic[id],err=CB.picErr&&CB.picErr[id],no=`<button type="button" class="rgc-hb" data-act="cb-pic-no" data-for="${id}" aria-label="Remove the picture" title="Remove the picture">${RGC_X_SVG}</button>`;
+  if(P&&P.busy)return '<span class="rgc-pbt" role="status">Preparing the picture…</span>';
+  if(P){const [w,h]=rgcPicFit(P.w,P.h,64,48);return `<img class="rgc-pbi" src="${esc(P.th)}" width="${w}" height="${h}" alt=""><span class="rgc-pbt"><b>Picture added</b><span class="rgc-pbs">${P.fw} × ${P.fh}, ${P.kb} KB${P.gif?', a moving GIF':''}</span></span>${no}`;}
+  if(err)return `<span class="rgc-pbt err" role="alert">${esc(err)}</span>${no}`;
+  return '';
+}
+function cbPicPaint(id){const el=document.getElementById(id+'-picbar');if(!el)return;const h=cbPicBar(id);el.innerHTML=h;el.hidden=!h;}
+async function cbPicTake(file,id){
+  if(!file)return;CB.pic=CB.pic||{};CB.picErr=CB.picErr||{};
+  const tk={busy:true};CB.pic[id]=tk;CB.picErr[id]='';cbPicPaint(id);
+  let out=null,err='';try{out=await rgcPicMake(file);}catch(e){err=e&&e.rgc?e.message:'That picture could not be read. Try another one.';}
+  if(CB.pic[id]!==tk)return;CB.pic[id]=out;CB.picErr[id]=err;cbPicPaint(id);
+}
+function cbPicArg(id){const P=CB.pic&&CB.pic[id];return P&&!P.busy?{pic:rgcPicOut(P)}:{};}
+function cbPicDone(id){if(CB.pic)delete CB.pic[id];if(CB.picErr)delete CB.picErr[id];}
+/* a post's picture: its small copy, fetched once the post is on the page */
+function cbPicHTML(p){
+  if(!p||!p.pc||p.hd)return '';
+  CB.pics=CB.pics||new Map();let v=CB.pics.get(p.id);
+  if(!v&&S.db){v={busy:true};CB.pics.set(p.id,v);S.db.doc('cbPic/'+p.id).get().then(s=>{const d=s.exists?s.data()||{}:null,im=d?rgcImOf({s:d.th,w:d.w,h:d.h,fw:d.fw,fh:d.fh,k:d.k}):null;CB.pics.set(p.id,im?{im}:{err:1});if(S.view==='community')quietRender();},()=>{CB.pics.set(p.id,{err:1});if(S.view==='community')quietRender();});}
+  if(!v||v.busy){const [w,h]=rgcPicFit(p.pc.w,p.pc.h,240,200);return `<div class="cb-pic"><span class="rgc-pic cb-pic-wait" style="width:${w}px;height:${h}px" aria-label="Loading the picture"></span></div>`;}
+  if(v.err)return '<p class="hint cb-pic">The picture could not be loaded.</p>';
+  return `<div class="cb-pic">${rgcPicHTML(v.im,`data-act="cb-pic-open" data-id="${esc(p.id)}"`,p.nm)}</div>`;
+}
+async function cbPicOpen(id){
+  const v=CB.pics&&CB.pics.get(id);if(!v||!v.im||!S.db)return;
+  let d=document.getElementById('cb-lb');if(d){try{d.close();}catch(e){}d.remove();}
+  d=document.createElement('dialog');if(typeof d.showModal!=='function')return;
+  d.id='cb-lb';d.className='rgc-lb';d.setAttribute('aria-label','Picture');
+  d.innerHTML=`<div class="rgc-lb-b"><button type="button" class="rgc-hb rgc-lb-x" data-act="cb-lb-x" aria-label="Close">${RGC_X_SVG}</button><img id="cb-lb-im" src="${esc(v.im.s)}" alt="" style="max-width:min(92vw,${v.im.fw}px);max-height:84vh;width:auto;height:auto"></div>`;
+  document.body.appendChild(d);d.addEventListener('close',()=>d.remove());d.addEventListener('click',e=>{if(e.target===d||e.target.closest('[data-act="cb-lb-x"]'))d.close();});d.showModal();
+  try{const s=await S.db.doc('cbPicD/'+id).get(),u=s.exists?(s.data()||{}).d:'';const im=document.getElementById('cb-lb-im');if(im&&typeof u==='string'&&/^data:image\/(png|jpeg|webp|gif);base64,/.test(u))im.src=u;}catch(e){}
+}
+
+/* ── search: every board's latest topics, their titles, words, authors and kinds ── */
+function cbSearchBox(){
+  const q=CB.sq||'';
+  return `<form class="cb-sf" id="cb-sf" role="search"><label class="u-sr" for="cb-sq">Search the boards</label><input class="input" id="cb-sq" type="search" value="${esc(q)}" placeholder="Search every board: words, a nation, a kind…" autocomplete="off"><button class="btn ghost" type="submit">Search</button>${q?'<button type="button" class="linkish small" data-act="cb-sq-no">Clear</button>':''}</form>${q?cbSearchOut():''}`;
+}
+function cbSearchBoards(){return regionsByAvail().filter(R=>!regDisabled(R.id)||(REG&&R.id===REG.id)).map(R=>R.id).concat(cbChancery()?[CB_CH.id]:[]);}
+function cbSearchLoad(){
+  const now=Date.now();if(CB.sr&&(CB.sr.busy||now-CB.sr.at<CB_SR_TTL)||!S.db)return;
+  const SR=CB.sr={busy:true,at:now,list:[],err:''};
+  Promise.all(cbSearchBoards().map(reg=>S.db.collection('cb/'+reg+'/posts').orderBy('la','desc').limit(CB_SR_N).get().then(qs=>qs.docs.map(d=>({reg,p:cbPost(d.id,d.data())})).filter(x=>x.p&&!x.p.hd),()=>[])))
+    .then(L=>{SR.list=L.flat();SR.busy=false;if(S.view==='community')quietRender();},()=>{SR.busy=false;SR.err='The boards could not be searched.';if(S.view==='community')quietRender();});
+}
+function cbSearchHits(q){
+  const toks=String(q||'').toLowerCase().split(/\s+/).filter(Boolean).slice(0,8);if(!toks.length||!CB.sr)return [];
+  return CB.sr.list.map(x=>{const p=x.p,hay=[p.ti,p.x,p.nm,CB_TAG[p.tg]||'',cbRegName(x.reg)].join(' ').toLowerCase(),ti=p.ti.toLowerCase();
+    if(!toks.every(t=>hay.includes(t)))return null;return {...x,s:toks.filter(t=>ti.includes(t)).length*3+(p.la||0)/1e13};}).filter(Boolean).sort((a,b)=>b.s-a.s);
+}
+function cbSearchOut(){
+  cbSearchLoad();const SR=CB.sr;
+  if(!SR||SR.busy)return '<p class="hint cb-sr-h" role="status">Searching every board…</p>';
+  if(SR.err)return `<p class="err">${esc(SR.err)}</p>`;
+  const hits=cbSearchHits(CB.sq),n=hits.length;
+  return `<section class="cb-sr" aria-labelledby="cb-sr-h"><h2 class="h3" id="cb-sr-h">${n?`${n} ${n===1?'topic':'topics'} found`:'Nothing found'}</h2><p class="hint">The latest ${CB_SR_N} topics of every board, by their title, opening post, author and kind.</p>
+    ${n?`<ul class="cb-rows">${hits.slice(0,CB_SR_SHOW).map(x=>cbRow(x.reg,x.p).replace('<span class="cb-row-s">',`<span class="cb-row-s"><span class="cb-sr-reg">${esc(cbRegName(x.reg))}</span>`)).join('')}</ul>`:''}</section>`;
+}
+
+/* ── the first unread reply ── */
+function cbJumpBar(T,list,nu){
+  if(nu<0||!list)return '';
+  const k=list.slice(nu).filter(x=>x.a!==S.uid).length;
+  return `<p class="cb-jump"><button type="button" class="btn small" data-act="cb-jump">↓ ${k} new ${k===1?'reply':'replies'} since you last read</button></p>`;
+}
+
+/* ── hooks ── */
+document.addEventListener('submit',e=>{if(e.target&&e.target.id==='cb-sf'){e.preventDefault();const i=document.getElementById('cb-sq'),q=i?i.value.trim().slice(0,80):'';CB.sq=q;if(q)achPend('cbsr');render();}});
+document.addEventListener('paste',e=>{const t=e.target,id=t&&t.id;if(id!=='cb-f-x'&&id!=='cb-r-x')return;const f=[...(e.clipboardData&&e.clipboardData.files||[])].find(x=>/^image\//.test(x.type));if(f){e.preventDefault();cbPicTake(f,id);}});
+document.addEventListener('change',e=>{const t=e.target,id=t&&t.dataset&&t.dataset.cbFile;if(!id)return;const f=t.files&&t.files[0];t.value='';if(f)cbPicTake(f,id);});
+document.addEventListener('click',e=>{
+  const el=e.target.closest&&e.target.closest('[data-act]');if(!el)return;const a=el.dataset.act;
+  if(a==='cb-ins'){cbIns(el.dataset.for,el.dataset.v);return;}
+  if(a==='cb-pic'){const f=document.getElementById(el.dataset.for+'-file');if(f)f.click();return;}
+  if(a==='cb-pic-no'){cbPicDone(el.dataset.for);cbPicPaint(el.dataset.for);return;}
+  if(a==='cb-pic-open'){cbPicOpen(el.dataset.id);return;}
+  if(a==='cb-sq-no'){CB.sq='';render();return;}
+  if(a==='cb-jump'){const n=document.getElementById('cb-newl');if(n)try{n.scrollIntoView({block:'center',behavior:'smooth'});}catch(err){}return;}
+  if(a==='cb-deal'){if(!S.nation)return;const R=k=>RES.includes(k)?k:RES[0];S.trade={...(S.trade||{}),w:el.dataset.w,gr:R(el.dataset.gr),ga:String(+el.dataset.ga||10),rr:R(el.dataset.rr),ra:String(+el.dataset.ra||10),touched:true};S.tradeMsg='';go('trade');return;}
+});
 /* ───────── Community boards in the admin portal ─────────
    Game content › Community boards: an admin opens a topic on any region's board, or the same topic on every board at
    once (civic op cbPost, functions/board.js). It is signed as the Edictum team (a name and a role kept in this
@@ -66568,6 +66721,7 @@ achDef('dip','dip-rx25','s','Show of Hands','React to 25 lines in the chat or po
   .forEach(([id,t,n,g,d])=>achDef('dip',id,t,n,d,g,aCbPosts));
 achDef('dip','dip-cbf','b','Following the Story','Follow a topic on the Community Board, to hear when someone replies.',1,x=>aTP(x,'cbf'),{fm:'bool'});
 achDef('dip','dip-cbs','b','Yours Faithfully','Sign your posts: write a signature for the Community Board in Customise.',1,x=>achYes(aTP(x,'cbs')||(aCbUser(x)||{}).sg),{fm:'bool'});
+
 /* the museum, expanded: floors, a curator, takings, restoration, loans, exhibitions, the region's ranking */
 const aMw=x=>x.npc?null:mwOf(x.n);
 achDef('mus','mus-fl2','s','Mind the Stairs','Open the first floor of your museum.',1,x=>achYes(aMw(x)&&aMw(x).fl>=2),{fm:'bool'});
@@ -66610,6 +66764,16 @@ achDef('eco','eco-active12','g','Every Berth Taken','Have 12 trade deals running
 achDef('eco','eco-berth','b','Extra Berth','Rent an extra deal slot on the Trade page.',1,x=>achYes(!x.npc&&Array.isArray(x.n.trX)&&x.n.trX.length),{fm:'bool'});
 
 /* ───────── achievements for Flock, provinces, warehouses, roads, mayors and city mood, the Assembly and parliament ───────── */
+/* the Community Board, round two (2026-11-18): flag, arms, offers, pictures, search, other boards */
+[['dip-cbfl','b','Colours Shown','Show your flag in a post on the Community Board: [my flag].','cbfl'],
+ ['dip-cbar','b','Arms Displayed','Show your coat of arms in a post on the Community Board: [my arms].','cbar'],
+ ['dip-cbof','b','Stall Holder','Post a trade offer on the Community Board.','cbof'],
+ ['dip-cbpic','b','Picture This','Post a picture on the Community Board.','cbpic'],
+ ['dip-cbsr','b','Back Issues','Search the Community Board.','cbsr']]
+  .forEach(([id,t,nm,d,k])=>achDef('dip',id,t,nm,d,1,x=>aTP(x,k),{fm:'bool'}));
+achDef('dip','dip-cbof10','s','Market Crier','Post 10 trade offers on the Community Board.',10,x=>aTP(x,'cbof'));
+achDef('dip','dip-cbpic10','s','Photo Album','Post 10 pictures on the Community Board.',10,x=>aTP(x,'cbpic'));
+achDef('dip','dip-cbfar','s','Foreign Correspondent','Write 10 posts on the boards of other regions.',10,x=>aTP(x,'cbfar'));
 const aProvN=x=>achM(x,'prv',()=>{try{if(x.npc||!prvOnRec(x.n))return 0;const T=territory(),i=prvIdx(T,x.n);if(i===undefined)return 0;const N=prvNatWith(T,i,x.n.prov);return N&&N.prov?N.prov.filter(p=>p.cells&&p.cells.length).length:0;}catch(e){return 0;}});
 const aWh=x=>achM(x,'wh',()=>{try{return x.npc?[]:whOwnEntries(x.n).filter(e=>e.b&&e.b.d<=x.now);}catch(e){return [];}});
 const aInfra=(x,k)=>(Array.isArray(x.n.infra)?x.n.infra:[]).filter(r=>r&&Number.isFinite(r.d)&&r.d<=x.now&&(!k||r.k===k)).length;
