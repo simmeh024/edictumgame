@@ -6055,12 +6055,18 @@ svg.cu-note.cu-note-v{width:28%!important;min-width:56px;height:auto!important;m
 .scs-lf{display:grid;gap:3px;justify-items:center;padding:6px 2px 4px;border:1px solid var(--rule);border-radius:7px;background:var(--sheet);cursor:pointer;font:inherit;font-size:10.5px;line-height:1.2;color:var(--ink)}
 .scs-lf svg.scr{height:30px;width:auto;max-width:100%}.scs-lf.on{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}.scs-lf:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 .scs-edit{display:flex;flex-wrap:wrap;gap:16px;align-items:center;justify-content:center;padding:8px}
-.scs-grid{width:min(290px,70vw);height:auto;background:var(--sheet);border:1px solid var(--rule);border-radius:10px;touch-action:manipulation;color:var(--ink)}
+.scs-grid{width:min(340px,78vw);height:auto;background:var(--sheet);border:1px solid var(--rule);border-radius:10px;touch-action:none;color:var(--ink);cursor:crosshair;user-select:none}
+.scs-sk{fill:none;stroke:var(--ink-3);stroke-width:.09;stroke-dasharray:.25 .2;pointer-events:none}.scs-sk.on{stroke:var(--accent);stroke-width:.14;stroke-dasharray:none}
+.scs-hd{fill:var(--sheet);stroke:var(--ink-3);stroke-width:.09;cursor:move}.scs-hd.first{stroke-width:.16}.scs-hd.on{stroke:var(--accent);stroke-width:.14}.scs-hd.sel{fill:var(--accent)}
+.scs-tr{fill:var(--ink);opacity:.13;pointer-events:none}
+.scs-grid.dots{cursor:cell}
+.scs-stroke{display:grid;gap:8px;padding:8px;border:1px solid var(--rule);border-radius:8px;background:var(--sheet-2)}.scs-which{margin:0;font-weight:600;color:var(--ink)}
+.scs-trrow{display:flex;gap:6px;align-items:center}.scs-trrow .input{width:4.2em;font-size:18px;text-align:center;padding:2px 4px}
 .scs-grid:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .scs-box{fill:none;stroke:var(--rule-2);stroke-width:.06;stroke-dasharray:.3 .25}
 .scs-nd{fill:var(--ink-3)}.scs-nd.on{fill:var(--accent)}
 .scs-hit{fill:var(--accent);fill-opacity:0;cursor:crosshair}.scs-hit:hover{fill-opacity:.16}
-.scs-ghost{opacity:.18}.scs-own{color:var(--ink)}
+.scs-ghost{opacity:.18}.scs-own{color:var(--ink);opacity:.9}
 .scs-cur{fill:none;stroke:var(--accent);stroke-width:.55;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:.7 .35}
 .scs-kc{fill:none;stroke:var(--accent);stroke-width:.14;opacity:0}.scs-grid:focus .scs-kc{opacity:1}
 .scs-edit-side{display:grid;gap:4px;justify-items:center;text-align:center;flex:1 1 140px;min-width:0;max-width:260px}.scs-hold{visibility:hidden}.scs-big svg.scr{height:120px;width:auto}
@@ -49825,7 +49831,14 @@ const SCR_DIR={ltr:'Left to right',rtl:'Right to left',ttb:'In columns',bou:'Ox-
 const SCR_DIR_H={ltr:'The line starts at the left, as this one does.',rtl:'The line starts at the right; the letters keep their shape.',ttb:'Each word stands in a column, read from the top, and the columns run from right to left. Your nation page and the Studio set your words in columns; the arms, banknotes, letters and the title under your name keep a line.',bou:'Every other word runs back the other way with its letters mirrored, as an ox turns the plough at the end of a furrow.'};
 /* signs drawn by hand (cg): on a grid of 5 × 8 points (scrNode), each stroke a run of points, one character a point
    (SCR_B); "~" makes a stroke a curve, a stroke that ends where it began is a closed shape, ".x" is a dot */
-const SCR_B='0123456789abcdefghijklmnopqrstuvwxyzABCD',SCR_MAX={st:6,pt:10,dt:4};
+const SCR_B='0123456789abcdefghijklmnopqrstuvwxyzABCD',SCR_MAX={st:10,pt:20,dt:6,len:480,all:9000};
+/* the letter editor draws on a finer grid, in half units (one base-36 character across, 0–k, one down, 0–s): a stroke
+   is "@", s or c (straight or curved), its brush (0 the pen, 1 even, 2 swelling, 3 pressed then lifted, 4 lifted then
+   pressed, 5 heavy at both ends), its width (1 thin, 2 normal, 3 thick) and its points; one that ends where it began is
+   closed. A dot is ":", its size (1–3) and its point. The pen follows the script's weight and ends; a brush has its own */
+const SCR_BRUSH={0:'Pen',1:'Even',2:'Swelling',3:'Pressed, then lifted',4:'Lifted, then pressed',5:'Heavy ends'};
+const SCR_PFC={1:4,2:0,3:1,4:3,5:2},SCR_WM={1:.55,2:1,3:1.6},SCR_DS={1:.7,2:1.05,3:1.5};
+const scrH=ch=>parseInt(ch,36)/2,scrHc=v=>Math.round(v*2).toString(36);
 /* the stored choice, checked: anything not understood is left out */
 function scrClean(r){
   if(!r||typeof r!=='object'||Array.isArray(r))return null;const o={};
@@ -49843,7 +49856,7 @@ function scrClean(r){
   if(Number.isInteger(r.mp)&&r.mp>=10&&r.mp<=90&&r.mp%10===0)o.mp=r.mp;
   const per=(x,ok)=>{if(!x||typeof x!=='object'||Array.isArray(x))return null;const q={};for(const [k,v] of Object.entries(x))if(k.length===1&&SCR_ABC.includes(k)&&ok(v))q[k]=v;return Object.keys(q).length?q:null;};
   const lf=per(r.lf,v=>Object.prototype.hasOwnProperty.call(SCR_FAM,v));if(lf)o.lf=lf;
-  const cg=per(r.cg,scrCodeOk);if(cg)o.cg=cg;
+  const cg=per(r.cg,scrCodeOk);if(cg){let tot=0;for(const k of Object.keys(cg)){tot+=cg[k].length;if(tot>SCR_MAX.all)delete cg[k];}if(Object.keys(cg).length)o.cg=cg;}
   return Object.keys(o).length?o:null;
 }
 /* the script a nation writes in: its own choice over what its seed gives it */
@@ -50027,20 +50040,40 @@ function scrBox(g){
 /* a point of the drawing grid: 5 across (every 2.5), 8 down (every 2) */
 const scrNode=i=>[(i%5)*2.5,Math.floor(i/5)*2];
 function scrCodeOk(v){
-  if(typeof v!=='string'||!v||v.length>100)return false;const parts=v.split(',');let st=0,dt=0;
-  for(const q of parts){if(/^\.[0-9a-zA-D]$/.test(q))dt++;else if(/^~?[0-9a-zA-D]{2,11}$/.test(q))st++;else return false;}
+  if(typeof v!=='string'||!v||v.length>SCR_MAX.len)return false;let st=0,dt=0;
+  for(const q of v.split(',')){
+    if(/^\.[0-9a-zA-D]$/.test(q)||/^:[1-3][0-9a-k][0-9a-s]$/.test(q))dt++;
+    else if(/^~?[0-9a-zA-D]{2,11}$/.test(q)||/^@[sc][0-5][1-3](?:[0-9a-k][0-9a-s]){2,21}$/.test(q))st++;
+    else return false;
+  }
   return st<=SCR_MAX.st&&dt<=SCR_MAX.dt&&st+dt>0;
 }
-/* a sign drawn by hand, as a glyph */
+/* a sign drawn by hand, as a glyph: pen strokes are drawn as the script's own, brush strokes with their own pressure
+   (pf) and width (wm); the sign keeps a little room either side for a thick brush */
 function scrCustom(code){
   const g={S:[],D:[],own:1};
   for(const q of String(code).split(',')){
     if(q[0]==='.'){g.D.push([scrNode(SCR_B.indexOf(q[1])),1]);continue;}
+    if(q[0]===':'){g.D.push([[scrH(q[2]),scrH(q[3])],SCR_DS[q[1]]||1]);continue;}
+    if(q[0]==='@'){const P=[];for(let i=4;i+1<q.length;i+=2)P.push([scrH(q[i]),scrH(q[i+1])]);const z=P.length>2&&P[0][0]===P[P.length-1][0]&&P[0][1]===P[P.length-1][1];
+      g.S.push(Object.assign({p:z?P.slice(0,-1):P,sm:q[1]==='c'?1:0},z?{z:1}:{},q[2]!=='0'?{br:1,pf:SCR_PFC[q[2]],wm:SCR_WM[q[3]]||1}:{}));continue;}
     const sm=q[0]==='~',ids=[...(sm?q.slice(1):q)].map(c=>SCR_B.indexOf(c)),z=ids.length>2&&ids[0]===ids[ids.length-1],p=(z?ids.slice(0,-1):ids).map(scrNode);
     g.S.push(Object.assign({p,sm:sm?1:0},z?{z:1}:{}));
   }
-  return scrBox(g);
+  scrBox(g);if(g.S.some(t=>t.br)){g.x0-=.6;g.w+=1.2;}return g;
 }
+/* the sign as strokes and dots to edit, and back: the old grid's strokes come over as pen strokes, its dots as dots */
+function scrEdParse(code){
+  const st=[],dt=[];
+  for(const q of String(code||'').split(',').filter(Boolean)){
+    if(q[0]==='.'){dt.push({z:'2',p:scrNode(SCR_B.indexOf(q[1]))});continue;}
+    if(q[0]===':'){dt.push({z:q[1],p:[scrH(q[2]),scrH(q[3])]});continue;}
+    if(q[0]==='@'){const p=[];for(let i=4;i+1<q.length;i+=2)p.push([scrH(q[i]),scrH(q[i+1])]);st.push({c:q[1],b:q[2],w:q[3],p});continue;}
+    const sm=q[0]==='~';st.push({c:sm?'c':'s',b:'0',w:'2',p:[...(sm?q.slice(1):q)].map(ch=>scrNode(SCR_B.indexOf(ch)))});
+  }
+  return {st,dt};
+}
+function scrEdCode(m){return m.st.filter(t=>t.p.length>=2).map(t=>'@'+t.c+t.b+t.w+t.p.map(q=>scrHc(q[0])+scrHc(q[1])).join('')).concat(m.dt.map(t=>':'+t.z+scrHc(t.p[0])+scrHc(t.p[1]))).join(',');}
 /* the family a letter is drawn from: its own (lf), else the blended family for its share of the letters, else the
    alphabet's; 'own' for a sign drawn by hand */
 function scrFamOf(sp,c){
@@ -50101,16 +50134,26 @@ function scrSample(p,k){
   for(let i=0;i<n-1;i++){const a=P(i-1),b=P(i),c=P(i+1),e=P(i+2);for(let j=0;j<k;j++){const t=j/k,t2=t*t,t3=t2*t;out.push([0,1].map(q=>.5*((2*b[q])+(-a[q]+c[q])*t+(2*a[q]-5*b[q]+4*c[q]-e[q])*t2+(-a[q]+3*b[q]-3*c[q]+e[q])*t3)));}}
   out.push(p[n-1]);return out;
 }
-const SCR_PF=[t=>.18+.82*Math.pow(Math.sin(Math.PI*t),.7),t=>Math.max(.12,1-.88*Math.pow(t,.8)),t=>.48+.52*Math.pow(Math.abs(2*t-1),1.4),t=>.14+.86*Math.pow(t,.9)];
+const SCR_PF=[t=>.18+.82*Math.pow(Math.sin(Math.PI*t),.7),t=>Math.max(.12,1-.88*Math.pow(t,.8)),t=>.48+.52*Math.pow(Math.abs(2*t-1),1.4),t=>.14+.86*Math.pow(t,.9),()=>1];
+/* points along straight segments, and round a closed stroke (curved or straight) */
+function scrSampleL(p,k){const out=[];for(let i=0;i<p.length-1;i++)for(let j=0;j<k;j++){const t=j/k;out.push([p[i][0]+(p[i+1][0]-p[i][0])*t,p[i][1]+(p[i+1][1]-p[i][1])*t]);}out.push(p[p.length-1]);return out;}
+function scrSampleZ(p,k,sm){
+  const n=p.length,P=i=>p[(i+n)%n],out=[];
+  for(let i=0;i<n;i++){const a=P(i-1),b=P(i),c=P(i+1),e=P(i+2);for(let j=0;j<k;j++){const t=j/k;if(!sm){out.push([b[0]+(c[0]-b[0])*t,b[1]+(c[1]-b[1])*t]);continue;}const t2=t*t,t3=t2*t;out.push([0,1].map(q=>.5*((2*b[q])+(-a[q]+c[q])*t+(2*a[q]-5*b[q]+4*c[q]-e[q])*t2+(-a[q]+3*b[q]-3*c[q]+e[q])*t3)));}}
+  out.push(out[0]);return out;
+}
 /* one glyph as path data at x0: strokes (drawn with the pen) and fills (wedge heads, dots, brush strokes, end dots) */
 function scrPaths(g,ox,sp){
   const f=v=>Math.round(v*100)/100,X=x=>f(x+ox),w=SCR_W[sp.w||2];let st='',fl='';
   const dot=(x,y,r)=>`M${f(x-r)} ${f(y)}a${f(r)} ${f(r)} 0 1 0 ${f(2*r)} 0a${f(r)} ${f(r)} 0 1 0 ${f(-2*r)} 0Z`;
   for(const s of g.S||[]){
     const p=s.p.map(q=>[q[0]+ox,q[1]]);
-    if(g.br){const pts=scrSample(p,8),n=pts.length,L=[],R=[];
-      for(let i=0;i<n;i++){const a=pts[Math.max(0,i-1)],b=pts[Math.min(n-1,i+1)],dx=b[0]-a[0],dy=b[1]-a[1],l=Math.hypot(dx,dy)||1,t=i/(n-1),h=w*(s.pf?.8:.75)*SCR_PF[s.pf||0](t);L.push([pts[i][0]-dy/l*h,pts[i][1]+dx/l*h]);R.push([pts[i][0]+dy/l*h,pts[i][1]-dx/l*h]);}
-      fl+='M'+L.map(q=>f(q[0])+' '+f(q[1])).join('L')+'L'+R.reverse().map(q=>f(q[0])+' '+f(q[1])).join('L')+'Z';continue;}
+    if(g.br||s.br){const pts=s.z?scrSampleZ(p,8,s.sm):g.br||s.sm?scrSample(p,8):scrSampleL(p,8),n=pts.length,L=[],R=[],pf=s.pf||0,k=g.br?(s.pf?.8:.75):(.42+.18*w)/w*(s.wm||1),D=[];
+      for(let i=0;i<n;i++){const a=pts[Math.max(0,i-1)],b=pts[Math.min(n-1,i+1)],dx=b[0]-a[0],dy=b[1]-a[1],l=Math.hypot(dx,dy)||1,t=i/(n-1),h=w*k*SCR_PF[pf](t);D.push([dx/l,dy/l,h]);L.push([pts[i][0]-dy/l*h,pts[i][1]+dx/l*h]);R.push([pts[i][0]+dy/l*h,pts[i][1]-dx/l*h]);}
+      /* an even brush ends round: half a circle from one side to the other, out past the end */
+      const cap=(c,dx,dy,h)=>{const o=[];for(let a=1;a<8;a++){const th=a/8*Math.PI,cs=Math.cos(th),sn=Math.sin(th);o.push([c[0]+h*(-dy*cs+dx*sn),c[1]+h*(dx*cs+dy*sn)]);}return o;};
+      const rd=!s.z&&pf===4&&!g.br,e1=rd?cap(pts[n-1],D[n-1][0],D[n-1][1],D[n-1][2]):[],e0=rd?cap(pts[0],-D[0][0],-D[0][1],D[0][2]):[];
+      fl+='M'+L.concat(e1,R.reverse(),e0).map(q=>f(q[0])+' '+f(q[1])).join('L')+'Z';continue;}
     st+=s.sm?scrSmooth(p,s.z):'M'+p.map(q=>f(q[0])+' '+f(q[1])).join('L')+(s.z?'Z':'');
     if(!s.z&&(sp.tm==='serif'||sp.tm==='dot'))for(const [a,b] of [[p[0],p[1]],[p[p.length-1],p[p.length-2]]]){
       if(sp.tm==='dot'){fl+=dot(a[0],a[1],w*.85);continue;}
@@ -50356,56 +50399,133 @@ function scsBlend(d){
   return `<div class="cst-row"><span class="cst-lab">Blend in a second family <b>${esc(mx?SCR_FAM[mx]:'none')}</b></span><div class="cst-seg">${[['','None'],...Object.entries(SCR_FAM).filter(([k])=>k!==d.f)].map(([k,l])=>`<button type="button" class="cst-b${mx===k?' on':''}" data-scs="set" data-f="mx" data-v="${k}" aria-pressed="${mx===k}">${esc(l)}</button>`).join('')}</div></div>
   ${mx?`<div class="cst-row"><label class="cst-lab" for="scs-mp">Its share of the letters <b>${d.mp||30}%</b></label><input type="range" id="scs-mp" data-scs-in="mp" min="10" max="90" step="10" value="${d.mp||30}"></div>`:''}`;
 }
-/* the One letter tab: where the letter's sign comes from, and the tools to draw it */
+/* the One letter tab: where the letter's sign comes from, and the tools to draw it. The stroke settings change the stroke
+   chosen on the grid, or, with none chosen, the next one drawn */
+const SCS_GD={coarse:[2.5,2,'Coarse'],fine:[1,1,'Fine'],finer:[.5,.5,'Finest']};
+const SCS_TF={sans:"'Hiragino Sans','Yu Gothic','Noto Sans CJK JP','Noto Sans JP','Microsoft YaHei','Malgun Gothic',sans-serif",serif:"'Hiragino Mincho ProN','Yu Mincho','Noto Serif CJK JP','Noto Serif JP','SimSun','Batang',serif"};
+const scsEdNew=(c,E)=>({c,tool:E?E.tool:'draw',cur:null,sel:null,gd:E?E.gd:'fine',kx:E?E.kx:5,ky:E?E.ky:7,pen:E?E.pen:{c:'c',b:'1',w:'2',dz:'2'},tr:E?E.tr:'',tf:E?E.tf:'sans'});
 function scsOne(n,d){
   const E=SCS.ed;if(!E)return '<p class="hint">Click a letter in the key to give it a sign from another family, or to draw it yourself.</p>';
   const c=E.c,i=SCR_ABC.indexOf(c),from=scrFamOf(d,c),pick=(d.cg||{})[c]?'own':(d.lf||{})[c]||'',G=scrSet(d),sig=scrGSig(G[i]),dup=[...SCR_ABC].filter((x,j)=>j!==i&&scrGSig(G[j])===sig);
-  const nx=k=>SCR_ABC[(i+k+36)%36],parts=scrParts(d,c),nst=parts.filter(q=>q[0]!=='.').length,ndt=parts.length-nst;
+  const nx=k=>SCR_ABC[(i+k+36)%36],m=scsModel(),sel=E.sel&&m.st[E.sel.s]?m.st[E.sel.s]:null,st=E.cur||sel||E.pen;
   const opt=(k,l,g)=>`<button type="button" class="scs-lf${pick===k?' on':''}" data-scs="lfam" data-v="${k}" aria-pressed="${pick===k}">${g}<span>${esc(l)}</span></button>`;
-  const tool=(k,l)=>`<button type="button" class="cst-b${E.tool===k?' on':''}" data-scs="tool" data-v="${k}" aria-pressed="${E.tool===k}">${l}</button>`;
+  const seg=(a,cur,opts,dis)=>`<div class="cst-seg">${opts.map(([v,l])=>`<button type="button" class="cst-b${String(cur)===String(v)?' on':''}" data-scs="${a}" data-v="${v}" aria-pressed="${String(cur)===String(v)}"${dis?' disabled':''}>${esc(l)}</button>`).join('')}</div>`;
+  const which=E.cur?'The stroke being drawn':sel?`Stroke ${E.sel.s+1} of ${m.st.length}, chosen on the grid`:'The next stroke';
   return `<div class="scs-lh"><button type="button" class="cst-b" data-scs="step" data-d="-1" aria-label="The letter before, ${nx(-1)}">← ${nx(-1)}</button><span class="scs-lc">${c}</span><button type="button" class="cst-b" data-scs="step" data-d="1" aria-label="The next letter, ${nx(1)}">${nx(1)} →</button></div>
     <p class="hint scs-lfrom">${from==='own'?'Drawn by hand.':`From ${esc(SCR_FAM[from])}${pick?'':from===d.f?', as the alphabet draws it':', the blended family'}.`}</p>
     <div class="cst-row"><span class="cst-lab">Take its sign from</span><div class="scs-lfs">${opt('','The alphabet’s',scrSVG({...d,cg:{},lf:{}},c,{label:''}))}${Object.keys(SCR_FAM).map(f=>opt(f,SCR_FAM[f],scrSVG({...d,cg:{},lf:{[c]:f}},c,{label:''}))).join('')}</div></div>
-    <div class="cst-row"><span class="cst-lab">Draw it yourself <b>${nst} of ${SCR_MAX.st} strokes · ${ndt} of ${SCR_MAX.dt} dots</b></span><div class="cst-seg">${tool('line','Lines')}${tool('curve','Curve')}${tool('dot','Dot')}</div></div>
-    <div class="cst-seg"><button type="button" class="cst-b cst-out" data-scs="end"${E.cur.length<2?' disabled':''}>Finish the stroke</button><button type="button" class="cst-b cst-out" data-scs="back"${E.cur.length||parts.length?'':' disabled'}>Take a point back</button><button type="button" class="cst-b cst-out" data-scs="clear"${parts.length?'':' disabled'}>Clear</button></div>
-    <p class="hint">Click points on the grid to draw a stroke; click the last point again, or press Enter, to finish it, and click its first point to close a shape. With the keys: arrows move, Space adds a point, Backspace takes one back, Escape drops the stroke.</p>
+    <div class="cst-row"><span class="cst-lab">Draw it yourself <b>${m.st.length} of ${SCR_MAX.st} strokes · ${m.dt.length} of ${SCR_MAX.dt} dots</b></span>${seg('tool',E.tool,[['draw','Strokes'],['dot','Dots']])}</div>
+    <div class="cst-row"><span class="cst-lab">Grid</span>${seg('gd',E.gd,Object.entries(SCS_GD).map(([k,v])=>[k,v[2]]))}</div>
+    ${E.tool==='dot'?`<div class="cst-row"><span class="cst-lab">Size of the next dot</span>${seg('pz',E.pen.dz,[['1','Small'],['2','Medium'],['3','Large']])}</div><p class="hint">Click a point to put a dot there, or click a dot to take it off.</p>`
+    :`<div class="scs-stroke"><p class="cst-lab scs-which">${which}</p>
+      <div class="cst-row"><span class="cst-lab">Shape</span>${seg('pc',st.c,[['s','Straight'],['c','Curve']])}</div>
+      <div class="cst-row"><span class="cst-lab">Brush</span>${seg('pb',st.b,Object.entries(SCR_BRUSH))}</div>
+      <div class="cst-row"><span class="cst-lab">Width${st.b==='0'?' <b>the pen follows the script’s weight</b>':''}</span>${seg('pw',st.w,[['1','Thin'],['2','Normal'],['3','Thick']],st.b==='0')}</div>
+      ${sel&&!E.cur?`<div class="cst-seg"><button type="button" class="cst-b cst-out" data-scs="rev">Reverse it</button><button type="button" class="cst-b cst-out" data-scs="del">${E.sel.p!=null?'Delete the point':'Delete the stroke'}</button><button type="button" class="cst-b cst-out" data-scs="desel">Done with it</button></div>`:''}</div>
+    <div class="cst-seg"><button type="button" class="cst-b cst-out" data-scs="end"${E.cur&&E.cur.p.length>=2?'':' disabled'}>Finish the stroke</button><button type="button" class="cst-b cst-out" data-scs="back"${E.cur||m.st.length||m.dt.length?'':' disabled'}>Take a point back</button><button type="button" class="cst-b cst-out" data-scs="clear"${m.st.length||m.dt.length?'':' disabled'}>Clear</button></div>
+    <p class="hint">Click the grid to place points; click the last point again, or press Enter, to finish the stroke, and click its first point to close a shape. Drag any point to move it; Shift-click begins a new stroke even on another stroke’s point. Click a stroke to choose it and change its shape, brush or width; the brush runs the way the stroke was drawn. Keys: arrows move (a chosen point moves with them), Space adds a point, Enter finishes, Backspace takes back, Escape lets go.</p>`}
+    <div class="cst-row"><label class="cst-lab" for="scs-tr">Trace a character <b>not saved</b></label><div class="scs-trrow"><input class="input" id="scs-tr" data-scs-in="tr" maxlength="2" value="${esc(E.tr)}" placeholder="あ" autocomplete="off" lang="ja">${seg('tf',E.tf,[['sans','Gothic'],['serif','Mincho']])}</div></div>
+    <p class="hint">A character from your device’s own fonts, shown faintly behind the grid to draw over.</p>
     ${dup.length?`<p class="cst-chip w">${c} looks the same as ${esc(dup.join(', '))}: readers cannot tell them apart.</p>`:''}
     <div class="cst-seg"><button type="button" class="cst-b cst-out" data-scs="done">Back to the key</button></div>`;
 }
-/* the drawing grid on the stage: the 5 × 8 points, the sign as it stands (faint while it is not drawn by hand), the
-   stroke being drawn, the keyboard's cursor; beside it, the letter at size and in a word */
+/* the drawing grid on the stage: the grid's points, a character to trace, the sign as it will look (faint while it is
+   not drawn by hand), each stroke's line and points (the chosen one stronger), the stroke being drawn and the
+   keyboard's cursor; beside it, the letter at size and in a word */
+const scsNear=(a,b)=>Math.abs(a[0]-b[0])<.01&&Math.abs(a[1]-b[1])<.01;
+const scsClosed=t=>t.p.length>2&&scsNear(t.p[0],t.p[t.p.length-1]);
+function scsModel(){return scrEdParse(((SCS.d&&SCS.d.cg)||{})[SCS.ed.c]);}
+function scsSetModel(m,label){const c=SCS.ed.c,code=scrEdCode(m);scsDo(label,d=>scrPut(d,c,code?code.split(','):[]));}
+function scsSkel(t){const r=v=>Math.round(v*100)/100,z=scsClosed(t),P=z?t.p.slice(0,-1):t.p;if(t.p.length<2)return '';return t.c==='c'&&P.length>2?scrSmooth(P,z?1:0):'M'+t.p.map(q=>r(q[0])+' '+r(q[1])).join('L');}
 function scsGrid(n,d){
-  const E=SCS.ed,c=E.c,i=SCR_ABC.indexOf(c),own=!!(d.cg||{})[c],g=scrSet(d)[i],r=v=>Math.round(v*100)/100,p=scrPaths(g,0,{...d,sl:0,w:1});
-  let pts='',hit='';for(let k=0;k<40;k++){const [x,y]=scrNode(k);pts+=`<circle cx="${x}" cy="${y}" r=".3" class="scs-nd${E.cur.includes(k)?' on':''}"/>`;hit+=`<circle cx="${x}" cy="${y}" r="1.2" class="scs-hit" data-scs="node" data-i="${k}"/>`;}
-  const cp=E.cur.map(scrNode),cur=cp.length>1?(E.tool==='curve'&&cp.length>2?scrSmooth(cp,0):'M'+cp.map(q=>r(q[0])+' '+r(q[1])).join('L')):'',[kx,ky]=scrNode(E.k);
+  const E=SCS.ed,c=E.c,i=SCR_ABC.indexOf(c),own=!!(d.cg||{})[c],g=scrSet(d)[i],r=v=>Math.round(v*100)/100,m=scsModel(),[sx,sy]=SCS_GD[E.gd]||SCS_GD.fine,look=scrPaths(g,0,{...d,sl:0}),ink=scrInk(d);
+  let pts='';for(let y=0;y<=14.001;y+=sy)for(let x=0;x<=10.001;x+=sx)pts+=`<circle cx="${r(x)}" cy="${r(y)}" r="${E.gd==='finer'?.08:.15}" class="scs-nd"/>`;
+  let sk='',hd='';
+  m.st.forEach((t,si)=>{const on=!!E.sel&&E.sel.s===si;sk+=`<path d="${scsSkel(t)}" class="scs-sk${on?' on':''}"/>`;
+    (scsClosed(t)?t.p.slice(0,-1):t.p).forEach((q,pi)=>{hd+=`<circle cx="${r(q[0])}" cy="${r(q[1])}" r="${on?.36:.24}" class="scs-hd${on?' on':''}${on&&E.sel.p===pi?' sel':''}${pi===0?' first':''}"/>`;});});
+  const cur=E.cur&&E.cur.p.length?`<path d="${E.cur.p.length>1?scsSkel(E.cur):''}" class="scs-cur"/>${E.cur.p.map((q,pi)=>`<circle cx="${r(q[0])}" cy="${r(q[1])}" r="${pi===0?.4:.3}" class="scs-nd on"/>`).join('')}`:'';
+  const tr=E.tr?`<text x="5" y="12.3" text-anchor="middle" font-size="13" class="scs-tr" font-family="${SCS_TF[E.tf]||SCS_TF.sans}" aria-hidden="true">${esc(E.tr)}</text>`:'';
   const word=String(n.name||'').toUpperCase().normalize('NFD').includes(c)?n.name:`${n.name} ${c}`;
-  return `<div class="scs-edit"><svg class="scs-grid" id="scs-grid" viewBox="-1.6 -1.6 13.2 17.2" tabindex="0" role="application" aria-label="Drawing grid for ${c}: arrows move, Space adds a point, Enter finishes the stroke"><rect x="0" y="0" width="10" height="14" class="scs-box"/><path d="M0 7H10" class="scs-box"/>
-    <g class="${own?'scs-own':'scs-ghost'}" stroke="currentColor" fill="none" stroke-width="${SCR_W[1]}" stroke-linecap="round" stroke-linejoin="round">${p.st?`<path d="${p.st}"/>`:''}${p.fl?`<path d="${p.fl}" fill="currentColor" stroke="none"/>`:''}</g>
-    ${cur?`<path d="${cur}" class="scs-cur"/>`:''}${pts}<circle cx="${kx}" cy="${ky}" r=".85" class="scs-kc"/>${hit}</svg>
-    <div class="scs-edit-side${scrInk(d)?' scr-ink':''}"${scrInk(d)?` style="--scr-ink:${scrInk(d)}"`:''}><div class="scs-big">${scrSVG(d,c,{label:''})}</div><p class="scs-lc">${c}</p>${scrLine(n,word,{sp:d})}<span class="scr-pl">${esc(word)}</span><p class="hint${own?' scs-hold':''}">The faint sign is the one it has now. Draw on the grid to make your own.</p></div></div>`;
+  return `<div class="scs-edit"><svg class="scs-grid${E.cur?' drawing':''}${E.tool==='dot'?' dots':''}" id="scs-grid" viewBox="-1.2 -1.2 12.4 16.4" tabindex="0" role="application" aria-label="Drawing grid for ${c}: arrows move, Space adds a point, Enter finishes the stroke, Backspace takes back">${tr}<rect x="0" y="0" width="10" height="14" class="scs-box"/><path d="M0 7H10M5 0V14" class="scs-box"/>${pts}
+    <g class="${own?'scs-own':'scs-ghost'}${ink?' scr-ink':''}"${ink?` style="--scr-ink:${ink}"`:''} stroke="currentColor" fill="none" stroke-width="${SCR_W[d.w||2]}" stroke-linecap="${d.tm==='flat'?'butt':'round'}" stroke-linejoin="round">${look.st?`<path d="${look.st}"/>`:''}${look.fl?`<path d="${look.fl}" fill="currentColor" stroke="none"/>`:''}</g>
+    ${sk}${hd}${cur}<circle cx="${r(E.kx)}" cy="${r(E.ky)}" r=".65" class="scs-kc"/></svg>
+    <div class="scs-edit-side${ink?' scr-ink':''}"${ink?` style="--scr-ink:${ink}"`:''}><div class="scs-big">${scrSVG(d,c,{label:''})}</div><p class="scs-lc">${c}</p>${scrLine(n,word,{sp:d})}<span class="scr-pl">${esc(word)}</span><p class="hint${own?' scs-hold':''}">The faint sign is the one it has now. Draw on the grid to make your own.</p></div></div>`;
 }
-/* drawing: a point on the grid adds to the stroke (or toggles a dot); the last point again finishes the stroke, the first
-   point again closes it. A sign keeps up to SCR_MAX strokes, points and dots */
+/* drawing: where a click falls on the grid, snapped to its points */
 const scrParts=(d,c)=>String((d.cg||{})[c]||'').split(',').filter(Boolean);
 function scrPut(d,c,q){d.cg=Object.assign({},d.cg);if(q.length)d.cg[c]=q.join(',');else delete d.cg[c];if(d.lf&&d.lf[c]){d.lf=Object.assign({},d.lf);delete d.lf[c];}}
-function scsNode(k){
-  const E=SCS.ed;if(!E||!(k>=0&&k<40))return;E.k=k;const c=E.c,parts=scrParts(SCS.d,c);SCS.see='edit';
-  if(E.tool==='dot'){const dp='.'+SCR_B[k],j=parts.indexOf(dp);if(j<0&&parts.filter(q=>q[0]==='.').length>=SCR_MAX.dt){toast(`A sign holds up to ${SCR_MAX.dt} dots.`);return;}
-    scsDo(j<0?`A dot on ${c}`:`A dot off ${c}`,d=>{const q=scrParts(d,c);if(j<0)q.push(dp);else q.splice(j,1);scrPut(d,c,q);});scsPaint();return;}
-  if(E.cur.length&&k===E.cur[E.cur.length-1]){scsEnd();return;}
-  if(E.cur.length>=2&&k===E.cur[0]){E.cur.push(k);scsEnd();return;}
-  if(!E.cur.length&&parts.filter(q=>q[0]!=='.').length>=SCR_MAX.st){toast(`A sign holds up to ${SCR_MAX.st} strokes. Clear one first.`);return;}
-  if(E.cur.length>=SCR_MAX.pt){toast(`A stroke holds up to ${SCR_MAX.pt} points: finish it first.`);return;}
-  E.cur.push(k);scsPaint();
+function scsSnap(x,y){const [sx,sy]=SCS_GD[SCS.ed.gd]||SCS_GD.fine,h=v=>Math.round(v*2)/2;return [h(Math.min(10,Math.max(0,Math.round(x/sx)*sx))),h(Math.min(14,Math.max(0,Math.round(y/sy)*sy)))];}
+function scsAt(svg,ev){const M=svg.getScreenCTM();if(!M)return null;const q=new DOMPoint(ev.clientX,ev.clientY).matrixTransform(M.inverse());return [q.x,q.y];}
+/* what is under a point of the grid: a stroke's point (the chosen stroke first), else a stroke's line */
+function scsHit(m,q){
+  const E=SCS.ed,d2=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1]);let best=null;
+  m.st.forEach((t,si)=>(scsClosed(t)?t.p.slice(0,-1):t.p).forEach((pt,pi)=>{const k=d2(pt,q)-(E.sel&&E.sel.s===si?.2:0);if(k<.7&&(!best||k<best.k))best={s:si,p:pi,k};}));
+  if(best)return {s:best.s,p:best.p};
+  let bs=null;m.st.forEach((t,si)=>{const P=t.c==='c'&&t.p.length>2?(scsClosed(t)?scrSampleZ(t.p.slice(0,-1),8,1):scrSample(t.p,8)):t.p;
+    for(let j=0;j+1<P.length;j++){const a=P[j],b=P[j+1],dx=b[0]-a[0],dy=b[1]-a[1],L=dx*dx+dy*dy||1,u=Math.max(0,Math.min(1,((q[0]-a[0])*dx+(q[1]-a[1])*dy)/L)),k=Math.hypot(a[0]+dx*u-q[0],a[1]+dy*u-q[1]);if(k<.6&&(!bs||k<bs.k))bs={s:si,k};}});
+  return bs?{s:bs.s,p:null}:null;
+}
+/* a click (or Space) at a point of the grid: a dot on or off; the next point of the stroke being drawn (its last point
+   again finishes it, its first closes it); a point or a stroke chosen; or, with nothing chosen (or force: Shift), a new
+   stroke begun */
+function scsTap(q,raw,force){
+  const E=SCS.ed;if(!E)return;const c=E.c,m=scsModel();SCS.see='edit';E.kx=q[0];E.ky=q[1];
+  if(E.tool==='dot'){const j=m.dt.findIndex(t=>scsNear(t.p,q));if(j<0&&m.dt.length>=SCR_MAX.dt){toast(`A sign holds up to ${SCR_MAX.dt} dots.`);return;}
+    if(j<0)m.dt.push({z:E.pen.dz||'2',p:q});else m.dt.splice(j,1);scsSetModel(m,j<0?`A dot on ${c}`:`A dot off ${c}`);scsPaint();return;}
+  if(E.cur){const P=E.cur.p;
+    if(P.length&&scsNear(q,P[P.length-1])){scsEnd();return;}
+    if(P.length>=2&&scsNear(q,P[0])){P.push(P[0].slice());scsEnd();return;}
+    if(P.length>=SCR_MAX.pt){toast(`A stroke holds up to ${SCR_MAX.pt} points: finish it first.`);return;}
+    P.push(q);scsPaint();return;}
+  const hit=force?null:scsHit(m,raw||q);
+  if(hit){E.sel=hit;scsPaint();return hit;}
+  if(E.sel&&!force){E.sel=null;scsPaint();return;}
+  if(m.st.length>=SCR_MAX.st){toast(`A sign holds up to ${SCR_MAX.st} strokes. Delete one first.`);return;}
+  E.cur={c:E.pen.c,b:E.pen.b,w:E.pen.w,p:[q]};scsPaint();
 }
 function scsEnd(){
-  const E=SCS.ed;if(!E)return;const cur=E.cur,c=E.c;E.cur=[];if(cur.length<2){scsPaint();return;}
-  scsDo(`A ${E.tool==='curve'?'curve':'stroke'} on ${c}`,d=>{const q=scrParts(d,c);q.push((E.tool==='curve'?'~':'')+cur.map(i=>SCR_B[i]).join(''));scrPut(d,c,q);});scsPaint();
+  const E=SCS.ed;if(!E||!E.cur)return;const t=E.cur;E.cur=null;if(t.p.length<2){scsPaint();return;}
+  const m=scsModel();m.st.push(t);scsSetModel(m,`A ${scsClosed(t)?'closed shape':t.c==='c'?'curve':'stroke'} on ${E.c}`);E.sel=null;scsPaint();
 }
+/* Backspace: a point of the stroke being drawn, the chosen point or stroke, else the last stroke (or dot) */
 function scsBack(){
-  const E=SCS.ed;if(!E)return;if(E.cur.length){E.cur.pop();scsPaint();return;}const c=E.c;if(!scrParts(SCS.d,c).length)return;
-  scsDo(`Took a stroke off ${c}`,d=>{const q=scrParts(d,c);q.pop();scrPut(d,c,q);});scsPaint();
+  const E=SCS.ed;if(!E)return;if(E.cur){E.cur.p.pop();if(!E.cur.p.length)E.cur=null;scsPaint();return;}
+  const m=scsModel(),c=E.c;
+  if(E.sel&&m.st[E.sel.s]){scsDel();return;}
+  if(m.st.length){m.st.pop();scsSetModel(m,`Took a stroke off ${c}`);}else if(m.dt.length){m.dt.pop();scsSetModel(m,`Took a dot off ${c}`);}else return;scsPaint();
 }
+function scsDel(){
+  const E=SCS.ed,m=scsModel(),t=E&&E.sel&&m.st[E.sel.s];if(!t)return;
+  if(E.sel.p!=null){const z=scsClosed(t),P=z?t.p.slice(0,-1):t.p;P.splice(E.sel.p,1);t.p=z&&P.length>2?P.concat([P[0].slice()]):P;if(t.p.length<2)m.st.splice(E.sel.s,1);E.sel=t.p.length<2?null:{s:E.sel.s,p:null};scsSetModel(m,`Took a point off ${E.c}`);}
+  else{m.st.splice(E.sel.s,1);E.sel=null;scsSetModel(m,`Deleted a stroke of ${E.c}`);}
+  scsPaint();
+}
+/* a setting of the stroke: the chosen stroke's, else the next stroke's (and the one being drawn) */
+function scsPen(k,v){
+  const E=SCS.ed;if(!E)return;
+  if(k==='dz'){E.pen.dz=v;scsPaint();return;}
+  const m=scsModel(),t=!E.cur&&E.sel&&m.st[E.sel.s];
+  if(t){if(t[k]===v)return;t[k]=v;scsSetModel(m,`Stroke ${E.sel.s+1} of ${E.c}: ${k==='c'?(v==='c'?'curve':'straight'):k==='b'?SCR_BRUSH[v].toLowerCase():['thin','normal','thick'][+v-1]}`);}
+  else{E.pen[k]=v;if(E.cur)E.cur[k]=v;}
+  scsPaint();
+}
+/* moving a point: by dragging it, or with the arrow keys once it is chosen */
+function scsMove(si,pi,q,label,first){
+  const E=SCS.ed,m=scsModel(),t=m.st[si];if(!t)return false;const z=scsClosed(t),cur=t.p[pi];if(!cur||scsNear(cur,q))return false;
+  t.p[pi]=q;if(z&&pi===0)t.p[t.p.length-1]=q.slice();
+  const c=E.c,code=scrEdCode(m);if(first)scsDo(label,d=>scrPut(d,c,code.split(',')));else scrPut(SCS.d,c,code.split(','));return true;
+}
+let SCS_DRAG=null;
+document.addEventListener('pointerdown',e=>{
+  const g=e.target.closest&&e.target.closest('#scs-grid');if(!g||!SCS.on||!SCS.ed||e.button>0)return;e.preventDefault();g.focus({preventScroll:true});
+  const raw=scsAt(g,e);if(!raw)return;const q=scsSnap(raw[0],raw[1]),hit=scsTap(q,raw,e.shiftKey);
+  if(hit&&hit.p!=null)SCS_DRAG={s:hit.s,p:hit.p,moved:false};
+});
+document.addEventListener('pointermove',e=>{
+  const D=SCS_DRAG;if(!D||!SCS.on||!SCS.ed)return;const g=document.getElementById('scs-grid'),raw=g&&scsAt(g,e);if(!raw)return;
+  const q=scsSnap(raw[0],raw[1]);if(scsMove(D.s,D.p,q,`Moved a point of ${SCS.ed.c}`,!D.moved)){D.moved=true;SCS.ed.kx=q[0];SCS.ed.ky=q[1];scsPaint('stage');}
+});
+document.addEventListener('pointerup',()=>{const D=SCS_DRAG;SCS_DRAG=null;if(D&&D.moved&&SCS.on)scsPaint();});
 function scsPaint(only){
   const el=document.getElementById('sc-st');if(!el||!SCS.on)return;const n=scsN();if(!n){scsClose();return;}const d=SCS.d;
   /* a redraw keeps the stage scrolled where it was while it shows the same view: a point clicked low on the grid stays in sight */
@@ -50430,13 +50550,18 @@ document.addEventListener('click',e=>{
     case 'set':{const f=el.dataset.f;if(!SCS_LAB[f])break;const val=f==='w'?+v:v;if(SCS.d[f]===val)break;
       scsDo(`${SCS_LAB[f]}: ${f==='f'?SCR_FAM[v]:f==='mx'?(SCR_FAM[v]||'none'):f==='dr'?SCR_DIR[v]:(el.getAttribute('title')||el.textContent).trim()||'the page’s own'}`,d=>{d[f]=val;});scsPaint();break;}
     /* one letter: open it, take its sign from a family, draw it */
-    case 'ed':if(SCR_ABC.includes(v)&&v.length===1){SCS.ed={c:v,tool:SCS.ed?SCS.ed.tool:'line',cur:[],k:SCS.ed?SCS.ed.k:17};SCS.tab='one';SCS.see='edit';scsPaint();}break;
-    case 'step':if(SCS.ed){const i=(SCR_ABC.indexOf(SCS.ed.c)+(+el.dataset.d)+36)%36;SCS.ed.c=SCR_ABC[i];SCS.ed.cur=[];SCS.see='edit';scsPaint();}break;
-    case 'done':if(SCS.ed)SCS.ed.cur=[];SCS.see='key';scsPaint();break;
-    case 'lfam':{const c=SCS.ed&&SCS.ed.c;if(!c||v&&!SCR_FAM[v])break;scsDo(v?`${c}: from ${SCR_FAM[v]}`:`${c}: the alphabet’s own`,d=>{d.lf=Object.assign({},d.lf);d.cg=Object.assign({},d.cg);delete d.cg[c];if(v)d.lf[c]=v;else delete d.lf[c];});SCS.ed.cur=[];scsPaint();break;}
-    case 'tool':if(SCS.ed){SCS.ed.tool=['line','curve','dot'].includes(v)?v:'line';SCS.ed.cur=[];SCS.see='edit';scsPaint();}break;
-    case 'node':scsNode(+el.dataset.i);break;case 'end':scsEnd();break;case 'back':scsBack();break;
-    case 'clear':if(SCS.ed&&scrParts(SCS.d,SCS.ed.c).length){const c=SCS.ed.c;SCS.ed.cur=[];scsDo(`Cleared ${c}`,d=>scrPut(d,c,[]));scsPaint();}break;
+    case 'ed':if(SCR_ABC.includes(v)&&v.length===1){SCS.ed=scsEdNew(v,SCS.ed);SCS.tab='one';SCS.see='edit';scsPaint();}break;
+    case 'step':if(SCS.ed){const i=(SCR_ABC.indexOf(SCS.ed.c)+(+el.dataset.d)+36)%36;SCS.ed=scsEdNew(SCR_ABC[i],SCS.ed);SCS.see='edit';scsPaint();}break;
+    case 'done':if(SCS.ed){SCS.ed.cur=null;SCS.ed.sel=null;}SCS.see='key';scsPaint();break;
+    case 'lfam':{const c=SCS.ed&&SCS.ed.c;if(!c||v&&!SCR_FAM[v])break;scsDo(v?`${c}: from ${SCR_FAM[v]}`:`${c}: the alphabet’s own`,d=>{d.lf=Object.assign({},d.lf);d.cg=Object.assign({},d.cg);delete d.cg[c];if(v)d.lf[c]=v;else delete d.lf[c];});SCS.ed.cur=null;SCS.ed.sel=null;scsPaint();break;}
+    case 'tool':if(SCS.ed){SCS.ed.tool=v==='dot'?'dot':'draw';SCS.ed.cur=null;SCS.ed.sel=null;SCS.see='edit';scsPaint();}break;
+    case 'gd':if(SCS.ed&&SCS_GD[v]){SCS.ed.gd=v;[SCS.ed.kx,SCS.ed.ky]=scsSnap(SCS.ed.kx,SCS.ed.ky);SCS.see='edit';scsPaint();}break;
+    case 'pc':if(v==='s'||v==='c')scsPen('c',v);break;case 'pb':if(SCR_BRUSH[v])scsPen('b',v);break;case 'pw':if(['1','2','3'].includes(v))scsPen('w',v);break;case 'pz':if(['1','2','3'].includes(v))scsPen('dz',v);break;
+    case 'tf':if(SCS.ed&&SCS_TF[v]){SCS.ed.tf=v;SCS.see='edit';scsPaint();}break;
+    case 'rev':if(SCS.ed&&SCS.ed.sel){const m=scsModel(),t=m.st[SCS.ed.sel.s];if(t){t.p.reverse();SCS.ed.sel.p=null;scsSetModel(m,`Reversed a stroke of ${SCS.ed.c}`);scsPaint();}}break;
+    case 'del':scsDel();break;case 'desel':if(SCS.ed){SCS.ed.sel=null;scsPaint();}break;
+    case 'end':scsEnd();break;case 'back':scsBack();break;
+    case 'clear':if(SCS.ed&&scrParts(SCS.d,SCS.ed.c).length){const c=SCS.ed.c;SCS.ed.cur=null;SCS.ed.sel=null;scsDo(`Cleared ${c}`,d=>scrPut(d,c,[]));scsPaint();}break;
   }
 });
 document.addEventListener('change',e=>{
@@ -50447,6 +50572,7 @@ document.addEventListener('change',e=>{
 document.addEventListener('input',e=>{
   if(!SCS.on)return;const t=e.target,k=t.dataset&&t.dataset.scsIn;if(!k)return;
   if(k==='try'){SCS.try=String(t.value).slice(0,60);if(SCS.see!=='key')SCS.see='key';scsPaint('stage');return;}
+  if(k==='tr'){if(SCS.ed){SCS.ed.tr=[...String(t.value)].slice(0,2).join('');SCS.see='edit';scsPaint('stage');}return;}
   if(k==='mp'){const v=Math.max(10,Math.min(90,Math.round(+t.value/10)*10||30));const h=SCS.hist[SCS.hist.length-1];if(h&&h.l==='Share of the blend')SCS.d.mp=v;else scsDo('Share of the blend',d=>{d.mp=v;});
     const lab=t.closest('.cst-row')&&t.closest('.cst-row').querySelector('b');if(lab)lab.textContent=v+'%';if(SCS.see!=='key')SCS.see='key';scsPaint('stage');return;}
   if(k==='sl'){const v=Math.max(-SCR_SL,Math.min(SCR_SL,Math.round(+t.value)||0));const h=SCS.hist[SCS.hist.length-1];if(h&&h.l==='Slant')SCS.d.sl=v;else scsDo('Slant',d=>{d.sl=v;});
@@ -50454,10 +50580,13 @@ document.addEventListener('input',e=>{
 });
 document.addEventListener('keydown',e=>{
   if(!SCS.on)return;const tg=e.target,typing=tg&&/^(INPUT|TEXTAREA|SELECT)$/.test(tg.tagName)&&tg.type!=='range'&&tg.type!=='checkbox';
-  if(tg&&tg.id==='scs-grid'&&SCS.ed){const E=SCS.ed,k=e.key,mv={ArrowLeft:-1,ArrowRight:1,ArrowUp:-5,ArrowDown:5}[k];
-    if(mv!==undefined){e.preventDefault();const col=E.k%5,nk=E.k+mv;if(k==='ArrowLeft'&&col===0||k==='ArrowRight'&&col===4||nk<0||nk>=40)return;E.k=nk;scsPaint('stage');return;}
-    if(k===' '){e.preventDefault();scsNode(E.k);return;}if(k==='Enter'){e.preventDefault();scsEnd();return;}if(k==='Backspace'||k==='Delete'){e.preventDefault();scsBack();return;}}
-  if(e.key==='Escape'){e.preventDefault();if(SCS.ed&&SCS.ed.cur.length){SCS.ed.cur=[];scsPaint();return;}scsClose();return;}
+  if(tg&&tg.id==='scs-grid'&&SCS.ed){const E=SCS.ed,k=e.key,[sx,sy]=SCS_GD[E.gd]||SCS_GD.fine,mv={ArrowLeft:[-sx,0],ArrowRight:[sx,0],ArrowUp:[0,-sy],ArrowDown:[0,sy]}[k];
+    if(mv){e.preventDefault();
+      if(E.sel&&E.sel.p!=null&&!E.cur){const t=scsModel().st[E.sel.s],pt=t&&t.p[E.sel.p];if(pt){const q=scsSnap(pt[0]+mv[0],pt[1]+mv[1]);if(scsMove(E.sel.s,E.sel.p,q,`Moved a point of ${E.c}`,true)){E.kx=q[0];E.ky=q[1];scsPaint();}}return;}
+      [E.kx,E.ky]=scsSnap(E.kx+mv[0],E.ky+mv[1]);scsPaint('stage');return;}
+    if(k===' '){e.preventDefault();scsTap([E.kx,E.ky]);return;}if(k==='Enter'){e.preventDefault();scsEnd();return;}
+    if(k==='Backspace'||k==='Delete'){e.preventDefault();scsBack();return;}}
+  if(e.key==='Escape'){e.preventDefault();if(SCS.ed&&SCS.ed.cur){SCS.ed.cur=null;scsPaint();return;}if(SCS.ed&&SCS.ed.sel){SCS.ed.sel=null;scsPaint();return;}scsClose();return;}
   if((e.ctrlKey||e.metaKey)&&!typing){const k=e.key.toLowerCase();if(k==='z'&&!e.shiftKey){e.preventDefault();scsUndo();}else if(k==='y'||k==='z'&&e.shiftKey){e.preventDefault();scsRedo();}}
   if(e.key==='Tab'){const el=document.getElementById('sc-st');const f=el?[...el.querySelectorAll('button:not([disabled]),input,[tabindex="0"],summary')].filter(x=>x.offsetParent!==null):[];if(!f.length)return;const i=f.indexOf(document.activeElement);
     if(e.shiftKey&&i<=0){e.preventDefault();f[f.length-1].focus();}else if(!e.shiftKey&&i===f.length-1){e.preventDefault();f[0].focus();}}
@@ -75793,7 +75922,7 @@ mapBox=(f=>function(kind){const h=f.apply(this,arguments),n=S.nation;if(kind!=='
 
 /* the browser tests' window into the game: test/lib.mjs sets EDICTUM_PROBE before the page loads (a
    player's own browser can reach all of this anyway) */
-if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({RPATCH,SC:()=>scProbe(),SCR:()=>({scrOf,scrClean,scrDef,scrGlyphs,scrLay,scrChars,scrSVG,scrLine,scrCard,scrCharterSVG,scrFmt,scrFor,dmRich,dmPlain,scrDmWith,SCR_FAM,SCR_ABC,SCS}),BDX:()=>bdProbe(),FLY:()=>({flagSVG,fgSplit,fgFused}),RD:()=>rdProbe(),JV:()=>jvProbe(),M100P:()=>({M100,M100_N,M100_MC,M100_MCN,m100Bits,m100Got,m100In,m100Due,m100Count,m100Show,m100Open,ctgMcOk,nationColor,czShOk,czShieldPath,unlocksOf,czPatSVG,xsMax}),RVN:()=>({RV,rvData,rvSync,rvKey,rvHeld,rvStretch,rvMost,rvEdgeHolder,rvAt,rvNameAt,rvLabelAt,rvParts,rvRename,rvReset,rvNameProblem,rvTidy,rvLabel,rvnPanel,logLine,RVN_MAX,RVN_LEN,updateMapPanel,hexDist,HEX_W,REG}),CP2:()=>({BLD_ICO,bldIco,bldLead,cxDefTotal,cxOrder,qjBuilding,BUILDINGS}),PRVC:()=>({cxPrvOf,cxPrvSeatTrial,cxOvwCols,prvSeat,prvMine,prvOfCell,prvSetAut,prvAppoint,PRV}),NPX:()=>({fbTrend,fbYesterday,heroLead,heroOpen,opOf,OPEN_TO,hnOf,hnFill,hnLine,nbSection,ppWho,ppWhoHTML,ppHash,ppCarried,economy,territory,bordersOf,fillDeal,findNation,clsHide,MAP,hexDist,STAT_KEYS,popNow,myId}),PT:()=>ptProbe(),LTH:()=>lthProbe(),DAM:()=>damProbe(),CHAT:()=>({RGC,RGW,tab:rgcTab(),count:rgcCount(),region:rgcUnread(),world:rgwUnread(),named:rgwNamedUnread(),hidden:document.hidden}),UXP2:()=>({edictDesk,edictStep,edictOpen,fill,ISSUE_BY_ID,ACH,keysOpen,dmOthers,dmPickList,stGroups,stTabLast,navRecent,vhData,VH_KEY,VH_AFTER,QJ_DO,qjItems:q=>navQjItems(q),NAV_REC_KEY,ST_KEY}),HID:()=>({HIDN,hidMask,iAmHidden,frontier,mapPanel,warControls}),WG:()=>({wgTakers,wgForField,wgForPick,warGiveHex,warGive,occupiedFrom,attack,offerPeace,declareWar,collectConquests,dedupeConq}),WAKE:()=>({dormFresh,dormQuiet,dormWelcome,moveTo,RSTAT,REGIONS,REG,regDisabled}),LAND:()=>({landWait,capLift,capWrong,capNote,raceKnown,RACE,worldHeardAt:()=>worldHeardAt,landQ:()=>S.landQ,landQueued,fdSites:(n,T)=>fdSites(n,T)}),BG:{gain:bldGain,html:bldGainHtml},IB:()=>({agRoster,agPick,agStatus,heatOf,cvRoll,cvKey,cvBlock,cvOdds,buLv,buGap,buAll,BU,BU_KEYS,ibFile,ibWanted,ibChatter,HEAT_MAX,DD_TASKS,DD_LEG,findNation,allNations,cvProtected}),VL:()=>({VL_SECS,VL_DEF,CLS,CLS_OPS,CLS_READ,vlOrder,clsOf,clsRaw,clsMax,clsSeen,clsHide,clsRead,vlSave,findNation}),IFC:()=>({plan:ifcPlan,works:ifcWorks,line:ifcLine,tab:ifcTab}),XP:()=>({BUILDINGS,XU,XU_KEYS,XU_TOTAL,LOST_KINDS,LOST_ORDER,xuLv,xuWhy,xuHave,xuStart,xuCost,xuGear,xpSeen,expFree,xpTeamOpen,nationBuilt,expBackTeam,SITES,SITE_KINDS,expPlan,expOdds,expRuns,expRange,flRange,flAlive,flPlan,flDebug,flNow,discoveries,sendExpedition,hearReport,xpRoute,xpRivals,xpRivalText,xpFinds,flOdds,territory}),SVC:()=>({SVC,SVC_N,SVC_V,SVC_NEED,svcPlan,svcOpen,svcDig,svcShort,svcRoll,svcAmt,svcDayOf,svcRoom,svcNext}),FLC:()=>({FLC,FLC_RULES,FLC_CAT,flcId,flcTimes,flcPhase,flcPrev,flcView,flcLoad,flcChamp,flcTodo,flcClaims,flcLand,flcStreak,flcAllDone,flcSeen,flcDuty,flcDeskOn,flcDraftPush,FCA}),LK:{lakeMap,isLake,claimLand,lakeShore,fillHeld,LAKE_MAX,LAKE_A,freeCell,claimFrontier,blockPlan,autoPlan,terrCount,placePhrase,claimWhy,swapCheck,inspectPanel,writeClaims,landCredits:n=>landCredits(n)},PST:()=>({PST,PST_LOOKS,PST_SHAPES,pstBar,pstKm,pstView,pstBox,pstPlace,pstKeyOf,pstRender,pstShow,pstHide}),DIG:()=>({DIG_SETS,DIG_FIRST,DIG_POOL,DIG_SITES,DIG_LEN,DIG_EVENTS,DIG_SCH,digSet,digHeld,digDone,digRew,digCredits,digOrder,digActive,digRetired,digOpenedAt,digPlan,digSend,digOpen,digChoose,digMod,digEvent,digPity,digGround,digInvites,digJoin,digJointOn,digGiftsIn,digTake,digGiveSpare,digSellSpare,digHire,digRegionFinds,digFirsts,landEarned:n=>landEarned(n),REG,REGIONS,COL_BY_ID}),MW:()=>({mwOf,mwPoints,mwVisitors,mwTakings,mwExhibit,mwExhibitItems,mwRanking,mwWorn,mwSlots,mwOnShow,COL_BY_ID,COL_ITEMS,DIG_SETS,MW_FLOORS}),GM:()=>({gamesResults,edOf,b1Now,gevWhy,baseScores,entryOf,medalsIn,gamesRecords,gamesCeremony,unlocksOf,myId,formOf,GAME_EVENTS,clone,commit}),GB:()=>({IRON_DEP,IRON_DEP_YIELD,CELL_RES,MAP_T:MAP.T,mapAt:c=>{centerMain(c,NEAR_Z*1.6);},stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,FOOD_SPOIL,FOOD_EAT,FOOD_TIERS,FOOD_LAND,foodTier,TIMBER_BURN,foodGrowth,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({dspShown,dspRegShown,dspRegs,dspPic,dspLocator,dspHtDefs,pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),ASMX:()=>({ASMX,ASMX_TABS,asmBookAt,asmState,asmArcLoad,REG}),RGNX:()=>({RGN,RGN_PAGE,notifItems,ONL,onlRefresh}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals}),TYX:()=>({TY,TY_RULES,TY_K,tyOf,tyList,tyWarBlock,tyIncoming,affinity,alPactLive,alRelationsHTML}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,achTierCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC,step:rcStepCheck,head:rcHead,sponsoring:rcSponsoring,qr:qrMatrix,card:rcCardDraw,invCap:rcInvCap,free:rcFreeLand,STEPS:RC_STEPS,UNL:RC_UNLOCKS}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend,card:n=>tutCard(n),phase:n=>tutPhase(n),picks:(n,ph)=>tutPicks(n,ph),group:(n,k)=>tutGroup(n,tutL(k)),hid:n=>tutHid(n)},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours},WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR,bell:now=>notifItems(now||Date.now())},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},TIER:()=>({BTIER,bEff,bTier,bTierNext,bTierLine,tierQuote,tierProblem,cxTier,cxTrMap,tierSettle,tierReady,cxGoldNow,cxUpQuote,cxUpList,cxUps}),CX:{upgradable:cxUpgradable,mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState,UG:CX_UG,LV:CX_LV,ups:cxUps,upMap:cxUpMap,extras:cxBldExtras,quote:cxUpQuote},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo,unlockTarget,unlockShow,unlockFresh,unlockQueue,ULK,UNLOCKS,unlocksOf,toast:m=>toast(m)},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{coinBackSVG:cuCoinBackSVG,noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,coinSVG:cuCoinSVG,guide:cuGuideHTML,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ACH_RANKS_V1,ID_BD,achVal,achCtx,achEvalNew,achState,stockRates:n=>stockRates(n),achPoints,achRank,achRankOf,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,flagNorm:(f,n)=>flagNorm(f,n),flagSVG:(f,l)=>flagSVG(f,l),mapTip:id=>{const T=mapTerr('main'),i=T.list.findIndex(x=>x.id===id);if(i<0)return '';const cell=Array.prototype.indexOf.call(T.owner,i);return MAP_TIP.map(h=>{try{return h({kind:'main',cell,cv:null,x:0,y:0});}catch(e){return '';}}).filter(x=>typeof x==='string').join(' | ');},cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
+if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({RPATCH,SC:()=>scProbe(),SCR:()=>({scrOf,scrClean,scrDef,scrFamOf,scrEdParse,scrGlyphs,scrLay,scrChars,scrSVG,scrLine,scrCard,scrCharterSVG,scrFmt,scrFor,dmRich,dmPlain,scrDmWith,SCR_FAM,SCR_ABC,SCS}),BDX:()=>bdProbe(),FLY:()=>({flagSVG,fgSplit,fgFused}),RD:()=>rdProbe(),JV:()=>jvProbe(),M100P:()=>({M100,M100_N,M100_MC,M100_MCN,m100Bits,m100Got,m100In,m100Due,m100Count,m100Show,m100Open,ctgMcOk,nationColor,czShOk,czShieldPath,unlocksOf,czPatSVG,xsMax}),RVN:()=>({RV,rvData,rvSync,rvKey,rvHeld,rvStretch,rvMost,rvEdgeHolder,rvAt,rvNameAt,rvLabelAt,rvParts,rvRename,rvReset,rvNameProblem,rvTidy,rvLabel,rvnPanel,logLine,RVN_MAX,RVN_LEN,updateMapPanel,hexDist,HEX_W,REG}),CP2:()=>({BLD_ICO,bldIco,bldLead,cxDefTotal,cxOrder,qjBuilding,BUILDINGS}),PRVC:()=>({cxPrvOf,cxPrvSeatTrial,cxOvwCols,prvSeat,prvMine,prvOfCell,prvSetAut,prvAppoint,PRV}),NPX:()=>({fbTrend,fbYesterday,heroLead,heroOpen,opOf,OPEN_TO,hnOf,hnFill,hnLine,nbSection,ppWho,ppWhoHTML,ppHash,ppCarried,economy,territory,bordersOf,fillDeal,findNation,clsHide,MAP,hexDist,STAT_KEYS,popNow,myId}),PT:()=>ptProbe(),LTH:()=>lthProbe(),DAM:()=>damProbe(),CHAT:()=>({RGC,RGW,tab:rgcTab(),count:rgcCount(),region:rgcUnread(),world:rgwUnread(),named:rgwNamedUnread(),hidden:document.hidden}),UXP2:()=>({edictDesk,edictStep,edictOpen,fill,ISSUE_BY_ID,ACH,keysOpen,dmOthers,dmPickList,stGroups,stTabLast,navRecent,vhData,VH_KEY,VH_AFTER,QJ_DO,qjItems:q=>navQjItems(q),NAV_REC_KEY,ST_KEY}),HID:()=>({HIDN,hidMask,iAmHidden,frontier,mapPanel,warControls}),WG:()=>({wgTakers,wgForField,wgForPick,warGiveHex,warGive,occupiedFrom,attack,offerPeace,declareWar,collectConquests,dedupeConq}),WAKE:()=>({dormFresh,dormQuiet,dormWelcome,moveTo,RSTAT,REGIONS,REG,regDisabled}),LAND:()=>({landWait,capLift,capWrong,capNote,raceKnown,RACE,worldHeardAt:()=>worldHeardAt,landQ:()=>S.landQ,landQueued,fdSites:(n,T)=>fdSites(n,T)}),BG:{gain:bldGain,html:bldGainHtml},IB:()=>({agRoster,agPick,agStatus,heatOf,cvRoll,cvKey,cvBlock,cvOdds,buLv,buGap,buAll,BU,BU_KEYS,ibFile,ibWanted,ibChatter,HEAT_MAX,DD_TASKS,DD_LEG,findNation,allNations,cvProtected}),VL:()=>({VL_SECS,VL_DEF,CLS,CLS_OPS,CLS_READ,vlOrder,clsOf,clsRaw,clsMax,clsSeen,clsHide,clsRead,vlSave,findNation}),IFC:()=>({plan:ifcPlan,works:ifcWorks,line:ifcLine,tab:ifcTab}),XP:()=>({BUILDINGS,XU,XU_KEYS,XU_TOTAL,LOST_KINDS,LOST_ORDER,xuLv,xuWhy,xuHave,xuStart,xuCost,xuGear,xpSeen,expFree,xpTeamOpen,nationBuilt,expBackTeam,SITES,SITE_KINDS,expPlan,expOdds,expRuns,expRange,flRange,flAlive,flPlan,flDebug,flNow,discoveries,sendExpedition,hearReport,xpRoute,xpRivals,xpRivalText,xpFinds,flOdds,territory}),SVC:()=>({SVC,SVC_N,SVC_V,SVC_NEED,svcPlan,svcOpen,svcDig,svcShort,svcRoll,svcAmt,svcDayOf,svcRoom,svcNext}),FLC:()=>({FLC,FLC_RULES,FLC_CAT,flcId,flcTimes,flcPhase,flcPrev,flcView,flcLoad,flcChamp,flcTodo,flcClaims,flcLand,flcStreak,flcAllDone,flcSeen,flcDuty,flcDeskOn,flcDraftPush,FCA}),LK:{lakeMap,isLake,claimLand,lakeShore,fillHeld,LAKE_MAX,LAKE_A,freeCell,claimFrontier,blockPlan,autoPlan,terrCount,placePhrase,claimWhy,swapCheck,inspectPanel,writeClaims,landCredits:n=>landCredits(n)},PST:()=>({PST,PST_LOOKS,PST_SHAPES,pstBar,pstKm,pstView,pstBox,pstPlace,pstKeyOf,pstRender,pstShow,pstHide}),DIG:()=>({DIG_SETS,DIG_FIRST,DIG_POOL,DIG_SITES,DIG_LEN,DIG_EVENTS,DIG_SCH,digSet,digHeld,digDone,digRew,digCredits,digOrder,digActive,digRetired,digOpenedAt,digPlan,digSend,digOpen,digChoose,digMod,digEvent,digPity,digGround,digInvites,digJoin,digJointOn,digGiftsIn,digTake,digGiveSpare,digSellSpare,digHire,digRegionFinds,digFirsts,landEarned:n=>landEarned(n),REG,REGIONS,COL_BY_ID}),MW:()=>({mwOf,mwPoints,mwVisitors,mwTakings,mwExhibit,mwExhibitItems,mwRanking,mwWorn,mwSlots,mwOnShow,COL_BY_ID,COL_ITEMS,DIG_SETS,MW_FLOORS}),GM:()=>({gamesResults,edOf,b1Now,gevWhy,baseScores,entryOf,medalsIn,gamesRecords,gamesCeremony,unlocksOf,myId,formOf,GAME_EVENTS,clone,commit}),GB:()=>({IRON_DEP,IRON_DEP_YIELD,CELL_RES,MAP_T:MAP.T,mapAt:c=>{centerMain(c,NEAR_Z*1.6);},stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,FOOD_SPOIL,FOOD_EAT,FOOD_TIERS,FOOD_LAND,foodTier,TIMBER_BURN,foodGrowth,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({dspShown,dspRegShown,dspRegs,dspPic,dspLocator,dspHtDefs,pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),ASMX:()=>({ASMX,ASMX_TABS,asmBookAt,asmState,asmArcLoad,REG}),RGNX:()=>({RGN,RGN_PAGE,notifItems,ONL,onlRefresh}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals}),TYX:()=>({TY,TY_RULES,TY_K,tyOf,tyList,tyWarBlock,tyIncoming,affinity,alPactLive,alRelationsHTML}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,achTierCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC,step:rcStepCheck,head:rcHead,sponsoring:rcSponsoring,qr:qrMatrix,card:rcCardDraw,invCap:rcInvCap,free:rcFreeLand,STEPS:RC_STEPS,UNL:RC_UNLOCKS}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend,card:n=>tutCard(n),phase:n=>tutPhase(n),picks:(n,ph)=>tutPicks(n,ph),group:(n,k)=>tutGroup(n,tutL(k)),hid:n=>tutHid(n)},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours},WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR,bell:now=>notifItems(now||Date.now())},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},TIER:()=>({BTIER,bEff,bTier,bTierNext,bTierLine,tierQuote,tierProblem,cxTier,cxTrMap,tierSettle,tierReady,cxGoldNow,cxUpQuote,cxUpList,cxUps}),CX:{upgradable:cxUpgradable,mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState,UG:CX_UG,LV:CX_LV,ups:cxUps,upMap:cxUpMap,extras:cxBldExtras,quote:cxUpQuote},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo,unlockTarget,unlockShow,unlockFresh,unlockQueue,ULK,UNLOCKS,unlocksOf,toast:m=>toast(m)},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{coinBackSVG:cuCoinBackSVG,noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,coinSVG:cuCoinSVG,guide:cuGuideHTML,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ACH_RANKS_V1,ID_BD,achVal,achCtx,achEvalNew,achState,stockRates:n=>stockRates(n),achPoints,achRank,achRankOf,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,flagNorm:(f,n)=>flagNorm(f,n),flagSVG:(f,l)=>flagSVG(f,l),mapTip:id=>{const T=mapTerr('main'),i=T.list.findIndex(x=>x.id===id);if(i<0)return '';const cell=Array.prototype.indexOf.call(T.owner,i);return MAP_TIP.map(h=>{try{return h({kind:'main',cell,cv:null,x:0,y:0});}catch(e){return '';}}).filter(x=>typeof x==='string').join(' | ');},cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
 /* ───────── Letters by post: the player's email address, confirmed by a code, and the letters they choose ─────────
    Settings › Letters by post (src/shim.js mail; functions/mail.js). The address lives only on the server; this card
    asks for it each time Settings opens. Things this nation does to another player's nation (a letter, a war, a deal)
