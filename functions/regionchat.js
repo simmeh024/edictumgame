@@ -227,8 +227,9 @@ async function rcPost(db, who, d, regions) {
       const aid = ally.exists && typeof ally.get('a') === 'string' && /^[\w-]{1,128}$/.test(ally.get('a')) ? ally.get('a') : '';
       const al = aid ? await tx.get(db.doc('alliances/' + aid)) : null, mem = al && al.exists && al.get('mem') && typeof al.get('mem') === 'object' ? al.get('mem') : {};
       const an = al && al.exists && mem[who.uid] ? line(al.get('name'), 40) : '', col = an && /^#[0-9a-fA-F]{6}$/.test(al.get('col') || '') ? al.get('col').toUpperCase() : '';
+      const tg = an && /^[A-Z0-9]{2,4}$/.test(al.get('tg') || '') ? al.get('tg') : '';
       const flag = e.n.flag && typeof e.n.flag === 'object' ? JSON.stringify(e.n.flag) : '', rk = Number.isInteger(d.rk) && d.rk >= 0 && d.rk <= RC_RANKS ? d.rk : null;
-      marks = { rg: home, ...(flag && flag.length <= 4000 ? { fl: flag } : {}), ...(rk != null ? { rk } : {}), ...(an ? { al: { n: an, ...(col ? { c: col } : {}) } } : {}),
+      marks = { rg: home, ...(flag && flag.length <= 4000 ? { fl: flag } : {}), ...(rk != null ? { rk } : {}), ...(an ? { al: { n: an, ...(col ? { c: col } : {}), ...(tg ? { t: tg } : {}) } } : {}),
         ...(shop.exists && shop.get('owns.founder') ? { fd: true } : {}) };
     }
     tx.set(pace, { p: recent.concat(now).slice(-RC_HOUR), ...(world ? { w: now, wh: h } : { h }) }, { merge: true });
