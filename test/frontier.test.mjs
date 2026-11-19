@@ -175,6 +175,50 @@ test('a border agreement drawn before the frontier is read against the wider row
   assert.deepEqual(stamped.s.a, [at(10, 5), at(11, 5)], 'and one that says which map it is drawn on is believed');
 });
 
+/* The stripes that stayed (19 Nov 2026): a joint venture's road, railway or bridge is kept by number on the server too
+   (ventures/{id}), and the first fix did not reach it. Read against the wider rows, each step north or south of an old
+   route became a leap across most of a row; the venture counted as cut and was drawn in red dashes, wall to wall. */
+test('a joint venture filed before the frontier keeps its road', () => {
+  const kit = mapKit(src, 'greywater'), oc = kit.CHART_COLS, or = kit.CHART_ROWS, cols = kit.MAP_COLS, rows = kit.MAP_ROWS;
+  const G = new Function('HEX_W', 'HEX_R', fn('genGeom') + '\nreturn genGeom;')(Math.sqrt(3) * 10, 10)(cols, rows);
+  const FRONT = Date.UTC(2026, 10, 19, 19, 41, 53);
+  const jvNorm = new Function('CHART_COLS', 'CHART_ROWS', 'MAP_COLS', 'MAP', 'JV_RULES', 'FRONT_AT',
+    fn('frontCell') + fn('jvAdj') + fn('jvNorm') + '\nreturn jvNorm;')(oc, or, cols, G,
+      { kinds: ['road', 'rail', 'bridge'], path: 40 }, FRONT);
+  const at = (c, r) => r * oc + c, to = (c, r) => r * cols + c;
+  // a road that turns south: (20,10) (21,10) then down the rows, as the game's own neighbours run (odd rows sit right)
+  const hexes = [[20, 10], [21, 10], [21, 11], [21, 12], [22, 12]];
+  const doc = (t, P) => ({ k: 'road', p: ['a', 'b'], a: 'a', b: 'b', ca: P[0], cb: P[P.length - 1], path: P, st: 'active', t, d: t + 1 });
+  const chain = P => P.every((x, i) => !i || [0, 1, 2, 3, 4, 5].some(d => G.nbr[P[i - 1] * 6 + d] === x));
+  assert.ok(chain(hexes.map(([c, r]) => to(c, r))), 'the road is a chain of neighbours on this map');
+  assert.ok(!chain(hexes.map(([c, r]) => at(c, r))), 'and its charted numbers are not one here');
+
+  const older = jvNorm('v1', doc(Date.UTC(2026, 10, 17), hexes.map(([c, r]) => at(c, r))));
+  assert.deepEqual(older.path, hexes.map(([c, r]) => to(c, r)), 'every hex of the way moves with its row');
+  assert.equal(older.ca, to(20, 10), 'and so do the cities at its ends');
+  assert.equal(older.cb, to(22, 12));
+  // a tab still on the charted map filed it after the frontier was live: no chain as read, one once moved
+  const late = jvNorm('v2', doc(FRONT + 3600e3, hexes.map(([c, r]) => at(c, r))));
+  assert.deepEqual(late.path, hexes.map(([c, r]) => to(c, r)), 'a late filing from an old tab moves too');
+  // one found on this map is believed
+  const newer = jvNorm('v3', doc(FRONT + 3600e3, hexes.map(([c, r]) => to(c, r))));
+  assert.deepEqual(newer.path, hexes.map(([c, r]) => to(c, r)), 'one filed since is already on this map');
+  assert.equal(newer.ca, to(20, 10));
+  // a bridge filed before: its two banks move
+  const br = jvNorm('v4', { ...doc(Date.UTC(2026, 10, 17), [at(30, 20), at(30, 21)]), k: 'bridge' });
+  assert.deepEqual(br.path, [to(30, 20), to(30, 21)]);
+
+  // and a proposal paid for but not yet filed moves with the nation's record, so it is filed on this map
+  const run = new Function('CHART_COLS', 'CHART_ROWS', 'MAP_COLS', 'MAP_VER',
+    fn('frontCell') + fn('remapFront') + '\nreturn remapFront;')(oc, or, cols, 5);
+  const rec = run({ cv: 4, jvp: [{ id: 'abcdef', w: 'a', k: 'road', to: 'b', ca: at(20, 10), cb: at(22, 12),
+    path: hexes.map(([c, r]) => at(c, r)), t: 5 }, { v: 'a_abcdef', w: 'b', k: 'road', t: 6 }] });
+  assert.deepEqual(rec.jvp[0].path, hexes.map(([c, r]) => to(c, r)));
+  assert.equal(rec.jvp[0].ca, to(20, 10));
+  assert.equal(rec.jvp[0].cb, to(22, 12));
+  assert.deepEqual(rec.jvp[1], { v: 'a_abcdef', w: 'b', k: 'road', t: 6 }, 'the accepting side holds no hexes');
+});
+
 test('the divisions keep their seats', () => {
   const kit = mapKit(src, 'greywater'), oc = kit.CHART_COLS, cols = kit.MAP_COLS;
   const run = new Function('CHART_COLS', 'CHART_ROWS', 'MAP_COLS', 'MAP_VER',

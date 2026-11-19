@@ -12136,6 +12136,9 @@ function remapFront(d){
   /* the day's survey caches, which would otherwise sit on the wrong hexes until the day rolls over */
   if(d.svc&&typeof d.svc==='object'&&Array.isArray(d.svc.c))o.svc={...d.svc,
     c:d.svc.c.map(x=>Array.isArray(x)?[m(x[0]),...x.slice(1)]:x)};
+  /* a joint venture proposed and paid for but not yet filed: the server copies its route from here as it stands */
+  if(Array.isArray(d.jvp))o.jvp=d.jvp.map(e=>e&&typeof e==='object'&&e.w==='a'?{...e,ca:m(e.ca),cb:m(e.cb),
+    path:Array.isArray(e.path)?e.path.map(m):e.path}:e);
   /* the divisions: every seat, every seat taken in by merging, and every hex moved by hand. A seat that did not
      move would be read as open sea, and the division would quietly re-seat itself or lie dormant. */
   if(d.prov&&typeof d.prov==='object'&&!Array.isArray(d.prov)){const P={...d.prov};
@@ -79165,9 +79168,17 @@ function jvNorm(id,d){
   const n=v=>typeof v==='number'&&isFinite(v)?v:0,s=v=>typeof v==='string'?v.slice(0,128):'',c=v=>Number.isInteger(v)&&v>=0&&v<1e7;
   const k=JV_RULES.kinds.includes(d.k)?d.k:'',p=Array.isArray(d.p)?d.p.filter(x=>typeof x==='string').slice(0,2):[];
   if(!k||p.length!==2||!c(d.ca)||!c(d.cb)||!Array.isArray(d.path))return null;
-  const path=d.path.filter(c).slice(0,JV_RULES.path+1);if(path.length<2)return null;
+  let path=d.path.filter(c).slice(0,JV_RULES.path+1);if(path.length<2)return null;
+  /* The route is kept by number on the server, which knows nothing of maps, so one filed before the frontier was found
+     on the charted map. Read against the wider rows, every step north or south became a leap across most of a row, the
+     venture was "cut", and its red dashes striped the region (19 Nov 2026). It moves with frontCell, as a border
+     agreement does: when it was filed before the frontier reached the live game (t), or when a tab still on the charted
+     map filed it later, which shows as a route that is no chain of neighbours as read but is one moved. */
+  const chain=P=>P.every((x,i)=>!i||jvAdj(P[i-1],x)),moved=path.map(frontCell);
+  const old=MAP_COLS!==CHART_COLS&&(n(d.t)<FRONT_AT||!chain(path)&&chain(moved));
+  if(old)path=moved;
   const f={};if(d.f&&typeof d.f==='object')for(const [u,v] of Object.entries(d.f))if(typeof v==='number'&&isFinite(v))f[u]=v;
-  return {id,k,p,a:s(d.a),b:s(d.b),ca:d.ca,cb:d.cb,path,st:['offered','active','ending','declined'].includes(d.st)?d.st:'',t:n(d.t),x:n(d.x),at:n(d.at),d:n(d.d),end:n(d.end),by:s(d.by),f,npc:!!d.npc};
+  return {id,k,p,a:s(d.a),b:s(d.b),ca:old?frontCell(d.ca):d.ca,cb:old?frontCell(d.cb):d.cb,path,st:['offered','active','ending','declined'].includes(d.st)?d.st:'',t:n(d.t),x:n(d.x),at:n(d.at),d:n(d.d),end:n(d.end),by:s(d.by),f,npc:!!d.npc};
 }
 function jvLive(V,now){return !!V&&(V.st==='active'||(V.st==='ending'&&now<V.end));}
 function jvWaiting(V,now){return !!V&&V.st==='offered'&&now<V.x;}
