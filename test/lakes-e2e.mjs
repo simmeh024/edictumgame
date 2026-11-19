@@ -28,13 +28,22 @@ let spot = null;
 for (const c of cands) { if (!(await p.evaluate(m => G.MD.pickProblem(m, G.territory()), c.cap))) { spot = c; break; } }
 if (!spot) throw new Error(`no free lake with a shore to settle on in this region (${cands.length} candidates)`);
 await nav(p, 'map');
-await p.evaluate(c => { G.S.mapPick = c; G.render(); }, spot.cap);
-await p.click('[data-act="settle"]');
-await until(() => p.evaluate(() => G.S.nation.loc && G.territory().byId[G.myId()] !== undefined));
 /* Mustard, one of the map colours anyone can pick in Settings, stands as far from the water as any of them: the
    wash is then read off a channel where the nation's colour and the water are 170 or more apart, so rounding in a
-   byte cannot move the reading. Left to chance a nation can come out in Slate, which sits almost on the water. */
-await p.evaluate(() => { const n = G.clone(G.S.nation); delete n.onb; n.lcb = (n.lcb || 0) + 80; n.mapc = '#D9A42B'; G.commit(n); G.render(); });
+   byte cannot move the reading. Left to chance a nation can come out in Slate, which sits almost on the water.
+   The founding's own save can come back from the server just after the nation settles, with the record as it was
+   before (seen once on 20 Nov 2026: no capital, no credits, so no lake on the frontier); the nation settles again
+   and takes its colour and credits until it stands on the map with all three. */
+const settled = () => p.evaluate(() => !!G.S.nation.loc && G.territory().byId[G.myId()] !== undefined && G.S.nation.mapc === '#D9A42B' && (G.S.nation.lcb || 0) >= 80);
+for (let k = 0; k < 4 && !(await settled()); k++) {
+  if (!(await p.evaluate(() => !!G.S.nation.loc))) {
+    await p.evaluate(c => { G.S.mapPick = c; G.render(); }, spot.cap);
+    await p.click('[data-act="settle"]');
+    await until(() => p.evaluate(() => G.S.nation.loc && G.territory().byId[G.myId()] !== undefined));
+  }
+  await p.evaluate(() => { const n = G.clone(G.S.nation); delete n.onb; n.lcb = Math.max(80, n.lcb || 0); n.mapc = '#D9A42B'; G.commit(n); G.render(); });
+  await until(settled, 4000);
+}
 console.log('settled at', spot.cap, 'beside a lake of', spot.lake.length, 'hexes');
 
 const facts = await p.evaluate(lake => {
