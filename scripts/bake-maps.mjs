@@ -1,7 +1,7 @@
 // Bake every region's map at build time, so a page decodes its map in a few milliseconds instead of
 // generating it on every load (see "the baked maps" in game/edictum.html). This runs the game's own
 // generators, taken from its source, for each region, codes the land levels with the game's own mapLevels
-// (a context-modelled binary range coder: all regions together come to about 50 KB) and keeps the landmass
+// (a context-modelled binary range coder: all regions together come to about 60 KB) and keeps the landmass
 // names and the computer nations' capitals. Every entry is then decoded with the game's own bakedMap and
 // compared with the generated map, hex for hex and field by field; any difference stops the build. The
 // build bakes from the source it builds, so the maps can never be older than the generators.
@@ -36,10 +36,11 @@ export function mapKit(source,region,win={},tables=false){
   if(!hash)throw new Error('bake-maps: the game no longer has function hash(str) on one line');
   const key=source.match(/^function cellKey\(i\)\{[^\n]+/m);
   if(tables&&!key)throw new Error('bake-maps: the game no longer has function cellKey(i) on one line');
-  const gen='REG_MER?embedLegacy(legacyMap()):genRegionMap(REG)';
+  const gen='REG_MER?embedFrontier(REG,embedLegacy(legacyMap())):genRegionMap(REG)';
   const code=PARTS.map(([a,b])=>cut(source,a,b)).join('\n')+'\n'+hash[0]+'\n'+
     (tables?'const MAP='+gen+';\n'+key[0]+'\n'+TABLES.map(([a,b])=>cut(source,a,b)).join('\n')+'\n':'')+
-    'return {REG,REG_MER,MAP_COLS,MAP_ROWS,ids:REGIONS.map(r=>r.id),generate:()=>'+(tables?'MAP':gen)+
+    'return {REG,REG_MER,MAP_COLS,MAP_ROWS,CHART_COLS,CHART_ROWS,ids:REGIONS.map(r=>r.id),generate:()=>'+(tables?'MAP':gen)+
+    ',chartOf:()=>REG_MER?embedLegacy(legacyMap()):genChartMap(REG)'+
     ',bakedMap,mapLevels,mapUnpack,mapSum,genGeom,mapBiomes,bakedTab'+(tables?',BIOME,IRON_DEP':'')+'};';
   const store={'statehood.nation.v1':JSON.stringify({name:'Baker',reg:region})};
   return new Function('localStorage','window',code)({getItem:k=>Object.prototype.hasOwnProperty.call(store,k)?store[k]:null},win);

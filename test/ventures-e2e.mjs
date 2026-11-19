@@ -108,6 +108,20 @@ await A.evaluate(id => { const V = G.JV().JV.docs.get(id); G.MD.centerMain(V.pat
 await A.locator('canvas[data-map="main"]').screenshot({ path: path.join(OUT, 'ventures-map.png') });
 check('the map draws it without an error', !errors.length, JSON.stringify(errors));
 
+/* a venture filed before the frontier (19 Nov 2026) keeps its route by the charted map's numbers on the server: read as
+   it stood, every step north or south leapt across most of a row, and it was drawn cut, in red dashes from edge to edge.
+   The same road filed that way is read on its own hexes, and open. */
+const was = await A.evaluate(id => { const V = G.JV().JV.docs.get(id), ch = G.MAP.chart; if (!ch) return null;
+  return { k: V.k, p: V.p, a: V.a, b: V.b, f: V.f, ca: ch[V.ca], cb: ch[V.cb], path: V.path.map(c => ch[c]), here: V.path }; }, filed.id);
+check('the region has grown past its charted map', !!was && was.path.every(c => c >= 0) && was.path.some((c, i) => c !== was.here[i]), JSON.stringify(was));
+const vOld = uidA + '_oldmap01', before = Date.UTC(2026, 10, 18), reg0 = await A.evaluate(() => G.S.nation.reg);
+await adminWrite('ventures/' + vOld, { k: was.k, reg: reg0, p: was.p, a: was.a, b: was.b, ca: was.ca, cb: was.cb, path: was.path, st: 'active', t: before, at: before, d: before + 1000, f: was.f, npc: true });
+check('a venture filed on the charted map lies on its own hexes, open, not cut', await until(() => A.evaluate(([id, here]) => { const V = G.JV().JV.docs.get(id);
+  return !!V && JSON.stringify(V.path) === JSON.stringify(here) && G.JV().jvState(V, G.territory(), Date.now()) === 'open'; }, [vOld, was.here]), 20000),
+  JSON.stringify(await A.evaluate(id => { const V = G.JV().JV.docs.get(id); return V ? { path: V.path, st: G.JV().jvState(V, G.territory(), Date.now()) } : null; }, vOld)));
+const del = await fetch(`http://${FS_HOST}/v1/projects/${PROJECT}/databases/(default)/documents/ventures/${vOld}`, { method: 'DELETE', headers: { authorization: 'Bearer owner' } });
+check('and it is taken away again', del.ok && await until(() => A.evaluate(id => !G.JV().JV.docs.has(id), vOld), 20000));
+
 /* ended with notice: open for three more days, and goodwill with the other side is lost */
 const gw0 = await A.evaluate(id => (G.S.nation.gw || {})[id] || 0, ground.id);
 await tab(A);
