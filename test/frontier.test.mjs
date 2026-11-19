@@ -528,3 +528,31 @@ test('a riddle the job counted later is paid once', () => {
   rdPaid('greywater_20261109', { ok: 1, r: 2 });
   assert.equal(made, null, 'and a riddle already paid is not paid again');
 });
+
+/* The borders on the server (19 Nov 2026): an agreement is kept as it was drawn, and the server compares numbers
+   (functions/border-rules.js, bdSideOf). One drawn before the frontier holds the charted map's numbers, so a claim past
+   its line, sent as numbered now, never broke it, and a swap went into it on the wrong numbers. The game tells the server
+   the number it holds (bdNum). */
+test('a claim past an old border is told to the server in that border\'s numbers', async () => {
+  const { bdSideOf } = await import('../functions/border-rules.js');
+  const kit = mapKit(src, 'greywater'), oc = kit.CHART_COLS, cols = kit.MAP_COLS, FRONT = Date.UTC(2026, 10, 19, 19, 41, 53);
+  const g = new Function('CHART_COLS', 'CHART_ROWS', 'MAP_COLS', 'MAP_VER', 'MAP', 'BD_RULES', 'FRONT_AT',
+    fn('frontCell') + fn('chartCell') + fn('bdNorm') + fn('bdNum') + '\nreturn {bdNorm,bdNum};')(oc, kit.CHART_ROWS, cols, 5,
+      { N: cols * kit.MAP_ROWS }, { maxP: 4, maxCells: 1500 }, FRONT);
+  const at = (c, r) => r * oc + c, to = (c, r) => r * cols + c;
+  const raw = t => ({ reg: 'greywater', p: ['a', 'b'], st: 'active', t, s: { a: [at(10, 5)], b: [at(12, 5), at(13, 6)] }, buf: [at(11, 5)], bt: 0, bc: at(12, 5) });
+  const old = raw(Date.UTC(2026, 10, 18)), B = g.bdNorm('x', old);
+  assert.equal(B.ch, 1, 'drawn on the charted map');
+  assert.deepEqual(B.s.b, [to(12, 5), to(13, 6)]);
+  assert.equal(B.bc, to(12, 5), 'and the hex it was broken on, read the same way');
+  // nation a claims b's hex (13,6), as this map numbers it: the server finds it on b's side only in the charted number
+  assert.equal(bdSideOf(old, to(13, 6)), '', 'sent as numbered now, the server saw no breach');
+  assert.equal(bdSideOf(old, g.bdNum(B, to(13, 6))), 'b', 'sent as the border holds it, it does');
+  assert.equal(bdSideOf(old, g.bdNum(B, to(11, 5))), 'buf');
+  assert.equal(g.bdNum(B, to(oc + 4, 5)), -1, 'no hex of the frontier is in it');
+  // one drawn since holds the numbers as they are
+  const fresh = raw(FRONT + 3600e3), F = g.bdNorm('y', fresh);
+  assert.equal(F.ch, 0);
+  assert.equal(g.bdNum(F, at(13, 6)), at(13, 6));
+  assert.equal(bdSideOf(fresh, g.bdNum(F, at(13, 6))), 'b');
+});

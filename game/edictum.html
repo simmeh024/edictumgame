@@ -78926,8 +78926,13 @@ function bdNorm(id,d){
   const sd={};for(const q of p)sd[q]=cells(d.s&&d.s[q]);
   const f={};if(d.f&&typeof d.f==='object')for(const [u,v] of Object.entries(d.f))if(typeof v==='number'&&isFinite(v))f[u]=v;
   const sw=Array.isArray(d.sw)?d.sw.filter(x=>x&&typeof x==='object'&&typeof x.id==='string'&&Number.isInteger(x.g)&&Number.isInteger(x.k)).slice(0,20).map(x=>({id:x.id.slice(0,12),by:s(x.by),to:s(x.to),g:mc(x.g),k:mc(x.k),t:n(x.t),st:x.st==='done'?'done':'offered',at:n(x.at)})):[];
-  return {id,reg:s(d.reg),p,a:s(d.a),acc:ids(d.acc),v:n(d.v),st:d.st,t:n(d.t),at:n(d.at),dur:n(d.dur),exp:n(d.exp),rn:ids(d.rn),end:n(d.end),bt:n(d.bt),by:s(d.by),bc:Number.isInteger(d.bc)?d.bc:-1,s:sd,buf:cells(d.buf),sw,f};
+  return {id,reg:s(d.reg),p,a:s(d.a),acc:ids(d.acc),v:n(d.v),st:d.st,t:n(d.t),at:n(d.at),dur:n(d.dur),exp:n(d.exp),rn:ids(d.rn),end:n(d.end),bt:n(d.bt),by:s(d.by),bc:Number.isInteger(d.bc)?mc(d.bc):-1,s:sd,buf:cells(d.buf),sw,f,ch:old?1:0};
 }
+/* The number the server holds hex c by in agreement B, for what this game sends it (a claim past the line, bdBreach; a
+   swap, bdSwap): the server keeps each agreement as it was drawn and compares numbers, so one drawn before the frontier
+   (ch) is told the charted map's. Sent as numbered now, a claim past an old line never broke it (19 Nov 2026), and a
+   swap went into it on the wrong numbers. -1: a hex of the frontier, which no such agreement holds. */
+function bdNum(B,c){return B&&B.ch?chartCell(c):c;}
 function bdConnect(){
   if(!S.db||S.mode!=='world'&&!(OBS&&S.obsOn))return;
   const reg=REG.id;if(BD.reg===reg&&BD.unsub)return;
@@ -78976,7 +78981,7 @@ writeClaims=(f=>function(cells,msg,auto,plan){
   BD.ok='';BD.ask=null;
   const hits=new Map();for(const c of bad)for(const x of bdBars(c,me))if(!hits.has(x.B.id))hits.set(x.B.id,{B:x.B,c});
   const r=f.call(this,cells,msg,auto,plan);
-  if(r&&S.mode==='world'&&!OBS)(async()=>{for(const {B,c} of hits.values()){try{const q=(await alReq({op:'bdBreach',bid:B.id,c}))||{};
+  if(r&&S.mode==='world'&&!OBS)(async()=>{for(const {B,c} of hits.values()){try{const bc=bdNum(B,c);if(bc<0)continue;const q=(await alReq({op:'bdBreach',bid:B.id,c:bc}))||{};
     if(q.broken){bdPenalty(q.p||bdOthers(B,me));toast(`Your border agreement with ${bdNames(bdOthers(B,me))} is broken.`);}}catch(e){}}})();
   return r;
 })(writeClaims);
@@ -79183,7 +79188,8 @@ document.addEventListener('click',e=>{
   if(a==='bd-sw-go'){BD.sw={give:+el.dataset.c,to:id,take:null};BD.view='';S.mapCell=null;updateMapPanel();redrawMaps();return;}
   if(a==='bd-sw-x'){BD.sw=null;updateMapPanel();redrawMaps();return;}
   if(a==='bd-sw-send'){const W=BD.sw;if(!W||W.take==null)return;const L=bdList(me).find(Q=>bdLive(Q,Date.now())&&Q.p.includes(W.to));if(!L){toast('No border agreement with them is in force.');return;}
-    bdAct('bdSwap',{bid:L.id,to:W.to,g:W.give,k:W.take},()=>{BD.sw=null;toast(`Swap offered to ${nameOf(W.to)}.`);updateMapPanel();redrawMaps();});return;}
+    const g=bdNum(L,W.give),k=bdNum(L,W.take);if(g<0||k<0){toast('That agreement was drawn before the frontier, and holds no hex of it to swap.');return;}
+    bdAct('bdSwap',{bid:L.id,to:W.to,g,k},()=>{BD.sw=null;toast(`Swap offered to ${nameOf(W.to)}.`);updateMapPanel();redrawMaps();});return;}
   if(a==='bd-sw-yes'||a==='bd-sw-no'){bdAct('bdSwapAnswer',{bid:id,sid:el.dataset.s,yes:a==='bd-sw-yes'},r=>{if(r.done){toast('The swap is agreed. The hexes change hands.');setTimeout(()=>{try{bdSettle();}catch(e){}},400);}});return;}
 });
 document.addEventListener('change',e=>{const t=e.target;if(!t)return;const D=bdDraft();
