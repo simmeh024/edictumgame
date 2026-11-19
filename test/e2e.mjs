@@ -23,7 +23,7 @@ check('A gets an anonymous account at once', typeof uidA === 'string' && uidA.le
 await found(A, 'Aldoria');
 await until(()=>nationDoc(uidA));await register(A,{old:true});
 const docA = await until(() => nationDoc(uidA));
-check('A’s nation is saved to nations/<uid> in the stored shape, deflated (v 2, z), with the headline numbers the rules bound', docA && docA.v === 2 && docA.name === 'Aldoria' && docA.rec && docA.rec.name === 'Aldoria' && docA.keys.join() === 'army,cl,name,permit,pop,reg,rev,ts,updatedAt,v,z', docA && docA.keys.join());
+check('A’s nation is saved to nations/<uid> in the stored shape, deflated (v 2, z), with the headline numbers the rules bound', docA && docA.v === 2 && docA.name === 'Aldoria' && docA.rec && docA.rec.name === 'Aldoria' && docA.keys.join() === 'army,cl,mv,name,permit,pop,reg,rev,ts,updatedAt,v,z', docA && docA.keys.join());
 const xA = await until(async () => { const r = await restGet('nationx/' + uidA); return r.status === 200 ? r.body.fields : null; });
 const xrec = xA && xA.j ? JSON.parse(xA.j.stringValue) : {};
 check('its private half is saved to nationx/<uid>, and the shared half leaves it out', xA && Object.keys(xA).sort().join() === 'j,t,ts' && Array.isArray(xrec.inbox) && typeof xrec.issueClock === 'number'
