@@ -1,5 +1,5 @@
-// A newcomer who has chosen no region starts on the Saffron Coast, which also leads the founding lists (the owner,
-// 15 Nov 2026 Sunken Kingdoms, 17 Nov 2026 Saffron Coast; not the crowded Meridian Reach). Local test hosts keep Meridian, as do nations saved before regions.
+// A newcomer who has chosen no region starts in Greywater, which also leads the founding lists (the owner,
+// 15 Nov 2026 Sunken Kingdoms, 17 Nov 2026 Saffron Coast, 19 Nov 2026 Greywater; not the crowded Meridian Reach). Local test hosts keep Meridian, as do nations saved before regions.
 // Runs the game's own FIRST_REG, HOME_REG and regionsForFounding.
 //   node --test test/sunken-first.test.mjs
 import { test } from 'node:test';
@@ -26,10 +26,10 @@ function game({ host, store = {}, modes = {} } = {}) {
   return ctx.G;
 }
 
-test('a newcomer on the live site starts on the Saffron Coast', () => {
+test('a newcomer on the live site starts in Greywater', () => {
   const G = game({ host: 'edictumgame.com' });
-  assert.equal(G.FIRST_REG, 'saffron');
-  assert.equal(G.home, 'saffron');
+  assert.equal(G.FIRST_REG, 'greywater');
+  assert.equal(G.home, 'greywater');
 });
 
 test('local test hosts and a page without location keep Meridian', () => {
@@ -42,16 +42,16 @@ test('local test hosts and a page without location keep Meridian', () => {
 
 test('a chosen region and a saved nation still win', () => {
   assert.equal(game({ host: 'edictumgame.com', store: { 'statehood.region': 'frostmarch' } }).home, 'frostmarch');
-  assert.equal(game({ host: 'edictumgame.com', store: { 'statehood.region': 'nowhere' } }).home, 'saffron');
+  assert.equal(game({ host: 'edictumgame.com', store: { 'statehood.region': 'nowhere' } }).home, 'greywater');
   const nation = reg => JSON.stringify({ name: 'Ostria', ...(reg ? { reg } : {}) });
-  assert.equal(game({ host: 'edictumgame.com', store: { 'statehood.nation.v1': nation('greywater') } }).home, 'greywater');
+  assert.equal(game({ host: 'edictumgame.com', store: { 'statehood.nation.v1': nation('saffron') } }).home, 'saffron');
   assert.equal(game({ host: 'edictumgame.com', store: { 'statehood.nation.v1': nation('meridian') } }).home, 'meridian');
   assert.equal(game({ host: 'edictumgame.com', store: { 'statehood.nation.v1': nation() } }).home, 'meridian', 'a nation saved before regions lives in Meridian');
 });
 
-test('the founding lists start with the Saffron Coast while it is open', () => {
-  assert.deepEqual(JSON.parse(game({ host: 'edictumgame.com' }).list()), ['saffron', 'meridian', 'frostmarch', 'greywater', 'sunkenkingdoms']);
-  assert.deepEqual(JSON.parse(game({ host: 'edictumgame.com', modes: { frostmarch: 'maintenance' } }).list()), ['saffron', 'meridian', 'greywater', 'sunkenkingdoms', 'frostmarch']);
-  assert.deepEqual(JSON.parse(game({ host: 'edictumgame.com', modes: { saffron: 'maintenance' } }).list()), ['meridian', 'frostmarch', 'greywater', 'sunkenkingdoms', 'saffron']);
+test('the founding lists start with Greywater while it is open', () => {
+  assert.deepEqual(JSON.parse(game({ host: 'edictumgame.com' }).list()), ['greywater', 'meridian', 'frostmarch', 'sunkenkingdoms', 'saffron']);
+  assert.deepEqual(JSON.parse(game({ host: 'edictumgame.com', modes: { frostmarch: 'maintenance' } }).list()), ['greywater', 'meridian', 'sunkenkingdoms', 'saffron', 'frostmarch']);
+  assert.deepEqual(JSON.parse(game({ host: 'edictumgame.com', modes: { greywater: 'maintenance' } }).list()), ['meridian', 'frostmarch', 'sunkenkingdoms', 'saffron', 'greywater']);
   assert.deepEqual(JSON.parse(game({ host: '127.0.0.1' }).list()), IDS);
 });
