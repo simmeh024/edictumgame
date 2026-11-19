@@ -109,7 +109,7 @@ test('a hex keeps the key its resources and rivers were made from', () => {
 test('a nation saved before the frontier keeps its column and row (map version 5)', () => {
   const kit = mapKit(src, 'greywater'), oc = kit.CHART_COLS, cols = kit.MAP_COLS;
   const run = new Function('CHART_COLS', 'CHART_ROWS', 'MAP_COLS', 'MAP_VER',
-    fn('remapFront') + '\nreturn remapFront;')(oc, kit.CHART_ROWS, cols, 5);
+    fn('frontCell') + fn('remapFront') + '\nreturn remapFront;')(oc, kit.CHART_ROWS, cols, 5);
   const was = { cv: 4, loc: { c: 12, r: 7, m: 4 }, claims: [{ c: 7 * oc + 12, t: 1 }, { c: 0, t: 2 }],
     cities: [{ c: 7 * oc + 12, nm: 'Home' }], conq: [{ c: 3 * oc + 4, t: 9 }], intel: [{ c: 2 * oc + 1, s: 'x' }] };
   const now = run(was);
@@ -126,4 +126,67 @@ test('a nation saved before the frontier keeps its column and row (map version 5
   assert.equal(run(fresh), fresh);
   const ancient = { cv: 2, claims: [{ c: 5, t: 1 }] };
   assert.equal(run(ancient), ancient);
+});
+
+/* What the frontier first forgot (19 Nov 2026): a hex is kept by number in more places than a nation's claims —
+   its roads, the day's survey caches, a dormant neighbour's old capital, and the border agreements a region
+   shares, which live on the server and know nothing of maps. All of them move with frontCell now. */
+test('a nation keeps its roads, its caches and its dormant neighbours', () => {
+  const kit = mapKit(src, 'greywater'), oc = kit.CHART_COLS, cols = kit.MAP_COLS;
+  const run = new Function('CHART_COLS', 'CHART_ROWS', 'MAP_COLS', 'MAP_VER',
+    fn('frontCell') + fn('remapFront') + '\nreturn remapFront;')(oc, kit.CHART_ROWS, cols, 5);
+  const at = (c, r) => r * oc + c, to = (c, r) => r * cols + c;
+  const was = {
+    cv: 4,
+    infra: [{ id: 'r1', k: 'road', a: at(4, 9), b: at(6, 9), path: [at(4, 9), at(5, 9), at(6, 9)], t: 1, d: 2, reg: 'greywater' }],
+    svc: { d: 12, c: [[at(8, 3), 'iron', 40, 0], [at(9, 3), 'food', 10, 1]] },
+    dorm: [{ a: 1, b: 2, c: at(2, 2) }, { a: 3, b: 4 }],
+  };
+  const now = run(was);
+  assert.deepEqual(now.infra[0].path, [to(4, 9), to(5, 9), to(6, 9)], 'every hex of the way moves');
+  assert.equal(now.infra[0].a, to(4, 9));
+  assert.equal(now.infra[0].b, to(6, 9));
+  assert.equal(now.infra[0].k, 'road', 'and the rest of the route is left as it was');
+  assert.deepEqual(now.svc.c, [[to(8, 3), 'iron', 40, 0], [to(9, 3), 'food', 10, 1]]);
+  assert.equal(now.svc.d, 12);
+  assert.deepEqual(now.dorm, [{ a: 1, b: 2, c: to(2, 2) }, { a: 3, b: 4 }]);
+  assert.equal(was.infra[0].path[0], at(4, 9), 'the record it was given is left alone');
+});
+
+test('a border agreement drawn before the frontier is read against the wider rows', () => {
+  const kit = mapKit(src, 'greywater'), oc = kit.CHART_COLS, cols = kit.MAP_COLS;
+  const bdNorm = new Function('CHART_COLS', 'CHART_ROWS', 'MAP_COLS', 'MAP_VER', 'MAP', 'BD_RULES', 'FRONT_AT',
+    fn('frontCell') + fn('bdNorm') + '\nreturn bdNorm;')(oc, kit.CHART_ROWS, cols, 5,
+      { N: cols * kit.MAP_ROWS }, { maxP: 4, maxCells: 1500 }, Date.UTC(2026, 10, 19, 19, 41, 53));
+  const at = (c, r) => r * oc + c, to = (c, r) => r * cols + c;
+  const doc = t => ({ reg: 'greywater', p: ['a', 'b'], st: 'active', t,
+    s: { a: [at(10, 5), at(11, 5)], b: [at(12, 5)] }, buf: [at(13, 5)],
+    sw: [{ id: 's1', g: at(10, 5), k: at(12, 5) }] });
+  const older = bdNorm('x', doc(Date.UTC(2026, 10, 18)));
+  assert.deepEqual(older.s.a, [to(10, 5), to(11, 5)], 'each side moves with the rows');
+  assert.deepEqual(older.s.b, [to(12, 5)]);
+  assert.deepEqual(older.buf, [to(13, 5)]);
+  assert.equal(older.sw[0].g, to(10, 5), 'and so do the hexes being swapped');
+  assert.equal(older.sw[0].k, to(12, 5));
+  const newer = bdNorm('y', doc(Date.UTC(2026, 10, 20)));
+  assert.deepEqual(newer.s.a, [at(10, 5), at(11, 5)], 'one drawn since is already on this map');
+  assert.deepEqual(newer.buf, [at(13, 5)]);
+  const stamped = bdNorm('z', { ...doc(Date.UTC(2026, 10, 18)), cv: 5 });
+  assert.deepEqual(stamped.s.a, [at(10, 5), at(11, 5)], 'and one that says which map it is drawn on is believed');
+});
+
+test('the divisions keep their seats', () => {
+  const kit = mapKit(src, 'greywater'), oc = kit.CHART_COLS, cols = kit.MAP_COLS;
+  const run = new Function('CHART_COLS', 'CHART_ROWS', 'MAP_COLS', 'MAP_VER',
+    fn('frontCell') + fn('remapFront') + '\nreturn remapFront;')(oc, kit.CHART_ROWS, cols, 5);
+  const at = (c, r) => r * oc + c, to = (c, r) => r * cols + c;
+  const now = run({ cv: 4, prov: { on: 1, term: 'p', q: 3, r: 'greywater',
+    l: [{ id: 1, nm: 'North', s: at(5, 5), m: [[at(6, 5), 2]] }, { id: 2, nm: 'Dormant', s: -1 }],
+    x: { [at(7, 7)]: 1, [at(8, 7)]: 2 } } });
+  assert.equal(now.prov.l[0].s, to(5, 5), 'the seat moves with its row');
+  assert.deepEqual(now.prov.l[0].m, [[to(6, 5), 2]], 'and so does a seat taken in by merging');
+  assert.equal(now.prov.l[0].nm, 'North');
+  assert.equal(now.prov.l[1].s, -1, 'a division with no seat still has none');
+  assert.deepEqual(now.prov.x, { [to(7, 7)]: 1, [to(8, 7)]: 2 }, 'and every hex moved by hand');
+  assert.equal(now.prov.on, 1);
 });
