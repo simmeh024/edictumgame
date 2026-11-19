@@ -361,7 +361,7 @@ const aid = made.ok ? (made.r.aid || made.r.id || made.r.data?.aid) : '';
 check('an alliance is founded for the next checks', made.ok, JSON.stringify(made));
 const joined = await civic(C, { op: 'alRequest', aid: aid || await B.evaluate(() => G.ALX().alMine()?.id) });
 check('and the other nation joins it', joined.ok, JSON.stringify(joined));
-check('a member gets the Alliance tab', await until(async () => JSON.stringify(await C.$$eval('#rgc-tabs [role="tab"]', l => l.map(b => b.childNodes[0].textContent))) === JSON.stringify(['Region', 'World', 'Alliance', 'Happenings']), 20000));
+check('a member gets the Alliance tab, named after the alliance', await until(async () => JSON.stringify(await C.$$eval('#rgc-tabs [role="tab"]', l => l.map(b => b.childNodes[0].textContent))) === JSON.stringify(['Region', 'World', 'The Chat Pact', 'Happenings']), 20000));
 check('the alliance’s initials show beside a member’s name', await until(async () => /CP/.test(await text(C, `#rgc-list .rgc-lh:has(button[data-id="${uidB}"]) .rgc-al`)), 20000));
 await C.click('#rgc-tab-ally');
 check('the Alliance tab is the alliance’s channel, for its members only', await until(async () => /Only the members of The Chat Pact read this channel/.test(await text(C, '#rgc-list')) && !!(await C.$('#rgc-ax'))));
@@ -369,6 +369,10 @@ await C.fill('#rgc-ax', 'Allies, to the iron mines!'); await C.press('#rgc-ax', 
 check('a message there reaches the other members, counted on their Alliance tab', await until(async () => /1/.test(await text(B, '#rgc-tab-ally .rgc-tn')), 20000));
 await B.click('#rgc-tab-ally');
 check('and it reads there', await until(async () => /Allies, to the iron mines!/.test(await text(B, '#rgc-list'))) && !(await B.$('#rgc-tab-ally .rgc-tn')));
+const renamed = await civic(B, { op: 'alEdit', aid: aid || await B.evaluate(() => G.ALX().alMine()?.id), name: 'The Grand Northern Chat Pact' });
+check('a long name shows on the tab as its initials, the full name kept for screen readers', renamed.ok && await until(async () => await C.$eval('#rgc-tab-ally', b => b.childNodes[0].textContent === 'GNCP' && b.querySelector('.u-sr')?.textContent === 'The Grand Northern Chat Pact'), 20000), JSON.stringify(renamed));
+await civic(B, { op: 'alEdit', aid: aid || await B.evaluate(() => G.ALX().alMine()?.id), name: 'The Chat Pact' });
+check('and the full name returns when it fits again', await until(async () => await C.$eval('#rgc-tab-ally', b => b.childNodes[0].textContent === 'The Chat Pact'), 20000));
 await B.click('#rgc-tab-region');
 // docked beside the page on a wide screen, and floating again
 await openChat(A);
