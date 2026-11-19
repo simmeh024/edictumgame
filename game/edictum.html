@@ -12111,16 +12111,39 @@ function remapLegacy(d){
   if(Array.isArray(d.intel))o.intel=d.intel.map(r=>r&&typeof r==='object'&&Number.isInteger(r.c)&&r.c>=0?{...r,c:m(r.c)}:r);
   o.cv=3;if(!o.reg)o.reg='meridian';return o;
 }
+/* A hex kept by number, as the charted map numbered it, on the grid it lives in now: the column and the row are
+   the same, only the width of a row changed. The same hex on a map that did not grow, and anything that is not a
+   charted hex, comes back untouched. Everything that was written down by hex before the frontier goes through
+   this: a nation's own record (remapFront) and the border agreements the region shares (bdNorm). */
+function frontCell(c){return Number.isInteger(c)&&c>=0&&c<CHART_COLS*CHART_ROWS?Math.floor(c/CHART_COLS)*MAP_COLS+(c%CHART_COLS):c;}
+/* when the frontier reached the live game, and with it the wider rows: a border agreement drawn before this was
+   drawn on the charted map (bdNorm) */
+const FRONT_AT=Date.UTC(2026,10,19,19,41,53);
 /* Records from before the frontier (map version 4) move onto the larger map untouched: the charted hexes keep
    their column and row, so only the width of a row changed. Everything held by hex is counted again against it. */
 function remapFront(d){
   if(!d||typeof d!=='object')return d;
   if(!((d.loc&&d.loc.m===4)||d.cv===4)||MAP_COLS===CHART_COLS)return d;
-  const o={...d},m=c=>Number.isInteger(c)&&c>=0&&c<CHART_COLS*CHART_ROWS?Math.floor(c/CHART_COLS)*MAP_COLS+(c%CHART_COLS):c;
+  const o={...d},m=frontCell;
   if(d.loc&&d.loc.m===4)o.loc={...d.loc,m:MAP_VER};
   for(const k of ['claims','conq','bx','rec'])if(Array.isArray(d[k]))o[k]=d[k].map(e=>e&&typeof e==='object'?{...e,c:m(e.c)}:e);
   if(Array.isArray(d.cities))o.cities=d.cities.map(c=>c&&typeof c==='object'?{...c,c:m(c.c)}:c);
   if(Array.isArray(d.intel))o.intel=d.intel.map(r=>r&&typeof r==='object'&&Number.isInteger(r.c)&&r.c>=0?{...r,c:m(r.c)}:r);
+  if(Array.isArray(d.dorm))o.dorm=d.dorm.map(e=>e&&typeof e==='object'&&Number.isInteger(e.c)?{...e,c:m(e.c)}:e);
+  /* roads, bridges and sea routes: every hex of the way, or the route is no longer a way and is dropped on load */
+  if(Array.isArray(d.infra))o.infra=d.infra.map(r=>r&&typeof r==='object'?{...r,a:m(r.a),b:m(r.b),
+    path:Array.isArray(r.path)?r.path.map(m):r.path}:r);
+  /* the day's survey caches, which would otherwise sit on the wrong hexes until the day rolls over */
+  if(d.svc&&typeof d.svc==='object'&&Array.isArray(d.svc.c))o.svc={...d.svc,
+    c:d.svc.c.map(x=>Array.isArray(x)?[m(x[0]),...x.slice(1)]:x)};
+  /* the divisions: every seat, every seat taken in by merging, and every hex moved by hand. A seat that did not
+     move would be read as open sea, and the division would quietly re-seat itself or lie dormant. */
+  if(d.prov&&typeof d.prov==='object'&&!Array.isArray(d.prov)){const P={...d.prov};
+    if(Array.isArray(P.l))P.l=P.l.map(q=>q&&typeof q==='object'?{...q,s:m(q.s),
+      m:Array.isArray(q.m)?q.m.map(a=>Array.isArray(a)?[m(a[0]),...a.slice(1)]:a):q.m}:q);
+    if(P.x&&typeof P.x==='object'&&!Array.isArray(P.x)){const X={};
+      for(const k of Object.keys(P.x))X[m(Number(k))]=P.x[k];P.x=X;}
+    o.prov=P;}
   if(d.cv===4)o.cv=MAP_VER;return o;
 }
 
@@ -78797,11 +78820,15 @@ function bdLive(B,now){if(!B)return false;if(B.st==='active')return !(B.exp>0)||
 function bdVoid(B){for(const id of Object.keys(B.f||{})){const f=B.f[id],d=f?docOf(id):null,b=d?Number(d.founded):0;if(b>0&&b!==f)return true;}return false;}
 function bdNorm(id,d){
   const n=v=>typeof v==='number'&&isFinite(v)?v:0,s=v=>typeof v==='string'?v.slice(0,128):'',ids=v=>Array.isArray(v)?v.filter(x=>typeof x==='string').slice(0,BD_RULES.maxP):[];
-  const cells=v=>Array.isArray(v)?v.filter(c=>Number.isInteger(c)&&c>=0&&c<MAP.N).slice(0,BD_RULES.maxCells):[];
+  /* A border is drawn once, when it is offered (t), and its hexes are kept by number on the server, which knows
+     nothing of maps. One drawn before the frontier was drawn on the charted map, so every hex of it is counted
+     again against the wider rows; a hex swapped since keeps the side it was given. */
+  const old=d.cv!==MAP_VER&&n(d.t)<FRONT_AT,mc=old?frontCell:(c=>c);
+  const cells=v=>Array.isArray(v)?v.map(c=>Number.isInteger(c)?mc(c):c).filter(c=>Number.isInteger(c)&&c>=0&&c<MAP.N).slice(0,BD_RULES.maxCells):[];
   const p=ids(d.p);if(p.length<2||!['offered','active','ending','broken'].includes(d.st))return null;
   const sd={};for(const q of p)sd[q]=cells(d.s&&d.s[q]);
   const f={};if(d.f&&typeof d.f==='object')for(const [u,v] of Object.entries(d.f))if(typeof v==='number'&&isFinite(v))f[u]=v;
-  const sw=Array.isArray(d.sw)?d.sw.filter(x=>x&&typeof x==='object'&&typeof x.id==='string'&&Number.isInteger(x.g)&&Number.isInteger(x.k)).slice(0,20).map(x=>({id:x.id.slice(0,12),by:s(x.by),to:s(x.to),g:x.g,k:x.k,t:n(x.t),st:x.st==='done'?'done':'offered',at:n(x.at)})):[];
+  const sw=Array.isArray(d.sw)?d.sw.filter(x=>x&&typeof x==='object'&&typeof x.id==='string'&&Number.isInteger(x.g)&&Number.isInteger(x.k)).slice(0,20).map(x=>({id:x.id.slice(0,12),by:s(x.by),to:s(x.to),g:mc(x.g),k:mc(x.k),t:n(x.t),st:x.st==='done'?'done':'offered',at:n(x.at)})):[];
   return {id,reg:s(d.reg),p,a:s(d.a),acc:ids(d.acc),v:n(d.v),st:d.st,t:n(d.t),at:n(d.at),dur:n(d.dur),exp:n(d.exp),rn:ids(d.rn),end:n(d.end),bt:n(d.bt),by:s(d.by),bc:Number.isInteger(d.bc)?d.bc:-1,s:sd,buf:cells(d.buf),sw,f};
 }
 function bdConnect(){
