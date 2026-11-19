@@ -208,7 +208,7 @@ check('and, about once a week, the closest one proposes a trade', await A.evalua
 
 /* ── 14. formatting, labels, the attachment filter, and the admin's Letter statistics ── */
 await nav(A, 'messages'); await pickPeer(A, uidB); await A.waitForSelector('#dm-text'); await sleep(3200);
-check('the writing box has Bold, Italic, two lists and Preview', (await A.$$eval('.dm-fmt [data-act="dm-fmt"]', b => b.map(x => x.dataset.k).join())) === 'b,i,ul,ol' && !!(await A.$('.dm-fmt [data-act="dm-prev"]')) && /\*\*bold\*\*/.test(await text(A, '#dm-fmt-h')));
+check('the writing box has Bold, Italic, two lists, the script and Preview', (await A.$$eval('.dm-fmt [data-act="dm-fmt"]', b => b.map(x => x.dataset.k).join())) === 'b,i,ul,ol,scr' && !!(await A.$('.dm-fmt [data-act="dm-prev"]')) && /\*\*bold\*\*/.test(await text(A, '#dm-fmt-h')));
 await A.fill('#dm-text', 'Our terms');
 await A.evaluate(() => document.getElementById('dm-text').setSelectionRange(4, 9)); await A.click('.dm-fmt [data-k="b"]');
 check('Bold puts the marks around the chosen words', (await A.inputValue('#dm-text')) === 'Our **terms**');
