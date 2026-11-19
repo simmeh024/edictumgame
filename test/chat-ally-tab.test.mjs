@@ -1,6 +1,6 @@
 // The chat drawer's Alliance tab (19 Nov 2026): it carries the alliance's own name, and a name too long for the
-// row shows the short form that stands beside its members' names, with the full name kept for the tooltip and
-// screen readers.
+// row shows the short code that stands beside its members' names (the leader's own from the charter, else the
+// initials), with the full name kept for the tooltip and screen readers.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -17,7 +17,8 @@ const fn = name => {
   return out.join('\n');
 };
 const ctx = vm.createContext({});
-vm.runInContext([grab(/const esc = v => [^\n]*/, 'esc'), grab(/const rgcTag=nm=>[^\n]*/, 'rgcTag'), grab(/const RGC_AL_MAX=\d+;/, 'RGC_AL_MAX'), fn('rgcTabLabel'),
+vm.runInContext([grab(/const esc = v => [^\n]*/, 'esc'), grab(/const rgcTag=nm=>[^\n]*/, 'rgcTag'), grab(/const AL_TG_RE=[^\n]*/, 'AL_TG_RE'), grab(/const alCode=[^\n]*/, 'alCode'),
+  grab(/const RGC_AL_MAX=\d+;/, 'RGC_AL_MAX'), fn('rgcTabLabel'),
   'this.rgcTabLabel=rgcTabLabel;this.RGC_AL_MAX=RGC_AL_MAX;'].join('\n'), ctx);
 const { rgcTabLabel, RGC_AL_MAX } = ctx;
 const shown = h => h.match(/<span class="rgc-tl"[^>]*>([^<]*)<\/span>/)[1];
@@ -44,6 +45,15 @@ test('a name too long for the row shows its initials, the full name for screen r
   assert.match(h, /title="Northern Trade League · alliance chat"/);
   assert.equal(shown(rgcTabLabel('ally', 'The Grand Northern Chat Pact')), 'GNCP', 'a leading The is left out, as on the badge');
   assert.equal(shown(rgcTabLabel('ally', 'Confederationofnations')), 'CONF', 'one long word: its first four letters');
+});
+
+test('a short code the leader chose stands in for the initials, and only for a name too long', () => {
+  assert.equal(shown(rgcTabLabel('ally', 'Northern Trade League', 'NT7')), 'NT7');
+  assert.equal(shown(rgcTabLabel('ally', 'Northern Trade League', '4X')), '4X', 'digits count');
+  assert.equal(shown(rgcTabLabel('ally', 'The Chat Pact', 'TCP')), 'The Chat Pact', 'a name that fits still shows in full');
+  assert.equal(shown(rgcTabLabel('ally', 'Northern Trade League', '')), 'NTL', 'no code: the initials');
+  assert.equal(shown(rgcTabLabel('ally', 'Northern Trade League', 'TOOLONG')), 'NTL', 'a code the server would refuse is ignored');
+  assert.equal(shown(rgcTabLabel('ally', 'Northern Trade League', 'ab')), 'NTL', 'lower case is not a code');
 });
 
 test('the name is escaped', () => {

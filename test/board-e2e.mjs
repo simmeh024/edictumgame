@@ -1,7 +1,7 @@
 // The Community Board: every region's board under Other, the player's own first and open, the rest collapsed;
 // Registered Nations open topics and reply anywhere; posts show the author's flag, name, online state and badges;
 // staff pin, lock, hide and delete from inside the board, and guests read only.
-import { player, open, ready, found, register, until, check, finish, setClaims, text, clearEmulators, sleep, FS_HOST, PROJECT, OUT } from './lib.mjs';
+import { player, open, ready, found, register, until, check, finish, setClaims, text, clearEmulators, sleep, clickPast, FS_HOST, PROJECT, OUT } from './lib.mjs';
 await clearEmulators();
 const A = await player('admin'), B = await player('player'), C = await player('reader'), G = await player('guest');
 const uidA = await open(A); await found(A, 'Adminland');
@@ -31,13 +31,13 @@ const far = regs[1].reg;
 await B.click('.cb-start [data-act="cb-new"]');
 await B.selectOption('#cb-f-reg', far); await B.selectOption('#cb-f-tg', 'trade');
 await B.fill('#cb-f-ti', 'Grain for steel'); await B.fill('#cb-f-x', 'Who sells steel?\nWe pay in grain.');
-await B.click('#cb-nf button[type="submit"]');
+await clickPast(B, '#cb-nf button[type="submit"]');
 check('posting opens the new topic', await until(async () => /Grain for steel/.test(await text(B, '.cb-post .cb-ti'))));
 const au = await text(B, '.cb-post .cb-au');
 check('the author column shows the flag, name, online state and the Founder badge', await B.$('.cb-post .cb-au .nw-fl svg') && /Playerland/.test(au) && /Online/.test(au) && /Founder/.test(au), au);
 check('line breaks survive', await B.$eval('.cb-post .cb-x', e => e.innerHTML.includes('<br>')));
 check('the topic has its own link', /^#community\/[a-z]+\/[A-Za-z0-9]{20}$/.test(await B.evaluate(() => location.hash)));
-await B.waitForSelector('#cb-r-x'); await B.fill('#cb-r-x', 'And iron, too.'); await B.click('#cb-rf button[type="submit"]');
+await B.waitForSelector('#cb-r-x'); await B.fill('#cb-r-x', 'And iron, too.'); await clickPast(B, '#cb-rf button[type="submit"]');
 // a toast under the pointer stays until the pointer leaves it, and the next one waits behind it: move it off
 await B.mouse.move(2, 2);
 check('posting again at once is paced, and says when it can', await until(async () => /Slow down a little\. You can post again in \d+ seconds/.test(await B.evaluate(() => [...document.querySelectorAll('.toast')].map(t => t.textContent).join(' | '))), 30000));
@@ -58,7 +58,7 @@ check('a redraw keeps the list open on the box, still focused', /@Playerland/.te
 await C.keyboard.press('Enter');
 const afterPick = await C.evaluate(() => ({ v: document.getElementById('cb-r-x').value, list: !!document.getElementById('cb-mn'), at: document.activeElement && document.activeElement.id }));
 check('picking one writes the full name', /ten tons\. @Playerland $/.test(afterPick.v) && !afterPick.list, JSON.stringify(afterPick));
-await C.keyboard.type('interested?'); await C.click('#cb-rf button[type="submit"]');
+await C.keyboard.type('interested?'); await clickPast(C, '#cb-rf button[type="submit"]');
 check('the reply appears for everyone', await until(async () => /ten tons/.test(await text(B, '.cb-reps'))));
 check('the mention is marked in the post', await until(async () => /@Playerland/.test(await text(B, '.cb-reps .cb-at.me'))));
 await B.evaluate(() => document.querySelector('.bell').click());
@@ -67,7 +67,7 @@ await B.evaluate(() => document.querySelector('.bell').click());
 check('B, who did not write it, may report it but not edit it', await until(async () => !!(await B.$('.cb-reps [data-act="cb-rep"]')) && !(await B.$('.cb-reps [data-act="cb-edit"]'))));
 
 // the author edits their own reply
-await C.click('.cb-reps [data-act="cb-edit"]'); await C.fill('#cb-e-x', 'Steel for sale, twelve tons.'); await C.click('#cb-ef button[type="submit"]');
+await C.click('.cb-reps [data-act="cb-edit"]'); await C.fill('#cb-e-x', 'Steel for sale, twelve tons.'); await clickPast(C, '#cb-ef button[type="submit"]');
 check('an edit shows, marked as edited', await until(async () => /twelve tons/.test(await text(B, '.cb-reps')) && /edited/.test(await text(B, '.cb-reps .cb-when'))));
 
 // players see no staff controls; the admin sees them inside the board
@@ -124,7 +124,7 @@ check('nobody reports the team, and players cannot edit it', !(await C.$('.cb-po
 await A.click(`.cba-done [data-act="cba-open"][data-reg="${home}"]`);
 await A.waitForSelector('#cb-r-x');
 check('under a team topic the admin replies as the team by default', await A.$eval('#cb-r-team', i => i.checked));
-await A.fill('#cb-r-x', 'Questions welcome.'); await A.click('#cb-rf button[type="submit"]');
+await A.fill('#cb-r-x', 'Questions welcome.'); await clickPast(A, '#cb-rf button[type="submit"]');
 check('the reply is signed by the team', await until(async () => /Questions welcome/.test(await text(C, '.cb-reps')) && /Pascal/.test(await text(C, '.cb-reps .cb-au'))));
 // the Chancery: B (a Founding Supporter) posts there from its own New topic button, and the topic stays there
 await go(B, 'community'); await B.waitForSelector('.cb-reg[data-reg="chancery"]');
@@ -132,7 +132,7 @@ await B.click('[data-act="cb-tg"][data-reg="chancery"]');
 await B.waitForSelector('[data-act="cb-new"][data-reg="chancery"]'); await B.click('[data-act="cb-new"][data-reg="chancery"]');
 check('the Chancery\'s New topic button chooses the Chancery', await B.$eval('#cb-f-reg', s => s.value) === 'chancery');
 await sleep(31000);
-await B.fill('#cb-f-ti', 'Members only'); await B.fill('#cb-f-x', 'Hello, fellow members.'); await B.click('#cb-nf button[type="submit"]');
+await B.fill('#cb-f-ti', 'Members only'); await B.fill('#cb-f-x', 'Hello, fellow members.'); await clickPast(B, '#cb-nf button[type="submit"]');
 check('the topic is posted on the Chancery board and opens', await until(async () => /Members only/.test(await text(B, '.cb-post .cb-ti')) && /The Chancery/.test(await text(B, '.cb-back')) && /^#community\/chancery\//.test(await B.evaluate(() => location.hash))));
 // a nation in another region (only its public summary) can be mentioned too: the list searches every region
 for (const c of ['summaries', 'nations']) await fetch(`http://${FS_HOST}/v1/projects/${PROJECT}/databases/(default)/documents/${c}/farNation0001`, { method: 'PATCH', headers: { 'content-type': 'application/json', authorization: 'Bearer owner' },
@@ -141,7 +141,7 @@ await go(C, 'community'); if (await C.$('[data-act="cb-back"]')) await C.click('
 await C.focus('#cb-f-x'); await C.keyboard.type('Hello @zeph');
 check('typing @ finds a nation in any region, named with its region', await until(async () => /@Zephyria · /.test(await text(C, '#cb-mn'))));
 await C.keyboard.press('Enter');
-await C.fill('#cb-f-ti', 'Far away'); await C.click('#cb-nf button[type="submit"]');
+await C.fill('#cb-f-ti', 'Far away'); await clickPast(C, '#cb-nf button[type="submit"]');
 check('picking it mentions that nation', await until(async () => /@Zephyria/.test(await text(C, '.cb-post .cb-at'))));
 // ── following a topic, reply notices and what is new; reactions, quotes, formatting; the author column and signature ──
 const unpace = uid => fetch(`http://${FS_HOST}/v1/projects/${PROJECT}/databases/(default)/documents/cbPace/${uid}`, { method: 'DELETE', headers: { authorization: 'Bearer owner' } });
@@ -162,7 +162,7 @@ await B.evaluate(() => { const t = document.getElementById('cb-f-x'); t.focus();
 await B.click('[data-act="cb-fmt"][data-v="b"][data-for="cb-f-x"]');
 check('the Bold button puts marks round new words, ready to type over', await B.$eval('#cb-f-x', t => /\*\*bold words\*\*$/.test(t.value) && t.value.slice(t.selectionStart, t.selectionEnd) === 'bold words'));
 await B.evaluate(() => { const t = document.getElementById('cb-f-x'); t.value = t.value.replace(/\*\*bold words\*\*$/, ''); t.dispatchEvent(new Event('input', { bubbles: true })); });
-await B.click('#cb-nf button[type="submit"]');
+await clickPast(B, '#cb-nf button[type="submit"]');
 check('the topic shows its formatting, with the nation card', await until(() => B.evaluate(() => { const x = document.querySelector('.cb-post .cb-x'); return !!x && x.querySelector('b')?.textContent === 'great' && x.querySelectorAll('li').length === 2 && !!x.querySelector('.cb-card[data-act="visit"]'); })));
 check('the author follows their own topic', await until(async () => /Following/.test(await text(B, '.cb-fw'))));
 check('the author column counts the author’s posts', await until(async () => /\d+ posts?/.test(await text(B, '.cb-post .cb-au'))), await text(B, '.cb-post .cb-au'));
@@ -181,7 +181,7 @@ await C.click('.cb-post [data-act="cb-rx-pick"]'); await C.click('.cb-post [data
 check('a reaction shows at once, pressed, with its count', await until(() => C.evaluate(() => { const b = document.querySelector('.cb-post .cb-rx [data-v="heart"]'); return !!b && b.getAttribute('aria-pressed') === 'true' && /1/.test(b.textContent); })));
 await C.click('.cb-post [data-act="cb-quote"]');
 check('Quote puts the post above the reply box', await until(async () => /Quoting Playerland/.test(await text(C, '.cb-rq'))));
-await C.fill('#cb-r-x', 'Count me in.'); await C.click('#cb-rf button[type="submit"]');
+await C.fill('#cb-r-x', 'Count me in.'); await clickPast(C, '#cb-rf button[type="submit"]');
 check('the reply carries the quote', await until(async () => /Playerland wrote.*great fair/.test(await text(C, '.cb-reps .cb-qt'))));
 
 // B, on the boards, hears of it: the bell, the menu, the list of followed topics and the topic's row
@@ -202,7 +202,7 @@ check('the quote jumps to the quoted post', await until(() => B.evaluate(() => d
 await B.click('[data-act="cb-follow"]');
 check('stopping mutes the topic', await until(async () => /Muted/.test(await text(B, '.cb-fw')) && !/Following/.test(await text(B, '.cb-fw-b'))));
 await B.click('[data-act="cb-back"]');
-await unpace(uidC); await C.fill('#cb-r-x', 'See you there.'); await C.click('#cb-rf button[type="submit"]');
+await unpace(uidC); await C.fill('#cb-r-x', 'See you there.'); await clickPast(C, '#cb-rf button[type="submit"]');
 await until(async () => /See you there/.test(await text(C, '.cb-reps')));
 await sleep(2500);
 check('a muted topic brings no news', (await badge(B)) === '' && !/See you there/.test(await bellText(B)));
@@ -213,7 +213,7 @@ await C.waitForSelector('#cz-sec-w', { state: 'visible', timeout: 15000 });
 check('Customise has a Community Board section with the author column as readers see it', /Readerland/.test(await text(C, '#cz-sec-w .cbs-post')) && /No signature yet/.test(await text(C, '#cbs-pv')));
 await C.fill('#cbs-x', 'Steel never sleeps.');
 check('the preview follows the typing', /Steel never sleeps\./.test(await text(C, '#cbs-pv')));
-await C.click('#cbs-form button[type="submit"]');
+await clickPast(C, '#cbs-form button[type="submit"]');
 // the toast waits its turn: C's first topic and mention earn achievements (Open Letter, Name-Dropper), and the
 // Customise step of the tutorial is done, so two toasts may stand before it, ten seconds or so
 check('the signature is saved', await until(async () => /signature is saved/.test(await C.evaluate(() => [...document.querySelectorAll('.toast')].map(t => t.textContent).join(' | '))), 25000));
@@ -244,7 +244,7 @@ check('a picture is prepared beside the post', await until(async () => /Picture 
 await B.click('[data-act="cb-pv"][data-for="cb-f-x"]');
 check('the preview shows the flag, the arms and the offer', await until(() => B.evaluate(() => !!document.querySelector('#cb-f-x-pv .cb-emb-flag svg') && !!document.querySelector('#cb-f-x-pv .cb-emb-arms svg') && /Offers 10\s*Iron a day for 8\s*Food/.test(document.querySelector('#cb-f-x-pv .cb-offer').textContent))));
 await B.click('[data-act="cb-pv"][data-for="cb-f-x"]');
-await B.click('#cb-nf button[type="submit"]');
+await clickPast(B, '#cb-nf button[type="submit"]');
 check('the topic shows the flag, the arms, the offer and the picture', await until(() => B.evaluate(() => { const x = document.querySelector('.cb-post'); return !!x && /Iron for sale/.test(x.textContent) && !!x.querySelector('.cb-emb-flag svg') && !!x.querySelector('.cb-emb-arms svg') && !!x.querySelector('.cb-offer') && !!x.querySelector('.cb-pic img'); }), 20000));
 check('the author sees it as their own offer', /Your offer/.test(await text(B, '.cb-post .cb-offer')));
 const sale = await B.evaluate(() => location.href);

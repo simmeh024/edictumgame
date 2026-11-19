@@ -56,7 +56,10 @@ export async function player(tag, opts = {}) {
   /* opts.ua: a browser's user agent, such as a phone's (the game sends a phone to Google and back rather than a pop-up) */
   const ctx = await browser.newContext({ viewport: opts.vp || { width: 1280, height: 900 }, deviceScaleFactor: opts.dpr || 1, colorScheme: opts.dark ? 'dark' : 'light', acceptDownloads: true, storageState: opts.storageState,
     ...(opts.ua ? { userAgent: opts.ua, isMobile: /Mobile/.test(opts.ua), hasTouch: /Mobile/.test(opts.ua) } : {}) });
-  await ctx.route(/fonts\.(googleapis|gstatic)\.com/, r => r.abort());
+  /* nothing from the internet: Google's fonts, and the Auth emulator's Google sign-in page's stylesheet and script from
+     unpkg.com, which that page does without (window.mdc &&). Waiting on unpkg made the sign-in tests time out on CI
+     (phone-google and once, 19 Nov 2026: the page's load event never came) */
+  await ctx.route(/^https:\/\/(fonts\.(googleapis|gstatic)\.com|unpkg\.com)\//, r => r.abort());
   if (opts.block) await ctx.route(opts.block, r => r.abort());
   await ctx.addInitScript(([cap, gap, desk, crisis]) => {
     window.EDICTUM_SAVE_GAP = gap; window.EDICTUM_REF_EPOCH = Date.UTC(2026, 0, 1); window.EDICTUM_SEAL2_AT = Date.UTC(2026, 0, 2); /* conquests checked by the seal that names the defender */ if (cap) window.EDICTUM_REGION_CAP = cap; if (!desk) window.EDICTUM_NO_DESK = true; if (!crisis) window.EDICTUM_NO_CRISIS = true;
@@ -199,13 +202,18 @@ export async function googlePopup(p, clickSelector, email) {
   }
   await pop.waitForEvent('close', { timeout: 10000 }).catch(() => {});
 }
-/* a notice can come down over the account button just then (a medal from the museum, seen in the core suite on 13 Nov
-   2026), and a notice stays while the pointer is on it, so the click would wait behind it for good: close it and try again */
-export const openAccount = async p => {
+/* a notice can come down over a button just as it is clicked (a medal from the museum over the account button, seen in
+   the core suite on 13 Nov 2026; a museum piece or a prestige rank over the board's Post reply, 19 Nov 2026), and a
+   notice stays while the pointer is on it, the next one waiting behind it, so the click would wait for good: close the
+   notice, move the pointer off it and try again */
+export const clickPast = async (p, sel) => {
   for (let i = 0; ; i++) {
-    try { await p.click('.ed-acct-b', { timeout: i < 6 ? 4000 : 30000 }); break; }
-    catch (e) { if (i >= 6) throw e; await p.locator('#toast .toast-x').first().click({ timeout: 2000 }).catch(() => {}); }
+    try { await p.click(sel, { timeout: i < 6 ? 4000 : 30000 }); return; }
+    catch (e) { if (i >= 6) throw e; await p.locator('#toast .toast-x').first().click({ timeout: 2000 }).catch(() => {}); await p.mouse.move(2, 2).catch(() => {}); }
   }
+};
+export const openAccount = async p => {
+  await clickPast(p, '.ed-acct-b');
   await p.waitForSelector('dialog.ed-dlg[open]');
 };
 

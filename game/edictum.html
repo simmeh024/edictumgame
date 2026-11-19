@@ -9161,6 +9161,9 @@ button.rgc-nm{text-align:left}
 .rgc-tab:hover{color:var(--ink)}
 .rgc-tab.on{color:var(--ink);border-bottom-color:var(--accent)}
 .rgc-tab-al{min-width:0}
+.al-tg-row{display:flex;align-items:center;gap:10px}
+.al-tg-in{width:7.5em;font-family:var(--f-mono);text-transform:uppercase;letter-spacing:.08em}
+.al-tg-in::placeholder{text-transform:none}
 .rgc-tl{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .rgc-tn{flex:none;min-width:17px;height:17px;padding:0 4px;border-radius:9px;background:var(--accent);color:var(--accent-ink);font:700 10.5px/17px var(--f-mono);text-align:center}
 .rgc-q{display:block;max-width:100%;margin:1px 0 2px 31px;padding:2px 8px;border:0;border-left:2px solid var(--rule-2);background:var(--sheet-2);color:var(--ink-2);font-size:12.5px;line-height:1.4;text-align:left;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-radius:0 4px 4px 0}
@@ -9180,6 +9183,7 @@ button.rgc-nm{text-align:left}
 .rgc-menu .rgc-rxp button[aria-pressed="true"]{background:var(--accent-soft)}
 .rgc-rk{flex:none;width:9px;height:9px;border-radius:2px;transform:rotate(45deg);background:var(--bd-plate,var(--bd-2,var(--ink-3)));box-shadow:inset 0 0 0 1px var(--bd-3,transparent)}
 .rgc-al{flex:none;padding:0 5px;border-radius:3px;background:color-mix(in srgb,var(--alc) 18%,var(--sheet));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--alc) 55%,transparent);color:var(--ink);font:600 10px/16px var(--f-mono);letter-spacing:.04em}
+.rgc-al.al-tg{font-size:11px;line-height:18px}
 .rgc-lh .founder-pill{flex:none;padding:1px 7px 1px 6px;font-size:9.5px}
 /* the world chat: the region a nation writes from, beside its name */
 .rgc-from{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 6px;border-radius:999px;background:var(--sheet-2);color:var(--ink-2);font:500 10.5px/17px var(--f-body)}
@@ -11704,9 +11708,9 @@ const REGION_MER={id:'meridian',name:'Meridian Reach',the:'the Meridian Reach',s
 const REGIONS=[REGION_MER].concat(REGIONS_EXTRA);
 const REG_BY_ID=Object.fromEntries(REGIONS.map(r=>[r.id,r]));
 /* the region a newcomer who has chosen none starts in, and the first in the founding lists (the owner, 15 Nov 2026:
-   the Sunken Kingdoms rather than the crowded Meridian Reach); Meridian on local test hosts, where the browser suites
-   expect it, and wherever there is no location (the map bake) */
-const FIRST_REG=(()=>{try{if(REG_BY_ID.saffron&&!/^(127\.0\.0\.1|localhost)$/.test(location.hostname))return 'saffron';}catch(e){}return 'meridian';})();
+   the Sunken Kingdoms rather than the crowded Meridian Reach; 17 Nov the Saffron Coast; 19 Nov Greywater); Meridian on
+   local test hosts, where the browser suites expect it, and wherever there is no location (the map bake) */
+const FIRST_REG=(()=>{try{if(REG_BY_ID.greywater&&!/^(127\.0\.0\.1|localhost)$/.test(location.hostname))return 'greywater';}catch(e){}return 'meridian';})();
 /* the region this browser's nation lives in (only its reg is read here; a nation saved before regions has none and
    lives in Meridian), or the one chosen for founding, or FIRST_REG */
 const HOME_REG=(()=>{let id='meridian';try{const raw=localStorage.getItem('statehood.nation.v1'),d=raw&&JSON.parse(raw);
@@ -21727,7 +21731,8 @@ function foundAlliance(){
   if(!canFeature(S.nation,'alli')){AL.msg='Founding an alliance unlocks at '+fmtPopShort(featureAt('alli'))+' people. You can still join one when invited.';render();return;}
   if(name.length<3){AL.msg='Give the alliance a name of at least three characters.';render();return;}
   if(alMine()){AL.msg='Leave your current alliance first.';render();return;}
-  alAct('alFound',{name,mo:String(f.mo||''),ty:AL_TYPES[f.ty]?f.ty:'def',acc:AL_ACCESS[f.acc]?f.acc:'apply',col:f.col||AL_COLS[0][0],em:alEmOf(f)},()=>{
+  const tg=String(f.tg||'');if(tg&&!AL_TG_RE.test(tg)){AL.msg=AL_TG_BAD;render();return;}
+  alAct('alFound',{name,...(tg?{tg}:{}),mo:String(f.mo||''),ty:AL_TYPES[f.ty]?f.ty:'def',acc:AL_ACCESS[f.acc]?f.acc:'apply',col:f.col||AL_COLS[0][0],em:alEmOf(f)},()=>{
     alLog('alfound',myId(),name);AL.tab='alliance';AL.sub='members';toast(name+' has been founded.');});
 }
 function inviteAlly(id){inviteAllyBase(id);}
@@ -42917,7 +42922,7 @@ const FR_UI={
 'Appearance':'Apparence','Theme':'Thème','Automatic':'Automatique','Light':'Clair','Dark':'Sombre','Stockpile':'Réserves','Resource gains':'Gains de ressources','Per hour':'Par heure','Per day':'Par jour','Both':'Les deux',
 'How the stockpile bars on Cities and the other pages show what each resource gains.':'Comment les barres de réserves des Villes et des autres pages affichent le gain de chaque ressource.',
 'Nation page':'Page de la nation','Topics':'Thèmes','All at normal':'Tous à la normale','Set all back to normal':'Tout remettre à la normale','Choose which kinds of edict reach your desk more or less often.':'Choisissez quels types d’édits arrivent plus ou moins souvent sur votre bureau.',
-'Sign-in':'Connexion','Open the account panel':'Ouvrir le panneau du compte','Online status':'Statut en ligne','Language':'Langue',
+'Sign-in':'Connexion','Open the account panel':'Ouvrir le panneau du compte','Short code':'Code court','Online status':'Statut en ligne','Language':'Langue',
 // resources
 'Food':'Nourriture','Timber':'Bois','Iron':'Fer','Oil':'Pétrole','Goods':'Biens','Gold':'Or','Materials':'Matériaux','food':'nourriture','timber':'bois','iron':'fer','oil':'pétrole','goods':'biens','materials':'matériaux',
 // common buttons
@@ -60100,8 +60105,8 @@ function cbAuthorMarks(p,U){
   try{x=findNation(p.a);if(x&&(x.npc||!x.n))x=null;}catch(e){x=null;}
   try{let i=-1,nm='';if(x){const r=achRankOf(x.n);i=r.i;nm=r.name;}else if(U&&Number.isInteger(U.rk)){i=Math.min(ACH_RANKS.length-1,U.rk);nm=ACH_RANKS[i][1];}
     i=Math.min(ID_BD.length-1,i);if(i>0)h+=`<i class="rgc-rk cb-rk id-rk-${idBdLook(i)}" role="img" aria-label="Rank: ${esc(nm)}" title="Rank: ${esc(nm)}"></i>`;}catch(e){}
-  try{let al=null;if(x){const A=allianceOf(x.id);if(A&&!A.npc&&A.name)al={n:A.name,c:safeColor((A.doc&&A.doc.col)||A.col,'#3A8FD1')};}else if(U&&U.al&&U.al.n)al={n:String(U.al.n).slice(0,40),c:safeColor(U.al.c,'#3A8FD1')};
-    if(al)h+=`<span class="rgc-al cb-al" style="--alc:${esc(al.c)}" title="A member of ${esc(al.n)}" aria-label="A member of ${esc(al.n)}">${esc(rgcTag(al.n))}</span>`;}catch(e){}
+  try{let al=null;if(x){const A=allianceOf(x.id);if(A&&!A.npc&&A.name)al={n:A.name,c:safeColor((A.doc&&A.doc.col)||A.col,'#3A8FD1'),t:A.doc&&A.doc.tg};}else if(U&&U.al&&U.al.n)al={n:String(U.al.n).slice(0,40),c:safeColor(U.al.c,'#3A8FD1'),t:U.al.t};
+    if(al)h+=`<span class="rgc-al cb-al" style="--alc:${esc(al.c)}" title="A member of ${esc(al.n)}" aria-label="A member of ${esc(al.n)}">${esc(alCode(al.n,al.t))}</span>`;}catch(e){}
   const club=U&&U.cl||p.a===S.uid&&!!(SHOP.doc&&SHOP.doc.vip&&SHOP.doc.vip.until>Date.now());
   if(club)h+='<span class="cb-club" title="A member of the Chancery Club">Club</span>';
   return h;
@@ -77447,7 +77452,7 @@ function alNorm(id,d){
   const rq={};for(const [k,v] of Object.entries(o(d.rq)))rq[k]={t:n(o(v).t),x:str(o(v).x,200)};
   const num=src=>{const r={};for(const [k,v] of Object.entries(o(src)))if(typeof v==='number'&&isFinite(v))r[k]=v;return r;};
   const dn={};for(const [k,v] of Object.entries(o(d.dn))){dn[k]={};for(const r of RES)dn[k][r]=n(o(v)[r]);dn[k].lt=n(o(v).lt);}
-  return {id,reg:str(d.reg,40),name:str(d.name,40)||'An alliance',mo:str(d.mo,80),em:alEmOf(o(d.em)),col:safeColor(d.col,'#3A8FD1'),ty:AL_TYPES[d.ty]?d.ty:'def',acc:AL_ACCESS[d.acc]?d.acc:'apply',
+  return {id,reg:str(d.reg,40),name:str(d.name,40)||'An alliance',tg:AL_TG_RE.test(d.tg||'')?d.tg:'',mo:str(d.mo,80),em:alEmOf(o(d.em)),col:safeColor(d.col,'#3A8FD1'),ty:AL_TYPES[d.ty]?d.ty:'def',acc:AL_ACCESS[d.acc]?d.acc:'apply',
     t:n(d.t),fd:str(d.fd,128),ld:str(d.ld,128),tyAt:n(d.tyAt),mem,npc:num(d.npc),iv:num(d.iv),rq,xp:n(d.xp),tt:n(d.tt),tr:Object.fromEntries(RES.map(r=>[r,n(o(d.tr)[r])])),dn,pj:num(d.pj),rel:alRelNorm(d.rel),
     log:(Array.isArray(d.log)?d.log:[]).filter(e=>e&&typeof e==='object').slice(0,40).map(e=>({t:n(e.t),k:str(e.k,12),a:str(e.a,128),b:str(e.b,400),x:str(e.x,200)}))};
 }
@@ -77760,7 +77765,7 @@ function dpGifts(now){
 function alHead(A,pub){
   const D=A.doc,me=myId(),r=alRoleOf(A,me),L=findNation(D.ld);
   return `<div class="al-head">${alBanner(D,'lg')}<div class="al-head-t">${pub?'':`<p class="eyebrow">Your alliance${r?' · '+alRoleWord(r):''}</p><h2 class="al-name">${esc(A.name)}</h2>`}${D.mo?`<p class="al-motto">“${esc(D.mo)}”</p>`:''}
-    <p class="al-facts"><span class="chip al-ty">${esc(AL_TYPES[D.ty].n)}</span><span>${A.members.length} of ${alPlaces(D)} places</span><span>${fmt0(alBrigades(A))} brigades</span><span>Led by ${L?nationLink(L.id,L.n.name,L.me):'nobody yet'}</span><span>Founded ${esc(fmtDate(D.t))}</span><span>${esc(AL_ACCESS[D.acc][0])}</span></p>
+    <p class="al-facts">${alTagBadge(A.name,D.tg,D.col)}<span class="chip al-ty">${esc(AL_TYPES[D.ty].n)}</span><span>${A.members.length} of ${alPlaces(D)} places</span><span>${fmt0(alBrigades(A))} brigades</span><span>Led by ${L?nationLink(L.id,L.n.name,L.me):'nobody yet'}</span><span>Founded ${esc(fmtDate(D.t))}</span><span>${esc(AL_ACCESS[D.acc][0])}</span></p>
     ${alRenownBar(D)}${pub?'':`<p class="al-links"><button type="button" class="linkish small" data-act="al-page" data-id="${esc(A.id)}">Public page</button><button type="button" class="linkish small" data-act="dp-lens" data-v="ally">Alliances on the map</button></p>`}</div></div>`;
 }
 function alMembersHTML(A,manage){
@@ -77835,7 +77840,25 @@ function alInviteHTML(A){
     <p class="hint">Players join when they accept. Computer nations join at once if their values are close to your leader’s: affinity ${ALLY_MIN} or more.</p>`;
 }
 /* the charter: who may join, the type, the banner and the colour; the leader edits it */
-function alDraft(A){const D=A.doc;if(!AL.edit||AL.edit.aid!==A.id)AL.edit={aid:A.id,name:D.name,mo:D.mo,ty:D.ty,acc:D.acc,col:D.col,p:D.em.p,c:D.em.c.slice(),e:D.em.e,ec:D.em.ec};return AL.edit;}
+const AL_TG_RE=/^[A-Z0-9]{2,4}$/,AL_TG_BAD='A short code is 2 to 4 letters (A to Z) or numbers.';
+/* the short code as a badge, in the alliance's colour, as it stands beside its members' names in chat */
+const alTagBadge=(nm,tg,col,id)=>`<span class="rgc-al al-tg"${id?` id="${id}"`:''} style="--alc:${esc(safeColor(col,'#3A8FD1'))}" title="Short code">${esc(alCode(nm,tg))}</span>`;
+/* the short code field, in the charter and when founding: 2 to 4 letters or numbers, kept in capitals as typed, its
+   badge beside it; left empty, the initials of the name (shown as the placeholder) */
+function alTagField(f,pre){
+  return `<div class="field"><label class="cz-flab" for="${pre}-tg">Short code${pre==='al-f'?' <span class="hint">(optional)</span>':''}</label>
+    <div class="al-tg-row"><input class="input al-tg-in" id="${pre}-tg" maxlength="4" value="${esc(f.tg||'')}" placeholder="${esc(rgcTag(f.name))}" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-describedby="${pre}-tg-h">${alTagBadge(f.name,f.tg,f.col,pre+'-tg-pv')}</div>
+    <p class="hint" id="${pre}-tg-h">2 to 4 letters or numbers. It stands beside your members’ names in chat, and names the chat’s alliance tab when the name is longer than ${RGC_AL_MAX} letters. Left empty, it is the name’s initials.</p></div>`;
+}
+/* typing in a short code: capitals and digits only, and its badge follows (and the initials, when the name changes) */
+function alTagInput(t,pre,f){
+  /* the field shows capitals by its style; its words are only rewritten to drop a sign that is not a letter or a number,
+     since rewriting each letter as it is typed can double it on a phone's keyboard */
+  if(t.id===pre+'-tg'){const c=t.value.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,4);if(c!==t.value.toUpperCase())t.value=c;f.tg=c;}
+  const pv=document.getElementById(pre+'-tg-pv'),inp=document.getElementById(pre+'-tg');
+  if(pv)pv.textContent=alCode(f.name,f.tg);if(inp)inp.placeholder=rgcTag(f.name);
+}
+function alDraft(A){const D=A.doc;if(!AL.edit||AL.edit.aid!==A.id)AL.edit={aid:A.id,name:D.name,tg:D.tg||'',mo:D.mo,ty:D.ty,acc:D.acc,col:D.col,p:D.em.p,c:D.em.c.slice(),e:D.em.e,ec:D.em.ec};return AL.edit;}
 function alBannerFields(f,lv,pre){
   const sel=(id,opts,v,lbl)=>`<label class="field"><span class="cz-flab">${lbl}</span><select class="input" id="${pre}-${id}">${opts.map(([k,l,dis])=>`<option value="${esc(k)}"${k===v?' selected':''}${dis?' disabled':''}>${esc(l)}</option>`).join('')}</select></label>`;
   const cols=Object.entries(COLORS);
@@ -77850,10 +77873,11 @@ function alTypePick(f,pre,lock){return `<fieldset class="al-types"><legend class
 function alAccessPick(f,pre){return `<div class="field"><span class="cz-flab">Who may join</span><div class="seg" role="group" aria-label="Who may join">${Object.entries(AL_ACCESS).map(([k,[l,d]])=>`<button type="button" class="seg-b${f.acc===k?' on':''}" data-act="dp-acc" data-pre="${pre}" data-v="${k}" aria-pressed="${f.acc===k}" title="${esc(d)}">${esc(l)}</button>`).join('')}</div><p class="hint">${esc(AL_ACCESS[f.acc][1])}</p></div>`;}
 function alCharterHTML(A){
   const D=A.doc,lead=alRoleOf(A,myId())==='ld',lv=alLevel(D.xp);
-  if(!lead)return `<dl class="mp-dl al-ch-dl"><div><dt>Type</dt><dd>${esc(AL_TYPES[D.ty].n)}</dd></div><div><dt>What it gives</dt><dd>${esc(AL_TYPES[D.ty].d)}</dd></div><div><dt>Who may join</dt><dd>${esc(AL_ACCESS[D.acc][0])}: ${esc(AL_ACCESS[D.acc][1])}</dd></div><div><dt>Projects built</dt><dd>${Object.entries(D.pj).filter(([,v])=>v>0).map(([k,v])=>esc(AL_PJ[k]?AL_PJ[k][0]:k)+(AL_RULES.projects[k]&&AL_RULES.projects[k].max>1?' '+v:'')).join(', ')||'None yet'}</dd></div></dl><p class="hint">Only the leader changes the charter.</p>`;
+  if(!lead)return `<dl class="mp-dl al-ch-dl"><div><dt>Short code</dt><dd>${alTagBadge(A.name,D.tg,D.col)}</dd></div><div><dt>Type</dt><dd>${esc(AL_TYPES[D.ty].n)}</dd></div><div><dt>What it gives</dt><dd>${esc(AL_TYPES[D.ty].d)}</dd></div><div><dt>Who may join</dt><dd>${esc(AL_ACCESS[D.acc][0])}: ${esc(AL_ACCESS[D.acc][1])}</dd></div><div><dt>Projects built</dt><dd>${Object.entries(D.pj).filter(([,v])=>v>0).map(([k,v])=>esc(AL_PJ[k]?AL_PJ[k][0]:k)+(AL_RULES.projects[k]&&AL_RULES.projects[k].max>1?' '+v:'')).join(', ')||'None yet'}</dd></div></dl><p class="hint">Only the leader changes the charter.</p>`;
   const f=alDraft(A),wait=D.tyAt&&Date.now()-D.tyAt<7*DAY?D.tyAt+7*DAY:0;
   return `<form class="al-charter" id="al-charter" novalidate>
     <div class="field"><label class="cz-flab" for="al-ed-name">Name</label><input class="input" id="al-ed-name" maxlength="40" value="${esc(f.name)}" autocomplete="off"></div>
+    ${alTagField(f,'al-ed')}
     <div class="field"><label class="cz-flab" for="al-ed-mo">Motto</label><input class="input" id="al-ed-mo" maxlength="80" value="${esc(f.mo)}" placeholder="Strength in numbers" autocomplete="off"></div>
     ${alTypePick(f,'ed',!!wait)}${wait?`<p class="hint">The type changed recently: it can change again on ${esc(fmtDate(wait))}.</p>`:'<p class="hint">The type can change once every 7 days.</p>'}
     ${alAccessPick(f,'ed')}${alBannerFields(f,lv,'al-ed')}
@@ -77890,12 +77914,13 @@ function dpAlliance(now){
     else if(D.acc==='open')act=`<button type="button" class="btn sm" data-act="dp-join" data-id="${esc(B.id)}"${alBusy('alRequest')}>Join</button>`;
     else if(D.acc==='apply')act=AL.ask===B.id?`<div class="al-ask"><label class="sr" for="al-note-${esc(B.id)}">A note to its leader</label><textarea class="input" id="al-note-${esc(B.id)}" data-al-note="${esc(B.id)}" rows="2" maxlength="200" placeholder="Why you would like to join (optional)">${esc((AL.note||{})[B.id]||'')}</textarea><div class="row"><button type="button" class="btn sm" data-act="dp-join" data-id="${esc(B.id)}"${alBusy('alRequest')}>Send the request</button><button type="button" class="btn ghost sm" data-act="dp-ask" data-id="">Cancel</button></div></div>`:`<button type="button" class="btn ghost sm" data-act="dp-ask" data-id="${esc(B.id)}">Ask to join…</button>`;
     else act=`<span class="hint">Invitation only</span>`;
-    return `<li class="al-card2${isInv?' inv':''}">${alBanner(D)}<div class="al-card2-t"><p class="al-card2-n"><b>${esc(B.name)}</b> <span class="chip">${esc(AL_TYPES[D.ty].n)}</span> <span class="chip">Level ${alLevel(D.xp)}</span></p>${D.mo?`<p class="al-motto">“${esc(D.mo)}”</p>`:''}
+    return `<li class="al-card2${isInv?' inv':''}">${alBanner(D)}<div class="al-card2-t"><p class="al-card2-n"><b>${esc(B.name)}</b> ${alTagBadge(B.name,D.tg,D.col)} <span class="chip">${esc(AL_TYPES[D.ty].n)}</span> <span class="chip">Level ${alLevel(D.xp)}</span></p>${D.mo?`<p class="al-motto">“${esc(D.mo)}”</p>`:''}
       <p class="al-card2-f">${flags}</p><p class="hint">${B.members.length} of ${alPlaces(D)} places · ${fmt0(alBrigades(B))} brigades · led by ${esc(nameOf(D.ld))} · ${esc(AL_ACCESS[D.acc][0].toLowerCase())}</p>
       <div class="row al-card2-a">${act}<button type="button" class="linkish small" data-act="al-page" data-id="${esc(B.id)}">See the alliance</button></div></div></li>`;};
-  const f=S.alForm||(S.alForm={name:'',mo:'',ty:'def',acc:'apply',col:AL_COLS[6][0],p:AL_DEF_EM.p,c:AL_DEF_EM.c.slice(),e:AL_DEF_EM.e,ec:AL_DEF_EM.ec}),can=canFeature(S.nation,'alli');
+  const f=S.alForm||(S.alForm={name:'',tg:'',mo:'',ty:'def',acc:'apply',col:AL_COLS[6][0],p:AL_DEF_EM.p,c:AL_DEF_EM.c.slice(),e:AL_DEF_EM.e,ec:AL_DEF_EM.ec}),can=canFeature(S.nation,'alli');
   const found=`<section class="section al-found"><h2 class="h2">Found an alliance</h2>${can?'':`<p class="info">Founding an alliance unlocks at ${fmtPopShort(featureAt('alli'))} people. You can join one sooner.</p>`}
     ${can?`<form id="al-form" class="al-form" novalidate><div class="field"><label class="cz-flab" for="al-f-name">Name</label><input class="input" id="al-f-name" maxlength="40" placeholder="The Northern Concord" value="${esc(f.name)}" autocomplete="off"></div>
+      ${alTagField(f,'al-f')}
       <div class="field"><label class="cz-flab" for="al-f-mo">Motto <span class="hint">(optional)</span></label><input class="input" id="al-f-mo" maxlength="80" placeholder="Strength in numbers" value="${esc(f.mo)}" autocomplete="off"></div>
       ${alTypePick(f,'f')}${alAccessPick(f,'f')}${alBannerFields(f,1,'al-f')}
       <div class="row"><button class="btn" type="submit"${civicRegistered()?'':' disabled aria-describedby="account-alliance-requirement"'}${alBusy('alFound')}>Found the alliance</button></div>${accountActionHint('alliance')}<p class="hint">You become its leader. More banner designs open as it gains renown.</p></form>`
@@ -78079,8 +78104,9 @@ document.addEventListener('click',e=>{
 /* text fields keep their words in the page's state, so a redraw puts them back */
 document.addEventListener('input',e=>{
   const t=e.target;if(!t||!t.id)return;const v=t.value;
-  if(t.id==='al-f-name'&&S.alForm)S.alForm.name=v;else if(t.id==='al-f-mo'&&S.alForm)S.alForm.mo=v;
-  else if(t.id==='al-ed-name'&&AL.edit)AL.edit.name=v;else if(t.id==='al-ed-mo'&&AL.edit)AL.edit.mo=v;
+  if(t.id==='al-f-name'&&S.alForm){S.alForm.name=v;alTagInput(t,'al-f',S.alForm);}else if(t.id==='al-f-mo'&&S.alForm)S.alForm.mo=v;
+  else if(t.id==='al-ed-name'&&AL.edit){AL.edit.name=v;alTagInput(t,'al-ed',AL.edit);}else if(t.id==='al-ed-mo'&&AL.edit)AL.edit.mo=v;
+  else if(t.id==='al-f-tg'&&S.alForm)alTagInput(t,'al-f',S.alForm);else if(t.id==='al-ed-tg'&&AL.edit)alTagInput(t,'al-ed',AL.edit);
   else if(t.id==='al-chat-x')AL.draft=v;
   else if(t.id==='al-give-q')AL.give={...(AL.give||{k:'goods'}),q:v};
   else if(t.dataset&&t.dataset.alNote)AL.note={...(AL.note||{}),[t.dataset.alNote]:v};
@@ -78099,7 +78125,8 @@ document.addEventListener('submit',e=>{
   if(id==='al-chat-form'){e.preventDefault();const A=alMine(),x=String(AL.draft||'').trim();if(!A||!A.srv||!x)return;alAct('alPost',{aid:A.id,x},()=>{achPend('rch');AL.draft='';stickDown('al:'+A.id);});}
   else if(id==='al-give'){e.preventDefault();const g=AL.give||{},k=(document.getElementById('al-give-k')||{}).value||g.k||'goods',q=Math.floor(+((document.getElementById('al-give-q')||{}).value||g.q||0));alPledge(k,q);}
   else if(id==='al-charter'){e.preventDefault();const A=alMine(),f=AL.edit;if(!A||!A.srv||!f)return;const D=A.doc,d={aid:A.id};
-    if(f.name!==D.name)d.name=f.name;if(f.mo!==D.mo)d.mo=f.mo;if(f.ty!==D.ty)d.ty=f.ty;if(f.acc!==D.acc)d.acc=f.acc;if(f.col!==D.col)d.col=f.col;
+    if(f.tg&&!AL_TG_RE.test(f.tg)){AL.msg=AL_TG_BAD;toast(AL.msg);render();return;}
+    if(f.name!==D.name)d.name=f.name;if((f.tg||'')!==(D.tg||''))d.tg=f.tg||'';if(f.mo!==D.mo)d.mo=f.mo;if(f.ty!==D.ty)d.ty=f.ty;if(f.acc!==D.acc)d.acc=f.acc;if(f.col!==D.col)d.col=f.col;
     const em=alEmOf(f);if(JSON.stringify(em)!==JSON.stringify(D.em))d.em=em;
     if(Object.keys(d).length===1){toast('Nothing has changed.');return;}
     alAct('alEdit',d,()=>{AL.edit=null;toast('The charter is saved.');});}
@@ -80844,16 +80871,17 @@ const RGC_HAPS=40,RGC_WIDE=typeof window.matchMedia==='function'?window.matchMed
 function rgcLS(k,v){try{if(v===undefined)return localStorage.getItem(k);localStorage.setItem(k,String(v));}catch(e){}return null;}
 Object.assign(RGC,{tab:rgcLS('edictum.rgc.tab')||'region',lastTab:'',re:null,mn:null,docked:rgcLS('edictum.rgc.dock')==='1',adraft:'',abusy:false,amsg:'',hapMemo:{at:0,k:'',list:[]},want:false,goto:''});
 function rgcAllyOn(){if(OBS)return null;try{const A=alMine();return A&&A.srv?A:null;}catch(e){return null;}}
-function rgcTabs(){const t=[['region','Region']];if(rgwOn())t.push(['world','World']);const A=rgcAllyOn();if(A)t.push(['ally',A.name||'Alliance']);t.push(['haps','Happenings']);return t;}
-/* the Alliance tab carries the alliance's own name; one longer than RGC_AL_MAX letters shows its short form instead,
-   the initials that stand beside its members' names (rgcTag), with the full name in its tooltip and for screen readers.
+function rgcTabs(){const t=[['region','Region']];if(rgwOn())t.push(['world','World']);const A=rgcAllyOn();if(A)t.push(['ally',A.name||'Alliance',A.doc&&A.doc.tg]);t.push(['haps','Happenings']);return t;}
+/* the Alliance tab carries the alliance's own name; one longer than RGC_AL_MAX letters shows its short code instead,
+   the one that stands beside its members' names (alCode: the leader's own, else the initials), with the full name in
+   its tooltip and for screen readers.
    The name is the player's own words, so the French interface leaves it alone (data-no-tr). */
 const RGC_AL_MAX=14;
-function rgcTabLabel(k,l){
+function rgcTabLabel(k,l,tg){
   if(k!=='ally')return l;
   const nm=String(l||'').trim()||'Alliance',tip=`${esc(nm)} · alliance chat`;
   if([...nm].length<=RGC_AL_MAX)return `<span class="rgc-tl" data-no-tr="" title="${tip}">${esc(nm)}</span>`;
-  return `<span class="rgc-tl" data-no-tr="" title="${tip}" aria-hidden="true">${esc(rgcTag(nm)||nm)}</span><span class="u-sr" data-no-tr="">${esc(nm)}</span>`;
+  return `<span class="rgc-tl" data-no-tr="" title="${tip}" aria-hidden="true">${esc(alCode(nm,tg)||nm)}</span><span class="u-sr" data-no-tr="">${esc(nm)}</span>`;
 }
 function rgcTab(){if(!rgcTabs().some(x=>x[0]===RGC.tab))RGC.tab='region';return RGC.tab;}
 function rgcAllyUnread(){try{return rgcAllyOn()?alChatUnread():0;}catch(e){return 0;}}
@@ -80865,7 +80893,7 @@ function rgcAllyHeard(){if(RGC.open&&rgcTab()==='ally'){if(!document.hidden)try{
 function rgcTabsPaint(){
   const el=RGC.dock&&RGC.dock.querySelector('#rgc-tabs');if(!el)return;const cur=rgcTab();
   const n={region:cur==='region'?0:rgcUnread(),world:cur==='world'?0:rgwUnread(),ally:cur==='ally'?0:rgcAllyUnread(),haps:cur==='haps'?0:rgcHapNew()};
-  const h=rgcTabs().map(([k,l])=>`<button type="button" role="tab" id="rgc-tab-${k}" class="rgc-tab${k===cur?' on':''}${k==='ally'?' rgc-tab-al':''}" data-rgc="tab" data-v="${k}" aria-selected="${k===cur}" aria-controls="rgc-body" tabindex="${k===cur?0:-1}">${rgcTabLabel(k,l)}${n[k]?`<span class="rgc-tn" aria-label="${n[k]} new">${n[k]>99?'99+':n[k]}</span>`:''}</button>`).join('');
+  const h=rgcTabs().map(([k,l,tg])=>`<button type="button" role="tab" id="rgc-tab-${k}" class="rgc-tab${k===cur?' on':''}${k==='ally'?' rgc-tab-al':''}" data-rgc="tab" data-v="${k}" aria-selected="${k===cur}" aria-controls="rgc-body" tabindex="${k===cur?0:-1}">${rgcTabLabel(k,l,tg)}${n[k]?`<span class="rgc-tn" aria-label="${n[k]} new">${n[k]>99?'99+':n[k]}</span>`:''}</button>`).join('');
   /* compared with what was last written, not innerHTML: a name with an apostrophe (escaped here, not when the browser
      reads it back) or a French label would otherwise rewrite the row on every tick */
   if(el._h!==h){const f=document.activeElement,had=f&&el.contains(f)?f.dataset.v:'';el.innerHTML=h;el._h=h;if(had){const b=document.getElementById('rgc-tab-'+had);if(b)b.focus({preventScroll:true});}}
@@ -80912,11 +80940,13 @@ function rgcRxs(m,me){
 }
 /* beside a nation's name: its rank's colour, its alliance's initials, the Founding Supporter badge it wears */
 const rgcTag=nm=>{const w=String(nm||'').replace(/^the\s+/i,'').split(/\s+/).filter(Boolean);return (w.length>1?w.map(s=>s.charAt(0)).join(''):w[0]||'').slice(0,4).toUpperCase();};
+/* an alliance's short code: the one its leader chose in the charter (tg: 2 to 4 capitals or digits), else its initials */
+const alCode=(nm,tg)=>AL_TG_RE.test(tg||'')?tg:rgcTag(nm);
 function rgcBadges(x,memo){
   if(memo&&memo.has(x.id))return memo.get(x.id);
   let h='';
   try{const r=achRankOf(x.n),i=Math.min(ID_BD.length-1,r.i);if(i>0)h+=`<i class="rgc-rk id-rk-${idBdLook(i)}" role="img" aria-label="Rank: ${esc(r.name)}" title="Rank: ${esc(r.name)}"></i>`;}catch(e){}
-  try{const A=allianceOf(x.id);if(A&&!A.npc&&A.name){const col=safeColor((A.doc&&A.doc.col)||A.col,'#3A8FD1');h+=`<span class="rgc-al" style="--alc:${esc(col)}" title="A member of ${esc(A.name)}" aria-label="A member of ${esc(A.name)}">${esc(rgcTag(A.name))}</span>`;}}catch(e){}
+  try{const A=allianceOf(x.id);if(A&&!A.npc&&A.name){const col=safeColor((A.doc&&A.doc.col)||A.col,'#3A8FD1');h+=`<span class="rgc-al" style="--alc:${esc(col)}" title="A member of ${esc(A.name)}" aria-label="A member of ${esc(A.name)}">${esc(alCode(A.name,A.doc&&A.doc.tg))}</span>`;}}catch(e){}
   try{h+=shopBadge(x.n,1);}catch(e){}
   if(memo)memo.set(x.id,h);return h;
 }
@@ -80925,7 +80955,7 @@ function rgcBadges(x,memo){
 function rgwBadges(m){
   let h='';
   if(m.rk>0)try{const i=Math.min(ID_BD.length-1,m.rk),R=ACH_RANKS[m.rk],nm=R?R[1]:'';h+=`<i class="rgc-rk id-rk-${idBdLook(i)}" role="img" aria-label="Rank: ${esc(nm)}" title="Rank: ${esc(nm)}"></i>`;}catch(e){}
-  if(m.al&&m.al.n)h+=`<span class="rgc-al" style="--alc:${esc(safeColor(m.al.c,'#3A8FD1'))}" title="A member of ${esc(m.al.n)}" aria-label="A member of ${esc(m.al.n)}">${esc(rgcTag(m.al.n))}</span>`;
+  if(m.al&&m.al.n)h+=`<span class="rgc-al" style="--alc:${esc(safeColor(m.al.c,'#3A8FD1'))}" title="A member of ${esc(m.al.n)}" aria-label="A member of ${esc(m.al.n)}">${esc(alCode(m.al.n,m.al.t))}</span>`;
   if(m.fd)h+=`<span class="founder-pill sm" title="Founding Supporter: among the first to help write the world of Edictum">${SHOP_BRASS}<span class="founder-sr">Founding Supporter</span></span>`;
   return h;
 }
