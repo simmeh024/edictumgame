@@ -21,7 +21,7 @@ function load(){
   const ctx={DAY,CELL_RES,RES:['food','timber','iron','oil','goods'],RES_INFO:{food:['Food'],timber:['Timber'],iron:['Iron'],oil:['Oil'],goods:['Goods']},
     BUILDINGS:{factory:{n:'Factory',c:'prod',d:'Goods +6 a day.',cost:{timber:15,iron:6},h:4,res:{goods:[0,6]},up:{oil:1}},farm:{n:'Farm Estates',cost:{timber:10,goods:8},h:2,res:{food:[0.6,2]}}},
     bCost:(n,k)=>({...ctx.BUILDINGS[k].cost}),bHours:(n,k)=>ctx.BUILDINGS[k].h,cxBuildK:()=>1,cabFx:()=>({cost:1,build:1}),
-    clamp:(v,a,b)=>Math.max(a,Math.min(b,v)),c3CleanName:s=>s,CX_TRAITS:{},ldrOf:()=>[],esc:s=>String(s),
+    clamp:(v,a,b)=>Math.max(a,Math.min(b,v)),c3CleanName:s=>s,CX_TRAITS:{},ldrOf:()=>[],ldrWork:()=>[],esc:s=>String(s),
     list:a=>a.length<2?a.join(''):a.slice(0,-1).join(', ')+' and '+a[a.length-1],
     achM:(x,k,f)=>k in x.m?x.m[k]:(x.m[k]=f()),achYes:v=>v?1:0,achP:(l,ok)=>[l,!!ok],defs:{},cxUpgradable:k=>k==='factory'||k==='farm'};
   ctx.achDef=(c,id,t,n,d,g,f,o)=>{ctx.defs[id]={c,id,t,n,d,g,f,...(o||{})};};
