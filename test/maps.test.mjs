@@ -10,7 +10,7 @@ const data=bakeMaps(src),ids=mapKit(src,'meridian').ids;
 const page=(id,maps)=>mapKit(src,id,maps===undefined?{}:{__edictum:{maps}});
 
 test('the game builds its map from the baked file first and generates it only without one',()=>{
-  assert.match(src,/\nconst MAP=bakedMap\(\)\|\|\(REG_MER\?embedLegacy\(legacyMap\(\)\):genRegionMap\(REG\)\);\n/);
+  assert.match(src,/\nconst MAP=bakedMap\(\)\|\|\(REG_MER\?embedFrontier\(REG,embedLegacy\(legacyMap\(\)\)\):genRegionMap\(REG\)\);\n/);
   assert.equal(page('meridian').bakedMap(),null);
 });
 test('every region is baked',()=>{
@@ -66,7 +66,8 @@ test('a damaged table is worked out instead, and the map still comes from the ba
 });
 /* the tables roughly double the file (≈ 56 KB to ≈ 98 KB); it is cached for good and downloads beside the much larger
    game script, so it does not lengthen a first visit, and every visit then skips over half a second on a phone */
+/* the frontier (19 Nov 2026) put about a third more map in every region but Terra, and the budget with it */
 test('all the regions together stay a small download',()=>{
   const js=Buffer.from(mapsScript(data)),br=brotliCompressSync(js,{params:{[constants.BROTLI_PARAM_QUALITY]:11}}).length;
-  assert.ok(br<110*1024,`${br} bytes with brotli`);
+  assert.ok(br<135*1024,`${br} bytes with brotli`);
 });
