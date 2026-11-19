@@ -183,9 +183,27 @@ await inspect(uidR);
 check('the console shows the new name and no restriction', await until(async () => /Kindland/.test(await detail()) && /Moderation\s*No restrictions/.test(await detail())));
 await A.fill('#admin-note', 'Warned on 31 October about the name.\nBan if it happens again.');
 await A.click(`[data-act="admin-note-save"][data-id="${uidR}"]`);
-check('staff notes are saved', await until(async () => /Notes saved/.test(await detail()) && (await restListAdmin('staffNotes')).some(n => n.id === uidR && /Ban if it happens again/.test(n.fields.text.stringValue))));
+check('a staff note is added to the case file', await until(async () => /Note added/.test(await detail()) && (await restListAdmin('staffNotes')).some(n => n.id === uidR && /Ban if it happens again/.test(JSON.stringify(n.fields.entries)))));
+check('and the box is empty again, ready for the next note', await until(async () => await A.inputValue('#admin-note') === ''));
 await inspect(uidB); await inspect(uidR);
-check('and shown again on inspecting the player, with who saved them', await until(async () => await A.inputValue('#admin-note') === 'Warned on 31 October about the name.\nBan if it happens again.' && /Last saved .* by you/.test(await detail())));
+check('and shown again on inspecting the player, with who wrote it', await until(async () => /Ban if it happens again/.test(await detail()) && /·\s*you/.test(await detail())));
+/* a second note stands beside the first rather than replacing it */
+await A.fill('#admin-note', 'Looked again on 1 November: nothing since.');
+await A.click(`[data-act="admin-note-save"][data-id="${uidR}"]`);
+check('a second note joins the first, newest first', await until(async () => {
+  const d = await detail();
+  return /Looked again on 1 November/.test(d) && /Warned on 31 October/.test(d)
+    && d.indexOf('Looked again on 1 November') < d.indexOf('Warned on 31 October');
+}));
+/* the newest note is the first in the file; deleting it leaves the one before it */
+const noteId = await A.evaluate(() => document.querySelector('.adm-notes [data-act="admin-note-drop"]')?.dataset.e || '');
+await A.click(`[data-act="admin-note-drop"][data-e="${noteId}"]`);
+check('deleting a note asks first', await until(async () => /gone for good/.test(await detail())));
+await A.click(`[data-act="admin-note-drop-yes"][data-e="${noteId}"]`);
+check('and one note can be deleted without touching the other', await until(async () => {
+  const d = await detail();
+  return /The note was deleted/.test(d) && !/Looked again on 1 November/.test(d) && /Warned on 31 October/.test(d);
+}));
 check('the player cannot read them', await R.evaluate(async uid => { try { await (await window.claude.use('db')).doc('staffNotes/' + uid).get(); return false; } catch (e) { return e.code === 'not_granted'; } }, uidR));
 check('nor can an admin’s browser outside the console', await A.evaluate(async uid => { try { await (await window.claude.use('db')).doc('staffNotes/' + uid).get(); return false; } catch (e) { return e.code === 'not_granted'; } }, uidR));
 await A.screenshot({ path: OUT + '/admin-player-notes.png', fullPage: true });

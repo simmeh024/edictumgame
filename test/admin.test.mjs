@@ -243,7 +243,9 @@ test('a ban can have a term: it lifts itself when it runs out, and not a moment 
   const ban = await get('bans/' + p.uid);
   const until = Number(ban.fields.until.integerValue);
   assert.ok(until > Date.now() + 6 * 86400000 && until < Date.now() + 8 * 86400000, 'a week from now');
-  assert.ok((await call(a, { op: 'audit', target: p.uid })).events.some(e => e.action === 'ban' && /7 days/.test(e.reason)), 'the log says how long');
+  const banEvent = (await call(a, { op: 'audit', target: p.uid })).events.find(e => e.action === 'ban' && e.outcome === 'completed');
+  assert.equal(banEvent.reason, 'Spam', 'the reason stays the words the player was told');
+  assert.equal(banEvent.days, 7, 'the term is a field of its own');
   assert.equal((await call(a, { op: 'player', uid: p.uid })).banUntil, until);
   /* the player's own game asks for it to be lifted; the server checks the time and refuses while it still runs */
   assert.deepEqual(await call(p, { op: 'banExpired' }, 'accounts'), { lifted: false, banned: true, until });

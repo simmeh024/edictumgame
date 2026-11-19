@@ -181,9 +181,9 @@ async function pack(db, actor, data) {
     throw e;
   }
 }
-/* The staff's private notes on a player: one text per player in staffNotes/{uid} {text, at, by}, read and written
-   only here (the rules refuse every client) and never shown to the player. The audit log records each change, not
-   the text, so a note is gone for good when it is cleared or the player deletes their account (functions/accounts.js). */
+/* The staff's private notes on a player, in staffNotes/{uid}: read and written only here (the rules refuse every
+   client) and never shown to the player. The audit log records each change, not the words, so a note is gone for
+   good when it is deleted or the player deletes their account (functions/accounts.js). */
 const NOTE_MAX = 4000, NOTES_KEEP = 60;
 /* A case file, not one text: each note is an entry of its own {id, t, by, text}, so two admins reading the same player
    never write over each other, and what was said stays beside who said it and when. The newest is first; the oldest
@@ -414,8 +414,9 @@ async function mutate(db, actor, data) {
   if (['hide', 'rename', 'remove', 'ban'].includes(action) && target === actor) throw new HttpsError('failed-precondition', 'You cannot moderate your own account.');
   /* how long a ban lasts: a whole number of days from the list, or 0 for until an admin lifts it */
   const days = action === 'ban' && Number.isInteger(data.days) && BAN_DAYS.includes(data.days) ? data.days : 0;
+  /* the term goes in a field of its own: `reason` stays the words the player was told, which the log is read for */
   const event = db.collection('adminAudit').doc();
-  const common = { actor, action, target, reason: action === 'ban' ? reason + (days ? ` · ${days} ${days === 1 ? 'day' : 'days'}` : ' · until lifted') : reason, operation: event.id };
+  const common = { actor, action, target, reason, operation: event.id, ...(action === 'ban' ? { days } : {}) };
   // Record intent before a multi-document cleanup, and its outcome separately, so a partial failure is visible.
   await event.create({ ...common, outcome: 'started', at: FieldValue.serverTimestamp() });
   try {
