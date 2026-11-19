@@ -517,10 +517,10 @@ test('Community Board: a nation’s board profile counts its posts and carries i
   const old=db.collection('cb/meridian/posts').doc();await old.set({a:a.uid,nm:a.uid,rg:'meridian',ti:'Older',x:'x',tg:'general',t:1,la:1,rc:1});
   await old.collection('posts').doc().set({a:a.uid,nm:a.uid,rg:'meridian',x:'An older reply',t:2});
   await db.doc('shop/'+a.uid).set({owns:{founder:Date.now()},vip:{until:Date.now()+DAY}});
-  await db.doc('alliances/al-'+a.uid).set({name:'The Iron Pact',col:'#aa3311',reg:'meridian',mem:{[a.uid]:{t:1}}});await db.doc('allyOf/'+a.uid).set({a:'al-'+a.uid,reg:'meridian',t:1});
+  await db.doc('alliances/al-'+a.uid).set({name:'The Iron Pact',tg:'IP1',col:'#aa3311',reg:'meridian',mem:{[a.uid]:{t:1}}});await db.doc('allyOf/'+a.uid).set({a:'al-'+a.uid,reg:'meridian',t:1});
   const t=await civic(a,{op:'cbTopic',reg:'meridian',ti:'My profile',x:'Hello',rk:7});
   let u=(await db.doc('cbUser/'+a.uid).get()).data();
-  assert.equal(u.n,3);assert.equal(u.rk,7);assert.deepEqual(u.al,{n:'The Iron Pact',c:'#AA3311'});assert.equal(u.cl,true);assert.equal(u.fd,true);assert.equal(u.nm,a.uid);assert.equal(u.rg,'meridian');
+  assert.equal(u.n,3);assert.equal(u.rk,7);assert.deepEqual(u.al,{n:'The Iron Pact',c:'#AA3311',t:'IP1'});assert.equal(u.cl,true);assert.equal(u.fd,true);assert.equal(u.nm,a.uid);assert.equal(u.rg,'meridian');
   await db.doc('cbPace/'+a.uid).delete();await db.doc('allyOf/'+a.uid).delete();await db.doc('shop/'+a.uid).set({owns:{founder:1}});
   const r=await civic(a,{op:'cbReply',reg:'meridian',topic:t.id,x:'Again',rk:500});
   u=(await db.doc('cbUser/'+a.uid).get()).data();assert.equal(u.n,4);assert.equal(u.rk,undefined);assert.equal(u.al,undefined);assert.equal(u.cl,undefined);assert.equal(u.fd,true);
@@ -587,11 +587,19 @@ test('Alliances: founded by a Registered Nation of 10 million, joined on request
   assert.equal((await db.doc('allyOf/' + f.uid).get()).get('a'), aid);
   await rejects(civic(g, { op: 'alFound', name: name.toUpperCase() }), 'al_name');
   await rejects(civic(f, { op: 'alFound', name: name + ' II' }), 'al_member');
+  /* the short code: 2 to 4 letters or numbers, kept in capitals, one per region; only the leader sets it */
+  for (const tg of ['X', 'ABCDE', 'A-B', 'É1', 'A B']) await assert.rejects(civic(f, { op: 'alEdit', aid, tg }), e => e.status === 'INVALID_ARGUMENT' && /2 to 4 letters/.test(e.message), tg);
+  assert.equal((await allianceOf(aid)).tg, undefined, 'a refused code leaves none');
+  await civic(f, { op: 'alEdit', aid, tg: ' p7 ' });
+  assert.equal((await allianceOf(aid)).tg, 'P7');
+  await rejects(civic(g, { op: 'alFound', name: 'Coded ' + crypto.randomUUID().slice(0, 8), tg: 'p7' }), 'al_tag');
   /* founding opens at 7.5 million */
   await db.doc('nations/' + g.uid).update({ pop: 7.4 });
   await rejects(civic(g, { op: 'alFound', name: 'Too small' }), 'al_small');
   await db.doc('nations/' + g.uid).update({ pop: 7.5 });
-  const big = await civic(g, { op: 'alFound', name: 'Just big enough ' + crypto.randomUUID().slice(0, 8) });
+  const big = await civic(g, { op: 'alFound', name: 'Just big enough ' + crypto.randomUUID().slice(0, 8), tg: 'jb75' });
+  assert.equal((await allianceOf(big.aid)).tg, 'JB75', 'a code given when founding is kept');
+  await rejects(civic(f, { op: 'alEdit', aid, tg: 'JB75' }), 'al_tag');
   await civic(g, { op: 'alLeave', aid: big.aid, disband: true });
   /* asking: a note waits for an officer; a guest may ask too */
   await civic(b, { op: 'alRequest', aid, x: 'We share a river.' });
@@ -614,6 +622,12 @@ test('Alliances: founded by a Registered Nation of 10 million, joined on request
   await rejects(civic(f, { op: 'alRequest', aid }), 'al_closed');
   await civic(b, { op: 'alInvite', aid, id: f.uid });
   assert.equal((await civic(f, { op: 'alRequest', aid })).joined, true);
+  /* the new leader keeps the code, or clears it for the initials; a member (the old leader, back) cannot change it */
+  assert.equal((await allianceOf(aid)).tg, 'P7');
+  await assert.rejects(civic(f, { op: 'alEdit', aid, tg: 'CC' }), e => e.status === 'PERMISSION_DENIED' && /leader/.test(e.message));
+  assert.equal((await allianceOf(aid)).tg, 'P7');
+  await civic(b, { op: 'alEdit', aid, tg: '' });
+  assert.equal((await allianceOf(aid)).tg, '');
   /* the type changes once a week */
   await civic(b, { op: 'alEdit', aid, ty: 'def' });
   await rejects(civic(b, { op: 'alEdit', aid, ty: 'research' }), 'al_type_wait');
@@ -1320,14 +1334,14 @@ test('World chat: every nation writes in it from its own region, the line carryi
   await record(m,{flag:{c:['#112233','#445566'],p:'h2'}});
   await db.doc('shop/'+m.uid).set({owns:{founder:true}});
   const aid='alw'+m.uid.slice(0,8);
-  await db.doc('alliances/'+aid).set({name:'The Northern Accord',col:'#3366cc',mem:{[m.uid]:{r:'l'}}});
+  await db.doc('alliances/'+aid).set({name:'The Northern Accord',tg:'NA4',col:'#3366cc',mem:{[m.uid]:{r:'l'}}});
   await db.doc('allyOf/'+m.uid).set({a:aid});
   const a=await civic(m,{op:'rcPost',reg:'world',x:'Hello, every region!',rk:7,nm:'Forged',rg:'gilded',a:'forged',st:'admin'});
   assert.equal(a.reg,'world');
   const L=(await db.doc('rchat/world/chat/'+a.id).get()).data();
   assert.equal(L.a,m.uid);assert.equal(L.nm,m.uid);assert.equal(L.x,'Hello, every region!');assert.equal(L.st,undefined);
   assert.equal(L.rg,'meridian');assert.equal(L.rk,7);assert.equal(L.fd,true);
-  assert.deepEqual(L.al,{n:'The Northern Accord',c:'#3366CC'});assert.deepEqual(JSON.parse(L.fl),{c:['#112233','#445566'],p:'h2'});
+  assert.deepEqual(L.al,{n:'The Northern Accord',c:'#3366CC',t:'NA4'});assert.deepEqual(JSON.parse(L.fl),{c:['#112233','#445566'],p:'h2'});
   assert.ok(L.exp.toMillis()>Date.now()+29*DAY);
   // from the Frostmarch, into the same chat: no marks it does not have, and a rank out of bounds is left out
   const b=await civic(f,{op:'rcPost',reg:'world',x:'Greetings from the north.',rk:500});
