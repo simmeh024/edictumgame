@@ -83933,9 +83933,13 @@ document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closes
 document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-act="sg-tab"]');if(!el||!SG.q)return;SG.q='';const i=document.getElementById('sg-q');if(i)i.value='';sgFilter(document);},true);
 tutGo=(f=>function(v,b,to){if(v==='settings'&&to){SG.jump=true;SG.home=false;SG.q='';}return f.apply(this,arguments);})(tutGo);
 uxOpen=(f=>function(view,setup,target){if(view==='settings'&&typeof target==='string'&&target){SG.jump=true;SG.home=false;SG.q='';}return f.apply(this,arguments);})(uxOpen);
-uxHashView=(f=>function(h){const r=f.apply(this,arguments);if(h==='settings'){SG.home=!ML_LINK;SG.jump=true;}else if(/^settings\/\w+$/.test(h||'')){SG.home=false;SG.jump=true;}return r;})(uxHashView);
+/* an address that names Settings decides the list or a tab itself; the mark lasts only for the drawing it starts,
+   so a later tap on Settings in the menu opens the list again */
+uxHashView=(f=>function(h){const r=f.apply(this,arguments),mark=()=>{SG.jump=true;setTimeout(()=>{SG.jump=false;},0);};
+  if(h==='settings'){SG.home=!ML_LINK;mark();}else if(/^settings\/\w+$/.test(h||'')){SG.home=false;mark();}return r;})(uxHashView);
 go=(f=>function(v){
-  if(v==='settings'&&S.view!=='settings'&&!SG.jump){SG.home=true;SG.q='';}SG.jump=false;
+  /* opening Settings from the menu starts at the list; on a phone, so does tapping Settings again while in a tab */
+  if(v==='settings'&&!SG.jump&&(S.view!=='settings'||(sgNarrow()&&!SG.home))){SG.home=true;SG.q='';}SG.jump=false;
   const r=f.apply(this,arguments);if(SG.leave&&SG.home){SG.home=false;render();}return r;})(go);
 sgShow=(f=>function(t){if(SG_TABS.some(x=>x[0]===t)){SG.home=false;const w=document.getElementById('sg');if(w)w.dataset.home='';}return f.apply(this,arguments);})(sgShow);
 sgSetTab=(f=>function(t){
