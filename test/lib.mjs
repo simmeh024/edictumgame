@@ -199,13 +199,18 @@ export async function googlePopup(p, clickSelector, email) {
   }
   await pop.waitForEvent('close', { timeout: 10000 }).catch(() => {});
 }
-/* a notice can come down over the account button just then (a medal from the museum, seen in the core suite on 13 Nov
-   2026), and a notice stays while the pointer is on it, so the click would wait behind it for good: close it and try again */
-export const openAccount = async p => {
+/* a notice can come down over a button just as it is clicked (a medal from the museum over the account button, seen in
+   the core suite on 13 Nov 2026; a museum piece or a prestige rank over the board's Post reply, 19 Nov 2026), and a
+   notice stays while the pointer is on it, the next one waiting behind it, so the click would wait for good: close the
+   notice, move the pointer off it and try again */
+export const clickPast = async (p, sel) => {
   for (let i = 0; ; i++) {
-    try { await p.click('.ed-acct-b', { timeout: i < 6 ? 4000 : 30000 }); break; }
-    catch (e) { if (i >= 6) throw e; await p.locator('#toast .toast-x').first().click({ timeout: 2000 }).catch(() => {}); }
+    try { await p.click(sel, { timeout: i < 6 ? 4000 : 30000 }); return; }
+    catch (e) { if (i >= 6) throw e; await p.locator('#toast .toast-x').first().click({ timeout: 2000 }).catch(() => {}); await p.mouse.move(2, 2).catch(() => {}); }
   }
+};
+export const openAccount = async p => {
+  await clickPast(p, '.ed-acct-b');
   await p.waitForSelector('dialog.ed-dlg[open]');
 };
 
