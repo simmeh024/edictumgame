@@ -6049,6 +6049,45 @@ a.adm-pill:focus-visible{outline:2px solid var(--stamp);outline-offset:2px}
 .adm-tl li{padding:4px 0 4px 12px;overflow-wrap:anywhere}.adm-tl time{font-size:12px;opacity:.75;margin-right:8px}
 .adst-pick{display:flex;flex-wrap:wrap;align-items:end;gap:12px;margin:18px 0 6px}
 .adst-pick .field{flex:0 1 280px;margin:0}
+/* ── the portal, round two: how old the page is, what an action would take, the case file, the queue, balance ── */
+.adm-fresh{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:0 0 14px;font-size:12.5px;color:var(--ink-2)}
+.adm-fresh .adm-dot{width:7px;height:7px;border-radius:50%;background:var(--ok,#1f7a46);flex:none}
+.adm-fresh.stale .adm-dot{background:var(--ink-2)}
+.adm-skel{display:grid;gap:8px;margin:14px 0}
+.adm-skel i{display:block;height:14px;border-radius:3px;background:linear-gradient(90deg,var(--rule-2) 25%,var(--sheet) 50%,var(--rule-2) 75%);background-size:200% 100%;animation:adm-sheen 1.4s linear infinite}
+.adm-skel i:nth-child(3n){width:72%}.adm-skel i:nth-child(3n+2){width:88%}
+@keyframes adm-sheen{to{background-position:-200% 0}}
+@media (prefers-reduced-motion:reduce){.adm-skel i{animation:none}}
+.adm-imp{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.adm-imp span{padding:3px 8px;border:1px solid var(--rule);border-radius:999px;font-size:12.5px;background:var(--sheet);font-variant-numeric:tabular-nums}
+.adm-imp span b{font-weight:600}
+.adm-why{display:grid;gap:6px;margin:8px 0}
+.adm-why select,.adm-why input{max-width:100%}
+.adm-notes{list-style:none;margin:10px 0;padding:0;display:grid;gap:10px;max-height:420px;overflow:auto}
+.adm-note{padding:8px 10px;border:1px solid var(--rule);border-radius:4px;background:var(--sheet)}
+.adm-note p{margin:0 0 4px}
+.adm-note-x{white-space:pre-wrap;overflow-wrap:anywhere}
+.adm-tri{list-style:none;margin:14px 0;padding:0;display:grid;gap:10px}
+.adm-tri li{padding:12px 14px;border:1px solid var(--rule);border-radius:4px;background:var(--sheet);border-left:3px solid var(--rule-2)}
+.adm-tri li.old{border-left-color:var(--down,#b3261e)}
+.adm-tri li.cur{outline:2px solid var(--ink);outline-offset:1px}
+.adm-tri-h{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px;margin:0 0 6px}
+.adm-tri-h b{overflow-wrap:anywhere}
+.adm-tri-age{margin-left:auto;font-size:12.5px;color:var(--ink-2);font-variant-numeric:tabular-nums}
+.adm-rep-t{margin:8px 0;padding:8px 0 0;border-top:1px solid var(--rule-2)}
+.adm-rep-t:first-of-type{border-top:0;padding-top:0}
+.adm-rep.cur{outline:2px solid var(--ink);outline-offset:2px}
+.adm-rep.old{border-left:3px solid var(--down,#b3261e)}
+.adm-keys{margin:10px 0;font-size:12.5px;color:var(--ink-2)}
+.adm-keys kbd{font:600 11px var(--f-mono);border:1px solid var(--rule);border-bottom-width:2px;border-radius:3px;padding:1px 5px;margin:0 2px}
+.adm-bal{display:grid;gap:4px;margin:10px 0 18px}
+.adm-bal-row{display:grid;grid-template-columns:minmax(120px,1.4fr) minmax(0,3fr) 72px;align-items:center;gap:10px;font-size:13px}
+.adm-bal-row .adm-bal-n{text-align:right;font-variant-numeric:tabular-nums;color:var(--ink-2)}
+.adm-bal-bar{height:12px;border-radius:2px;background:var(--rule-2);overflow:hidden}
+.adm-bal-bar i{display:block;height:100%;background:var(--ink-2)}
+.adm-bal-opts{display:flex;flex-wrap:wrap;gap:4px;margin-top:3px}
+.adm-bal-opts span{font-size:11.5px;padding:1px 6px;border:1px solid var(--rule);border-radius:999px;font-variant-numeric:tabular-nums}
+@media (max-width:700px){.adm-bal-row{grid-template-columns:minmax(0,1fr) 64px;gap:6px}.adm-bal-bar{grid-column:1/-1}}
 /* the Note Studio (cstOpen): one screen, over the page */
 html.cst-on{overflow:hidden}
 .cst{position:fixed;inset:0;z-index:50;background:var(--paper);color:var(--ink);display:grid;grid-template-rows:auto minmax(0,1fr) auto;gap:8px;padding:calc(8px + env(safe-area-inset-top,0px)) max(10px,env(safe-area-inset-right,0px)) calc(8px + env(safe-area-inset-bottom,0px)) max(10px,env(safe-area-inset-left,0px));font-size:13px}
@@ -51373,7 +51412,9 @@ function isStaff(id){return !!id&&((id===S.uid&&!!(S.isOwner||S.isMod)&&!PV)||!!
 function isModId(id){return !!id&&((id===S.uid&&!!S.isMod&&!PV)||!!(S.staffMod&&S.staffMod.has(id)));}
 function staffPillOf(id){return isModId(id)?MOD_PILL:STAFF_PILL;}
 function portalOk(v){return !!S.isOwner||!!S.isMod&&MOD_VIEWS.includes(v);}
-const MOD_VIEWS=['admin-reports','admin-chat'];
+/* a moderator's portal: the queue of what needs them, the reports, every region's chat, and the player behind a report
+   (functions/admin.js, modPlayer: the nation and its history, never the account behind it) */
+const MOD_VIEWS=['admin-triage','admin-reports','admin-chat','admin-players'];
 const STAFF_PILL='<span class="staff-pill" title="A member of the Edictum team"><svg viewBox="0 0 12 14" aria-hidden="true"><path d="M6 .8 11 2.7v3.9c0 3.1-2.1 5.6-5 6.6-2.9-1-5-3.5-5-6.6V2.7Z" fill="currentColor"/><path d="m3.6 7 1.7 1.7 3.2-3.4" fill="none" stroke="var(--stamp)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Edictum staff</span>';
 const MOD_PILL='<span class="staff-pill mod" title="A moderator of Edictum"><svg viewBox="0 0 12 14" aria-hidden="true"><path d="M6 .8 11 2.7v3.9c0 3.1-2.1 5.6-5 6.6-2.9-1-5-3.5-5-6.6V2.7Z" fill="currentColor"/><path d="m3.6 7 1.7 1.7 3.2-3.4" fill="none" stroke="#1f7a46" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Edictum Moderator</span>';
 function heroStamps(n,id){
@@ -53336,11 +53377,14 @@ function toast(msg){
 }
 /* the address shows a page's player-facing name where it differs from its internal one (#edicts, not #issues) */
 const VIEW_HASH={issues:'edicts'},HASH_VIEW={edicts:'issues'};
+/* a view whose address carries what it is looking at, so it can be linked to and Back returns to where it was. Each
+   entry gives the hash for the view as it stands now; uxHashView reads them back. */
+const VIEW_HASH_FN={};
 function go(v){
   uxBeforeNavigation(v);
   S.mpMode='';S.mpRemove=null;S.lsw=null;
   S.rewardHash=location.hash;
-  try{const hv=v==='visit'?'visit/'+encodeURIComponent(S.visit||''):VIEW_HASH[v]||v;if(!S.noPush&&(location.hash||'').slice(1)!==hv)history.pushState(null,'','#'+hv);}catch(e){}S.noPush=false;
+  try{const hv=v==='visit'?'visit/'+encodeURIComponent(S.visit||''):VIEW_HASH_FN[v]?VIEW_HASH_FN[v]():VIEW_HASH[v]||v;if(!S.noPush&&(location.hash||'').slice(1)!==hv)history.pushState(null,'','#'+hv);}catch(e){}S.noPush=false;
   S.view=v;S.atlasPlay=false;if(v!=='explore')S.siteEdit=null;S.openIssue=null;S.result=null;S.confirmDissolve=false;S.mapMsg='';S.warMsg='';S.confirmWar=null;S.mapTarget=null;S.confirmLeave=false;S.alMsg='';S.tradeMsg='';S.cityMsg='';S.confirmDemo=null;S.cabPick=null;S.cabMsg='';S.gamesMsg='';S.mapClaim=null;S.msgErr='';if(v==='stats'&&!S.statsKeep){S.statsFor=null;S.statsTab=stTabLast();}S.statsKeep=false;S.loreEdit=false;
   if(v==='settings'&&(!S.settings||!settingsDirty()))S.settings=settingsFrom(S.nation);
   render();
@@ -53701,7 +53745,7 @@ function tick(){
 const ADM={at:0,busy:false,err:'',d:null,act:'',ask:null};
 const ADM_PAGES=['admin','admin-regions','admin-reports','admin-hidden','admin-bans'];
 const ADM_EXTRA=['admin-players','admin-online','admin-alliances','admin-health','admin-audit'];
-const ADM_VIEWS=ADM_PAGES.concat('admin-notes','admin-help','admin-sus','admin-edicts','admin-stats','admin-shop',ADM_EXTRA);
+const ADM_VIEWS=ADM_PAGES.concat('admin-notes','admin-help','admin-sus','admin-edicts','admin-stats','admin-shop','admin-triage','admin-balance',ADM_EXTRA);
 const REPORT_WHY={name:'Offensive name, motto or flag',content:'Offensive content',harassment:'Harassment or bullying',spam:'Spam or advertising',cheating:'Cheating',other:'Something else'};
 /* what a moderator decided about this player: a hidden nation's owner is told once per visit (the nation
    stays theirs to play); a removed nation leaves this browser too */
@@ -53836,25 +53880,45 @@ function adminView(v='admin'){
     <p class="hint" style="margin-top:22px">How many players are guests and how many linked a sign-in, how they come back and what they use: <button type="button" class="linkish" data-act="adm-tab" data-v="admin-stats">see Statistics</button>.</p>`:''}`}
   `);
 }
+/* What a reported thing is called, for the chip above a ticket and the words in its confirmation */
+const admRepKind=r=>{const p=r.post||'';return r.kind!=='post'?(r.kind==='letter'?'Letter':'Nation')
+  :/^news:/.test(p)?'News comment':/^cb:/.test(p)?'Community Board':/^ad:/.test(p)?'Classified ad':/^flk:/.test(p)?'Flock peep':/^rc:world:/.test(p)?'World chat':/^rc:/.test(p)?'Region chat':'Post';};
+const admRepThing=r=>{const p=r.post||'';return /^news:/.test(p)?'news comment':/^cb:/.test(p)?'Community Board message':/^ad:/.test(p)?'classified advertisement':/^flk:/.test(p)?'Flock peep':/^rc:world:/.test(p)?'world chat line':/^rc:/.test(p)?'region chat line':'post';};
+/* The report queue, one case per nation. Several players reporting the same nation is one decision, not five, so the
+   tickets about it stand together and the nation's actions are taken once; closing the case closes all of them. The
+   keys below work the open case (admKeys), and every action still asks first — one stray click used to remove a post
+   or hide a nation at once. */
 function admReports(list){
-  const n=list?list.length:0;
-  /* every action on a ticket asks first: one stray click used to remove a post or hide a nation at once */
-  const ask=r=>{const q=ADM.ask;if(!q||q.id!==r.id)return '';const nm=`<b>${esc(r.name||'this nation')}</b>`,what=/^news:/.test(r.post||'')?'news comment':/^cb:/.test(r.post||'')?'Community Board message':/^ad:/.test(r.post||'')?'classified advertisement':/^flk:/.test(r.post||'')?'Flock peep':/^rc:world:/.test(r.post||'')?'world chat line':/^rc:/.test(r.post||'')?'region chat line':'post';
+  const n=list?list.length:0,now=Date.now();
+  const groups=[],by=new Map();
+  for(const r of list||[]){const k=r.target||r.id;let g=by.get(k);if(!g){g={target:k,name:r.name,reg:r.reg,rows:[],old:0};by.set(k,g);groups.push(g);}
+    g.rows.push(r);g.old=Math.max(g.old,now-(r.t||now));if(!g.name&&r.name)g.name=r.name;}
+  if(ADMR.pick>=groups.length)ADMR.pick=Math.max(0,groups.length-1);
+  const ask=(g,r)=>{const q=ADM.ask;if(!q||q.id!==r.id)return '';const nm=`<b>${esc(g.name||'this nation')}</b>`,what=admRepThing(r);
+    const more=g.rows.length>1?` Its other ${g.rows.length-1} ${g.rows.length===2?'ticket':'tickets'} stay open.`:'';
     const t={'adm-ban':[`Ban the player of ${nm}? Their nation and posts are deleted and the account can no longer play. A guest can come back by clearing their browser; a linked account cannot.`,'Yes, ban'],
       'adm-remove':[`Remove ${nm} for good? The nation and its posts are deleted; the player may found a new one.`,'Yes, remove'],
-      'adm-delpost':[`Remove this ${what} by ${nm}? It is deleted for everyone, and the ticket is closed.`,'Yes, remove the '+what.split(' ').pop()],
-      'adm-hide':[`Hide ${nm} from the other players? Its player still plays it and is told why. You can show it again under Hidden nations. The ticket is closed.`,'Yes, hide it'],
-      'adm-rename':[`Ask the player of ${nm} for a new name? The nation is hidden from the other players until they choose one. The ticket is closed.`,'Yes, ask for a new name']}[q.a];
+      'adm-delpost':[`Remove this ${what} by ${nm}? It is deleted for everyone, and this ticket is closed.${more}`,'Yes, remove the '+what.split(' ').pop()],
+      'adm-hide':[`Hide ${nm} from the other players? Its player still plays it and is told why. You can show it again under Hidden nations. This ticket is closed.${more}`,'Yes, hide it'],
+      'adm-rename':[`Ask the player of ${nm} for a new name? The nation is hidden from the other players until they choose one. This ticket is closed.${more}`,'Yes, ask for a new name']}[q.a];
     if(!t)return '';
-    return `<div class="adm-ask"><p>${t[0]}</p>
+    /* what the action would take with it, the words the player is told, and, for a ban, how long it lasts */
+    return `<div class="adm-ask"><p>${t[0]}</p>${admImpactBox(g.target,q.a)}${admWhyBox(q.a,admReportWhy(r))}
       <div class="row"><button class="btn danger small" data-act="${q.a}-yes" data-id="${esc(r.id)}">${t[1]}</button><button class="btn ghost small" data-act="adm-ask-no">Cancel</button></div></div>`;};
+  const ticket=(g,r)=>`<div class="adm-rep-t"><p class="adm-rep-h"><span class="chip">${admRepKind(r)}</span> ${esc(REPORT_WHY[r.reason]||r.reason)} · ${esc(rel(r.t))}</p>
+    ${r.x?`<blockquote class="adm-quote">${esc(String(r.x).slice(0,2500))}</blockquote>`:''}${r.note?`<p class="hint">The reporter adds: “${esc(r.note)}”</p>`:''}
+    <div class="row">${r.kind==='post'&&r.post?`<button class="btn small" data-act="adm-delpost" data-id="${esc(r.id)}">${/^flk:/.test(r.post||'')?'Remove the peep':/^rc:/.test(r.post||'')?'Remove the line':'Remove the post'}</button>`:''}<button class="btn ghost small" data-act="adm-close" data-id="${esc(r.id)}">Close ticket</button></div>${ask(g,r)}</div>`;
+  const caseOf=(g,i)=>{const hid=!!(S.mod&&S.mod[g.target]&&S.mod[g.target].hidden),first=g.rows[0],only=g.rows.length===1;
+    return `<li class="adm-rep${i===ADMR.pick?' cur':''}${g.old>DAY?' old':''}" data-adm-case="${esc(g.target)}">
+      <p class="adm-rep-h"><b>${esc(g.name||'A nation')}</b> · ${esc(regName(g.reg))} <span class="adm-tri-age">${only?esc(rel(first.t)):`${g.rows.length} tickets · oldest ${esc(rel(now-g.old))}`}</span></p>
+      ${g.rows.map(r=>ticket(g,r)).join('')}
+      <div class="row">${!S.isOwner?'':`${hid?`<span class="hint">${S.mod[g.target].rename?'Hidden until its player chooses a new name.':'Hidden from other players.'}</span>`:`<button class="btn ghost small" data-act="adm-hide" data-id="${esc(first.id)}">Hide the nation</button>${first.kind==='post'||first.kind==='letter'?'':`<button class="btn ghost small" data-act="adm-rename" data-id="${esc(first.id)}">Ask for a new name</button>`}`}<button class="btn ghost small" data-act="adm-remove" data-id="${esc(first.id)}">Remove the nation</button><button class="btn ghost small adm-danger" data-act="adm-ban" data-id="${esc(first.id)}">Ban the player</button>`}
+        ${only?'':`<button class="btn ghost small" data-act="adm-close-all" data-id="${esc(g.target)}">Close all ${g.rows.length}</button>`}<button class="btn ghost small" data-act="admin-inspect" data-id="${esc(g.target)}">Inspect player</button></div></li>`;};
   return `<h2 class="h2">Report queue${n?` <span class="chip">${n}</span>`:''}</h2>
     ${ADM.act?`<p class="hint">${esc(ADM.act)}</p>`:''}
     ${list==null?'<p class="err">The reports could not be loaded.</p>':!n?'<p class="hint">No open reports. When a player reports a post or a nation, a ticket appears here. Support tickets are under Help queries.</p>':
-    `<ul class="adm-reps">${list.map(r=>{const post=r.kind==='post',hid=!!(S.mod&&S.mod[r.target]&&S.mod[r.target].hidden);
-      return `<li class="adm-rep"><p class="adm-rep-h"><span class="chip">${post&&/^news:/.test(r.post||'')?'News comment':post&&/^cb:/.test(r.post||'')?'Community Board':post&&/^ad:/.test(r.post||'')?'Classified ad':post&&/^flk:/.test(r.post||'')?'Flock peep':post&&/^rc:world:/.test(r.post||'')?'World chat':post&&/^rc:/.test(r.post||'')?'Region chat':post?'Post':r.kind==='letter'?'Letter':'Nation'}</span> <b>${esc(r.name||'A nation')}</b> · ${esc(regName(r.reg))} · ${esc(REPORT_WHY[r.reason]||r.reason)} · ${esc(rel(r.t))}</p>
-        ${r.x?`<blockquote class="adm-quote">${esc(String(r.x).slice(0,2500))}</blockquote>`:''}${r.note?`<p class="hint">The reporter adds: “${esc(r.note)}”</p>`:''}
-        <div class="row">${post&&r.post?`<button class="btn small" data-act="adm-delpost" data-id="${esc(r.id)}">${/^flk:/.test(r.post||'')?'Remove the peep':/^rc:/.test(r.post||'')?'Remove the line':'Remove the post'}</button>`:''}${!S.isOwner?'':`${hid?`<span class="hint">${S.mod[r.target].rename?'Hidden until its player chooses a new name.':'Hidden from other players.'}</span>`:`<button class="btn ghost small" data-act="adm-hide" data-id="${esc(r.id)}">Hide the nation</button>${post||r.kind==='letter'?'':`<button class="btn ghost small" data-act="adm-rename" data-id="${esc(r.id)}">Ask for a new name</button>`}`}<button class="btn ghost small" data-act="adm-remove" data-id="${esc(r.id)}">Remove the nation</button><button class="btn ghost small adm-danger" data-act="adm-ban" data-id="${esc(r.id)}">Ban the player</button>`}<button class="btn ghost small" data-act="adm-close" data-id="${esc(r.id)}">Close ticket</button>${S.isOwner?`<button class="btn ghost small" data-act="admin-inspect" data-id="${esc(r.target)}">Inspect player</button>`:''}</div>${ask(r)}</li>`;}).join('')}</ul>`}`;
+    `${groups.length<n?`<p class="hint">${n} tickets about ${groups.length} ${groups.length===1?'nation':'nations'}.</p>`:''}${admKeysHint()}
+     <ul class="adm-reps">${groups.map(caseOf).join('')}</ul>`}`;
 }
 function admHidden(){
   const ids=Object.keys(S.mod||{}).filter(id=>S.mod[id].hidden);
@@ -53866,12 +53930,13 @@ function admBanned(list){
     `<ul class="adm-reps">${list.map(b=>`<li class="adm-rep"><p class="adm-rep-h"><b>${esc(b.name||'A player')}</b> · player ID <code>${esc(b.id)}</code>${b.t?` · banned ${esc(rel(Number(b.t)))}`:''}</p>${b.note?`<p class="hint">${esc(b.note)}</p>`:''}<div class="row"><button class="btn ghost small" data-act="adm-unban" data-id="${esc(b.id)}">Unban</button><button class="btn ghost small" data-act="admin-inspect" data-id="${esc(b.id)}">Inspect player</button></div></li>`).join('')}</ul>`}`;
 }
 /* removing a nation: its posts everywhere, its records, and word to its owner's browser (mod/<uid>.removed) */
-async function admRemove(uid,note,name,ban){
-  await adminRequest({op:'moderate',action:ban?'ban':'remove',target:uid,reason:note,name});
+async function admRemove(uid,note,name,ban,days){
+  await adminRequest({op:'moderate',action:ban?'ban':'remove',target:uid,reason:note,name,...(ban&&days?{days}:{})});
 }
 async function admAct(a,id){
   const r=ADM.d&&ADM.d.reports&&ADM.d.reports.find(x=>x.id===id);
-  const why=r?(REPORT_WHY[r.reason]||'Reported')+(r.note?': '+r.note:'')+'.':'';
+  /* what the ticket says, unless the admin wrote or picked something else in the box */
+  const why=(ADMR.why.trim()||admReportWhy(r)),days=ADMR.days;
   ADM.ask=null;
   try{
     if((a==='adm-delpost'||a==='adm-hide'||a==='adm-rename')&&r){ADM.ask={a,id};ADM.act='';render();return;}
@@ -53879,7 +53944,7 @@ async function admAct(a,id){
     else if(a==='adm-hide-yes'&&r){await adminRequest({op:'moderate',action:'hide',target:r.target,report:id,reason:why,name:r.name});ADM.act=`${r.name||'The nation'} is hidden from other players and the ticket closed.`;}
     else if(a==='adm-rename-yes'&&r){await adminRequest({op:'moderate',action:'rename',target:r.target,report:id,reason:why,name:r.name});ADM.act=`${r.name||'The nation'} is hidden until its player chooses a new name, and the ticket closed.`;}
     else if((a==='adm-remove'||a==='adm-ban')&&r){ADM.ask={a,id};ADM.act='';render();return;}
-    else if((a==='adm-remove-yes'||a==='adm-ban-yes')&&r){const ban=a==='adm-ban-yes';await admRemove(r.target,why,String(r.name||'').slice(0,80),ban);ADM.act=ban?`The player of ${r.name||'that nation'} is banned, the nation removed and its tickets closed.`:`${r.name||'The nation'} was removed and its tickets closed.`;}
+    else if((a==='adm-remove-yes'||a==='adm-ban-yes')&&r){const ban=a==='adm-ban-yes';await admRemove(r.target,why,String(r.name||'').slice(0,80),ban,days);ADM.act=ban?`The player of ${r.name||'that nation'} is banned${admDaysWord(days)}, the nation removed and its tickets closed.`:`${r.name||'The nation'} was removed and its tickets closed.`;}
     else if(a==='adm-close'&&r){await adminRequest({op:'moderate',action:'close_report',target:id,reason:'Closed moderation report'});ADM.act='The ticket was closed.';}
     else if(a==='adm-unhide'){await adminRequest({op:'moderate',action:'unhide',target:id,reason:'Restored nation visibility'});ADM.act='The nation is visible again.';}
     else if(a==='adm-unban'){await adminRequest({op:'moderate',action:'unban',target:id,reason:'Lifted account ban'});ADM.act='The player is no longer banned.';}
@@ -54076,15 +54141,16 @@ function admShell(v,body){
     <dialog id="adm-menu" class="adm-sidebar" role="${ADM_MOBILE.matches?'dialog':'complementary'}" aria-label="Admin navigation"${ADM_MOBILE.matches?'':' open'}>
       <div class="adm-brand"><span class="wordmark">Edictum</span>${S.isOwner?'<span class="adm-pill">Admin</span>':'<span class="adm-pill mod">Mod</span>'}<button type="button" class="btn ghost small adm-menu-close" data-act="adm-menu-close" aria-label="Close admin menu">Close</button></div>
       <nav class="adm-nav" aria-label="Admin portal">
+        ${group('Today',tab('admin-triage','Needs attention',triCount()))}
         ${!S.isOwner?group('Moderation',tab('admin-reports','Reports',ADM.d&&ADM.d.reports&&ADM.d.reports.length)+tab('admin-chat','Region chats')):`${group('World',tab('admin','Overview')+tab('admin-stats','Statistics')+tab('admin-shop','Shop statistics')+tab('admin-letters','Letter statistics')+tab('admin-feed','Live feed')+tab('admin-players','Player search')+tab('admin-online','Online players',ADMX.online&&ADMX.online.players.length)+tab('admin-alliances','Alliances')+tab('admin-watch','Watchlist &amp; alerts',AW.unseen)+tab('admin-regions','Region control'))}
         ${group('Moderation',tab('admin-reports','Reports',ADM.d&&ADM.d.reports&&ADM.d.reports.length)+tab('admin-chat','Region chats')+tab('admin-sus','Suspicious',AUDIT.size)+tab('admin-hidden','Hidden nations')+tab('admin-bans','Banned players'))}
         ${group('Support',tab('admin-help','Help queries',n)+tab('admin-bugs','Bug reports',BGA.n)+tab('admin-gone','Recently dissolved'))}
-        ${group('Game content',tab('admin-edicts','All edicts')+tab('admin-news','Development news')+tab('admin-board','Community boards')+tab('admin-flagc','Flag competition',window.fcaRep||0)+tab('admin-notes','Banknote design guide'))}
+        ${group('Game content',tab('admin-edicts','All edicts')+tab('admin-news','Development news')+tab('admin-board','Community boards')+tab('admin-flagc','Flag competition',window.fcaRep||0)+tab('admin-notes','Banknote design guide')+tab('admin-balance','Balance'))}
         ${group('Operations',tab('admin-health','Save health')+tab('admin-audit','Admin audit log'))}`}
       </nav>
       <button type="button" class="btn ghost adm-return" data-act="admin-close">← Back to the game</button>
     </dialog>
-    <main class="adm-main" id="adm-main" tabindex="-1"><button type="button" id="adm-menu-toggle" class="btn ghost adm-menu-toggle" data-act="adm-menu-open" aria-haspopup="dialog" aria-controls="adm-menu">☰ Admin menu</button>${body}</main>
+    <main class="adm-main" id="adm-main" tabindex="-1"><button type="button" id="adm-menu-toggle" class="btn ghost adm-menu-toggle" data-act="adm-menu-open" aria-haspopup="dialog" aria-controls="adm-menu">☰ Admin menu</button>${admFresh(v)}${body}</main>
   </div>`;
 }
 ADM_MOBILE.addEventListener('change',()=>{admMenuOpen=false;const m=document.getElementById('adm-menu');if(!m)return;if(m.open)m.close();m.setAttribute('role',ADM_MOBILE.matches?'dialog':'complementary');if(!ADM_MOBILE.matches)m.show();});
@@ -54112,7 +54178,7 @@ document.addEventListener('click',e=>{
 
 /* ───────── staff operations ───────── */
 setInterval(()=>{if(S.isOwner&&S.view==='admin-online'&&!document.hidden&&!ADMX.busy)adminExtraLoad('admin-online');},30000);
-const ADMX={loaded:{},busy:false,err:'',q:'',reg:'',act:'',eng:'',sort:'',watchWhy:'',watchFor:'',watchBusy:false,watchMsg:'',onceFor:'',onceAsk:'',onceBusy:false,onceMsg:'',onceLink:'',query:null,search:null,player:null,health:null,audit:null,target:'',ask:null,reasons:{},modes:{},regionBusy:'',message:'',mod:null,modReason:'',modBusy:false,modMsg:'',note:'',noteFor:'',noteBusy:false,noteMsg:'',clubDays:30,clubWhy:'',clubBusy:false,clubMsg:'',packP:'',packWhy:'',packBusy:false,packMsg:''};
+const ADMX={loaded:{},busy:false,err:'',q:'',reg:'',act:'',eng:'',sort:'',watchWhy:'',watchFor:'',watchBusy:false,watchMsg:'',onceFor:'',onceAsk:'',onceBusy:false,onceMsg:'',onceLink:'',query:null,search:null,player:null,health:null,audit:null,target:'',ask:null,reasons:{},modes:{},regionBusy:'',message:'',mod:null,modReason:'',modBusy:false,modMsg:'',note:'',noteFor:'',noteBusy:false,noteMsg:'',noteDrop:'',clubDays:30,clubWhy:'',clubBusy:false,clubMsg:'',packP:'',packWhy:'',packBusy:false,packMsg:''};
 async function adminRequest(data){const api=await window.claude.use('admin');if(!api)throw new Error('The admin service needs a connection.');return api.request(data);}
 const adminTime=t=>t?new Date(t).toLocaleString():'No confirmed save';
 async function adminExtraLoad(v,more=false,refresh=false){
@@ -54163,8 +54229,9 @@ function adminModActions(p){
   const busy=ADMX.modBusy?' disabled':'',b=(a,l,c='')=>`<button class="btn ghost small${c}" data-act="admin-mod" data-a="${a}" data-id="${esc(p.uid)}"${busy}>${l}</button>`;
   const ask=ADMX.mod&&ADMX.mod.uid===p.uid&&ADM_MOD_ASK[ADMX.mod.a],a=ask&&ADMX.mod.a;
   return `<div class="row">${p.hidden?b('unhide',p.rename?'Unhide without a new name':'Unhide'):p.exists?b('hide','Hide the nation…'):''}${p.exists&&!p.rename?b('rename','Force a rename…'):''}${p.exists?b('remove','Delete the nation…'):''}${p.banned?b('unban','Unban'):b('ban','Ban the player…',' adm-danger')}</div>
-    ${ask?`<div class="adm-ask" id="admin-mod-ask"><p>${ask[0].replace('%',()=>esc(p.name))}</p><label class="admh-lbl" for="admin-mod-reason">Reason (the player is told this, and it is kept in the audit log)</label><input class="input" id="admin-mod-reason" maxlength="300" value="${esc(ADMX.modReason)}">
-      <div class="row"><button class="btn ${a==='hide'||a==='rename'?'':'danger '}small" data-act="admin-mod-yes" data-a="${a}" data-id="${esc(p.uid)}"${busy}>${ADMX.modBusy?'Working…':ask[1]}</button><button class="btn ghost small" data-act="admin-mod-no">Cancel</button></div></div>`:''}
+    ${ask?`<div class="adm-ask" id="admin-mod-ask"><p>${ask[0].replace('%',()=>esc(p.name))}</p>${admImpactBox(p.uid,a)}
+      ${admReasonPick('admin-mod-why-pick',a)}<label class="admh-lbl" for="admin-mod-reason">Reason (the player is told this, and it is kept in the audit log)</label><input class="input" id="admin-mod-reason" maxlength="300" value="${esc(ADMX.modReason)}">${a==='ban'?admBanDays('admin-mod-days'):''}
+      <div class="row"><button class="btn ${a==='hide'||a==='rename'?'':'danger '}small" data-act="admin-mod-yes" data-a="${a}" data-id="${esc(p.uid)}"${busy}>${ADMX.modBusy?'Working…':a==='ban'?ask[1]+admDaysWord(ADMR.days):ask[1]}</button><button class="btn ghost small" data-act="admin-mod-no">Cancel</button></div></div>`:''}
     ${ADMX.modMsg?`<p class="hint" aria-live="polite">${esc(ADMX.modMsg)}</p>`:''}`;
 }
 async function adminModerate(a,uid){
@@ -54173,9 +54240,9 @@ async function adminModerate(a,uid){
   if(ADM_MOD_ASK[a]&&!reason){ADMX.modMsg='Write a reason first.';render();document.getElementById('admin-mod-reason')?.focus();return;}
   ADMX.modBusy=true;ADMX.modMsg='';render();
   try{
-    await adminRequest({op:'moderate',action:a,target:uid,reason:reason||(a==='unban'?'Lifted account ban':'Restored nation visibility'),name});
+    await adminRequest({op:'moderate',action:a,target:uid,reason:reason||(a==='unban'?'Lifted account ban':'Restored nation visibility'),name,...(a==='ban'&&ADMR.days?{days:ADMR.days}:{})});
     ADMX.mod=null;ADMX.modReason='';
-    ADMX.modMsg={hide:`${name} is hidden from other players.`,rename:`${name} is hidden until its player chooses a new name.`,unhide:`${name} is visible to other players again.`,remove:`${name} was deleted.`,ban:`The player of ${name} is banned and the nation deleted.`,unban:'The player is no longer banned.'}[a];
+    ADMX.modMsg={hide:`${name} is hidden from other players.`,rename:`${name} is hidden until its player chooses a new name.`,unhide:`${name} is visible to other players again.`,remove:`${name} was deleted.`,ban:`The player of ${name} is banned${admDaysWord(ADMR.days)} and the nation deleted.`,unban:'The player is no longer banned.'}[a];
     if((a==='remove'||a==='ban')&&ADMX.search){const before=ADMX.search.players.length;ADMX.search.players=ADMX.search.players.filter(x=>x.uid!==uid);ADMX.search.total-=before-ADMX.search.players.length;}
   }catch(e){ADMX.modMsg='That did not work: '+(e.message||e.code||'unknown error');}
   try{ADMX.player=await adminRequest({op:'player',uid});}catch(e){}
@@ -54355,11 +54422,18 @@ async function adminOnceDo(v,uid){
   }catch(e){ADMX.onceMsg='That did not work: '+(e.message||e.code||'unknown error');}
   ADMX.onceBusy=false;render();
 }
+/* The staff's case file on a player (functions/admin.js, note): one entry per note, each kept as it was written and
+   beside who wrote it, so two admins reading the same player never write over each other. Newest first. */
 function adminNotes(p){
-  const n=p.staffNote||{text:'',at:0,by:''},val=ADMX.noteFor===p.uid?ADMX.note:n.text;
-  return `<div class="field"><label for="admin-note">Notes on this player</label><textarea class="input" id="admin-note" data-id="${esc(p.uid)}" maxlength="4000" rows="5" aria-describedby="admin-note-h">${esc(val)}</textarea>
-    <span class="hint" id="admin-note-h">Only admins see these; the player never does. ${n.at?`Last saved ${esc(rel(n.at))} by ${n.by===S.uid?'you':`<code>${esc(n.by)}</code>`}.`:'No notes yet.'} Saving an empty field deletes them, and so does deleting the account.</span></div>
-    <div class="row"><button class="btn ghost small" data-act="admin-note-save" data-id="${esc(p.uid)}"${ADMX.noteBusy?' disabled':''}>${ADMX.noteBusy?'Saving…':'Save notes'}</button></div>${ADMX.noteMsg?`<p class="hint" aria-live="polite">${esc(ADMX.noteMsg)}</p>`:''}`;
+  const n=p.staffNote||{entries:[]},L=Array.isArray(n.entries)?n.entries:[],val=ADMX.noteFor===p.uid?ADMX.note:'';
+  const who=by=>by===S.uid?'you':by?`<code>${esc(String(by).slice(0,8))}…</code>`:'a colleague';
+  const entry=e=>`<li class="adm-note"><p class="hint">${esc(adminTime(e.t))} · ${who(e.by)}${ADMX.noteDrop===e.id?'':` · <button type="button" class="linkish" data-act="admin-note-drop" data-id="${esc(p.uid)}" data-e="${esc(e.id)}">Delete</button>`}</p>
+    <div class="adm-note-x">${esc(e.text)}</div>
+    ${ADMX.noteDrop===e.id?`<div class="adm-ask"><p>Delete this note? It is gone for good; the audit log keeps that you deleted one, never its words.</p><div class="row"><button class="btn danger small" data-act="admin-note-drop-yes" data-id="${esc(p.uid)}" data-e="${esc(e.id)}"${ADMX.noteBusy?' disabled':''}>Yes, delete</button><button class="btn ghost small" data-act="admin-note-drop-no">Cancel</button></div></div>`:''}</li>`;
+  return `${L.length?`<ul class="adm-notes">${L.map(entry).join('')}</ul>`:'<p class="hint">Nothing written about this player yet.</p>'}
+    <div class="field"><label for="admin-note">Add a note</label><textarea class="input" id="admin-note" data-id="${esc(p.uid)}" maxlength="4000" rows="4" placeholder="What you found, what you decided, what to watch for" aria-describedby="admin-note-h">${esc(val)}</textarea>
+    <span class="hint" id="admin-note-h">Only staff see these; the player never does. Each note is kept as written, with your name and the time. Deleting the account deletes them all.</span></div>
+    <div class="row"><button class="btn ghost small" data-act="admin-note-save" data-id="${esc(p.uid)}"${ADMX.noteBusy?' disabled':''}>${ADMX.noteBusy?'Saving…':'Add note'}</button></div>${ADMX.noteMsg?`<p class="hint" aria-live="polite">${esc(ADMX.noteMsg)}</p>`:''}`;
 }
 /* Letters between players (functions/admin.js, lettersOp): first who this player writes to, then one conversation,
    read only with a reason. Every look is in the admin audit log; the player is not told. */
@@ -54400,12 +54474,19 @@ document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closes
   if(a==='admin-lt-cancel'){ADLT.with='';ADLT.why='';render();return;}
   if(a==='admin-lt-read'){adminLettersRead();return;}
   if(a==='admin-lt-back'){ADLT.thread=null;ADLT.with='';render();return;}});
-async function adminNoteSave(uid){
+/* add a note to the case file, or delete one of them (functions/admin.js, note) */
+async function adminNoteSave(uid,drop){
   const p=ADMX.player;if(!p||p.uid!==uid||ADMX.noteBusy)return;
-  const text=ADMX.noteFor===uid?ADMX.note:(p.staffNote||{}).text||'';
+  const text=ADMX.noteFor===uid?ADMX.note:'';
+  if(!drop&&!text.trim())return;
   ADMX.noteBusy=true;ADMX.noteMsg='';render();
-  try{const r=await adminRequest({op:'note',uid,text});p.staffNote=r.staffNote;ADMX.note=r.staffNote.text;ADMX.noteFor=uid;ADMX.noteMsg=r.staffNote.text?'Notes saved.':'Notes deleted.';}
-  catch(e){ADMX.noteMsg='The notes were not saved: '+(e.message||e.code||'unknown error');}
+  try{
+    const r=await adminRequest(drop?{op:'note',action:'drop',uid,id:drop}:{op:'note',action:'add',uid,text});
+    p.staffNote=r.staffNote;ADMX.noteDrop='';
+    if(!drop){ADMX.note='';ADMX.noteFor='';}
+    ADMX.noteMsg=drop?'The note was deleted.':'Note added.';
+  }
+  catch(e){ADMX.noteMsg=(drop?'The note was not deleted: ':'The note was not saved: ')+(e.message||e.code||'unknown error');}
   ADMX.noteBusy=false;render();
 }
 /* ── admin: the banknote design guide, every part of the note system side by side (a specimen nation that has
@@ -54515,6 +54596,9 @@ document.addEventListener('click',async e=>{
   if(a==='admin-mod-yes'){adminModerate(el.dataset.a,id);return;}
   if(a==='admin-mod-no'){ADMX.mod=null;ADMX.modMsg='';render();return;}
   if(a==='admin-note-save'){adminNoteSave(id);return;}
+  if(a==='admin-note-drop'){ADMX.noteDrop=el.dataset.e;ADMX.noteMsg='';render();return;}
+  if(a==='admin-note-drop-no'){ADMX.noteDrop='';render();return;}
+  if(a==='admin-note-drop-yes'){adminNoteSave(id,el.dataset.e);return;}
   if(a==='admin-once'){ADMX.onceFor=id;ADMX.onceAsk=el.dataset.v;ADMX.onceMsg='';ADMX.onceLink='';render();return;}
   if(a==='admin-once-no'){ADMX.onceAsk='';ADMX.onceMsg='';render();return;}
   if(a==='admin-once-yes'){adminOnceDo(el.dataset.v,id);return;}
@@ -55236,6 +55320,284 @@ go=(f=>function(v){
   if(v==='admin-watch'&&S.view!=='admin-watch'){AW.d=null;AW.a=null;AW.cfgMsg='';}
   if(v!=='admin-feed')clearTimeout(AF.timer);
   const r=f.apply(this,arguments);if(v==='admin-feed'&&AF.d)afLoad(true);return r;})(go);
+
+/* ───────── the portal, round two ─────────
+   One queue of everything waiting on the staff, keys to work it, what an action would take with it before it is
+   confirmed, reasons worth reusing, bans with a term, an address that says which player a page is looking at, and the
+   balance page. The pages above stay as they are: this wraps them. ───────── */
+const ADMR={why:'',days:0,for:'',imp:{},impPend:{},pick:0};
+const ADMF={at:{}};
+/* how old a page's figures are, and a refresh that means the same thing on every page */
+const admAt=v=>v==='admin-triage'?TRI.at:v==='admin-balance'?BAL.at:ADM_PAGES.includes(v)?ADM.at:(ADMF.at[v]||0);
+const admBusyOn=v=>v==='admin-triage'?TRI.busy:v==='admin-balance'?BAL.busy:ADM_PAGES.includes(v)?ADM.busy:ADMX.busy;
+/* the pages whose figures are counted when they open: the rest (the edict catalogue, the banknote guide) have none */
+const ADM_TIMED=ADM_PAGES.concat(ADM_EXTRA,'admin-triage','admin-balance');
+function admFresh(v){
+  if(!ADM_TIMED.includes(v)||(v==='admin-players'&&!S.isOwner))return '';
+  const t=admAt(v),busy=admBusyOn(v),stale=!t||Date.now()-t>12e4;
+  return `<p class="adm-fresh${stale?' stale':''}"><span class="adm-dot" aria-hidden="true"></span>${busy?'Counting…':t?`Counted ${esc(rel(t))}`:'Not counted yet'}
+    <button type="button" class="linkish" data-act="adm-refresh-now"${busy?' disabled':''}>Refresh</button></p>`;
+}
+/* rows that stand in for a table while it loads, so the page does not jump when the figures land */
+const admSkel=(n=6)=>`<div class="adm-skel" aria-hidden="true">${'<i></i>'.repeat(n)}</div>`;
+function admRefreshNow(v){
+  if(v==='admin-triage')return triLoad(true);
+  if(v==='admin-balance')return balLoad(true);
+  if(ADM_PAGES.includes(v)){admLoad(true);render();return;}
+  if(ADM_EXTRA.includes(v))return adminExtraLoad(v,false,true);
+}
+/* every page keeps when it last loaded, for the line above */
+adminExtraLoad=(f=>async function(v){const r=await f.apply(this,arguments);ADMF.at[v]=Date.now();if(ADM_EXTRA.includes(S.view))render();return r;})(adminExtraLoad);
+/* coming back to the portal after a while, the figures are counted again rather than left as they were */
+document.addEventListener('visibilitychange',()=>{
+  if(document.hidden||!ADM_VIEWS.includes(S.view)||!portalOk(S.view))return;
+  const t=admAt(S.view);if(t&&Date.now()-t>12e4)admRefreshNow(S.view);
+});
+
+/* ── what an action would take with it ── */
+const ADM_IMPACT_FOR=['remove','ban','adm-remove','adm-ban'];
+function admImpactBox(uid,action){
+  if(!uid||!ADM_IMPACT_FOR.includes(action)||!S.isOwner)return '';
+  const d=ADMR.imp[uid];
+  if(!d){admImpactLoad(uid);return `<div class="adm-imp" aria-live="polite"><span>Counting what this would take…</span></div>`;}
+  if(d.err)return `<p class="hint">What this would take could not be counted (${esc(d.err)}). The action itself still works.</p>`;
+  const n=v=>v==null?'?':Number(v).toLocaleString('en-GB'),bits=[];
+  if(d.exists)bits.push(`<span>the nation, <b>${esc(fmtPop(Number(d.pop)||0))}</b> people, <b>${n(d.claims)}</b> ${d.claims===1?'hex':'hexes'}</span>`);
+  bits.push(`<span><b>${n(d.posts)}</b> ${d.posts===1?'post':'posts'}</span>`,`<span><b>${n(d.chat)}</b> chat ${d.chat===1?'line':'lines'}</span>`,`<span><b>${n(d.reports)}</b> ${d.reports===1?'ticket':'tickets'}</span>`);
+  if(d.space)bits.push('<span>its Moon and Mars record</span>');
+  return `<div class="adm-imp" aria-live="polite">${bits.join('')}</div><p class="hint">All of it is deleted for everyone, and it cannot be undone.</p>`;
+}
+async function admImpactLoad(uid){
+  if(ADMR.impPend[uid]||ADMR.imp[uid])return;ADMR.impPend[uid]=true;
+  try{ADMR.imp[uid]=await adminRequest({op:'impact',uid});}
+  catch(e){ADMR.imp[uid]={err:e.message||e.code||'unknown error'};}
+  delete ADMR.impPend[uid];if(ADM_VIEWS.includes(S.view))render();
+}
+
+/* ── the words the player is told: the reasons that come up again and again, written once and well ── */
+const ADM_WHY=[['','Write my own'],['name','Offensive name, motto or flag'],['content','Offensive content'],['harassment','Harassment or bullying'],
+  ['spam','Spam or advertising'],['cheating','Cheating'],['evasion','More than one nation, or dodging a ban'],['impersonation','Pretending to be staff']];
+const ADM_WHY_TEXT={name:'Your nation’s name, motto or flag breaks the rules.',content:'Something you posted breaks the rules.',
+  harassment:'Harassing another player breaks the rules.',spam:'Advertising or spam breaks the rules.',
+  cheating:'Your nation’s records were changed to gain an advantage.',evasion:'One player may keep one nation, and a banned account may not come back.',
+  impersonation:'Pretending to be Edictum staff or another player breaks the rules.'};
+const ADM_BAN_DAYS=[[0,'Until I lift it'],[1,'A day'],[3,'Three days'],[7,'A week'],[30,'30 days'],[90,'90 days']];
+const admDaysWord=d=>!d?'':' for '+(({1:'a day',3:'three days',7:'a week'})[d]||d+' days');
+const admReportWhy=r=>r?(REPORT_WHY[r.reason]||'Reported')+(r.note?': '+r.note:'')+'.':'';
+function admReasonPick(id,a){
+  return `<label class="admh-lbl" for="${id}">Reason</label><select class="input" id="${id}" data-adm-why="${esc(a||'')}">${ADM_WHY.map(([k,l])=>`<option value="${k}">${esc(l)}</option>`).join('')}</select>`;
+}
+function admBanDays(id){
+  return `<label class="admh-lbl" for="${id}">How long</label><select class="input" id="${id}" data-adm-days="1">${ADM_BAN_DAYS.map(([d,l])=>`<option value="${d}"${ADMR.days===d?' selected':''}>${esc(l)}</option>`).join('')}</select>
+    <span class="hint">A ban with a term lifts itself when it runs out; the player is told when it ends.</span>`;
+}
+/* the report queue's box: the ticket's own words to begin with, a reason to pick instead, and a ban's term */
+function admWhyBox(a,def){
+  const k=a+'\u0000'+(def||'');
+  if(ADMR.for!==k){ADMR.for=k;ADMR.why=def||'';ADMR.days=0;}
+  return `<div class="adm-why">${admReasonPick('adm-why-pick',a)}<label class="admh-lbl" for="adm-why">What the player is told (kept in the audit log)</label>
+    <input class="input" id="adm-why" maxlength="300" value="${esc(ADMR.why)}">${/ban/.test(a)?admBanDays('adm-ban-days'):''}</div>`;
+}
+document.addEventListener('input',e=>{if(e.target.id==='adm-why')ADMR.why=e.target.value;});
+document.addEventListener('change',e=>{
+  const t=e.target;
+  if(t.dataset&&t.dataset.admDays!=null&&/days$/.test(t.id)){ADMR.days=Number(t.value)||0;render();return;}
+  if(t.id==='adm-why-pick'){const x=ADM_WHY_TEXT[t.value];if(x!=null){ADMR.why=x;render();}return;}
+  if(t.id==='admin-mod-why-pick'){const x=ADM_WHY_TEXT[t.value];if(x!=null){ADMX.modReason=x;render();}return;}
+});
+/* a whole case closed at once (the tickets of one nation) */
+async function admCloseAll(target){
+  const rows=((ADM.d&&ADM.d.reports)||[]).filter(r=>(r.target||r.id)===target);
+  ADM.ask=null;ADM.act='';
+  try{for(const r of rows)await adminRequest({op:'moderate',action:'close_report',target:r.id,reason:'Closed moderation report'});
+    ADM.act=`${rows.length} ${rows.length===1?'ticket was':'tickets were'} closed.`;}
+  catch(e){ADM.act='That did not work: '+((e&&e.code)||'unknown error')+'.';}
+  admLoad(true);render();
+}
+
+/* ── keys: the report queue and the queue of what needs attention are worked without the mouse ── */
+const admKeysHint=(mode='reports')=>mode==='triage'
+  ?`<p class="adm-keys"><kbd>J</kbd><kbd>K</kbd> move · <kbd>Enter</kbd> open it where it belongs.</p>`
+  :`<p class="adm-keys"><kbd>J</kbd><kbd>K</kbd> move · <kbd>D</kbd> remove the post · <kbd>H</kbd> hide · <kbd>R</kbd> remove · <kbd>B</kbd> ban · <kbd>C</kbd> close the ticket · <kbd>Esc</kbd> cancel. All but closing ask first.</p>`;
+const admTyping=()=>{const a=document.activeElement;return !!a&&(/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)||a.isContentEditable);};
+function admCases(){
+  const list=(ADM.d&&ADM.d.reports)||[],by=new Map(),out=[];
+  for(const r of list){const k=r.target||r.id;if(!by.has(k)){by.set(k,{target:k,rows:[]});out.push(by.get(k));}by.get(k).rows.push(r);}
+  return out;
+}
+function admKeyMove(d){
+  const cases=S.view==='admin-triage'?triRows():admCases();
+  if(!cases.length)return;
+  ADMR.pick=Math.max(0,Math.min(cases.length-1,ADMR.pick+d));render();
+  setTimeout(()=>{const el=document.querySelector('.adm-rep.cur,.adm-tri li.cur');if(el)el.scrollIntoView({block:'nearest'});},0);
+}
+document.addEventListener('keydown',e=>{
+  if(!ADM_VIEWS.includes(S.view)||!portalOk(S.view)||admTyping()||e.ctrlKey||e.metaKey||e.altKey)return;
+  const onReports=S.view==='admin'||S.view==='admin-reports';
+  if(e.key==='Escape'&&ADM.ask){ADM.ask=null;render();e.preventDefault();return;}
+  if(e.key==='j'||e.key==='ArrowDown'){if(onReports||S.view==='admin-triage'){admKeyMove(1);e.preventDefault();}return;}
+  if(e.key==='k'||e.key==='ArrowUp'){if(onReports||S.view==='admin-triage'){admKeyMove(-1);e.preventDefault();}return;}
+  if(S.view==='admin-triage'&&(e.key==='Enter'||e.key===' ')){const r=triRows()[ADMR.pick];if(r){triOpen(r);e.preventDefault();}return;}
+  if(!onReports)return;
+  const g=admCases()[ADMR.pick];if(!g||!g.rows.length)return;
+  const act={h:'adm-hide',r:'adm-remove',b:'adm-ban',c:'adm-close',d:'adm-delpost'}[e.key];
+  if(!act)return;
+  if(!S.isOwner&&act!=='adm-close'&&act!=='adm-delpost')return;
+  e.preventDefault();admAct(act,g.rows[0].id);
+});
+
+/* ── what needs attention: every queue in the portal as one list, oldest first ── */
+const TRI={at:0,busy:false};
+const TRI_SRC={report:['Report','admin-reports'],help:['Help query','admin-help'],bug:['Bug report','admin-bugs'],alert:['Alert','admin-watch'],sus:['Suspicious','admin-sus']};
+function triLoad(force){
+  TRI.busy=true;
+  admLoad(force);
+  if(S.isOwner){if(force||!ADMH.d)admhLoad();if(force||BGA.list==null)bgaLoad();if(force||!AW.a)awLoad();}
+  TRI.busy=false;TRI.at=Date.now();
+}
+/* every waiting thing as one row: what it is, who it is about, and how long it has waited */
+function triRows(){
+  const out=[],now=Date.now();
+  for(const g of admCases())out.push({k:'report',id:g.target,t:Math.min(...g.rows.map(r=>r.t||now)),
+    ti:g.rows[0].name||'A nation',x:`${g.rows.length===1?(REPORT_WHY[g.rows[0].reason]||g.rows[0].reason||''):g.rows.length+' reports'} · ${regName(g.rows[0].reg)}`});
+  if(S.isOwner){
+    for(const t of ((ADMH.d&&ADMH.d.open)||[]).filter(t=>t.w!=='p'))out.push({k:'help',id:t.id,t:t.lt||t.t||now,ti:t.topic||t.tp||'A help query',x:t.nm||t.name||''});
+    for(const b of (BGA.list||[]).filter(b=>b.st==='new'))out.push({k:'bug',id:b.id,t:b.t||now,ti:b.ti||'A bug report',x:b.nm||b.name||''});
+    for(const a of ((AW.a&&AW.a.alerts)||[]).filter(a=>!a.seen))out.push({k:'alert',id:a.id,t:a.t||now,ti:a.ti||'An alert',x:a.x||''});
+  }
+  out.sort((a,b)=>(a.t||0)-(b.t||0));
+  return out;
+}
+const triCount=()=>{try{return triRows().length;}catch(e){return 0;}};
+function triOpen(r){const to=(TRI_SRC[r.k]||[])[1];if(to)go(to);}
+function adminTriageView(){
+  const rows=triRows(),now=Date.now();
+  if(!TRI.at)setTimeout(()=>triLoad(false),0);
+  if(ADMR.pick>=rows.length)ADMR.pick=Math.max(0,rows.length-1);
+  const waiting=S.isOwner&&(!ADMH.d||BGA.list==null||!AW.a);
+  const row=(r,i)=>`<li class="${i===ADMR.pick?'cur ':''}${now-r.t>DAY?'old':''}">
+    <p class="adm-tri-h"><span class="chip">${esc((TRI_SRC[r.k]||['Waiting'])[0])}</span> <b>${esc(String(r.ti).slice(0,120))}</b>
+      <span class="adm-tri-age">waiting ${esc(rel(r.t))}</span></p>
+    ${r.x?`<p class="hint">${esc(String(r.x).slice(0,200))}</p>`:''}
+    <div class="row"><button class="btn small" data-act="adm-tri-open" data-k="${esc(r.k)}">Open ${esc(String((TRI_SRC[r.k]||['it'])[0]).toLowerCase())}</button>${r.k==='report'?`<button class="btn ghost small" data-act="admin-inspect" data-id="${esc(r.id)}">Inspect player</button>`:''}</div></li>`;
+  return admShell('admin-triage',`
+    <p class="eyebrow">Admin portal</p><h1 class="display">Needs attention</h1>
+    <p class="lede">Everything waiting on the staff in one list, the longest-waiting first: reports${S.isOwner?', help queries, bug reports and alerts':''}. A row older than a day is marked.</p>
+    ${rows.length?admKeysHint('triage'):''}
+    ${!rows.length&&waiting?admSkel(5):''}
+    ${rows.length?`<ul class="adm-tri">${rows.map(row).join('')}</ul>`:waiting?'':'<p class="hint">Nothing is waiting. The queues are empty.</p>'}
+    ${waiting&&rows.length?'<p class="hint">Still counting the other queues…</p>':''}`);
+}
+
+/* ── balance: the game as it is being played (functions/admin.js, balance) ── */
+const BAL={at:0,busy:false,err:'',d:null,reg:'',tab:'ages'};
+const BAL_TABS=[['ages','Nations by age'],['edicts','Edicts'],['reach','How far they get'],['built','Buildings'],['laws','Laws in force']];
+async function balLoad(force){
+  if(BAL.busy)return;BAL.busy=true;BAL.err='';render();
+  try{BAL.d=await adminRequest({op:'balance',reg:BAL.reg,...(force?{refresh:true}:{})});BAL.at=Date.now();}
+  catch(e){BAL.err=e.message||'The figures could not be counted.';}
+  BAL.busy=false;if(S.view==='admin-balance')render();
+}
+const balName={ach:k=>{try{return (ACH_BY_ID[k]||{}).n||k;}catch(e){return k;}},
+  built:k=>{try{return (BUILDINGS[k]||{}).n||k;}catch(e){return k;}},
+  laws:k=>{try{return (POLICIES[k]||[])[0]||k;}catch(e){return k;}},
+  reach:k=>ST_FEAT[k]||ST_REACH[k]||k};
+function balBars(list,label){
+  if(!list||!list.length)return '<p class="hint">Nothing counted yet.</p>';
+  const top=Math.max(...list.map(x=>x.pct))||1;
+  return `<div class="adm-bal">${list.map(x=>`<div class="adm-bal-row"><span>${esc(label(x.k))}</span>
+    <span class="adm-bal-bar"><i style="width:${(100*x.pct/top).toFixed(1)}%"></i></span>
+    <span class="adm-bal-n">${x.pct}% · ${x.n}</span></div>`).join('')}</div>`;
+}
+function adminBalanceView(){
+  if(!BAL.d&&!BAL.busy&&!BAL.err)setTimeout(()=>balLoad(false),0);
+  const d=BAL.d,tab=BAL_TABS.some(t=>t[0]===BAL.tab)?BAL.tab:'ages';
+  const body=()=>{
+    if(tab==='ages')return `<p class="hint">The middle nation of each age, and the quarter above and below it. A nation's first days are where the game is won or lost.</p>
+      <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Age</th><th class="num">Nations</th><th class="num">Population</th><th class="num">Quarter either side</th><th class="num">Cities</th><th class="num">Hexes</th><th class="num">Edicts ruled</th></tr></thead><tbody>
+      ${d.ages.map(a=>`<tr><td>${esc(a.label)}</td><td class="num">${a.n}</td><td class="num">${a.n?esc(fmtPop(a.pop)):'–'}</td><td class="num">${a.n?esc(fmtPop(a.lo))+' – '+esc(fmtPop(a.hi)):'–'}</td><td class="num">${a.n?a.cities:'–'}</td><td class="num">${a.n?a.claims:'–'}</td><td class="num">${a.n?a.ruled:'–'}</td></tr>`).join('')}
+      </tbody></table></div>`;
+    if(tab==='edicts')return `<p class="hint">Every edict answered in the last fortnight, the most answered first: how its options were picked, and how often it was let go. An option nobody picks is an option that is not worth picking.</p>
+      ${!d.edicts.length?'<p class="hint">No edicts were answered in the fortnight counted.</p>':`<div class="adm-bal">${d.edicts.map(e=>{const tot=e.n||1;
+        return `<div class="adm-bal-row" style="grid-template-columns:minmax(160px,1.6fr) minmax(0,3fr) 72px"><span>${esc(admEdict(e.k))}</span>
+          <span><span class="adm-bal-bar"><i style="width:${(100*(1-e.skip/tot)).toFixed(1)}%"></i></span>
+          <span class="adm-bal-opts">${e.opts.map((v,i)=>`<span>Option ${i+1}: ${Math.round(100*v/tot)}%</span>`).join('')}${e.skip?`<span>let go: ${Math.round(100*e.skip/tot)}%</span>`:''}</span></span>
+          <span class="adm-bal-n">${e.n}</span></div>`;}).join('')}</div>`}`;
+    if(tab==='reach')return `<p class="hint">The share of nations that have reached each part of the game. What almost nobody reaches is either too far away or not worth the walk.</p>
+      ${balBars(d.reach,balName.reach)}<h3 class="help-h3">Achievements</h3>${balBars(d.ach,balName.ach)}`;
+    if(tab==='built')return `<p class="hint">The share of nations with each building standing. One nobody builds costs too much, or does too little.</p>${balBars(d.built,balName.built)}`;
+    return `<p class="hint">The share of nations with each law in force, from the edicts they ruled on.</p>${balBars(d.laws,balName.laws)}`;
+  };
+  return admShell('admin-balance',`
+    <p class="eyebrow">Admin portal</p><h1 class="display">Balance</h1>
+    <p class="lede">How the game is actually played, for tuning it: how big nations are at each age, how far along they get, what they build and how they rule. Counted from the same gather as Statistics.</p>
+    <div class="adst-pick"><div class="field"><label for="bal-reg">Region</label><select class="input" id="bal-reg"><option value="">Every region</option>${REGIONS.map(r=>`<option value="${r.id}"${BAL.reg===r.id?' selected':''}>${esc(r.name)}</option>`).join('')}</select></div></div>
+    ${BAL.err?`<p class="err" role="alert">${esc(BAL.err)}</p>`:''}
+    ${!d?(BAL.busy?admSkel(8):''):`<p class="hint">${d.nations.toLocaleString('en-GB')} nations counted${d.reg?' in '+esc(regName(d.reg)):''}.</p>
+      <div class="row" role="tablist">${BAL_TABS.map(([k,l])=>`<button class="btn ${BAL.tab===k?'':'ghost '}small" data-act="bal-tab" data-v="${k}">${esc(l)}</button>`).join('')}</div>
+      ${body()}`}`);
+}
+
+/* ── the pages, the address that names what they are looking at, and a moderator's way in ── */
+shell=(f=>function(){
+  if(S.view==='admin-triage'&&portalOk('admin-triage'))return adminTriageView();
+  if(S.view==='admin-balance'&&S.isOwner)return adminBalanceView();
+  /* the admins' own wrapper above sends only them to the extra pages; a moderator's one page comes through here */
+  if(S.view==='admin-players'&&!S.isOwner&&S.isMod)return adminExtraView('admin-players');
+  return f.apply(this,arguments);})(shell);
+/* a player's page and a stretch of the audit log can be linked to, and Back comes back to them */
+VIEW_HASH_FN['admin-players']=()=>ADMX.player?'admin-players/'+encodeURIComponent(ADMX.player.uid):'admin-players';
+VIEW_HASH_FN['admin-audit']=()=>ADMX.target?'admin-audit/'+encodeURIComponent(ADMX.target):'admin-audit';
+uxHashView=(f=>function(h){
+  const p=/^admin-players\/([\w-]{1,128})$/.exec(h||'');
+  if(p){if(!ADMX.player||ADMX.player.uid!==p[1])setTimeout(()=>admInspect(p[1]),0);return 'admin-players';}
+  const a=/^admin-audit\/([\w-]{1,128})$/.exec(h||'');
+  if(a){if(ADMX.target!==a[1]){ADMX.target=a[1];ADMX.audit=null;ADMX.loaded['admin-audit']=false;}return 'admin-audit';}
+  return f.apply(this,arguments);})(uxHashView);
+/* opening a player: admins from anywhere in the portal, moderators from a report or a chat line */
+async function admInspect(uid){
+  if(!S.isOwner&&!S.isMod)return;
+  ADMX.err='';ADMX.mod=null;ADMX.modReason='';ADMX.modMsg='';ADMX.note='';ADMX.noteFor='';ADMX.noteMsg='';ADMX.noteDrop='';
+  try{ADMX.player=await adminRequest({op:'player',uid});go('admin-players');}
+  catch(err){ADMX.err=err.message;render();}
+}
+document.addEventListener('click',e=>{
+  const el=e.target.closest('[data-act]');if(!el)return;const a=el.dataset.act;
+  if(a==='adm-refresh-now'){admRefreshNow(S.view);return;}
+  if(a==='adm-tri-open'){const to=(TRI_SRC[el.dataset.k]||[])[1];if(to)go(to);return;}
+  if(a==='adm-close-all'&&S.isOwner){admCloseAll(el.dataset.id);return;}
+  if(a==='bal-tab'&&S.isOwner){BAL.tab=el.dataset.v;render();return;}
+  /* a moderator's Inspect player: the admins' own handler is theirs alone */
+  if(a==='admin-inspect'&&!S.isOwner&&S.isMod){admInspect(el.dataset.id);return;}
+});
+document.addEventListener('change',e=>{if(e.target.id==='bal-reg'&&S.isOwner){BAL.reg=e.target.value;BAL.d=null;balLoad(false);}});
+/* A moderator's player page is the detail panel alone: no directory, no search, nothing of the account behind the
+   nation (functions/admin.js, modPlayer answers them a cut-down record). */
+adminExtraView=(f=>function(v){
+  if(v==='admin-players'&&!S.isOwner&&S.isMod)
+    return admShell(v,`<p class="eyebrow">Moderator</p><h1 class="display">${esc((ADMX.player&&ADMX.player.name)||'Player')}</h1>
+      <p class="lede">The player behind a report: their nation, what has been decided about it before, and the staff's notes. The account itself — how they sign in, where from — is the admins'.</p>
+      ${ADMX.err?`<p class="err" role="alert">${esc(ADMX.err)}</p>`:''}
+      ${ADMX.player?adminPlayerDetail(ADMX.player):admSkel(6)}
+      <div class="row"><button class="btn ghost small" data-act="adm-tab" data-v="admin-reports">← Back to the reports</button></div>`);
+  const html=f.apply(this,arguments);
+  if(!ADMX.busy)return html;
+  /* a table that is still loading stands in for itself, so the page keeps its shape */
+  const empty={'admin-players':!ADMX.search,'admin-online':!ADMX.online,'admin-alliances':!ADMX.alls,'admin-health':!ADMX.health,'admin-audit':!ADMX.audit}[v];
+  return empty?html.replace('</main>',admSkel(8)+'</main>'):html;})(adminExtraView);
+/* a moderator never loads the directory: their page has one player on it, the one they opened */
+adminExtraLoad=(f=>function(v){if(v==='admin-players'&&!S.isOwner)return Promise.resolve();return f.apply(this,arguments);})(adminExtraLoad);
+/* the detail panel shows a moderator only what they may act on */
+adminPlayerDetail=(f=>function(p){
+  if(!p||!p.mod)return f.apply(this,arguments);
+  const mod=p.banned?'Banned':p.rename?'Hidden until the player chooses a new name':p.hidden?'Hidden':!p.exists&&p.removed?'Nation deleted by a moderator':'No restrictions';
+  return `<section class="adm-detail" aria-label="Player details"><h2 class="h2" style="margin-top:0">${esc(p.name)}</h2>
+    <dl><dt>Player ID</dt><dd><code>${esc(p.uid)}</code></dd><dt>Region</dt><dd>${p.reg?esc(regName(p.reg)):'No nation'}</dd>
+      <dt>Last confirmed save</dt><dd>${esc(adminTime(p.savedAt))}</dd><dt>Moderation</dt><dd>${mod}${p.note?': '+esc(p.note):''}</dd></dl>
+    <h3 class="help-h3">Nation</h3>${adminNation(p)}
+    <h3 class="help-h3">Reports and tickets</h3>${adminReports(p)}
+    <h3 class="help-h3">Timeline</h3>${adminTimeline(p)}
+    <h3 class="help-h3">Staff notes</h3>${adminNotes(p)}</section>`;})(adminPlayerDetail);
 
 /* ───────── support tickets ─────────
    The Help page (and the founding page's help) opens a support ticket: src/shim.js shows the form and

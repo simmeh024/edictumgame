@@ -21,6 +21,8 @@ import { shopSummary, founderGiftSummary, grantSummary, parseEcb, ECB_URL } from
 import { gatherMore, moreSummary, buyerTiming } from './stats-more.js';
 import { supportAdmin } from './support.js';
 import { goneList, goneRestore } from './gone.js';
+import { banOver } from './bans.js';
+import { balanceOf } from './balance.js';
 import { letterStats } from './letter-stats.js';
 import { onceAdmin, onceStatus } from './once.js';
 import DATA from './civic-data.json' with { type: 'json' };
@@ -96,7 +98,18 @@ async function player(db, uid) {
   const d = n.data() || {}, more = await overview(db, uid, d, acct, shop);
   // the one-time sign-in link waiting for this player, if any (functions/once.js)
   const once = acct ? await onceStatus(db, uid, await getAuth().getUser(uid).catch(() => null)) : null;
-  return { ...more, once, uid, exists: n.exists, name: d.name || ban.get('name') || mod.get('name') || uid, reg: d.reg || '', pop: d.pop ?? null, revision: d.rev || 0, savedAt: ms(d.ts), banned: ban.exists, hidden: mod.get('hidden') === true, rename: mod.get('rename') === true, removed: mod.get('removed') || 0, note: ban.get('note') || mod.get('note') || '', account: acct, staffNote: staffNote(notes), club: clubState(shop, comp), packs: packState(shop, grant), watch: watchState(watch), sessions: sessions.docs.map(s => { const { expiresAt, ...value } = s.data(); return { id: s.id, ...value, t: ms(s.get('t')) }; }) };
+  return { ...more, once, uid, exists: n.exists, name: d.name || ban.get('name') || mod.get('name') || uid, reg: d.reg || '', pop: d.pop ?? null, revision: d.rev || 0, savedAt: ms(d.ts), banned: ban.exists, banUntil: banUntil(ban), banOver: ban.exists && banOver(banUntil(ban)), hidden: mod.get('hidden') === true, rename: mod.get('rename') === true, removed: mod.get('removed') || 0, note: ban.get('note') || mod.get('note') || '', account: acct, staffNote: staffNote(notes), club: clubState(shop, comp), packs: packState(shop, grant), watch: watchState(watch), sessions: sessions.docs.map(s => { const { expiresAt, ...value } = s.data(); return { id: s.id, ...value, t: ms(s.get('t')) }; }) };
+}
+/* What a moderator sees when they look a player up from the report queue or a region's chat: the nation, how it has
+   been moderated, the reports by and about it, the staff's case file and the admin actions already taken — enough to
+   judge a report. Nothing of the account behind it: no sign-ins, no address, no other accounts seen from it, no
+   purchases, no sign-in links, no session reports. Built from a list of its own, so nothing new leaks by accident. */
+const MOD_FIELDS = ['uid', 'exists', 'name', 'reg', 'pop', 'revision', 'savedAt', 'banned', 'banUntil', 'banOver',
+  'hidden', 'rename', 'removed', 'note', 'nation', 'reports', 'actions', 'staffNote', 'watch'];
+async function modPlayer(db, uid) {
+  const p = await player(db, uid), out = { mod: true };
+  for (const k of MOD_FIELDS) if (k in p) out[k] = p[k];
+  return { ...out, account: null, alts: [], purchases: null, sessions: [], once: null, club: null, packs: null };
 }
 /* The rest of a player's page: their nation at a glance, what they bought, other accounts seen from their address,
    reports and tickets by and about them, and the admin actions on them (the page builds its timeline from these) */
@@ -171,18 +184,43 @@ async function pack(db, actor, data) {
 /* The staff's private notes on a player: one text per player in staffNotes/{uid} {text, at, by}, read and written
    only here (the rules refuse every client) and never shown to the player. The audit log records each change, not
    the text, so a note is gone for good when it is cleared or the player deletes their account (functions/accounts.js). */
-const NOTE_MAX = 4000;
-const staffNote = s => s.exists ? { text: s.get('text') || '', at: s.get('at') || 0, by: s.get('by') || '' } : { text: '', at: 0, by: '' };
+const NOTE_MAX = 4000, NOTES_KEEP = 60;
+/* A case file, not one text: each note is an entry of its own {id, t, by, text}, so two admins reading the same player
+   never write over each other, and what was said stays beside who said it and when. The newest is first; the oldest
+   fall away past NOTES_KEEP. A note written before this release is read as a single entry, and is rewritten as one the
+   next time anybody adds to the file. */
+export const staffNote = s => {
+  if (!s.exists) return { entries: [], at: 0, by: '' };
+  const raw = Array.isArray(s.get('entries')) ? s.get('entries') : [];
+  const entries = raw.filter(e => e && typeof e.text === 'string')
+    .map(e => ({ id: text(e.id, 24), t: +e.t || 0, by: text(e.by, 128), text: String(e.text).slice(0, NOTE_MAX) }));
+  const legacy = text(s.get('text'), NOTE_MAX);
+  if (legacy && !entries.length) entries.push({ id: 'first', t: +s.get('at') || 0, by: text(s.get('by'), 128), text: legacy });
+  entries.sort((a, b) => b.t - a.t);
+  return { entries, at: +s.get('at') || 0, by: text(s.get('by'), 128) };
+};
 async function note(db, actor, data) {
-  const target = id(data.uid), body = typeof data.text === 'string' ? data.text.replace(/\r\n?/g, '\n').trim().slice(0, NOTE_MAX) : null;
-  if (body === null) throw new HttpsError('invalid-argument', 'Write a note, or leave it empty to clear it.');
+  const target = id(data.uid), action = text(data.action, 8) || 'add';
+  if (!['add', 'drop'].includes(action)) throw new HttpsError('invalid-argument', 'Unknown note action.');
+  const body = typeof data.text === 'string' ? data.text.replace(/\r\n?/g, '\n').trim().slice(0, NOTE_MAX) : '';
+  const drop = text(data.id, 24);
+  if (action === 'add' && !body) throw new HttpsError('invalid-argument', 'Write a note first.');
+  if (action === 'drop' && !drop) throw new HttpsError('invalid-argument', 'Name the note to delete.');
   const ref = db.doc('staffNotes/' + target), event = db.collection('adminAudit').doc(), now = Date.now();
   const name = text((await db.doc('nations/' + target).get()).get('name'), 80);
+  let out = null;
   await db.runTransaction(async tx => {
-    if (body) tx.set(ref, { text: body, at: now, by: actor }); else tx.delete(ref);
-    tx.create(event, { actor, action: body ? 'note_saved' : 'note_cleared', target, reason: body ? body.length + ' characters' : 'Note cleared', ...(name ? { name } : {}), operation: event.id, outcome: 'completed', at: FieldValue.serverTimestamp() });
+    const cur = staffNote(await tx.get(ref)).entries;
+    const entries = action === 'add'
+      ? [{ id: event.id.slice(0, 24), t: now, by: actor, text: body }, ...cur].slice(0, NOTES_KEEP)
+      : cur.filter(e => e.id !== drop);
+    if (entries.length) tx.set(ref, { entries, at: now, by: actor }); else tx.delete(ref);
+    /* the audit log keeps who changed the file and how much, never the words */
+    tx.create(event, { actor, action: action === 'add' ? 'note_saved' : entries.length ? 'note_deleted' : 'note_cleared', target,
+      reason: action === 'add' ? body.length + ' characters' : 'A note was deleted', ...(name ? { name } : {}), operation: event.id, outcome: 'completed', at: FieldValue.serverTimestamp() });
+    out = { entries, at: now, by: actor };
   });
-  return { staffNote: body ? { text: body, at: now, by: actor } : { text: '', at: 0, by: '' } };
+  return { staffNote: out };
 }
 async function health(db) {
   const qs = await db.collection('saveHealth').where('t', '>', Timestamp.fromMillis(Date.now() - 86400000)).orderBy('t', 'desc').limit(250).get();
@@ -259,6 +297,28 @@ async function statsExport(db) {
     styleThisWeek: x.style, actionsThisWeek: x.a7, lastAction: x.last, buildings: x.bld, lifetime: x.life }));
   return { at: counted.at, world, regions, shop, nations };
 }
+/* What a removal or a ban would take with it, counted before the admin confirms it rather than described in prose.
+   Counts only (aggregation queries): nothing is read in full and nothing is changed. */
+async function impact(db, data) {
+  const target = id(data.uid);
+  const n = async q => { try { return (await q.count().get()).data().count; } catch { return null; } };
+  const [nation, ban, posts, chat, reports, space] = await Promise.all([
+    db.doc('nations/' + target).get(), db.doc('bans/' + target).get(),
+    n(db.collectionGroup('posts').where('a', '==', target)),
+    n(db.collectionGroup('chat').where('a', '==', target)),
+    n(db.collection('reports').where('target', '==', target)),
+    db.doc('space/' + target).get()]);
+  const d = nation.data() || {};
+  return { uid: target, at: Date.now(), exists: nation.exists, name: text(d.name, 80), reg: text(d.reg, 40),
+    pop: +d.pop || 0, claims: +d.cl || 0, army: +d.army || 0, space: space.exists,
+    posts, chat, reports, banned: ban.exists, banUntil: banUntil(ban) };
+}
+async function balance(db, data) {
+  const reg = text(data.reg, 40);
+  if (reg && !REGIONS.has(reg)) throw new HttpsError('invalid-argument', 'Choose a region.');
+  await stats(db, { refresh: data.refresh === true });
+  return { ...balanceOf(counted.rows.filter(r => !reg || r.reg === reg), counted.at), reg };
+}
 /* The Shop statistics page (functions/shop-stats.js): the shop's billing records are few, so they are read whole
    each time; the latest sales name their nations. */
 async function shopStats(db) {
@@ -321,6 +381,9 @@ async function adOff(db, reg, key, now, field = 'x', keep = AD_KEEP) {
 // the list, and a peep older than this only shows inside an old quote
 const FLK_KEEP = 180 * 86400000;
 const MOD_ACTIONS = ['delete_post', 'close_report'];
+/* How long a ban lasts, in days; 0 is until an admin lifts it (functions/bans.js explains how one is lifted). */
+export const BAN_DAYS = [1, 3, 7, 30, 90, 0];
+const banUntil = b => +b.get('until') || 0;
 /* an admin appoints a moderator, or stands one down: the custom claim mod (the player's game sees it at the next load) and
    staff/<uid> {t, m: true}, which shows the other players the green Mod pill at once */
 async function setMod(db, actor, data) {
@@ -349,7 +412,10 @@ async function mutate(db, actor, data) {
   const allowed = ['hide', 'rename', 'unhide', 'remove', 'ban', 'unban', 'delete_post', 'close_report', 'press_reset', 'support_reply', 'support_answer', 'support_close', 'support_reopen', 'support_delete'];
   if (!allowed.includes(action)) throw new HttpsError('invalid-argument', 'Unknown admin action.');
   if (['hide', 'rename', 'remove', 'ban'].includes(action) && target === actor) throw new HttpsError('failed-precondition', 'You cannot moderate your own account.');
-  const event = db.collection('adminAudit').doc(), common = { actor, action, target, reason, operation: event.id };
+  /* how long a ban lasts: a whole number of days from the list, or 0 for until an admin lifts it */
+  const days = action === 'ban' && Number.isInteger(data.days) && BAN_DAYS.includes(data.days) ? data.days : 0;
+  const event = db.collection('adminAudit').doc();
+  const common = { actor, action, target, reason: action === 'ban' ? reason + (days ? ` · ${days} ${days === 1 ? 'day' : 'days'}` : ' · until lifted') : reason, operation: event.id };
   // Record intent before a multi-document cleanup, and its outcome separately, so a partial failure is visible.
   await event.create({ ...common, outcome: 'started', at: FieldValue.serverTimestamp() });
   try {
@@ -373,7 +439,7 @@ async function mutate(db, actor, data) {
       const b = db.batch();
       b.set(db.doc('mod/' + target), { hidden: false, removed: now, note: reason, name, t: now, by: actor });
       if (action === 'ban') {
-        b.set(db.doc('bans/' + target), { note: reason, name, t: now, by: actor });
+        b.set(db.doc('bans/' + target), { note: reason, name, t: now, by: actor, ...(days ? { until: now + days * 86400000 } : {}) });
         // the sign-ins it uses (functions/eligibility.js, identityHashes), so a new account on them is banned too
         for (const h of await banMarks(target)) b.set(db.doc('banIds/' + h), { u: target, t: now });
       }
@@ -567,6 +633,10 @@ export const adminConsole = onCall({ region: 'europe-west1', maxInstances: 5, me
      (close a report, remove the reported post or chat line). Silencing and the region chats are functions/regionchat.js's */
   if (req.auth.token.admin !== true) {
     if (req.auth.token.mod === true && d.op === 'moderate' && MOD_ACTIONS.includes(d.action)) return mutate(db, actor, d);
+    /* a moderator judging a report can look the player up and write in the case file, and sees nothing of the account
+       behind the nation: no sign-ins, no address, no other accounts from it, no purchases (modPlayer) */
+    if (req.auth.token.mod === true && d.op === 'player') return modPlayer(db, id(d.uid));
+    if (req.auth.token.mod === true && d.op === 'note' && text(d.action, 8) !== 'drop') return note(db, actor, d);
     throw new HttpsError('permission-denied', 'Only Edictum admins can use the console.');
   }
   if (d.op === 'setMod') return setMod(db, actor, d);
@@ -577,6 +647,8 @@ export const adminConsole = onCall({ region: 'europe-west1', maxInstances: 5, me
   if (d.op === 'online') return onlinePlayers(db);
   if (d.op === 'alliances') return alliancesList(db);
   if (d.op === 'alChat') return allianceChat(db, actor, d);
+  if (d.op === 'impact') return impact(db, d);
+  if (d.op === 'balance') return balance(db, d);
   if (d.op === 'stats') return stats(db, d);
   if (d.op === 'shopStats') return shopStats(db);
   if (d.op === 'statsExport') return statsExport(db);

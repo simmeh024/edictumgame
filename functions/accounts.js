@@ -3,6 +3,7 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { getFirestore, Timestamp, FieldValue } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
 import { identity, eligibility, refuse, registered, nationJSON, banMarks, DAY } from './eligibility.js';
+import { liftBan } from './bans.js';
 import { forgetDiscord, discordStep } from './discord.js';
 import { shopStep, forgetShop } from './shop.js';
 import { mailStep, mailUnsub, forgetMail, recoveryMail } from './mail.js';
@@ -154,6 +155,17 @@ export const accounts = onCall({ region: 'europe-west1', maxInstances: 10, memor
   // the player's side of a support ticket (functions/support.js); before identity(), so a banned player can still
   // write back about their appeal
   if (d.op === 'support') return supportStep(db, uid, d);
+  // A timed ban that has run out (functions/admin.js, BAN_DAYS): the player's own game asks for it to be lifted when it
+  // reads `until` on its ban and the time has passed. The server checks the time itself and lifts nothing early, so the
+  // call is safe to make from anywhere; the marks on the account's sign-ins go with it, as an admin's Unban does. The
+  // alerts job sweeps up the bans of players who never come back (functions/alerts.js).
+  if (d.op === 'banExpired') {
+    const ref = db.doc('bans/' + uid), ban = await ref.get(), until = +ban.get('until') || 0, now = Date.now();
+    if (!ban.exists) return { lifted: false, banned: false };
+    if (!until || until > now) return { lifted: false, banned: true, until };
+    await liftBan(db, uid, { reason: 'The ban ran out', at: FieldValue.serverTimestamp() });
+    return { lifted: true, banned: false };
+  }
   if (d.op === 'seen') {
     // Once a page load (src/shim.js, seenCheck); the same address writes at most once an hour, moving the expiry with it.
     const ip = address(req.rawRequest), ref = db.doc('accountSeen/' + uid), now = Date.now(), last = await ref.get();

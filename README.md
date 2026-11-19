@@ -969,8 +969,28 @@ queue, and a button back to the game. Its **Help queries** tab (`#admin-help`) l
 support tickets, and its **Suspicious** tab (`#admin-sus`) the nations whose records the game caught
 out (see Fair play), with Hide and Ban. For anyone else `#admin` simply shows the game.
 
-The categorized left sidebar also includes **Player search**, **Save health**, **Admin audit log**,
-and **Region control**. Search covers existing public nation summaries without a migration, matches
+**Needs attention** (`#admin-triage`) stands at the top of the sidebar: everything waiting on the staff in one
+list, the longest-waiting first — the report queue, the help queries waiting on an answer, the new bug reports and
+the unseen alerts — with a row older than a day marked. It opens each in the page it belongs to. A moderator sees
+the same page with the reports alone. `J` and `K` move down and up the list and `Enter` opens a row; on the report
+queue `D` removes the reported post, `H` hides, `R` removes, `B` bans, `C` closes the ticket and `Esc` cancels. All
+but closing still ask first.
+
+The **report queue** groups the tickets about one nation into one case: several players reporting the same nation is
+one decision rather than five, the case says how many tickets it holds, and **Close all** settles the rest once it is
+decided. Before a removal or a ban is confirmed, the console counts what it would take with it — the nation, its
+population and land, its posts, its chat lines, its open tickets and its space record — from aggregation queries that
+read nothing and change nothing (`op: 'impact'`). The reason the player is told can be picked from the ones that come
+up again and again, or written by hand; it is kept in the audit log either way.
+
+Every page of the portal says how old its figures are and refreshes the same way, and a page whose figures are over
+two minutes old counts again when the tab comes back to the front. Tables that are still loading show rows in their
+place, so the page does not jump when the figures land.
+
+The categorized left sidebar also includes **Player search**, **Balance**, **Save health**, **Admin audit log**,
+and **Region control**. A player's page and a stretch of the audit log carry what they are looking at in the address
+(`#admin-players/<player id>`, `#admin-audit/<player id>`), so one can be linked to another admin and Back returns to
+where it was. Search covers existing public nation summaries without a migration, matches
 names without regard to capitalization or accents, supports player IDs and region filters, and
 shows server-confirmed save times and revisions when a player is inspected. The summary directory
 is cached for a minute; Refresh directory reloads it.
@@ -987,7 +1007,15 @@ entry, the one Google's front end adds; at most one write an hour from the same 
 No client can read or write it. From the same panel an admin can hide, delete or ban any nation,
 with or without a report, force a rename, and unhide or unban it: each needs a reason (which the
 player is told), every one is confirmed first, and all of them run the reports' moderation path, with
-its audit events. Reports, Hidden nations, Banned players and Suspicious link to the panel.
+its audit events.
+
+A ban runs until an admin lifts it, or for **a day, three days, a week, 30 days or 90 days**. A timed one keeps
+`until` beside its note. The account is banned while `bans/<uid>` exists, exactly as before — `firestore.rules`
+checks existence alone, so no nation save pays for an extra read — and a ban that has run out is lifted rather than
+weighed up on every check: the player's own game asks for it when it reads the time on its own ban
+(`accounts({op: 'banExpired'})`, which checks the time on the server and lifts nothing early), and the alerts job
+sweeps up the rest every fifteen minutes (`functions/bans.js`). Either way the sign-in marks go with it, as Unban
+does, and the audit log records `ban_expired` with `system` as the actor. Reports, Hidden nations, Banned players and Suspicious link to the panel.
 
 A forced rename (`moderate` action `rename`) sets `mod/<uid>` `{hidden: true, rename: true, name}`,
 so the nation leaves everyone else's view as a hidden one does. Its player sees a card at the top of
@@ -996,11 +1024,13 @@ every page asking for a new name; the name is saved like any other change, and t
 case, accents and spacing) and records a `renamed` audit event. A name saved but never confirmed is
 confirmed on the player's next visit. Unhide cancels the rename.
 
-The panel also keeps **staff notes** on each player: one private text (up to 4,000 characters) in
-`staffNotes/<uid>` `{text, at, by}`, read and written only through `adminConsole` (`op: 'note'`); no
-client, admin or not, can reach it directly, and the player never sees it. Each save is an audit
-event (`note_saved` or `note_cleared`) that records who changed it but not the text, so saving an
-empty note deletes it for good, and closing the account deletes it too.
+The panel also keeps **staff notes** on each player, as a case file rather than one text: each note is an entry of
+its own in `staffNotes/<uid>` `{entries: [{id, t, by, text}], at, by}` (up to 4,000 characters each, the newest
+first, 60 kept), so two admins reading the same player never write over each other and what was said stays beside
+who said it and when. They are read and written only through `adminConsole` (`op: 'note'`, action `add` or `drop`);
+no client, admin or not, can reach them directly, and the player never sees them. Each change is an audit event
+(`note_saved`, `note_deleted` or `note_cleared`) that records who changed the file but not the words. A note written
+before this release is read as the first entry of the file. Closing the account deletes the file.
 
 Save health combines `saveHealth/` session reports with actual `nations/` server timestamps and
 revisions. Reports contain only player ID, region, a Desktop/Mobile label, status, pending flag,
@@ -1037,7 +1067,10 @@ compatible with older clients; changes made outside the updated console are not 
 Audit history starts with this release and remains after player account deletion.
 
 Validation: `npm run test:admin` tests backend permissions, search, maintenance, diagnostics and
-audit outcomes. `npm run test:admin-e2e` tests the console and the player/home maintenance flows.
+audit outcomes, the case file, timed bans and their sweep, what a removal would take with it, and what a moderator
+may see. `npm run test:admin-e2e` tests the console and the player/home maintenance flows. `npm run test:fx`
+includes `test/admin-portal.test.mjs`: the report queue's grouping, the Needs attention list and the Balance page's
+counting, none of which needs an emulator.
 
 1. Play on the site and link your nation to Google (**Keep your nation on every device**), so the
    right stays with an account you can sign in to anywhere.
@@ -1060,6 +1093,13 @@ audit outcomes. `npm run test:admin-e2e` tests the console and the player/home m
 undoes it). A moderator gets no admin portal: they see **Remove** on every comment under the development
 news, and each removal is kept in `adminAudit/` with the comment's text. Like Assembly actions and board
 posts, commenting needs a linked sign-in, so link the moderator's nation first.
+
+A moderator judging a report can now look up the player behind it (`op: 'player'` answers them `modPlayer`,
+a record built from a list of its own): the nation at a glance, the reports by and about it, what has already been
+decided about it and the staff's case file, to which they may add a note. Nothing of the account behind the nation —
+how they sign in, where from, the other accounts seen from that address, what they bought, their sign-in links —
+reaches a moderator, and deleting a note, the directory of players and every moderation action beyond removing a
+reported line stay with the admins.
 
 **Development news.** Admins write posts in the portal under **Game content › Development news**: a title,
 formatted text with images (pasted, dropped or chosen; made at most 1600 pixels wide in the browser and kept
@@ -1225,6 +1265,25 @@ To have new alerts posted to a staff Discord channel as well: in Discord, the ch
 **Secrets and variables** → **Actions** as the secret `STAFF_ALERT_WEBHOOK`. Without it the alerts only show in
 the portal. The workflow needs the same service account secret and project variable as Deploy. The rules refuse
 `statsEngage/`, `watch/`, `adminAlerts/`, `adminCfg/`, `alertState/` and `feedLog/` to every client.
+
+### 9c2c. The Balance page
+
+Statistics answers how the game is doing; **Game content › Balance** (`#admin-balance`, `op: 'balance'`) answers how
+it is being *played*, for whoever tunes it. It counts the same ten-minute gather the Statistics page uses, so opening
+it beside Statistics costs nothing extra, and it can be narrowed to one region.
+
+- **Nations by age** — the middle nation of each age band (first day, days 1–3, 3–7, weeks 1–2, 2–4, months 1–3,
+  over three months) and the quarter either side of it: population, cities, hexes and edicts ruled. A nation's first
+  days are where the game is won or lost, and this is where to see it.
+- **Edicts** — every edict answered in the fortnight the rows keep, the most answered first: how its options were
+  picked and how often it was let go. An option nobody picks is an option that is not worth picking.
+- **How far they get** — the share of nations that have reached each part of the game, and each achievement.
+- **Buildings** — the share of nations with each building standing. One nobody builds costs too much, or does too
+  little.
+- **Laws in force** — the share of nations with each law from the edicts they ruled on.
+
+The counting itself is `functions/balance.js` (`balanceOf`), which takes the rows and no database, so it is tested
+without the emulators (`npm run test:fx`).
 
 ### 9c3. Observing another region
 
