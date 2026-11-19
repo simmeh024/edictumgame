@@ -9087,7 +9087,9 @@ button.rgc-nm{text-align:left}
 .rgc-tab{position:relative;display:inline-flex;align-items:center;gap:6px;padding:9px 10px 8px;border:0;border-bottom:2px solid transparent;margin-bottom:-1px;background:none;color:var(--ink-2);font-size:13.5px;font-weight:500;cursor:pointer}
 .rgc-tab:hover{color:var(--ink)}
 .rgc-tab.on{color:var(--ink);border-bottom-color:var(--accent)}
-.rgc-tn{min-width:17px;height:17px;padding:0 4px;border-radius:9px;background:var(--accent);color:var(--accent-ink);font:700 10.5px/17px var(--f-mono);text-align:center}
+.rgc-tab-al{min-width:0}
+.rgc-tl{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rgc-tn{flex:none;min-width:17px;height:17px;padding:0 4px;border-radius:9px;background:var(--accent);color:var(--accent-ink);font:700 10.5px/17px var(--f-mono);text-align:center}
 .rgc-q{display:block;max-width:100%;margin:1px 0 2px 31px;padding:2px 8px;border:0;border-left:2px solid var(--rule-2);background:var(--sheet-2);color:var(--ink-2);font-size:12.5px;line-height:1.4;text-align:left;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-radius:0 4px 4px 0}
 .rgc-q:hover{border-left-color:var(--accent);color:var(--ink)}
 .rgc-qn{font-weight:600;color:var(--ink)}
@@ -80770,7 +80772,17 @@ const RGC_HAPS=40,RGC_WIDE=typeof window.matchMedia==='function'?window.matchMed
 function rgcLS(k,v){try{if(v===undefined)return localStorage.getItem(k);localStorage.setItem(k,String(v));}catch(e){}return null;}
 Object.assign(RGC,{tab:rgcLS('edictum.rgc.tab')||'region',lastTab:'',re:null,mn:null,docked:rgcLS('edictum.rgc.dock')==='1',adraft:'',abusy:false,amsg:'',hapMemo:{at:0,k:'',list:[]},want:false,goto:''});
 function rgcAllyOn(){if(OBS)return null;try{const A=alMine();return A&&A.srv?A:null;}catch(e){return null;}}
-function rgcTabs(){const t=[['region','Region']];if(rgwOn())t.push(['world','World']);if(rgcAllyOn())t.push(['ally','Alliance']);t.push(['haps','Happenings']);return t;}
+function rgcTabs(){const t=[['region','Region']];if(rgwOn())t.push(['world','World']);const A=rgcAllyOn();if(A)t.push(['ally',A.name||'Alliance']);t.push(['haps','Happenings']);return t;}
+/* the Alliance tab carries the alliance's own name; one longer than RGC_AL_MAX letters shows its short form instead,
+   the initials that stand beside its members' names (rgcTag), with the full name in its tooltip and for screen readers.
+   The name is the player's own words, so the French interface leaves it alone (data-no-tr). */
+const RGC_AL_MAX=14;
+function rgcTabLabel(k,l){
+  if(k!=='ally')return l;
+  const nm=String(l||'').trim()||'Alliance',tip=`${esc(nm)} · alliance chat`;
+  if([...nm].length<=RGC_AL_MAX)return `<span class="rgc-tl" data-no-tr="" title="${tip}">${esc(nm)}</span>`;
+  return `<span class="rgc-tl" data-no-tr="" title="${tip}" aria-hidden="true">${esc(rgcTag(nm)||nm)}</span><span class="u-sr" data-no-tr="">${esc(nm)}</span>`;
+}
 function rgcTab(){if(!rgcTabs().some(x=>x[0]===RGC.tab))RGC.tab='region';return RGC.tab;}
 function rgcAllyUnread(){try{return rgcAllyOn()?alChatUnread():0;}catch(e){return 0;}}
 /* the Chat button counts the Region and Alliance tabs, and the world chat's lines that name the player */
@@ -80781,8 +80793,10 @@ function rgcAllyHeard(){if(RGC.open&&rgcTab()==='ally'){if(!document.hidden)try{
 function rgcTabsPaint(){
   const el=RGC.dock&&RGC.dock.querySelector('#rgc-tabs');if(!el)return;const cur=rgcTab();
   const n={region:cur==='region'?0:rgcUnread(),world:cur==='world'?0:rgwUnread(),ally:cur==='ally'?0:rgcAllyUnread(),haps:cur==='haps'?0:rgcHapNew()};
-  const h=rgcTabs().map(([k,l])=>`<button type="button" role="tab" id="rgc-tab-${k}" class="rgc-tab${k===cur?' on':''}" data-rgc="tab" data-v="${k}" aria-selected="${k===cur}" aria-controls="rgc-body" tabindex="${k===cur?0:-1}">${l}${n[k]?`<span class="rgc-tn" aria-label="${n[k]} new">${n[k]>99?'99+':n[k]}</span>`:''}</button>`).join('');
-  if(el.innerHTML!==h){const f=document.activeElement,had=f&&el.contains(f)?f.dataset.v:'';el.innerHTML=h;if(had){const b=document.getElementById('rgc-tab-'+had);if(b)b.focus({preventScroll:true});}}
+  const h=rgcTabs().map(([k,l])=>`<button type="button" role="tab" id="rgc-tab-${k}" class="rgc-tab${k===cur?' on':''}${k==='ally'?' rgc-tab-al':''}" data-rgc="tab" data-v="${k}" aria-selected="${k===cur}" aria-controls="rgc-body" tabindex="${k===cur?0:-1}">${rgcTabLabel(k,l)}${n[k]?`<span class="rgc-tn" aria-label="${n[k]} new">${n[k]>99?'99+':n[k]}</span>`:''}</button>`).join('');
+  /* compared with what was last written, not innerHTML: a name with an apostrophe (escaped here, not when the browser
+     reads it back) or a French label would otherwise rewrite the row on every tick */
+  if(el._h!==h){const f=document.activeElement,had=f&&el.contains(f)?f.dataset.v:'';el.innerHTML=h;el._h=h;if(had){const b=document.getElementById('rgc-tab-'+had);if(b)b.focus({preventScroll:true});}}
 }
 function rgcSetTab(v,focus){
   if(!rgcTabs().some(x=>x[0]===v))return;
