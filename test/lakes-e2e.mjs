@@ -28,10 +28,22 @@ let spot = null;
 for (const c of cands) { if (!(await p.evaluate(m => G.MD.pickProblem(m, G.territory()), c.cap))) { spot = c; break; } }
 if (!spot) throw new Error(`no free lake with a shore to settle on in this region (${cands.length} candidates)`);
 await nav(p, 'map');
-await p.evaluate(c => { G.S.mapPick = c; G.render(); }, spot.cap);
-await p.click('[data-act="settle"]');
-await until(() => p.evaluate(() => G.S.nation.loc && G.territory().byId[G.myId()] !== undefined));
-await p.evaluate(() => { const n = G.clone(G.S.nation); delete n.onb; n.lcb = (n.lcb || 0) + 80; G.commit(n); G.render(); });
+/* Mustard, one of the map colours anyone can pick in Settings, stands as far from the water as any of them: the
+   wash is then read off a channel where the nation's colour and the water are 170 or more apart, so rounding in a
+   byte cannot move the reading. Left to chance a nation can come out in Slate, which sits almost on the water.
+   The founding's own save can come back from the server just after the nation settles, with the record as it was
+   before (seen once on 20 Nov 2026: no capital, no credits, so no lake on the frontier); the nation settles again
+   and takes its colour and credits until it stands on the map with all three. */
+const settled = () => p.evaluate(() => !!G.S.nation.loc && G.territory().byId[G.myId()] !== undefined && G.S.nation.mapc === '#D9A42B' && (G.S.nation.lcb || 0) >= 80);
+for (let k = 0; k < 4 && !(await settled()); k++) {
+  if (!(await p.evaluate(() => !!G.S.nation.loc))) {
+    await p.evaluate(c => { G.S.mapPick = c; G.render(); }, spot.cap);
+    await p.click('[data-act="settle"]');
+    await until(() => p.evaluate(() => G.S.nation.loc && G.territory().byId[G.myId()] !== undefined));
+  }
+  await p.evaluate(() => { const n = G.clone(G.S.nation); delete n.onb; n.lcb = Math.max(80, n.lcb || 0); n.mapc = '#D9A42B'; G.commit(n); G.render(); });
+  await until(settled, 4000);
+}
 console.log('settled at', spot.cap, 'beside a lake of', spot.lake.length, 'hexes');
 
 const facts = await p.evaluate(lake => {
@@ -43,25 +55,47 @@ check('every hex of the lake is a lake and free to claim', facts.lakes && facts.
 check('the lake hexes beside your land are on the claim frontier', facts.reach.length > 0, JSON.stringify(facts.reach));
 check('spending credits for you never takes a lake', facts.auto === 0);
 
-/* the map's pixels at the middle of each lake hex, seen from one fixed view with no credits to spend (so no claimable
-   blocks are shaded): taken before and after the lake is claimed, they give the strength of the colour laid over it */
+/* the map's pixel at the middle of each lake hex, with no credits to spend (so no claimable blocks are shaded):
+   taken before and after the lake is claimed, the two give the strength of the colour laid over it */
 /* paused land credits (Settings › Land) count as none to spend, so no claimable block is shaded */
 const zeroCredits = async () => { await p.evaluate(() => { const n = G.clone(G.S.nation); n.lcp = Date.now(); G.commit(n); G.S.mapClaim = null; G.S.mapCell = null; G.S.mapInspect = null; G.render(); }); await sleep(300); return 0; };
 const giveCredits = () => p.evaluate(() => { const n = G.clone(G.S.nation); delete n.lcp; G.commit(n); G.render(); });
+/* Each hex is centred and the map drawn then and there. Centring only moves the view: the canvas is drawn again when
+   something on it is touched, and once a minute otherwise, so centring and waiting reads back whatever frame the map
+   was already holding — the same pixel for every hex of the lake, until a minute's tick lands in the middle of the
+   round and gives a few of them another view's pixel instead. That is what made this check come and go. */
 const sample = async lake => {
   const out = [];
   for (const c of lake) {
-    await p.evaluate(c => { G.MD.centerMain(c, 16); G.render(); }, c); await sleep(250);
-    out.push(await p.evaluate(() => {
+    out.push(await p.evaluate(c => {
       if (G.LK.landCredits(G.S.nation)) throw new Error('land credits to spend would shade the claimable blocks');
-      const cv = document.querySelector('canvas[data-map="main"]'), d = cv.width / cv.clientWidth;
+      const cv = document.querySelector('canvas[data-map="main"]');
+      G.MD.centerMain(c, 16); G.MD.drawMap(cv);
+      const d = cv.width / cv.clientWidth;
       return [...cv.getContext('2d').getImageData(Math.round((cv.clientWidth / 2 + 3) * d), Math.round((cv.clientHeight / 2 + 3) * d), 1, 1).data].slice(0, 3);
-    }));
+    }, c));
   }
   return out;
 };
+/* The sea's depth bands, its contours and the land's shadow on the water are traced in idle moments and kept, and
+   until they are there the water is drawn flat. On a machine with other work to do that can take the best part of a
+   minute, and a "before" read off flat water against an "after" read off the settled sea is a wash measured against
+   a sea that was never there — the reading comes out high, and more so the nearer the shore the hex lies.
+   So wait for the sea, and then read the round over until two rounds running agree, in case something else
+   (the season's snow and ice have their own idle job) is still settling. */
+const steady = async lake => {
+  if (!await until(() => p.evaluate(() => G.MD.sfKey() > 0), 90000, 300)) throw new Error('the sea was never charted');
+  let was = await sample(lake);
+  for (let i = 0; i < 8; i++) {
+    await sleep(300);
+    const now = await sample(lake);
+    if (JSON.stringify(now) === JSON.stringify(was)) return now;
+    was = now;
+  }
+  throw new Error('the map never held still over the lake');
+};
 const spare = await zeroCredits();
-const P0 = await sample(spot.lake);
+const P0 = await steady(spot.lake);
 await p.locator('canvas[data-map="main"]').screenshot({ path: OUT + '/lake-free.png' });
 await giveCredits(spare);
 
@@ -102,7 +136,7 @@ check('the lake counts towards the hexes you hold', rest.held >= facts.held + sp
 
 /* the colour over the lake: per hex, how far the pixel moved from the water towards the nation's colour */
 await zeroCredits();
-const P1 = await sample(spot.lake);
+const P1 = await steady(spot.lake);
 const tint = await p.evaluate(([P0, P1]) => {
   const rgb = h => { const x = h.trim().replace('#', ''); const f = x.length === 3 ? x.split('').map(q => q + q).join('') : x; return [0, 2, 4].map(k => parseInt(f.slice(k, k + 2), 16)); };
   const T = G.territory(), C = rgb(T.list[T.byId[G.myId()]].col), ta = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--terr-a')) || 0.5;
@@ -110,9 +144,12 @@ const tint = await p.evaluate(([P0, P1]) => {
   return { median: est[est.length >> 1], est: est.map(e => +e.toFixed(3)), want: +(ta * G.LK.LAKE_A).toFixed(3), land: ta };
 }, [P0, P1]);
 console.log('tint', JSON.stringify(tint));
-/* (a hex under the capital's name reads higher, and drifting weather shifts a reading a little: the median, within a band
-   well under the land's own strength) */
-check('the lake is washed at about LAKE_A of the land\'s strength, so the water shows through', tint.est.length >= 5 && Math.abs(tint.median - tint.want) < 0.09 && tint.median < tint.land * 0.7, JSON.stringify(tint));
+/* Every hex of the lake has to give a reading: with the nation in Mustard none can fall to the contrast filter, and a
+   hex that quietly drops out is a hex nobody looked at. Read off a picture that has settled, the hexes come in within
+   about 0.005 of each other, so 0.03 is room to spare; the median still carries it, because a hex under the capital's
+   name reads higher. And whatever LAKE_A is set to, the wash must stay well under the land's own strength. */
+check('the lake is washed at about LAKE_A of the land\'s strength, so the water shows through',
+  tint.est.length === spot.lake.length && Math.abs(tint.median - tint.want) < 0.03 && tint.median < tint.land * 0.7, JSON.stringify(tint));
 await p.locator('canvas[data-map="main"]').screenshot({ path: OUT + '/lake-held.png' });
 await p.evaluate(() => { document.documentElement.dataset.theme = 'dark'; G.render(); }); await sleep(500);
 await p.locator('canvas[data-map="main"]').screenshot({ path: OUT + '/lake-held-dark.png' });
