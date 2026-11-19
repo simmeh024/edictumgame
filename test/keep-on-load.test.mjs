@@ -26,7 +26,7 @@ test('achievements: unknown ids stay, known ones as before, nonsense goes', () =
 /* normalize with a stand-in loader that reads name, pop and old, and keeps name and pop */
 function norm() {
   const i = src.indexOf('const FWD_MAX='), j = src.indexOf('\n}', src.indexOf('function normalize(d){', i)) + 2;
-  const ctx = vm.createContext({ remapLegacy: d => d, normalizeR2: d => { const n = { name: d.name, pop: d.pop }; void d.old; if ('asked' in d) n.asked = 1; return n; }, JSON, Proxy, Reflect, Set });
+  const ctx = vm.createContext({ remapLegacy: d => d, remapFront: d => d, normalizeR2: d => { const n = { name: d.name, pop: d.pop }; void d.old; if ('asked' in d) n.asked = 1; return n; }, JSON, Proxy, Reflect, Set });
   vm.runInContext(src.slice(i, j).replace(/\bconst (FWD_MAX)/, 'var $1'), ctx);
   return ctx;
 }
@@ -43,7 +43,7 @@ test('fields no code reads are kept as they were and listed; read-and-dropped on
 test('a nation of another region keeps its cities, roads and land as they were (Guatapanal, 17 Nov 2026)', () => {
   const i = src.indexOf('const FWD_MAX='), j = src.indexOf('\n', src.indexOf('const MAP_KEEP=')) + 1;
   const N = 100, onMap = c => c < N;
-  const ctx = vm.createContext({ remapLegacy: d => d, JSON, Proxy, Reflect, Set, REG: { id: 'sunkenkingdoms' }, REG_BY_ID: { sunkenkingdoms: {}, saffron: {} },
+  const ctx = vm.createContext({ remapLegacy: d => d, remapFront: d => d, JSON, Proxy, Reflect, Set, REG: { id: 'sunkenkingdoms' }, REG_BY_ID: { sunkenkingdoms: {}, saffron: {} },
     normalizeR2: d => ({ name: d.name, reg: d.reg, cv: 4, loc: d.loc, cities: (d.cities || []).filter(c => onMap(c.c)), infra: (d.infra || []).filter(r => r.path.every(onMap)), claims: d.claims }) });
   vm.runInContext(src.slice(i, j).replace(/\bconst (FWD_MAX|MAP_KEEP)/g, 'var $1'), ctx);
   const d = { name: 'Guatapanal', reg: 'saffron', cv: 4, loc: { c: 3, r: 335 }, dep: { cap: { oil: 1 } },
