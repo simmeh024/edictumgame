@@ -237,7 +237,9 @@ try {
   await page.setViewportSize({ width: 1280, height: 900 });
   const tiny = await page.evaluate(([taken]) => {
     const G = window.__game, K = G.RVN(), RV = K.RV, T = G.territory(), mi = T.list.findIndex(x => x.me), cap = T.list[mi].cap;
-    const free = c => (T.owner[c] < 0 || T.owner[c] === mi) && !taken.includes(c) && G.MAP.T[c] >= 2 && T.list.every((y, j) => j === mi || K.hexDist(c, y.cap) > 3) && K.hexDist(c, cap) <= 60;
+    /* clear of every capital, this nation's too, and of lakes: a level name is left out where it would cover another
+       label or a lake, so a stream beside the capital's name failed this now and then (19 Nov 2026) */
+    const free = c => (T.owner[c] < 0 || T.owner[c] === mi) && !taken.includes(c) && G.MAP.T[c] >= 2 && !RV.lakeAt.has(c) && T.list.every(y => K.hexDist(c, y.cap) > 3) && K.hexDist(c, cap) <= 60;
     const r = RV.list.filter(r => !r.name0 && r.len <= 2 && r.cells.every(free)).sort((a, b) => K.hexDist(a.cells[0], cap) - K.hexDist(b.cells[0], cap))[0];
     return r ? { id: r.id, key: K.rvKey(r), cells: [...r.cells] } : null;
   }, [pick.cells]);
@@ -263,10 +265,14 @@ try {
     const far = c => T.list.every((y, j) => j === mi || K.hexDist(c, y.cap) > 6);
     for (const r of RV.list.filter(r => r.name0 && r.cells.length <= 40).sort((a, b) => a.cells.length - b.cells.length)) {
       if (!r.cells.every(c => T.owner[c] < 0 && far(c))) continue;
+      /* the hex to select: a bank, not a lake the river feeds, whose panel is the lake's and names nothing (the frontier's
+         maps, 19 Nov 2026, put a lake second on the first river this picks) */
+      const sel = r.cells.slice(1).concat(r.cells[0]).find(c => !RV.lakeAt.has(c));
+      if (sel === undefined) continue;
       const mid = r.cells[r.cells.length >> 1], on = new Set(r.cells);
       /* a capital 4 to 6 hexes from the river, so its core does not reach the banks and the claims alone decide */
       const near = c => { let d = 99; for (const x of r.cells) d = Math.min(d, K.hexDist(c, x)); return d; };
-      for (let c = 0; c < M.N; c++) if (M.T[c] >= 2 && M.T[c] < 4 && !on.has(c) && T.owner[c] < 0 && far(c) && K.hexDist(c, mid) <= 9) { const d = near(c); if (d >= 4 && d <= 6) return { id: r.id, key: K.rvKey(r), cells: [...r.cells], name0: r.name0, cap: c, cls: r.cls }; }
+      for (let c = 0; c < M.N; c++) if (M.T[c] >= 2 && M.T[c] < 4 && !on.has(c) && T.owner[c] < 0 && far(c) && K.hexDist(c, mid) <= 9) { const d = near(c); if (d >= 4 && d <= 6) return { id: r.id, key: K.rvKey(r), cells: [...r.cells], sel, name0: r.name0, cap: c, cls: r.cls }; }
     }
     return null;
   });
@@ -275,7 +281,7 @@ try {
     console.log(`     ${big.name0}: ${big.cells.length} hexes on its banks`);
     await edit((n, now, G, b) => { const M = G.MAP, cap = n.cities.find(c => c.c === M.COLS * n.loc.r + n.loc.c) || n.cities[0];
       n.loc = { ...n.loc, c: b.cap % M.COLS, r: Math.floor(b.cap / M.COLS) }; cap.c = b.cap; n.cities = [cap]; n.claims = b.cells.map((c, i) => ({ c, t: now + i })); delete n.rvn; }, big);
-    await go('map'); await select(big.cells[1]);
+    await go('map'); await select(big.sel);
     const wb = big.cls >= 2 ? 'river' : 'stream';
     check('a named river held whole can be renamed', (await txt('#map-panel [data-act="rvn-edit"]')) === `Rename the ${wb}`, await txt('#map-panel .rv-pn'));
     await page.click('#map-panel [data-act="rvn-edit"]');
