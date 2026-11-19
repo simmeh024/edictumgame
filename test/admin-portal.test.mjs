@@ -117,6 +117,20 @@ test('the ticket\'s own words are what the player is told, unless the admin writ
   assert.equal(admReportWhy(null), '');
 });
 
+/* Every link in the portal's menu has an icon of its own: two pages sharing the fallback look alike, which the
+   end-to-end suite checks in the browser and this catches here, where it costs a second rather than a CI run. */
+test('every page in the admin menu has an icon of its own', () => {
+  const at = html.indexOf('function admShell(');
+  const body = html.slice(at, html.indexOf('\nfunction ', at + 10));
+  const tabs = [...new Set([...body.matchAll(/tab\('([a-z-]+)'/g)].map(m => m[1]))];
+  assert.ok(tabs.length > 20, 'the menu was found');
+  const literal = html.slice(html.indexOf('const ADM_ICONS={'));
+  const keys = new Set([...literal.slice(0, literal.indexOf('\nfunction admShell')).matchAll(/^\s*'?([a-z-]+)'?:/gm)].map(m => m[1]));
+  /* the pages that are added further down the file bring their own icon with them */
+  for (const m of html.matchAll(/ADM_ICONS\['([a-z-]+)'\]\s*=/g)) keys.add(m[1]);
+  assert.deepEqual(tabs.filter(t => !keys.has(t)), [], 'every page named in the menu has an entry in ADM_ICONS');
+});
+
 /* ── the balance page's counting (functions/balance.js) ── */
 const row = (o = {}) => ({ reg: 'mer', founded: now - 2 * DAY, pop: 10, cities: 1, claims: 5, dec: 3, f: ['settled'], f2: [], ach: [], pol: [], bld: [], ans: [], ...o });
 
