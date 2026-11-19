@@ -18,7 +18,15 @@ async function user(admin = false) {
     u.idToken = (await token.json()).id_token;
     assert.equal(JSON.parse(Buffer.from(u.idToken.split('.')[1], 'base64url')).admin, true);
   }
-  return { uid: u.localId, token: u.idToken };
+  return { uid: u.localId, token: u.idToken, refreshToken: u.refreshToken };
+}
+/* a claim set on the server (setMod) reaches the client only on its next token: the game asks for a fresh one on
+   every load, and the test asks here */
+async function modUser(u) {
+  const r = await fetch(auth + '/securetoken.googleapis.com/v1/token?key=fake', { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: u.refreshToken }) });
+  const token = (await r.json()).id_token;
+  assert.equal(JSON.parse(Buffer.from(token.split('.')[1], 'base64url')).mod, true, 'the fresh token carries the moderator claim');
+  return { uid: u.uid, token, refreshToken: u.refreshToken };
 }
 async function call(u, data, name = 'adminConsole', extra = {}) {
   const r = await fetch(functions + name, { method: 'POST', headers: { 'content-type': 'application/json', ...(u ? { authorization: 'Bearer ' + u.token } : {}), ...extra }, body: JSON.stringify({ data }) });
@@ -172,25 +180,116 @@ test('a forced rename hides the nation until its player saves it under another n
   assert.deepEqual(await call(p, { op: 'renamed' }, 'civic'), { ok: true });
   assert.equal((await get('mod/' + p.uid)).fields.hidden.booleanValue, true);
 });
-test('staff notes are the admins’ alone, audited without their text, and go with the account', async () => {
-  const a = await user(true), p = await user(); await seed(p.uid, 'Notedland');
-  assert.deepEqual((await call(a, { op: 'player', uid: p.uid })).staffNote, { text: '', at: 0, by: '' });
+test('staff notes are a case file: each note kept as written, beside who wrote it, and never overwritten', async () => {
+  const a = await user(true), b = await user(true), p = await user(); await seed(p.uid, 'Notedland');
+  assert.deepEqual((await call(a, { op: 'player', uid: p.uid })).staffNote, { entries: [], at: 0, by: '' });
   await assert.rejects(call(p, { op: 'note', uid: p.uid, text: 'Mine now' }), e => e.status === 'PERMISSION_DENIED');
   await assert.rejects(call(a, { op: 'note', uid: p.uid }), e => e.status === 'INVALID_ARGUMENT');
-  const saved = (await call(a, { op: 'note', uid: p.uid, text: '  Warned about spam on 1 November.\r\nBan next time.  ' })).staffNote;
-  assert.equal(saved.text, 'Warned about spam on 1 November.\nBan next time.'); assert.equal(saved.by, a.uid); assert.ok(saved.at > 0);
-  assert.deepEqual((await call(a, { op: 'player', uid: p.uid })).staffNote, saved);
-  assert.equal((await call(a, { op: 'note', uid: p.uid, text: 'x'.repeat(5000) })).staffNote.text.length, 4000);
+  await assert.rejects(call(a, { op: 'note', uid: p.uid, text: '   ' }), e => e.status === 'INVALID_ARGUMENT');
+  const one = (await call(a, { op: 'note', uid: p.uid, text: '  Warned about spam on 1 November.\r\nBan next time.  ' })).staffNote;
+  assert.equal(one.entries.length, 1);
+  assert.equal(one.entries[0].text, 'Warned about spam on 1 November.\nBan next time.');
+  assert.equal(one.entries[0].by, a.uid); assert.ok(one.entries[0].t > 0);
+  /* a second admin writing about the same player adds to the file rather than replacing what the first said */
+  const two = (await call(b, { op: 'note', uid: p.uid, text: 'Looked again: the posts are gone.' })).staffNote;
+  assert.equal(two.entries.length, 2);
+  assert.equal(two.entries[0].by, b.uid, 'the newest note is first');
+  assert.equal(two.entries[1].text, one.entries[0].text, 'the first note is untouched');
+  assert.deepEqual((await call(a, { op: 'player', uid: p.uid })).staffNote.entries.map(e => e.by), [b.uid, a.uid]);
+  assert.equal((await call(a, { op: 'note', uid: p.uid, text: 'x'.repeat(5000) })).staffNote.entries[0].text.length, 4000);
+  /* the log keeps who wrote and who deleted, never the words */
   const log = (await call(a, { op: 'audit', target: p.uid })).events.filter(e => e.action === 'note_saved');
-  assert.equal(log.length, 2);
-  assert.ok(log.every(e => e.actor === a.uid && e.name === 'Notedland' && e.outcome === 'completed' && !JSON.stringify(e).includes('spam')));
-  await call(a, { op: 'note', uid: p.uid, text: '   ' });
-  assert.equal(await get('staffNotes/' + p.uid), null);
+  assert.equal(log.length, 3);
+  assert.ok(log.every(e => e.name === 'Notedland' && e.outcome === 'completed' && !JSON.stringify(e).includes('spam')));
+  const left = (await call(a, { op: 'note', action: 'drop', uid: p.uid, id: two.entries[0].id })).staffNote;
+  assert.equal(left.entries.length, 2, 'one note deleted, the others left');
+  assert.ok(!left.entries.some(e => e.by === b.uid));
+  assert.ok((await call(a, { op: 'audit', target: p.uid })).events.some(e => e.action === 'note_deleted'));
+  for (const e of left.entries) await call(a, { op: 'note', action: 'drop', uid: p.uid, id: e.id });
+  assert.equal(await get('staffNotes/' + p.uid), null, 'an empty file is no file');
   assert.ok((await call(a, { op: 'audit', target: p.uid })).events.some(e => e.action === 'note_cleared'));
-  await call(a, { op: 'note', uid: p.uid, text: 'Kept until the account goes' });
+  /* a note written before the file had entries is read as the first of them */
+  await put('staffNotes/' + p.uid, { text: 'From the old single note', at: Date.now(), by: a.uid });
+  const old = (await call(a, { op: 'player', uid: p.uid })).staffNote;
+  assert.equal(old.entries.length, 1);
+  assert.equal(old.entries[0].text, 'From the old single note');
+  await call(a, { op: 'note', uid: p.uid, text: 'And what came after' });
+  const both = (await call(a, { op: 'player', uid: p.uid })).staffNote;
+  assert.equal(both.entries.length, 2, 'the old note is kept as an entry once the file is written again');
   for (const path of ['nations/', 'nationx/', 'summaries/']) await del(path + p.uid);
   await call(p, { op: 'close' }, 'accounts');
-  assert.equal(await get('staffNotes/' + p.uid), null);
+  assert.equal(await get('staffNotes/' + p.uid), null, 'the file goes with the account');
+});
+test('a moderator may look up the player behind a report, and sees nothing of the account behind the nation', async () => {
+  const a = await user(true), m = await user(), p = await user(); await seed(p.uid, 'Modlookland');
+  await call(a, { op: 'setMod', uid: m.uid, on: true });
+  const mod = await modUser(m);
+  await assert.rejects(call(mod, { op: 'search' }), e => e.status === 'PERMISSION_DENIED', 'the directory is the admins’');
+  await assert.rejects(call(mod, { op: 'moderate', action: 'ban', target: p.uid, reason: 'no' }), e => e.status === 'PERMISSION_DENIED');
+  const seen = await call(mod, { op: 'player', uid: p.uid });
+  assert.equal(seen.name, 'Modlookland');
+  assert.equal(seen.mod, true);
+  assert.equal(seen.account, null, 'how they sign in and where from is not a moderator’s to see');
+  assert.deepEqual(seen.alts, []); assert.equal(seen.purchases, null); assert.equal(seen.once, null);
+  assert.ok(seen.nation && seen.reports && seen.actions, 'the nation, the reports and what was decided before are there');
+  /* a moderator may write in the case file, so the next pair of eyes knows what was found; deleting stays an admin's */
+  const wrote = (await call(mod, { op: 'note', uid: p.uid, text: 'Removed a chat line; watching.' })).staffNote;
+  assert.equal(wrote.entries[0].by, m.uid);
+  await assert.rejects(call(mod, { op: 'note', action: 'drop', uid: p.uid, id: wrote.entries[0].id }), e => e.status === 'PERMISSION_DENIED');
+});
+test('a ban can have a term: it lifts itself when it runs out, and not a moment early', async () => {
+  const a = await user(true), p = await user(); await seed(p.uid, 'Termland');
+  await call(a, { op: 'moderate', action: 'ban', target: p.uid, reason: 'Spam', name: 'Termland', days: 7 });
+  const ban = await get('bans/' + p.uid);
+  const until = Number(ban.fields.until.integerValue);
+  assert.ok(until > Date.now() + 6 * 86400000 && until < Date.now() + 8 * 86400000, 'a week from now');
+  const banEvent = (await call(a, { op: 'audit', target: p.uid })).events.find(e => e.action === 'ban' && e.outcome === 'completed');
+  assert.equal(banEvent.reason, 'Spam', 'the reason stays the words the player was told');
+  assert.equal(banEvent.days, 7, 'the term is a field of its own');
+  assert.equal((await call(a, { op: 'player', uid: p.uid })).banUntil, until);
+  /* the player's own game asks for it to be lifted; the server checks the time and refuses while it still runs */
+  assert.deepEqual(await call(p, { op: 'banExpired' }, 'accounts'), { lifted: false, banned: true, until });
+  assert.ok(await get('bans/' + p.uid), 'still banned');
+  await put('bans/' + p.uid, { until: Date.now() - 1000 });
+  assert.deepEqual(await call(p, { op: 'banExpired' }, 'accounts'), { lifted: true, banned: false });
+  assert.equal(await get('bans/' + p.uid), null, 'the ban is gone when its term is up');
+  const log = (await call(a, { op: 'audit', target: p.uid })).events.find(e => e.action === 'ban_expired');
+  assert.ok(log && log.actor === 'system' && log.outcome === 'completed');
+  /* a ban with no term is not touched */
+  const q = await user(); await seed(q.uid, 'Foreverland');
+  await call(a, { op: 'moderate', action: 'ban', target: q.uid, reason: 'Cheating', name: 'Foreverland' });
+  assert.equal((await get('bans/' + q.uid)).fields.until, undefined);
+  assert.deepEqual(await call(q, { op: 'banExpired' }, 'accounts'), { lifted: false, banned: true, until: 0 });
+  assert.ok(await get('bans/' + q.uid), 'a ban until it is lifted stays until it is lifted');
+});
+test('what a removal would take with it is counted before it is confirmed', async () => {
+  const a = await user(true), p = await user(); await seed(p.uid, 'Countland');
+  await put('boards/meridian/posts/imp1', { a: p.uid, t: Date.now(), x: 'one' });
+  await put('boards/meridian/posts/imp2', { a: p.uid, t: Date.now(), x: 'two' });
+  await put('rchat/meridian/chat/impc1', { a: p.uid, t: Date.now(), x: 'said' });
+  await put('reports/imprep', { by: a.uid, target: p.uid, kind: 'nation', reason: 'spam', name: 'Countland', reg: 'meridian', t: new Date() });
+  const d = await call(a, { op: 'impact', uid: p.uid });
+  assert.equal(d.exists, true); assert.equal(d.name, 'Countland'); assert.equal(d.pop, 5);
+  assert.equal(d.posts, 2); assert.equal(d.chat, 1); assert.equal(d.reports, 1);
+  assert.equal(d.banned, false);
+  /* counting changes nothing */
+  assert.ok(await get('nations/' + p.uid));
+  assert.equal((await call(a, { op: 'audit', target: p.uid })).events.length, 0, 'looking is not an action');
+  const none = await call(a, { op: 'impact', uid: (await user()).uid });
+  assert.equal(none.exists, false); assert.equal(none.posts, 0);
+});
+test('the alerts job sweeps up the timed bans of players who never came back', async () => {
+  const a = await user(true), gone = await user(), still = await user(), now = Date.now();
+  await seed(gone.uid, 'Sweptland'); await seed(still.uid, 'Stillbannedland');
+  await call(a, { op: 'moderate', action: 'ban', target: gone.uid, reason: 'Spam', name: 'Sweptland', days: 1 });
+  await call(a, { op: 'moderate', action: 'ban', target: still.uid, reason: 'Spam', name: 'Stillbannedland', days: 90 });
+  await put('bans/' + gone.uid, { until: now - 60000 });
+  const run = await promisify(execFile)(process.execPath, [fileURLToPath(new URL('../jobs/stats/alerts.mjs', import.meta.url)), '--project', project, '--now', String(now)])
+    .then(x => JSON.parse(x.stdout));
+  assert.ok(run.bansLifted >= 1, 'the run says how many it lifted');
+  assert.equal(await get('bans/' + gone.uid), null, 'a ban whose term has passed is gone');
+  assert.ok(await get('bans/' + still.uid), 'one still running is left alone');
+  assert.ok((await call(a, { op: 'audit', target: gone.uid })).events.some(e => e.action === 'ban_expired' && e.actor === 'system'));
 });
 test('an admin turns a free Chancery Club membership on and off, audited, and the player’s shop follows', async () => {
   const a = await user(true), p = await user(); await seed(p.uid, 'Clubland');
