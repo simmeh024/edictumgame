@@ -11808,18 +11808,23 @@ const REG_MER=REG.id==='meridian';
    it, so the grid a page builds is wider or taller than those proportions. More players still are met by adding
    regions, not by growing these. */
 const REGION_LAND=30000,MAP_ASPECT=226/142;
-/* the charted map: the grid every region had before the frontier, and the one its players live on */
-const [CHART_COLS,CHART_ROWS]=(()=>{const land=Math.max(0.2,Number(REG.geo&&REG.geo.land)||0.4),want=REGION_LAND*(Number(REG.cap)>0?REG.cap/250:1),c=Math.round(Math.sqrt(Math.max(226*142,want/land)*MAP_ASPECT));
-  return [Math.max(226,c),Math.max(142,Math.round(c/MAP_ASPECT))];})();
 /* ── the frontier ──
    Beyond the charted map lies new land, to the east and south: the grid is FRONT_GROW times the area it was,
    the charted map keeps the north-west of it hex for hex, and the rest is generated afresh (embedFrontier).
    Every region draws its own frontier from its name — how far it grows each way, how many new lands, how large
    and how broken up — so no two are alike. A region with no frontier list of names does not grow at all. */
 const FRONT_GROW=1.42;
-const [MAP_COLS,MAP_ROWS]=(()=>{if(!Array.isArray(REG.frontier)||!REG.frontier.length)return [CHART_COLS,CHART_ROWS];
-  const kc=Math.sqrt(FRONT_GROW)*(0.86+0.28*((hash(REG.id+':front:g')%1000)/1000));
-  return [Math.round(CHART_COLS*kc),Math.round(CHART_ROWS*FRONT_GROW/kc)];})();
+/* A region's grids: the charted map (oc × or), the grid every region had before the frontier and the one its players
+   live on, and the grid it has now (cols × rows). Any region's, not only this page's: a record of another region is
+   read on this page too (the admins' scan of every region checks its seals, refCell). */
+function regGrid(R){
+  const land=Math.max(0.2,Number(R.geo&&R.geo.land)||0.4),want=REGION_LAND*(Number(R.cap)>0?R.cap/250:1),c=Math.round(Math.sqrt(Math.max(226*142,want/land)*MAP_ASPECT));
+  const oc=Math.max(226,c),or=Math.max(142,Math.round(c/MAP_ASPECT));
+  if(!Array.isArray(R.frontier)||!R.frontier.length)return {oc,or,cols:oc,rows:or};
+  const kc=Math.sqrt(FRONT_GROW)*(0.86+0.28*((hash(R.id+':front:g')%1000)/1000));
+  return {oc,or,cols:Math.round(oc*kc),rows:Math.round(or*FRONT_GROW/kc)};
+}
+const {oc:CHART_COLS,or:CHART_ROWS,cols:MAP_COLS,rows:MAP_ROWS}=regGrid(REG);
 /* biome noise offsets and thresholds: Meridian keeps the original ones exactly */
 const BIO=(()=>{if(REG_MER)return {ox:LEG.ox,oy:LEG.oy,s:'',wc:0.62,wa:0.8,dt:18,dd:0.45,fo:0.55,fh:0.56};
   const g=REG.geo;return {ox:0,oy:0,s:':'+REG.id,wc:0.62-0.12*g.wet,wa:0.8-0.15*g.wet,dt:18+6*g.wet,dd:0.45+0.15*g.wet,fo:0.70-0.3*g.forest,fh:0.71-0.3*g.forest};})();
@@ -12116,15 +12121,23 @@ function remapLegacy(d){
    charted hex, comes back untouched. Everything that was written down by hex before the frontier goes through
    this: a nation's own record (remapFront) and the border agreements the region shares (bdNorm). */
 function frontCell(c){return Number.isInteger(c)&&c>=0&&c<CHART_COLS*CHART_ROWS?Math.floor(c/CHART_COLS)*MAP_COLS+(c%CHART_COLS):c;}
+/* the other way: the number a hex of this page's map had on the charted map, or -1 for a hex of the frontier */
+function chartCell(c){if(!Number.isInteger(c)||c<0)return -1;const r=Math.floor(c/MAP_COLS),k=c%MAP_COLS;return k<CHART_COLS&&r<CHART_ROWS?r*CHART_COLS+k:-1;}
 /* when the frontier reached the live game, and with it the wider rows: a border agreement drawn before this was
    drawn on the charted map (bdNorm) */
 const FRONT_AT=Date.UTC(2026,10,19,19,41,53);
 /* Records from before the frontier (map version 4) move onto the larger map untouched: the charted hexes keep
-   their column and row, so only the width of a row changed. Everything held by hex is counted again against it. */
+   their column and row, so only the width of a row changed. Everything held by hex is counted again against it.
+   Only on the record's own region's page: the width is this page's, and another region's rows are another width.
+   A record of another region read here (a new device opens FIRST_REG; the admins' scan of every region) stays on
+   map version 4 as it was, and normalize keeps its land (MAP_KEEP) for its own page to move. Moved with this page's
+   width and marked version 5, it was kept so, saved so, and never moved again on its own page (19 Nov 2026).
+   A record this moves, or remapLate puts right, is marked fz: everything in it is on this map, and stays so. */
+const recReg=d=>typeof d.reg==='string'&&REG_BY_ID[d.reg]?d.reg:'meridian';
 function remapFront(d){
-  if(!d||typeof d!=='object')return d;
-  if(!((d.loc&&d.loc.m===4)||d.cv===4)||MAP_COLS===CHART_COLS)return d;
-  const o={...d},m=frontCell;
+  if(!d||typeof d!=='object'||MAP_COLS===CHART_COLS||recReg(d)!==REG.id)return d;
+  if(!((d.loc&&d.loc.m===4)||d.cv===4))return d.cv===MAP_VER&&d.fz!==1?remapLate(d):d;
+  const o={...d},m=frontCell,here=e=>e&&typeof e==='object'&&e.r===REG.id;
   if(d.loc&&d.loc.m===4)o.loc={...d.loc,m:MAP_VER};
   for(const k of ['claims','conq','bx','rec'])if(Array.isArray(d[k]))o[k]=d[k].map(e=>e&&typeof e==='object'?{...e,c:m(e.c)}:e);
   if(Array.isArray(d.cities))o.cities=d.cities.map(c=>c&&typeof c==='object'?{...c,c:m(c.c)}:c);
@@ -12139,6 +12152,16 @@ function remapFront(d){
   /* a joint venture proposed and paid for but not yet filed: the server copies its route from here as it stands */
   if(Array.isArray(d.jvp))o.jvp=d.jvp.map(e=>e&&typeof e==='object'&&e.w==='a'?{...e,ca:m(e.ca),cb:m(e.cb),
     path:Array.isArray(e.path)?e.path.map(m):e.path}:e);
+  /* the rivers this nation named: a river is known by its lowest corner, 2 × hex + (0 top, 1 bottom) (rvKey,
+     rvCorner), so the hex moves and the corner stays its top or bottom one. Names given in another region (before a
+     move) are on that region's rows and stay as they are. */
+  if(Array.isArray(d.rvn))o.rvn=d.rvn.map(e=>here(e)&&Number.isInteger(e.v)&&e.v>=0?{...e,v:2*m(e.v>>1)+(e.v&1)}:e);
+  /* the expansion plan saved on the map page (mpSavePlan), and the bridges being thrown over a river in a war */
+  if(d.mapPlan&&typeof d.mapPlan==='object'&&d.mapPlan.reg===REG.id&&Array.isArray(d.mapPlan.cells))
+    o.mapPlan={...d.mapPlan,cells:d.mapPlan.cells.map(m)};
+  if(Array.isArray(d.brg))o.brg=d.brg.map(b=>here(b)?{...b,c:m(b.c)}:b);
+  /* the public works an edict opened, each at one of the nation's cities (edwOfCity) */
+  if(Array.isArray(d.ew))o.ew=d.ew.map(w=>w&&typeof w==='object'?{...w,c:m(w.c)}:w);
   /* the divisions: every seat, every seat taken in by merging, and every hex moved by hand. A seat that did not
      move would be read as open sea, and the division would quietly re-seat itself or lie dormant. */
   if(d.prov&&typeof d.prov==='object'&&!Array.isArray(d.prov)){const P={...d.prov};
@@ -12147,7 +12170,25 @@ function remapFront(d){
     if(P.x&&typeof P.x==='object'&&!Array.isArray(P.x)){const X={};
       for(const k of Object.keys(P.x))X[m(Number(k))]=P.x[k];P.x=X;}
     o.prov=P;}
-  if(d.cv===4)o.cv=MAP_VER;return o;
+  if(d.cv===4)o.cv=MAP_VER;o.fz=1;return o;
+}
+/* A record the frontier's own build (from FRONT_AT, 19 Nov 2026) moved to version 5 moved only what that build knew
+   of: the rivers it had named, the bridges it was building and the public works its edicts opened stayed on the charted
+   numbers. And that build numbered the sites in a list of its own, which the frontier had shuffled (SITES): the finds,
+   expeditions and expedition plans made since are numbered in it (SITE_FZ turns them into this list's). Each is put
+   right once, by its own date: a river named, a bridge begun or a works opened before the frontier is on the charted
+   map; a find made, an expedition sent or planned since, in that build's list. The saved expansion plan carries no
+   date, so it is left as it is (a plan, which its player redraws). */
+function remapLate(d){
+  const o={...d},m=frontCell,old=t=>typeof t==='number'&&t<FRONT_AT,since=t=>typeof t==='number'&&t>=FRONT_AT;
+  const here=e=>e&&typeof e==='object'&&e.r===REG.id,sf=s=>SITE_FZ&&Number.isInteger(s)&&s>=0&&s<SITE_FZ.length?SITE_FZ[s]:s;
+  if(Array.isArray(d.rvn))o.rvn=d.rvn.map(e=>here(e)&&old(e.t)&&Number.isInteger(e.v)&&e.v>=0?{...e,v:2*m(e.v>>1)+(e.v&1)}:e);
+  if(Array.isArray(d.brg))o.brg=d.brg.map(b=>here(b)&&old(b.s)?{...b,c:m(b.c)}:b);
+  if(Array.isArray(d.ew))o.ew=d.ew.map(w=>w&&typeof w==='object'&&old(w.t)?{...w,c:m(w.c)}:w);
+  if(Array.isArray(d.disc))o.disc=d.disc.map(e=>e&&typeof e==='object'&&since(e.t)?{...e,s:sf(e.s)}:e);
+  for(const k of ['exp','exp2'])if(d[k]&&typeof d[k]==='object'&&since(d[k].t0))o[k]={...d[k],s:sf(d[k].s)};
+  if(d.xb)o.xb=[].concat(d.xb).map(x=>x&&typeof x==='object'&&since(x.t)?{...x,s:sf(x.s)}:x);
+  o.fz=1;return o;
 }
 
 
@@ -21145,6 +21186,8 @@ function locOf(i){return {c:i%MAP.COLS,r:Math.floor(i/MAP.COLS),m:MAP_VER};}
 function validLoc(l){return l&&typeof l==='object'&&l.m===MAP_VER&&Number.isInteger(l.c)&&Number.isInteger(l.r)&&l.c>=0&&l.r>=0&&l.c<MAP.COLS&&l.r<MAP.ROWS?{c:l.c,r:l.r,m:MAP_VER}:null;}
 function cellOf(loc){const l=validLoc(loc);if(!l)return -1;const i=l.r*MAP.COLS+l.c;return MAP.T[i]>=2?i:-1;}
 function hexDist(a,b){const ar=Math.floor(a/MAP.COLS),ac=a%MAP.COLS,br=Math.floor(b/MAP.COLS),bc=b%MAP.COLS;const dq=(ac-(ar-(ar&1))/2)-(bc-(br-(br&1))/2),dr=ar-br;const C=MAP.COLS,f=q=>(Math.abs(q)+Math.abs(dr)+Math.abs(q+dr))/2;return Math.min(f(dq),f(dq-C),f(dq+C));}
+/* the same on a grid of C columns (the charted map's, for the sites as it laid them out: SITES) */
+function hexDistIn(a,b,C){const ar=Math.floor(a/C),ac=a%C,br=Math.floor(b/C),bc=b%C;const dq=(ac-(ar-(ar&1))/2)-(bc-(br-(br&1))/2),dr=ar-br,f=q=>(Math.abs(q)+Math.abs(dr)+Math.abs(q+dr))/2;return Math.min(f(dq),f(dq-C),f(dq+C));}
 function cellAt(x,y){
   x=((x%MAP_PW)+MAP_PW)%MAP_PW;
   const fr=(y-HEX_R)/(1.5*HEX_R),fq=(x-HEX_W/2)/HEX_W-fr/2,fs=-fq-fr;
@@ -21291,14 +21334,20 @@ function capWrong(list,ev){
     const pend=[];
     for(const e of es){
       const y=by.get(e.src);if(!y||y===x||y.npc||!Array.isArray(y.n.claims)||!(e.t<since)||!inReach(y,e.c))continue;
-      const t=raceKnown(e.src,'c'+e.c,e.t,y.n);
+      const t=raceKnown(e.src,raceCK(e),e.t,y.n);
       if(t!=null&&t<since){out.set(x.id,y);pend.length=0;break;}
-      if(t==null&&raceOpen(e.src,'c'+e.c,e.t))pend.push(e.src+':'+e.c);
+      if(t==null&&raceOpen(e.src,raceCK(e),e.t))pend.push(e.src+':'+e.c);
     }
     for(const k of pend)out.pend.add(k);
   }
   return out;
 }
+/* The stamp of claim e. A stamp is written once, by the save that first carried the claim, under the hex's number then
+   (src/shim.js, raceKeys): a claim from before the frontier under the number its hex had on the charted map. Asked
+   for under the number it has now, every such stamp was missing, and two nations' claims on one hex were put in the
+   order of their records' last saves, which changed hands with every save (19 Nov 2026). Only the claim's own nation's
+   stamp is read, so a charted number can only ever find the stamp of the same hex. */
+function raceCK(e){const j=e.t<FRONT_AT&&MAP_COLS!==CHART_COLS?chartCell(e.c):-1;return 'c'+(j>=0?j:e.c);}
 function raceSoon(){if(!RACE.busy&&RACE.want.size&&S.db){RACE.busy=true;setTimeout(raceFetch,60);}}
 /* a stamp that could not be read (the connection dropped, a phone woke offline) used to stay unread for the rest of the
    visit, and with it a capital on land claimed first, and a credit for that claim. It is read again after 15, 30 and
@@ -21331,11 +21380,26 @@ const SEAL2_AT=Number(window.EDICTUM_SEAL2_AT)||Date.UTC(2026,10,10);
 const refV2=e=>e.t>=SEAL2_AT,refSig=e=>refV2(e)?e.s2:e.s;
 const refText=(src,e)=>refV2(e)?['edictum-battle-2',src,e.c,e.t,e.w||'',e.d||''].join('|'):['edictum-battle-1',src,e.c,e.t,e.w||''].join('|');
 const refK=(src,e)=>refText(src,e)+'|'+refSig(e);
-function sealed(src,e){
+/* The number the referee sealed for conquest e of a record of region reg on map version cv. The frontier (FRONT_AT)
+   widened every row and the records moved their conquests with it (remapFront), but a seal is over the number its hex
+   had when it fell: every conquest sealed from 29 Oct to the frontier outside the top row failed its check, its hex
+   went back to the defender and the conqueror was listed as carrying forged seals (19 Nov 2026). A conquest from
+   before the frontier is checked against the number its hex had on the charted map, and only that one; one from since
+   only against the number it has. Never both: the time is sealed too, so no seal ever vouches for two hexes (a seal
+   from before the frontier cannot be put on the hex that has its old number now, nor one from since on the hex that
+   had it then). A record still on version 4 (another region's, read on this page) holds the charted numbers as they
+   were sealed. -1: no number the referee could have sealed (a hex of the frontier before there was one). */
+function refCell(e,reg,cv){
+  if(cv===4||!(e.t<FRONT_AT))return e.c;
+  const g=regGrid(REG_BY_ID[reg]||REG),c=e.c;if(g.cols===g.oc)return c;
+  if(!Number.isInteger(c)||c<0)return -1;
+  const r=Math.floor(c/g.cols),k=c%g.cols;return k<g.oc&&r<g.or?r*g.oc+k:-1;
+}
+function sealed(src,e,n){
   if(!S.db||!(e.t>=REF_EPOCH))return true;
   if(typeof refSig(e)!=='string')return false;
   const k=refK(src,e),v=REF.ok.get(k);
-  if(v===undefined&&!REF.want.has(k)){REF.want.set(k,{src,e});refSoon();}
+  if(v===undefined&&!REF.want.has(k)){REF.want.set(k,{src,e,reg:n&&n.reg,cv:n&&n.cv});refSoon();}
   return v!==false;
 }
 function refSoon(){if(!REF.busy&&REF.want.size&&S.db){REF.busy=true;setTimeout(refCheck,30);}}
@@ -21347,7 +21411,8 @@ async function refKey(){
   try{const s=await S.db.doc('referee/pub').get(),k=s.exists?(s.data()||{}).k:null;REF.key=typeof k==='string'?await crypto.subtle.importKey('spki',unb64(k),{name:'ECDSA',namedCurve:'P-256'},false,['verify']):null;}catch(e){REF.key=undefined;}
   return REF.key;
 }
-async function refVerify(key,src,e){try{return !!(await crypto.subtle.verify({name:'ECDSA',hash:'SHA-256'},key,unb64(refSig(e)),new TextEncoder().encode(refText(src,e))));}catch(err){return false;}}
+async function refVerify(key,src,e,reg,cv){const c=refCell(e,reg,cv);if(c<0)return false;
+  try{return !!(await crypto.subtle.verify({name:'ECDSA',hash:'SHA-256'},key,unb64(refSig(e)),new TextEncoder().encode(refText(src,c===e.c?e:{...e,c}))));}catch(err){return false;}}
 async function refCheck(){
   const items=[...REF.want].slice(0,200),bad=new Set();let later=false;
   for(const [k] of items)REF.want.delete(k);
@@ -21355,7 +21420,7 @@ async function refCheck(){
   else{
     const key=await refKey();
     if(!key){later=true;for(const [k,v] of items)REF.want.set(k,v);}
-    else await Promise.all(items.map(async([k,{src,e}])=>{const ok=await refVerify(key,src,e);REF.ok.set(k,ok);if(!ok)bad.add(src);}));
+    else await Promise.all(items.map(async([k,{src,e,reg,cv}])=>{const ok=await refVerify(key,src,e,reg,cv);REF.ok.set(k,ok);if(!ok)bad.add(src);}));
   }
   REF.busy=false;
   if(bad.size){for(const id of bad)refFlag(id);try{redrawMaps();if(['nation','region','visit','explore','map','admin-sus'].includes(S.view))render();}catch(e){}}
@@ -21382,14 +21447,14 @@ function collectConquests(at){
 }
 function readConquests(at){
   const out=[];
-  const add=(id,n)=>{if(!n)return;if(Array.isArray(n.conq))for(const e of n.conq)if(e.n||sealed(id,e))out.push({c:e.c,t:e.t,o:e.n||id,src:id,npc:!!e.n,w:e.w,d:e.d});if(Array.isArray(n.claims))for(const e of n.claims)out.push({c:e.c,t:e.t,o:id,src:id,claim:true});if(Array.isArray(n.bx))for(const e of n.bx)out.push({c:e.c,t:e.t,o:e.to,src:id,bx:true,fr:e.fr,wr:e.wr===1});};
+  const add=(id,n)=>{if(!n)return;if(Array.isArray(n.conq))for(const e of n.conq)if(e.n||sealed(id,e,n))out.push({c:e.c,t:e.t,o:e.n||id,src:id,npc:!!e.n,w:e.w,d:e.d});if(Array.isArray(n.claims))for(const e of n.claims)out.push({c:e.c,t:e.t,o:id,src:id,claim:true});if(Array.isArray(n.bx))for(const e of n.bx)out.push({c:e.c,t:e.t,o:e.to,src:id,bx:true,fr:e.fr,wr:e.wr===1});};
   if(S.nation)add(myId(),S.nation);
   if(S.mode!=='local')for(const id of Object.keys(S.world))if(id!==S.uid)add(id,S.world[id]);
   if(S.mode!=='local')for(const id of Object.keys(HIDN.w))if(id!==S.uid&&!S.world[id])add(id,HIDN.w[id]);
   if(at!=null){const keep=out.filter(e=>e.t<=at);out.length=0;out.push(...keep);}
   /* a hex claimed by two nations: the server's times decide (raceT) */
   const by=new Map();for(const e of out)if(e.claim){const z=by.get(e.c);if(z)z.add(e.src);else by.set(e.c,new Set([e.src]));}
-  for(const e of out)if(e.claim&&by.get(e.c).size>1)e.t=raceT(e.src,'c'+e.c,e.t,e.src===myId()?S.nation:S.world[e.src]||hidDoc(e.src));
+  for(const e of out)if(e.claim&&by.get(e.c).size>1)e.t=raceT(e.src,raceCK(e),e.t,e.src===myId()?S.nation:S.world[e.src]||hidDoc(e.src));
   out.sort((a,b)=>a.t-b.t||(a.src<b.src?-1:a.src>b.src?1:0)||a.c-b.c);
   let h=out.length;for(const e of out)h=Math.imul(h^hash((e.claim?'k':'')+e.o+':'+e.c+':'+e.t),16777619);
   return {list:out,sig:out.length+'/'+(h>>>0)};
@@ -25168,22 +25233,39 @@ const SITE_KINDS={
 const SITE_MAX=96,EXP_RANGE=45,SITE_DC={farmland:9,hills:10,forest:11,marsh:12,arid:12,mountain:14,islet:13,polder:9};
 function siteWord(h){const A=['Kar','Ost','Vel','Tam','Bri','Sel','Dun','Mor','Ash','Hal','Lin','Quen','Ror','Gal','Pel','Thal','Ev','Ira','Mab','Wen','Cor','Ys','Fen','Ul'],B=['row','ery','eth','mere','ardy','ion','avel','orn','issa','oth','enby','uin','ast','ock','ayne','ith','ora','esk'];return A[h%A.length]+B[(h>>>5)%B.length];}
 const isIslet=c=>{const k=MAP.comp[c];return k>=0&&MAP.comps[k].size<=20;};
+/* A site is known by its place in SITES: a find (n.disc s), an expedition (n.exp s), one planned (n.xb s), the stamp
+   of the first find (stamps/<reg>/s<i>) and an edict about one (si) all hold that index. The sites are laid out by a
+   hash of each land hex's key, so when the frontier added land (19 Nov 2026) its hexes joined the draw, took places in
+   the list and pushed the rest along: past finds pointed at other sites, sites found long ago stood undiscovered and
+   paid their first finder's rewards again. Now the charted map lays out its sites exactly as it did, measured on its
+   own grid (hexDistIn: the globe wrapped at its width), lost places and all; after them come the sites the frontier's
+   own build drew that the charted map has not, in that build's order, so that every index the frontier's build gave
+   out still names its site (SITE_FZ, used once per record by remapLate). SITE_CAND holds each draw for the lost places. */
 let SITE_CAND=null;
-const SITES=(()=>{
-  const out=[],cnt={},K=Object.keys(SITE_KINDS),npc=Object.values(MAP.npcLoc),cand=[];
-  for(let i=0;i<MAP.N;i++)if(MAP.T[i]>=2){const k=cellKey(i);cand.push([typeof k==='number'?0:1,hash('site:'+k),i]);}
-  cand.sort((a,b)=>a[0]-b[0]||a[1]-b[1]||a[2]-b[2]);
+var SITE_FZ=null;
+/* the ordinary sites of one draw: cand sorted as below; at(i) the hex's number on the grid it is measured on, C its width */
+function siteSeed(cand,at,C){
+  const out=[],cnt={},K=Object.keys(SITE_KINDS),npc=Object.values(MAP.npcLoc).map(at).filter(c=>c>=0);
   for(const [ph,h,i] of cand){
     const cap=ph?8:4;if(out.length>=(ph?SITE_MAX:48)){if(ph)break;continue;}
-    const isl=isIslet(i),bk=BIOME_KEY[BIOME[i]];
+    const isl=isIslet(i),bk=BIOME_KEY[BIOME[i]],j=at(i);
     const fits=K.filter(x=>(cnt[x]||0)<cap&&(isl?SITE_KINDS[x].b.includes('islet'):SITE_KINDS[x].b.includes(bk)));
-    if(!fits.length||npc.some(c=>hexDist(c,i)<6)||out.some(s=>hexDist(s.c,i)<7))continue;
+    if(!fits.length||npc.some(c=>hexDistIn(c,j,C)<6)||out.some(s=>hexDistIn(at(s.c),j,C)<7))continue;
     const k=fits[h%fits.length];cnt[k]=(cnt[k]||0)+1;out.push({c:i,k,x:siteWord(h>>>3)});
   }
-  SITE_CAND=cand;
   return out;
+}
+const SITES=(()=>{
+  const cand=[];
+  for(let i=0;i<MAP.N;i++)if(MAP.T[i]>=2){const k=cellKey(i);cand.push([typeof k==='number'?0:1,hash('site:'+k),i]);}
+  cand.sort((a,b)=>a[0]-b[0]||a[1]-b[1]||a[2]-b[2]);
+  const self=i=>i;
+  if(!MAP.chart||MAP.COLS===CHART_COLS){const L=siteSeed(cand,self,MAP.COLS);SITE_CAND=[{L,cand,at:self}];return L;}
+  const at=i=>MAP.chart[i],old=cand.filter(e=>MAP.chart[e[2]]>=0),L=siteSeed(old,at,CHART_COLS);
+  SITE_CAND=[{L,cand:old,at},{L:siteSeed(cand,self,MAP.COLS),cand,at:self}];
+  return L;
 })();
-const SITE_AT=new Map(SITES.map((s,i)=>[s.c,i]));
+const SITE_AT=new Map();
 /* ── lost places: five more kinds of site, harder to find, that only a nation whose old maps show their kind can see
    (Old maps at the outfitters, below) until somebody finds one; then it is on every map, like any discovery. About
    four of each kind are seeded on the map from its own hash, after the ordinary sites, and appended to SITES, so a
@@ -25200,17 +25282,25 @@ const LOST_ORDER=Object.keys(LOST_KINDS),LOST_PER=4;
   /* in the order of a second hash mixed from the ordinary sites' own (no string is hashed twice), packed with the cell
      into one number so a typed sort does the work, and only the lowest quarter of it (thousands of cells for twenty
      places); cells within 6 of a site or 5 of a computer capital are marked once. All of it a few milliseconds at start */
-  const K=LOST_ORDER,cnt={},cand=SITE_CAND||[],P=2097152,blk=new Uint8Array(MAP.N),plain=SITES.length,vis=new Int32Array(MAP.N);let gen=0;
+  /* each draw's (SITE_CAND): the charted map's own, and the frontier build's; a computer capital of the frontier was not
+     there for the charted map's (at < 0) */
+  for(const {L,cand,at} of SITE_CAND||[]){
+  const K=LOST_ORDER,cnt={},P=2097152,blk=new Uint8Array(MAP.N),plain=L.length,vis=new Int32Array(MAP.N);let gen=0;
   const mark=(c,r)=>{gen++;blk[c]=1;vis[c]=gen;let fr=[c];for(let d=0;d<r;d++){const nx=[];for(const x of fr)for(let k=0;k<6;k++){const j=MAP.nbr[x*6+k];if(j>=0&&vis[j]!==gen){vis[j]=gen;blk[j]=1;nx.push(j);}}fr=nx;}};
-  for(const st of SITES)mark(st.c,6);for(const c of Object.values(MAP.npcLoc))mark(c,5);
+  for(const st of L)mark(st.c,6);for(const c of Object.values(MAP.npcLoc))if(at(c)>=0)mark(c,5);
   const ks=[];for(let q=0;q<cand.length;q++){const e=cand[q],m=Math.imul(e[1]^0x9e3779b9,0x85ebca6b)>>>0;if(m<0x40000000)ks.push(m*P+e[2]);}
   const keys=Float64Array.from(ks).sort();
-  for(let q=0;q<keys.length&&SITES.length-plain<K.length*LOST_PER;q++){
+  for(let q=0;q<keys.length&&L.length-plain<K.length*LOST_PER;q++){
     const m=Math.floor(keys[q]/P),i=keys[q]-m*P;if(blk[i])continue;
     const isl=isIslet(i),bk=BIOME_KEY[BIOME[i]];
     const fits=K.filter(x=>(cnt[x]||0)<LOST_PER&&(isl?LOST_KINDS[x].b.includes('islet'):LOST_KINDS[x].b.includes(bk)));if(!fits.length)continue;
-    const k=fits[m%fits.length];cnt[k]=(cnt[k]||0)+1;SITES.push({c:i,k,x:siteWord(m>>>3),lost:1});SITE_AT.set(i,SITES.length-1);mark(i,6);
+    const k=fits[m%fits.length];cnt[k]=(cnt[k]||0)+1;L.push({c:i,k,x:siteWord(m>>>3),lost:1});mark(i,6);
   }
+  }
+  /* the frontier build's sites the charted map has not, after its own, and where each of that build's indices is now */
+  const B=SITE_CAND&&SITE_CAND[1]&&SITE_CAND[1].L;
+  SITES.forEach((s,i)=>SITE_AT.set(s.c,i));
+  if(B){for(const s of B)if(!SITE_AT.has(s.c)){SITE_AT.set(s.c,SITES.length);SITES.push(s);}SITE_FZ=B.map(s=>SITE_AT.get(s.c));}
   SITE_CAND=null;
   Object.assign(SITE_KINDS,LOST_KINDS);
 }
@@ -31020,6 +31110,8 @@ NORM_HOOKS.push((n,d)=>{
   n.regs=Array.isArray(d.regs)?[...new Set(d.regs.filter(r=>typeof r==='string'&&REG_BY_ID[r]))].slice(0,60):[];if(!n.regs.includes(n.reg))n.regs.push(n.reg);
   if(d.mvCap&&typeof d.mvCap==='object'&&cellOf(n.loc)<0){let X=-1;for(let i=0;i<MAP.N;i++)if(MAP.T[i]>=2){X=i;break;}
     if(X>=0){const r=normCities({loc:locOf(X),cv:MAP_VER,cities:[{...d.mvCap,c:X}]});if(r.length){const o={...r[0]};delete o.c;n.mvCap=o;}}}
+  /* put right for the frontier on its own region's page (remapFront, remapLate); another region's is left for its own */
+  if(d.fz===1||recReg(d)===REG.id)n.fz=1;
   if(Array.isArray(d.discArc))n.discArc=d.discArc.filter(e=>e&&num(e.t)&&['lost','traces','found','great'].includes(e.o)).slice(-200).map(e=>({t:e.t,o:e.o,f:e.f?1:0,k:typeof e.k==='string'&&SITE_KINDS[e.k]?e.k:'',nm:typeof e.nm==='string'?e.nm.replace(/[\u0000-\u001f<>]/g,'').slice(0,40):'',reg:typeof e.reg==='string'&&REG_BY_ID[e.reg]?e.reg:'meridian'}));
 });
 /* Forward compatibility (2026-11-13). A record can carry fields from a newer build than this tab's (a tab stays on the
@@ -54098,7 +54190,7 @@ async function susScan(){
     const qs=await S.db.collection('nations').where('reg','==',R.id).get();
     for(const d of qs.docs){k++;let raw=null,n=null;try{raw=d.data();n=normalize(raw);}catch(e){continue;}
       let why=auditNation(n,raw,d.id,now,false);
-      if(key&&Array.isArray(n.conq)){let f=0;for(const e of n.conq)if(e&&!e.n&&typeof refSig(e)==='string'&&!(await refVerify(key,d.id,e)))f++;if(f)why=why.concat(refWhy(f,true));}
+      if(key&&Array.isArray(n.conq)){let f=0;for(const e of n.conq)if(e&&!e.n&&typeof refSig(e)==='string'&&!(await refVerify(key,d.id,e,n.reg,n.cv)))f++;if(f)why=why.concat(refWhy(f,true));}
       if(why.length)out.push({id:d.id,reg:R.id,name:(n&&n.name)||'A nation',why});}}
     ADMS.scan=out;ADMS.at=now;ADMS.n=k;
   }catch(e){ADMS.err='The other regions could not be checked: '+((e&&e.code)||'unknown error')+'.';}
@@ -63439,10 +63531,11 @@ EXT_PAGES.push('wonder');NAV_LABELS.wonder='Great Statue';NAV_WORDS.wonder='wond
 VIEWS_EXT.wonder=now=>wndView(now);
 document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-act="wd-give"]');if(!el||!S.nation)return;wndGive(el.dataset.r,el.dataset.v==='max'?Infinity:+el.dataset.v);});
 
-/* ── on the map: the statue stands on the land nearest the middle of the map ── */
+/* ── on the map: the statue stands on the land nearest the middle of the map: the charted map's, which the frontier grew
+   east and south of, so that the statue (and the lighthouse beside it) stayed where they stood (19 Nov 2026) ── */
 let wndCellMemo={m:null,c:-1};
 function wndCell(){
-  if(wndCellMemo.m===MAP)return wndCellMemo.c;let best=-1,bd=Infinity;const mx=MAP.W/2,my=MAP.H/2;
+  if(wndCellMemo.m===MAP)return wndCellMemo.c;let best=-1,bd=Infinity;const mx=(HEX_W*CHART_COLS+HEX_W/2)/2,my=(1.5*HEX_R*(CHART_ROWS-1)+2*HEX_R)/2;
   for(let c=0;c<MAP.N;c++){if(MAP.T[c]<2||MAP.T[c]===4)continue;const d=(MAP.cx[c]-mx)**2+(MAP.cy[c]-my)**2;if(d<bd){bd=d;best=c;}}
   wndCellMemo={m:MAP,c:best};return best;
 }
@@ -64180,13 +64273,14 @@ rgnStatueCard=(f=>function(){
 })(rgnStatueCard);
 
 /* ── on the map: the dam stands on a river hex (not a stream), as far from the lighthouse as the region's rivers allow,
-   by a lake if one is near. Asked again until the rivers are ready ── */
+   by a lake if one is near, on the charted map (the frontier's rivers lie farther off, and took it away). Asked again
+   until the rivers are ready ── */
 let damCellMemo={m:null,c:-1};
 function damCell(){
   if(damCellMemo.m===MAP)return damCellMemo.c;let R=null;try{R=rvData();}catch(e){R=null;}if(!R)return -1;
   const from=(()=>{try{const c=lthCell();return c>=0?c:wndCell();}catch(e){return -1;}})();
   let best=-1,bs=-Infinity;
-  for(const [c,rid] of R.at){const rv=R.list[rid];if(!rv||rv.kind==='stream'||MAP.T[c]<2||MAP.T[c]===4)continue;
+  for(const [c,rid] of R.at){const rv=R.list[rid];if(!rv||rv.kind==='stream'||MAP.T[c]<2||MAP.T[c]===4||MAP.chart&&MAP.chart[c]<0)continue;
     let lake=false;for(let k=0;k<6&&!lake;k++){const j=MAP.nbr[c*6+k];if(j>=0&&(isLake(j)||(R.lakeAt&&R.lakeAt.has(j))))lake=true;}
     const dd=from>=0?Math.sqrt((MAP.cx[c]-MAP.cx[from])**2+(MAP.cy[c]-MAP.cy[from])**2):0,sc=dd*(lake?1.15:1)+(rv.kind==='main'?1e-3:0);
     if(sc>bs||(sc===bs&&c<best)){bs=sc;best=c;}}
@@ -78832,8 +78926,13 @@ function bdNorm(id,d){
   const sd={};for(const q of p)sd[q]=cells(d.s&&d.s[q]);
   const f={};if(d.f&&typeof d.f==='object')for(const [u,v] of Object.entries(d.f))if(typeof v==='number'&&isFinite(v))f[u]=v;
   const sw=Array.isArray(d.sw)?d.sw.filter(x=>x&&typeof x==='object'&&typeof x.id==='string'&&Number.isInteger(x.g)&&Number.isInteger(x.k)).slice(0,20).map(x=>({id:x.id.slice(0,12),by:s(x.by),to:s(x.to),g:mc(x.g),k:mc(x.k),t:n(x.t),st:x.st==='done'?'done':'offered',at:n(x.at)})):[];
-  return {id,reg:s(d.reg),p,a:s(d.a),acc:ids(d.acc),v:n(d.v),st:d.st,t:n(d.t),at:n(d.at),dur:n(d.dur),exp:n(d.exp),rn:ids(d.rn),end:n(d.end),bt:n(d.bt),by:s(d.by),bc:Number.isInteger(d.bc)?d.bc:-1,s:sd,buf:cells(d.buf),sw,f};
+  return {id,reg:s(d.reg),p,a:s(d.a),acc:ids(d.acc),v:n(d.v),st:d.st,t:n(d.t),at:n(d.at),dur:n(d.dur),exp:n(d.exp),rn:ids(d.rn),end:n(d.end),bt:n(d.bt),by:s(d.by),bc:Number.isInteger(d.bc)?mc(d.bc):-1,s:sd,buf:cells(d.buf),sw,f,ch:old?1:0};
 }
+/* The number the server holds hex c by in agreement B, for what this game sends it (a claim past the line, bdBreach; a
+   swap, bdSwap): the server keeps each agreement as it was drawn and compares numbers, so one drawn before the frontier
+   (ch) is told the charted map's. Sent as numbered now, a claim past an old line never broke it (19 Nov 2026), and a
+   swap went into it on the wrong numbers. -1: a hex of the frontier, which no such agreement holds. */
+function bdNum(B,c){return B&&B.ch?chartCell(c):c;}
 function bdConnect(){
   if(!S.db||S.mode!=='world'&&!(OBS&&S.obsOn))return;
   const reg=REG.id;if(BD.reg===reg&&BD.unsub)return;
@@ -78882,7 +78981,7 @@ writeClaims=(f=>function(cells,msg,auto,plan){
   BD.ok='';BD.ask=null;
   const hits=new Map();for(const c of bad)for(const x of bdBars(c,me))if(!hits.has(x.B.id))hits.set(x.B.id,{B:x.B,c});
   const r=f.call(this,cells,msg,auto,plan);
-  if(r&&S.mode==='world'&&!OBS)(async()=>{for(const {B,c} of hits.values()){try{const q=(await alReq({op:'bdBreach',bid:B.id,c}))||{};
+  if(r&&S.mode==='world'&&!OBS)(async()=>{for(const {B,c} of hits.values()){try{const bc=bdNum(B,c);if(bc<0)continue;const q=(await alReq({op:'bdBreach',bid:B.id,c:bc}))||{};
     if(q.broken){bdPenalty(q.p||bdOthers(B,me));toast(`Your border agreement with ${bdNames(bdOthers(B,me))} is broken.`);}}catch(e){}}})();
   return r;
 })(writeClaims);
@@ -79089,7 +79188,8 @@ document.addEventListener('click',e=>{
   if(a==='bd-sw-go'){BD.sw={give:+el.dataset.c,to:id,take:null};BD.view='';S.mapCell=null;updateMapPanel();redrawMaps();return;}
   if(a==='bd-sw-x'){BD.sw=null;updateMapPanel();redrawMaps();return;}
   if(a==='bd-sw-send'){const W=BD.sw;if(!W||W.take==null)return;const L=bdList(me).find(Q=>bdLive(Q,Date.now())&&Q.p.includes(W.to));if(!L){toast('No border agreement with them is in force.');return;}
-    bdAct('bdSwap',{bid:L.id,to:W.to,g:W.give,k:W.take},()=>{BD.sw=null;toast(`Swap offered to ${nameOf(W.to)}.`);updateMapPanel();redrawMaps();});return;}
+    const g=bdNum(L,W.give),k=bdNum(L,W.take);if(g<0||k<0){toast('That agreement was drawn before the frontier, and holds no hex of it to swap.');return;}
+    bdAct('bdSwap',{bid:L.id,to:W.to,g,k},()=>{BD.sw=null;toast(`Swap offered to ${nameOf(W.to)}.`);updateMapPanel();redrawMaps();});return;}
   if(a==='bd-sw-yes'||a==='bd-sw-no'){bdAct('bdSwapAnswer',{bid:id,sid:el.dataset.s,yes:a==='bd-sw-yes'},r=>{if(r.done){toast('The swap is agreed. The hexes change hands.');setTimeout(()=>{try{bdSettle();}catch(e){}},400);}});return;}
 });
 document.addEventListener('change',e=>{const t=e.target;if(!t)return;const D=bdDraft();
@@ -79565,7 +79665,14 @@ function rdConnect(){
   try{RD.un.push(S.db.doc('riddles/'+id).onSnapshot(s=>{RD.cur=s.exists?rdNorm(id,s.data()):null;rdPaint();},()=>{}));}catch(e){}
   try{RD.un.push(S.db.doc('riddles/'+prev).onSnapshot(s=>{RD.prev=s.exists?rdNorm(prev,s.data()):null;rdPaint();},()=>{}));}catch(e){}
   if(S.uid&&!OBS)try{RD.un.push(S.db.doc('riddles/'+id+'/guesses/'+S.uid).onSnapshot(s=>{const d=s.exists?s.data():null;
-    RD.mine=d?{g:Array.isArray(d.g)?d.g.filter(Number.isInteger).slice(0,RD_RULES.tries):[],ok:Number(d.ok)||0,r:Number(d.r)||0}:null;rdPaint();},()=>{}));}catch(e){}
+    RD.mine=d?{g:Array.isArray(d.g)?d.g.filter(Number.isInteger).slice(0,RD_RULES.tries):[],ok:Number(d.ok)||0,r:Number(d.r)||0}:null;rdPaid(id,RD.mine);rdPaint();},()=>{}));}catch(e){}
+}
+/* a guess the server counted right that this nation was not paid for: one the riddle job counted later (a key set before
+   the frontier, moved by jobs/fx/riddle.mjs, whose right hex was judged wrong meanwhile). Paid once, as a right answer is
+   (n._rdw, the commit hook below); the guesses document is the server's alone to write. */
+function rdPaid(id,M){
+  if(!M||!M.ok||!S.nation||OBS||S.nation.npc||(S.nation.rdo||[]).includes(id))return;
+  const n=clone(S.nation);n._rdw={id,rank:M.r};commit(n);
 }
 connect=(f=>async function(){const r=await f.apply(this,arguments);try{rdConnect();}catch(e){}return r;})(connect);
 /* a new week brings a new riddle */
