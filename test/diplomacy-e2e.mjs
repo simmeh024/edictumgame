@@ -156,10 +156,14 @@ check('and war may be declared again', await A.evaluate(id => G.TYX().tyWarBlock
 
 // the charter: a new motto, a new type
 await A.click('#dp-tab-alliance'); await A.click('[data-act="dp-sub"][data-v="charter"]');
+check('the short code starts empty, the initials as its placeholder and badge', await A.inputValue('#al-ed-tg') === '' && await A.getAttribute('#al-ed-tg', 'placeholder') === 'TC' && (await text(A, '#al-ed-tg-pv')).trim() === 'TC');
+await A.fill('#al-ed-tg', 'od-1');
+check('a short code keeps to capitals and digits as it is typed, and its badge follows', await A.inputValue('#al-ed-tg') === 'OD1' && (await text(A, '#al-ed-tg-pv')).trim() === 'OD1');
 await A.fill('#al-ed-mo', 'One for all'); await A.click('[data-act="dp-ty"][data-pre="ed"][data-v="def"]');
 await A.click('#al-charter button[type="submit"]');
 await shot(A, 'charter');
 check('the charter is saved and shown', await until(async () => /One for all/.test(await text(A, '.al-head')) && /Defence pact/.test(await text(A, '.al-head')), 10000));
+check('the short code is saved, and stands in the alliance’s head', (await alDoc(aid))?.tg?.stringValue === 'OD1' && (await text(A, '.al-head .al-tg')).trim() === 'OD1');
 check('a defence pact makes members’ land harder to take', await A.evaluate(ub => G.ALX().alFx(ub).def === 0.1, ub));
 /* relations with other alliances: none here yet, so the list says so */
 await A.click('[data-act="dp-sub"][data-v="relations"]');

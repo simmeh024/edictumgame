@@ -26,8 +26,7 @@ check('the preview follows the draft', /Order in Every Column/.test(await text(A
 check('the tab counts the changes not yet saved', /2 changes not saved/.test(await text(A, '[data-sg-sub="nation"]')));
 check('and the save bar stays in view', await A.$eval('#sg-save', e => e.classList.contains('is-dirty') && getComputedStyle(e).position === 'sticky'));
 check('nothing is saved yet', (await localNation(A)).motto !== 'Order in Every Column');
-await A.click('[data-act="mapc"][data-val="#3A8FD1"]');
-check('a map colour is part of the draft too', (await localNation(A)).mapc !== '#3A8FD1' && /3 changes not saved/.test(await text(A, '[data-sg-sub="nation"]')));
+check('the map colour is chosen in Customise now: Your nation points there', !!(await A.$('#set-mapc [data-act="sg-mapc-cz"]')) && !(await A.$('#set-mapc [data-act="mapc"]')));
 await A.fill('#s-lang', 'Tabular'); await A.fill('#s-dish', 'Ledger loaf');
 check('the culture count follows', /2 of 6 filled/.test(await text(A, '#sg-cult-n')));
 
@@ -53,7 +52,7 @@ check('the first answer has the focus', await A.evaluate(() => document.activeEl
 await A.click('[data-act="sg-leave-stay"]');
 check('Stay here keeps the draft', !await A.$('.sg-leave-t') && await A.$eval('#s-motto', e => e.value) === 'Order in Every Column');
 await nav(A, 'map'); await A.click('[data-act="sg-leave-save"]');
-check('Save and go on saves, then goes', await until(async () => await A.evaluate(() => G.S.view) === 'map') && await until(async () => { const n = await localNation(A); return n.motto === 'Order in Every Column' && n.ruler === 'Ada Brook' && n.mapc === '#3A8FD1' && n.lang === 'Tabular'; }));
+check('Save and go on saves, then goes', await until(async () => await A.evaluate(() => G.S.view) === 'map') && await until(async () => { const n = await localNation(A); return n.motto === 'Order in Every Column' && n.ruler === 'Ada Brook' && n.lang === 'Tabular'; }));
 await nav(A, 'settings'); await A.click('#sg-tab-nation'); await A.fill('#s-animal', 'heron'); await nav(A, 'nation'); await A.click('[data-act="sg-leave-go"]');
 check('Leave without saving drops the draft', await until(async () => await A.evaluate(() => G.S.view) === 'nation') && (await localNation(A)).animal !== 'heron');
 await nav(A, 'settings'); await A.click('#sg-tab-nation');
@@ -164,7 +163,7 @@ await A.click('#dz-go'); await A.waitForSelector('#found-btn');
 check('Start over opens the founding page with the name filled in and says what comes along', await A.inputValue('#d-name') === 'Tabularia' && /Starting over as Tabularia/.test(await text(A, '.sg-rs')) && !await localNation(A));
 check('the old record is cleared from the region first', await until(async () => !(await nationDoc(uidA)) && await A.evaluate(() => !G.S.dissolving), 15000));
 await A.click('#found-btn');
-check('founded again, it keeps the culture, look and edict pace, and starts the rest afresh', await until(async () => { const n = await localNation(A); return n && n.name === 'Tabularia' && n.lang === 'Tabular' && n.mapc === '#3A8FD1' && n.ruler === 'Ada Brook' && n.freq === 240 && n.founded > old.founded && !(n.answered || []).length; }), JSON.stringify(await localNation(A))?.slice(0, 300));
+check('founded again, it keeps the culture, look and edict pace, and starts the rest afresh', await until(async () => { const n = await localNation(A); return n && n.name === 'Tabularia' && n.lang === 'Tabular' && n.ruler === 'Ada Brook' && n.freq === 240 && n.founded > old.founded && !(n.answered || []).length; }), JSON.stringify(await localNation(A))?.slice(0, 300));
 check('and the region has the new nation', await until(async () => { const d = await nationDoc(uidA); return !!d && d.name === 'Tabularia' && d.rec && d.rec.founded > old.founded && d.rec.lang === 'Tabular'; }, 20000));
 check('nothing is left waiting to be carried', await A.evaluate(() => !localStorage.getItem('edictum.restart')));
 // the new parts (18 Nov 2026): the search, the badges, the grid, Undo and Reset, Privacy, a gear on a page

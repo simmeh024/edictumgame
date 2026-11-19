@@ -46,8 +46,8 @@ const { page, errors } = await start({ width: 1366, height: 900 });
 await go(page, '#customise/passport');
 const at = await page.evaluate(() => ({ view: window.__game.S.view, sec: document.getElementById('cz-dock')?.dataset.sec, rail: [...document.querySelectorAll('.cz-go .cz-go-l')].map(e => e.textContent),
   tabs: [...document.querySelectorAll('#cz-sec-p [data-act="pp-dtab"]')].map(b => b.textContent), title: document.querySelector('#cz-sec-p h2')?.textContent }));
-check('#customise/passport opens Customise on the Passport section', at.view === 'customise' && at.sec === 'p' && /^VII\s*Passport/.test(at.title || ''), at);
-check('it is listed in Presentation, after Community Board', at.rail.indexOf('Passport') === at.rail.indexOf('Community Board') + 1, at.rail);
+check('#customise/passport opens Customise on the Passport section', at.view === 'customise' && at.sec === 'p' && /^IV\s*Passport/.test(at.title || ''), at);
+check('it is listed in Your pages, after Community Board', at.rail.indexOf('Passport') === at.rail.indexOf('Community Board') + 1, at.rail);
 check('with the cover, the pages and the entry stamp to design', at.tabs.join() === 'Cover,Pages,Entry stamp', at.tabs);
 check('and only the Passport section is drawn and shown', JSON.stringify(await shown(page)) === '["cz-sec-p"]', await shown(page));
 const openCount = await page.evaluate(() => document.querySelector('[data-czn="p"]')?.textContent);

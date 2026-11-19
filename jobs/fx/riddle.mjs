@@ -17,7 +17,7 @@ import { randomInt } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 import { mapKit } from '../../scripts/bake-maps.mjs';
 import { loadWorld } from './world.mjs';
-import { RD_DIRS, RD_TRIES, RD_WEEK, rdWeek, rdId } from '../../functions/riddle-rules.js';
+import { RD_DIRS, RD_TRIES, RD_TOP, RD_WEEK, rdWeek, rdId } from '../../functions/riddle-rules.js';
 
 const GAME = new URL('../../game/edictum.html', import.meta.url);
 const line = (src, re, what) => { const m = src.match(re); if (!m) throw new Error('jobs/fx/riddle.mjs: the game no longer has ' + what); return m[0]; };
@@ -98,6 +98,43 @@ export function solve(geo, npcs, R) {
   }));
 }
 
+/* The frontier (game/edictum.html, FRONT_AT: 19 Nov 2026) widened every region's rows, and a hex kept by number moved with
+   its row. A key set before then holds the number its hex had on the charted map: from then on a click on the right hex
+   was judged wrong (and one on the hex that has that number now, right), and the answer told the Monday after pointed
+   elsewhere. frontMove is the move for a region ({at, move}), or null where the grid did not grow; the game's frontCell. */
+export function frontMove(src, reg) {
+  const m = /const FRONT_AT=Date\.UTC\((\d+),(\d+),(\d+),(\d+),(\d+),(\d+)\);/.exec(src);
+  if (!m) throw new Error('jobs/fx/riddle.mjs: the game no longer has FRONT_AT');
+  const kit = mapKit(src, reg), oc = kit.CHART_COLS, or = kit.CHART_ROWS, cols = kit.MAP_COLS;
+  if (cols === oc) return null;
+  return { at: Date.UTC(...m.slice(1).map(Number)), move: c => Number.isInteger(c) && c >= 0 && c < oc * or ? Math.floor(c / oc) * cols + c % oc : c };
+}
+/* a key set before the frontier and not moved yet (a moved one, and every one set since, says cv: 5) */
+export function keyOld(K, F) {
+  if (!F || !K || !K.exists || K.get('cv') === 5) return false;
+  const t = K.get('t'), at = t && typeof t.toMillis === 'function' ? t.toMillis() : K.createTime ? K.createTime.toMillis() : NaN;
+  return at < F.at;
+}
+/* the nations of a region that clicked the right hex of a moved key since the frontier and were told it was not: each
+   is counted now, in the order of its last guess, as the server counts a right answer (functions/riddles.js); the game
+   pays its reward when it sees its guess counted (rdPaid) */
+async function rdCredit(db, id, c, now) {
+  const { FieldValue } = await import('firebase-admin/firestore');
+  const qs = await db.collection('riddles/' + id + '/guesses').where('g', 'array-contains', c).get();
+  const due = qs.docs.filter(s => !Number(s.get('ok'))).sort((a, b) => (Number(a.get('t')) || 0) - (Number(b.get('t')) || 0));
+  let k = 0;
+  for (const s of due) await db.runTransaction(async tx => {
+    const ref = db.doc('riddles/' + id), [R, G, Sm] = await tx.getAll(ref, s.ref, db.doc('summaries/' + s.id));
+    if (!R.exists || !G.exists || Number(G.get('ok'))) return;
+    const n = (Number(R.get('n')) || 0) + 1, top = Array.isArray(R.get('top')) ? R.get('top') : [];
+    const nm = (Sm.exists && typeof Sm.get('name') === 'string' && Sm.get('name').trim().slice(0, 80)) || 'A nation';
+    tx.update(ref, n <= RD_TOP && top.length < RD_TOP ? { n, top: top.concat({ u: s.id, nm, t: now }), tu: FieldValue.arrayUnion(s.id) } : { n });
+    tx.update(s.ref, { ok: now, r: n });
+    k++;
+  });
+  return k;
+}
+
 /* this week's riddle for each region that has none yet, and last week's answer for each that has not been told */
 export async function publish(db, { now = Date.now(), regions, src = readFileSync(GAME, 'utf8'), rng } = {}) {
   const { Timestamp } = await import('firebase-admin/firestore');
@@ -106,14 +143,30 @@ export async function publish(db, { now = Date.now(), regions, src = readFileSyn
     if (want && !want.has(R.id)) continue;
     const id = rdId(R.id, now), prev = rdId(R.id, wk - 1), rep = { region: R.id, id };
     try {
-      const [cur, last, lastKey] = await db.getAll(db.doc('riddles/' + id), db.doc('riddles/' + prev), db.doc('riddleKeys/' + prev));
-      if (last.exists && lastKey.exists && !Number.isInteger(last.get('a'))) { await last.ref.update({ a: lastKey.get('c') }); rep.revealed = prev; }
+      const [cur, last, lastKey, curKey] = await db.getAll(db.doc('riddles/' + id), db.doc('riddles/' + prev), db.doc('riddleKeys/' + prev), db.doc('riddleKeys/' + id));
+      /* keys set before the frontier move to the wider rows, once: last week's (and its answer, if told), and this week's,
+         whose nations that clicked the right hex since are counted now. A run by hand after the deploy does it at once. */
+      const F = frontMove(src, R.id);
+      let lastC = lastKey.exists ? lastKey.get('c') : null;
+      if (keyOld(lastKey, F)) {
+        lastC = F.move(lastKey.get('c'));
+        await lastKey.ref.update({ c: lastC, c4: lastKey.get('c'), cv: 5 });
+        if (last.exists && last.get('a') === lastKey.get('c')) await last.ref.update({ a: lastC });
+        rep.moved = [prev];
+      }
+      if (keyOld(curKey, F)) {
+        const c = F.move(curKey.get('c'));
+        await curKey.ref.update({ c, c4: curKey.get('c'), cv: 5 });
+        rep.moved = (rep.moved || []).concat(id);
+        rep.credited = await rdCredit(db, id, c, now);
+      }
+      if (last.exists && lastKey.exists && !Number.isInteger(last.get('a'))) { await last.ref.update({ a: lastC }); rep.revealed = prev; }
       if (cur.exists) { rep.skipped = 'already set'; reports.push(rep); continue; }
       const geo = regionGeo(src, R.id), Q = makeRiddle(geo, R.npcs || [], rng);
       if (!Q) throw new Error('no riddle could be made');
       const b = db.batch(), d = new Date(wk);
       b.create(db.doc('riddles/' + id), { reg: R.id, wk: d.toISOString().slice(0, 10), t: wk, x: wk + RD_WEEK, q: Q.lines, cap: Q.cap, n: 0, top: [], tu: [], tries: RD_TRIES, v: 1 });
-      b.create(db.doc('riddleKeys/' + id), { c: Q.c, cap: Q.cap, r: Q.r, dir: Q.dir, t: Timestamp.fromMillis(now) });
+      b.create(db.doc('riddleKeys/' + id), { c: Q.c, cap: Q.cap, r: Q.r, dir: Q.dir, t: Timestamp.fromMillis(now), cv: 5 });
       await b.commit();
       rep.made = Q.lines.length;
     } catch (e) { rep.error = e && e.message; }

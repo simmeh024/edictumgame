@@ -7,7 +7,9 @@ import DATA from './civic-data.json' with { type: 'json' };
 import { AL_TYPES, AL_ACCESS, AL_RES, AL_PROJECTS, AL_OFFICERS, AL_XP, AL_ALLY_MIN, AL_FOUND_POP, AL_REL_MAX, AL_REL_NOTICE, alLevel, alPlaces, alRelLive } from './alliance-rules.js';
 
 /* Alliances, written only here (civic ops al*), so that an alliance outlives the nation that founded it.
-     alliances/{aid}        {v, reg, name, mo, em, col, ty, acc, t, fd, ld, tyAt, mem, npc, iv, rq, xp, tt, tr, dn, pj, log}
+     alliances/{aid}        {v, reg, name, tg?, mo, em, col, ty, acc, t, fd, ld, tyAt, mem, npc, iv, rq, xp, tt, tr, dn, pj, log}
+                            tg its short code (2 to 4 capitals or digits, one per region), which the leader sets in
+                            the charter; without it the game shows the name's initials
                             mem {uid: {t: joined, r?: 'o' an officer}}; ld the leader (a member); fd who founded it
                             npc {id: t} computer members; iv {uid: t} invitations; rq {uid: {t, x}} requests with a note
                             xp renown and tt its last daily tally; tr the treasury and dn {uid: {res totals, lt, xd, xq}}
@@ -35,7 +37,7 @@ const COL = v => typeof v === 'string' && /^#[0-9a-fA-F]{6}$/.test(v) ? v.toUppe
 const KEY = v => typeof v === 'string' && /^[a-z0-9-]{1,24}$/.test(v) ? v : '';
 const day = t => new Date(t).toISOString().slice(0, 10);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-export const AL_NAME = 40, AL_MOTTO = 80, AL_NOTE = 200, AL_POST = 1000, AL_GAP = 8000, AL_HOUR = 40;
+export const AL_NAME = 40, AL_TAG = 4, AL_MOTTO = 80, AL_NOTE = 200, AL_POST = 1000, AL_GAP = 8000, AL_HOUR = 40;
 const AWAY = 7 * DAY, TALLY_EVERY = 20 * 3600000, TALLY_WINDOW = 2 * DAY, PEACE_WAIT = 3 * DAY;
 const ROLE = { m: 1, o: 2, ld: 3 };
 
@@ -46,6 +48,13 @@ function emblem(e) {
   if (!p || c.length !== 3 || c.some(x => !x)) return null;
   return { p, c, e: KEY(e.e) || 'none', ec: COL(e.ec) || '#F2C230' };
 }
+/* the short code as given: capitals and digits only, 2 to 4 of them, or '' for none (the initials) */
+function tagOf(x) {
+  const t = typeof x === 'string' ? x.trim().toUpperCase() : '';
+  if (t && !new RegExp('^[A-Z0-9]{2,' + AL_TAG + '}$').test(t)) throw new HttpsError('invalid-argument', 'A short code is 2 to 4 letters (A to Z) or numbers.');
+  return t;
+}
+const tagTaken = (same, tg, aid) => !!tg && same.docs.some(s => s.id !== aid && s.get('tg') === tg);
 const DEF_EM = { p: 'bi-h', c: ['#1C4D9E', '#F2C230', '#FFFFFF'], e: 'star', ec: '#FFFFFF' };
 function roleOf(A, uid) { if (!A.mem || !A.mem[uid]) return ''; if (A.ld === uid) return 'ld'; return A.mem[uid].r === 'o' ? 'o' : 'm'; }
 function need(A, uid, min) {
@@ -116,7 +125,7 @@ const nameOf = s => (s && s.exists && line(s.get('name'), 80)) || 'A nation';
 /* ── founding and the charter ── */
 async function alFound(db, who, d) {
   const name = line(d.name, AL_NAME), mo = line(d.mo, AL_MOTTO), em = emblem(d.em) || DEF_EM, col = COL(d.col) || '#3A8FD1';
-  const ty = AL_TYPES.includes(d.ty) ? d.ty : 'def', acc = AL_ACCESS.includes(d.acc) ? d.acc : 'apply';
+  const ty = AL_TYPES.includes(d.ty) ? d.ty : 'def', acc = AL_ACCESS.includes(d.acc) ? d.acc : 'apply', tg = tagOf(d.tg);
   if (name.length < 3) throw new HttpsError('invalid-argument', 'Give the alliance a name of at least three characters.');
   let aid = '';
   await db.runTransaction(async tx => {
@@ -125,8 +134,9 @@ async function alFound(db, who, d) {
     const [mine, same] = await Promise.all([belongs(tx, db, who.uid), tx.get(db.collection('alliances').where('reg', '==', reg))]);
     if (mine && !mine.stale) refuse('al_member', 'Leave your current alliance first.');
     if (same.docs.some(s => fold(s.get('name')) === fold(name))) refuse('al_name', 'Another alliance in this region already has that name.');
+    if (tagTaken(same, tg, '')) refuse('al_tag', 'Another alliance in this region already uses that short code.');
     const now = Date.now(), ref = db.collection('alliances').doc(); aid = ref.id;
-    const A = { v: 1, reg, name, mo, em, col, ty, acc, t: now, fd: who.uid, ld: who.uid, mem: { [who.uid]: { t: now, g: e.generation } }, npc: {}, iv: {}, rq: {}, xp: 0, tt: now, tr: {}, dn: {}, pj: {}, log: [] };
+    const A = { v: 1, reg, name, ...(tg ? { tg } : {}), mo, em, col, ty, acc, t: now, fd: who.uid, ld: who.uid, mem: { [who.uid]: { t: now, g: e.generation } }, npc: {}, iv: {}, rq: {}, xp: 0, tt: now, tr: {}, dn: {}, pj: {}, log: [] };
     logged(A, { k: 'found', a: who.uid, b: nameOf(e.saved), x: name });
     tx.create(ref, A);
     tx.set(ix(db, who.uid), { a: aid, reg, t: now });
@@ -138,14 +148,22 @@ async function alEdit(db, who, d) {
     await eligibility(tx, who);
     const { ref, A } = await load(tx, db, d);need(A, who.uid, 'ld');
     const ch = {}, now = Date.now();
+    /* the region's alliances, read once, when a new name or short code must be its own */
+    let regionDocs = null;
+    const region = async () => regionDocs || (regionDocs = await tx.get(db.collection('alliances').where('reg', '==', A.reg)));
     if (d.name !== undefined) {
       const name = line(d.name, AL_NAME);
       if (name.length < 3) throw new HttpsError('invalid-argument', 'Give the alliance a name of at least three characters.');
       if (fold(name) !== fold(A.name)) {
-        const same = await tx.get(db.collection('alliances').where('reg', '==', A.reg));
+        const same = await region();
         if (same.docs.some(s => s.id !== ref.id && fold(s.get('name')) === fold(name))) refuse('al_name', 'Another alliance in this region already has that name.');
       }
       ch.name = name;
+    }
+    if (d.tg !== undefined) {
+      const tg = tagOf(d.tg);
+      if (tg !== (A.tg || '') && tagTaken(await region(), tg, ref.id)) refuse('al_tag', 'Another alliance in this region already uses that short code.');
+      ch.tg = tg;
     }
     if (d.mo !== undefined) ch.mo = line(d.mo, AL_MOTTO);
     if (d.em !== undefined) { const em = emblem(d.em); if (!em) throw new HttpsError('invalid-argument', 'That banner cannot be used.'); ch.em = em; }

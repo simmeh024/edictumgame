@@ -115,11 +115,10 @@ for (const [theme, viewport, tag] of [['light', { width: 1280, height: 860 }, 'd
   check(`${tag}: the pattern can be chosen`, await page.evaluate(() => { const c = window.__game.S.nation.cz; return !!c && c.p === 'p-centum' && (c.u || []).includes('p-centum'); }));
   if (tag === 'desk') await page.locator('#cz-p-p-centum').screenshot({ path: path.join(OUT, 'm100-pattern.png') }).catch(() => {});
 
-  await page.evaluate(() => { location.hash = '#settings'; }); await sleep(900);
-  await page.evaluate(() => { const b = document.querySelector('[data-act="sg-tab"][data-v="nation"]'); if (b) b.click(); }); await sleep(500);
-  const sw = await page.evaluate(() => !!document.querySelector('#set-mapc [data-act="mapc"][data-val="#7A1F5C"]'));
-  check(`${tag}: Triumph Purple offered in Settings › Map colour`, sw);
-  if (sw) { await page.click('#set-mapc [data-act="mapc"][data-val="#7A1F5C"]'); await sleep(300); await page.click('#settings-form button[type="submit"]'); await sleep(500); }
+  await page.evaluate(() => { location.hash = '#customise/map'; }); await sleep(900);
+  const sw = await page.evaluate(() => !!document.querySelector('#cz-sec-g [data-act="mlk-mc"][data-val="#7A1F5C"]'));
+  check(`${tag}: Triumph Purple offered in Customise › Map`, sw);
+  if (sw) { await page.click('#cz-sec-g [data-act="mlk-mc"][data-val="#7A1F5C"]'); await sleep(800); }
   const worn = await page.evaluate(() => { const G = window.__game, n = G.S.nation, P = G.M100P(); return { mapc: n.mapc, col: P.nationColor(n), other: P.nationColor({ ...n, m100: 1 }), prev: (document.querySelector('.mapc-prev .hint') || {}).textContent }; });
   check(`${tag}: saved and worn on the map`, worn.mapc === '#7A1F5C' && worn.col === '#7A1F5C' && /triumph purple/.test(worn.prev || ''), worn);
   check(`${tag}: a nation without the regalia box cannot wear it`, worn.other !== '#7A1F5C', worn);

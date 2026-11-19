@@ -108,8 +108,9 @@ async function author(tx, db, who, e) {
   const me = { a: who.uid, nm: line(e.saved.get('name'), 80) || 'A nation', rg: e.n.reg || e.saved.get('reg') || '',
     ...(flag && flag.length <= 4000 ? { fl: flag } : {}), ...(shop.exists && shop.get('owns.founder') ? { fd: true } : {}), ...(who.admin ? { st: 'admin' } : who.mod ? { st: 'mod' } : {}) };
   const col = al && al.exists && /^#[0-9a-fA-F]{6}$/.test(al.get('col') || '') ? al.get('col').toUpperCase() : '';
+  const tg = al && al.exists && /^[A-Z0-9]{2,4}$/.test(al.get('tg') || '') ? al.get('tg') : '';
   Object.defineProperty(me, 'pf', { enumerable: false, value: {
-    al: mem[who.uid] && line(al.get('name'), 40) ? { n: line(al.get('name'), 40), ...(col ? { c: col } : {}) } : null,
+    al: mem[who.uid] && line(al.get('name'), 40) ? { n: line(al.get('name'), 40), ...(col ? { c: col } : {}), ...(tg ? { t: tg } : {}) } : null,
     cl: !!(shop.exists && (shop.get('vip.until') || 0) > Date.now()) } });
   return me;
 }
@@ -158,7 +159,7 @@ const staffOnly = who => { if (!who.admin && !who.mod) throw new HttpsError('per
 const audit = (b, db, who, action, extra) => b.create(db.collection('adminAudit').doc(), { actor: who.uid, action, outcome: 'completed', at: FieldValue.serverTimestamp(), ...extra });
 
 /* ── the author's board profile ──
-   cbUser/{uid} {n, t, nm, rg, rk?, al?: {n, c?}, cl?, fd?, sg?}: what every reader shows beside a nation's posts (the
+   cbUser/{uid} {n, t, nm, rg, rk?, al?: {n, c?, t?}, cl?, fd?, sg?}: what every reader shows beside a nation's posts (the
    author column): how many it has written on the Community Board, its rank (the index its own game sends with each
    post, from the achievements it saves), its alliance, the Chancery Club and Founding Supporter marks, and the
    signature it chose (cbSig). Refreshed with every post; written only here, read by everyone. A profile written before

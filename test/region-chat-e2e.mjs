@@ -371,7 +371,12 @@ await B.click('#rgc-tab-ally');
 check('and it reads there', await until(async () => /Allies, to the iron mines!/.test(await text(B, '#rgc-list'))) && !(await B.$('#rgc-tab-ally .rgc-tn')));
 const renamed = await civic(B, { op: 'alEdit', aid: aid || await B.evaluate(() => G.ALX().alMine()?.id), name: 'The Grand Northern Chat Pact' });
 check('a long name shows on the tab as its initials, the full name kept for screen readers', renamed.ok && await until(async () => await C.$eval('#rgc-tab-ally', b => b.childNodes[0].textContent === 'GNCP' && b.querySelector('.u-sr')?.textContent === 'The Grand Northern Chat Pact'), 20000), JSON.stringify(renamed));
-await civic(B, { op: 'alEdit', aid: aid || await B.evaluate(() => G.ALX().alMine()?.id), name: 'The Chat Pact' });
+const coded = await civic(B, { op: 'alEdit', aid: aid || await B.evaluate(() => G.ALX().alMine()?.id), tg: 'GN7' });
+check('the leader’s own short code takes the initials’ place on the tab', coded.ok && await until(async () => await C.$eval('#rgc-tab-ally', b => b.childNodes[0].textContent === 'GN7'), 20000), JSON.stringify(coded));
+await C.click('#rgc-tab-region');
+check('and beside the members’ names', await until(async () => (await text(C, `#rgc-list .rgc-lh:has(button[data-id="${uidB}"]) .rgc-al`)).trim() === 'GN7', 20000));
+await C.click('#rgc-tab-ally');
+await civic(B, { op: 'alEdit', aid: aid || await B.evaluate(() => G.ALX().alMine()?.id), name: 'The Chat Pact', tg: '' });
 check('and the full name returns when it fits again', await until(async () => await C.$eval('#rgc-tab-ally', b => b.childNodes[0].textContent === 'The Chat Pact'), 20000));
 await B.click('#rgc-tab-region');
 // docked beside the page on a wide screen, and floating again

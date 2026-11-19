@@ -14,6 +14,7 @@
 //   watch    a watched player (watch/<uid>) back after an hour away, renamed, moved, reported or gone (when on)
 // The id of each finding says what it is and when, so a finding is filed once however often the job runs.
 import { nationText } from './nationtext.js';
+import { sweepBans } from './bans.js';
 export const MIN = 60000, HOUR = 60 * MIN, DAY = 24 * HOUR;
 export const ALERT_DEFAULTS = { reports: 3, popPct: 50, popMin: 1, errors: 5, errPct: 20, spike: 3, spikeMin: 5, buys: true, watch: true, discord: true };
 export const ALERT_LIMITS = { reports: [1, 100], popPct: [5, 100000], popMin: [0, 1e6], errors: [1, 10000], errPct: [1, 100], spike: [1.5, 100], spikeMin: [1, 100000] };
@@ -188,8 +189,11 @@ export async function runAlerts(db, { now = Date.now(), webhook = '', site = 'ht
   /* alerts older than ALERT_KEEP go */
   const old = await db.collection('adminAlerts').where('t', '<', now - ALERT_KEEP).limit(400).get();
   if (old.size) { const b = db.batch(); old.docs.forEach(d => b.delete(d.ref)); await b.commit(); }
+  /* Timed bans that have run out (functions/admin.js, BAN_DAYS). A player who comes back has theirs lifted by their own
+     game first (functions/accounts.js, 'banExpired'); this is for the ones who do not, so no ban outlives its term. */
+  const lifted = await sweepBans(db, now);
   await db.doc('alertState/run').set({ at: now, w: w.seen, discord, filed: filed.length });
   const by = {}; for (const a of filed) by[a.k] = (by[a.k] || 0) + 1;
   return { at: now, since, checked: { reports: reports.length, nations: nations.length, sessions: health.size, foundedHour: hour, foundedWeek: week, purchases: fresh.length, watched: watched.length },
-    filed: filed.length, by, discord, removed: old.size };
+    filed: filed.length, by, discord, removed: old.size, bansLifted: lifted.length };
 }

@@ -14,6 +14,8 @@ const AC_EPOCH = Date.UTC(2026, 9, 28), DAY = 864e5;
 function kit() {
   const ctx = vm.createContext({
     AC_EPOCH, RACE: { t: new Map(), want: new Set(), f: new Map() }, S: { mode: 'world' }, fetched: 0,
+    // a map that did not grow: every claim's stamp is under the number it has (raceCK; frontier.test.mjs for one that did)
+    FRONT_AT: Date.UTC(2026, 10, 19, 19, 41, 53), MAP_COLS: 1, CHART_COLS: 1,
     raceSoon() { ctx.fetched++; },
     capSince: n => Math.max(n.founded || 0, n.capAt || 0),
     inReach: (x, c) => Math.abs(c - x.cap) <= (x.reach ?? 68),

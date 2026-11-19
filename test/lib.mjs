@@ -56,7 +56,10 @@ export async function player(tag, opts = {}) {
   /* opts.ua: a browser's user agent, such as a phone's (the game sends a phone to Google and back rather than a pop-up) */
   const ctx = await browser.newContext({ viewport: opts.vp || { width: 1280, height: 900 }, deviceScaleFactor: opts.dpr || 1, colorScheme: opts.dark ? 'dark' : 'light', acceptDownloads: true, storageState: opts.storageState,
     ...(opts.ua ? { userAgent: opts.ua, isMobile: /Mobile/.test(opts.ua), hasTouch: /Mobile/.test(opts.ua) } : {}) });
-  await ctx.route(/fonts\.(googleapis|gstatic)\.com/, r => r.abort());
+  /* nothing from the internet: Google's fonts, and the Auth emulator's Google sign-in page's stylesheet and script from
+     unpkg.com, which that page does without (window.mdc &&). Waiting on unpkg made the sign-in tests time out on CI
+     (phone-google and once, 19 Nov 2026: the page's load event never came) */
+  await ctx.route(/^https:\/\/(fonts\.(googleapis|gstatic)\.com|unpkg\.com)\//, r => r.abort());
   if (opts.block) await ctx.route(opts.block, r => r.abort());
   await ctx.addInitScript(([cap, gap, desk, crisis]) => {
     window.EDICTUM_SAVE_GAP = gap; window.EDICTUM_REF_EPOCH = Date.UTC(2026, 0, 1); window.EDICTUM_SEAL2_AT = Date.UTC(2026, 0, 2); /* conquests checked by the seal that names the defender */ if (cap) window.EDICTUM_REGION_CAP = cap; if (!desk) window.EDICTUM_NO_DESK = true; if (!crisis) window.EDICTUM_NO_CRISIS = true;
@@ -113,7 +116,7 @@ export const nav = async (p, v) => { await p.evaluate(v => document.querySelecto
    first (from anywhere: it opens the Region page when it is not open) */
 export const regionTab = async (p, t = 'nations') => { if (!(await p.$('#rgn-tab-' + t))) await nav(p, 'region'); await p.click('#rgn-tab-' + t); await sleep(120); };
 /* Customise shows one section at a time: open one by its key (t e a y v b s z c), through its address */
-const CZ_SLUGS = { t: 'epithet', e: 'flag', a: 'arms', y: 'symbols', v: 'provinces', b: 'banner', s: 'decrees', z: 'finery', c: 'currency', l: 'stationery', n: 'nationpage', w: 'board' };
+const CZ_SLUGS = { t: 'epithet', e: 'flag', a: 'arms', y: 'symbols', v: 'provinces', b: 'banner', s: 'decrees', z: 'finery', c: 'currency', l: 'stationery', n: 'nationpage', w: 'board', g: 'map', p: 'passport', r: 'portraits' };
 export async function czSection(p, k) {
   await p.evaluate(h => { if (location.hash !== h) location.hash = h; else window.dispatchEvent(new PopStateEvent('popstate')); }, '#customise/' + CZ_SLUGS[k]);
   await p.waitForSelector('#cz-sec-' + k, { state: 'visible', timeout: 15000 }); await sleep(150);
