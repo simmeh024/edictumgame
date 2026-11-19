@@ -1,6 +1,6 @@
-// Settings in nine tabs: Your nation is a draft with a live preview and Save; Edicts applies at once; the open tab is in
-// the address; a jump from elsewhere opens the right tab; leaving with unsaved changes asks first; a phone gets a row of
-// tabs that sticks under the top bar (emulators).
+// Settings in thirteen tabs and five groups: Your nation is a draft with a live preview and Save; Edicts applies at once;
+// the open tab is in the address; a jump from elsewhere opens the right tab; leaving with unsaved changes asks first; the
+// search, badges, Undo, Reset, Privacy and the page gears; a phone opens on the list of tabs (emulators).
 import { OUT, check, finish, sleep, until, player, open, found, nav, text, localNation, nationDoc, errors, clearEmulators } from './lib.mjs';
 await clearEmulators();
 const shown = (p, sel) => p.locator(sel).isVisible();
@@ -12,7 +12,8 @@ await A.waitForSelector('#ed-recovery-code', { timeout: 25000 }); await A.click(
 
 // the page: six tabs, one pane at a time, Your nation first
 await nav(A, 'settings'); await A.waitForSelector('#sg');
-check('Settings has ten tabs', JSON.stringify(await A.$$eval('.sg-tab .sg-tl', b => b.map(x => x.textContent))) === JSON.stringify(['Your nation', 'Edicts', 'Land', 'Notifications', 'Letters', 'Chat', 'Display', 'Sound', 'Navigation', 'Account']));
+check('Settings has thirteen tabs in five groups', JSON.stringify(await A.$$eval('.sg-tab .sg-tl', b => b.map(x => x.textContent))) === JSON.stringify(['Your nation', 'Edicts', 'Land', 'Map', 'Pages', 'Notifications', 'Letters', 'Chat', 'Privacy', 'Display', 'Sound', 'Navigation', 'Account'])
+  && JSON.stringify(await A.$$eval('.sg-gh', g => g.map(x => x.textContent))) === JSON.stringify(['Your nation', 'Play', 'Contact and privacy', 'Look and feel', 'Account']));
 check('it opens on Your nation, with the other panes hidden', await tab(A) === 'nation' && await shown(A, '#s-motto') && !await shown(A, '#s-freq') && !await shown(A, '#set-notif') && !await shown(A, '#set-appearance'));
 check('on a wide screen the tabs are a list down the side', await A.$eval('.sg-rail', e => getComputedStyle(e).flexDirection) === 'column');
 check('the old section menu and fold controls are gone', !await A.$('#ux-section-select') && !await A.$('.ux-fold-toggle'));
@@ -123,12 +124,12 @@ check('Customise’s link to the theme opens Display', await A.evaluate(() => G.
 await A.click('#sg-tab-nation'); await A.click('[data-act="go"][data-cu-jump]'); await sleep(500);
 check('the currency link opens the Money tab of Customise', await A.evaluate(() => G.S.view) === 'customise' && await shown(A, '#cz-sec-c'));
 await search('whats next', 'focus:set-tasks');
-check('searching “whats next” opens Display at the What’s next switch', await tab(A) === 'display' && await shown(A, '#set-tasks'));
+check('searching “whats next” opens Pages at the What’s next switch', await tab(A) === 'pages' && await shown(A, '#set-tasks'));
 const tutCard = () => A.evaluate(() => { document.querySelector('.nav [data-v="nation"]').click(); return new Promise(r => setTimeout(() => r(!!document.querySelector('.tut-c')), 500)); });
 check('What’s next is on, and on the Nation page', await A.$eval('#set-tasks input[data-act="sg-tut"]', i => i.checked) && await tutCard());
-await nav(A, 'settings'); await A.click('#sg-tab-display'); await A.click('#set-tasks input[data-act="sg-tut"]'); await sleep(300);
-check('switching it off in Display takes it off the Nation page', !(await A.$eval('#set-tasks input[data-act="sg-tut"]', i => i.checked)) && !(await tutCard()));
-await nav(A, 'settings'); await A.click('#sg-tab-display'); await A.click('#set-tasks input[data-act="sg-tut"]'); await sleep(300);
+await nav(A, 'settings'); await A.click('#sg-tab-pages'); await A.click('#set-tasks input[data-act="sg-tut"]'); await sleep(300);
+check('switching it off in Pages takes it off the Nation page', !(await A.$eval('#set-tasks input[data-act="sg-tut"]', i => i.checked)) && !(await tutCard()));
+await nav(A, 'settings'); await A.click('#sg-tab-pages'); await A.click('#set-tasks input[data-act="sg-tut"]'); await sleep(300);
 check('and back on brings it back', await A.$eval('#set-tasks input[data-act="sg-tut"]', i => i.checked) && await tutCard());
 await nav(A, 'settings'); await A.click('#sg-tab-account');
 check('Account has sign-in, recruiting and dissolving', await shown(A, '[data-act="acct-open"]') && await shown(A, '#set-social') && await shown(A, '[data-act="dissolve-ask"]') && !(await A.$('#set-tut')));
@@ -166,22 +167,55 @@ await A.click('#found-btn');
 check('founded again, it keeps the culture, look and edict pace, and starts the rest afresh', await until(async () => { const n = await localNation(A); return n && n.name === 'Tabularia' && n.lang === 'Tabular' && n.mapc === '#3A8FD1' && n.ruler === 'Ada Brook' && n.freq === 240 && n.founded > old.founded && !(n.answered || []).length; }), JSON.stringify(await localNation(A))?.slice(0, 300));
 check('and the region has the new nation', await until(async () => { const d = await nationDoc(uidA); return !!d && d.name === 'Tabularia' && d.rec && d.rec.founded > old.founded && d.rec.lang === 'Tabular'; }, 20000));
 check('nothing is left waiting to be carried', await A.evaluate(() => !localStorage.getItem('edictum.restart')));
+// the new parts (18 Nov 2026): the search, the badges, the grid, Undo and Reset, Privacy, a gear on a page
+await nav(A, 'settings'); await A.waitForSelector('#sg-q');
+await A.fill('#sg-q', 'dark');
+check('the search shows the cards that match, from any tab', await until(() => shown(A, '#set-appearance')) && !await shown(A, '#set-sound') && !await shown(A, '#s-motto'));
+await A.fill('#sg-q', 'zzqx');
+check('and says when nothing matches', await until(() => shown(A, '#sg-none')));
+await A.fill('#sg-q', '');
+check('clearing it shows one tab again', await until(async () => !(await shown(A, '#sg-none')) && await A.evaluate(() => !document.getElementById('sg').hasAttribute('data-q'))));
+check('every card says where it is kept', /This device/.test(await text(A, '#set-appearance .sg-ch')) && /Seen by others/.test(await text(A, '#set-culture .sg-ch')) && /Your account/.test(await text(A, '#set-mail .sg-ch')));
+await A.click('#sg-tab-notif');
+check('Notifications starts with the grid of news and the ways of hearing it', await shown(A, '#set-ntf-grid') && (await A.$$('#set-ntf-grid tbody tr')).length > 10);
+await A.uncheck('#set-ntf-grid [data-ntf-mute="build"]');
+check('a change shows a toast with Undo', await until(() => A.evaluate(() => /Undo/.test(document.getElementById('toast')?.textContent || '')), 15000));
+await A.click('#toast [data-act="sg-undo"]');
+check('and Undo puts it back', await until(() => A.isChecked('#set-ntf-grid [data-ntf-mute="build"]')));
+await A.click('#sg-tab-display'); await A.click('#fmt-n-s');
+check('short numbers are kept on this device', await until(() => A.evaluate(() => JSON.parse(localStorage.getItem('statehood.fmt') || '{}').n === 's')));
+await A.click('#sg-p-display [data-act="sg-reset"]');
+check('Reset this tab puts Display back', await until(() => A.evaluate(() => JSON.parse(localStorage.getItem('statehood.fmt') || '{}').n === 'w')));
+await A.click('#sg-tab-privacy');
+check('Privacy has who can reach me, online status, read receipts and blocking', await shown(A, '#set-reach') && await shown(A, '[data-act="sg-online"]') && await shown(A, '#set-letters-rr') && await shown(A, '#set-letters-bl'));
+await A.selectOption('#rch-s', 'n');
+check('who can reach me is saved with the nation', await until(async () => ((await localNation(A)).rch || {}).s === 'n'));
+check('and reaches the server, where other players can see it', await until(async () => { const d = await nationDoc(uidA); return !!(d && d.rec && d.rec.rch && d.rec.rch.s === 'n'); }, 15000));
+await nav(A, 'map');
+check('the map has a gear for its settings', await until(() => shown(A, '.sg-gear')));
+await A.click('.sg-gear');
+check('which opens Settings at the map’s layers', await until(async () => await tab(A) === 'map' && await shown(A, '#set-map-layers')));
 await A.ctx.close();
 
-// a phone: a row of tabs under the top bar, and nothing wider than the screen
+// a phone: Settings opens on its list of tabs; a tab opens on its own; Back returns to the list
 const P = await player('settings phone', { vp: { width: 390, height: 844 } });
 await open(P); await found(P, 'Pocketania');
 await nav(P, 'settings'); await P.waitForSelector('#sg');
-check('on a phone the tabs are a row', await P.$eval('.sg-rail', e => getComputedStyle(e).flexDirection) === 'row' && await P.$eval('.sg-rail', e => getComputedStyle(e).position) === 'sticky');
+check('on a phone Settings opens on the list of tabs, in its groups', await until(() => shown(P, '#sg-tab-display')) && !(await shown(P, '#s-motto')) && (await P.$$eval('.sg-gh', g => g.filter(x => x.offsetParent).length)) === 5);
+check('each tab says what is set in it', await shown(P, '[data-sg-sub="edicts"]'));
 check('and the page is no wider than the screen', await P.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1));
+await P.click('#sg-tab-nation');
+check('a tab opens on its own, with a way back', await until(() => shown(P, '#s-motto')) && await shown(P, '.sg-back') && !(await shown(P, '#sg-tab-display')) && await P.evaluate(() => location.hash) === '#settings/nation');
 await P.fill('#s-motto', 'Small but Thorough');
 check('an unsaved change marks the tab', await P.$eval('#sg-tab-nation', e => e.classList.contains('dirty')));
-await P.evaluate(() => window.scrollTo(0, 600)); await sleep(200);
-check('the tab row stays in view while scrolling', await P.$eval('.sg-rail', e => { const r = e.getBoundingClientRect(); return r.top >= 0 && r.top < 120; }));
 await P.screenshot({ path: OUT + '/settings-nation-390.png' });
-await P.click('#sg-tab-account'); await sleep(200);
-check('a tab far along the row scrolls into view', await P.$eval('#sg-tab-account', e => { const r = e.getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth; }));
-await P.screenshot({ path: OUT + '/settings-account-390.png' });
+await P.evaluate(() => history.back());
+check('the browser’s Back returns to the list', await until(() => shown(P, '#sg-tab-display')) && await P.evaluate(() => location.hash) === '#settings');
+await P.click('#sg-tab-account');
+check('the last tab opens too', await until(() => shown(P, '#set-danger')));
+await P.click('.sg-back');
+check('and All settings returns to the list', await until(() => shown(P, '#sg-tab-account')));
+await P.screenshot({ path: OUT + '/settings-list-390.png' });
 await P.ctx.close();
 
 check('no page errors', errors.length === 0, errors.join('; '));

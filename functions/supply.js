@@ -1,6 +1,8 @@
 import { HttpsError } from 'firebase-functions/v2/https';
 import { Timestamp } from 'firebase-admin/firestore';
 import { eligibility, refuse, nationJSON } from './eligibility.js';
+/* Settings › Privacy › Who can reach me: a nation that takes none of a kind (rch[k] 'n') is kept to here too */
+const closed = (N, k) => !!(N && N.rch && typeof N.rch === 'object' && N.rch[k] === 'n');
 import { SC_DAY, SC_MAX, SC_MSG, SC_AGE, SC_OLD, SC_KEEP, SC_ID, SC_DOC, SC_SPONSOR, SC_SPONSOR_MS, scDay, scContents, scTotal } from './supply-rules.js';
 
 /* Supply Caches between players, written only here (civic ops sc*; functions/supply-rules.js holds the rules).
@@ -39,6 +41,7 @@ async function scSend(db, who, d) {
     if (!to) refuse('sc_target', 'Choose another player’s nation in your region.');
     const [other, ban, rec] = await tx.getAll(db.doc('nations/' + to), db.doc('bans/' + to), db.doc('recruits/' + to));
     if (!other.exists || (other.get('reg') || '') !== reg || ban.exists) refuse('sc_target', 'That nation is no longer in your region.');
+    if (closed(nationJSON(other), 's')) refuse('sc_closed', 'That nation takes no Supply Caches.');
     /* a sponsor sends SC_SPONSOR more a day to the new nation that came through their recruiting link */
     const filed = rec.exists && rec.get('r') === who.uid ? rec.get('t') : null, filedAt = filed && filed.toMillis ? filed.toMillis() : Number(filed) || 0;
     const limit = SC_DAY + (filedAt && now - filedAt <= SC_SPONSOR_MS ? SC_SPONSOR : 0);

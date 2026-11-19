@@ -23,7 +23,7 @@ await B.waitForSelector('.layout');
 const rev = async () => Number((await restGet('nations/' + uid)).body.fields.rev.integerValue);
 const motto = async () => (await nationDoc(uid)).rec.motto;
 const edit = async (p, value) => {
-  await nav(p, 'settings'); await p.fill('#s-motto', value);
+  await nav(p, 'settings'); await p.evaluate(() => document.getElementById('sg-tab-nation').click()); await p.fill('#s-motto', value);
   await p.click('#settings-form button[type="submit"]');
 };
 const saved = async p => {
@@ -132,7 +132,7 @@ check('the conflicted device can save a subsequent action', await motto() === 'P
 
 // A refused save is replayed onto the other device's save: different changes are both kept.
 await B.ctx.setOffline(true);
-await nav(B, 'settings'); await B.fill('#s-about', 'Written on the phone');
+await nav(B, 'settings'); await B.evaluate(() => document.getElementById('sg-tab-nation').click()); await B.fill('#s-about', 'Written on the phone');
 await B.click('#settings-form button[type="submit"]');
 await sleep(2500);
 await edit(A, 'Desktop motto, phone about'); await saved(A);
@@ -267,7 +267,7 @@ check('the page and /version.json carry the same build', await B.evaluate(async 
 try {
   fs.writeFileSync(VERSION, JSON.stringify({ b: '0123456789ab' }) + '\n');
   await B.evaluate(() => { window.__sameLoad = true; });
-  await nav(B, 'settings'); await B.fill('#s-motto', 'Half written on the phone');
+  await nav(B, 'settings'); await B.evaluate(() => document.getElementById('sg-tab-nation').click()); await B.fill('#s-motto', 'Half written on the phone');
   await showing(B, false); await sleep(300); await showing(B, true); await sleep(4000);
   check('a page with something half written is not reloaded', await B.evaluate(() => window.__sameLoad === true));
   check('it is told a new version is out instead', /new version of Edictum is out/.test((await B.locator('.ed-toast').allTextContents()).join(' ')));

@@ -171,13 +171,13 @@ await A.click(`#rgn-pkb-${ub}`);
 check('the quick look says it as well', await until(async () => /Status\s*Online now/.test(await text(A, `#rgn-pk-${ub}`))));
 await shot(A, 'online');
 await B.setViewportSize({ width: 1366, height: 900 });
-await nav(B, 'settings'); await B.click('#sg-tab-account');
-check('Settings › Account has the switch, on at first', await B.isChecked('[data-act="sg-online"]'));
+await nav(B, 'settings'); await B.click('#sg-tab-privacy');
+check('Settings › Privacy has the switch, on at first', await B.isChecked('[data-act="sg-online"]'));
 await B.uncheck('[data-act="sg-online"]');
 check('switched off, it is kept with the nation', await until(() => B.evaluate(() => !!G.S.nation.dmx && G.S.nation.dmx.on === 0)));
 check('and the dot is gone for the other players', await until(async () => { await ask(A); return !await dot(A, ub); }, 40000));
 check('while the one who hid still sees who else is online', await until(async () => { await regionTab(B, 'nations'); await ask(B); return !!await dot(B, ua) && !await dot(B, ub); }, 20000));
-await nav(B, 'settings'); await B.click('#sg-tab-account'); await B.check('[data-act="sg-online"]');
+await nav(B, 'settings'); await B.click('#sg-tab-privacy'); await B.check('[data-act="sg-online"]');
 check('switched on again, the dot comes back', await until(async () => { await ask(A); return !!await dot(A, ub); }, 40000));
 
 check('no page errors', !errors.length, errors.slice(0, 3).join(' | '));
