@@ -8,7 +8,8 @@
    riddleKeys/{same id}, which no player can read; the job copies it into the riddle once the week is over (a).
      riddles/{id}       {reg, wk, t (opens), x (closes), q: [lines], n (solved by), top: [{u, nm, t}] (the first RD_TOP),
                          tu: [their uids], a (the answer, once the week is over), v}
-     riddleKeys/{id}    {c (the hex), t}
+     riddleKeys/{id}    {c (the hex), t, cv: 5 (on the frontier's wider rows; a key set before them was moved by the job,
+                         which keeps the number it had in c4)}
      riddles/{id}/guesses/{uid}  {u, g: [hexes guessed], ok (solved at, 0 until then), r (its place), t}
    A nation of the region guesses with a click on the map: RD_TRIES guesses a week, the same hex twice counts once. */
 export const RD_TRIES = 3, RD_TOP = 10;

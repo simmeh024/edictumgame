@@ -24,6 +24,8 @@ function kit(world) {
   const timers = [];
   const ctx = vm.createContext({
     AC_EPOCH, DAY, FIX_EPOCH: 0, SEAL2_AT: 0, TERR_AT: null, CORE_HEXES: 1, N, timers,
+    // a strip that did not grow: every claim's stamp is under the number it has (raceCK; frontier.test.mjs for one that did)
+    FRONT_AT: Date.UTC(2026, 10, 19, 19, 41, 53), MAP_COLS: 1, CHART_COLS: 1,
     S: { mode: 'world', uid: 'me', nation: world.me, world: Object.fromEntries(Object.entries(world).filter(([k]) => k !== 'me')), db: {} },
     HIDN: { w: {} }, REF: { ok: new Map() }, RECL: { owner: new Map(), time: new Map() }, recRev: 0, NPC_SET: new Set(),
     MAP: { N, T: new Uint8Array(N).fill(2), cx: new Float64Array(N).map((_, i) => i), cy: new Float64Array(N) },
