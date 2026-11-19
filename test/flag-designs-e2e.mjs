@@ -29,8 +29,9 @@ await A.evaluate(() => { const n = G.clone(G.S.nation); n.tly.cbvisit = 4; n.tly
 check('visits on five days earn Regular at the Board', await until(async () => (await localNation(A)).tly.cbvisit === 5, 10000));
 /* the achievement, and so the pattern, can arrive with the save after the visit's own: save again and look until it shows */
 check('and Lozenge can be chosen', await until(async () => { await A.evaluate(() => { G.commit(G.clone(G.S.nation)); }); await openFlag(); return !!await A.$('#c-p-lozenge'); }, 10000));
-// a sheet of the five, for the pull request (the page is replaced: this is the end of the suite)
+// a sheet of the five, for the pull request, laid over the page rather than in place of it: the game keeps drawing
+// into #app, and with #app gone a late render threw "Cannot read properties of null (reading 'firstChild')" (CI, 19 Nov 2026)
 await A.evaluate(() => { document.querySelectorAll('dialog[open]').forEach(d => d.close()); const svgs = ['gyronny', 'lozenge', 'pile', 'wave2', 'chev3'].map(p => document.querySelector('#c-p-' + p + ' svg').outerHTML);
-  document.body.innerHTML = '<div id="fd-all" style="display:inline-grid;grid-template-columns:repeat(5,150px);gap:10px;padding:10px;background:#eee">' + svgs.map(v => `<div style="width:150px;height:100px">${v}</div>`).join('') + '</div>'; });
+  document.body.insertAdjacentHTML('beforeend', '<div id="fd-all" style="position:fixed;top:0;left:0;z-index:2147483647;display:inline-grid;grid-template-columns:repeat(5,150px);gap:10px;padding:10px;background:#eee">' + svgs.map(v => `<div style="width:150px;height:100px">${v}</div>`).join('') + '</div>'); });
 await A.locator('#fd-all').screenshot({ path: OUT + '/flag-designs-all.png' });
 await finish();
