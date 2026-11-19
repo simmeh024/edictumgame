@@ -43,7 +43,7 @@ await page.evaluate(() => { const g = window.__game, m = g.clone(g.S.nation); m.
 const core = await page.evaluate(() => {
   const X = window.__game.SCR(), n = window.__game.S.nation, out = {};
   out.fams = Object.keys(X.SCR_FAM).length;
-  out.distinct = Object.keys(X.SCR_FAM).every(f => [1, 99, 123456].every(s => new Set(X.scrGlyphs(s, f).map(g => JSON.stringify([g.S, g.F, g.D]))).size === 36));
+  out.distinct = Object.keys(X.SCR_FAM).every(f => [1, 99, 123456].every(s => new Set(X.scrGlyphs(s, f).map(g => JSON.stringify([g.S, g.F, g.D, g.T]))).size === 36));
   out.same = X.scrSVG({ s: 5, f: 'ang', w: 2 }, 'Abc') === X.scrSVG({ s: 5, f: 'ang', w: 2 }, 'Abc');
   out.differ = X.scrSVG({ s: 5, f: 'ang', w: 2 }, 'Abc') !== X.scrSVG({ s: 6, f: 'ang', w: 2 }, 'Abc');
   out.chars = X.scrChars('Ça va, Œuvre ß! 3 日本').join('');
@@ -53,7 +53,7 @@ const core = await page.evaluate(() => {
   out.def = JSON.stringify(X.scrOf(n)) === JSON.stringify(X.scrDef(n)) && !n.scr;
   return out;
 });
-check('nine families, each with 36 different signs for every seed', core.fams === 9 && core.distinct);
+check('twelve families, each with 36 different signs for every seed', core.fams === 12 && core.distinct);
 check('the same seed draws the same letters, another seed others', core.same && core.differ);
 check('accents fall off, ß and Œ are spelled out, signs it has no letter for are left out', core.chars === 'CA VA, OEUVRE SS! 3', core.chars);
 check('the plain words are escaped into the label', core.esc);
@@ -82,7 +82,7 @@ await page.click('#scr-card [data-scs="open"]');
 check('the Script Studio opens', await until(() => page.evaluate(() => { const e = document.getElementById('sc-st'); return e && !e.hidden && !!e.querySelector('.scs-sheet .scr-big'); })));
 const fit = await page.evaluate(() => { const e = document.getElementById('sc-st'); return { sh: e.scrollHeight, h: e.getBoundingClientRect().height, w: e.scrollWidth, vw: innerWidth }; });
 check('everything fits in one view on a desktop screen', fit.sh <= fit.h + 1 && fit.w <= fit.vw + 1, JSON.stringify(fit));
-check('nine families, four places to show it, six views', await page.evaluate(() => document.querySelectorAll('#sc-st .scs-fam').length === 9 && document.querySelectorAll('#sc-st [data-scs-on]').length === 4 && document.querySelectorAll('#sc-st .scs-use').length === 6));
+check('twelve families, four places to show it, six views', await page.evaluate(() => document.querySelectorAll('#sc-st .scs-fam').length === 12 && document.querySelectorAll('#sc-st [data-scs-on]').length === 4 && document.querySelectorAll('#sc-st .scs-use').length === 6));
 const S1 = () => page.evaluate(() => document.querySelector('#sc-st .scs-key').innerHTML);
 const k0 = await S1();
 // a new nation's family comes from its seed: choose one it does not have yet
@@ -91,8 +91,9 @@ await page.click(`#sc-st .scs-fam[data-v="${fam}"]`);
 check('choosing a family redraws the letters', await until(async () => (await S1()) !== k0 && await page.evaluate(f => window.__game.SCR().SCS.d.f === f, fam)));
 // the three families added later: brushed squares, stamped signs, one modern line
 const k9 = {};
-for (const f of ['ink', 'stamp', 'mod']) { await page.click(`#sc-st .scs-fam[data-v="${f}"]`); k9[f] = await until(async () => await page.evaluate(x => window.__game.SCR().SCS.d.f === x, f) && (await S1())); if (f === 'stamp') await page.screenshot({ path: path.join(OUT, 'script-studio-stamped.png') }); }
-check('Ink squares, Stamped and Modern each draw their own alphabet', new Set(Object.values(k9).filter(Boolean)).size === 3);
+for (const f of ['ink', 'stamp', 'mod', 'rom', 'chan', 'mos']) { await page.click(`#sc-st .scs-fam[data-v="${f}"]`); k9[f] = await until(async () => await page.evaluate(x => window.__game.SCR().SCS.d.f === x, f) && (await S1())); if (f === 'stamp' || f === 'rom') await page.screenshot({ path: path.join(OUT, `script-studio-${f}.png`) }); }
+check('Ink squares, Stamped, Modern, Roman, Chancery and Mosaic each draw their own alphabet', new Set(Object.values(k9).filter(Boolean)).size === 6);
+check('a Roman line on the page has a dot between its words', await page.evaluate(() => { const X = window.__game.SCR(), n = window.__game.S.nation, h = X.scrLine(n, 'Ave Senatus', { sp: { ...X.SCS.d, f: 'rom' } }); return (h.match(/scr-ip/g) || []).length === 1; }));
 await page.click(`#sc-st .scs-fam[data-v="${fam}"]`);
 await page.click('#sc-st [data-scs="tab"][data-v="pen"]');
 await page.click('#sc-st [data-scs="set"][data-f="w"][data-v="3"]');

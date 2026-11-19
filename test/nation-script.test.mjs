@@ -17,17 +17,17 @@ vm.runInContext([
   grab(/function hash\(str\)\{.*\}/), grab(/function rng\(seed\)\{.*\}/), grab(/const esc = .*;/),
   slice('const SCR_FAM={', '/* the script inside another drawing'),
   grab(/function scrFmt\(v,a,b\)\{[\s\S]*?\n\}/),
-  'this.X={scrEdParse,scrEdCode,scrPaths,hash,SCR_FAM0,SCR_FAM,SCR_ABC,SCR_ON,SCR_B,scrClean,scrDef,scrOf,scrGlyphs,scrChars,scrLay,scrSVG,scrFmt,scrCodeOk,scrCustom,scrNode,scrSet,scrFamOf,scrMirror};'
+  'this.X={scrPoint,scrInner,scrEdParse,scrEdCode,scrPaths,hash,SCR_FAM0,SCR_FAM,SCR_ABC,SCR_ON,SCR_B,scrClean,scrDef,scrOf,scrGlyphs,scrChars,scrLay,scrSVG,scrFmt,scrCodeOk,scrCustom,scrNode,scrSet,scrFamOf,scrMirror};'
 ].join('\n'), ctx);
 const X = ctx.X, plain = v => JSON.parse(JSON.stringify(v));
 
-test('nine families, 36 different signs each, for any seed', () => {
-  assert.deepEqual(Object.keys(X.SCR_FAM), ['ang', 'brush', 'wedge', 'loop', 'dot', 'knot', 'ink', 'stamp', 'mod']);
+test('twelve families, 36 different signs each, for any seed', () => {
+  assert.deepEqual(Object.keys(X.SCR_FAM), ['ang', 'brush', 'wedge', 'loop', 'dot', 'knot', 'ink', 'stamp', 'mod', 'rom', 'chan', 'mos']);
   assert.equal(X.SCR_ABC.length, 36);
   for (const f of Object.keys(X.SCR_FAM)) for (const s of [0, 7, 4242, 99991, 4294967295]) {
     const G = X.scrGlyphs(s, f);
     assert.equal(G.length, 36);
-    assert.equal(new Set(G.map(g => JSON.stringify([g.S, g.F, g.D]))).size, 36, `${f} ${s}`);
+    assert.equal(new Set(G.map(g => JSON.stringify([g.S, g.F, g.D, g.T]))).size, 36, `${f} ${s}`);
     for (const g of G) assert.ok(g.w >= 3 && g.w <= 13, `${f} ${s} width ${g.w}`);
   }
 });
@@ -206,4 +206,22 @@ test('a brush stroke is filled: an even one ends round, the pen stays a line', (
   assert.ok(Math.min(...ys) < 0 && Math.max(...ys) > 14, 'round ends reach past the first and last point');
   assert.equal(pen.fl, '');
   assert.match(pen.st, /^M0 0L0 14$/);
+});
+
+test('Roman, Chancery and Mosaic: a chisel, a joined hand, tiles', () => {
+  const rom = X.scrGlyphs(7, 'rom'), chan = X.scrGlyphs(7, 'chan'), mos = X.scrGlyphs(7, 'mos');
+  assert.ok(rom.every(g => g.br === 1 && g.nib > 0 && g.S.length >= 1), 'Roman: drawn with a chisel-edged brush');
+  assert.ok(rom.filter(g => (g.D || []).length || g.S.some(t => t.p.every(q => q[1] < 0))).length >= 20, 'most Roman signs carry a mark of their own');
+  assert.ok(chan.every(g => g.jn === 1 && g.x0 === 0 && g.w === 10 && g.nib > 0), 'Chancery: every sign joins at 0 and 10');
+  assert.ok(chan.every(g => { const p = g.S[0].p; return p[0][0] === 0 && p[0][1] === 10 && p[p.length - 1][0] === 10 && p[p.length - 1][1] === 10; }), 'from the join on the left to the join on the right');
+  const L = X.scrLay({ s: 7, f: 'chan', w: 2 }, 'ABC D'), at = c => L.items.find(it => it.c === c);
+  assert.equal(at('B').x - at('A').x, 10, 'the signs of a word meet');
+  assert.ok(at('D').x - at('C').x > 10, 'words keep their space');
+  assert.ok(mos.every(g => g.T.length >= 3 && !g.S.length), 'Mosaic: tiles only');
+  assert.ok(mos.every(g => { const ys = g.T.map(t => t[0][1]); return Math.max(...ys) - Math.min(...ys) >= 8; }), 'every Mosaic sign has some height');
+  const tiles = X.scrPaths(mos[0], 0, { w: 2 });
+  assert.equal((tiles.fl.match(/Z/g) || []).length, mos[0].T.length, 'a tile is a filled square');
+  const rl = X.scrInner({ s: 7, f: 'rom', w: 2 }, X.scrLay({ s: 7, f: 'rom', w: 2 }, 'AB CD EF'));
+  assert.equal((rl.match(/M[0-9.]+ 6\.23L[0-9.]+ 7L[0-9.]+ 7\.78L[0-9.]+ 7Z/g) || []).length, 2, 'a Roman line has a dot between each pair of words');
+  assert.match(X.scrPoint(5, { w: 2 }), /^M5 [0-9.]+L[0-9.]+ 7L5 [0-9.]+L[0-9.]+ 7Z$/);
 });

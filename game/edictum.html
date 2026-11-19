@@ -49814,12 +49814,12 @@ document.addEventListener('keydown',e=>{
    tooltip, and a moderator reads the letter as it was written. n.scr {s seed, f family, w weight 1–3, sl slant in
    degrees, tm ends, ink, on [where]}; without it a nation has the script its seed gives it. Drawn as SVG paths, so
    nothing is downloaded. */
-const SCR_FAM={ang:'Angular',brush:'Brush',wedge:'Wedge',loop:'Loops',dot:'Dots and bars',knot:'Knotwork',ink:'Ink squares',stamp:'Stamped',mod:'Modern'};
+const SCR_FAM={ang:'Angular',brush:'Brush',wedge:'Wedge',loop:'Loops',dot:'Dots and bars',knot:'Knotwork',ink:'Ink squares',stamp:'Stamped',mod:'Modern',rom:'Roman',chan:'Chancery',mos:'Mosaic'};
 /* a nation that never chose draws its family from the first six, so families added later never change its script */
 const SCR_FAM0=['ang','brush','wedge','loop','dot','knot'];
 /* the families drawn with a brush (tapered, filled strokes: no ends to choose) */
-const SCR_BRF=new Set(['brush','ink']);
-const SCR_FAM_H={ang:'Straight cuts on a stave, as if carved in wood or stone',brush:'Strokes of a brush, thick in the middle and fine at the ends',wedge:'Wedges pressed into wet clay',loop:'Rings, hooks and curls',dot:'Bars and dots hanging from a line',knot:'Bands that loop and cross, mirrored left and right',ink:'Brush strokes pressed and lifted inside a square, after the ink-brush calligraphy of East Asia. Every sign is invented: none is a real character',stamp:'Bold rings, diamonds, bars and dots, as if pressed onto cloth with a carved stamp, after the stamped and woven cloth of West Africa. Every sign is invented',mod:'One even line, right angles and rounded corners, as on a modern sign or logo'};
+const SCR_BRF=new Set(['brush','ink','rom','chan','mos']);
+const SCR_FAM_H={ang:'Straight cuts on a stave, as if carved in wood or stone',brush:'Strokes of a brush, thick in the middle and fine at the ends',wedge:'Wedges pressed into wet clay',loop:'Rings, hooks and curls',dot:'Bars and dots hanging from a line',knot:'Bands that loop and cross, mirrored left and right',ink:'Brush strokes pressed and lifted inside a square, after the ink-brush calligraphy of East Asia. Every sign is invented: none is a real character',stamp:'Bold rings, diamonds, bars and dots, as if pressed onto cloth with a carved stamp, after the stamped and woven cloth of West Africa. Every sign is invented',mod:'One even line, right angles and rounded corners, as on a modern sign or logo',rom:'Capitals as if cut in stone, after the inscriptions of Rome: thick and thin from a chisel-edged brush, serifs, and a dot between the words. Most signs carry a mark of their own: they are signs of your script, not Latin letters',chan:'A flowing hand for decrees and letters: each sign runs into the next, written with a broad nib held at an angle, so the downstrokes swell and the joins are hairlines',mos:'Small square tiles, each laid a little askew, as in the lettering of a Roman mosaic floor'};
 const SCR_TM={round:'Round',flat:'Flat',serif:'Serifs',dot:'Dots'};
 const SCR_INK={iron:['Iron gall','#2B2622'],sepia:['Sepia','#6B4423'],oxblood:['Oxblood','#7A1F1F'],royal:['Royal blue','#1F3A7A'],verdigris:['Verdigris','#1F6B5C'],gold:['Gold','#A07818']};
 const SCR_ON={title:'Under your name on your nation page',arms:'On the motto scroll of your arms',note:'The motto on your banknotes',sign:'Under your signature in letters'};
@@ -49997,6 +49997,61 @@ const SCR_GEN={
     if(t<.3&&free.length){const q=N(free[Math.floor(r()*free.length)]);D.push([scrP(q[0],q[1]),1]);}
     else if(t<.45&&free.length){const q=N(free[Math.floor(r()*free.length)]);S.push({p:[scrP(q[0],Math.max(0,q[1]-2.5)),scrP(q[0],Math.min(14,q[1]+2.5))]});}
     return {S,D};
+  },
+  /* Roman capitals: a stem with bowls or bars, diagonals, or a round, thick and thin from a chisel-edged brush held at
+     thirty degrees, with serifs; most signs carry a mark of their own (a dot above, below or inside, a bar above) */
+  rom(r){
+    const S=[],D=[],pk=a=>a[Math.floor(r()*a.length)],L=(...q)=>({p:q.map(v=>scrP(v[0],v[1]))}),C=(...q)=>({p:q.map(v=>scrP(v[0],v[1])),sm:1}),ser=(x,y)=>L([x-1.4,y],[x+1.4,y]),k=Math.floor(r()*4);
+    if(k===0){const b=Math.floor(r()*4);S.push(L([1.5,0],[1.5,14]),ser(1.5,14));
+      if(b===0||b===2)S.push(C([1.5,0],[6,0],[8.5,1.8],[8.5,5.2],[6,7],[1.5,7]));
+      if(b===1||b===2)S.push(C([1.5,7],[6.5,7],[9,9],[9,12],[6.5,14],[1.5,14]));
+      if(b===3)S.push(C([1.5,0],[5.5,0],[9,3.5],[9,10.5],[5.5,14],[1.5,14]));
+      if(b===1)S.push(ser(1.5,0));if(b===0&&r()<.5)S.push(L([4.5,7],[9,14]),ser(9,14));}
+    else if(k===1){const x=pk([1.5,5]),bars=pk([[0],[7],[14],[0,7],[0,14],[7,14],[0,7,14]]);S.push(L([x,0],[x,14]));
+      if(!bars.includes(0))S.push(ser(x,0));if(!bars.includes(14))S.push(ser(x,14));
+      for(const y of bars)S.push(x<3?L([x,y],[y===7?7:8.5,y]):L([1,y],[9,y]));}
+    else if(k===2){const d=Math.floor(r()*6);
+      if(d===0)S.push(L([.5,14],[5,0],[9.5,14]),ser(.5,14),ser(9.5,14));
+      else if(d===1)S.push(L([.5,0],[5,14],[9.5,0]),ser(.5,0),ser(9.5,0));
+      else if(d===2)S.push(L([1,14],[1,0],[9,14],[9,0]),ser(1,14),ser(9,0));
+      else if(d===3)S.push(L([.5,0],[9.5,14]),L([9.5,0],[.5,14]),ser(.5,0),ser(9.5,0),ser(.5,14),ser(9.5,14));
+      else if(d===4)S.push(L([1.5,0],[1.5,14]),L([9,0],[1.5,8]),L([4,5.6],[9.5,14]),ser(1.5,0),ser(1.5,14),ser(9.5,14));
+      else S.push(L([.5,0],[5,7],[9.5,0]),L([5,7],[5,14]),ser(5,14),ser(.5,0),ser(9.5,0));
+      if(d===0&&r()<.6)S.push(L([2.6,9],[7.4,9]));}
+    else{const d=Math.floor(r()*5);
+      if(d===0)S.push({p:[[5,0],[9.5,3.5],[9.5,10.5],[5,14],[.5,10.5],[.5,3.5]].map(v=>scrP(v[0],v[1])),sm:1,z:1});
+      else if(d===1)S.push(C([9,2],[6,0],[2,1.5],[.5,7],[2,12.5],[6,14],[9,12]));
+      else if(d===2)S.push(C([1,2],[4,0],[8,1.5],[9.5,7],[8,12.5],[4,14],[1,12]));
+      else if(d===3)S.push(C([8.5,2],[5,0],[1.5,2.5],[3,6],[7,8],[8.5,11.5],[5,14],[1.5,12]));
+      else S.push(C([1,0],[1,9],[3,13.5],[7,13.5],[9,9],[9,0]),ser(1,0),ser(9,0));
+      if(d<3&&r()<.5)S.push(L([5.5,7.5],[9.5,7.5]));}
+    const m=Math.floor(r()*5);
+    if(m===0)D.push([scrP(5,-1.6),.9]);else if(m===1)D.push([scrP(5,15.6),.9]);else if(m===2)S.push(L([3.5,-1.5],[6.5,-1.5]));else if(m===3)D.push([scrP(5,7),.85]);
+    return {S,D,br:1,nib:.52,nk:.62};
+  },
+  /* a chancery hand: one flowing stroke from the join on the left to the join on the right (both at the same height,
+     so the signs of a word run into each other) through an arch, a cup, a bowl, a loop up or down, a wave or a peak,
+     perhaps with a dot, a crossbar or a tick; a broad nib at forty-five degrees */
+  chan(r){
+    const J=(v,a)=>v+(r()-.5)*a,B=[
+      [[2,6],[2,11],[3,7],[6,5.5],[7.5,7],[7.5,11]],[[1.5,5.5],[2,10.5],[4.5,11],[6.5,6],[7,10.5]],[[5,5.5],[2.5,7],[2.5,10.5],[5,11],[6,6],[6.5,10.5]],
+      [[4,4],[4.5,.8],[3,1.5],[2.5,6],[3,10.8]],[[4,6],[4.5,10],[4.5,13.5],[2.5,13.5],[3,11]],[[3,6],[6,7],[4,10],[7,11]],[[2,6],[4.5,11],[7,6],[7.5,9]],
+      [[3,4],[3.5,.8],[2.5,1.5],[2.5,10.5],[3.5,7],[6.5,5.8],[7.5,8],[7.5,11]]];
+    const b=B[Math.floor(r()*B.length)].map(q=>[Math.min(9.4,Math.max(.6,J(q[0],1.2))),Math.min(13.8,Math.max(.4,J(q[1],1)))]),S=[{p:[[0,10],...b,[10,10]].map(q=>scrP(q[0],q[1])),sm:1}],D=[],x=r();
+    if(x<.22)D.push([scrP(J(4,2),3),.9]);else if(x<.4)S.push({p:[scrP(J(2,1),5),scrP(J(7,1),4.6)]});else if(x<.52)S.push({p:[scrP(J(6,1.5),2),scrP(J(7.5,1.5),4)]});
+    return {S,D,br:1,nib:.79,nk:.55,jn:1};
+  },
+  /* mosaic: lines of tiles on a grid of 5 × 7 (a column, a row, a diagonal; two or three of them), perhaps a lone
+     tile, each tile laid a little askew; a sign less than five rows tall gets a column */
+  mos(r){
+    const cells=new Set(),add=(c,y)=>{if(c>=0&&c<5&&y>=0&&y<7)cells.add(c+','+y);},n=2+Math.floor(r()*2);
+    for(let i=0;i<n;i++){const t=r();
+      if(t<.35){const c=Math.floor(r()*5),a=Math.floor(r()*3),b=4+Math.floor(r()*3);for(let y=a;y<=b;y++)add(c,y);}
+      else if(t<.7){const y=Math.floor(r()*7),a=Math.floor(r()*2),b=3+Math.floor(r()*2);for(let x=a;x<=b;x++)add(x,y);}
+      else{const dx=r()<.5?1:-1,y0=Math.floor(r()*3);let c=dx>0?Math.floor(r()*2):4-Math.floor(r()*2);for(let y=y0;y<y0+4;y++){add(c,y);c+=dx;}}}
+    if(r()<.4)add(Math.floor(r()*5),Math.floor(r()*7));
+    const ys=[...cells].map(k=>+k.split(',')[1]);if(Math.max(...ys)-Math.min(...ys)<4){const c=Math.floor(r()*5);for(let y=1;y<=5;y++)add(c,y);}
+    return {S:[],T:[...cells].sort().map(k=>{const [c,y]=k.split(',').map(Number);return [scrP(c*2.5,y*2.2+.4),Math.round((r()-.5)*14)];})};
   }
 };
 /* a polyline of right angles with each corner turned on a quarter circle of radius rad */
@@ -50019,21 +50074,21 @@ function scrFit(g){
 /* punctuation, the same in every family */
 const SCR_PUNCT={'.':{D:[[[1,13],1.1]],w:2.2},',':{S:[{p:[[1.6,12],[.6,15]]}],w:2.2},'-':{S:[{p:[[0,7],[5,7]]}],w:5},'!':{S:[{p:[[1,0],[1,9.5]]}],D:[[[1,13],1.1]],w:2.2},'?':{S:[{p:[[0,3],[2,0],[4,3],[2,6],[2,9.5]],sm:1}],D:[[[2,13],1.1]],w:4},':':{D:[[[1,4.5],1.1],[[1,12],1.1]],w:2.2},';':{D:[[[1.6,4.5],1.1]],S:[{p:[[1.6,11],[.6,14.5]]}],w:2.2},'\'':{S:[{p:[[1,0],[1,4]]}],w:2},'"':{S:[{p:[[.6,0],[.6,4]]},{p:[[2.6,0],[2.6,4]]}],w:3.2},'(':{S:[{p:[[3,0],[.6,7],[3,14]],sm:1}],w:3.6},')':{S:[{p:[[0,0],[2.4,7],[0,14]],sm:1}],w:3.6}};
 /* the glyph's own outline, for telling two letters apart */
-const scrGSig=g=>JSON.stringify([g.S||[],g.F||[],g.D||[]]);
+const scrGSig=g=>JSON.stringify([g.S||[],g.F||[],g.D||[],g.T||[]]);
 const SCR_MEMO=new Map();
 function scrGlyphs(s,f){
   const key=s+':'+f;let v=SCR_MEMO.get(key);if(v)return v;
   const r=rng(hash('scr-g:'+key)),gen=SCR_GEN[f]||SCR_GEN.ang,seen=new Set();v=[];
   for(let i=0;i<SCR_ABC.length;i++){
     let g=null;for(let t=0;t<40;t++){g=gen(r);const k=scrGSig(g);if(!seen.has(k)){seen.add(k);break;}}
-    v.push(scrBox(g));
+    scrBox(g);if(g.jn){g.x0=0;g.w=10;}v.push(g);
   }
   SCR_MEMO.set(key,v);if(SCR_MEMO.size>40)SCR_MEMO.delete(SCR_MEMO.keys().next().value);
   return v;
 }
 /* where a glyph starts and how wide it is (x0, w); a sign at least 3 wide */
 function scrBox(g){
-  let x0=1e9,x1=-1e9;const xs=[...(g.S||[]).flatMap(q=>q.p),...(g.F||[]).flat(),...(g.D||[]).map(d=>d[0])];for(const q of xs){x0=Math.min(x0,q[0]);x1=Math.max(x1,q[0]);}
+  let x0=1e9,x1=-1e9;const xs=[...(g.S||[]).flatMap(q=>q.p),...(g.F||[]).flat(),...(g.D||[]).map(d=>d[0]),...(g.T||[]).flatMap(t=>[[t[0][0]-.9,0],[t[0][0]+.9,0]])];for(const q of xs){x0=Math.min(x0,q[0]);x1=Math.max(x1,q[0]);}
   if(!(x1>=x0)){x0=0;x1=4;}if(x1-x0<3){const m=(x0+x1)/2;x0=m-1.5;x1=m+1.5;}
   g.x0=x0;g.w=x1-x0;return g;
 }
@@ -50091,7 +50146,7 @@ function scrSet(sp){
 const SCR_MIR=new WeakMap();
 function scrMirror(g){
   let m=SCR_MIR.get(g);if(m)return m;const X=x=>Math.round((2*g.x0+g.w-x)*100)/100,P=q=>[X(q[0]),q[1]];
-  m=Object.assign({},g,{S:(g.S||[]).map(t=>Object.assign({},t,{p:t.p.map(P)})),F:(g.F||[]).map(q=>q.map(P)),D:(g.D||[]).map(([c,r])=>[P(c),r])});SCR_MIR.set(g,m);return m;
+  m=Object.assign({},g,{S:(g.S||[]).map(t=>Object.assign({},t,{p:t.p.map(P)})),F:(g.F||[]).map(q=>q.map(P)),D:(g.D||[]).map(([c,r])=>[P(c),r]),T:(g.T||[]).map(([c,a])=>[P(c),-a])});SCR_MIR.set(g,m);return m;
 }
 /* the words as letters of the script: accents fall off, case is one, letters it has no sign for are left out */
 const SCR_FOLD={'ß':'SS','Æ':'AE','Œ':'OE','Ø':'O','Ł':'L','Đ':'D','Þ':'TH','Ð':'D','Ħ':'H','Ŋ':'NG'};
@@ -50117,7 +50172,7 @@ function scrLay(sp,t,o){
     return {items,words,w:Math.max(0,x-sw),h,v:1};
   }
   let x=0;
-  words.forEach((w,wi)=>{const back=dr==='bou'&&(wi+(o.wi||0))%2===1;for(const it of back?w.slice().reverse():w){if(back)it.g=scrMirror(it.g);it.x=x-(it.g.x0||0);items.push(it);x+=it.g.w+gap;}x+=sw-gap;});
+  words.forEach((w,wi)=>{const back=dr==='bou'&&(wi+(o.wi||0))%2===1;let pv=null;for(const it of back?w.slice().reverse():w){if(back)it.g=scrMirror(it.g);if(pv&&pv.g.jn&&it.g.jn)x-=gap;it.x=x-(it.g.x0||0);items.push(it);x+=it.g.w+gap;pv=it;}x+=sw-gap;});
   const W=Math.max(0,x-sw);
   if(dr==='rtl')for(const it of items){const l=it.x+(it.g.x0||0);it.x=W-(l+it.g.w)-(it.g.x0||0);}
   return {items,words,w:W,h:SCR_H,v:0};
@@ -50148,8 +50203,8 @@ function scrPaths(g,ox,sp){
   const dot=(x,y,r)=>`M${f(x-r)} ${f(y)}a${f(r)} ${f(r)} 0 1 0 ${f(2*r)} 0a${f(r)} ${f(r)} 0 1 0 ${f(-2*r)} 0Z`;
   for(const s of g.S||[]){
     const p=s.p.map(q=>[q[0]+ox,q[1]]);
-    if(g.br||s.br){const pts=s.z?scrSampleZ(p,8,s.sm):g.br||s.sm?scrSample(p,8):scrSampleL(p,8),n=pts.length,L=[],R=[],pf=s.pf||0,k=g.br?(s.pf?.8:.75):(.42+.18*w)/w*(s.wm||1),D=[];
-      for(let i=0;i<n;i++){const a=pts[Math.max(0,i-1)],b=pts[Math.min(n-1,i+1)],dx=b[0]-a[0],dy=b[1]-a[1],l=Math.hypot(dx,dy)||1,t=i/(n-1),h=w*k*SCR_PF[pf](t);D.push([dx/l,dy/l,h]);L.push([pts[i][0]-dy/l*h,pts[i][1]+dx/l*h]);R.push([pts[i][0]+dy/l*h,pts[i][1]-dx/l*h]);}
+    if(g.br||s.br){const pts=s.z?scrSampleZ(p,8,s.sm):s.sm||g.br&&!g.nib?scrSample(p,8):scrSampleL(p,8),n=pts.length,L=[],R=[],pf=s.pf||0,k=g.br?(g.nk||(s.pf?.8:.75)):(.42+.18*w)/w*(s.wm||1),D=[];
+      for(let i=0;i<n;i++){const a=pts[Math.max(0,i-1)],b=pts[Math.min(n-1,i+1)],dx=b[0]-a[0],dy=b[1]-a[1],l=Math.hypot(dx,dy)||1,t=i/(n-1),h=w*k*(g.nib?.16+.84*Math.abs(Math.sin(Math.atan2(dy,dx)+g.nib)):SCR_PF[pf](t));D.push([dx/l,dy/l,h]);L.push([pts[i][0]-dy/l*h,pts[i][1]+dx/l*h]);R.push([pts[i][0]+dy/l*h,pts[i][1]-dx/l*h]);}
       /* an even brush ends round: half a circle from one side to the other, out past the end */
       const cap=(c,dx,dy,h)=>{const o=[];for(let a=1;a<8;a++){const th=a/8*Math.PI,cs=Math.cos(th),sn=Math.sin(th);o.push([c[0]+h*(-dy*cs+dx*sn),c[1]+h*(dx*cs+dy*sn)]);}return o;};
       const rd=!s.z&&pf===4&&!g.br,e1=rd?cap(pts[n-1],D[n-1][0],D[n-1][1],D[n-1][2]):[],e0=rd?cap(pts[0],-D[0][0],-D[0][1],D[0][2]):[];
@@ -50162,8 +50217,11 @@ function scrPaths(g,ox,sp){
   }
   for(const q of g.F||[])fl+='M'+q.map(v=>X(v[0])+' '+f(v[1])).join('L')+'Z';
   for(const [c,r] of g.D||[])fl+=dot(c[0]+ox,c[1],r*(.7+w*.25));
+  for(const [c,a] of g.T||[]){const hs=.78+.2*w,th=a*Math.PI/180,cs=Math.cos(th)*hs,sn=Math.sin(th)*hs,x=c[0]+ox,y=c[1];fl+=`M${f(x-cs+sn)} ${f(y-sn-cs)}L${f(x+cs+sn)} ${f(y+sn-cs)}L${f(x+cs-sn)} ${f(y+sn+cs)}L${f(x-cs-sn)} ${f(y-sn+cs)}Z`;}
   return {st,fl};
 }
+/* the Roman dot between words: a small diamond at mid-height */
+function scrPoint(x,sp){const h=.55+.18*SCR_W[sp.w||2],r=v=>Math.round(v*100)/100;return `M${r(x)} ${r(7-h)}L${r(x+h)} 7L${r(x)} ${r(7+h)}L${r(x-h)} 7Z`;}
 /* the slant as a shift of the top of the line, in glyph units */
 const scrSk=sp=>Math.round(Math.tan((sp.sl||0)*Math.PI/180)*SCR_H*100)/100;
 /* the letters of a laid-out line as one group: a path for the pen, a path for what is filled; the dot family's
@@ -50173,6 +50231,8 @@ function scrInner(sp,L){
   if(L.v)return `<g ${att}>${L.items.map(it=>{const p=scrPaths(it.g,it.x,sp);return `<g transform="translate(${sk} ${r(it.y)})${sk?` skewX(${-sp.sl})`:''}">${P(p.st,p.fl)}</g>`;}).join('')}</g>`;
   let st='',fl='';for(const it of L.items){const p=scrPaths(it.g,it.x,sp);st+=p.st;fl+=p.fl;}
   if(sp.f==='dot')for(const w of L.words){let a=1e9,b=-1e9;for(const it of w){const l=it.x+(it.g.x0||0);a=Math.min(a,l);b=Math.max(b,l+it.g.w);}st+=`M${r(a-.8)} 1H${r(b+.8)}`;}
+  if(sp.f==='rom'&&L.words.length>1){const ex=L.words.map(w=>{let a=1e9,b=-1e9;for(const it of w){const l=it.x+(it.g.x0||0);a=Math.min(a,l);b=Math.max(b,l+it.g.w);}return [a,b];}).sort((p,q)=>p[0]-q[0]);
+    for(let k=0;k+1<ex.length;k++)fl+=scrPoint((ex[k][1]+ex[k+1][0])/2,sp);}
   return `<g${sk?` transform="translate(${sk} 0) skewX(${-sp.sl})"`:''} ${att}>${P(st,fl)}</g>`;
 }
 /* a line of the script as its own SVG: o.label is what screen readers hear and the tooltip ('' for neither), o.ink a
@@ -50212,6 +50272,8 @@ function scrLine(n,t,o){
   try{
     o=o||{};const sp=o.sp||scrFor(n,'page');if(!sp)return '';const v=!!o.v&&sp.dr==='ttb',W=String(t||'').split(/\s+/).filter(Boolean).map((w,i)=>scrSVG(sp,w,{label:'',v,wi:i})).filter(Boolean);if(!W.length)return '';
     const ink=scrInk(sp),lab=o.label!=null?o.label:String(t),dir=v?' scr-v':sp.dr==='rtl'?' scr-rtl':'';
+    /* Roman: a dot between the words, drawn as a narrow SVG of the line's height */
+    if(sp.f==='rom'&&!v&&W.length>1){const pad=SCR_W[sp.w||2]+1.6,H=SCR_H+2*pad,ip=`<svg class="scr scr-ip" viewBox="-1.6 ${-pad} 3.2 ${H}" width="3.2" height="${H}" aria-hidden="true" focusable="false"><path d="${scrPoint(0,sp)}" fill="currentColor"/></svg>`;for(let k=W.length-1;k>0;k--)W.splice(k,0,ip);}
     return `<span class="scr-l${dir}${o.cls?' '+o.cls:''}${ink?' scr-ink':''}" role="img" aria-label="${esc(lab)}"${o.notitle?'':` title="${esc(t)}"`}${ink?` style="--scr-ink:${ink}"`:''}>${W.join('')}</span>`;
   }catch(e){return '';}
 }
@@ -50384,7 +50446,7 @@ function scsRight(n,d){
   else{const seg=(lab,f,opts)=>`<div class="cst-row"><span class="cst-lab">${lab}</span><div class="cst-seg">${opts.map(([v,l])=>`<button type="button" class="cst-b${String(d[f])===String(v)?' on':''}" data-scs="set" data-f="${f}" data-v="${v}" aria-pressed="${String(d[f])===String(v)}">${esc(l)}</button>`).join('')}</div></div>`;
     b=`${seg('Weight','w',[[1,'Fine'],[2,'Medium'],[3,'Bold']])}
     <div class="cst-row"><label class="cst-lab" for="scs-sl">Slant <b>${d.sl?Math.abs(d.sl)+'° '+(d.sl>0?'forward':'back'):'upright'}</b></label><input type="range" id="scs-sl" data-scs-in="sl" min="${-SCR_SL}" max="${SCR_SL}" step="1" value="${d.sl||0}"></div>
-    ${SCR_BRF.has(d.f)?'<p class="hint">Brush strokes have the brush’s own ends: there are none to choose.</p>':seg('Ends of the strokes','tm',Object.entries(SCR_TM))}
+    ${SCR_BRF.has(d.f)?'<p class="hint">This family makes its own ends (the brush, the chisel, the nib or the tiles): there are none to choose.</p>':seg('Ends of the strokes','tm',Object.entries(SCR_TM))}
     <div class="cst-row"><span class="cst-lab">Ink <b>${esc(d.ink&&SCR_INK[d.ink]?SCR_INK[d.ink][0]:'The page’s own')}</b></span><div class="cst-sws"><button type="button" class="cst-sw scs-sw0${d.ink?'':' on'}" data-scs="set" data-f="ink" data-v="" aria-pressed="${!d.ink}" title="The page’s own ink" aria-label="The page’s own ink"></button>${Object.entries(SCR_INK).map(([k,[l,c]])=>`<button type="button" class="cst-sw${d.ink===k?' on':''}" style="background:${c}" data-scs="set" data-f="ink" data-v="${k}" aria-pressed="${d.ink===k}" title="${esc(l)}" aria-label="${esc(l)}"></button>`).join('')}</div></div>
     <p class="hint">The ink is lightened on a dark screen so the letters stay readable; the charter card prints it as chosen.</p>`;}
   return `<div class="cst-tabs" role="tablist">${Object.entries(SCS_TABS).map(([k,l])=>`<button type="button" role="tab" class="cst-tab${k===tab?' on':''}" data-scs="tab" data-v="${k}" aria-selected="${k===tab}">${l}</button>`).join('')}</div><div class="cst-tp">${b}</div>`;
