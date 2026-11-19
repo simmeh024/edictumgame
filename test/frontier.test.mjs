@@ -224,9 +224,8 @@ test('a joint venture filed before the frontier keeps its road', () => {
   assert.deepEqual(br.path, [to(30, 20), to(30, 21)]);
 
   // and a proposal paid for but not yet filed moves with the nation's record, so it is filed on this map
-  const run = new Function('CHART_COLS', 'CHART_ROWS', 'MAP_COLS', 'MAP_VER',
-    fn('frontCell') + fn('remapFront') + '\nreturn remapFront;')(oc, or, cols, 5);
-  const rec = run({ cv: 4, jvp: [{ id: 'abcdef', w: 'a', k: 'road', to: 'b', ca: at(20, 10), cb: at(22, 12),
+  const run = remapper('greywater');
+  const rec = run({ cv: 4, reg: 'greywater', jvp: [{ id: 'abcdef', w: 'a', k: 'road', to: 'b', ca: at(20, 10), cb: at(22, 12),
     path: hexes.map(([c, r]) => at(c, r)), t: 5 }, { v: 'a_abcdef', w: 'b', k: 'road', t: 6 }] });
   assert.deepEqual(rec.jvp[0].path, hexes.map(([c, r]) => to(c, r)));
   assert.equal(rec.jvp[0].ca, to(20, 10));
