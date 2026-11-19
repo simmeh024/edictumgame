@@ -133,7 +133,7 @@ await until(()=>A.evaluate(()=>document.querySelector('.cz-prev .hero')?.classNa
 await nav(A,'nation');
 check('a chosen earlier border replaces the rank’s on the card',(await card()).cls.includes('id-rk-silver'));
 check('the nameplate still names the rank actually held',(await card()).plate===await A.evaluate(()=>G.RK.ACH_RANKS.at(-1)[1]));
-await nav(A,'customise');await A.click('#cz-bd-none');await nav(A,'nation');
+await nav(A,'customise');await czSection(A,'b');await A.click('#cz-bd-none');await nav(A,'nation');
 check('Follows your rank brings the rank’s border back',(await card()).cls.includes(topLook));
 
 /* a border above the rank held cannot be worn, whatever the record says; a computer nation keeps a plain card */

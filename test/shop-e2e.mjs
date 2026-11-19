@@ -203,14 +203,15 @@ check('and the Card Pack shows as included, not for sale', await A.evaluate(() =
 await go(A, 'nation');await A.evaluate(() => scrollTo(0, 0));await sleep(400);
 check('the Founding Supporter badge is on the card without choosing it', await until(() => A.evaluate(() => !!document.querySelector('.hero .founder-pill') && !(G.S.nation.cz && G.S.nation.cz.bg)), 8000));
 await go(A, 'customise');
-/* only the open section is on the page: banner (b), decrees (s), finery (z) */
-const CZ_SEC_FOR = { p: 'b', f: 'b', pn: 'b', st: 's', bg: 'z', ins: 'z', te: 'z' };
+/* only the open section is on the page: banner (b), decrees (s), map (g), epithet (t), passport (p) */
+const CZ_SEC_FOR = { p: 'b', f: 'b', pn: 'g', st: 's', bg: 't', ins: 'p', te: 'g' };
 for (const id of ['cz-p-p-firsted', 'cz-f-f-engraver', 'cz-st-s-firsted', 'cz-pn-pn-founder', 'cz-ins-in-founder', 'cz-te-te-gilt']) {
   await czSection(A, CZ_SEC_FOR[id.split('-')[1]]);
   const ok = await until(() => A.evaluate(id => { const b = document.getElementById(id); if (!b) return false; if (b.getAttribute('aria-pressed') !== 'true') b.click(); return document.getElementById(id)?.getAttribute('aria-pressed') === 'true'; }, id), 6000);
   if (!ok) check('equipped in Customise: ' + id, false);
 }
-check('Customise says the badge is always worn, with nothing to choose', /Always shown beside your nation’s name/.test(await txt(A, '#cz-sec-z .cz-fixed')) && !(await A.$('#cz-bg-bg-founder')));
+await czSection(A, 't');
+check('Customise says the badge is always worn, with nothing to choose', /Always shown beside your nation’s name/.test(await txt(A, '#cz-sec-t .cz-fixed')) && !(await A.$('#cz-bg-bg-founder')));
 const worn = await A.evaluate(() => G.SHOP.cz(G.S.nation));
 check('all seven founder pieces equipped in Customise', worn.p === 'p-firsted' && worn.f === 'f-engraver' && worn.st === 's-firsted' && worn.pn === 'pn-founder' && worn.bg === 'bg-founder' && worn.ins === 'in-founder' && worn.te === 'te-gilt', JSON.stringify(worn));
 await go(A, 'nation');await A.evaluate(() => scrollTo(0, 0));await sleep(400);
@@ -339,10 +340,10 @@ await shot(A, '.hero.id-sec', 'shop-hero-seal.png');
 await B.evaluate(id => { location.hash = 'visit/' + id; }, aUid);await sleep(900);
 check('and on the neighbour’s view of it', !!(await until(() => B.evaluate(() => { G.render(); return !!document.querySelector('.hero .club-seal[data-seal="member"]'); }), 10000)));
 /* presets */
-await go(A, 'customise');await czSection(A, 'z');
+await go(A, 'customise');await czSection(A, 'e');
 await click(A, '[data-act="pre-save"][data-k="1"]');
 check('a preset saved while a member', !!(await until(() => A.evaluate(() => !!(G.SHOP.PRE.doc && G.SHOP.PRE.doc[1])), 6000)));
-await czSection(A, 'b');await A.evaluate(() => document.getElementById('cz-p-p-guilloche').click());await sleep(500);await czSection(A, 'z');
+await czSection(A, 'b');await A.evaluate(() => document.getElementById('cz-p-p-guilloche').click());await sleep(500);await czSection(A, 'e');
 await click(A, '[data-act="pre-load"][data-k="1"]');
 check('loading it puts the saved look back on', (await A.evaluate(() => G.SHOP.cz(G.S.nation).p)) === 'p-firsted');
 /* presets saved on another device since this page read them are kept (a save here once wrote its old copy over them) */
