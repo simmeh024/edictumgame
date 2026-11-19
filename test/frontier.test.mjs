@@ -14,12 +14,21 @@ const SOME = ['meridian', 'greywater', 'coralreach', 'ironsteppe'];
 
 // one function of the game, by name, as globe-wrap.test.mjs takes them
 function fn(name) {
-  const at = src.indexOf('\nfunction ' + name + '(');
+  let at = src.indexOf('\nfunction ' + name + '(');
+  if (at < 0) at = src.indexOf('\nasync function ' + name + '(');
   assert.ok(at >= 0, name + ' is found');
   let i = src.indexOf('{', at), depth = 0;
   for (; i < src.length; i++) { const ch = src[i]; if (ch === '{') depth++; else if (ch === '}' && --depth === 0) break; }
   return src.slice(at + 1, i + 1);
 }
+// one line of the game, from its start
+function line(start) {
+  const at = src.indexOf('\n' + start);
+  assert.ok(at >= 0, start + ' is found');
+  return src.slice(at + 1, src.indexOf('\n', at + 1));
+}
+// the regions a test reads, as REG_BY_ID holds them
+const REGS = Object.fromEntries(['greywater', 'meridian', 'terra'].map(id => [id, mapKit(src, id).REG]));
 
 test('every region that grows has land names for its frontier, and Terra does not grow', () => {
   const grow = [], still = [];
@@ -233,4 +242,95 @@ test('the divisions keep their seats', () => {
   assert.equal(now.prov.l[1].s, -1, 'a division with no seat still has none');
   assert.deepEqual(now.prov.x, { [to(7, 7)]: 1, [to(8, 7)]: 2 }, 'and every hex moved by hand');
   assert.equal(now.prov.on, 1);
+});
+
+// regGrid as a page builds it, with the game's constants
+function regGridFn() {
+  assert.equal(line('const REGION_LAND='), 'const REGION_LAND=30000,MAP_ASPECT=226/142;', "the constants stood in are the game's");
+  assert.equal(line('const FRONT_GROW='), 'const FRONT_GROW=1.42;');
+  return new Function('hash', 'REGION_LAND', 'MAP_ASPECT', 'FRONT_GROW', fn('regGrid') + '\nreturn regGrid;')(
+    new Function(fn('hash') + '\nreturn hash;')(), 30000, 226 / 142, 1.42);
+}
+
+test("every region's grids can be worked out on any page", () => {
+  const regGrid = regGridFn();
+  for (const id of ids) {
+    const kit = mapKit(src, id);
+    assert.deepEqual(regGrid(kit.REG), { oc: kit.CHART_COLS, or: kit.CHART_ROWS, cols: kit.MAP_COLS, rows: kit.MAP_ROWS }, id);
+  }
+});
+
+/* The conquest seals (19 Nov 2026). The referee signs the attacker, the hex's number, the time, the ally and the
+   defender. remapFront moved every conquest's number with its row, so each one sealed between REF_EPOCH and the
+   frontier outside the top row failed its check: the hex went back to the defender and the conqueror was listed for
+   forged seals. Real seals here, made and checked with the browser's own ECDSA, read by the game's refVerify. */
+async function sealKit(page) {
+  const kit = mapKit(src, page), FRONT = Date.UTC(2026, 10, 19, 19, 41, 53);
+  assert.equal(line('const FRONT_AT='), 'const FRONT_AT=Date.UTC(2026,10,19,19,41,53);');
+  const g = new Function('window', 'REG', 'REG_BY_ID', 'FRONT_AT', 'regGrid', [line('const SEAL2_AT='), line('const refV2='), line('const refText='),
+    line('const unb64='), fn('refCell'), fn('refVerify'), 'return {refText,refCell,refVerify,SEAL2_AT};'].join('\n'))({}, kit.REG, REGS, FRONT, regGridFn());
+  const { subtle } = globalThis.crypto, key = await subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign', 'verify']);
+  // as the referee signs (functions/index.js): IEEE P1363, base64url
+  const sign = async text => Buffer.from(await subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, key.privateKey, new TextEncoder().encode(text))).toString('base64url');
+  const seal = async (src, e) => { const s = await sign(g.refText(src, e)); return e.t >= g.SEAL2_AT ? { ...e, s2: s } : { ...e, s }; };
+  return { ...g, kit, key: key.publicKey, seal, FRONT };
+}
+
+test('a conquest sealed before the frontier still checks out after its record moved', async () => {
+  const k = await sealKit('greywater'), oc = k.kit.CHART_COLS, cols = k.kit.MAP_COLS, run = new Function('CHART_COLS', 'CHART_ROWS', 'MAP_COLS', 'MAP_VER',
+    fn('frontCell') + fn('remapFront') + '\nreturn remapFront;')(oc, k.kit.CHART_ROWS, cols, 5);
+  const at = (c, r) => r * oc + c, to = (c, r) => r * cols + c, me = 'uidConqueror';
+  // sealed on the charted map: one with the second seal (since 10 Nov), one with the first (29 Oct to 10 Nov), one in the top row
+  const e2 = await k.seal(me, { c: at(40, 30), t: Date.UTC(2026, 10, 15), w: '', d: 'uidDefender' });
+  const e1 = await k.seal(me, { c: at(41, 30), t: Date.UTC(2026, 10, 2), w: 'uidAlly' });
+  const e0 = await k.seal(me, { c: at(42, 0), t: Date.UTC(2026, 10, 16), w: '', d: 'uidDefender' });
+  const rec = run({ cv: 4, reg: 'greywater', conq: [e2, e1, e0] });
+  assert.deepEqual(rec.conq.map(e => e.c), [to(40, 30), to(41, 30), at(42, 0)], 'the record moved its conquests with their rows');
+  // read as the number the hex has now, the seal fails: that was the fault
+  const { subtle } = globalThis.crypto, raw = e => subtle.verify({ name: 'ECDSA', hash: 'SHA-256' }, k.key,
+    Buffer.from(e.s2 || e.s, 'base64url'), new TextEncoder().encode(k.refText(me, e)));
+  assert.equal(await raw(rec.conq[0]), false, 'the seal is not over the number the hex has now');
+  for (const e of rec.conq) assert.equal(await k.refVerify(k.key, me, e, 'greywater', 5), true, 'every one checks out as it was sealed');
+  assert.equal(k.refCell(rec.conq[0], 'greywater', 5), at(40, 30), 'against the number its hex had on the charted map');
+  assert.equal(k.refCell(rec.conq[2], 'greywater', 5), at(42, 0), "the top row's numbers never changed");
+  // another conqueror's name on it does not
+  assert.equal(await k.refVerify(k.key, 'uidSomeoneElse', rec.conq[0], 'greywater', 5), false);
+});
+
+test('no seal vouches for two hexes', async () => {
+  const k = await sealKit('greywater'), oc = k.kit.CHART_COLS, cols = k.kit.MAP_COLS, or = k.kit.CHART_ROWS;
+  const at = (c, r) => r * oc + c, to = (c, r) => r * cols + c, me = 'uidConqueror', fc = j => Math.floor(j / oc) * cols + j % oc;
+  // a seal from before the frontier, over the charted (40,30), put on the hex that has that number now
+  const old = await k.seal(me, { c: at(40, 30), t: Date.UTC(2026, 10, 15), w: '', d: 'uidDefender' });
+  assert.notEqual(at(40, 30), to(40, 30));
+  assert.equal(await k.refVerify(k.key, me, old, 'greywater', 5), false, 'an old seal does not count for the hex that has its old number now');
+  // a seal from since the frontier, over (40,30) as numbered now, put on the hex its number would move to
+  const late = await k.seal(me, { c: to(40, 30), t: k.FRONT + 3600e3, w: '', d: 'uidDefender' });
+  assert.equal(await k.refVerify(k.key, me, late, 'greywater', 5), true, 'a seal from since checks out on its own hex');
+  assert.notEqual(fc(to(40, 30)), to(40, 30));
+  assert.equal(await k.refVerify(k.key, me, { ...late, c: fc(to(40, 30)) }, 'greywater', 5), false, 'and on no other');
+  // so a tab still on the charted map that conquered after the frontier went live sealed the charted number, and once
+  // moved its conquest does not check out: the time is sealed, and reading it both ways would let a seal travel
+  const stale = await k.seal(me, { c: at(40, 30), t: k.FRONT + 60e3, w: '', d: 'uidDefender' });
+  assert.equal(await k.refVerify(k.key, me, { ...stale, c: to(40, 30) }, 'greywater', 5), false);
+  // nothing of the frontier was there to conquer before it
+  const far = { c: to(oc + 5, 10), t: Date.UTC(2026, 10, 15), w: '', d: 'uidDefender', s2: old.s2 };
+  assert.equal(k.refCell(far, 'greywater', 5), -1);
+  assert.equal(k.refCell({ ...far, c: to(5, or + 2) }, 'greywater', 5), -1);
+  assert.equal(await k.refVerify(k.key, me, far, 'greywater', 5), false);
+});
+
+test("another region's seals are read against that region's rows", async () => {
+  // the admins' scan of every region reads Meridian's records on Greywater's page
+  const k = await sealKit('greywater'), mk = mapKit(src, 'meridian'), me = 'uidMeridian';
+  const at = (c, r) => r * mk.CHART_COLS + c, to = (c, r) => r * mk.MAP_COLS + c;
+  const e = await k.seal(me, { c: at(50, 40), t: Date.UTC(2026, 10, 12), w: '', d: 'uidDefender' });
+  // still on version 4 (not yet loaded on its own page since the frontier): the number is the one sealed
+  assert.equal(await k.refVerify(k.key, me, e, 'meridian', 4), true);
+  // moved by its own page: read with Meridian's rows, not Greywater's
+  const moved = { ...e, c: to(50, 40) };
+  assert.equal(k.refCell(moved, 'meridian', 5), at(50, 40));
+  assert.equal(await k.refVerify(k.key, me, moved, 'meridian', 5), true);
+  // a region that did not grow keeps every number
+  assert.equal(k.refCell({ c: 1234, t: Date.UTC(2026, 10, 12) }, 'terra', 5), 1234);
 });

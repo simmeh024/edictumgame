@@ -11808,18 +11808,23 @@ const REG_MER=REG.id==='meridian';
    it, so the grid a page builds is wider or taller than those proportions. More players still are met by adding
    regions, not by growing these. */
 const REGION_LAND=30000,MAP_ASPECT=226/142;
-/* the charted map: the grid every region had before the frontier, and the one its players live on */
-const [CHART_COLS,CHART_ROWS]=(()=>{const land=Math.max(0.2,Number(REG.geo&&REG.geo.land)||0.4),want=REGION_LAND*(Number(REG.cap)>0?REG.cap/250:1),c=Math.round(Math.sqrt(Math.max(226*142,want/land)*MAP_ASPECT));
-  return [Math.max(226,c),Math.max(142,Math.round(c/MAP_ASPECT))];})();
 /* ── the frontier ──
    Beyond the charted map lies new land, to the east and south: the grid is FRONT_GROW times the area it was,
    the charted map keeps the north-west of it hex for hex, and the rest is generated afresh (embedFrontier).
    Every region draws its own frontier from its name — how far it grows each way, how many new lands, how large
    and how broken up — so no two are alike. A region with no frontier list of names does not grow at all. */
 const FRONT_GROW=1.42;
-const [MAP_COLS,MAP_ROWS]=(()=>{if(!Array.isArray(REG.frontier)||!REG.frontier.length)return [CHART_COLS,CHART_ROWS];
-  const kc=Math.sqrt(FRONT_GROW)*(0.86+0.28*((hash(REG.id+':front:g')%1000)/1000));
-  return [Math.round(CHART_COLS*kc),Math.round(CHART_ROWS*FRONT_GROW/kc)];})();
+/* A region's grids: the charted map (oc × or), the grid every region had before the frontier and the one its players
+   live on, and the grid it has now (cols × rows). Any region's, not only this page's: a record of another region is
+   read on this page too (the admins' scan of every region checks its seals, refCell). */
+function regGrid(R){
+  const land=Math.max(0.2,Number(R.geo&&R.geo.land)||0.4),want=REGION_LAND*(Number(R.cap)>0?R.cap/250:1),c=Math.round(Math.sqrt(Math.max(226*142,want/land)*MAP_ASPECT));
+  const oc=Math.max(226,c),or=Math.max(142,Math.round(c/MAP_ASPECT));
+  if(!Array.isArray(R.frontier)||!R.frontier.length)return {oc,or,cols:oc,rows:or};
+  const kc=Math.sqrt(FRONT_GROW)*(0.86+0.28*((hash(R.id+':front:g')%1000)/1000));
+  return {oc,or,cols:Math.round(oc*kc),rows:Math.round(or*FRONT_GROW/kc)};
+}
+const {oc:CHART_COLS,or:CHART_ROWS,cols:MAP_COLS,rows:MAP_ROWS}=regGrid(REG);
 /* biome noise offsets and thresholds: Meridian keeps the original ones exactly */
 const BIO=(()=>{if(REG_MER)return {ox:LEG.ox,oy:LEG.oy,s:'',wc:0.62,wa:0.8,dt:18,dd:0.45,fo:0.55,fh:0.56};
   const g=REG.geo;return {ox:0,oy:0,s:':'+REG.id,wc:0.62-0.12*g.wet,wa:0.8-0.15*g.wet,dt:18+6*g.wet,dd:0.45+0.15*g.wet,fo:0.70-0.3*g.forest,fh:0.71-0.3*g.forest};})();
@@ -21331,11 +21336,26 @@ const SEAL2_AT=Number(window.EDICTUM_SEAL2_AT)||Date.UTC(2026,10,10);
 const refV2=e=>e.t>=SEAL2_AT,refSig=e=>refV2(e)?e.s2:e.s;
 const refText=(src,e)=>refV2(e)?['edictum-battle-2',src,e.c,e.t,e.w||'',e.d||''].join('|'):['edictum-battle-1',src,e.c,e.t,e.w||''].join('|');
 const refK=(src,e)=>refText(src,e)+'|'+refSig(e);
-function sealed(src,e){
+/* The number the referee sealed for conquest e of a record of region reg on map version cv. The frontier (FRONT_AT)
+   widened every row and the records moved their conquests with it (remapFront), but a seal is over the number its hex
+   had when it fell: every conquest sealed from 29 Oct to the frontier outside the top row failed its check, its hex
+   went back to the defender and the conqueror was listed as carrying forged seals (19 Nov 2026). A conquest from
+   before the frontier is checked against the number its hex had on the charted map, and only that one; one from since
+   only against the number it has. Never both: the time is sealed too, so no seal ever vouches for two hexes (a seal
+   from before the frontier cannot be put on the hex that has its old number now, nor one from since on the hex that
+   had it then). A record still on version 4 (another region's, read on this page) holds the charted numbers as they
+   were sealed. -1: no number the referee could have sealed (a hex of the frontier before there was one). */
+function refCell(e,reg,cv){
+  if(cv===4||!(e.t<FRONT_AT))return e.c;
+  const g=regGrid(REG_BY_ID[reg]||REG),c=e.c;if(g.cols===g.oc)return c;
+  if(!Number.isInteger(c)||c<0)return -1;
+  const r=Math.floor(c/g.cols),k=c%g.cols;return k<g.oc&&r<g.or?r*g.oc+k:-1;
+}
+function sealed(src,e,n){
   if(!S.db||!(e.t>=REF_EPOCH))return true;
   if(typeof refSig(e)!=='string')return false;
   const k=refK(src,e),v=REF.ok.get(k);
-  if(v===undefined&&!REF.want.has(k)){REF.want.set(k,{src,e});refSoon();}
+  if(v===undefined&&!REF.want.has(k)){REF.want.set(k,{src,e,reg:n&&n.reg,cv:n&&n.cv});refSoon();}
   return v!==false;
 }
 function refSoon(){if(!REF.busy&&REF.want.size&&S.db){REF.busy=true;setTimeout(refCheck,30);}}
@@ -21347,7 +21367,8 @@ async function refKey(){
   try{const s=await S.db.doc('referee/pub').get(),k=s.exists?(s.data()||{}).k:null;REF.key=typeof k==='string'?await crypto.subtle.importKey('spki',unb64(k),{name:'ECDSA',namedCurve:'P-256'},false,['verify']):null;}catch(e){REF.key=undefined;}
   return REF.key;
 }
-async function refVerify(key,src,e){try{return !!(await crypto.subtle.verify({name:'ECDSA',hash:'SHA-256'},key,unb64(refSig(e)),new TextEncoder().encode(refText(src,e))));}catch(err){return false;}}
+async function refVerify(key,src,e,reg,cv){const c=refCell(e,reg,cv);if(c<0)return false;
+  try{return !!(await crypto.subtle.verify({name:'ECDSA',hash:'SHA-256'},key,unb64(refSig(e)),new TextEncoder().encode(refText(src,c===e.c?e:{...e,c}))));}catch(err){return false;}}
 async function refCheck(){
   const items=[...REF.want].slice(0,200),bad=new Set();let later=false;
   for(const [k] of items)REF.want.delete(k);
@@ -21355,7 +21376,7 @@ async function refCheck(){
   else{
     const key=await refKey();
     if(!key){later=true;for(const [k,v] of items)REF.want.set(k,v);}
-    else await Promise.all(items.map(async([k,{src,e}])=>{const ok=await refVerify(key,src,e);REF.ok.set(k,ok);if(!ok)bad.add(src);}));
+    else await Promise.all(items.map(async([k,{src,e,reg,cv}])=>{const ok=await refVerify(key,src,e,reg,cv);REF.ok.set(k,ok);if(!ok)bad.add(src);}));
   }
   REF.busy=false;
   if(bad.size){for(const id of bad)refFlag(id);try{redrawMaps();if(['nation','region','visit','explore','map','admin-sus'].includes(S.view))render();}catch(e){}}
@@ -21382,7 +21403,7 @@ function collectConquests(at){
 }
 function readConquests(at){
   const out=[];
-  const add=(id,n)=>{if(!n)return;if(Array.isArray(n.conq))for(const e of n.conq)if(e.n||sealed(id,e))out.push({c:e.c,t:e.t,o:e.n||id,src:id,npc:!!e.n,w:e.w,d:e.d});if(Array.isArray(n.claims))for(const e of n.claims)out.push({c:e.c,t:e.t,o:id,src:id,claim:true});if(Array.isArray(n.bx))for(const e of n.bx)out.push({c:e.c,t:e.t,o:e.to,src:id,bx:true,fr:e.fr,wr:e.wr===1});};
+  const add=(id,n)=>{if(!n)return;if(Array.isArray(n.conq))for(const e of n.conq)if(e.n||sealed(id,e,n))out.push({c:e.c,t:e.t,o:e.n||id,src:id,npc:!!e.n,w:e.w,d:e.d});if(Array.isArray(n.claims))for(const e of n.claims)out.push({c:e.c,t:e.t,o:id,src:id,claim:true});if(Array.isArray(n.bx))for(const e of n.bx)out.push({c:e.c,t:e.t,o:e.to,src:id,bx:true,fr:e.fr,wr:e.wr===1});};
   if(S.nation)add(myId(),S.nation);
   if(S.mode!=='local')for(const id of Object.keys(S.world))if(id!==S.uid)add(id,S.world[id]);
   if(S.mode!=='local')for(const id of Object.keys(HIDN.w))if(id!==S.uid&&!S.world[id])add(id,HIDN.w[id]);
@@ -54098,7 +54119,7 @@ async function susScan(){
     const qs=await S.db.collection('nations').where('reg','==',R.id).get();
     for(const d of qs.docs){k++;let raw=null,n=null;try{raw=d.data();n=normalize(raw);}catch(e){continue;}
       let why=auditNation(n,raw,d.id,now,false);
-      if(key&&Array.isArray(n.conq)){let f=0;for(const e of n.conq)if(e&&!e.n&&typeof refSig(e)==='string'&&!(await refVerify(key,d.id,e)))f++;if(f)why=why.concat(refWhy(f,true));}
+      if(key&&Array.isArray(n.conq)){let f=0;for(const e of n.conq)if(e&&!e.n&&typeof refSig(e)==='string'&&!(await refVerify(key,d.id,e,n.reg,n.cv)))f++;if(f)why=why.concat(refWhy(f,true));}
       if(why.length)out.push({id:d.id,reg:R.id,name:(n&&n.name)||'A nation',why});}}
     ADMS.scan=out;ADMS.at=now;ADMS.n=k;
   }catch(e){ADMS.err='The other regions could not be checked: '+((e&&e.code)||'unknown error')+'.';}
