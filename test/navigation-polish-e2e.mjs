@@ -18,9 +18,9 @@ check('a specific search result opens and focuses its designer',await A.evaluate
 const shownSecs=p=>p.$$eval('.cz-sec',s=>s.filter(x=>x.getClientRects().length).map(x=>x.id).join());
 /* the rail is marked current by a redraw or, after a jump, by czFilterPaint flipping attributes: both say "true" */
 {const sh=await shownSecs(A),cur=await A.locator('#cz-go-c').getAttribute('aria-current');check('Customise shows one section at a time, the search result’s own',sh==='cz-sec-c'&&cur==='true',JSON.stringify({shown:sh,current:cur}));}
-check('a list down the side names the sections under their groups, with how much of each is held',await A.$$eval('.cz-go',b=>b.length>=6&&b.every(x=>document.getElementById('cz-sec-'+x.dataset.v)))&&JSON.stringify(await A.$$eval('.cz-rail-g',g=>g.map(x=>x.textContent)))===JSON.stringify(['Identity','Presentation','Money'])&&/held/.test(await A.locator('#cz-go-b .cz-go-n').textContent())&&!await A.locator('#cz-tab-look').isVisible());
+check('a list down the side names the sections under their groups, with how much of each is held',await A.$$eval('.cz-go',b=>b.length>=6&&b.every(x=>document.getElementById('cz-sec-'+x.dataset.v)))&&JSON.stringify(await A.$$eval('.cz-rail-g',g=>g.map(x=>x.textContent)))===JSON.stringify(['Symbols of state','Places and people','Your pages','Paperwork'])&&/held/.test(await A.locator('#cz-go-b .cz-go-n').textContent())&&!await A.locator('#cz-tab-look').isVisible());
 await A.click('#cz-go-b');check('a click in the list shows that section alone, and the address says so',await shownSecs(A)==='cz-sec-b'&&await A.evaluate(()=>location.hash)==='#customise/banner');
-await A.focus('#cz-go-b');await A.keyboard.press('ArrowDown');check('arrow keys move down the list',await shownSecs(A)==='cz-sec-s'&&await A.evaluate(()=>document.activeElement?.id)==='cz-go-s');await A.click('#cz-go-b');
+await A.focus('#cz-go-b');await A.keyboard.press('ArrowDown');check('arrow keys move down the list',await shownSecs(A)==='cz-sec-n'&&await A.evaluate(()=>document.activeElement?.id)==='cz-go-n');await A.click('#cz-go-b');
 await move(A,'nation');await move(A,'customise');check('the section is remembered when returning',await A.locator('#cz-sec-b').isVisible());
 await A.reload();await A.waitForSelector('.layout');await view(A,'customise');check('and after a refresh',await A.locator('#cz-sec-b').isVisible());
 await A.fill('#cz-q','money');await A.click('[data-act="cz-open"][data-id="cz-sec-c"]');await sleep(200);check('a section found by searching Customise opens in its tab',await A.locator('#cz-sec-c').isVisible()&&!await A.locator('#cz-sec-b').isVisible());
@@ -53,14 +53,33 @@ const unlockTarget=await A.evaluate(id=>G.UX.uxUnlockInfo(id).target,unlockId),f
 check('locked designs link to the exact unearned achievement',await A.locator(unlockTarget).isVisible()&&await A.evaluate(()=>G.S.achF==='all'));
 check('viewing a requirement does not apply the locked design',JSON.stringify((await localNation(A)).flag)===flagBefore&&await A.locator('button button').count()===0);
 await search(A,'<img onerror=bad>');check('search treats unknown input as text',await A.locator('.qj-none').count()===1&&await A.locator('.qj-none img').count()===0);await A.keyboard.press('Escape');
+/* Customise around the Studios (19 Nov 2026): the Studio cards, Map, Match my flag, the Studios' search, the switcher, drafts, pencils */
+await move(A,'customise');
+check('Customise opens with a card for each Studio, each showing the design as it is',await A.locator('#cz-studios .cz-stc').count()===6&&await A.locator('#cz-studios .cz-stc-flag svg').count()>0);
+check('Finery is gone and Map is a section of its own',!(await A.$('#cz-sec-z'))&&!!(await A.$('#cz-go-g')));
+await A.click('#cz-go-g');check('Map holds the colour of the land, the capital marker and the land',await A.locator('#cz-sec-g .cz-mapc').isVisible()&&!!(await A.$('#cz-sec-g .cz-g-pn'))&&!(await A.$('#cz-sec-b .cz-g-pn')));
+await A.click('#cz-sec-g .cz-mapc [data-act="mlk-mc"][data-val="#D1495B"]');check('a map colour is worn at once',await until(async()=>(await localNation(A)).mapc==='#D1495B'));
+await A.click('[data-act="cz-undo"]');check('and Undo takes it back',await until(async()=>!(await localNation(A)).mapc));
+await A.click('[data-act="cz-match"]');check('Match my flag gives the arms and the passport the flag’s colours',await until(async()=>{const n=await localNation(A);return !!(n.cz&&n.cz.a&&Array.isArray(n.cz.a.t)&&n.pp&&n.pp.c&&n.pp.c.col);}));
+await A.fill('#cz-q','cross');check('the search finds what the Studios offer',await until(async()=>(await A.locator('.cz-res-stl [data-act="st-find"]').count())>0));
+await A.locator('.cz-res-stl [data-act="st-find"]').first().click();check('and opens that Studio there',await until(()=>A.locator('#fg-st').isVisible()));
+check('every Studio’s bar can open the others',await A.locator('#fg-st .cst-swsel option').count()===4);
+await A.selectOption('#fg-st .cst-swsel','arms');check('the switch closes one Studio and opens the other',await until(async()=>await A.locator('#ar-st').isVisible()&&!(await A.locator('#fg-st').isVisible())));
+await A.evaluate(()=>{const b=[...document.querySelectorAll('#ar-st [id^="as-s-"]')].find(x=>x.localName==='button'&&!x.classList.contains('on')&&!x.classList.contains('locked'));if(b)b.click();});await sleep(300);
+await A.click('#as-close');await A.fill('#cz-q','');await sleep(300);
+check('unsaved arms wait as a draft, and the card says so',await until(()=>A.locator('#cz-studios .cz-stc-arms.draft').isVisible()));
+await A.click('#cz-studios .cz-stc-arms');check('opened again, the Arms Studio has the draft back',await until(()=>A.locator('#ar-st [data-ars="discard"]:not([disabled])').isVisible()));
+await A.click('#as-close');
+await move(A,'nation');check('the own nation page has pencils on the flag and the banner',await A.locator('.hero .hero-pen-flag').isVisible()&&await A.locator('.hero .hero-pen-banner').isVisible());
+await A.click('.hero .hero-pen-flag');check('the flag’s pencil opens the Flag Studio',await until(()=>A.locator('#fg-st').isVisible()));await A.keyboard.press('Escape');await sleep(200);
 const C=await player('navigation phone',{vp:{width:390,height:844},storageState:await A.ctx.storageState({indexedDB:true})});await open(C);await C.waitForSelector('.layout');await view(C,'nation');
 check('phone search remains beside the notification bell',await C.locator('.brand-actions .bell + .ux-search-button').isVisible()&&await C.locator('.ux-search-button').count()===1);await C.screenshot({path:OUT+'/navigation-compact-390.png'});await search(C,'flag layers',true);await result(C,'focus:flag').click();await view(C,'customise');
 check('phone search leads to the Flag Studio button',await C.locator('#cz-sec-e [data-fst="open"]').isVisible());
 await move(C,'map');await C.goBack();await view(C,'customise');
 await search(C,'flag layers',true);await result(C,'focus:flag').click();await view(C,'customise');
 check('a second search lands there again',await C.locator('#cz-sec-e [data-fst="open"]').isVisible());
-await move(C,'customise');await C.click('#cz-tab-look');check('on a phone the group tabs pick a group and a row of chips its sections',await C.locator('#cz-sub-s').isVisible()&&!await C.locator('#cz-sub-a').isVisible()&&!await C.locator('.cz-rail').isVisible());
-await C.click('#cz-sub-s');check('and a chip shows that section alone',await shownSecs(C)==='cz-sec-s');
+await move(C,'customise');check('on a phone Customise opens on the list of sections, in their groups',await C.locator('#cz-go-s').isVisible()&&await C.locator('.cz-rail').isVisible()&&await shownSecs(C)===''&&await C.evaluate(()=>location.hash)==='#customise');
+await C.click('#cz-go-s');check('and a section opens alone, with the way back',await shownSecs(C)==='cz-sec-s'&&await C.locator('.cz-back').isVisible()&&!await C.locator('.cz-rail').isVisible());
 await move(C,'nation');const legis=C.locator('section.ux-foldable').filter({has:C.locator('h2.ux-section-heading').filter({hasText:'Recent legislation'})}).first();await legis.locator('.ux-fold-toggle').click();const legisId=await legis.locator('h2.ux-section-heading').getAttribute('id');await C.selectOption('#ux-section-select',legisId);
 check('the phone section menu reveals and focuses its destination',!await legis.evaluate(e=>e.classList.contains('ux-folded'))&&await until(()=>C.evaluate(id=>document.activeElement?.id===id,legisId),3000));
 /* Settings has tabs of its own instead of the section menu */

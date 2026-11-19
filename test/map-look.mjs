@@ -164,10 +164,10 @@ try {
     check('a toast says it is on the map', await until(async () => /Teal is your map colour now, for every player in your region\./.test(await toasts(page)), 30000), await toasts(page));
     await page.locator('#map-panel .mlk').screenshot({ path: path.join(OUT, 'map-look-card-teal.png') });
     await calm(page); await page.click('#map-panel .mlk [data-act="mlk-mc-set"]');
-    check('"Change in Settings" opens the map colour', await until(() => page.evaluate(() => window.__game.S.view === 'settings' && document.querySelector('#sg-tab-nation')?.getAttribute('aria-selected') === 'true' && !!document.getElementById('set-mapc'))));
+    check('"More in Customise" opens Customise › Map', await until(() => page.evaluate(() => window.__game.S.view === 'customise' && document.getElementById('cz-dock')?.dataset.sec === 'g' && !!document.getElementById('cz-sec-g'))));
     await sleep(300);
-    const sg = await page.evaluate(() => ({ on: document.querySelector('#set-mapc .sw.on')?.dataset.val, dirty: /unsaved/.test(document.getElementById('s-dirty')?.textContent || '') }));
-    check('Settings has Teal saved, nothing waiting to save', sg.on === '#2A9D8F' && !sg.dirty, sg);
+    const sg = await page.evaluate(() => ({ on: document.querySelector('#cz-sec-g .cz-mapc .sw.on')?.dataset.val }));
+    check('Customise › Map has Teal on', sg.on === '#2A9D8F', sg);
     await go('map');
     await office(page); z = await shut(page);
     check('back on the map, the card is still open', z && z.exp === 'true' && z.body && !z.hidden, z);
@@ -184,7 +184,7 @@ try {
     check('held: the worn finish says Wearing, another held one sits beside it unlocked, the rest stay locked under their packs', c.te === 'Hand-Coloured' && w.on && w.s === 'Wearing' && !w.lock && w.act === 'mlk-cz' && h.s === '' && !h.lock && c.tiles.find(x => x.id === 'te-fret').lock && !c.tiles[0].on && c.groups.length === 2 && /^Mayan Pack/.test(c.groups[0]), { t: c.tiles, g: c.groups });
     check('held: the Cartographer’s colours are free to pick, and no longer in the locks', c.free === 15 && !c.locks.some(l => /Prussian/.test(l)), c);
     await calm(page); await page.click('#map-panel .mlk-t[data-id="te-hatch"]');
-    check('a held finish opens Customise › Finery at Land', await until(() => page.evaluate(() => { const g = document.querySelector('.cz-g-te'); if (window.__game.S.view !== 'customise' || !g || location.hash !== '#customise/finery') return false; const r = g.getBoundingClientRect(); return r.top < innerHeight && r.bottom > 0; })));
+    check('a held finish opens Customise › Map at Land', await until(() => page.evaluate(() => { const g = document.querySelector('.cz-g-te'); if (window.__game.S.view !== 'customise' || !g || location.hash !== '#customise/map') return false; const r = g.getBoundingClientRect(); return r.top < innerHeight && r.bottom > 0; })));
     await go('map');
     await calm(page); await page.click('#map-panel .mlk-t[data-id="te-fret"]'); await sleep(300);
     d = await drawer(page);

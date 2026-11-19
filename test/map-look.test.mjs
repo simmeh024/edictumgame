@@ -58,7 +58,7 @@ test('a colour is worn at once and the map drawn again in it; a held finish open
   assert.ok(body.includes('updateMapPanel();redrawMaps();')&&!body.includes('render()'),'only the panel and the map are drawn again in the new colour: the page does not move');
   has("else if(a==='mlk-mc'){const v=el.dataset.val||'',c=v?safeColor(v,''):'';if(v&&!c)return;mlkMcSet(c);}",'a swatch, or Match my flag (no value), sets it');
   has('data-act="mlk-mc" data-val="" aria-pressed="${!mc}">Match my flag</button>','the way back to the flag colour');
-  has("czTabFor('cz-sec-z');uxOpen('customise',null,'.cz-g-te');",'only the open section of Customise is drawn, so Finery is chosen first');
+  has("czTabFor('cz-sec-g');uxOpen('customise',null,'.cz-g-te');",'only the open section of Customise is drawn, so Finery is chosen first');
 });
 
 test('the colour’s name never wraps, so the card keeps its height when another is chosen',()=>{
