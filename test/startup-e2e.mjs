@@ -9,8 +9,9 @@ const root=path.join(path.dirname(fileURLToPath(import.meta.url)),'..','public')
 const html=readFileSync(path.join(root,'index.html'),'utf8');
 const core=html.match(/"(\/assets\/game\.[0-9a-f]+\.js)"/)[1],content=html.match(/\/assets\/content\.[a-f0-9]+\.js/)[0];
 /* the front page paints before the game's scripts run: they are preloaded, then added in order after the first frame */
-const list=JSON.parse(html.match(/var L=(\[\[.*?\]\])[,;]/)[1]).map(x=>x[0].split('/').pop().split('.')[0]);
-check('the game scripts load after the first paint, in order',list.join()==='firebase-app-compat,firebase-auth-compat,firebase-firestore-compat,maps,content,game,shim'&&!/<script[^>]+src="\/(assets|vendor)\//.test(html),list.join());
+const L=JSON.parse(html.match(/var L=(\[\[.*?\]\])[,;]/)[1]),list=L.map(x=>x[0].split('/').pop().split('.')[0]);
+check('the game scripts load after the first paint, in order',list.join()==='firebase-app-compat,firebase-auth-compat,firebase-firestore-compat,maps,content,fr,game,shim'&&!/<script[^>]+src="\/(assets|vendor)\//.test(html),list.join());
+check('the French for the everyday screens loads only for a page set to French',L.filter(x=>x[2]==='fr').map(x=>x[0].split('/').pop().split('.')[0]).join()==='fr'&&html.includes('localStorage.getItem("statehood.lang.v1")===x[2]'));
 /* until the first paint only the page and its stylesheet download: the fonts are preloaded unless the line is slow
    (the game's scripts are kept out, so these pages only look) */
 {const fonts=async connection=>{const P=await player('startup-fonts',{block:/\/assets\/(maps|content|game|shim)\.|\/vendor\/firebase\//});
