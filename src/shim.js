@@ -392,7 +392,7 @@
       } else if (space) {
         b.delete(spaceRef);
       }
-    }).then(function () { if (from) L.set(LS_CARRY, null); A.raceAt[uid] = enc.updatedAt; setTimeout(recoveryCheck, 0); window.dispatchEvent(new Event('edictum:saved')); return { rev: enc.rev }; });
+    }).then(function () { if (from) L.set(LS_CARRY, null); A.raceAt[uid] = enc.updatedAt; setTimeout(recoveryCheck, 0); window.dispatchEvent(typeof CustomEvent === 'function' ? new CustomEvent('edictum:saved', { detail: { rev: enc.rev, xm: isObj(approved.xm) ? approved.xm : null } }) : new Event('edictum:saved')); return { rev: enc.rev }; });
   }
   /* Races (a free hex claimed, a site found first) are judged by the server's time of the save that first
      carried each entry: every new claim or find gets stamps/<reg>/<c<cell>|s<site>>/<uid> {t: server time} in
