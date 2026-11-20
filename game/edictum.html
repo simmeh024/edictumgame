@@ -58859,7 +58859,8 @@ async function adminExtraLoad(v,more=false,refresh=false){
 }
 /* Region control › Front page: the region newcomers are shown first (regionStatus/<id> def, through the admin console's
    regionDefault op; none set: the game's own FIRST_REG), and how fresh the front page's figures and maps are (home/live
-   every five minutes, home/map-<region> every night: GitHub Actions, home.yml and home-maps.yml). */
+   every five minutes by the homeLive Cloud Function, functions/home-live.js; home/map-<region> every night by GitHub
+   Actions, home-maps.yml). */
 const AHOME={at:0,busy:false,live:null,maps:{},err:'',pick:'',saving:false};
 function admHomeLoad(){
   if(AHOME.busy||!S.db||Date.now()-AHOME.at<60000)return;AHOME.busy=true;AHOME.at=Date.now();
@@ -58873,7 +58874,7 @@ function admFrontPage(){
   admHomeLoad();
   const L=AHOME.live,now=Date.now(),def=Object.keys(RCTRL.states).find(id=>RCTRL.states[id]&&RCTRL.states[id].def===true)||'',open=regionsByAvail().filter(R=>regMode(R.id)==='enabled');
   const pick=AHOME.pick||def,age=t=>t?rel(+t):'never',late=(t,ms)=>!t||now-t>ms;
-  const liveLine=L?`Figures from ${esc(age(L.at))}: <b>${fmt0(L.c&&L.c.n||0)}</b> player nations, <b>${fmt0(L.c&&L.c.a||0)}</b> active in the past 24 hours, <b>${fmt0(L.c&&L.c.e||0)}</b> edicts decided, <b>${(L.ev||[]).length}</b> events in the live bar.`:'No figures yet: the Front page figures workflow has not run.';
+  const liveLine=L?`Figures from ${esc(age(L.at))}: <b>${fmt0(L.c&&L.c.n||0)}</b> player nations, <b>${fmt0(L.c&&L.c.a||0)}</b> active in the past 24 hours, <b>${fmt0(L.c&&L.c.e||0)}</b> edicts decided, <b>${(L.ev||[]).length}</b> events in the live bar.`:'No figures yet: the homeLive function has not run.';
   const maps=Object.keys(AHOME.maps).sort((a,b)=>regName(a).localeCompare(regName(b))).map(id=>{const m=AHOME.maps[id];return `<li>${esc(regName(id))}: ${m?`drawn ${esc(age(m.at))}, ${m.n} player ${m.n===1?'nation':'nations'}${late(m.at,36*3600e3)?' <span class="chip">Late</span>':''}`:'not drawn yet'}</li>`;}).join('');
   return `<section class="adm-home" aria-labelledby="adm-home-h"><h2 class="h2" id="adm-home-h">Front page</h2>
     <div class="adm-home-g"><div class="adm-home-c"><h3 class="lbl-h">Default region for newcomers</h3>
@@ -58881,7 +58882,7 @@ function admFrontPage(){
       <div class="row"><select class="input" id="adm-home-def" data-adm-home="def"><option value=""${!pick?' selected':''}>The game’s own (${esc(regName(FIRST_REG))})</option>${open.map(R=>`<option value="${R.id}"${pick===R.id?' selected':''}>${esc(R.name)}</option>`).join('')}</select>
         <button type="button" class="btn small" data-act="adm-home-def"${AHOME.saving||pick===def?' disabled':''}>${AHOME.saving?'Saving…':'Save'}</button></div>
       <p class="hint">Now: <b>${esc(def?regName(def):'the game’s own, '+regName(FIRST_REG))}</b>.</p></div>
-    <div class="adm-home-c"><h3 class="lbl-h">Live figures</h3><p class="${L&&late(L.at,20*60000)?'err':'hint'}">${liveLine}${L&&late(L.at,20*60000)?' They are late: check Actions › Front page figures.':''}</p>
+    <div class="adm-home-c"><h3 class="lbl-h">Live figures</h3><p class="${L&&late(L.at,20*60000)?'err':'hint'}">${liveLine}${L&&late(L.at,20*60000)?' They are late: check the homeLive function’s logs (Firebase console › Functions), or the latest Deploy run, which warns when it left the function out.':''}</p>
       <h3 class="lbl-h" style="margin-top:12px">Region maps <span class="hint">(drawn each night)</span></h3>${maps?`<ul class="adm-home-l">${maps}</ul>`:'<p class="hint">No maps yet: the Front page maps workflow has not run.</p>'}
       ${AHOME.err?`<p class="err">${esc(AHOME.err)}</p>`:''}</div></div></section>`;
 }

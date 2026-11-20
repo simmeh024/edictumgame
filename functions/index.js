@@ -34,6 +34,7 @@ export { adminConsole } from './admin.js';
 export { accounts } from './accounts.js';
 export { civic } from './civic.js';
 export { paddle } from './shop.js';
+export { homeLive } from './home-live.js';
 import { identity, eligibility, refuse, regionClosed } from './eligibility.js';
 import { nationText } from './nationtext.js';
 import DATA from './civic-data.json' with { type: 'json' };
