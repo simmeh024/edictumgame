@@ -253,7 +253,8 @@ try {
   const rvl = await page.evaluate(() => {
     const G = window.__game, K = G.WTN(), M = G.MAP, T = K.territory(), mi = T.list.findIndex(x => x.me);
     const far = c => T.list.every((y, j) => j === mi || K.hexDist(c, y.cap) > 14);
-    for (const L of K.RV.lakes) {
+    /* the largest first: a lake of one or two hexes on a named river may have no room left for its name */
+    for (const L of [...K.RV.lakes].sort((a, b) => b.cells.length - a.cells.length || a.id - b.id)) {
       if (!L.name || !L.cells.every(c => T.owner[c] < 0 && far(c))) continue;
       for (const [c, d] of window.__ring(M, L.cells, 5)) if (d === 5 && Math.abs(Math.floor(c / M.COLS) - Math.floor(L.cells[0] / M.COLS)) >= 4 && M.T[c] >= 2 && M.T[c] <= 3 && !K.RV.lakeAt.has(c) && T.owner[c] < 0 && far(c)) return { id: L.id, cap: c, sel: L.cells[0], name0: L.name0 || L.name };
     }

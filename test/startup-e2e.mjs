@@ -9,8 +9,9 @@ const root=path.join(path.dirname(fileURLToPath(import.meta.url)),'..','public')
 const html=readFileSync(path.join(root,'index.html'),'utf8');
 const core=html.match(/"(\/assets\/game\.[0-9a-f]+\.js)"/)[1],content=html.match(/\/assets\/content\.[a-f0-9]+\.js/)[0];
 /* the front page paints before the game's scripts run: they are preloaded, then added in order after the first frame */
-const list=JSON.parse(html.match(/var L=(\[\[.*?\]\])[,;]/)[1]).map(x=>x[0].split('/').pop().split('.')[0]);
-check('the game scripts load after the first paint, in order',list.join()==='firebase-app-compat,firebase-auth-compat,firebase-firestore-compat,maps,content,game,shim'&&!/<script[^>]+src="\/(assets|vendor)\//.test(html),list.join());
+const L=JSON.parse(html.match(/var L=(\[\[.*?\]\])[,;]/)[1]),list=L.map(x=>x[0].split('/').pop().split('.')[0]);
+check('the game scripts load after the first paint, in order',list.join()==='firebase-app-compat,firebase-auth-compat,firebase-firestore-compat,maps,content,fr,game,shim'&&!/<script[^>]+src="\/(assets|vendor)\//.test(html),list.join());
+check('the French for the everyday screens loads only for a page set to French',L.filter(x=>x[2]==='fr').map(x=>x[0].split('/').pop().split('.')[0]).join()==='fr'&&html.includes('localStorage.getItem("statehood.lang.v1")===x[2]'));
 /* until the first paint only the page and its stylesheet download: the fonts are preloaded unless the line is slow
    (the game's scripts are kept out, so these pages only look) */
 {const fonts=async connection=>{const P=await player('startup-fonts',{block:/\/assets\/(maps|content|game|shim)\.|\/vendor\/firebase\//});
@@ -75,7 +76,9 @@ check('a failed content download preserves the local nation',(await localNation(
 const noJS=await browser.newContext({javaScriptEnabled:false});const page=await noJS.newPage();await page.goto(BASE);
 check('without JavaScript, the game keeps a visible explanation and legal links',await page.isVisible('noscript .boot-load')&&!!(await page.$('a[href="/privacy"]')));
 await noJS.close();// A visitor who has not touched the front page reads the region once and is not sent its live changes; the first tap starts them.
-{const V=await player('startup-visitor');await open(V);await V.waitForFunction(()=>!!G.S.worldAll);
+// Since the front page has figures of its own (home/live), such a visitor reads none of the region until then.
+{const V=await player('startup-visitor');await open(V);await new Promise(r=>setTimeout(r,3000));
+ check('an untouched visitor reads none of the region and opens no live feed',await V.evaluate(()=>!G.S.worldAll&&!G.HMB().hmEngaged()));
  const W=await player('startup-founder');await open(W);await found(W,'Latecomer');const uidW=await ready(W);
  await until(async()=>!(await localNation(W))?._dirty,15000);await new Promise(r=>setTimeout(r,4000));
  check('an untouched visitor is not sent the region’s live changes',await V.evaluate(id=>!(G.S.worldAll||{})[id],uidW));

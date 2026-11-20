@@ -133,6 +133,37 @@ check('the other player sees it waiting, with its buttons', await until(async ()
 await B.click(`.dp-wait [data-act="dp-ty-yes"][data-id="${tidAB}"]`);
 check('accepted, it is in force for both', await until(async () => await tst(tidAB) === 'active', 10000) && await until(() => A.evaluate(ub => !!G.TYX().tyOf(G.myId(), ub, 'nap'), ub), 10000));
 check('the Relations tab marks it', await until(async () => { await A.click('#dp-tab-relations'); return /Non-aggression/.test(await text(A, '.dp-rels')); }, 8000));
+
+// joint military training between the two players: offered with its kind chosen, idle while neither holds a Barracks,
+// then at work once A finishes one: A's army grows (half of it in an attack), the save declares it, the Treaties tab and
+// the war panel say so, it bars war like a non-aggression pact, and B's page on A shows A's army in full
+await A.click('#dp-tab-treaties'); await A.selectOption('#dpt-to', ub);
+await A.check('input[name="dpt-k"][value="drill"]');
+check('the form names the kind and warns that neither has a Barracks', await until(async () => /Neither of you has a Barracks yet/.test(await text(A, '.dpt-note')) && /Joint military training/.test(await text(A, '.dpt-kinds'))));
+await A.click('[data-act="dp-ty-offer"]');
+const tidD = 'drill_' + [ua, ub].sort().join('_');
+check('the training offer reaches the server', await until(async () => await tst(tidD) === 'offered', 10000));
+await nav(B, 'diplomacy');
+check('B sees a joint military training pact offered', await until(async () => /offers you a joint military training pact/.test(await text(B, '.dp-wait')), 10000));
+await B.click(`.dp-wait [data-act="dp-ty-yes"][data-id="${tidD}"]`);
+check('joint training is in force for both', await until(async () => await tst(tidD) === 'active', 10000) && await until(() => A.evaluate(ub => !!G.TYX().tyOf(G.myId(), ub, 'drill'), ub), 10000));
+check('idle without a Barracks', await until(async () => { await A.click('#dp-tab-treaties'); return /idle until one of you has a Barracks/.test(await text(A, '#dp-p-treaties')); }, 8000) && await A.evaluate(() => !(G.TYX().econOf(G.S.nation) || {}).drill));
+await A.evaluate(() => { const n = structuredClone(G.S.nation), now = Date.now(); n.cities[0].b.push({ k: 'barracks', s: now - 2e6, d: now - 1e6 }); G.commit(n); });
+const dr = await until(async () => { const e = await A.evaluate(() => { const e = G.TYX().econOf(G.S.nation) || {}; return { drill: e.drill || 0, n: e.drillN || 0, s: e.drillS || 0, host: !!(e.drillL && e.drillL[0] && e.drillL[0].host) }; }); return e.drill > 0 ? e : null; }, 10000);
+check('with A’s Barracks the training works: base and host, as supply allows', dr && dr.n === 1 && dr.host && dr.drill >= 0.03 * dr.s - 1e-9 && dr.drill <= 0.07 + 1e-9, JSON.stringify(dr));
+check('the army grows by it, an attack by half of it', await A.evaluate(() => { const T = G.TYX(), n = G.S.nation, e = T.econOf(n), d = e.drill, p = n.policies || {};
+  const pm = (p.drones ? 1.1 : 1) * (p.mercenaries ? 1.1 : 1) * (p.lowMorale ? 0.9 : 1);
+  return Math.abs(T.armyPower(n) / T.armyRaw(n, e) - (1 + d)) < 1e-9 && Math.abs(T.attackMult(n) - pm * (1 + d / 2) / (1 + d)) < 1e-9; }));
+check('readiness comes 5% sooner', await A.evaluate(() => G.TYX().readyMs(G.S.nation) === Math.round(((G.S.nation.policies || {}).rapidMobilisation ? 10 : 15) * 60000 * 0.95)));
+await A.evaluate(() => G.commit(structuredClone(G.S.nation)));
+check('the save declares the trained army', await until(() => A.evaluate(() => { const T = G.TYX(), n = G.S.nation, d = (T.econOf(n) || {}).drill || 0, want = T.armyRaw(n, null) * (1 + d); return d > 0 && Math.abs(n.apw - want) <= 0.01 * want + 0.002; }), 8000));
+check('the Treaties tab says what it adds', await until(async () => { await A.click('#dp-tab-treaties'); return /to your army, with your Barracks/.test(await text(A, '#dp-p-treaties')) && /⚔️/.test(await text(A, '#dp-p-treaties')); }, 8000));
+check('war on a training partner is refused, and says why', /joint military training pact/.test(await A.evaluate(id => G.TYX().tyWarBlock(id), ub)) || /non-aggression pact with/.test(await A.evaluate(id => G.TYX().tyWarBlock(id), ub)));
+let lastSeen = null;
+const seen = await until(async () => { const r = await B.evaluate(id => { try { const x = G.allNations().find(y => y.id === id), h = G.TYX().relationCard(x); return { ok: /Their army, from joint training/.test(h), ty: !!G.TYX().tyOf(G.myId(), id, 'drill'), x: !!x, len: h.length }; } catch (e) { return { ok: false, err: String(e && e.message) }; } }, ua); return r.ok ? r : (lastSeen = r, null); }, 10000);
+check('B’s page on A shows A’s army, from the training', !!seen, JSON.stringify(seen || lastSeen));
+/* the form goes back to a non-aggression pact for the computer nation below */
+await A.click('#dp-tab-treaties'); await A.check('input[name="dpt-k"][value="nap"]');
 /* a computer nation with values close to ours (not the one that will attack later): signed at once */
 const tnpc = await A.evaluate(() => { const P = G.ALX().politics(), skip = G.allNations().find(x => x.npc && !P.of.get(x.id))?.id;
   return G.allNations().filter(x => x.npc && x.id !== skip).map(x => ({ id: x.id, nm: x.n.name, af: G.TYX().affinity(x.n, G.S.nation) })).sort((a, b) => b.af - a.af)[0]; });

@@ -249,6 +249,10 @@ service cloud.firestore {
     match /staffNotes/{uid} { allow read, write: if false; }
     // the day-by-day player statistics (jobs/stats), read only through the admin console (functions/admin.js, 'stats')
     match /statsDays/{day} { allow read, write: if false; }
+    // the front page's live figures and region maps (jobs/home, functions/home.js): public, read once by every visitor
+    // (never listened to); only the job writes them. homeState is the job's own memory, which nobody else reads.
+    match /home/{doc} { allow read: if true; allow write: if false; }
+    match /homeState/{doc} { allow read, write: if false; }
     // the admin portal's: engagement scores for Player search (functions/stats.js), the watchlist, staff alerts with
     // their thresholds and the alerts job's memory (functions/alerts.js), and the pings kept for the Live feed
     // (jobs/mail, functions/feed.js). Only the server reads and writes them.

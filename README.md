@@ -24,9 +24,9 @@ or an email address if they like), and **Firestore** holds the shared world.
 | `firestore.rules`, `firestore.indexes.json` | Who may read and write what. |
 | `functions/` | The referee: one Cloud Function (`referee`, in `europe-west1`) that rolls battles on the server, keeps each army's readiness and seals every victory (see Fair play). |
 | `firebase.json`, `.firebaserc` | Hosting (cache headers, clean URLs), Firestore and the local emulators. `.firebaserc` names the live project, `edictum-b30de` (served at <https://edictumgame.com>); the workflows pass the id explicitly from the `FIREBASE_PROJECT_ID` variable, and the emulator scripts use `demo-edictum`. |
-| `.github/workflows/` | `deploy.yml` deploys on every push to `main`; `preview.yml` tests the rules and deploys a preview of each pull request to the staging project; `currency.yml` runs the daily currency job; `stats.yml` records the day's player statistics; `mail.yml` sends Letters by post every hour; `alerts.yml` files staff alerts every 15 minutes. |
+| `.github/workflows/` | `deploy.yml` deploys on every push to `main`; `preview.yml` tests the rules and deploys a preview of each pull request to the staging project; `currency.yml` runs the daily currency job; `stats.yml` records the day's player statistics; `mail.yml` sends Letters by post every hour; `alerts.yml` files staff alerts every 15 minutes; `home.yml` writes the front page's live figures every 5 minutes and `home-maps.yml` its region maps every night (see 9c2d). |
 | `jobs/fx/` | The daily currency job: every currency's exchange value and Currency Prestige, from the nations' records (Firebase Admin SDK, its own `package.json`). See Currencies below. |
-| `jobs/stats/` | The nightly record of player statistics for the admin portal's Statistics page (`functions/stats.js` does the counting). See 9c2 below. |
+| `jobs/stats/` | The nightly record of player statistics for the admin portal's Statistics page (`functions/stats.js` does the counting), the staff alerts, and the front page's figures (`home.mjs`, `functions/home.js`) and region maps (`home-maps.mjs`). See 9c2 and 9c2d below. |
 | `test/` | Rules tests, end-to-end tests and a smoke test, all on the Firebase emulators, and the currency engine's tests. |
 | `tools/admin/` | A one-off script that makes a player an admin. |
 
@@ -1265,6 +1265,31 @@ To have new alerts posted to a staff Discord channel as well: in Discord, the ch
 **Secrets and variables** → **Actions** as the secret `STAFF_ALERT_WEBHOOK`. Without it the alerts only show in
 the portal. The workflow needs the same service account secret and project variable as Deploy. The rules refuse
 `statsEngage/`, `watch/`, `adminAlerts/`, `adminCfg/`, `alertState/` and `feedLog/` to every client.
+
+### 9c2d. The front page's figures, maps and default region
+
+The front page (`hmView` in the game) shows what is going on without reading the region: three counters, a live bar of
+public events and a map of each region with player nations. They come from two public documents only the server
+writes, which every visitor reads once (never listens to) and keeps in the browser a while:
+
+- `home/live` — written every five minutes by `.github/workflows/home.yml` (`jobs/stats/home.mjs`,
+  `functions/home.js`): the player nations, those active in the past day and the edicts decided in the past day, each
+  region's counts, and the latest public events (foundings, cities, alliances, wars, peace, trade deals, treaties,
+  wonders, population milestones, the Games) from the public summaries and the shared half of the records saved since
+  the last run. Never letters, spying or reports; never a hidden, removed or banned nation; never a uid. The job's
+  own memory is `homeState/main`, which no client reads.
+- `home/map-<region>` — written every night by `.github/workflows/home-maps.yml` (`jobs/stats/home-maps.mjs`): who
+  holds each hex and where the capitals stand, worked out by the game's own `territory()` in a headless browser on
+  the site built from `main`. The page draws it on the region's baked terrain.
+
+Both workflows use the same service account secret and project variable as Deploy, and can be run by hand (Actions
+› Front page figures / Front page maps), for staging too. Until the figures job has run, the front page counts the
+regions as it always did.
+
+**Region control › Front page** (`#admin-regions`) sets the **default region for newcomers** (the region the front
+page shows first and founds in when a visitor has chosen none: `regionStatus/<id>` `def`, `op: 'regionDefault'`,
+audited; none set means the game's own, Greywater) and shows how fresh the figures and each region's map are, with a
+warning when the figures are over 20 minutes old or a map over 36 hours.
 
 ### 9c2c. The Balance page
 

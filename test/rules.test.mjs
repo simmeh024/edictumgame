@@ -122,6 +122,25 @@ test('disabled regions reject founding, saves, moves out and posts without delet
   await env.withSecurityRulesDisabled(ctx => ctx.firestore().doc('regionStatus/meridian').set({ enabled: true }));
   await assertSucceeds(save(as('alice'), 'alice', nation('Aliceland')));
 });
+test('the front page’s figures and maps are public to read and the server’s alone to write; the job’s memory is nobody’s', async () => {
+  await env.withSecurityRulesDisabled(async ctx => {
+    await ctx.firestore().doc('home/live').set({ v: 1, at: 1, c: { n: 1, a: 1, e: 0 }, r: {}, ev: [] });
+    await ctx.firestore().doc('homeState/main').set({ ts: 1, dec: {}, seen: {}, ev: [] });
+  });
+  await assertSucceeds(anon().doc('home/live').get());
+  await assertSucceeds(as('alice').doc('home/map-meridian').get());
+  for (const db of [anon(), as('alice'), as('mod', { admin: true })]) {
+    await assertFails(db.doc('home/live').set({ v: 1, c: { n: 1e6 } }));
+    await assertFails(db.doc('home/map-meridian').set({ v: 1 }));
+    await assertFails(db.doc('homeState/main').get());
+    await assertFails(db.doc('homeState/main').set({}));
+  }
+});
+test('a region whose status says only that it is the default (no enabled) keeps saves open, as the console writes it whole', async () => {
+  await env.withSecurityRulesDisabled(ctx => ctx.firestore().doc('regionStatus/meridian').set({ def: true, enabled: true, mode: 'enabled' }));
+  await assertSucceeds(save(as('alice'), 'alice', nation('Aliceland')));
+  await env.withSecurityRulesDisabled(ctx => ctx.firestore().doc('regionStatus/meridian').delete());
+});
 test('a region marked soon (Terra) is closed until its status opens it', async () => {
   await assertFails(save(as('alice'), 'alice', nation('Aliceland', { reg: 'terra' })));
   await env.withSecurityRulesDisabled(ctx => ctx.firestore().doc('regionStatus/terra').set({ enabled: true, mode: 'enabled' }));

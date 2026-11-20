@@ -726,6 +726,10 @@ test('Treaties: offered and accepted, limited, ended with notice or broken; a co
   await civic(b, { op: 'trOffer', id: a.uid, k: 'research' });
   await civic(b, { op: 'trCancel', tid: tid('research') });
   assert.equal(await treaty(tid('research')), undefined);
+  /* joint military training: offered and accepted like the rest */
+  assert.equal((await civic(a, { op: 'trOffer', id: b.uid, k: 'drill' })).signed, false);
+  assert.equal((await civic(b, { op: 'trAnswer', tid: tid('drill'), yes: true })).signed, true);
+  assert.equal((await treaty(tid('drill'))).st, 'active');
   /* ended with notice: in force until it runs out */
   const e = await civic(a, { op: 'trEnd', tid: tid('trade') });
   assert.ok(e.end > now + 2.9 * DAY && e.end < now + 3.1 * DAY);
@@ -745,6 +749,8 @@ test('Treaties: offered and accepted, limited, ended with notice or broken; a co
   await record(a, { s: { civil: npc.s.civil, econ: npc.s.econ, pol: npc.s.pol } });
   assert.equal((await civic(a, { op: 'trOffer', id: npc.id, k: 'research' })).signed, true);
   const nt = await treaty('research_' + [a.uid, npc.id].sort().join('_')); assert.equal(nt.st, 'active'); assert.equal(nt.npc, true);
+  /* joint training needs less affinity than a research pact */
+  assert.equal((await civic(a, { op: 'trOffer', id: npc.id, k: 'drill' })).signed, true);
   await record(a, { wars: { [npc.id]: { t: now - 1000 } } });
   await rejects(civic(a, { op: 'trOffer', id: npc.id, k: 'nap' }), 'tr_war');
   /* the most of a kind: three research pacts */

@@ -84,8 +84,9 @@ DESCRIPTION = ('Edictum is a free multiplayer nation simulator. Found a nation, 
                'claim land on a shared map, and trade, ally or go to war with other players.')
 OG_ALT = 'The Edictum seal beside the words: Edictum, a nation simulator.'
 # What #app holds until the game draws itself, which takes as long as its script takes to download. A
-# newcomer sees the top of the front page (the founding page) as the game will draw it, with its heading
-# copy read from the game's HOME_LEDE, HOME_FEATS and HOME_FREE; a returning player (src/stub.js marks
+# newcomer sees the top of the front page as the game will draw it (hmView): its headline and counters, then what
+# Edictum is, with the copy read from the game's HOME_H1, HOME_SUB, HOME_LEDE, HOME_FEATS and HOME_FREE; the live
+# figures fill in once the game has loaded. A returning player (src/stub.js marks
 # them) sees the plain loading screen instead. Anything that does not run the game's script (search
 # engines, link previews, Google's review of the sign-in branding) gets what Edictum is and where its
 # privacy notice and terms are.
@@ -94,10 +95,18 @@ LEGAL = ('<p class="boot-legal"><a href="/privacy">Privacy notice</a> · <a href
          '<a href="/privacidad" lang="es">Aviso de privacidad</a> · <a href="/terminos" lang="es">Términos de uso</a></p>')
 LOADING = ('<p class="boot-load" role="status">Loading the game…</p>'
            '<noscript><p class="boot-load">Edictum needs JavaScript to run.</p></noscript>')
-BOOT = ('<div id="app"><div class="found home-static">'
-        '<header class="found-head"><span class="wordmark">Edictum</span><span class="brand-sub">A nation simulator</span></header>'
-        '<div class="hm-top"><div class="found-intro"><p class="eyebrow">Charter of foundation</p><h1 class="display">Found a nation</h1>'
-        '<p class="lede">%(lede)s</p><ul class="hm-feats">%(feats)s</ul><p class="hm-free">%(free)s</p>' + LOADING + '</div></div>'
+STAT = '<div class="hm-stat"><dt class="hm-stat-l">%s</dt><dd class="hm-stat-v">—</dd></div>'
+BOOT = ('<div id="app"><div class="found hm home-static">'
+        '<header class="found-head hm-head"><span class="wordmark">Edictum</span><span class="brand-sub">A nation simulator</span></header>'
+        '<section class="hm-live" aria-label="Live activity"><p class="hm-live-l"><span class="hm-dot" aria-hidden="true"></span>Live activity</p>'
+        '<p class="hm-live-t"><span class="hm-live-e hm-dim">Gathering the latest news…</span></p></section>'
+        '<div class="hm-main"><div class="hm-col hm-col-a"><div class="hm-hero"><p class="eyebrow">A free multiplayer nation simulator</p>'
+        '<h1 class="display hm-h1">%(h1)s</h1><p class="lede hm-sub">%(sub)s</p></div>'
+        '<dl class="hm-stats" aria-busy="true">' + ''.join(STAT % l for l in ('Player nations founded', 'Nations active in the past 24 hours',
+                                                                          'Edicts decided in the past 24 hours')) + '</dl>'
+        + LOADING + '</div>'
+        '<section class="hm-more"><h2 class="hm-more-h">What you do in Edictum</h2><p class="lede">%(lede)s</p><ul class="hm-feats">%(feats)s</ul>'
+        '<p class="hm-free">%(free)s</p></section></div>'
         + LEGAL + '</div>'
         '<main class="boot"><p class="boot-mark">Edictum</p><p class="boot-sub">%(desc)s</p>' + LOADING + LEGAL + '</main></div>')
 
@@ -161,8 +170,11 @@ def game_loader(scripts):
     adds them, in order (async=false). Compiling the game blocks the page for seconds on a phone, so the front
     page's own text must be on screen first. A tab in the background (no frames) adds them at once, and so
     does the load event, at the latest. A failed download of one marked True shows the loader's retry message
-    (window.__edictum.bootError)."""
-    return ('(function(){var L=%s,d=document;function pre(){if(pre.d)return;pre.d=1;L.forEach(function(x){var l=d.createElement("link");'
+    (window.__edictum.bootError). One with a third entry 'fr' loads only when the game is set to French (the
+    game's LANG_KEY, statehood.lang.v1, in this browser)."""
+    # the list stays a plain "var L=[[…]]," (test/startup-e2e.mjs reads it there); the language filter comes after it
+    return ('(function(){var L=%s,d=document;L=L.filter(function(x){if(!x[2])return 1;try{return localStorage.getItem("statehood.lang.v1")===x[2]}'
+            'catch(e){return 0}});function pre(){if(pre.d)return;pre.d=1;L.forEach(function(x){var l=d.createElement("link");'
             'l.rel="preload";l.as="script";l.href=x[0];d.head.appendChild(l)})}'
             'function go(){if(go.d)return;go.d=1;pre();window.__edictum.loading=1;L.forEach(function(x){var s=d.createElement("script");'
             's.src=x[0];s.async=false;if(x[1])s.onerror=function(){window.__edictum.bootError()};d.body.appendChild(s)})}'
@@ -170,7 +182,7 @@ def game_loader(scripts):
             'if(d.hidden||!window.requestAnimationFrame)go();else{frame(pre);'
             'var f=d.fonts&&d.fonts.ready?Promise.race([d.fonts.ready,new Promise(function(r){setTimeout(r,1500)})]):Promise.resolve();'
             'f.then(function(){frame(go)});setTimeout(go,3000);window.addEventListener("load",go)}})();'
-            % json.dumps([[u, bool(f)] for u, f in scripts]))
+            % json.dumps([[x[0], bool(x[1])] + list(x[2:]) for x in scripts]))
 
 
 def font_preloader(urls):
@@ -241,6 +253,8 @@ def home_copy(script):
         'feats': ''.join('<li><span class="hm-ic ai-%s" aria-hidden="true"></span>%s</li>' % (k, e(re.sub(r'\\(.)', r'\1', t)))
                          for k, t in feats),
         'free': e(js_text(script, 'HOME_FREE')),
+        'h1': e(js_text(script, 'HOME_H1')),
+        'sub': e(js_text(script, 'HOME_SUB')),
     }
 
 
@@ -400,6 +414,13 @@ def main():
         else:
             shutil.copyfile(os.path.join(SRC, f), os.path.join(out, f))
 
+    # the front page's pictures of the game (the showcase, hmShowcase), served as /home/<name>.webp
+    # and their larger copies for the enlarged view, /home/zoom/<name>.webp, which a visitor downloads only on opening one
+    for sub in ('', 'zoom'):
+        for f in sorted(os.listdir(os.path.join(SRC, 'home', sub))):
+            if f.endswith('.webp'):
+                write(os.path.join(out, 'home', sub, f), read(os.path.join(SRC, 'home', sub, f), 'rb'))
+
     # the game's styles (with the shim's and the fonts') and its script become long-cached files
     styles = re.findall(r'<style[^>]*>(.*?)</style>', game_head, re.S | re.I)
     game_head = re.sub(r'\s*<style[^>]*>.*?</style>', '', game_head, flags=re.S | re.I).strip()
@@ -413,6 +434,16 @@ def main():
         fail('the game no longer marks where the shop catalogue goes (/*SHOP_CATALOGUE*/null)')
     catalogue = json.loads(read(os.path.join(ROOT, 'functions', 'shop-catalogue.json')))
     script = script.replace('/*SHOP_CATALOGUE*/null', json.dumps(catalogue, ensure_ascii=False, separators=(',', ':')))
+    # the French for the everyday screens (FR_MORE): a file of its own, which only a page in French downloads
+    # (game_loader), so the rest of the world does not fetch it with the game
+    fr_url = None
+    m = re.search(r'/\*FR_MORE\*/const FR_MORE=(.*?);/\*FR_MORE_END\*/', script, re.S)
+    if not m:
+        fail('the game no longer marks its French dictionary (/*FR_MORE*/const FR_MORE=…;/*FR_MORE_END*/)')
+    if minify:
+        fr_url = hashed(out, 'fr', 'js', esbuild('window.__edictum.fr=%s;' % m.group(1), 'js', True))
+        script = (script[:m.start()] + "const FR_MORE=typeof window!=='undefined'&&window.__edictum&&window.__edictum.fr||{d:{},p:[]};" +
+                  script[m.end():])
     content_url = None
     if minify:
         parts = split_content(script)
@@ -491,6 +522,7 @@ def main():
         # download) the shim plays offline, as it always has.
         '<script>\n%s\n</script>' % game_loader([(vendor + n, False) for n in SDK] + [(maps_url, False)] +
                                                 ([(content_url, True)] if content_url else []) +
+                                                ([(fr_url, False, 'fr')] if fr_url else []) +
                                                 [(js_url, True), (shim_url, False)]),
         '</body>',
         '</html>',
@@ -512,6 +544,8 @@ def main():
         '' if site else '; no --site-url, so Open Graph links are relative'))
     if content_url:
         print('build.py: independently cached story text: %s (%s); code-only updates reuse it' % (content_url, kb(content_url)))
+    if fr_url:
+        print('build.py: French for the everyday screens, loaded only in French: %s (%s)' % (fr_url, kb(fr_url)))
     print('build.py: baked maps of every region: %s (%s)' % (maps_url, kb(maps_url)))
 
 

@@ -43,7 +43,7 @@ test('each shared chat says the same things, the French chat in French when the 
   const keys = Object.keys(en.RGW.tx()).sort();
   for (const g of [en, fr]) for (const C of g.RGS) assert.deepEqual(Object.keys(C.tx()).sort(), keys, C.reg);
   assert.equal(en.RGF.tx().tab, 'Français');assert.equal(fr.RGF.tx().tab, 'Français');
-  assert.equal(en.RGF.tx().the, 'the French chat');assert.equal(fr.RGF.tx().eye, 'Chat francophone');
+  assert.equal(en.RGF.tx().the, 'the French chat');assert.equal(fr.RGF.tx().eye, 'Discussion francophone');
   assert.match(fr.RGF.tx().intro, /Écrivez en français/);
   assert.equal(fr.RGW.tx().eye, 'World chat', 'the world chat keeps its words, which the interface translates as it does the rest');
   assert.equal(en.RGF.tx().subN(3), '3 regions talking today');assert.equal(fr.RGF.tx().subN(3), '3 régions en discussion aujourd’hui');

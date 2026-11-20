@@ -38,7 +38,7 @@ import { identity, eligibility, refuse, regionClosed } from './eligibility.js';
 import { nationText } from './nationtext.js';
 import DATA from './civic-data.json' with { type: 'json' };
 import { pace, ipRule } from './pace.js';
-import { trId, trLive, trVoid } from './treaty-rules.js';
+import { trId, trLive, trVoid, trReadyMs, TR_FX, TR_RECORD } from './treaty-rules.js';
 import { alRelLive } from './alliance-rules.js';
 
 initializeApp();
@@ -77,9 +77,10 @@ const allianceOf = (id, n) => n.alli && n.alli.name ? id : typeof n.allyOf === '
 const isId = v => typeof v === 'string' && /^[\w-]{1,128}$/.test(v);
 
 /* the game's readiness (readiness() and spendReady() in game/edictum.html): a point returns every 15
-   minutes (10 with Rapid Mobilisation), up to 6 (8 with an Army Reserve) */
-function readiness(state, pol, now) {
-  const max = READY_BASE + (pol.reservists ? 2 : 0) + SLACK, ms = (pol.rapidMobilisation ? 10 : 15) * 60000;
+   minutes (10 with Rapid Mobilisation), 5% sooner for each pact of joint military training in force (drills; the game
+   counts only those at work, so never more than here), up to 6 (8 with an Army Reserve) */
+function readiness(state, pol, now, drills) {
+  const max = READY_BASE + (pol.reservists ? 2 : 0) + SLACK, ms = trReadyMs((pol.rapidMobilisation ? 10 : 15) * 60000, drills || 0);
   if (!Number.isInteger(state.r) || typeof state.at !== 'number') return { r: max, max, ms, g: 0, at: now };
   const g = Math.max(0, Math.floor((now - state.at) / ms));
   return { r: Math.min(max, state.r + g), max, ms, g, at: state.at };
@@ -100,9 +101,11 @@ async function battle(uid, data) {
     help.forEach(id => refs.push(db.doc('nations/' + id)));
     const [me, st, ban, ...rest] = await tx.getAll(...refs);
     const alliances = (await tx.getAll(...[uid, ...help].map(id => db.doc('allyOf/' + id)))).map(s => s.exists && typeof s.get('a') === 'string' ? s.get('a') : '');
-    /* a non-aggression pact between the two (functions/treaties.js), and the defender's alliance (for a pact between
-       the two alliances, functions/alliances.js) */
-    const [nap, dIx] = await tx.getAll(db.doc('treaties/' + trId('nap', uid, d)), db.doc('allyOf/' + d));
+    /* a non-aggression pact or joint military training between the two (functions/treaties.js), and the defender's
+       alliance (for a pact between the two alliances, functions/alliances.js) */
+    const [nap, drill, dIx] = await tx.getAll(db.doc('treaties/' + trId('nap', uid, d)), db.doc('treaties/' + trId('drill', uid, d)), db.doc('allyOf/' + d));
+    /* the attacker's own pacts of joint training, which ready its army sooner */
+    const mineTr = await tx.get(db.collection('treaties').where('p', 'array-contains', uid));
     if (ban.exists) return { ok: false, why: 'banned' };
     if (!me.exists) return { ok: false, why: 'nation' };
     /* a nation a moderator has hidden (mod/<uid> hidden) keeps its land and fights nobody, either way, until it is shown again */
@@ -121,7 +124,8 @@ async function battle(uid, data) {
     await eligibility(tx, who, { linked: false });
     if (!npc && !who.registered && !(foe?.exists && record(foe).wars?.[uid]))
       refuse('registration_required', 'A Registered Nation is required for offensive wars against players.');
-    const rd = readiness(st.exists ? st.data() : {}, mine.policies || {}, now);
+    const drills = mineTr.docs.filter(s => { const T = s.data(); return T.k === 'drill' && trLive(T, now) && !trVoid(T, { [uid]: mine }); }).length;
+    const rd = readiness(st.exists ? st.data() : {}, mine.policies || {}, now, drills);
     if (rd.r < 1) return { ok: false, why: 'ready', next: rd.at + (rd.g + 1) * rd.ms - now };
     /* the odds: the attacker's own, within the game's bounds, and no better than its army, with its allies'
        help, could make them against the defender's, both as their last saves declared */
@@ -129,7 +133,8 @@ async function battle(uid, data) {
     const al = alliances[0] || allianceOf(uid, mine);
     /* no battle while a non-aggression pact binds the two, or a pact binds their alliances: a side that means to fight
        ends it with notice or breaks it first (a nation founded again since it signed is not bound) */
-    if (nap.exists && trLive(nap.data(), now) && !trVoid(nap.data(), { [uid]: mine, ...(npc ? {} : { [d]: record(foe) }) })) return { ok: false, why: 'pact' };
+    const recs = { [uid]: mine, ...(npc ? {} : { [d]: record(foe) }) };
+    for (const t of [nap, drill]) if (t.exists && trLive(t.data(), now) && !trVoid(t.data(), recs)) return { ok: false, why: 'pact' };
     const aD = dIx.exists && typeof dIx.get('a') === 'string' ? dIx.get('a') : '';
     if (al && aD && al !== aD) {
       const as = await tx.get(db.doc('alliances/' + al)), rel = as.exists ? as.get('rel') : null;
@@ -137,8 +142,14 @@ async function battle(uid, data) {
     }
     let att = army(me);
     rest.forEach((s, i) => { if (al && (alliances[i + 1] || allianceOf(help[i], record(s))) === al) att += 0.5 * army(s); });
+    /* joint training broken in the last month: the side that was let down fights the breaker 10% the stronger */
+    let def = npc ? 0 : army(foe);
+    const DB = drill.exists ? drill.data() : null;
+    if (DB && DB.st === 'broken' && now - (Number(DB.bt) || 0) < TR_RECORD && !trVoid(DB, recs)) {
+      if (DB.by === d) att *= 1 + TR_FX.drill.edge; else if (DB.by === uid) def *= 1 + TR_FX.drill.edge;
+    }
     /* held to the armies whenever the defender has one: an attacker with none gets no odds at all, not the best */
-    const def = npc ? 0 : army(foe), cap = def > 0 ? Math.min(P_MAX, TILT * att / (TILT * att + def)) : P_MAX;
+    const cap = def > 0 ? Math.min(P_MAX, TILT * att / (TILT * att + def)) : P_MAX;
     const p = Math.min(P_MAX, Math.max(P_MIN, data.p)), pe = Math.min(p, cap);
     const roll = crypto.randomInt(0, 1e6) / 1e6, win = roll < pe;
     const out = { ok: true, win, t: now, w, d, p: Math.round(pe * 1e4) / 1e4, r: rd.r - 1 };

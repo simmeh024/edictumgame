@@ -32,7 +32,7 @@ await B.evaluate(() => localStorage.setItem('statehood.lang.v1', 'fr')); await B
 check('with the game in French, the Français tab shows after World', await until(async () => JSON.stringify(await tabsNow(B)) === JSON.stringify(['region', 'world', 'fr', 'haps'])), JSON.stringify(await tabsNow(B)));
 check('nothing was written for it: the tab follows the language', await B.evaluate(() => G.S.nation.dmx?.rf === undefined));
 await openChat(B); await B.click('#rgc-tab-fr');
-check('the tab is named Français, and its header and intro are in French', await until(async () => (await text(B, '#rgc-tab-fr')).startsWith('Français') && (await text(B, '.rgc-ht .eyebrow')) === 'Chat francophone'
+check('the tab is named Français, and its header and intro are in French', await until(async () => (await text(B, '#rgc-tab-fr')).startsWith('Français') && (await text(B, '.rgc-ht .eyebrow')) === 'Discussion francophone'
   && (await text(B, '#rgc-h')) === 'En français' && /Les nations francophones de toutes les régions discutent ici/.test(await text(B, '.rgc-intro'))), await text(B, '#rgc-dock'));
 check('an empty French chat says so, and the box asks for French', await until(async () => /Aucune ligne pour l’instant/.test(await text(B, '#rgc-list'))) && await B.getAttribute('#rgc-x', 'placeholder') === 'Écrire en français…');
 
@@ -72,7 +72,7 @@ await closeChat(F);
 
 /* ── 4. the French player turns it off, and on again ── */
 await nav(B, 'settings'); await B.click('#sg-tab-chat');
-check('in French, the card is on and says why', await until(async () => await B.isChecked('#set-chat-fr [data-rgc="set-fr"]')) && /because the game is in French/.test(await text(B, '#set-chat-fr')));
+check('in French, the card is on and says why, in French', await until(async () => await B.isChecked('#set-chat-fr [data-rgc="set-fr"]') && /parce que le jeu est en français/.test(await text(B, '#set-chat-fr')) && /Discussion francophone/.test(await text(B, '#set-chat-fr'))), await text(B, '#set-chat-fr'));
 await B.uncheck('#set-chat-fr [data-rgc="set-fr"]');
 check('turned off, the tab goes though the game is in French (dmx.rf 0)', await until(async () => await B.evaluate(() => G.S.nation.dmx?.rf === 0) && !(await tabsNow(B)).includes('fr')));
 check('and its line no longer counts on the Chat button', await until(async () => { const c = await chat(B); return !c.frOn && c.frNamed === 0; }), JSON.stringify(await chat(B)));
