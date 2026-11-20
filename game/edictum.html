@@ -24838,7 +24838,7 @@ function logLine(l,n,id){
     case 'war':return `War was declared on ${tg()}.`;case 'peace':return `Peace was made with ${tg()}.`;case 'conq':return `A hex of ${l.fx} was taken from ${tg()}.`;case 'lost':return `${tg()} seized a hex of ${l.fx}.`;
     case 'alfound':return `The alliance ${l.b} was founded.`;case 'aljoin':return `${n.name} joined ${l.b}.`;case 'alleave':return `${n.name} left ${l.b}.`;
     case 'trade':return `A trade deal was signed with ${tg()}.`;case 'tradeend':return `A trade deal with ${tg()} ended.`;
-    case 'cityren':return `The city of ${l.b} was renamed ${l.a}.`;case 'rvren':return l.b?`${cap1(l.b)} was renamed ${l.a}.`:`A river was named ${l.a}.`;case 'cityab':return `The city of ${l.a} on ${l.fx} was abandoned.`;case 'bidoff':return `The bid to host ${l.a} was withdrawn.`;
+    case 'cityren':return `The city of ${l.b} was renamed ${l.a}.`;case 'rvren':return l.b?`${cap1(l.b)} was renamed ${l.a}.`:`A river was named ${l.a}.`;case 'wtren':return l.b?`${cap1(l.b)} was renamed ${l.a}.`:l.fx==='s'?`The sea off its coast was named ${l.a}.`:`A lake was named ${l.a}.`;case 'cityab':return `The city of ${l.a} on ${l.fx} was abandoned.`;case 'bidoff':return `The bid to host ${l.a} was withdrawn.`;
     case 'city':return `The city of ${l.a} was founded on ${l.fx}.`;case 'wonder':return `The ${l.b} was completed in ${l.a}.`;
     case 'sack':return `The ${l.a}, ${l.b}, was sacked.`;case 'leader':return `${l.a} ${l.b} took office as leader.`;
     case 'games':return `The national team won ${l.fx} at ${l.a}.`;case 'host':return `${n.name} hosted ${l.a}.`;case 'hostwin':return `${n.name} won the right to host ${l.a}.`;
@@ -34414,6 +34414,7 @@ const DSP_LOG={
   incident:{sec:'world',w:4,kick:'Exploration',go:'explore',h:['{D} explorers stray onto {X} land'],b:'Explorers from {N} were found on {X} soil near {FX}, holding the map upside down.'},
   city:{sec:'society',w:5,kick:'Cities',go:'cities',h:['{N} founds the city of {A1}','A new city rises: {A1}'],b:'{N} has founded {A1} on {FX}. Its first bylaw concerns parking.'},
   rvren:{sec:'society',w:3,kick:'Rivers',go:'map',h:['{N} names a river {A1}','A river in {N} is now {A1}'],b:'Cartographers in {CAP} have put a new name on the map: {A1}. Their colleagues across the region are reaching for the eraser.'},
+  wtren:{sec:'society',w:3,kick:'Lakes and seas',go:'map',h:['{N} names {A1}','A new name on the water: {A1}'],b:'Chart makers in {CAP} have written {A1} across the water. The fish have not been told.'},
   cityren:{sec:'society',w:3,kick:'Cities',go:'cities',h:['{B} becomes {A1}'],b:'{N} has renamed the city of {B} to {A1}. Residents have until Friday to update their letterheads.'},
   cityab:{sec:'society',w:4,kick:'Cities',go:'cities',h:['{N} abandons {A1}'],b:'The last resident of {A1}, on {FX}, turned off the lights on the way out.'},
   wonder:{sec:'culture',w:7,kick:'Wonders',go:'cities',h:['{N} completes the {B}','A wonder for {N}: the {B}'],b:'The {B} in {A1} is finished at last. Visitors are asked not to touch it, lean on it or ask how much it cost.'},
@@ -35641,6 +35642,7 @@ function rvNameProblem(r,nm){
   const f=rvFold(nm);
   for(const o of RV.list){if(o===r)continue;const hit=[o.name,o.name0].concat(o.nm?[...o.nm.values()]:[]).find(x=>x&&rvFold(x)===f);if(hit)return `There is already a river called ${cap1(hit)} in ${REGION}.`;}
   for(const L of RV.lakes)if(rvFold(L.name)===f)return `${L.name} is a lake in ${REGION} already.`;
+  if(typeof wnTaken==='function'){const w=wnTaken(f,null);if(w)return w;}
   return '';
 }
 /* a name as typed, with a leading “The” written as the map writes it: “the Silverflow” */
@@ -35659,7 +35661,7 @@ function rvMineOf(T,r,mi){const me=myId(),most=rvMost(T,r,mi);return {most,mine:
 function rvMine(key){
   if(!S.nation||!rvData())return 'The rivers are not ready yet.';const T=territory(),mi=T.byId[myId()],id=RV.byKey.get(key),r=id===undefined?null:RV.list[id];
   if(!r)return 'That river is not on this map.';if(mi===undefined||!(rvStretch(T,r,mi)>0||rvMost(T,r,mi)))return 'You can name a river only where it runs through your land.';
-  rvSync(T);return [T,r];
+  rvSync(T);wnSync(T);return [T,r];
 }
 function rvRename(key,raw){
   const m=rvMine(key);if(typeof m==='string'){S.rvnErr=m;updateMapPanel();return false;}
@@ -35823,7 +35825,7 @@ const rvGW=new Map();
 function rvGlyphW(g,font,ch){const k=font+ch;let w=rvGW.get(k);if(w===undefined){w=g.measureText(ch).width;rvGW.set(k,w);}return w;}
 function rvHit(boxes,b){return boxes.some(q=>q.x<b.x+b.w&&b.x<q.x+q.w&&q.y<b.y+b.h&&b.y<q.y+q.h);}
 function rvNames(M){
-  const G=rvGeom();if(!G)return;rvSync(M.T);const {g,s,ox,oy,w,h,boxes,col}=M,hx=s*HEX_W;if(hx<11)return;
+  const G=rvGeom();if(!G)return;rvSync(M.T);wnSync(M.T);const {g,s,ox,oy,w,h,boxes,col}=M,hx=s*HEX_W;if(hx<11)return;
   const C=rvCols(col),fs=hx>=26?13:12,font='italic 600 '+fs+'px '+MAP_FONT,sp=1.2;g.font=font;g.textAlign='left';g.textBaseline='alphabetic';g.lineJoin='round';
   const placed=[],avoid=[];
   for(const L of RV.lakes){let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;for(let k=0;k<L.loop.length;k+=2){const x=L.loop[k]*s+ox,y=L.loop[k+1]*s+oy;if(x<x0)x0=x;if(x>x1)x1=x;if(y<y0)y0=y;if(y>y1)y1=y;}if(x1>0&&x0<w&&y1>0&&y0<h)avoid.push({x:x0-2,y:y0-2,w:x1-x0+4,h:y1-y0+4});}
@@ -35958,12 +35960,12 @@ function rvHexText(cell){
   if(li!==undefined)return RV.lakes[li].name+(bn>0?' · fertile':'');
   if(!r)return '';return 'On '+rvLabelAt(r,cell)+(bn>0?' · fertile':'');
 }
-MAP_TIP.push(ctx=>{if(ctx.kind==='mini'||ctx.kind==='atlas'||ctx.cell<0)return null;try{if(rvData())rvSync(mapTerr(ctx.kind));}catch(e){}const t=rvHexText(ctx.cell);if(!t)return null;
+MAP_TIP.push(ctx=>{if(ctx.kind==='mini'||ctx.kind==='atlas'||ctx.cell<0)return null;try{if(rvData()){const T=mapTerr(ctx.kind);rvSync(T);wnSync(T);}}catch(e){}const t=rvHexText(ctx.cell);if(!t)return null;
   try{const br=rvBridges(mapTerr(ctx.kind)).find(b=>b.c===ctx.cell);if(br)return t+(br.done?' · bridge':' · bridge being built');}catch(e){}return t;});
 MAP_PANEL.push(ctx=>{
   const c=ctx.cell;if(c==null||c<0||!rvData()||MAP.T[c]<2)return '';const li=RV.lakeAt.get(c),r=riverOf(c),bn=RV.bonus[c];if(li===undefined&&!r)return '';
   const T=territory(),mi=T.byId[myId()],mine=mi!==undefined&&T.owner[c]===mi&&S.mapCell===c,food=bn>0?` Fertile: +${fmtAmt(bn)} food a day.`:'';
-  rvSync(T);
+  rvSync(T);wnSync(T);
   let h=`<div class="rv-pn"><p class="eyebrow">${li!==undefined?'Lake':r.cls>=2?'River':'Stream'}</p><p class="rv-l"><b>${esc(li!==undefined?RV.lakes[li].name:cap1(rvLabelAt(r,c)))}</b>${li!==undefined&&r?' · fed by '+esc(rvLabelAt(r,c)):''}.${food}</p>`;
   const dir=rvBridgeEdge(c);
   if(dir>=0){const b=rvBridges(T).find(x=>x.c===c),rv=RV.list[RV.E6[c*6+dir]-1];
@@ -35975,14 +35977,253 @@ MAP_PANEL.push(ctx=>{
         <p class="hint" style="margin-top:6px">${esc(p||`Costs ${costText(rvBridgeCost(S.nation))} and takes ${fmtDur(rvBridgeHours(S.nation)*3600e3)}. You have ${n} of ${cap} ${cap===1?'bridge':'bridges'} (one for every ${BRIDGE_PER} hexes).`)}</p>${S.rvMsg?`<p class="err">${esc(S.rvMsg)}</p>`:''}`;}
     else h+=`<p class="hint">Armies attacking across ${esc(rvLabelAt(rv,c))} lose ${Math.round((1-RV_CROSS)*100)}% of their strength unless a bridge carries them.</p>`;}
   if(li===undefined&&r)h+=rvnPanel(T,r,mi,mine,c);
+  if(li!==undefined)h+=wnPanel(T,c,false);
   return h+'</div>';
 });
+/* ───────── lake and sea names chosen by players (20 November 2026) ─────────
+   A nation names the lakes and the sea within WN_REACH (5) hexes of its land, counted hex by hex from any hex it holds,
+   over land or water.
+   A lake (water shut in by land, lakeMap, or one of the small lakes of the river network, RV.lakes) carries one name.
+   Of the nations that named it and still hold land within reach, the nearest one's name is on the map (the fewest hexes
+   from its land to the lake: a nation holding the lake itself is nearest of all); as near, the name given first. A lake
+   of the river network keeps the map's own name until a nation names it.
+   The sea: a nation's waters are the hexes of sea within reach of its land. Where land or distance breaks them, they
+   fall into pieces, and a name goes on one piece: the one holding the hex it was given at. Where the named waters of
+   two nations overlap, each hex carries the nearer nation's name; as near, the name given first. Neighbours may give
+   their waters the same name, and one label then covers them.
+   Names follow the land: lose the land within reach and the name goes with it, win it back and the name comes back.
+   Kept in each namer's own record, n.wtn = [{r: region, c: hex, n: name, t: when}], c being a hex of the lake or of
+   the sea, where the name was given. A hidden nation's names are not shown.
+   After wnSync(T): WN.lake (key → the names given for that lake, the one on the map first), WN.sea (sea hex → the names
+   that reach it, the one on the map first), WN.parts (runs of sea under one name, for the labels), WN.lakes (named
+   lakes of open water, for theirs), and every lake of the river network has its name (L.name; L.name0 the map's). */
+const WN_REACH=5,WTN_MAX=30;
+NORM_HOOKS.push((n,d)=>{
+  const a=Array.isArray(d.wtn)?d.wtn:[],seen=new Map();
+  for(const e of a){if(!e||typeof e!=='object'||typeof e.r!=='string'||!REG_BY_ID[e.r]||!Number.isInteger(e.c)||e.c<0||e.c>=4e6)continue;
+    const nm=c3CleanName(e.n,RVN_LEN);if(nm.length<2)continue;const k=e.r+':'+e.c;seen.delete(k);seen.set(k,{r:e.r,c:e.c,n:nm,t:typeof e.t==='number'&&isFinite(e.t)?e.t:0});}
+  const out=[...seen.values()].slice(-WTN_MAX);if(out.length)n.wtn=out;else delete n.wtn;
+});
+/* every hex's body of water, from the map as it was made (a reclaimed hex leaves its body whole): of[c] the body, -1 on
+   land; bodies[b] = {id, n, lake, cells (a lake's only)} */
+let WB=null;
+function wbMap(){
+  if(WB)return WB;const N=MAP.N,T=MAP_T0,nb=MAP.nbr,of=new Int32Array(N).fill(-1),L=lakeMap(),bodies=[];
+  for(let i=0;i<N;i++){if(T[i]>=2||of[i]>=0)continue;const id=bodies.length,cells=[i];of[i]=id;
+    for(let q=0;q<cells.length;q++){const a=cells[q];for(let d=0;d<6;d++){const j=nb[a*6+d];if(j>=0&&T[j]<2&&of[j]<0){of[j]=id;cells.push(j);}}}
+    const lake=L[i]===1;bodies.push({id,n:cells.length,lake,cells:lake?cells:null});}
+  return WB={of,bodies};
+}
+/* what hex c is to a namer: {k:'v', id} a lake of the river network, {k:'l', id} a lake of open water (its body),
+   {k:'s', b} the sea (its body), or null (land, or a hex reclaimed from the sea) */
+function wnKind(c){
+  if(!Number.isInteger(c)||c<0||c>=MAP.N)return null;
+  if(MAP.T[c]>=2){const li=RV&&RV.lakeAt?RV.lakeAt.get(c):undefined;return li===undefined?null:{k:'v',id:li};}
+  const W=wbMap(),b=W.of[c];if(b<0)return null;return W.bodies[b].lake?{k:'l',id:b}:{k:'s',b};
+}
+const wnKey=K=>K.k==='s'?'s'+K.b:K.k+K.id;
+function wnLakeCells(K){return K.k==='v'?((RV&&RV.lakes[K.id]&&RV.lakes[K.id].cells)||[]):wbMap().bodies[K.id].cells.filter(c=>MAP.T[c]<2);}
+function wnLakeDist(R,cells){let d=Infinity;for(const c of cells){const v=R.get(c);if(v!==undefined&&v<d)d=v;}return d;}
+/* nation i's reach and waters, for the land as it stands in T (memoised per T, which is the same object while the land
+   is unchanged): R, Map hex → hexes from its land (0 on it, up to WN_REACH); pc, Map sea hex → its piece; size[p] */
+let wnWK=null,wnWM=new Map(),wnOwn=null;
+function wnWaters(T,i){
+  if(wnWK!==T){wnWK=T;wnWM=new Map();wnOwn=null;}let W=wnWM.get(i);if(W)return W;
+  if(!wnOwn){wnOwn=new Map();for(let c=0;c<MAP.N;c++){const o=T.owner[c];if(!(o>=0))continue;const a=wnOwn.get(o);if(a)a.push(c);else wnOwn.set(o,[c]);}}
+  const q=(wnOwn.get(i)||[]).slice(),R=new Map(q.map(c=>[c,0]));
+  for(let h=0;h<q.length;h++){const a=q[h],d=R.get(a);if(d>=WN_REACH)continue;for(let k=0;k<6;k++){const j=MAP.nbr[a*6+k];if(j>=0&&!R.has(j)){R.set(j,d+1);q.push(j);}}}
+  const B=wbMap(),sea=c=>MAP.T[c]<2&&B.of[c]>=0&&!B.bodies[B.of[c]].lake,pc=new Map(),size=[];
+  for(const c of R.keys()){if(!sea(c)||pc.has(c))continue;const p=size.length,z=[c];pc.set(c,p);
+    for(let h=0;h<z.length;h++){const a=z[h];for(let k=0;k<6;k++){const j=MAP.nbr[a*6+k];if(j>=0&&R.has(j)&&!pc.has(j)&&sea(j)){pc.set(j,p);z.push(j);}}}
+    size.push(z.length);}
+  W={R,pc,size};wnWM.set(i,W);return W;
+}
+/* where to write a name over these hexes: the hexes deepest inside them and nearest their middle first (map units) */
+function wnSpots(cells){
+  const set=new Set(cells),PW=MAP.W,ref=MAP.cx[cells[0]],ux=c=>{let v=MAP.cx[c];if(v-ref>PW/2)v-=PW;else if(ref-v>PW/2)v+=PW;return v;};
+  let sx=0,sy=0,x0=Infinity,x1=-Infinity,y0=Infinity,y1=-Infinity;
+  for(const c of cells){const x=ux(c),y=MAP.cy[c];sx+=x;sy+=y;if(x<x0)x0=x;if(x>x1)x1=x;if(y<y0)y0=y;if(y>y1)y1=y;}
+  const mx=sx/cells.length,my=sy/cells.length,dep=new Map(),q=[];
+  for(const c of cells){for(let d=0;d<6;d++){const j=MAP.nbr[c*6+d];if(j<0||!set.has(j)){dep.set(c,0);q.push(c);break;}}}
+  for(let h=0;h<q.length;h++){const a=q[h],v=dep.get(a);for(let d=0;d<6;d++){const j=MAP.nbr[a*6+d];if(j>=0&&set.has(j)&&!dep.has(j)){dep.set(j,v+1);q.push(j);}}}
+  const sc=new Map(cells.map(c=>[c,Math.min(dep.get(c)||0,3)*2*HEX_W-Math.hypot(ux(c)-mx,MAP.cy[c]-my)]));
+  return {list:cells.slice().sort((a,b)=>sc.get(b)-sc.get(a)).slice(0,12),w:x1-x0+HEX_W,h:y1-y0+2*HEX_R};
+}
+const WN={lake:new Map(),sea:new Map(),parts:[],lakes:[]};
+let wnK=null;
+function wnSync(T){
+  if(!T||!T.list||!T.owner)return WN;const K=wnK;
+  if(K&&K[0]===T&&K[1]===S.nation&&K[2]===S.world&&K[3]===HIDN.w&&K[4]===RV)return WN;
+  wnK=[T,S.nation,S.world,HIDN.w,RV];
+  if(RV)for(const L of RV.lakes){if(L.name0===undefined)L.name0=L.name;L.name=L.name0;}
+  const lake=new Map(),sea=new Map();
+  T.list.forEach((x,i)=>{if(x.npc||x.hid||!x.n||!Array.isArray(x.n.wtn))return;
+    const es=x.n.wtn.filter(e=>e&&e.r===REG.id);if(!es.length)return;
+    const W=wnWaters(T,i),seen=new Set();
+    /* the newest name first: two names for one lake or one piece (pieces that grew together) leave the newer */
+    for(const e of es.slice().sort((a,b)=>(b.t||0)-(a.t||0))){const Kd=wnKind(e.c);if(!Kd)continue;
+      if(Kd.k==='s'){const p=W.pc.get(e.c);if(p===undefined||seen.has('s'+p))continue;seen.add('s'+p);
+        for(const [c,pp] of W.pc){if(pp!==p)continue;const o={i,id:x.id,nm:e.n,t:e.t||0,d:W.R.get(c),c:e.c};const a=sea.get(c);if(a)a.push(o);else sea.set(c,[o]);}}
+      else{const key=wnKey(Kd);if(seen.has(key))continue;seen.add(key);const d=wnLakeDist(W.R,wnLakeCells(Kd));if(!(d<=WN_REACH))continue;
+        const o={i,id:x.id,nm:e.n,t:e.t||0,d,c:e.c};const a=lake.get(key);if(a)a.push(o);else lake.set(key,[o]);}}
+  });
+  /* nearest first; as near, the name given first */
+  const by=(a,b)=>a.d-b.d||a.t-b.t||a.i-b.i;
+  for(const a of lake.values())a.sort(by);for(const a of sea.values())a.sort(by);
+  if(RV)for(const [key,a] of lake)if(key[0]==='v'&&RV.lakes[+key.slice(1)])RV.lakes[+key.slice(1)].name=a[0].nm;
+  /* the runs of sea under one name, and the named lakes of open water, with where to write their names */
+  const parts=[],done=new Set();
+  for(const [c,a] of sea){if(done.has(c))continue;const nm=a[0].nm,cells=[c];done.add(c);
+    for(let q=0;q<cells.length;q++){const z=cells[q];for(let d=0;d<6;d++){const j=MAP.nbr[z*6+d];if(j<0||done.has(j))continue;const b=sea.get(j);if(b&&b[0].nm===nm){done.add(j);cells.push(j);}}}
+    parts.push({nm,n:cells.length,...wnSpots(cells)});}
+  parts.sort((a,b)=>b.n-a.n);
+  const lakes=[];for(const [key,a] of lake)if(key[0]==='l'){const cells=wnLakeCells({k:'l',id:+key.slice(1)});if(cells.length)lakes.push({nm:a[0].nm,n:cells.length,...wnSpots(cells)});}
+  WN.lake=lake;WN.sea=sea;WN.parts=parts;WN.lakes=lakes;return WN;
+}
+/* the name of the lake or sea at hex c: {k, id|b, nm (on the map; '' if none), by (who gave it, null: the map's own),
+   nm0 (the map's own), all (every name given for it there, the one on the map first)}, or null */
+function wnAt(T,c){
+  const Kd=wnKind(c);if(!Kd)return null;wnSync(T);
+  if(Kd.k==='s'){const a=WN.sea.get(c)||[];return {...Kd,nm:a.length?a[0].nm:'',by:a.length?a[0].id:null,nm0:'',all:a};}
+  const a=WN.lake.get(wnKey(Kd))||[],nm0=Kd.k==='v'&&RV&&RV.lakes[Kd.id]?RV.lakes[Kd.id].name0||'':'';
+  return {...Kd,nm:a.length?a[0].nm:nm0,by:a.length?a[0].id:null,nm0,all:a};
+}
+/* a lake or sea of this region already called this (folded) name, as a reason, or ''; Kd, if given, is the one being
+   named (its own names are no clash, nor are the names of other waters of the same sea) */
+function wnTaken(f,Kd){
+  if(RV)for(const L of RV.lakes){if(Kd&&Kd.k==='v'&&Kd.id===L.id)continue;const hit=[L.name,L.name0].find(x=>x&&rvFold(x)===f);if(hit)return `${cap1(hit)} is a lake in ${REGION} already.`;}
+  for(const [key,a] of WN.lake){if(Kd&&key===wnKey(Kd))continue;const h=a.find(o=>rvFold(o.nm)===f);if(h)return `${cap1(h.nm)} is a lake in ${REGION} already.`;}
+  const of=wbMap().of;for(const [c,a] of WN.sea){if(Kd&&Kd.k==='s'&&of[c]===Kd.b)continue;const h=a.find(o=>rvFold(o.nm)===f);if(h)return `There is already a sea called ${cap1(h.nm)} in ${REGION}.`;}
+  return '';
+}
+function wnNameProblem(c,nm){
+  if(nm.length<2||!/\p{L}/u.test(nm))return 'Give it a name of at least two characters, with a letter in it.';
+  const f=rvFold(nm);
+  if(RV)for(const o of RV.list){const hit=[o.name,o.name0].concat(o.nm?[...o.nm.values()]:[]).find(x=>x&&rvFold(x)===f);if(hit)return `There is already a river called ${cap1(hit)} in ${REGION}.`;}
+  return wnTaken(f,wnKind(c));
+}
+/* whether this nation may name the lake or sea at hex c: [T, kind, waters, index] or the reason it may not */
+function wnMine(c){
+  if(!S.nation||cellOf(S.nation.loc)<0)return 'Settle your nation on the map first.';
+  const T=territory(),mi=T.byId[myId()],Kd=wnKind(c);if(mi===undefined)return 'Settle your nation on the map first.';
+  if(!Kd)return 'Only lakes and the sea can be named here.';
+  const W=wnWaters(T,mi);
+  if(Kd.k==='s'?!W.pc.has(c):!(wnLakeDist(W.R,wnLakeCells(Kd))<=WN_REACH))return `You can name ${Kd.k==='s'?'the sea':'a lake'} only within ${WN_REACH} hexes of your land.`;
+  wnSync(T);return [T,Kd,W,mi];
+}
+/* this nation's names on record for the same lake, or the same piece of its waters, as hex c */
+function wnSame(Kd,W,c){
+  const p=Kd.k==='s'?W.pc.get(c):null;
+  return e=>{if(!e||e.r!==REG.id)return false;const K2=wnKind(e.c);if(!K2||K2.k!==Kd.k)return false;return Kd.k==='s'?W.pc.get(e.c)===p:K2.id===Kd.id;};
+}
+/* where this nation stands at hex c: its name there (mine), what shows there without it (back), what shows (shown) */
+function wnMineOf(T,c){
+  const me=myId(),at=wnAt(T,c),my=at.all.find(o=>o.id===me),rest=at.all.filter(o=>o.id!==me);
+  return {mine:my?my.nm:'',back:rest.length?rest[0].nm:at.nm0||'',shown:at.nm,by:at.by,at,my};
+}
+/* one line in the nation's history for a run of renames within six hours; back where it began, no line at all */
+function wnLog(n,nm,old,fx,now){
+  n.log=Array.isArray(n.log)?n.log:[];
+  const j=n.log.findIndex((l,i)=>i<12&&l&&l.k==='wtren'&&l.a===old&&now-l.t<6*3600e3);
+  if(j>=0){const l=n.log.splice(j,1)[0];if(nm&&(l.b||'')!==nm)n.log.unshift({...l,a:nm,t:now});return;}
+  if(!nm)return;n.log.unshift({t:now,k:'wtren',a:nm,b:old||'',fx});n.log=n.log.slice(0,60);
+}
+function wnDone(){S.wnEdit=null;S.wnVal=null;S.wnErr='';}
+function wnRename(c,raw){
+  const m=wnMine(c);if(typeof m==='string'){S.wnErr=m;updateMapPanel();return false;}
+  const [T,Kd,W]=m,lake=Kd.k!=='s',{mine,back}=wnMineOf(T,c),old=mine||back,nm=rvTidy(raw);
+  if(nm===old){wnDone();updateMapPanel();return false;}
+  if(mine&&back&&nm===back)return wnReset(c);
+  const why=wnNameProblem(c,nm);if(why){S.wnVal=nm;S.wnErr=why;updateMapPanel();return false;}
+  const n=clone(S.nation),now=Date.now(),same=wnSame(Kd,W,c);
+  n.wtn=(Array.isArray(n.wtn)?n.wtn:[]).filter(e=>!same(e)).concat({r:REG.id,c,n:nm,t:now}).slice(-WTN_MAX);
+  wnLog(n,nm,old,lake?'l':'s',now);commit(n);
+  wnDone();const T2=territory(),at=wnAt(T2,c);updateMapPanel();redrawMaps();
+  const was=old?cap1(old):lake?'The lake':'The sea off your coast';
+  if(!lake){toast(`${was} is now called ${nm}. Every player in ${REGION} sees the name on the sea within ${WN_REACH} hexes of your land there.`);return true;}
+  if(at&&at.by===myId())toast(`${was} is now called ${nm} on every map in ${REGION}.`);
+  else{const w=at&&at.all[0],i=w?T2.byId[w.id]:undefined,who=i===undefined?'Another nation':T2.list[i].n.name,me=at&&at.all.find(o=>o.id===myId());
+    toast(`You call the lake ${nm}. ${who}’s name for it, ${at?at.nm:''}, stays on the map: ${me&&w&&w.d<me.d?'its land lies nearer the lake':'it named the lake first'}.`);}
+  return true;
+}
+/* this nation's name goes, and the lake or sea shows what it would without it */
+function wnReset(c){
+  const m=wnMine(c);if(typeof m==='string'){S.wnErr=m;updateMapPanel();return false;}
+  const [T,Kd,W]=m,lake=Kd.k!=='s',{mine,back}=wnMineOf(T,c),n=clone(S.nation),now=Date.now(),same=wnSame(Kd,W,c);
+  const left=(Array.isArray(n.wtn)?n.wtn:[]).filter(e=>!same(e));if(left.length)n.wtn=left;else delete n.wtn;
+  wnLog(n,back,mine,lake?'l':'s',now);commit(n);
+  wnDone();wnSync(territory());updateMapPanel();redrawMaps();
+  toast(back?`${cap1(mine||back)} is ${back} again.`:lake?'The lake has no name again.':'The sea off your coast has no name again.');return true;
+}
+/* the other names given where the map shows one: “the Cold Sound in Brask” */
+function wnOtherNames(T,at){
+  const out=[],seen=new Set([at.nm]);
+  for(const o of at.all){if(seen.has(o.nm))continue;seen.add(o.nm);const i=T.byId[o.id],who=i===undefined?'':T.list[i].n.name;out.push(esc(o.nm)+(who?' in '+esc(who):''));}
+  if(at.nm0&&!seen.has(at.nm0))out.push(esc(at.nm0)+' on the old maps');
+  return list(out.slice(0,4));
+}
+/* the side panel's part for a lake or the sea at hex c: its name and who gave it, its other names, and naming it
+   (head: the eyebrow and the name too, for open water; a lake of the river network has them from the river panel) */
+function wnPanel(T,c,head){
+  const Kd=wnKind(c);if(!Kd)return '';const at=wnAt(T,c),me=myId(),lake=Kd.k!=='s',what=lake?'the lake':'these waters';let h='';
+  if(head)h+=`<p class="eyebrow">${lake?'Lake':'Sea'}</p><p class="rv-l wn-l">${at.nm?`<b>${esc(cap1(at.nm))}</b>.`:lake?'A lake with no name yet.':'Waters with no name yet.'}</p>`;
+  if(at.by&&at.by!==me){const i=T.byId[at.by],nm=i===undefined?'':T.list[i].n.name;if(nm)h+=`<p class="hint wn-by">Named by ${esc(nm)}${at.nm0&&at.nm!==at.nm0?`; on the old maps, ${esc(at.nm0)}`:''}.</p>`;}
+  else if(at.by===me)h+=`<p class="hint wn-by">Named by you.</p>`;
+  const aka=wnOtherNames(T,at);if(aka)h+=`<p class="hint wn-aka">Also called ${aka}.</p>`;
+  if(!S.nation||cellOf(S.nation.loc)<0)return h;const mi=T.byId[me];if(mi===undefined)return h;
+  const W=wnWaters(T,mi),d=lake?wnLakeDist(W.R,wnLakeCells(Kd)):W.R.get(c);
+  if(lake?!(d<=WN_REACH):!W.pc.has(c))return h+`<p class="hint wn-why">${lake?`To name this lake, hold land within ${WN_REACH} hexes of it.`:`Nations name the sea within ${WN_REACH} hexes of their land.`}</p>`;
+  const M=wnMineOf(T,c),re=M.mine||M.back?'Rename':'Name';
+  if(S.wnEdit===c){const val=S.wnVal!=null?S.wnVal:(M.mine||M.back);
+    return h+`<form id="wn-form" class="rvn-form wn-form" data-c="${c}" novalidate><label class="rvn-lab" for="wn-name">${re} ${what}</label>
+      <p class="hint">${lake?`The name goes on every map in ${esc(REGION)} while no nation nearer the lake has named it.`:`The name goes on the sea within ${WN_REACH} hexes of your land here, for every player in ${esc(REGION)} to see.`} Write it as you would say it: ${lake?'“Lake Morrow”, “the Mere”':'“the Amber Sea”, “Gull Bay”'}.</p>
+      <div class="name-row"><input class="input" id="wn-name" maxlength="${RVN_LEN}" value="${esc(val)}" autocomplete="off" spellcheck="false"><button class="btn" type="submit">Name it</button></div>
+      <div class="row rvn-acts"><button type="button" class="linkish small" data-act="wn-cancel">Cancel</button>${M.mine?`<button type="button" class="linkish small" data-act="wn-reset" data-c="${c}">${M.back?'Bring back '+esc(M.back):'Take the name away'}</button>`:''}</div>
+      ${S.wnErr?`<p class="err">${esc(S.wnErr)}</p>`:''}</form>`;}
+  const you=M.mine?`You call ${lake?'it':'them'} ${esc(M.mine)}${M.shown&&M.shown!==M.mine?`; the map shows ${esc(M.shown)} here`:''}. `:'';
+  const how=lake?`${d===0?'Your land takes in this lake':`This lake lies ${d} ${d===1?'hex':'hexes'} from your land`}, within the ${WN_REACH} that let you name it. Where several nations name a lake, the map shows the name of the one nearest it; as near, the one named first.`
+    :`These waters lie within ${WN_REACH} hexes of your land (${W.size[W.pc.get(c)]} hexes of sea), so you may name them. Where a nation nearer has named its own waters, its name shows there.`;
+  return h+`<p class="hint wn-own">${you}${how}</p>
+    <div class="row" style="margin-top:8px"><button class="btn ghost" data-act="wn-edit" data-c="${c}">${re} ${what}</button></div>`;
+}
+document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-act^="wn-"]');if(!el)return;const a=el.dataset.act;
+  if(a==='wn-edit'){S.wnEdit=parseInt(el.dataset.c,10);S.wnVal=null;S.wnErr='';updateMapPanel();
+    const i=document.getElementById('wn-name');if(i){i.focus();try{i.select();}catch(x){}}return;}
+  if(a==='wn-cancel'){wnDone();updateMapPanel();return;}
+  if(a==='wn-reset')wnReset(parseInt(el.dataset.c,10));
+});
+document.addEventListener('input',e=>{if(e.target&&e.target.id==='wn-name')S.wnVal=e.target.value;});
+document.addEventListener('submit',e=>{if(!e.target||e.target.id!=='wn-form')return;e.preventDefault();const i=document.getElementById('wn-name');wnRename(parseInt(e.target.dataset.c,10),i?i.value:S.wnVal||'');});
+/* the panel for a hex of open water (a lake of the river network has its part in the river panel), and the hover tip */
+MAP_PANEL.push(ctx=>{const c=ctx.cell;if(c==null||!(c>=0&&c<MAP.N)||MAP.T[c]>=2||!S.nation||!wnKind(c))return '';return `<div class="rv-pn wn-pn">${wnPanel(territory(),c,true)}</div>`;});
+MAP_TIP.push(ctx=>{if(ctx.kind==='mini'||ctx.kind==='atlas'||!(ctx.cell>=0&&ctx.cell<MAP.N)||MAP.T[ctx.cell]>=2)return null;try{const a=wnAt(mapTerr(ctx.kind),ctx.cell);return a&&a.nm?cap1(a.nm):null;}catch(e){return null;}});
+/* the names on the map: the sea's spaced out in italic across its waters, a lake's in the lake (the river network's
+   lakes are written by rvNames). Each tries its best few hexes and gives way to every name already written. */
+function wnLabels(M){
+  const {g,s,ox,oy,w,h,boxes,col,T}=M,hx=s*HEX_W;if(hx<5||!T)return;wnSync(T);if(!WN.parts.length&&!WN.lakes.length)return;
+  const C=rvCols(col),sp=(a,b)=>{try{g.letterSpacing=a;}catch(e){}return b;};g.textBaseline='middle';g.textAlign='center';g.lineJoin='round';
+  /* how many points along the top and the foot of the words fall on land (a sea's name is written on open water only) */
+  const water=(x,y)=>{const c=cellAt((x-ox)/s,(y-oy)/s);return c>=0&&MAP.T[c]<2;};
+  const dryAt=(x,y,tw,fs)=>{const st=Math.max(4,hx/2);let k=0;for(let t=x-tw/2;t<=x+tw/2+0.1;t+=st)for(const v of [-0.35,0.35])if(!water(t,y+v*fs))k++;return k;};
+  const put=(P,fs,font,lsp,minHx,lake)=>{if(hx<minHx)return;g.font=font;sp(lsp);const tw=g.measureText(P.nm).width;
+    if(P.w*s<tw*0.55&&P.h*s<fs*3)return;
+    /* a lake's name may reach over its shore when the lake is too small for it, after every hex that keeps it on water */
+    for(const wet of lake?[1,0]:[1])for(const c of P.list)for(const dx of lake?[0]:[0,-0.3,0.3]){const x=MAP.cx[c]*s+ox+dx*tw,y=MAP.cy[c]*s+oy;if(x-tw/2<4||x+tw/2>w-4||y-fs<4||y+fs>h-4)continue;
+      const b={x:x-tw/2-3,y:y-fs*0.75,w:tw+6,h:fs*1.5};if(rvHit(boxes,b)||(wet&&dryAt(x,y,tw,fs)))continue;
+      boxes.push(b);g.globalAlpha=0.85;g.lineWidth=3.4;g.strokeStyle=col.sheet;g.strokeText(P.nm,x,y);g.globalAlpha=1;g.fillStyle=C.i;g.fillText(P.nm,x,y);return;}};
+  const fs=Math.round(clamp(8+hx*0.3,11,17));
+  for(const P of WN.parts)put(P,fs,'italic 500 '+fs+'px '+MAP_FONT,Math.round(fs*0.22)+'px',P.n>=12?5:9,false);
+  for(const P of WN.lakes)put(P,fs-1,'italic 600 '+(fs-1)+'px '+MAP_FONT,'0px',P.n>=6?9:14,true);
+  sp('0px');
+}
+MAP_LAYERS.push({stage:'top',kinds:['main','visit','found'],draw:wnLabels});
 MAP_LEGEND.push(()=>`<span class="lg"><svg class="lg-t" width="20" height="15" viewBox="0 0 20 15" aria-hidden="true"><path d="M1 3c5 0 4 9 9 9s5-6 9-7" style="fill:none;stroke:var(--river-bank);stroke-width:3.2;stroke-linecap:round"/><path d="M1 3c5 0 4 9 9 9s5-6 9-7" style="fill:none;stroke:var(--river);stroke-width:1.8;stroke-linecap:round"/></svg>River, named at middle zoom</span><span class="lg"><svg class="lg-t" width="20" height="15" viewBox="0 0 20 15" aria-hidden="true"><path d="M4 7c0-4 6-5 9-3s4 6 0 8-9 0-9-5z" style="fill:var(--river);stroke:var(--river-bank)"/></svg>Lake</span><span class="lg"><svg class="lg-t" width="20" height="15" viewBox="0 0 20 15" aria-hidden="true"><path d="M10 0v15" style="stroke:var(--river);stroke-width:5"/><rect x="4" y="5.5" width="12" height="4" style="fill:var(--sheet);stroke:var(--ink);stroke-width:.9"/></svg>Bridge</span>`);
 HELP_EXT.push({k:'rivers',t:'Rivers and lakes',body:()=>`<p>Rivers run from the hills and mountains to the sea along the edges between hexes, and lakes lie where they pool or rise. Main rivers show on the whole map, smaller rivers from middle zoom, and streams close up.</p>
   <p><b>Fertile valleys.</b> Flat land on the bank of a river yields <b>+1 food</b> a day, hills on a river <b>+0.5</b>, and a lake hex <b>+1</b>. Streams, which show only close up, add nothing.</p>
   <p><b>Crossings.</b> When every hex your side holds next to a target lies across a river from it, the attack is <b>${Math.round((1-RV_CROSS)*100)}% weaker</b>. Streams do not count.</p>
   <p><b>Bridges.</b> Select a river hex of your own on the map to build one: ${costText(BRIDGE_COST)}, ${BRIDGE_H} hours, and one for every ${BRIDGE_PER} hexes you hold. A bridge removes the penalty for attacks from or into its hex, and for your attacks over the same river within ${RV_BRIDGE_REACH} hexes. It stands while you hold the hex; lose the hex and the bridge is lost too. Bridges on the target hex help an attacker as well, so choose where you build.</p>
-  <p><b>Names.</b> Every nation holding a stretch of a river or stream (its land on both banks, or on one bank with unclaimed land across) may give it a name of its own, which goes on the stretches in its land, so a river shared by several nations can carry a different name in each. The nation holding most of a river, more than half the hexes on its banks, names it across the region, except on stretches others have named. Select a hex of a river in your land and choose Name or Rename. Names follow the land: lose your stretch and your name goes with it until you win it back.</p>`});
+  <p><b>Names.</b> Every nation holding a stretch of a river or stream (its land on both banks, or on one bank with unclaimed land across) may give it a name of its own, which goes on the stretches in its land, so a river shared by several nations can carry a different name in each. The nation holding most of a river, more than half the hexes on its banks, names it across the region, except on stretches others have named. Select a hex of a river in your land and choose Name or Rename. Names follow the land: lose your stretch and your name goes with it until you win it back.</p>
+  <p><b>Lakes and seas.</b> A nation may also name the lakes and the sea within ${WN_REACH} hexes of its land: select the water on the map and choose Name or Rename. A lake carries one name: where several nations have named it, the map shows the name of the one nearest it (holding the lake itself is nearest of all), and when two are as near, the one named first. On the sea, your name goes on the waters within ${WN_REACH} hexes of your land where you gave it, and where your waters meet a neighbour’s, each hex carries the name of the nearer nation. Neighbours may give their waters the same name. These names follow the land too.</p>`});
 
 /* the overlay: a few slow glints drift downstream on the rivers in view (none with reduced motion) */
 MFX_LAYERS.push({
@@ -53160,6 +53401,7 @@ function regionHaps(all,now){
     if(l.k==='bid')return `${nm} bid to host ${esc(l.a)}.`;
     if(l.k==='cityren')return `${nm} renamed the city of ${esc(l.b)} to ${esc(l.a)}.`;
     if(l.k==='rvren')return l.b?`${nm} renamed ${esc(l.b)} to ${esc(l.a)}.`:`${nm} named a river ${esc(l.a)}.`;
+    if(l.k==='wtren')return l.b?`${nm} renamed ${esc(l.b)} to ${esc(l.a)}.`:`${nm} named ${l.fx==='s'?'the sea off its coast':'a lake'} ${esc(l.a)}.`;
     if(l.k==='cityab')return `${nm} abandoned the city of ${esc(l.a)} on ${esc(l.fx)}.`;
     if(l.k==='bidoff')return `${nm} withdrew its bid to host ${esc(l.a)}.`;
     if(l.k==='city')return `${nm} founded the city of ${esc(l.a)} on ${esc(l.fx)}.`;
@@ -55103,7 +55345,7 @@ const ST_LOG_G={war:'War and spies',dip:'Diplomacy and trade',land:'Land and cit
 const ST_LOG={found:['land','Was founded'],war:['war','Declared war on {b}'],npcwar:['war','{b} declared war on it'],conq:['war','Took a hex of {fx} from {b}'],lost:['war','Lost a hex of {fx} to {b}'],peace:['war','Made peace with {b}'],hand:['war','Handed a hex on {fx} taken in war to {b}'],caught:['war','Had a spy caught by {b}'],incident:['war','Had an expedition stray onto {b}’s land'],cta:['war','Called {b} to arms against {fx}'],
   trade:['dip','Signed a trade deal with {b}'],tradeend:['dip','Saw a trade deal with {b} end'],tradeno:['dip','Declined a trade offer from {b}'],shared:['dip','Shared an edict with {b}'],reply:['dip','Answered an edict {b} shared'],cede:['dip','Ceded a border hex on {fx} to {b}'],take:['dip','Annexed a border hex on {fx} from {b}'],lswap:['dip','Gave up a hex on {a} for free land on {fx}'],
   alfound:['dip','Founded the alliance {b}'],aljoin:['dip','Joined {b}'],aladmit:['dip','Admitted {b} to its alliance'],alremove:['dip','Removed {b} from its alliance'],alleave:['dip','Left {b}'],aldisband:['dip','Dissolved {b}'],npcleft:['dip','Was left by {b}'],
-  settle:['land','Settled on {a}'],city:['land','Founded the city of {a} on {fx}'],cityren:['land','Renamed the city of {b} {a}'],cityab:['land','Abandoned the city of {a}'],move:['land','Moved to {fx}'],wake:['land','Woke after {a} days asleep'],autoland:['land','Took {a} hexes of land on its own'],rec:['land','Reclaimed land off {fx} from the sea'],provon:['land','Drew {a} provinces'],provmrg:['land','Merged the provinces {a} and {b}'],rvren:['land','Named a river {a}'],warehouse:['land','Fitted {fx} in {a}'],mile:['land','Passed {a} people'],
+  settle:['land','Settled on {a}'],city:['land','Founded the city of {a} on {fx}'],cityren:['land','Renamed the city of {b} {a}'],cityab:['land','Abandoned the city of {a}'],move:['land','Moved to {fx}'],wake:['land','Woke after {a} days asleep'],autoland:['land','Took {a} hexes of land on its own'],rec:['land','Reclaimed land off {fx} from the sea'],provon:['land','Drew {a} provinces'],provmrg:['land','Merged the provinces {a} and {b}'],rvren:['land','Named a river {a}'],wtren:['land','Named a lake or sea {a}'],warehouse:['land','Fitted {fx} in {a}'],mile:['land','Passed {a} people'],
   govnew:['gov','Made {b} Governor of {a}'],govsack:['gov','Sacked {b}, Governor of {a}'],sack:['gov','Sacked the {a}, {b}'],leader:['gov','Saw {a} {b} take office'],resign:['gov','Saw its leader resign'],retire:['gov','Saw its leader retire'],repeal:['gov','Repealed a law'],restore:['gov','Restored {b}'],cur:['gov','Renamed its currency the {b}'],fxm:['gov','Passed a currency milestone'],flag:['gov','Adopted a new flag'],sym:['gov','Could choose a new national symbol'],cat:['gov','Was reclassified as {b}'],
   wonder:['cult','Finished the {b} in {a}'],wndr:['cult','Earned a region wonder reward'],damr:['cult','Took a share of the Great Dam'],games:['cult','Won {fx} at {a}'],gres:['cult','Took part in {a}'],host:['cult','Hosted {a}'],hostwin:['cult','Won the right to host {a}'],bid:['cult','Bid to host {a}'],bidoff:['cult','Withdrew a bid to host the Games'],disc:['cult','Made a discovery']};
 function stLogText(e){
@@ -55115,7 +55357,7 @@ const stStyleChip=s=>s&&ST_STYLE[s]?`<span class="adst-style s-${esc(s)}" data-t
 const stActWord=(k,n)=>`${stN(n)} ${ST_ACT[k]?ST_ACT[k][0].toLowerCase():k}`;
 const stNatBtn=(id,name)=>`<button type="button" class="linkish" data-act="st-nat" data-id="${esc(id)}">${esc(name||'A nation')}</button>`;
 const ST_LAST={found:'Was founded',war:'Declared war',conq:'Took a hex in war',peace:'Made peace',hand:'Handed over a hex',cta:'Called an ally to arms',trade:'Signed a trade deal',tradeend:'A trade deal ended',tradeno:'Declined a trade offer',shared:'Shared an edict',reply:'Answered a shared edict',cede:'Ceded a hex',take:'Annexed a hex',lswap:'Swapped a hex',
-  alfound:'Founded an alliance',aljoin:'Joined an alliance',aladmit:'Admitted an ally',alremove:'Removed an ally',alleave:'Left an alliance',aldisband:'Dissolved an alliance',settle:'Settled',city:'Founded a city',cityren:'Renamed a city',cityab:'Abandoned a city',move:'Moved region',autoland:'Took land',rec:'Reclaimed land',provon:'Drew provinces',provmrg:'Merged provinces',rvren:'Named a river',warehouse:'Upgraded a warehouse',
+  alfound:'Founded an alliance',aljoin:'Joined an alliance',aladmit:'Admitted an ally',alremove:'Removed an ally',alleave:'Left an alliance',aldisband:'Dissolved an alliance',settle:'Settled',city:'Founded a city',cityren:'Renamed a city',cityab:'Abandoned a city',move:'Moved region',autoland:'Took land',rec:'Reclaimed land',provon:'Drew provinces',provmrg:'Merged provinces',rvren:'Named a river',wtren:'Named a lake or sea',warehouse:'Upgraded a warehouse',
   govnew:'Appointed a governor',govsack:'Sacked a governor',sack:'Sacked a minister',leader:'Changed leader',resign:'Leader resigned',retire:'Leader retired',repeal:'Repealed a law',cur:'Renamed the currency',flag:'Adopted a flag',wonder:'Finished a wonder',wndr:'Earned a wonder reward',damr:'Shared in the Great Dam',games:'Won a medal',gres:'Took part in the Games',host:'Hosted the Games',hostwin:'Won a bid to host',bid:'Bid to host the Games',bidoff:'Withdrew a bid',disc:'Made a discovery'};
 /* the latest thing a nation did: [time, kind] with a kind of ACT or 'log:<kind>' (functions/stats-acts.js) */
 function stLast(l){
@@ -77061,7 +77303,7 @@ mapBox=(f=>function(kind){const h=f.apply(this,arguments),n=S.nation;if(kind!=='
 
 /* the browser tests' window into the game: test/lib.mjs sets EDICTUM_PROBE before the page loads (a
    player's own browser can reach all of this anyway) */
-if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({RPATCH,SC:()=>scProbe(),MTP:()=>({MTP,MTP_PAD,TBMP_SCALE,redrawMaps,mapScale,viewOf}),SCR:()=>({scrOf,scrClean,scrDef,scrFamOf,scrEdParse,scrGlyphs,scrLay,scrChars,scrSVG,scrLine,scrCard,scrCharterSVG,scrFmt,scrFor,dmRich,dmPlain,scrDmWith,SCR_FAM,SCR_ABC,SCS}),BDX:()=>bdProbe(),FLY:()=>({flagSVG,fgSplit,fgFused}),RD:()=>rdProbe(),JV:()=>jvProbe(),M100P:()=>({M100,M100_N,M100_MC,M100_MCN,m100Bits,m100Got,m100In,m100Due,m100Count,m100Show,m100Open,ctgMcOk,nationColor,czShOk,czShieldPath,unlocksOf,czPatSVG,xsMax}),M200P:()=>({M200,M200_N,M200_MC,M200_MCN,M200_U,m200Bits,m200Got,m200In,m200Due,m200Count,m200Show,m200Open,ctgMcOk,nationColor,czShOk,czShieldPath,unlocksOf,czPatSVG,czStampArt,czFrameArt,czCharge,czFramed,flagSVG,xsMax,ACH_BY_ID,achEarnedIds}),RVN:()=>({RV,rvData,rvSync,rvKey,rvHeld,rvStretch,rvMost,rvEdgeHolder,rvAt,rvNameAt,rvLabelAt,rvParts,rvRename,rvReset,rvNameProblem,rvTidy,rvLabel,rvnPanel,logLine,RVN_MAX,RVN_LEN,updateMapPanel,hexDist,HEX_W,REG}),CP2:()=>({BLD_ICO,bldIco,bldLead,cxDefTotal,cxOrder,qjBuilding,BUILDINGS}),PRVC:()=>({cxPrvOf,cxPrvSeatTrial,cxOvwCols,prvSeat,prvMine,prvOfCell,prvSetAut,prvAppoint,PRV}),NPX:()=>({fbTrend,fbYesterday,heroLead,heroOpen,opOf,OPEN_TO,hnOf,hnFill,hnLine,nbSection,ppWho,ppWhoHTML,ppHash,ppCarried,economy,territory,bordersOf,fillDeal,findNation,clsHide,MAP,hexDist,STAT_KEYS,popNow,myId}),PT:()=>ptProbe(),LTH:()=>lthProbe(),DAM:()=>damProbe(),CHAT:()=>({RGC,RGW,tab:rgcTab(),count:rgcCount(),region:rgcUnread(),world:rgwUnread(),named:rgwNamedUnread(),hidden:document.hidden}),UXP2:()=>({edictDesk,edictStep,edictOpen,fill,ISSUE_BY_ID,ACH,keysOpen,dmOthers,dmPickList,stGroups,stTabLast,navRecent,vhData,VH_KEY,VH_AFTER,QJ_DO,qjItems:q=>navQjItems(q),NAV_REC_KEY,ST_KEY}),HID:()=>({HIDN,hidMask,iAmHidden,frontier,mapPanel,warControls}),WG:()=>({wgTakers,wgForField,wgForPick,warGiveHex,warGive,occupiedFrom,attack,offerPeace,declareWar,collectConquests,dedupeConq}),WAKE:()=>({dormFresh,dormQuiet,dormWelcome,moveTo,RSTAT,REGIONS,REG,regDisabled}),LAND:()=>({landWait,capLift,capWrong,capNote,raceKnown,RACE,worldHeardAt:()=>worldHeardAt,landQ:()=>S.landQ,landQueued,fdSites:(n,T)=>fdSites(n,T)}),BG:{gain:bldGain,html:bldGainHtml},IB:()=>({agRoster,agPick,agStatus,heatOf,cvRoll,cvKey,cvBlock,cvOdds,buLv,buGap,buAll,BU,BU_KEYS,ibFile,ibWanted,ibChatter,HEAT_MAX,DD_TASKS,DD_LEG,findNation,allNations,cvProtected}),VL:()=>({VL_SECS,VL_DEF,CLS,CLS_OPS,CLS_READ,vlOrder,clsOf,clsRaw,clsMax,clsSeen,clsHide,clsRead,vlSave,findNation}),IFC:()=>({plan:ifcPlan,works:ifcWorks,line:ifcLine,tab:ifcTab}),XP:()=>({BUILDINGS,XU,XU_KEYS,XU_TOTAL,LOST_KINDS,LOST_ORDER,xuLv,xuWhy,xuHave,xuStart,xuCost,xuGear,xpSeen,expFree,xpTeamOpen,nationBuilt,expBackTeam,SITES,SITE_KINDS,expPlan,expOdds,expRuns,expRange,flRange,flAlive,flPlan,flDebug,flNow,discoveries,sendExpedition,hearReport,xpRoute,xpRivals,xpRivalText,xpFinds,flOdds,territory}),SVC:()=>({SVC,SVC_N,SVC_V,SVC_NEED,svcPlan,svcOpen,svcDig,svcShort,svcRoll,svcAmt,svcDayOf,svcRoom,svcNext}),FLC:()=>({FLC,FLC_RULES,FLC_CAT,flcId,flcTimes,flcPhase,flcPrev,flcView,flcLoad,flcChamp,flcTodo,flcClaims,flcLand,flcStreak,flcAllDone,flcSeen,flcDuty,flcDeskOn,flcDraftPush,FCA}),LK:{lakeMap,isLake,claimLand,lakeShore,fillHeld,LAKE_MAX,LAKE_A,freeCell,claimFrontier,blockPlan,autoPlan,terrCount,placePhrase,claimWhy,swapCheck,inspectPanel,writeClaims,landCredits:n=>landCredits(n)},PST:()=>({PST,PST_LOOKS,PST_SHAPES,pstBar,pstKm,pstView,pstBox,pstPlace,pstKeyOf,pstRender,pstShow,pstHide}),DIG:()=>({DIG_SETS,DIG_FIRST,DIG_POOL,DIG_SITES,DIG_LEN,DIG_EVENTS,DIG_SCH,digSet,digHeld,digDone,digRew,digCredits,digOrder,digActive,digRetired,digOpenedAt,digPlan,digSend,digOpen,digChoose,digMod,digEvent,digPity,digGround,digInvites,digJoin,digJointOn,digGiftsIn,digTake,digGiveSpare,digSellSpare,digHire,digRegionFinds,digFirsts,landEarned:n=>landEarned(n),REG,REGIONS,COL_BY_ID}),MW:()=>({mwOf,mwPoints,mwVisitors,mwTakings,mwExhibit,mwExhibitItems,mwRanking,mwWorn,mwSlots,mwOnShow,COL_BY_ID,COL_ITEMS,DIG_SETS,MW_FLOORS}),GM:()=>({gamesResults,edOf,b1Now,gevWhy,baseScores,entryOf,medalsIn,gamesRecords,gamesCeremony,unlocksOf,myId,formOf,GAME_EVENTS,clone,commit}),GB:()=>({IRON_DEP,IRON_DEP_YIELD,CELL_RES,MAP_T:MAP.T,mapAt:c=>{centerMain(c,NEAR_Z*1.6);},stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,FOOD_SPOIL,FOOD_EAT,FOOD_TIERS,FOOD_LAND,foodTier,TIMBER_BURN,foodGrowth,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({dspShown,dspRegShown,dspRegs,dspPic,dspLocator,dspHtDefs,pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),ASMX:()=>({ASMX,ASMX_TABS,asmBookAt,asmState,asmArcLoad,REG}),RGNX:()=>({RGN,RGN_PAGE,notifItems,ONL,onlRefresh}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals}),TYX:()=>({TY,TY_RULES,TY_K,tyOf,tyList,tyWarBlock,tyIncoming,affinity,alPactLive,alRelationsHTML}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,achTierCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC,step:rcStepCheck,head:rcHead,sponsoring:rcSponsoring,qr:qrMatrix,card:rcCardDraw,invCap:rcInvCap,free:rcFreeLand,STEPS:RC_STEPS,UNL:RC_UNLOCKS}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend,card:n=>tutCard(n),phase:n=>tutPhase(n),picks:(n,ph)=>tutPicks(n,ph),group:(n,k)=>tutGroup(n,tutL(k)),hid:n=>tutHid(n)},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours},WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR,bell:now=>notifItems(now||Date.now())},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},TIER:()=>({BTIER,bEff,bTier,bTierNext,bTierLine,tierQuote,tierProblem,cxTier,cxTrMap,tierSettle,tierReady,cxGoldNow,cxUpQuote,cxUpList,cxUps}),CX:{upgradable:cxUpgradable,mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState,UG:CX_UG,LV:CX_LV,ups:cxUps,upMap:cxUpMap,extras:cxBldExtras,quote:cxUpQuote},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo,unlockTarget,unlockShow,unlockFresh,unlockQueue,ULK,UNLOCKS,unlocksOf,toast:m=>toast(m)},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{coinBackSVG:cuCoinBackSVG,noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,coinSVG:cuCoinSVG,guide:cuGuideHTML,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,drawMap,sfKey,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ACH_RANKS_V1,ID_BD,achVal,achCtx,achEvalNew,achState,stockRates:n=>stockRates(n),achPoints,achRank,achRankOf,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,flagNorm:(f,n)=>flagNorm(f,n),flagSVG:(f,l)=>flagSVG(f,l),mapTip:id=>{const T=mapTerr('main'),i=T.list.findIndex(x=>x.id===id);if(i<0)return '';const cell=Array.prototype.indexOf.call(T.owner,i);return MAP_TIP.map(h=>{try{return h({kind:'main',cell,cv:null,x:0,y:0});}catch(e){return '';}}).filter(x=>typeof x==='string').join(' | ');},cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
+if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({RPATCH,SC:()=>scProbe(),MTP:()=>({MTP,MTP_PAD,TBMP_SCALE,redrawMaps,mapScale,viewOf}),SCR:()=>({scrOf,scrClean,scrDef,scrFamOf,scrEdParse,scrGlyphs,scrLay,scrChars,scrSVG,scrLine,scrCard,scrCharterSVG,scrFmt,scrFor,dmRich,dmPlain,scrDmWith,SCR_FAM,SCR_ABC,SCS}),BDX:()=>bdProbe(),FLY:()=>({flagSVG,fgSplit,fgFused}),RD:()=>rdProbe(),JV:()=>jvProbe(),M100P:()=>({M100,M100_N,M100_MC,M100_MCN,m100Bits,m100Got,m100In,m100Due,m100Count,m100Show,m100Open,ctgMcOk,nationColor,czShOk,czShieldPath,unlocksOf,czPatSVG,xsMax}),M200P:()=>({M200,M200_N,M200_MC,M200_MCN,M200_U,m200Bits,m200Got,m200In,m200Due,m200Count,m200Show,m200Open,ctgMcOk,nationColor,czShOk,czShieldPath,unlocksOf,czPatSVG,czStampArt,czFrameArt,czCharge,czFramed,flagSVG,xsMax,ACH_BY_ID,achEarnedIds}),WTN:()=>({WN,wbMap,wnKind,wnWaters,wnSync,wnAt,wnRename,wnReset,wnNameProblem,wnTaken,wnPanel,wnLabels,lakeMap,isLake,cellAt,WN_REACH,WTN_MAX,REG,RV,rvData,hexDist,territory,MAP,HEX_W,updateMapPanel,logLine}),RVN:()=>({RV,rvData,rvSync,rvKey,rvHeld,rvStretch,rvMost,rvEdgeHolder,rvAt,rvNameAt,rvLabelAt,rvParts,rvRename,rvReset,rvNameProblem,rvTidy,rvLabel,rvnPanel,logLine,RVN_MAX,RVN_LEN,updateMapPanel,hexDist,HEX_W,REG}),CP2:()=>({BLD_ICO,bldIco,bldLead,cxDefTotal,cxOrder,qjBuilding,BUILDINGS}),PRVC:()=>({cxPrvOf,cxPrvSeatTrial,cxOvwCols,prvSeat,prvMine,prvOfCell,prvSetAut,prvAppoint,PRV}),NPX:()=>({fbTrend,fbYesterday,heroLead,heroOpen,opOf,OPEN_TO,hnOf,hnFill,hnLine,nbSection,ppWho,ppWhoHTML,ppHash,ppCarried,economy,territory,bordersOf,fillDeal,findNation,clsHide,MAP,hexDist,STAT_KEYS,popNow,myId}),PT:()=>ptProbe(),LTH:()=>lthProbe(),DAM:()=>damProbe(),CHAT:()=>({RGC,RGW,tab:rgcTab(),count:rgcCount(),region:rgcUnread(),world:rgwUnread(),named:rgwNamedUnread(),hidden:document.hidden}),UXP2:()=>({edictDesk,edictStep,edictOpen,fill,ISSUE_BY_ID,ACH,keysOpen,dmOthers,dmPickList,stGroups,stTabLast,navRecent,vhData,VH_KEY,VH_AFTER,QJ_DO,qjItems:q=>navQjItems(q),NAV_REC_KEY,ST_KEY}),HID:()=>({HIDN,hidMask,iAmHidden,frontier,mapPanel,warControls}),WG:()=>({wgTakers,wgForField,wgForPick,warGiveHex,warGive,occupiedFrom,attack,offerPeace,declareWar,collectConquests,dedupeConq}),WAKE:()=>({dormFresh,dormQuiet,dormWelcome,moveTo,RSTAT,REGIONS,REG,regDisabled}),LAND:()=>({landWait,capLift,capWrong,capNote,raceKnown,RACE,worldHeardAt:()=>worldHeardAt,landQ:()=>S.landQ,landQueued,fdSites:(n,T)=>fdSites(n,T)}),BG:{gain:bldGain,html:bldGainHtml},IB:()=>({agRoster,agPick,agStatus,heatOf,cvRoll,cvKey,cvBlock,cvOdds,buLv,buGap,buAll,BU,BU_KEYS,ibFile,ibWanted,ibChatter,HEAT_MAX,DD_TASKS,DD_LEG,findNation,allNations,cvProtected}),VL:()=>({VL_SECS,VL_DEF,CLS,CLS_OPS,CLS_READ,vlOrder,clsOf,clsRaw,clsMax,clsSeen,clsHide,clsRead,vlSave,findNation}),IFC:()=>({plan:ifcPlan,works:ifcWorks,line:ifcLine,tab:ifcTab}),XP:()=>({BUILDINGS,XU,XU_KEYS,XU_TOTAL,LOST_KINDS,LOST_ORDER,xuLv,xuWhy,xuHave,xuStart,xuCost,xuGear,xpSeen,expFree,xpTeamOpen,nationBuilt,expBackTeam,SITES,SITE_KINDS,expPlan,expOdds,expRuns,expRange,flRange,flAlive,flPlan,flDebug,flNow,discoveries,sendExpedition,hearReport,xpRoute,xpRivals,xpRivalText,xpFinds,flOdds,territory}),SVC:()=>({SVC,SVC_N,SVC_V,SVC_NEED,svcPlan,svcOpen,svcDig,svcShort,svcRoll,svcAmt,svcDayOf,svcRoom,svcNext}),FLC:()=>({FLC,FLC_RULES,FLC_CAT,flcId,flcTimes,flcPhase,flcPrev,flcView,flcLoad,flcChamp,flcTodo,flcClaims,flcLand,flcStreak,flcAllDone,flcSeen,flcDuty,flcDeskOn,flcDraftPush,FCA}),LK:{lakeMap,isLake,claimLand,lakeShore,fillHeld,LAKE_MAX,LAKE_A,freeCell,claimFrontier,blockPlan,autoPlan,terrCount,placePhrase,claimWhy,swapCheck,inspectPanel,writeClaims,landCredits:n=>landCredits(n)},PST:()=>({PST,PST_LOOKS,PST_SHAPES,pstBar,pstKm,pstView,pstBox,pstPlace,pstKeyOf,pstRender,pstShow,pstHide}),DIG:()=>({DIG_SETS,DIG_FIRST,DIG_POOL,DIG_SITES,DIG_LEN,DIG_EVENTS,DIG_SCH,digSet,digHeld,digDone,digRew,digCredits,digOrder,digActive,digRetired,digOpenedAt,digPlan,digSend,digOpen,digChoose,digMod,digEvent,digPity,digGround,digInvites,digJoin,digJointOn,digGiftsIn,digTake,digGiveSpare,digSellSpare,digHire,digRegionFinds,digFirsts,landEarned:n=>landEarned(n),REG,REGIONS,COL_BY_ID}),MW:()=>({mwOf,mwPoints,mwVisitors,mwTakings,mwExhibit,mwExhibitItems,mwRanking,mwWorn,mwSlots,mwOnShow,COL_BY_ID,COL_ITEMS,DIG_SETS,MW_FLOORS}),GM:()=>({gamesResults,edOf,b1Now,gevWhy,baseScores,entryOf,medalsIn,gamesRecords,gamesCeremony,unlocksOf,myId,formOf,GAME_EVENTS,clone,commit}),GB:()=>({IRON_DEP,IRON_DEP_YIELD,CELL_RES,MAP_T:MAP.T,mapAt:c=>{centerMain(c,NEAR_Z*1.6);},stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,FOOD_SPOIL,FOOD_EAT,FOOD_TIERS,FOOD_LAND,foodTier,TIMBER_BURN,foodGrowth,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({dspShown,dspRegShown,dspRegs,dspPic,dspLocator,dspHtDefs,pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),ASMX:()=>({ASMX,ASMX_TABS,asmBookAt,asmState,asmArcLoad,REG}),RGNX:()=>({RGN,RGN_PAGE,notifItems,ONL,onlRefresh}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals}),TYX:()=>({TY,TY_RULES,TY_K,tyOf,tyList,tyWarBlock,tyIncoming,affinity,alPactLive,alRelationsHTML}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,achTierCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC,step:rcStepCheck,head:rcHead,sponsoring:rcSponsoring,qr:qrMatrix,card:rcCardDraw,invCap:rcInvCap,free:rcFreeLand,STEPS:RC_STEPS,UNL:RC_UNLOCKS}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend,card:n=>tutCard(n),phase:n=>tutPhase(n),picks:(n,ph)=>tutPicks(n,ph),group:(n,k)=>tutGroup(n,tutL(k)),hid:n=>tutHid(n)},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours},WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR,bell:now=>notifItems(now||Date.now())},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},TIER:()=>({BTIER,bEff,bTier,bTierNext,bTierLine,tierQuote,tierProblem,cxTier,cxTrMap,tierSettle,tierReady,cxGoldNow,cxUpQuote,cxUpList,cxUps}),CX:{upgradable:cxUpgradable,mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState,UG:CX_UG,LV:CX_LV,ups:cxUps,upMap:cxUpMap,extras:cxBldExtras,quote:cxUpQuote},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo,unlockTarget,unlockShow,unlockFresh,unlockQueue,ULK,UNLOCKS,unlocksOf,toast:m=>toast(m)},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{coinBackSVG:cuCoinBackSVG,noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,coinSVG:cuCoinSVG,guide:cuGuideHTML,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,drawMap,sfKey,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ACH_RANKS_V1,ID_BD,achVal,achCtx,achEvalNew,achState,stockRates:n=>stockRates(n),achPoints,achRank,achRankOf,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,flagNorm:(f,n)=>flagNorm(f,n),flagSVG:(f,l)=>flagSVG(f,l),mapTip:id=>{const T=mapTerr('main'),i=T.list.findIndex(x=>x.id===id);if(i<0)return '';const cell=Array.prototype.indexOf.call(T.owner,i);return MAP_TIP.map(h=>{try{return h({kind:'main',cell,cv:null,x:0,y:0});}catch(e){return '';}}).filter(x=>typeof x==='string').join(' | ');},cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
 /* ───────── Letters by post: the player's email address, confirmed by a code, and the letters they choose ─────────
    Settings › Letters by post (src/shim.js mail; functions/mail.js). The address lives only on the server; this card
    asks for it each time Settings opens. Things this nation does to another player's nation (a letter, a war, a deal)
