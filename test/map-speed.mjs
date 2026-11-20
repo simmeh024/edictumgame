@@ -53,36 +53,45 @@ await go('map'); await sleep(400);
 await act('map-suggest'); await act('settle'); await until(() => page.evaluate(() => (window.__game.S.nation.cities || []).length > 0)); await sleep(300);
 await page.evaluate(() => { const b = [...document.querySelectorAll('[role="dialog"] button')].find(x => /^Later$/.test(x.textContent.trim())); if (b) b.click(); });
 const draws = () => page.evaluate(() => window.__draws);
-/* the pictures drawn while f runs and ms pass; the clock draws the map again when the minute turns, so a count over a
-   turn of the minute is taken again */
+/* The pictures drawn (n) while f runs and ms pass, and the times the page changed meanwhile (ch: each batch of changes
+   to #app, the map's own canvases and tooltip aside). The game's clock may draw the page again in the window (a
+   countdown in the panel), and each such page is a picture of its own; what must not happen is more pictures than
+   pages, as when one page drew the map two or three times. The clock also draws the map when the minute turns, so a
+   count over a turn of the minute is taken again. */
 async function drawn(f, ms) {
   for (let k = 0; ; k++) {
-    const [d0, m0] = await page.evaluate(() => [window.__draws, Math.floor(Date.now() / 60000)]);
+    const [d0, m0] = await page.evaluate(() => {
+      window.__ch = 0; if (window.__mo) window.__mo.disconnect();
+      const skip = t => { const e = t && (t.nodeType === 1 ? t : t.parentElement); return !!(e && (e.localName === 'canvas' || e.closest('.map-tip'))); };
+      window.__mo = new MutationObserver(rs => { if (rs.some(r => !skip(r.target))) window.__ch++; });
+      window.__mo.observe(document.getElementById('app'), { subtree: true, childList: true, characterData: true, attributes: true });
+      return [window.__draws, Math.floor(Date.now() / 60000)];
+    });
     await f(); await sleep(ms);
-    const [d1, m1] = await page.evaluate(() => [window.__draws, Math.floor(Date.now() / 60000)]);
-    if (m0 === m1 || k === 2) return d1 - d0;
+    const [d1, m1, ch] = await page.evaluate(() => { window.__mo.disconnect(); return [window.__draws, Math.floor(Date.now() / 60000), window.__ch]; });
+    if (m0 === m1 || k === 2) return { n: d1 - d0, ch };
   }
 }
 
 /* 1. one picture per page drawn */
 for (let k = 0; k < 2; k++) {
   await go('nation'); await sleep(800);
-  const n = await drawn(() => go('map'), 1200);
-  check(`opening the World map draws it once (${k + 1})`, n === 1, n);
+  const r = await drawn(() => go('map'), 1200);
+  check(`opening the World map draws it once (${k + 1})`, r.n >= 1 && r.n <= r.ch, r);
 }
 {
   let k = 0;
   /* a note at the top of the map's panel (S.warMsg) changes the page, so the page is drawn again, not left as it was */
-  const n = await drawn(() => page.evaluate(m => { const G = window.__game; G.S.warMsg = 'Steady as the tide ' + m; G.render(); }, ++k), 800);
-  check('a page drawn while the map is open draws it once', n === 1, n);
-  const n1 = await drawn(() => page.evaluate(m => { const G = window.__game; for (let i = 0; i < 3; i++) { G.S.warMsg = 'Thrice ' + m + i; G.render(); } }, ++k), 800);
-  check('three pages drawn in one go: still one picture', n1 === 1, n1);
-  const n2 = await drawn(() => page.setViewportSize({ width: 1180, height: 820 }), 1000);
-  check('a new size draws it again', n2 >= 1, n2);
+  const r = await drawn(() => page.evaluate(m => { const G = window.__game; G.S.warMsg = 'Steady as the tide ' + m; G.render(); }, ++k), 800);
+  check('a page drawn while the map is open draws it once', r.n >= 1 && r.n <= r.ch, r);
+  const r1 = await drawn(() => page.evaluate(m => { const G = window.__game; for (let i = 0; i < 3; i++) { G.S.warMsg = 'Thrice ' + m + i; G.render(); } }, ++k), 800);
+  check('three pages drawn in one go: one picture', r1.n >= 1 && r1.n <= r1.ch, r1);
+  const r2 = await drawn(() => page.setViewportSize({ width: 1180, height: 820 }), 1000);
+  check('a new size draws it again', r2.n >= 1, r2);
   const sz = await page.evaluate(() => { const c = document.querySelector('canvas.map-cv[data-map="main"]'); return [c._sz, c.clientWidth + 'x' + c.clientHeight]; });
   check('drawn at the size it has', sz[0] === sz[1], sz);
-  const n3 = await drawn(async () => {}, 1000);
-  check('and then left alone', n3 === 0, n3);
+  const r3 = await drawn(async () => {}, 1000);
+  check('and then left alone', r3.n <= r3.ch, r3);
 }
 
 /* 2. the sea at rest */
