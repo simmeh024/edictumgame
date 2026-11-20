@@ -39,6 +39,10 @@ test('the questions a pass keeps are wrapped last, round every other hook, and t
   for(const f of ['render','updateMapPanel','drawMap'])assert.match(tail,new RegExp('\\n'+f+'=\\(f=>function\\([^)]*\\)\\{return PASS\\.m\\?f\\.apply\\(this,arguments\\):passRun\\(f,this,arguments\\);\\}\\)\\('+f+'\\);'),f);
   assert.match(tail,/territory=\(f=>function\(extra\)\{return extra\|\|!PASS\.m\?f\.apply\(this,arguments\):passGet\('terr',TERR_AT==null\?'':TERR_AT,/,'the land as it was at another moment is its own answer');
   assert.match(game,/function commit\(n\)\{passForget\(\);/,'a save forgets the pass’s answers');
+  /* code that changes a record in place to see what would follow (the income forecast) forgets them too */
+  const ifc=cut('function ifcPlan(','\n/* what is under way, in words');
+  assert.match(ifc,/const fresh=\(\)=>\{econMemo=[^\n]*cityMemo=[^\n]*passForget\(\);return/,'each step of the forecast');
+  assert.match(ifc,/undo\[j\]\(\);econMemo=saved\.e;cityMemo=saved\.c;passForget\(\);/,'and the record put back');
   assert.match(game,/function findNation\(id\)\{\n {2}\/\*[^\n]*\*\/\n {2}if\(PASS\.m\)return passGet\('nat','',/,'nations by id once per pass');
 });
 

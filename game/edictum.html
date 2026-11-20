@@ -69316,13 +69316,15 @@ function ifcPlan(n,quick){
   if(ifcMemo.n===n&&ifcMemo.k===k&&(quick||!ifcMemo.q))return ifcMemo.v;
   const groups=quick?(works.length?[works]:[]):works.length>IFC_MAX?works.slice(0,IFC_MAX-1).map(w=>[w]).concat([works.slice(IFC_MAX-1)]):works.map(w=>[w]);
   const saved={e:econMemo,c:cityMemo},undo=[],steps=[];let base=null,prev=null,ok=true;
-  const fresh=()=>{econMemo={T:null,k:'',at:0,v:null};cityMemo={T:null,k:'',v:null};return {rt:{...stockRates(n)},cap:stockCap(n)};};
+  /* the works are finished on the record itself, so every memo is worked out afresh: the pass's answers too (see passRun),
+     or a forecast drawn with a page would read the record as it was before each work */
+  const fresh=()=>{econMemo={T:null,k:'',at:0,v:null};cityMemo={T:null,k:'',v:null};passForget();return {rt:{...stockRates(n)},cap:stockCap(n)};};
   const diff=(a,b)=>Object.fromEntries(RES.map(r=>[r,a[r]-b[r]]));
   try{
     base=prev=fresh();
     for(const g of groups){for(const w of g)undo.push(ifcFinish(w,now));const m=fresh();steps.push({works:g,d:g[g.length-1].d,rt:diff(m.rt,prev.rt),cap:m.cap-prev.cap});prev=m;}
   }catch(e){ok=false;}
-  finally{for(let j=undo.length-1;j>=0;j--)undo[j]();econMemo=saved.e;cityMemo=saved.c;try{territory();}catch(e){}}
+  finally{for(let j=undo.length-1;j>=0;j--)undo[j]();econMemo=saved.e;cityMemo=saved.c;passForget();try{territory();}catch(e){}}
   const v=ok&&base?{works,steps,base,after:prev,total:{rt:diff(prev.rt,base.rt),cap:prev.cap-base.cap},last:works.length?works[works.length-1].d:0}:null;
   ifcMemo={k,n,q:!!quick,v};return v;
 }
