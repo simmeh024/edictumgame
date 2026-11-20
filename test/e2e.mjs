@@ -1121,7 +1121,7 @@ for (const [vp, dark] of [[{ width: 1280, height: 900 }, false], [{ width: 390, 
   const S = await player('S' + vp.width, { vp, dark });
   await open(S);
   await S.screenshot({ path: path.join(OUT, `found-${vp.width}.png`) });
-  await found(S, 'Shotland');
+  await found(S, vp.width > 600 ? 'Shotland' : 'Phoneland');  // names are unique per region
   const box = await S.$('.ed-acct');
   await box.scrollIntoViewIfNeeded();
   await S.screenshot({ path: path.join(OUT, `control-${vp.width}.png`) });
