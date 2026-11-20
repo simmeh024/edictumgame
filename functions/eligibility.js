@@ -42,7 +42,7 @@ export async function refuseBannedIdentity(db, who) {
 export async function identity(uid) {
   const u = await getAuth().getUser(uid);
   if (u.disabled) refuse('account_disabled', 'This account is disabled. Contact support.');
-  return { uid, admin: u.customClaims?.admin === true, mod: u.customClaims?.mod === true, registered: registered(u), generation: u.metadata.creationTime, ids: identityHashes(u) };
+  return { uid, admin: u.customClaims?.admin === true, mod: u.customClaims?.mod === true, amb: u.customClaims?.amb === true, registered: registered(u), generation: u.metadata.creationTime, ids: identityHashes(u) };
 }
 // All sensitive systems use this check. Birth is Firestore's document creation time, never JSON.founded.
 // Call inside the same transaction as the protected action so moderation and region changes race safely.

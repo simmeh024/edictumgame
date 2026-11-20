@@ -6225,6 +6225,7 @@ button.prv-rb{cursor:pointer}button.prv-rb:hover{border-color:var(--ink-3)}
 .obs-bar .btn{padding:6px 12px;background:var(--stamp-ink);color:var(--stamp);border-color:var(--stamp-ink)}
 .side-who>.side-nation{flex:1;min-width:0}
 .adm-pill.mod,.staff-pill.mod{background:#1f7a46;color:#fff}
+.staff-pill.amb{background:#1d5fa8;color:#fff}
 .adm-pill{display:inline-flex;align-items:center;flex:none;margin-bottom:3px;padding:3px 9px;border-radius:999px;background:var(--stamp);color:var(--stamp-ink);font:600 11px/1.3 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;text-decoration:none;white-space:nowrap}
 a.adm-pill:hover{filter:brightness(1.12)}
 a.adm-pill:focus-visible{outline:2px solid var(--stamp);outline-offset:2px}
@@ -9382,6 +9383,7 @@ button.rgc-nm{text-align:left}
 .rgc-cd{flex:1;min-width:0;max-width:340px;margin:2px 0;padding:8px 10px;border:1px solid var(--line);border-left:3px solid var(--stamp);border-radius:6px;background:var(--paper-2,var(--paper))}
 .rgc-cd-t{margin:0;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-2)}
 .rgc-cd-big{display:flex;align-items:center;gap:6px;margin:2px 0 4px;font-size:15px;font-weight:600}
+.rgc-cd-big .staff-pill{padding:2px 7px 2px 6px;font-size:9.5px}
 .rgc-cd-g{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:2px 12px;margin:4px 0 0}
 .rgc-cd-g div{display:flex;justify-content:space-between;gap:6px;font-size:13px}.rgc-cd-g dt{display:flex;align-items:center;gap:4px;color:var(--ink-2)}
 .rgc-cd-g dd{margin:0;font-weight:600;text-align:right}.rgc-cd-g small{display:block;font-weight:400;font-size:11px;color:var(--ink-2)}
@@ -54644,6 +54646,7 @@ async function connect(){
   if(mapStale)return;
   S.isOwner=await user.isOwner();
   S.isMod=!S.isOwner&&typeof user.isMod==='function'&&await user.isMod();
+  S.isAmb=!S.isOwner&&!S.isMod&&typeof user.isAmb==='function'&&await user.isAmb();
   if((OBS||PV)&&!S.isOwner)return quit();
   if(PV){S.uid=PV.uid;try{if(!(await pvLoad(db)))return;}catch(e){S.pvErr=e&&e.message||'unknown';render();return;}}
   await regionControls();
@@ -54776,6 +54779,13 @@ async function connect(){
     else if(S.isMod&&!S.staffMod.has(uid))db.doc('staff/'+uid).set({t:Date.now(),m:true}).catch(()=>{});
     else if(!S.isOwner&&!S.isMod&&st.has(uid))db.doc('staff/'+uid).delete().catch(()=>{});
     if(['nation','visit','region','messages'].includes(S.view))quietRender();
+  },()=>{});
+  /* Edictum Ambassadors (functions/admin.js, setAmb): only the server writes the list, and every player reads it for
+     the blue Ambassador pill on the nation card and in the chats */
+  listen(db.collection('ambassadors'),qs=>{
+    S.ambs=new Set(qs.docs.map(d=>d.id));
+    if(['nation','visit','region','messages','admin-players'].includes(S.view))quietRender();
+    try{rgcPaint();}catch(e){}
   },()=>{});
   if((S.isOwner||S.isMod)&&!PV)admTzListen(db,uid);
   render();
@@ -55012,11 +55022,18 @@ function isStaff(id){return !!id&&((id===S.uid&&!!(S.isOwner||S.isMod)&&!PV)||!!
    with the report queue and the region chats */
 function isModId(id){return !!id&&((id===S.uid&&!!S.isMod&&!PV)||!!(S.staffMod&&S.staffMod.has(id)));}
 function staffPillOf(id){return isModId(id)?MOD_PILL:STAFF_PILL;}
+/* an Edictum Ambassador (appointed by an admin on the player's portal page, functions/admin.js setAmb): blue, "Edictum
+   Ambassador", on the nation card and in the chats. They may silence players from a chat line's menu, and that is all:
+   no portal, no deleting, no lifting a silence */
+function isAmbId(id){return !!id&&((id===S.uid&&!!S.isAmb&&!PV)||!!(S.ambs&&S.ambs.has(id)));}
+/* the pill beside a nation's name: staff first, then an ambassador's */
+function rolePillOf(id){return isStaff(id)?staffPillOf(id):isAmbId(id)?AMB_PILL:'';}
 function portalOk(v){return !!S.isOwner||!!S.isMod&&MOD_VIEWS.includes(v);}
 /* a moderator's portal: the queue of what needs them, the reports, every region's chat, and the player behind a report
    (functions/admin.js, modPlayer: the nation and its history, never the account behind it) */
 const MOD_VIEWS=['admin-triage','admin-reports','admin-chat','admin-players'];
 const STAFF_PILL='<span class="staff-pill" title="A member of the Edictum team"><svg viewBox="0 0 12 14" aria-hidden="true"><path d="M6 .8 11 2.7v3.9c0 3.1-2.1 5.6-5 6.6-2.9-1-5-3.5-5-6.6V2.7Z" fill="currentColor"/><path d="m3.6 7 1.7 1.7 3.2-3.4" fill="none" stroke="var(--stamp)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Edictum staff</span>';
+const AMB_PILL='<span class="staff-pill amb" title="An ambassador of Edictum, who helps keep the chats friendly"><svg viewBox="0 0 14 14" aria-hidden="true"><circle cx="7" cy="7" r="5.9" fill="none" stroke="currentColor" stroke-width="1.4"/><ellipse cx="7" cy="7" rx="2.5" ry="5.9" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M1.2 7h11.6" stroke="currentColor" stroke-width="1.2"/></svg>Edictum Ambassador</span>';
 const MOD_PILL='<span class="staff-pill mod" title="A moderator of Edictum"><svg viewBox="0 0 12 14" aria-hidden="true"><path d="M6 .8 11 2.7v3.9c0 3.1-2.1 5.6-5 6.6-2.9-1-5-3.5-5-6.6V2.7Z" fill="currentColor"/><path d="m3.6 7 1.7 1.7 3.2-3.4" fill="none" stroke="#1f7a46" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Edictum Moderator</span>';
 function heroStamps(n,id){
   const now=Date.now(),out=[],st=(cls,k,v,sub)=>`<span class="hs ${cls}"><span class="hs-k">${esc(k)}</span><span class="hs-v">${esc(v)}</span>${sub?`<span class="hs-s">${esc(sub)}</span>`:''}</span>`;
@@ -55040,7 +55057,7 @@ function hero(n,opt){
         <h1 class="hero-name" style="--lw:${Math.max(6,...String(n.name).split(/[\s-]+/).map(w=>w.length))}">${esc(n.name)}${czEpithet(n)}</h1>${scrHero(n)}
         ${n.motto?`<p class="hero-motto">“${esc(n.motto)}”</p>`:''}
         ${heroLead(n)}
-        <div class="hero-cat"><span class="cat-pill">${esc(cat)}</span>${isStaff(id)?staffPillOf(id):''}${n.npc?'<span class="chip">Computer-run</span>':''}${opt.player?'<span class="chip">Player nation</span>':''}</div>
+        <div class="hero-cat"><span class="cat-pill">${esc(cat)}</span>${rolePillOf(id)}${n.npc?'<span class="chip">Computer-run</span>':''}${opt.player?'<span class="chip">Player nation</span>':''}</div>
         <p class="hero-blurb">${esc(CAT_BLURB[cat])}</p>
         ${n.about?`<p class="hero-about">${esc(n.about)}</p>`:''}${heroStamps(n,id)}${idActs(n)}
       </div>
@@ -58701,6 +58718,7 @@ ${adminCards(p)}
     <h3 class="help-h3">Timeline</h3>${adminTimeline(p)}
     <div class="row"><button class="btn ghost small" data-act="admin-history" data-id="${esc(p.uid)}">View admin history</button>${p.exists?pvBtn(p.reg,p.uid):''}${p.exists&&p.reg===REG.id?`<button class="btn ghost small" data-act="visit" data-id="${esc(p.uid)}">View nation</button>`:p.exists?obsVisitBtn(p.reg,p.uid):''}</div>
     <h3 class="help-h3">Moderator</h3>${adminModRole(p)}
+    <h3 class="help-h3">Ambassador</h3>${adminAmbRole(p)}
     ${isStaff(p.uid)||isModId(p.uid)?`<h3 class="help-h3">Portal clock</h3>${adminClock(p)}`:''}
     <h3 class="help-h3">The Chancery Club</h3>${adminClub(p)}
     <h3 class="help-h3">Shop packs</h3>${adminPacks(p)}
@@ -58780,9 +58798,26 @@ function adminModRole(p){
 async function adminModRoleSet(uid,on){
   const p=ADMX.player;if(!p||p.uid!==uid||ADMX.modRoleBusy)return;
   ADMX.modRoleBusy=true;ADMX.modRoleMsg='';render();
-  try{await adminRequest({op:'setMod',uid,on});if(!S.staffMod)S.staffMod=new Set();if(on)S.staffMod.add(uid);else S.staffMod.delete(uid);ADMX.modRoleMsg=on?'Appointed. They see the Mod pill once they reload the game.':'No longer a moderator.';}
+  try{await adminRequest({op:'setMod',uid,on});if(!S.staffMod)S.staffMod=new Set();if(on)S.staffMod.add(uid);else S.staffMod.delete(uid);if(on&&S.ambs)S.ambs.delete(uid);ADMX.modRoleMsg=on?'Appointed. They see the Mod pill once they reload the game.':'No longer a moderator.';}
   catch(e){ADMX.modRoleMsg='That did not work: '+(e.message||e.code||'unknown error');}
   ADMX.modRoleBusy=false;render();
+}
+/* an Edictum Ambassador: an admin appoints one here (functions/admin.js, setAmb). The blue Ambassador pill on their nation
+   card and chat lines, and Silence in a chat line's menu; no portal. A moderator reading this page sees whether they are one */
+function adminAmbRole(p){
+  const on=isAmbId(p.uid),busy=ADMX.ambRoleBusy?' disabled':'';
+  if(isStaff(p.uid)&&!on)return `<p class="hint">This player is ${isModId(p.uid)?'a moderator':'an admin'}, and can silence players already.</p>`;
+  const pill=`<p>${on?AMB_PILL:'<span class="chip">Not an ambassador</span>'}</p>`;
+  if(!S.isOwner)return pill;
+  return `${pill}<div class="row"><button class="btn small${on?' ghost':''}" data-act="admin-ambrole" data-v="${on?'off':'on'}" data-id="${esc(p.uid)}"${busy}>${on?'Stand down as ambassador':'Appoint as ambassador'}</button></div>
+    <p class="hint">An ambassador has the blue Ambassador pill on their nation card and beside their lines in the chats, and can silence a player from a chat line’s menu. That is all: no portal, no removing lines, no lifting a silence (moderators and admins do that on Region chats), and they cannot silence staff or another ambassador. They reload the game to get Silence.</p>${ADMX.ambRoleMsg?`<p class="hint" aria-live="polite">${esc(ADMX.ambRoleMsg)}</p>`:''}`;
+}
+async function adminAmbRoleSet(uid,on){
+  const p=ADMX.player;if(!p||p.uid!==uid||ADMX.ambRoleBusy)return;
+  ADMX.ambRoleBusy=true;ADMX.ambRoleMsg='';render();
+  try{await adminRequest({op:'setAmb',uid,on});if(!S.ambs)S.ambs=new Set();if(on)S.ambs.add(uid);else S.ambs.delete(uid);ADMX.ambRoleMsg=on?'Appointed. Everyone sees the blue Ambassador pill now; they can silence players once they reload the game.':'No longer an ambassador.';}
+  catch(e){ADMX.ambRoleMsg='That did not work: '+(e.message||e.code||'unknown error');}
+  ADMX.ambRoleBusy=false;render();
 }
 /* the player's Chancery Club, and a free membership an admin turns on or off (functions/admin.js, club()) */
 const ADM_CLUB_DAYS=[[7,'A week'],[30,'30 days'],[90,'90 days'],[365,'A year'],[3650,'Ten years']];
@@ -59045,6 +59080,7 @@ document.addEventListener('click',async e=>{
   if(a==='admin-once-copy'){const f=document.getElementById('admin-once-link');const done=ok=>{ADMX.onceMsg=ok?'Copied. Send it to the player yourself; it works once, within a day.':'Select the link and copy it.';render();};try{navigator.clipboard.writeText(ADMX.onceLink).then(()=>done(true),()=>{if(f){f.focus();f.select();}done(false);});}catch(err){done(false);}return;}
   if(a==='admin-club'){adminClubSet(id,el.dataset.v==='on');return;}
   if(a==='admin-modrole'){adminModRoleSet(id,el.dataset.v==='on');return;}
+  if(a==='admin-ambrole'){adminAmbRoleSet(id,el.dataset.v==='on');return;}
   if(a==='admin-pack'){adminPackSet(id,el.dataset.v==='on'?ADMX.packP:el.dataset.p,el.dataset.v==='on');return;}
   if(a==='admin-inspect'){
     ADMTZ.other=null;ADMX.err='';ADMX.mod=null;ADMX.modReason='';ADMX.modMsg='';ADMX.note='';ADMX.noteFor='';ADMX.noteMsg='';ADMX.clubWhy='';ADMX.clubMsg='';ADMX.modRoleMsg='';ADMX.packWhy='';ADMX.packMsg='';ADMX.packP='';ADMX.watchWhy='';ADMX.watchFor='';ADMX.watchMsg='';ADMX.onceFor='';ADMX.onceAsk='';ADMX.onceMsg='';ADMX.onceLink='';
@@ -85667,12 +85703,14 @@ const RGC_TEAM_SVG='<svg viewBox="0 0 12 14" aria-hidden="true"><path d="M6 .8 1
 const RGC_SVG='<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M4.5 5.8A2.3 2.3 0 0 1 6.8 3.5h10.4a2.3 2.3 0 0 1 2.3 2.3v7.4a2.3 2.3 0 0 1-2.3 2.3h-6.6l-4 3.4c-.5.4-1.1 0-1.1-.5v-2.9a2.3 2.3 0 0 1-1-1.9Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M8.3 8.4h7.4M8.3 11.4h4.6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>';
 function rgcOn(){if(PV||!S.db)return false;if(OBS)return !!S.obsOn;return !!S.nation&&S.mode==='world'&&dmx(S.nation).rc!==0;}
 function rgcMod(){return !!S.isOwner&&!PV||isStaff(myId());}
+/* an ambassador silences the author of a line (not staff, not another ambassador), and does nothing else here */
+function rgcAmb(){return !!S.isAmb&&!PV&&!OBS;}
 /* why the player cannot write here, if they cannot: the server checks it again */
 function rgcWrite(){
   if(OBS)return {why:'You are observing this region: you can read its chat and remove lines, not write in it.'};
   if(S.banned)return {why:'Writing in the chat is unavailable while this account is banned. Contact support for help.'};
   const q=RGC.sil;
-  if(q&&q.until>Date.now())return {why:`A moderator has silenced you in the region chat${q.perm?'':` until ${fmtDate(q.until)}, ${fmtTime(q.until)}`}${q.why?`. Reason: ${q.why}`:''}. You can still read along. If you think it is a mistake, write to the team from the Help page.`};
+  if(q&&q.until>Date.now())return {why:`${q.amb?'An ambassador':'A moderator'} has silenced you in the region chat${q.perm?'':` until ${fmtDate(q.until)}, ${fmtTime(q.until)}`}${q.why?`. Reason: ${q.why}`:''}. You can still read along. If you think it is a mistake, write to the team from the Help page.`};
   const a=accountInfo();
   if(a&&a.reason==='moderated')return {why:'Writing in the chat is unavailable while this nation is under moderation.'};
   return null;
@@ -85875,7 +85913,7 @@ function rgcAsk(m,nm,mine){
     return `<div class="rgc-ask rgc-mute" role="group" aria-label="Silence ${esc(nm)}"><p>Silence <b>${esc(nm)}</b> in every region’s chat? It can still read along, and sees the reason. The audit log keeps it.</p>
       <label for="rgc-mh-${i}">For</label><select class="input" id="rgc-mh-${i}" data-rgc="mute-h" data-id="${i}">${ACX_HOURS.map(([h,l])=>`<option value="${h}"${q.hours===h?' selected':''}>${l}</option>`).join('')}</select>
       <label for="rgc-mw-${i}">Reason, shown to the player</label><input class="input" id="rgc-mw-${i}" data-rgc="mute-why" data-id="${i}" maxlength="200" value="${esc(q.why)}" placeholder="For example: spam" autocomplete="off">
-      <label class="rgc-mwipe" for="rgc-mx-${i}"><input type="checkbox" id="rgc-mx-${i}" data-rgc="mute-wipe" data-id="${i}"${q.wipe?' checked':''}> Also remove its lines of the last 24 hours</label>
+      ${rgcMod()?`<label class="rgc-mwipe" for="rgc-mx-${i}"><input type="checkbox" id="rgc-mx-${i}" data-rgc="mute-wipe" data-id="${i}"${q.wipe?' checked':''}> Also remove its lines of the last 24 hours</label>`:''}
       <div class="row"><button type="button" class="btn small danger solid" data-rgc="mute" data-id="${i}"${q.busy?' disabled':''}>${q.busy?'Silencing…':'Silence'}</button><button type="button" class="btn ghost small" data-rgc="ask-no">Cancel</button></div></div>`;}
   const blk=RGC.ask.k==='block';
   const t=blk?`Block <b>${esc(nm)}</b>? Its lines in this chat are hidden and its letters no longer reach you. It is not told. You can unblock it in Settings › Letters.`
@@ -85892,13 +85930,13 @@ function rgcLine(m,run,by,me,mod,memo){
   /* the world chat: a nation of another region shows the flag and marks its line carries, and its region */
   const wf=wd&&!x&&!m.tm&&m.fl?rgwFlag(m.fl,nm):'',from=wd&&!m.tm?rgwFrom(m.rg||(x?REG.id:'')):'';
   const who=m.tm?`<b class="rgc-nm rgc-team">${esc(nm)}</b>`:mine?`<b class="rgc-nm">${esc(nm)}</b>`:x&&!x.npc?`<button type="button" class="linkish rgc-nm" data-act="visit" data-id="${esc(m.a)}">${esc(nm)}</button>`:`<b class="rgc-nm">${esc(nm)}</b>`;
-  const pill=m.tm?rgcRolePill(m):m.st==='mod'||isModId(m.a)?MOD_PILL:m.st==='admin'||isStaff(m.a)?STAFF_PILL:'';
+  const pill=m.tm?rgcRolePill(m):m.st==='mod'||isModId(m.a)?MOD_PILL:m.st==='admin'||isStaff(m.a)?STAFF_PILL:isAmbId(m.a)?AMB_PILL:'';
   const fl=m.tm?`<span class="mflag sm rgc-tmfl" aria-hidden="true">${RGC_TEAM_SVG}</span>`:`<span class="mflag sm${x||wf?'':' rgc-nofl'}">${x?flagSVG(x.n.flag,'Flag of '+nm):wf}</span>`;
   const head=run?'':`<p class="rgc-lh">${fl}${who}${x&&!x.npc?rgcBadges(x,memo):wd&&!m.tm?rgwBadges(m):''}${pill}${from}<time datetime="${new Date(m.t).toISOString()}" title="${esc(when)}">${esc(fmtTime(m.t))}</time></p>`;
   const staff=m.tm||!!m.st||isStaff(m.a);
   let can;
   if(ally){const A=rgcAllyOn();can={del:mine||!!(A&&alCan(A,me,'o'))};}
-  else can={rx:!OBS,re:!OBS&&!rgcWrite(),rep:!mine&&!OBS&&!m.tm,blk:!mine&&!OBS&&!staff&&!dmBlocked(m.a),mute:mod&&!mine&&!staff,del:mine||mod};
+  else can={rx:!OBS,re:!OBS&&!rgcWrite(),rep:!mine&&!OBS&&!m.tm,blk:!mine&&!OBS&&!staff&&!dmBlocked(m.a),mute:(mod||rgcAmb()&&!isAmbId(m.a))&&!mine&&!staff,del:mine||mod};
   const open=RGC.menu===m.id,myRx=m.rv&&m.rv[me]||'';
   const items=(can.rx?`<div class="rgc-rxp" role="group" aria-label="React">${RGC_RX.map(([k,e,l])=>`<button type="button" role="menuitem" data-rgc="react" data-id="${i}" data-k="${k}" aria-pressed="${myRx===k}" aria-label="${esc(l)}" title="${esc(l)}">${e}</button>`).join('')}</div>`:'')
     +(can.re?`<button type="button" role="menuitem" data-rgc="reply" data-id="${i}">Answer</button>`:'')
@@ -86082,7 +86120,7 @@ async function rgcSend(){
   }catch(e){
     C.pend=C.pend.filter(q=>q!==p);const d=e&&e.details;
     if(P&&!RGC.pic)RGC.pic=P;
-    if(d&&d.code==='rc_silenced'){RGC.sil={until:Number(d.until)||Date.now()+3600000,perm:d.perm===true,why:String(d.why||'').slice(0,200)};RGC.silAt=Date.now();RGC.msg='';C.draft=p.x;}
+    if(d&&d.code==='rc_silenced'){RGC.sil={until:Number(d.until)||Date.now()+3600000,perm:d.perm===true,amb:d.amb===true,why:String(d.why||'').slice(0,200)};RGC.silAt=Date.now();RGC.msg='';C.draft=p.x;}
     else{RGC.msg=alErrText(e);if(d&&d.code==='rc_guest'){RGC.gw=Date.now()+Math.max(0,Number(d.wait)||0);RGC.msg='';}
       const t=document.getElementById('rgc-x');if(t&&!t.value){t.value=p.x;C.draft=p.x;rgcGrow(t);}
       if(reo&&!(d&&d.code==='rc_gone'))C.re=C.re||reo;}
@@ -86095,13 +86133,13 @@ async function rgcSend(){
    open while the player is silenced, so a new silence or a lifted one shows at once */
 async function rgcSilLoad(force){
   if(OBS||!S.db||!S.uid)return;const now=Date.now();if(!force&&!RGC.sil&&now-RGC.silAt<60000)return;RGC.silAt=now;
-  try{const s=await S.db.doc('rcMute/'+S.uid).get(),v=s&&s.exists?s.data()||{}:null;RGC.sil=v&&Number(v.until)>Date.now()?{until:Number(v.until),perm:v.perm===true,why:String(v.why||'').slice(0,200)}:null;}catch(e){}
+  try{const s=await S.db.doc('rcMute/'+S.uid).get(),v=s&&s.exists?s.data()||{}:null;RGC.sil=v&&Number(v.until)>Date.now()?{until:Number(v.until),perm:v.perm===true,amb:v.amb===true,why:String(v.why||'').slice(0,200)}:null;}catch(e){}
   rgcFoot();
 }
 /* staff silence the author of a line, from its menu (functions/regionchat.js, rcMute) */
 async function rgcMute(m){
   const q=RGC.ask;if(!q||q.k!=='mute'||q.busy)return;q.busy=true;rgcPaint();
-  try{const r=await rgcCivic({op:'rcMute',uid:m.a,reg:rgcRegOf(m),hours:q.hours,why:q.why.trim(),wipe:q.wipe});RGC.ask=null;rgcPaint();rgcRefocus();
+  try{const r=await rgcCivic({op:'rcMute',uid:m.a,reg:rgcRegOf(m),hours:q.hours,why:q.why.trim(),wipe:q.wipe&&rgcMod()});RGC.ask=null;rgcPaint();rgcRefocus();
     toast(`${rgcName(m)} is silenced in ${m.w?'every chat':'the region chat'} ${q.hours?'for '+rgcHours(q.hours):'until it is lifted'}.${r.removed?` ${r.removed} ${r.removed===1?'line was':'lines were'} removed.`:''}`);}
   catch(e){q.busy=false;rgcPaint();toast(alErrText(e));}
 }
@@ -86633,7 +86671,7 @@ function rgcCardHTML(c,m,nm){
   if(c.k==='rank'){const R=ACH_RANKS[Math.min(c.i,ACH_RANKS.length-1)];return `<div class="rgc-cd"><p class="rgc-cd-t">Rank of ${esc(nm)}</p><p class="rgc-cd-big">${esc(R[1])}</p>${rows([['Points',fmt0(c.p)],['Achievements',fmt0(c.n)]])}</div>`;}
   const x=allNations().find(o=>o.id===c.id||(o.me&&c.id===S.uid)),R=ACH_RANKS[Math.min(c.i,ACH_RANKS.length-1)];
   const name=x&&!x.me?`<button type="button" class="linkish" data-act="visit" data-id="${esc(c.id)}">${esc(c.nm)}</button>`:esc(c.nm);
-  return `<div class="rgc-cd"><p class="rgc-cd-t">Nation card</p><p class="rgc-cd-big">${x?`<span class="mflag sm">${flagSVG(x.n.flag,'Flag of '+c.nm)}</span>`:''}${name}</p>${rows([['People',esc(fmtPop(c.pop))],['Cities',fmt0(c.ci)],['Land',fmt0(c.hx)+' hexes'],['Rank',esc(R[1])],...(c.al?[['Alliance',esc(c.al)]]:[])])}</div>`;
+  return `<div class="rgc-cd"><p class="rgc-cd-t">Nation card</p><p class="rgc-cd-big">${x?`<span class="mflag sm">${flagSVG(x.n.flag,'Flag of '+c.nm)}</span>`:''}${name}${rolePillOf(c.id)}</p>${rows([['People',esc(fmtPop(c.pop))],['Cities',fmt0(c.ci)],['Land',fmt0(c.hx)+' hexes'],['Rank',esc(R[1])],...(c.al?[['Alliance',esc(c.al)]]:[])])}</div>`;
 }
 function rgcBody(m,nm){
   if(m.cd)return rgcCardHTML(m.cd,m,nm);
