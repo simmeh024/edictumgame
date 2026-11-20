@@ -534,16 +534,16 @@ service cloud.firestore {
     }
     match /alPace/{uid} { allow read, write: if false; }
     // region chat (functions/regionchat.js): written only by the server; a region's own nations read its lines (a nation
-    // whose saved record is in that region), and admins any region's. The world chat (rchat/world) is read by every
-    // player with a saved nation, of any region. rcPace/ (the pacing of each player's lines) is the server's alone
+    // whose saved record is in that region), and admins any region's. The world chat (rchat/world) and the French chat
+    // (rchat/fr) are read by every player with a saved nation, of any region. rcPace/ (the pacing of each player's lines) is the server's alone
     match /rchat/{reg}/chat/{id} {
-      allow read: if isStaff() || signedIn() && (reg == 'world' && exists(/databases/$(database)/documents/nations/$(request.auth.uid))
+      allow read: if isStaff() || signedIn() && (reg in ['world', 'fr'] && exists(/databases/$(database)/documents/nations/$(request.auth.uid))
         || region(reg) && get(/databases/$(database)/documents/nations/$(request.auth.uid)).data.reg == reg);
     }
     // the picture an admin's line carries (rcimg/{reg}/chat/{line} {a, d, k, t, exp}): read as its line is, written only by
     // the server
     match /rcimg/{reg}/chat/{id} {
-      allow read: if isStaff() || signedIn() && (reg == 'world' && exists(/databases/$(database)/documents/nations/$(request.auth.uid))
+      allow read: if isStaff() || signedIn() && (reg in ['world', 'fr'] && exists(/databases/$(database)/documents/nations/$(request.auth.uid))
         || region(reg) && get(/databases/$(database)/documents/nations/$(request.auth.uid)).data.reg == reg);
     }
     match /rcPace/{uid} { allow read, write: if false; }

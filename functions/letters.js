@@ -54,22 +54,25 @@ async function choices(db, uid) {
   let o = null;
   try { o = s.exists && typeof s.get('j') === 'string' ? JSON.parse(s.get('j')) : null; } catch (e) { o = null; }
   const x = o && typeof o.dmx === 'object' && o.dmx ? o.dmx : {};
-  return { bl: new Set(Array.isArray(x.bl) ? x.bl.filter(isId) : []), mu: x.mu && typeof x.mu === 'object' ? x.mu : {}, news: x.np !== 0, rc: x.rc, rcn: x.rcn, rw: x.rw };
+  return { bl: new Set(Array.isArray(x.bl) ? x.bl.filter(isId) : []), mu: x.mu && typeof x.mu === 'object' ? x.mu : {}, news: x.np !== 0, rc: x.rc, rcn: x.rcn, rw: x.rw, rf: x.rf };
 }
-/* a region chat line (or a world chat line) that mentions or answers a player who is not in the game (functions/regionchat.js): a push
-   notification, at most one every 10 minutes for each player (rcNote/{uid}, server-only), unless they blocked the writer
-   or turned the chat, or its mention notices, off (dmx.rc, dmx.rcn; the World tab, dmx.rw, for a world chat line). It
-   never says what the line says. */
-export async function pushChatMention(db, to, by, name, reply, world = false) {
+/* a region chat line (or a line of a shared chat: the world chat, the French chat) that mentions or answers a player who
+   is not in the game (functions/regionchat.js): a push notification, at most one every 10 minutes for each player
+   (rcNote/{uid}, server-only), unless they blocked the writer or turned the chat, or its mention notices, off (dmx.rc,
+   dmx.rcn; the World tab, dmx.rw, for a world chat line; the French tab, dmx.rf 0, for a French chat line). It never
+   says what the line says. ch: the shared chat's id ('world', 'fr'; true is the world chat), or nothing for a region's */
+const CHAT_WHERE = { world: 'the world chat', fr: 'the French chat' };
+export async function pushChatMention(db, to, by, name, reply, ch = '') {
+  const chan = ch === true ? 'world' : CHAT_WHERE[ch] ? ch : '';
   const now = Date.now(), ref = db.doc('rcNote/' + to), s = await ref.get();
   if (s.exists && now - (s.get('t') || 0) < NOTE_GAP) return 0;
   const pres = await db.doc('presence/' + to).get();
   if (pres.exists && now - ms(pres.get('t')) < ONLINE) return 0;
   const c = await choices(db, to);
-  if (c.bl.has(by) || c.rc === 0 || c.rcn === 0 || (world && c.rw === 0)) return 0;
+  if (c.bl.has(by) || c.rc === 0 || c.rcn === 0 || (chan === 'world' && c.rw === 0) || (chan === 'fr' && c.rf === 0)) return 0;
   await ref.set({ t: now });
-  const where = world ? 'the world chat' : 'the region chat';
-  return pushTo(db, to, { title: reply ? `${name} answered you in ${where}` : `${name} mentioned you in ${where}`, body: 'Open the chat to read it.', tag: 'chat', url: world ? '/#chat/world' : '/#chat' });
+  const where = CHAT_WHERE[chan] || 'the region chat';
+  return pushTo(db, to, { title: reply ? `${name} answered you in ${where}` : `${name} mentioned you in ${where}`, body: 'Open the chat to read it.', tag: 'chat', url: chan ? '/#chat/' + chan : '/#chat' });
 }
 async function pushTo(db, uid, payload) {
   const ref = db.doc('pushSubs/' + uid), s = await ref.get(), subs = s.exists && Array.isArray(s.get('s')) ? s.get('s') : [];

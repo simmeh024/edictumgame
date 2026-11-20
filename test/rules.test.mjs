@@ -1340,6 +1340,25 @@ test('the world chat is read by every player with a nation, of any region, and b
   await assertFails(as('bob').doc('rcimg/world/chat/w3').set({ a: 'bob', d: 'x', k: 'png', t: 3 }));
 });
 
+test('the French chat is read as the world chat is: by every player with a nation, of any region, and by staff, and written only by the server', async () => {
+  await env.withSecurityRulesDisabled(async ctx => {
+    await ctx.firestore().doc('rchat/fr/chat/f1').set({ a: 'bob', nm: 'Bobland', x: 'Bonjour à toutes les régions', t: 1, rg: 'meridian' });
+    await ctx.firestore().doc('rcimg/fr/chat/f1').set({ a: 'admin', d: 'data:image/png;base64,iVBORw0KGgo=', k: 'png', t: 1 });
+  });
+  await assertSucceeds(as('bob').collection('rchat/fr/chat').orderBy('t', 'desc').limit(60).get());
+  await assertSucceeds(as('carol').collection('rchat/fr/chat').orderBy('t', 'desc').limit(60).get());
+  await assertSucceeds(as('carol').doc('rcimg/fr/chat/f1').get());
+  await assertFails(as('nobody').collection('rchat/fr/chat').limit(1).get());
+  await assertFails(anon().collection('rchat/fr/chat').limit(1).get());
+  await assertSucceeds(as('admin', { admin: true }).collection('rchat/fr/chat').orderBy('t', 'desc').limit(60).get());
+  await assertSucceeds(as('moddy', { mod: true }).collection('rchat/fr/chat').orderBy('t', 'desc').limit(60).get());
+  // only these two chats are shared: any other name that is not a region is read by staff alone
+  await assertFails(as('bob').collection('rchat/es/chat').limit(1).get());
+  await assertFails(as('bob').doc('rchat/fr/chat/f2').set({ a: 'bob', nm: 'Bobland', x: 'Forged', t: 2 }));
+  await assertFails(as('carol').doc('rchat/fr/chat/f1').update({ rv: { carol: 'hear' } }));
+  await assertFails(as('bob').doc('rchat/fr/chat/f1').delete());
+});
+
 test('the picture an admin’s chat line carries is read as the line is, and written only by the server', async () => {
   await env.withSecurityRulesDisabled(async ctx => {
     await ctx.firestore().doc('rcimg/meridian/chat/l1').set({ a: 'admin', d: 'data:image/png;base64,iVBORw0KGgo=', k: 'png', t: 1 });

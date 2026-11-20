@@ -47,10 +47,20 @@ import DATA from './civic-data.json' with { type: 'json' };
    (rg), flag (fl, as JSON), rank (rk, the index the author's game sends), alliance (al {n, c?}) and Founding Supporter
    mark (fd). Mentions there name any nation, of any region. Its lines count in the player's hour with their region lines
    (rcPace p), and come at most one every RC_WORLD_GAP; the repeat check is its own (rcPace w, wh: the time and words of
-   the player's last world line). No welcome lines and no messages to every region go there. */
-export const RC_WORLD = 'world', RC_WORLD_GAP = 4000, RC_RANKS = 99;
-/* a chat the browser names: a region of the game or the world chat, or '' */
-const chatOf = (d, regions) => typeof d.reg === 'string' && (regions.has(d.reg) || d.reg === RC_WORLD) ? d.reg : '';
+   the player's last world line). No welcome lines and no messages to every region go there.
+   The French chat (RC_FR, rchat/fr/chat/{id}; 2026-11-20) is a second such channel, for the nations that play in French:
+   the same lines, marks and ops as the world chat, which the game shows on its own tab when the interface is in French
+   or the player turned it on in Settings › Chat (dmx.rf). Its pacing is its own (rcPace f, fh), and staff read it in the
+   admin portal whatever their language. Together they are RC_SHARED, the chats every region shares. */
+export const RC_WORLD = 'world', RC_FR = 'fr', RC_SHARED = [RC_WORLD, RC_FR], RC_WORLD_GAP = 4000, RC_RANKS = 99;
+/* a chat every region shares: the world chat or the French chat */
+export const rcShared = reg => RC_SHARED.includes(reg);
+/* each shared chat's own pacing fields in rcPace: the time and the words of the player's last line there */
+const RC_SHARED_PACE = { [RC_WORLD]: ['w', 'wh'], [RC_FR]: ['f', 'fh'] };
+/* a shared chat's name, as messages and the audit log say it */
+const RC_SHARED_NAME = { [RC_WORLD]: 'the world chat', [RC_FR]: 'the French chat' };
+/* a chat the browser names: a region of the game or a shared chat, or '' */
+const chatOf = (d, regions) => typeof d.reg === 'string' && (regions.has(d.reg) || rcShared(d.reg)) ? d.reg : '';
 export const RC_TEXT = 300, RC_GAP = 1500, RC_MINUTE = 12, RC_HOUR = 150, RC_GUEST_HOUR = 10, RC_SAME = 120000, RC_KEEP = 30 * 86400000;
 const id20 = v => typeof v === 'string' && /^[A-Za-z0-9]{20}$/.test(v) ? v : '';
 const line = (x, max) => typeof x === 'string' ? x.replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max) : '';
@@ -150,7 +160,8 @@ export function rcCardIn(c) {
 }
 
 async function rcPost(db, who, d, regions) {
-  const x = line(d.x, RC_TEXT), team = d.team === true, re = d.re ? id20(d.re) : '', world = d.reg === RC_WORLD;
+  /* world: the line goes to a chat every region shares (the world chat or the French chat), named by shared */
+  const x = line(d.x, RC_TEXT), team = d.team === true, re = d.re ? id20(d.re) : '', world = rcShared(d.reg), shared = world ? d.reg : '';
   /* a picture: an admin's alone, with or without words */
   if (d.pic != null && !who.admin) throw new HttpsError('permission-denied', 'Only Edictum admins can post pictures in the chat.');
   const pic = d.pic != null ? rcPicIn(d.pic) : null;
@@ -165,12 +176,12 @@ async function rcPost(db, who, d, regions) {
     /* the team writes in any region, open or not, with no nation of its own there */
     const e = await eligibility(tx, who, team ? { linked: false, nation: false, hidden: true, allowClosedRegion: true } : { linked: false });
     const home = team ? '' : e.n.reg || e.saved.get('reg') || '';
-    const reg = world ? RC_WORLD : team ? (typeof d.reg === 'string' && regions.has(d.reg) ? d.reg : '') : home;
+    const reg = world ? shared : team ? (typeof d.reg === 'string' && regions.has(d.reg) ? d.reg : '') : home;
     if (team && !reg) throw new HttpsError('invalid-argument', 'Choose a region.');
     if (!world && !regions.has(reg)) refuse('rc_region', 'Your nation has no region to talk in.');
     if (world && !team && !regions.has(home)) refuse('rc_region', 'Your nation has no region to talk from.');
     if (!world && !team && typeof d.reg === 'string' && d.reg && d.reg !== reg) refuse('rc_region', 'Your nation is in another region now. Reload the game to join its chat.');
-    /* in the world chat, the author's marks: their shop (the Founding Supporter mark) and alliance, read with the pacing */
+    /* in a shared chat, the author's marks: their shop (the Founding Supporter mark) and alliance, read with the pacing */
     const extra = world && !team ? [db.doc('shop/' + who.uid), db.doc('allyOf/' + who.uid)] : [];
     const pace = db.doc('rcPace/' + who.uid), [ps, ms, shop, ally] = await tx.getAll(pace, db.doc('rcMute/' + who.uid), ...extra), now = Date.now();
     const sil = rcSilence(ms.exists ? ms.data() : null, now);
@@ -182,12 +193,13 @@ async function rcPost(db, who, d, regions) {
       const w = recent[recent.length - RC_GUEST_HOUR] + 3600000 - now, m = Math.max(1, Math.ceil(w / 60000));
       throw new HttpsError('failed-precondition', `Guests can send ${RC_GUEST_HOUR} lines an hour. You can write again in ${m} ${m === 1 ? 'minute' : 'minutes'}, or link a sign-in to chat freely.`, { code: 'rc_guest', wait: w, max: RC_GUEST_HOUR });
     }
-    /* the world chat: one line every RC_WORLD_GAP at most */
-    const wLast = world && ps.exists ? Number(ps.get('w')) || 0 : 0, slow = Math.max(wait, wLast && wLast <= now ? wLast + RC_WORLD_GAP - now : 0);
+    /* a shared chat: one line every RC_WORLD_GAP at most, each chat on its own */
+    const [pw, ph] = world ? RC_SHARED_PACE[shared] : ['', 'h'];
+    const wLast = world && ps.exists ? Number(ps.get(pw)) || 0 : 0, slow = Math.max(wait, wLast && wLast <= now ? wLast + RC_WORLD_GAP - now : 0);
     if (slow > 0) throw new HttpsError('failed-precondition', `Slow down a little. You can write again in ${Math.ceil(slow / 1000)} ${Math.ceil(slow / 1000) === 1 ? 'second' : 'seconds'}.`, { code: 'rc_paced', wait: slow });
-    /* the same words again, or the same picture with the same words (the world chat's on their own) */
+    /* the same words again, or the same picture with the same words (each shared chat's on their own) */
     const h = hash(sameKey(x) + (pic ? '#' + pic.im.s.length + pic.im.s.slice(-48) : '')), last = world ? wLast : recent.length ? recent[recent.length - 1] : 0;
-    if (ps.exists && ps.get(world ? 'wh' : 'h') === h && now - last < RC_SAME) refuse('rc_same', 'You just wrote that.');
+    if (ps.exists && ps.get(ph) === h && now - last < RC_SAME) refuse('rc_same', 'You just wrote that.');
     /* a nation card: the nation is there, in this region (any, in the world chat), and goes under its saved name */
     if (cd && cd.k === 'nation') {
       const ns = await tx.get(db.doc('nations/' + cd.id)), nm = ns.exists ? line(ns.get('name'), 80) : '';
@@ -232,7 +244,7 @@ async function rcPost(db, who, d, regions) {
       marks = { rg: home, ...(flag && flag.length <= 4000 ? { fl: flag } : {}), ...(rk != null ? { rk } : {}), ...(an ? { al: { n: an, ...(col ? { c: col } : {}), ...(tg ? { t: tg } : {}) } } : {}),
         ...(shop.exists && shop.get('owns.founder') ? { fd: true } : {}) };
     }
-    tx.set(pace, { p: recent.concat(now).slice(-RC_HOUR), ...(world ? { w: now, wh: h } : { h }) }, { merge: true });
+    tx.set(pace, { p: recent.concat(now).slice(-RC_HOUR), ...(world ? { [pw]: now, [ph]: h } : { h }) }, { merge: true });
     const exp = Timestamp.fromMillis(now + RC_KEEP);
     tx.create(ref, { a: who.uid, nm: me, x, t: now, exp, ...marks,
       ...(who.admin ? { st: 'admin' } : who.mod ? { st: 'mod' } : {}), ...(team ? { tm: true, ...(wn ? { wn } : {}) } : {}), ...(r ? { r } : {}), ...(Object.keys(mn).length ? { mn } : {}), ...(pic ? { im: pic.im } : {}), ...(cd ? { cd } : {}) });
@@ -242,7 +254,7 @@ async function rcPost(db, who, d, regions) {
     return { ok: true, id: ref.id, reg, t: now, ...(Object.keys(mn).length ? { mn } : {}), ...(guest ? { guest: true, left: Math.max(0, RC_GUEST_HOUR - recent.length - 1), gt: recent.concat(now).slice(-RC_GUEST_HOUR) } : {}) };
   });
   /* a push notification for those not in the game; never holds the line up */
-  if (tell.length) await Promise.all(tell.map(t => pushChatMention(db, t.u, who.uid, t.nm, t.rp, world).catch(() => 0)));
+  if (tell.length) await Promise.all(tell.map(t => pushChatMention(db, t.u, who.uid, t.nm, t.rp, shared).catch(() => 0)));
   return out;
 }
 
@@ -252,7 +264,7 @@ async function rcReact(db, who, d, regions) {
   if (!reg || !id || !kind) throw new HttpsError('invalid-argument', 'Choose a line and a reaction.');
   return db.runTransaction(async tx => {
     const e = await eligibility(tx, who, { linked: false });
-    if (reg !== RC_WORLD && !(who.admin || who.mod) && (e.n.reg || e.saved.get('reg')) !== reg) throw new HttpsError('permission-denied', 'React in your own region’s chat.');
+    if (!rcShared(reg) && !(who.admin || who.mod) && (e.n.reg || e.saved.get('reg')) !== reg) throw new HttpsError('permission-denied', 'React in your own region’s chat.');
     const ref = db.doc('rchat/' + reg + '/chat/' + id), s = await tx.get(ref);
     if (!s.exists) refuse('rc_gone', 'That line is no longer in the chat.');
     const rv = s.get('rv') && typeof s.get('rv') === 'object' ? s.get('rv') : {}, had = rv[who.uid] || '', pick = had === kind ? '' : kind;
@@ -264,7 +276,7 @@ async function rcReact(db, who, d, regions) {
 /* a nation's reactions go with its account (functions/accounts.js) or its removal by an admin (functions/admin.js) */
 export async function rcForget(db, uid, regs) {
   if (!uidOf(uid)) return 0;
-  const found = await Promise.all([...new Set([...regs, RC_WORLD])].map(reg => db.collection('rchat/' + reg + '/chat').where(new FieldPath('rv', uid), 'in', RC_REACT).get().catch(() => ({ docs: [] }))));
+  const found = await Promise.all([...new Set([...regs, ...RC_SHARED])].map(reg => db.collection('rchat/' + reg + '/chat').where(new FieldPath('rv', uid), 'in', RC_REACT).get().catch(() => ({ docs: [] }))));
   const docs = found.flatMap(q => q.docs);
   if (!docs.length) return 0;
   const w = db.bulkWriter();
@@ -285,7 +297,7 @@ export async function rcDelete(db, who, d, regions) {
   if (s.get('im')) b.delete(db.doc('rcimg/' + reg + '/chat/' + id));
   if (s.get('a') !== who.uid) {
     b.create(db.collection('adminAudit').doc(), { actor: who.uid, action: 'chat_delete', outcome: 'completed', at: FieldValue.serverTimestamp(),
-      target: line(s.get('a'), 128), name: line(s.get('nm'), 80), reg, line: id, x: line(s.get('x'), RC_TEXT), ...(s.get('im') ? { pic: true } : {}), reason: line(d.reason, 300) || (reg === RC_WORLD ? 'Removed from the world chat' : 'Removed from the region chat') });
+      target: line(s.get('a'), 128), name: line(s.get('nm'), 80), reg, line: id, x: line(s.get('x'), RC_TEXT), ...(s.get('im') ? { pic: true } : {}), reason: line(d.reason, 300) || 'Removed from ' + (RC_SHARED_NAME[reg] || 'the region chat') });
     const report = typeof d.report === 'string' && /^[\w-]{1,128}$/.test(d.report) ? d.report : '';
     if (report) b.delete(db.doc('reports/' + report));
   }
@@ -293,8 +305,8 @@ export async function rcDelete(db, who, d, regions) {
   return { ok: true };
 }
 
-/* staff silence a player in every region's chat and the world chat; with wipe, their lines of the last 24 hours in `reg`
-   (a region or the world chat; their own region if not given) go too. The audit log keeps who, why, until when and how many lines went */
+/* staff silence a player in every region's chat and the shared chats; with wipe, their lines of the last 24 hours in `reg`
+   (a region or a shared chat; their own region if not given) go too. The audit log keeps who, why, until when and how many lines went */
 async function rcMute(db, who, d, regions) {
   staffOnly(who);
   const uid = uidOf(d.uid), hours = Number(d.hours), why = line(d.why, 200);
