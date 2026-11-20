@@ -68889,6 +68889,9 @@ const UNLOCK_CU_ROW={pat:'cu-l-pat',strip:'cu-l-st',met:'cu-l-met',shape:'cu-l-s
 function unlockTarget(id){
   const u=czU(id);if(!u)return null;
   if(u.k==='accent')return {view:'settings',href:'#settings',target:'#cz-acc-'+id.slice(2)};
+  /* a shield opens the arms at its shape; a portrait piece the leader's portrait at its row (PT_SHOP_BY, below) */
+  if(u.k==='shield'){const s=Object.keys(CZ_SH_SHOP).find(k=>CZ_SH_SHOP[k]===id);return s?{view:'customise',href:'#customise/arms',sec:'a',target:'#cz-a-s-'+s}:null;}
+  if(u.k==='portrait'){const p=PT_SHOP_BY[id]||'',k=p[0];return {view:'customise',href:'#customise/portraits',sec:'r',setup:()=>{PT.who='lead';},target:k==='i'?'#pt-i-'+p.slice(1):'#pt-l-'+k};}
   const pt=UNLOCK_PP_TAB[u.k];
   if(pt)return {view:'customise',href:'#customise/passport',sec:'p',setup:()=>{PP.dtab=pt;},target:`#cz-sec-p [data-act="pp-set"][data-f^="${pt}."][data-v="${id}"]`};
   const k=CZ_SEC_OF[u.k]||UNLOCK_CZ_SEC[u.k];if(!k)return null;
@@ -84975,10 +84978,8 @@ COMMIT_HOOKS.push((n,old,now)=>{try{return ptCommit(n,old,now);}catch(e){console
 rewardInfo=(f=>function(kind,id){
   if(kind==='portrait')return {kind,id,label:id==='nick'?'Choose a nickname':cap1(ptPieceName(String(id))),page:'customise',href:'#customise/portraits'};
   return f.apply(this,arguments);})(rewardInfo);
-/* a Shop pack's portrait piece in toasts and the bell: words for it, and the way to it in Customise › Portraits (its row, or its ink) */
+/* a portrait piece in toasts and the bell: words for it (the way to it in Customise › Portraits, its row or its ink, is unlockTarget's) */
 achUnlockWords=(f=>u=>{const U=UNLOCKS[u];return U&&U.k==='portrait'?`the ${U.n} for your portraits`:f(u);})(achUnlockWords);
-unlockTarget=(f=>function(id){const u=czU(id);if(!u||u.k!=='portrait')return f.apply(this,arguments);const p=PT_SHOP_BY[id]||'',k=p[0];
-  return {view:'customise',href:'#customise/portraits',sec:'r',setup:()=>{PT.who='lead';},target:k==='i'?'#pt-i-'+p.slice(1):'#pt-l-'+k};})(unlockTarget);
 
 /* ── the court painter's edict (PT_ISSUES): what each answer does to the portraits ── */
 geoAfter=(f=>function(n,opt,ent,now,prior){
