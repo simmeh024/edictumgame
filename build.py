@@ -163,8 +163,9 @@ def game_loader(scripts):
     does the load event, at the latest. A failed download of one marked True shows the loader's retry message
     (window.__edictum.bootError). One with a third entry 'fr' loads only when the game is set to French (the
     game's LANG_KEY, statehood.lang.v1, in this browser)."""
-    return ('(function(){var L=%s.filter(function(x){if(!x[2])return 1;try{return localStorage.getItem("statehood.lang.v1")===x[2]}'
-            'catch(e){return 0}}),d=document;function pre(){if(pre.d)return;pre.d=1;L.forEach(function(x){var l=d.createElement("link");'
+    # the list stays a plain "var L=[[…]]," (test/startup-e2e.mjs reads it there); the language filter comes after it
+    return ('(function(){var L=%s,d=document;L=L.filter(function(x){if(!x[2])return 1;try{return localStorage.getItem("statehood.lang.v1")===x[2]}'
+            'catch(e){return 0}});function pre(){if(pre.d)return;pre.d=1;L.forEach(function(x){var l=d.createElement("link");'
             'l.rel="preload";l.as="script";l.href=x[0];d.head.appendChild(l)})}'
             'function go(){if(go.d)return;go.d=1;pre();window.__edictum.loading=1;L.forEach(function(x){var s=d.createElement("script");'
             's.src=x[0];s.async=false;if(x[1])s.onerror=function(){window.__edictum.bootError()};d.body.appendChild(s)})}'
