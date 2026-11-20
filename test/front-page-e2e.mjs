@@ -41,7 +41,7 @@ check('the public figures name no uid', !(await db.collection('summaries').get()
 /* a visitor who has said yes to visit statistics, with Google itself kept out (its tag would send nothing here) */
 const visitor = async (tag, opts = {}) => {
   const p = await player(tag, opts);
-  await p.ctx.addInitScript(() => { window.EDICTUM_ANALYTICS_ID = 'G-TEST12345'; try { if (!localStorage.getItem('edictum.analytics')) localStorage.setItem('edictum.analytics', 'y'); } catch (e) {} });
+  await p.ctx.addInitScript(() => { window.EDICTUM_RANDOM_FACTS = true; window.EDICTUM_ANALYTICS_ID = 'G-TEST12345'; try { if (!localStorage.getItem('edictum.analytics')) localStorage.setItem('edictum.analytics', 'y'); } catch (e) {} });
   await p.ctx.route(/googletagmanager\.com|google-analytics\.com/, r => r.abort());
   return p;
 };
