@@ -40,6 +40,14 @@ jobs:
         with:
           distribution: temurin
           java-version: 21
+      # The emulators' own downloads (the Firestore emulator jar) from the Actions cache: fetched from Google by every
+      # job, a failed download once failed a whole suite before it ran (PR #491, Assembly)
+      - name: Restore the Firebase emulators
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/firebase/emulators
+          key: firebase-emulators-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: firebase-emulators-${{ runner.os }}-
       - run: npm ci
       - run: npm ci --prefix functions
       - run: npm ci --prefix jobs/stats
@@ -87,6 +95,14 @@ jobs:
         with:
           distribution: temurin
           java-version: 21
+      # the emulators' downloads from the Actions cache, as in the rules job; group 1 saves them when none was found
+      - name: Restore the Firebase emulators
+        id: emulators
+        uses: actions/cache/restore@v6
+        with:
+          path: ~/.cache/firebase/emulators
+          key: firebase-emulators-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: firebase-emulators-${{ runner.os }}-
       - run: npm ci
       - name: Check every browser suite is in one group
         run: node scripts/ci-browser.mjs --check
@@ -104,6 +120,12 @@ jobs:
       - name: Run the suites of group ${{ matrix.group }}
         timeout-minutes: 25
         run: node scripts/ci-browser.mjs ${{ matrix.group }}
+      - name: Save the Firebase emulators
+        if: always() && strategy.job-index == 0 && steps.emulators.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: ~/.cache/firebase/emulators
+          key: firebase-emulators-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
       - name: Keep the screenshots of a failed run
         if: failure()
         uses: actions/upload-artifact@v7
