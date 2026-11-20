@@ -5386,6 +5386,8 @@ button.fk-rp:hover,button.fk-qb:hover{color:var(--accent)}
 .skip-link{position:fixed;z-index:80;top:calc(10px + env(safe-area-inset-top,0px));left:10px;padding:10px 14px;border:1px solid var(--accent);border-radius:3px;background:var(--sheet);color:var(--ink);font-weight:600;cursor:pointer;box-shadow:var(--shadow);translate:0 -200%}
 .skip-link:focus{translate:0 0}
 .main:focus{outline:none}
+/* while anything is modal, every element carries one more declaration (see modalEra) */
+html.ed-modal *{--ed-modal:1}
 .side{gap:20px;scrollbar-width:thin;scrollbar-color:var(--rule-2) transparent;overscroll-behavior:contain}
 .nav{gap:0}
 .nav-grp{display:flex;flex-direction:column;min-width:0}
@@ -6223,6 +6225,7 @@ button.prv-rb{cursor:pointer}button.prv-rb:hover{border-color:var(--ink-3)}
 .obs-bar .btn{padding:6px 12px;background:var(--stamp-ink);color:var(--stamp);border-color:var(--stamp-ink)}
 .side-who>.side-nation{flex:1;min-width:0}
 .adm-pill.mod,.staff-pill.mod{background:#1f7a46;color:#fff}
+.staff-pill.amb{background:#1d5fa8;color:#fff}
 .adm-pill{display:inline-flex;align-items:center;flex:none;margin-bottom:3px;padding:3px 9px;border-radius:999px;background:var(--stamp);color:var(--stamp-ink);font:600 11px/1.3 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;text-decoration:none;white-space:nowrap}
 a.adm-pill:hover{filter:brightness(1.12)}
 a.adm-pill:focus-visible{outline:2px solid var(--stamp);outline-offset:2px}
@@ -9380,6 +9383,7 @@ button.rgc-nm{text-align:left}
 .rgc-cd{flex:1;min-width:0;max-width:340px;margin:2px 0;padding:8px 10px;border:1px solid var(--line);border-left:3px solid var(--stamp);border-radius:6px;background:var(--paper-2,var(--paper))}
 .rgc-cd-t{margin:0;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-2)}
 .rgc-cd-big{display:flex;align-items:center;gap:6px;margin:2px 0 4px;font-size:15px;font-weight:600}
+.rgc-cd-big .staff-pill{padding:2px 7px 2px 6px;font-size:9.5px}
 .rgc-cd-g{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:2px 12px;margin:4px 0 0}
 .rgc-cd-g div{display:flex;justify-content:space-between;gap:6px;font-size:13px}.rgc-cd-g dt{display:flex;align-items:center;gap:4px;color:var(--ink-2)}
 .rgc-cd-g dd{margin:0;font-weight:600;text-align:right}.rgc-cd-g small{display:block;font-weight:400;font-size:11px;color:var(--ink-2)}
@@ -9468,6 +9472,16 @@ button.rgc-nm{text-align:left}
 @media (max-width:600px){.acx-l{grid-template-columns:40px minmax(0,1fr)}.acx-b{grid-column:2;grid-row:auto;flex-wrap:wrap}}
 /* region chat, round two: tabs, answers, @mentions, reactions, badges beside names, happenings, docked beside the page */
 .rgc-tabs{display:flex;gap:2px;padding:0 10px;border-bottom:1px solid var(--rule)}
+/* the tab row scrolls sideways when its tabs do not fit, with an arrow at each end (rgcTabsArrows) */
+.rgc-tabw{display:flex;align-items:stretch;min-width:0}
+.rgc-tabw .rgc-tabs{flex:1;min-width:0;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;overscroll-behavior-x:contain;border-bottom:0;box-shadow:inset 0 -1px 0 var(--rule)}
+.rgc-tabw .rgc-tabs::-webkit-scrollbar{display:none}
+.rgc-tabw .rgc-tab{flex:none;margin-bottom:0}
+.rgc-tarr{flex:none;display:grid;place-items:center;width:28px;padding:0;border:0;background:var(--sheet);box-shadow:inset 0 -1px 0 var(--rule);color:var(--ink-2);cursor:pointer}
+.rgc-tarr[hidden]{display:none}
+.rgc-tarr:hover:not(:disabled){color:var(--ink);background:var(--sheet-2)}
+.rgc-tarr:disabled{color:var(--rule-2);cursor:default}
+@media (prefers-reduced-motion:no-preference){.rgc-tabw .rgc-tabs{scroll-behavior:smooth}}
 .rgc-tab{position:relative;display:inline-flex;align-items:center;gap:6px;padding:9px 10px 8px;border:0;border-bottom:2px solid transparent;margin-bottom:-1px;background:none;color:var(--ink-2);font-size:13.5px;font-weight:500;cursor:pointer}
 .rgc-tab:hover{color:var(--ink)}
 .rgc-tab.on{color:var(--ink);border-bottom-color:var(--accent)}
@@ -44083,7 +44097,7 @@ const FR_UI={
 'One letter':'Une lettre','Lines':'Lignes','Curve':'Courbe','Finish the stroke':'Terminer le trait','Take a point back':'Retirer un point','Back to the key':'Retour à la clé','Take its sign from':'Prendre son signe de','Draw it yourself':'Dessinez-le vous-même','Blend in a second family':'Mêler une seconde famille','Left to right':'De gauche à droite','Right to left':'De droite à gauche','In columns':'En colonnes','Ox-turning':'En boustrophédon',
 'Our script':'Notre écriture','Script Studio':'Atelier d’écriture','Save script':'Enregistrer l’écriture','Charter card':'Charte','Translate':'Traduire','Where it shows':'Où elle paraît','Try a line':'Essayez une phrase','Save picture':'Enregistrer l’image','Pen and ink':'Plume et encre','Alphabet':'Alphabet','The key to our letters':'La clé de nos lettres','The key to their letters':'La clé de leurs lettres','Design in the Script Studio':'Dessiner dans l’Atelier d’écriture',
 // navigation + settings
-'Nation':'Nation','Edicts':'Édits','Map':'Carte','Cities':'Villes','Provinces':'Provinces','Diplomacy':'Diplomatie','Intelligence':'Renseignement','Trade':'Commerce','Government':'Gouvernement','Games':'Jeux','Museum':'Musée','Achievements':'Succès','Passport':'Passeport','Census':'Recensement','Statistics':'Statistiques','Region':'Région','Dispatch':'Dépêches','Assembly':'Assemblée','World':'Monde','Space':'Espace','Messages':'Messages','Flock':'Troupeau','Settings':'Paramètres','Customise':'Personnaliser','Help':'Aide','Shop':'Boutique',
+'French chat':'Discussion francophone','Nation':'Nation','Edicts':'Édits','Map':'Carte','Cities':'Villes','Provinces':'Provinces','Diplomacy':'Diplomatie','Intelligence':'Renseignement','Trade':'Commerce','Government':'Gouvernement','Games':'Jeux','Museum':'Musée','Achievements':'Succès','Passport':'Passeport','Census':'Recensement','Statistics':'Statistiques','Region':'Région','Dispatch':'Dépêches','Assembly':'Assemblée','World':'Monde','Space':'Espace','Messages':'Messages','Flock':'Troupeau','Settings':'Paramètres','Customise':'Personnaliser','Help':'Aide','Shop':'Boutique',
 'Your nation':'Votre nation','Notifications':'Notifications','Display':'Affichage','Sound':'Son','Navigation':'Navigation','Account':'Compte',
 'This device only':'Cet appareil uniquement','Applies at once. Other players don’t see it.':'S’applique aussitôt. Les autres joueurs ne le voient pas.','Applies at once. Nobody else hears it.':'S’applique aussitôt. Personne d’autre ne l’entend.',
 'Appearance':'Apparence','Theme':'Thème','Automatic':'Automatique','Light':'Clair','Dark':'Sombre','Stockpile':'Réserves','Resource gains':'Gains de ressources','Per hour':'Par heure','Per day':'Par jour','Both':'Les deux',
@@ -45289,7 +45303,11 @@ const FR_UI={
 "Show the conversations whose letters carry":"Afficher les conversations dont les lettres portent",
 "Show the region chat":"Afficher la discussion régionale",
 "Show the whole map":"Afficher toute la carte",
+"Show the Français tab, where the nations that play in French talk, from every region":"Afficher l’onglet Français, où parlent les nations francophones de toutes les régions",
 "Show the World tab, where the nations of every region talk":"Afficher l’onglet Monde, où parlent les nations de toutes les régions",
+"You chose this here, so it stays as it is whatever the language.":"Vous l’avez choisi ici : il reste ainsi, quelle que soit la langue.",
+"It is on because the game is in French (Settings › Display › Language).":"Il est activé parce que le jeu est en français (Paramètres › Affichage › Langue).",
+"It shows by itself when the game is in French (Settings › Display › Language).":"Il s’affiche de lui-même quand le jeu est en français (Paramètres › Affichage › Langue).",
 "Show what you earned in the tutorial":"Afficher ce que vous avez gagné dans le tutoriel",
 "Show What’s next on the Nation page":"Afficher La suite sur la page Nation",
 "Show where":"Montrer où",
@@ -45740,6 +45758,7 @@ const FR_UI={
 ["Where in {x} your capital stands is your first edict: three advisors, three pins on the map, one choice.","L’emplacement de votre capitale dans {x} est votre premier édit : trois conseillers, trois épingles sur la carte, un seul choix."],
 ["The {x} Museum of Progress holds {n1} of {n2} artefacts. Open one in the Collection and pin it to show it here.","Le Musée du progrès de {x} conserve {n1} objet{n1?s} sur {n2}. Ouvrez-en un dans la Collection et épinglez-le pour l’afficher ici."],
 ["Your intelligence service is still being set up. Covert operations open {n} days after founding, on {t}.","Votre service de renseignement est encore en cours de mise en place. Les opérations secrètes ouvrent {n} jour{n?s} après la fondation, le {t}."],
+["Like the World tab, it counts its new lines; the Chat button counts only those that mention {x} or answer it.","Comme l’onglet Monde, il compte ses nouveaux messages ; le bouton de discussion ne compte que ceux qui mentionnent {x} ou lui répondent."],
 ["The World tab counts its new lines. The Chat button counts only those that mention {x} or answer it.","L’onglet Monde compte ses nouveaux messages. Le bouton de discussion ne compte que ceux qui mentionnent {x} ou lui répondent."],
 ["Medals earn keepsakes for {x}: accent colours for your screen and titles after your nation’s name.","Les médailles rapportent des souvenirs à {x} : des couleurs d’accent pour votre écran et des titres après le nom de votre nation."],
 ["Attacks into a hex under a storm or blizzard are {n1}% weaker, and expeditions to it roll {n2} lower","Les attaques vers un hexagone sous une tempête ou un blizzard sont {n1} % plus faibles, et les expéditions qui s’y rendent obtiennent {n2} de moins au dé"],
@@ -54627,6 +54646,7 @@ async function connect(){
   if(mapStale)return;
   S.isOwner=await user.isOwner();
   S.isMod=!S.isOwner&&typeof user.isMod==='function'&&await user.isMod();
+  S.isAmb=!S.isOwner&&!S.isMod&&typeof user.isAmb==='function'&&await user.isAmb();
   if((OBS||PV)&&!S.isOwner)return quit();
   if(PV){S.uid=PV.uid;try{if(!(await pvLoad(db)))return;}catch(e){S.pvErr=e&&e.message||'unknown';render();return;}}
   await regionControls();
@@ -54759,6 +54779,13 @@ async function connect(){
     else if(S.isMod&&!S.staffMod.has(uid))db.doc('staff/'+uid).set({t:Date.now(),m:true}).catch(()=>{});
     else if(!S.isOwner&&!S.isMod&&st.has(uid))db.doc('staff/'+uid).delete().catch(()=>{});
     if(['nation','visit','region','messages'].includes(S.view))quietRender();
+  },()=>{});
+  /* Edictum Ambassadors (functions/admin.js, setAmb): only the server writes the list, and every player reads it for
+     the blue Ambassador pill on the nation card and in the chats */
+  listen(db.collection('ambassadors'),qs=>{
+    S.ambs=new Set(qs.docs.map(d=>d.id));
+    if(['nation','visit','region','messages','admin-players'].includes(S.view))quietRender();
+    try{rgcPaint();}catch(e){}
   },()=>{});
   if((S.isOwner||S.isMod)&&!PV)admTzListen(db,uid);
   render();
@@ -54995,11 +55022,18 @@ function isStaff(id){return !!id&&((id===S.uid&&!!(S.isOwner||S.isMod)&&!PV)||!!
    with the report queue and the region chats */
 function isModId(id){return !!id&&((id===S.uid&&!!S.isMod&&!PV)||!!(S.staffMod&&S.staffMod.has(id)));}
 function staffPillOf(id){return isModId(id)?MOD_PILL:STAFF_PILL;}
+/* an Edictum Ambassador (appointed by an admin on the player's portal page, functions/admin.js setAmb): blue, "Edictum
+   Ambassador", on the nation card and in the chats. They may silence players from a chat line's menu, and that is all:
+   no portal, no deleting, no lifting a silence */
+function isAmbId(id){return !!id&&((id===S.uid&&!!S.isAmb&&!PV)||!!(S.ambs&&S.ambs.has(id)));}
+/* the pill beside a nation's name: staff first, then an ambassador's */
+function rolePillOf(id){return isStaff(id)?staffPillOf(id):isAmbId(id)?AMB_PILL:'';}
 function portalOk(v){return !!S.isOwner||!!S.isMod&&MOD_VIEWS.includes(v);}
 /* a moderator's portal: the queue of what needs them, the reports, every region's chat, and the player behind a report
    (functions/admin.js, modPlayer: the nation and its history, never the account behind it) */
 const MOD_VIEWS=['admin-triage','admin-reports','admin-chat','admin-players'];
 const STAFF_PILL='<span class="staff-pill" title="A member of the Edictum team"><svg viewBox="0 0 12 14" aria-hidden="true"><path d="M6 .8 11 2.7v3.9c0 3.1-2.1 5.6-5 6.6-2.9-1-5-3.5-5-6.6V2.7Z" fill="currentColor"/><path d="m3.6 7 1.7 1.7 3.2-3.4" fill="none" stroke="var(--stamp)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Edictum staff</span>';
+const AMB_PILL='<span class="staff-pill amb" title="An ambassador of Edictum, who helps keep the chats friendly"><svg viewBox="0 0 14 14" aria-hidden="true"><circle cx="7" cy="7" r="5.9" fill="none" stroke="currentColor" stroke-width="1.4"/><ellipse cx="7" cy="7" rx="2.5" ry="5.9" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M1.2 7h11.6" stroke="currentColor" stroke-width="1.2"/></svg>Edictum Ambassador</span>';
 const MOD_PILL='<span class="staff-pill mod" title="A moderator of Edictum"><svg viewBox="0 0 12 14" aria-hidden="true"><path d="M6 .8 11 2.7v3.9c0 3.1-2.1 5.6-5 6.6-2.9-1-5-3.5-5-6.6V2.7Z" fill="currentColor"/><path d="m3.6 7 1.7 1.7 3.2-3.4" fill="none" stroke="#1f7a46" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Edictum Moderator</span>';
 function heroStamps(n,id){
   const now=Date.now(),out=[],st=(cls,k,v,sub)=>`<span class="hs ${cls}"><span class="hs-k">${esc(k)}</span><span class="hs-v">${esc(v)}</span>${sub?`<span class="hs-s">${esc(sub)}</span>`:''}</span>`;
@@ -55023,7 +55057,7 @@ function hero(n,opt){
         <h1 class="hero-name" style="--lw:${Math.max(6,...String(n.name).split(/[\s-]+/).map(w=>w.length))}">${esc(n.name)}${czEpithet(n)}</h1>${scrHero(n)}
         ${n.motto?`<p class="hero-motto">“${esc(n.motto)}”</p>`:''}
         ${heroLead(n)}
-        <div class="hero-cat"><span class="cat-pill">${esc(cat)}</span>${isStaff(id)?staffPillOf(id):''}${n.npc?'<span class="chip">Computer-run</span>':''}${opt.player?'<span class="chip">Player nation</span>':''}</div>
+        <div class="hero-cat"><span class="cat-pill">${esc(cat)}</span>${rolePillOf(id)}${n.npc?'<span class="chip">Computer-run</span>':''}${opt.player?'<span class="chip">Player nation</span>':''}</div>
         <p class="hero-blurb">${esc(CAT_BLURB[cat])}</p>
         ${n.about?`<p class="hero-about">${esc(n.about)}</p>`:''}${heroStamps(n,id)}${idActs(n)}
       </div>
@@ -57535,6 +57569,25 @@ function renderPatch(app,html){
   RPATCH.n++;if(want!==null)try{RPATCH.check(want,app.innerHTML);}catch(e){}
   return true;
 }
+/* ── nothing stays inert after a dialog (2026-11-20) ──
+   While a modal dialog is open (showModal: the guest recovery code, the account panel, a guide's sheet…) or #app is
+   inert (a tutorial guide), the browser treats the page behind it as inert: no clicks, no focus. In Chrome 156 part of
+   the page could stay inert after the dialog had closed. When the founding edict opened 40 ms after the recovery code
+   was saved, the page column (.wrap, restyled as the edict was drawn into it) came out inert with everything inside it,
+   while looking just as usual, so the edict's answers ignored every click until something else restyled the column
+   (caught in the Core game test on CI, 1 run in 12 on 20 Nov; test/hit-diag.mjs). The browser seems to reuse a
+   style worked out while the dialog was open. So while anything is modal the root carries a class (ed-modal) whose
+   rule gives every element one more declaration: a style worked out then never matches one worked out afterwards,
+   and the class going away has every element's style worked out afresh. */
+const MODAL_ERA={on:false};
+function modalEra(){
+  let m=null;try{m=document.querySelector('dialog:modal');}catch(e){m=document.querySelector('dialog[open]');}
+  const app=document.getElementById('app'),on=!!(m||(app&&app.inert));
+  if(on!==MODAL_ERA.on){MODAL_ERA.on=on;document.documentElement.classList.toggle('ed-modal',on);}
+}
+try{const mo=new MutationObserver(modalEra);mo.observe(document.documentElement,{subtree:true,attributes:true,attributeFilter:['open','inert']});
+  /* a dialog taken off the page while open changes no attribute */
+  const kids=()=>{if(document.body)mo.observe(document.body,{childList:true});};if(document.body)kids();else document.addEventListener('DOMContentLoaded',kids);}catch(e){}
 /* ── chats that keep to their newest line ──
    Every chat (the drawer's Region, World and Alliance tabs, an alliance's channel, a letters thread, the admin's region
    chats) opens on its newest line and follows each new one while the reader is at the bottom. Scrolling up (a wheel,
@@ -58171,8 +58224,8 @@ function adminView(v='admin'){
 }
 /* What a reported thing is called, for the chip above a ticket and the words in its confirmation */
 const admRepKind=r=>{const p=r.post||'';return r.kind!=='post'?(r.kind==='letter'?'Letter':'Nation')
-  :/^news:/.test(p)?'News comment':/^cb:/.test(p)?'Community Board':/^ad:/.test(p)?'Classified ad':/^flk:/.test(p)?'Flock peep':/^rc:world:/.test(p)?'World chat':/^rc:/.test(p)?'Region chat':'Post';};
-const admRepThing=r=>{const p=r.post||'';return /^news:/.test(p)?'news comment':/^cb:/.test(p)?'Community Board message':/^ad:/.test(p)?'classified advertisement':/^flk:/.test(p)?'Flock peep':/^rc:world:/.test(p)?'world chat line':/^rc:/.test(p)?'region chat line':'post';};
+  :/^news:/.test(p)?'News comment':/^cb:/.test(p)?'Community Board':/^ad:/.test(p)?'Classified ad':/^flk:/.test(p)?'Flock peep':/^rc:world:/.test(p)?'World chat':/^rc:fr:/.test(p)?'French chat':/^rc:/.test(p)?'Region chat':'Post';};
+const admRepThing=r=>{const p=r.post||'';return /^news:/.test(p)?'news comment':/^cb:/.test(p)?'Community Board message':/^ad:/.test(p)?'classified advertisement':/^flk:/.test(p)?'Flock peep':/^rc:world:/.test(p)?'world chat line':/^rc:fr:/.test(p)?'French chat line':/^rc:/.test(p)?'region chat line':'post';};
 /* The report queue, one case per nation. Several players reporting the same nation is one decision, not five, so the
    tickets about it stand together and the nation's actions are taken once; closing the case closes all of them. The
    keys below work the open case (admKeys), and every action still asks first — one stray click used to remove a post
@@ -58666,6 +58719,7 @@ ${adminCards(p)}
     <h3 class="help-h3">Timeline</h3>${adminTimeline(p)}
     <div class="row"><button class="btn ghost small" data-act="admin-history" data-id="${esc(p.uid)}">View admin history</button>${p.exists?pvBtn(p.reg,p.uid):''}${p.exists&&p.reg===REG.id?`<button class="btn ghost small" data-act="visit" data-id="${esc(p.uid)}">View nation</button>`:p.exists?obsVisitBtn(p.reg,p.uid):''}</div>
     <h3 class="help-h3">Moderator</h3>${adminModRole(p)}
+    <h3 class="help-h3">Ambassador</h3>${adminAmbRole(p)}
     ${isStaff(p.uid)||isModId(p.uid)?`<h3 class="help-h3">Portal clock</h3>${adminClock(p)}`:''}
     <h3 class="help-h3">The Chancery Club</h3>${adminClub(p)}
     <h3 class="help-h3">Shop packs</h3>${adminPacks(p)}
@@ -58745,9 +58799,26 @@ function adminModRole(p){
 async function adminModRoleSet(uid,on){
   const p=ADMX.player;if(!p||p.uid!==uid||ADMX.modRoleBusy)return;
   ADMX.modRoleBusy=true;ADMX.modRoleMsg='';render();
-  try{await adminRequest({op:'setMod',uid,on});if(!S.staffMod)S.staffMod=new Set();if(on)S.staffMod.add(uid);else S.staffMod.delete(uid);ADMX.modRoleMsg=on?'Appointed. They see the Mod pill once they reload the game.':'No longer a moderator.';}
+  try{await adminRequest({op:'setMod',uid,on});if(!S.staffMod)S.staffMod=new Set();if(on)S.staffMod.add(uid);else S.staffMod.delete(uid);if(on&&S.ambs)S.ambs.delete(uid);ADMX.modRoleMsg=on?'Appointed. They see the Mod pill once they reload the game.':'No longer a moderator.';}
   catch(e){ADMX.modRoleMsg='That did not work: '+(e.message||e.code||'unknown error');}
   ADMX.modRoleBusy=false;render();
+}
+/* an Edictum Ambassador: an admin appoints one here (functions/admin.js, setAmb). The blue Ambassador pill on their nation
+   card and chat lines, and Silence in a chat line's menu; no portal. A moderator reading this page sees whether they are one */
+function adminAmbRole(p){
+  const on=isAmbId(p.uid),busy=ADMX.ambRoleBusy?' disabled':'';
+  if(isStaff(p.uid)&&!on)return `<p class="hint">This player is ${isModId(p.uid)?'a moderator':'an admin'}, and can silence players already.</p>`;
+  const pill=`<p>${on?AMB_PILL:'<span class="chip">Not an ambassador</span>'}</p>`;
+  if(!S.isOwner)return pill;
+  return `${pill}<div class="row"><button class="btn small${on?' ghost':''}" data-act="admin-ambrole" data-v="${on?'off':'on'}" data-id="${esc(p.uid)}"${busy}>${on?'Stand down as ambassador':'Appoint as ambassador'}</button></div>
+    <p class="hint">An ambassador has the blue Ambassador pill on their nation card and beside their lines in the chats, and can silence a player from a chat line’s menu. That is all: no portal, no removing lines, no lifting a silence (moderators and admins do that on Region chats), and they cannot silence staff or another ambassador. They reload the game to get Silence.</p>${ADMX.ambRoleMsg?`<p class="hint" aria-live="polite">${esc(ADMX.ambRoleMsg)}</p>`:''}`;
+}
+async function adminAmbRoleSet(uid,on){
+  const p=ADMX.player;if(!p||p.uid!==uid||ADMX.ambRoleBusy)return;
+  ADMX.ambRoleBusy=true;ADMX.ambRoleMsg='';render();
+  try{await adminRequest({op:'setAmb',uid,on});if(!S.ambs)S.ambs=new Set();if(on)S.ambs.add(uid);else S.ambs.delete(uid);ADMX.ambRoleMsg=on?'Appointed. Everyone sees the blue Ambassador pill now; they can silence players once they reload the game.':'No longer an ambassador.';}
+  catch(e){ADMX.ambRoleMsg='That did not work: '+(e.message||e.code||'unknown error');}
+  ADMX.ambRoleBusy=false;render();
 }
 /* the player's Chancery Club, and a free membership an admin turns on or off (functions/admin.js, club()) */
 const ADM_CLUB_DAYS=[[7,'A week'],[30,'30 days'],[90,'90 days'],[365,'A year'],[3650,'Ten years']];
@@ -59010,6 +59081,7 @@ document.addEventListener('click',async e=>{
   if(a==='admin-once-copy'){const f=document.getElementById('admin-once-link');const done=ok=>{ADMX.onceMsg=ok?'Copied. Send it to the player yourself; it works once, within a day.':'Select the link and copy it.';render();};try{navigator.clipboard.writeText(ADMX.onceLink).then(()=>done(true),()=>{if(f){f.focus();f.select();}done(false);});}catch(err){done(false);}return;}
   if(a==='admin-club'){adminClubSet(id,el.dataset.v==='on');return;}
   if(a==='admin-modrole'){adminModRoleSet(id,el.dataset.v==='on');return;}
+  if(a==='admin-ambrole'){adminAmbRoleSet(id,el.dataset.v==='on');return;}
   if(a==='admin-pack'){adminPackSet(id,el.dataset.v==='on'?ADMX.packP:el.dataset.p,el.dataset.v==='on');return;}
   if(a==='admin-inspect'){
     ADMTZ.other=null;ADMX.err='';ADMX.mod=null;ADMX.modReason='';ADMX.modMsg='';ADMX.note='';ADMX.noteFor='';ADMX.noteMsg='';ADMX.clubWhy='';ADMX.clubMsg='';ADMX.modRoleMsg='';ADMX.packWhy='';ADMX.packMsg='';ADMX.packP='';ADMX.watchWhy='';ADMX.watchFor='';ADMX.watchMsg='';ADMX.onceFor='';ADMX.onceAsk='';ADMX.onceMsg='';ADMX.onceLink='';
@@ -81255,7 +81327,7 @@ mapBox=(f=>function(kind){const h=f.apply(this,arguments),n=S.nation;if(kind!=='
 
 /* the browser tests' window into the game: test/lib.mjs sets EDICTUM_PROBE before the page loads (a
    player's own browser can reach all of this anyway) */
-if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({RPATCH,SC:()=>scProbe(),MTP:()=>({MTP,MTP_PAD,TBMP_SCALE,redrawMaps,mapScale,viewOf}),SCR:()=>({scrOf,scrClean,scrDef,scrFamOf,scrEdParse,scrGlyphs,scrLay,scrChars,scrSVG,scrLine,scrCard,scrCharterSVG,scrFmt,scrFor,dmRich,dmPlain,scrDmWith,SCR_FAM,SCR_ABC,SCS}),BDX:()=>bdProbe(),FLY:()=>({flagSVG,fgSplit,fgFused}),RD:()=>rdProbe(),JV:()=>jvProbe(),M100P:()=>({M100,M100_N,M100_MC,M100_MCN,m100Bits,m100Got,m100In,m100Due,m100Count,m100Show,m100Open,ctgMcOk,nationColor,czShOk,czShieldPath,unlocksOf,czPatSVG,xsMax}),M200P:()=>({M200,M200_N,M200_MC,M200_MCN,M200_U,m200Bits,m200Got,m200In,m200Due,m200Count,m200Show,m200Open,ctgMcOk,nationColor,czShOk,czShieldPath,unlocksOf,czPatSVG,czStampArt,czFrameArt,czCharge,czFramed,flagSVG,xsMax,ACH_BY_ID,achEarnedIds}),WTN:()=>({WN,wbMap,wnKind,wnWaters,wnSync,wnAt,wnRename,wnReset,wnNameProblem,wnTaken,wnPanel,wnLabels,lakeMap,isLake,cellAt,WN_REACH,WTN_MAX,REG,RV,rvData,hexDist,territory,MAP,HEX_W,updateMapPanel,logLine}),RVN:()=>({RV,rvData,rvSync,rvKey,rvHeld,rvStretch,rvMost,rvEdgeHolder,rvAt,rvNameAt,rvLabelAt,rvParts,rvRename,rvReset,rvNameProblem,rvTidy,rvLabel,rvnPanel,logLine,RVN_MAX,RVN_LEN,updateMapPanel,hexDist,HEX_W,REG}),CP2:()=>({BLD_ICO,bldIco,bldLead,cxDefTotal,cxOrder,qjBuilding,BUILDINGS}),PRVC:()=>({cxPrvOf,cxPrvSeatTrial,cxOvwCols,prvSeat,prvMine,prvOfCell,prvSetAut,prvAppoint,PRV}),NPX:()=>({fbTrend,fbYesterday,heroLead,heroOpen,opOf,OPEN_TO,hnOf,hnFill,hnLine,nbSection,ppWho,ppWhoHTML,ppHash,ppCarried,economy,territory,bordersOf,fillDeal,findNation,clsHide,MAP,hexDist,STAT_KEYS,popNow,myId}),PT:()=>ptProbe(),LTH:()=>lthProbe(),DAM:()=>damProbe(),CHAT:()=>({RGC,RGW,tab:rgcTab(),count:rgcCount(),region:rgcUnread(),world:rgwUnread(),named:rgwNamedUnread(),hidden:document.hidden}),UXP2:()=>({edictDesk,edictStep,edictOpen,fill,ISSUE_BY_ID,ACH,keysOpen,dmOthers,dmPickList,stGroups,stTabLast,navRecent,vhData,VH_KEY,VH_AFTER,QJ_DO,qjItems:q=>navQjItems(q),NAV_REC_KEY,ST_KEY}),HID:()=>({HIDN,hidMask,iAmHidden,frontier,mapPanel,warControls}),WG:()=>({wgTakers,wgForField,wgForPick,warGiveHex,warGive,occupiedFrom,attack,offerPeace,declareWar,collectConquests,dedupeConq}),WAKE:()=>({dormFresh,dormQuiet,dormWelcome,moveTo,RSTAT,REGIONS,REG,regDisabled}),HMB:()=>({RCTRL,hmBake,hmAutoFlag,fxDraw,capHolder,FX_DEF,DEF_FLAG,hmRle,hmLiveNorm,hmMapNorm,hmSel,hmRegions,hmBlocked,hmEngaged:()=>hmEngaged,HM,REG,MAP}),LAND:()=>({landWait,capLift,capWrong,capNote,raceKnown,RACE,worldHeardAt:()=>worldHeardAt,landQ:()=>S.landQ,landQueued,fdSites:(n,T)=>fdSites(n,T)}),BG:{gain:bldGain,html:bldGainHtml},IB:()=>({agRoster,agPick,agStatus,heatOf,cvRoll,cvKey,cvBlock,cvOdds,buLv,buGap,buAll,BU,BU_KEYS,ibFile,ibWanted,ibChatter,HEAT_MAX,DD_TASKS,DD_LEG,findNation,allNations,cvProtected}),VL:()=>({VL_SECS,VL_DEF,CLS,CLS_OPS,CLS_READ,vlOrder,clsOf,clsRaw,clsMax,clsSeen,clsHide,clsRead,vlSave,findNation}),IFC:()=>({plan:ifcPlan,works:ifcWorks,line:ifcLine,tab:ifcTab}),XP:()=>({BUILDINGS,XU,XU_KEYS,XU_TOTAL,LOST_KINDS,LOST_ORDER,xuLv,xuWhy,xuHave,xuStart,xuCost,xuGear,xpSeen,expFree,xpTeamOpen,nationBuilt,expBackTeam,SITES,SITE_KINDS,expPlan,expOdds,expRuns,expRange,flRange,flAlive,flPlan,flDebug,flNow,discoveries,sendExpedition,hearReport,xpRoute,xpRivals,xpRivalText,xpFinds,flOdds,territory}),SVC:()=>({SVC,SVC_N,SVC_V,SVC_NEED,svcPlan,svcOpen,svcDig,svcShort,svcRoll,svcAmt,svcDayOf,svcRoom,svcNext}),FLC:()=>({FLC,FLC_RULES,FLC_CAT,flcId,flcTimes,flcPhase,flcPrev,flcView,flcLoad,flcChamp,flcTodo,flcClaims,flcLand,flcStreak,flcAllDone,flcSeen,flcDuty,flcDeskOn,flcDraftPush,FCA}),LK:{lakeMap,isLake,claimLand,lakeShore,fillHeld,LAKE_MAX,LAKE_A,freeCell,claimFrontier,blockPlan,autoPlan,terrCount,placePhrase,claimWhy,swapCheck,inspectPanel,writeClaims,landCredits:n=>landCredits(n)},PST:()=>({PST,PST_LOOKS,PST_SHAPES,pstBar,pstKm,pstView,pstBox,pstPlace,pstKeyOf,pstRender,pstShow,pstHide}),DIG:()=>({DIG_SETS,DIG_FIRST,DIG_POOL,DIG_SITES,DIG_LEN,DIG_EVENTS,DIG_SCH,digSet,digHeld,digDone,digRew,digCredits,digOrder,digActive,digRetired,digOpenedAt,digPlan,digSend,digOpen,digChoose,digMod,digEvent,digPity,digGround,digInvites,digJoin,digJointOn,digGiftsIn,digTake,digGiveSpare,digSellSpare,digHire,digRegionFinds,digFirsts,landEarned:n=>landEarned(n),REG,REGIONS,COL_BY_ID}),MW:()=>({mwOf,mwPoints,mwVisitors,mwTakings,mwExhibit,mwExhibitItems,mwRanking,mwWorn,mwSlots,mwOnShow,COL_BY_ID,COL_ITEMS,DIG_SETS,MW_FLOORS}),GM:()=>({gamesResults,edOf,b1Now,gevWhy,baseScores,entryOf,medalsIn,gamesRecords,gamesCeremony,unlocksOf,myId,formOf,GAME_EVENTS,clone,commit}),GB:()=>({IRON_DEP,IRON_DEP_YIELD,CELL_RES,MAP_T:MAP.T,mapAt:c=>{centerMain(c,NEAR_Z*1.6);},stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,FOOD_SPOIL,FOOD_EAT,FOOD_TIERS,FOOD_LAND,foodTier,TIMBER_BURN,foodGrowth,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({dspShown,dspRegShown,dspRegs,dspPic,dspLocator,dspHtDefs,pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),ASMX:()=>({ASMX,ASMX_TABS,asmBookAt,asmState,asmArcLoad,REG}),RGNX:()=>({RGN,RGN_PAGE,notifItems,ONL,onlRefresh}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals}),TYX:()=>({TY,TY_RULES,TY_K,tyOf,tyList,tyWarBlock,tyIncoming,affinity,alPactLive,alRelationsHTML,econOf,armyPower,armyRaw,attackMult,readyMs,drWords,drNote,drBroken,relationCard}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,achTierCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC,step:rcStepCheck,head:rcHead,sponsoring:rcSponsoring,qr:qrMatrix,card:rcCardDraw,invCap:rcInvCap,free:rcFreeLand,STEPS:RC_STEPS,UNL:RC_UNLOCKS}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend,card:n=>tutCard(n),phase:n=>tutPhase(n),picks:(n,ph)=>tutPicks(n,ph),group:(n,k)=>tutGroup(n,tutL(k)),hid:n=>tutHid(n)},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours},WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR,bell:now=>notifItems(now||Date.now())},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},TIER:()=>({BTIER,bEff,bTier,bTierNext,bTierLine,tierQuote,tierProblem,cxTier,cxTrMap,tierSettle,tierReady,cxGoldNow,cxUpQuote,cxUpList,cxUps}),CX:{upgradable:cxUpgradable,mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState,UG:CX_UG,LV:CX_LV,ups:cxUps,upMap:cxUpMap,extras:cxBldExtras,quote:cxUpQuote},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo,unlockTarget,unlockShow,unlockFresh,unlockQueue,ULK,UNLOCKS,unlocksOf,toast:m=>toast(m)},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{coinBackSVG:cuCoinBackSVG,noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,coinSVG:cuCoinSVG,guide:cuGuideHTML,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,drawMap,sfKey,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ACH_RANKS_V1,ID_BD,achVal,achCtx,achEvalNew,achState,stockRates:n=>stockRates(n),achPoints,achRank,achRankOf,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,flagNorm:(f,n)=>flagNorm(f,n),flagSVG:(f,l)=>flagSVG(f,l),mapTip:id=>{const T=mapTerr('main'),i=T.list.findIndex(x=>x.id===id);if(i<0)return '';const cell=Array.prototype.indexOf.call(T.owner,i);return MAP_TIP.map(h=>{try{return h({kind:'main',cell,cv:null,x:0,y:0});}catch(e){return '';}}).filter(x=>typeof x==='string').join(' | ');},cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
+if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({RPATCH,SC:()=>scProbe(),MTP:()=>({MTP,MTP_PAD,TBMP_SCALE,redrawMaps,mapScale,viewOf}),SCR:()=>({scrOf,scrClean,scrDef,scrFamOf,scrEdParse,scrGlyphs,scrLay,scrChars,scrSVG,scrLine,scrCard,scrCharterSVG,scrFmt,scrFor,dmRich,dmPlain,scrDmWith,SCR_FAM,SCR_ABC,SCS}),BDX:()=>bdProbe(),FLY:()=>({flagSVG,fgSplit,fgFused}),RD:()=>rdProbe(),JV:()=>jvProbe(),M100P:()=>({M100,M100_N,M100_MC,M100_MCN,m100Bits,m100Got,m100In,m100Due,m100Count,m100Show,m100Open,ctgMcOk,nationColor,czShOk,czShieldPath,unlocksOf,czPatSVG,xsMax}),M200P:()=>({M200,M200_N,M200_MC,M200_MCN,M200_U,m200Bits,m200Got,m200In,m200Due,m200Count,m200Show,m200Open,ctgMcOk,nationColor,czShOk,czShieldPath,unlocksOf,czPatSVG,czStampArt,czFrameArt,czCharge,czFramed,flagSVG,xsMax,ACH_BY_ID,achEarnedIds}),WTN:()=>({WN,wbMap,wnKind,wnWaters,wnSync,wnAt,wnRename,wnReset,wnNameProblem,wnTaken,wnPanel,wnLabels,lakeMap,isLake,cellAt,WN_REACH,WTN_MAX,REG,RV,rvData,hexDist,territory,MAP,HEX_W,updateMapPanel,logLine}),RVN:()=>({RV,rvData,rvSync,rvKey,rvHeld,rvStretch,rvMost,rvEdgeHolder,rvAt,rvNameAt,rvLabelAt,rvParts,rvRename,rvReset,rvNameProblem,rvTidy,rvLabel,rvnPanel,logLine,RVN_MAX,RVN_LEN,updateMapPanel,hexDist,HEX_W,REG}),CP2:()=>({BLD_ICO,bldIco,bldLead,cxDefTotal,cxOrder,qjBuilding,BUILDINGS}),PRVC:()=>({cxPrvOf,cxPrvSeatTrial,cxOvwCols,prvSeat,prvMine,prvOfCell,prvSetAut,prvAppoint,PRV}),NPX:()=>({fbTrend,fbYesterday,heroLead,heroOpen,opOf,OPEN_TO,hnOf,hnFill,hnLine,nbSection,ppWho,ppWhoHTML,ppHash,ppCarried,economy,territory,bordersOf,fillDeal,findNation,clsHide,MAP,hexDist,STAT_KEYS,popNow,myId}),PT:()=>ptProbe(),LTH:()=>lthProbe(),DAM:()=>damProbe(),CHAT:()=>({RGC,RGW,RGF,tab:rgcTab(),count:rgcCount(),region:rgcUnread(),world:rgwUnread(),named:rgwNamedUnread(),fr:rgwUnread(RGF),frNamed:rgwNamedUnread(RGF),frOn:rgfOn(),hidden:document.hidden}),UXP2:()=>({edictDesk,edictStep,edictOpen,fill,ISSUE_BY_ID,ACH,keysOpen,dmOthers,dmPickList,stGroups,stTabLast,navRecent,vhData,VH_KEY,VH_AFTER,QJ_DO,qjItems:q=>navQjItems(q),NAV_REC_KEY,ST_KEY}),HID:()=>({HIDN,hidMask,iAmHidden,frontier,mapPanel,warControls}),WG:()=>({wgTakers,wgForField,wgForPick,warGiveHex,warGive,occupiedFrom,attack,offerPeace,declareWar,collectConquests,dedupeConq}),WAKE:()=>({dormFresh,dormQuiet,dormWelcome,moveTo,RSTAT,REGIONS,REG,regDisabled}),HMB:()=>({RCTRL,hmBake,hmAutoFlag,fxDraw,capHolder,FX_DEF,DEF_FLAG,hmRle,hmLiveNorm,hmMapNorm,hmSel,hmRegions,hmBlocked,hmEngaged:()=>hmEngaged,HM,REG,MAP}),LAND:()=>({landWait,capLift,capWrong,capNote,raceKnown,RACE,worldHeardAt:()=>worldHeardAt,landQ:()=>S.landQ,landQueued,fdSites:(n,T)=>fdSites(n,T)}),BG:{gain:bldGain,html:bldGainHtml},IB:()=>({agRoster,agPick,agStatus,heatOf,cvRoll,cvKey,cvBlock,cvOdds,buLv,buGap,buAll,BU,BU_KEYS,ibFile,ibWanted,ibChatter,HEAT_MAX,DD_TASKS,DD_LEG,findNation,allNations,cvProtected}),VL:()=>({VL_SECS,VL_DEF,CLS,CLS_OPS,CLS_READ,vlOrder,clsOf,clsRaw,clsMax,clsSeen,clsHide,clsRead,vlSave,findNation}),IFC:()=>({plan:ifcPlan,works:ifcWorks,line:ifcLine,tab:ifcTab}),XP:()=>({BUILDINGS,XU,XU_KEYS,XU_TOTAL,LOST_KINDS,LOST_ORDER,xuLv,xuWhy,xuHave,xuStart,xuCost,xuGear,xpSeen,expFree,xpTeamOpen,nationBuilt,expBackTeam,SITES,SITE_KINDS,expPlan,expOdds,expRuns,expRange,flRange,flAlive,flPlan,flDebug,flNow,discoveries,sendExpedition,hearReport,xpRoute,xpRivals,xpRivalText,xpFinds,flOdds,territory}),SVC:()=>({SVC,SVC_N,SVC_V,SVC_NEED,svcPlan,svcOpen,svcDig,svcShort,svcRoll,svcAmt,svcDayOf,svcRoom,svcNext}),FLC:()=>({FLC,FLC_RULES,FLC_CAT,flcId,flcTimes,flcPhase,flcPrev,flcView,flcLoad,flcChamp,flcTodo,flcClaims,flcLand,flcStreak,flcAllDone,flcSeen,flcDuty,flcDeskOn,flcDraftPush,FCA}),LK:{lakeMap,isLake,claimLand,lakeShore,fillHeld,LAKE_MAX,LAKE_A,freeCell,claimFrontier,blockPlan,autoPlan,terrCount,placePhrase,claimWhy,swapCheck,inspectPanel,writeClaims,landCredits:n=>landCredits(n)},PST:()=>({PST,PST_LOOKS,PST_SHAPES,pstBar,pstKm,pstView,pstBox,pstPlace,pstKeyOf,pstRender,pstShow,pstHide}),DIG:()=>({DIG_SETS,DIG_FIRST,DIG_POOL,DIG_SITES,DIG_LEN,DIG_EVENTS,DIG_SCH,digSet,digHeld,digDone,digRew,digCredits,digOrder,digActive,digRetired,digOpenedAt,digPlan,digSend,digOpen,digChoose,digMod,digEvent,digPity,digGround,digInvites,digJoin,digJointOn,digGiftsIn,digTake,digGiveSpare,digSellSpare,digHire,digRegionFinds,digFirsts,landEarned:n=>landEarned(n),REG,REGIONS,COL_BY_ID}),MW:()=>({mwOf,mwPoints,mwVisitors,mwTakings,mwExhibit,mwExhibitItems,mwRanking,mwWorn,mwSlots,mwOnShow,COL_BY_ID,COL_ITEMS,DIG_SETS,MW_FLOORS}),GM:()=>({gamesResults,edOf,b1Now,gevWhy,baseScores,entryOf,medalsIn,gamesRecords,gamesCeremony,unlocksOf,myId,formOf,GAME_EVENTS,clone,commit}),GB:()=>({IRON_DEP,IRON_DEP_YIELD,CELL_RES,MAP_T:MAP.T,mapAt:c=>{centerMain(c,NEAR_Z*1.6);},stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,FOOD_SPOIL,FOOD_EAT,FOOD_TIERS,FOOD_LAND,foodTier,TIMBER_BURN,foodGrowth,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({dspShown,dspRegShown,dspRegs,dspPic,dspLocator,dspHtDefs,pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),ASMX:()=>({ASMX,ASMX_TABS,asmBookAt,asmState,asmArcLoad,REG}),RGNX:()=>({RGN,RGN_PAGE,notifItems,ONL,onlRefresh}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals}),TYX:()=>({TY,TY_RULES,TY_K,tyOf,tyList,tyWarBlock,tyIncoming,affinity,alPactLive,alRelationsHTML,econOf,armyPower,armyRaw,attackMult,readyMs,drWords,drNote,drBroken,relationCard}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,achTierCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC,step:rcStepCheck,head:rcHead,sponsoring:rcSponsoring,qr:qrMatrix,card:rcCardDraw,invCap:rcInvCap,free:rcFreeLand,STEPS:RC_STEPS,UNL:RC_UNLOCKS}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend,card:n=>tutCard(n),phase:n=>tutPhase(n),picks:(n,ph)=>tutPicks(n,ph),group:(n,k)=>tutGroup(n,tutL(k)),hid:n=>tutHid(n)},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours},WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR,bell:now=>notifItems(now||Date.now())},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},TIER:()=>({BTIER,bEff,bTier,bTierNext,bTierLine,tierQuote,tierProblem,cxTier,cxTrMap,tierSettle,tierReady,cxGoldNow,cxUpQuote,cxUpList,cxUps}),CX:{upgradable:cxUpgradable,mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState,UG:CX_UG,LV:CX_LV,ups:cxUps,upMap:cxUpMap,extras:cxBldExtras,quote:cxUpQuote},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo,unlockTarget,unlockShow,unlockFresh,unlockQueue,ULK,UNLOCKS,unlocksOf,toast:m=>toast(m)},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{coinBackSVG:cuCoinBackSVG,noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,coinSVG:cuCoinSVG,guide:cuGuideHTML,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,drawMap,sfKey,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ACH_RANKS_V1,ID_BD,achVal,achCtx,achEvalNew,achState,stockRates:n=>stockRates(n),achPoints,achRank,achRankOf,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,flagNorm:(f,n)=>flagNorm(f,n),flagSVG:(f,l)=>flagSVG(f,l),mapTip:id=>{const T=mapTerr('main'),i=T.list.findIndex(x=>x.id===id);if(i<0)return '';const cell=Array.prototype.indexOf.call(T.owner,i);return MAP_TIP.map(h=>{try{return h({kind:'main',cell,cv:null,x:0,y:0});}catch(e){return '';}}).filter(x=>typeof x==='string').join(' | ');},cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
 /* ───────── Letters by post: the player's email address, confirmed by a code, and the letters they choose ─────────
    Settings › Letters by post (src/shim.js mail; functions/mail.js). The address lives only on the server; this card
    asks for it each time Settings opens. Things this nation does to another player's nation (a letter, a war, a deal)
@@ -85597,6 +85669,27 @@ const RGC={reg:'',list:[],top:0,unsub:null,err:'',retry:0,fails:0,seen:0,mark:0,
    since the drawer opened), its lines on their way, and its writing box's draft and answer. A line there carries what a
    reader in another region cannot look up: the author's region, flag, rank, alliance and Founding Supporter mark. */
 const RGW={reg:'world',on:'',list:[],top:0,unsub:null,err:'',retry:0,fails:0,seen:0,mark:0,markTop:0,looked:false,ready:false,pend:[],draft:'',re:null};
+/* the French chat (functions/regionchat.js, RC_FR; 2026-11-20): a second chat every region shares, rchat/fr/chat, for the
+   nations that play in French, kept as the world chat is (RGF beside RGW; localStorage edictum.rgc.fr). Its tab,
+   Français, shows by itself when the interface is in French (Settings › Display › Language), unless the player turned
+   it off, and for anyone who turned it on in Settings › Chat (dmx.rf: 1 on, 0 off, unset follows the language). Staff
+   read it in the admin portal's Region chats whatever their language. RGS lists the shared chats; each one's tx() is
+   what its tab, header, intro and writing box say (the French chat's in French when the interface is); its the and The
+   name it inside the game's English sentences (notices, errors), so they stay English in either language. */
+const RGF={reg:'fr',on:'',list:[],top:0,unsub:null,err:'',retry:0,fails:0,seen:0,mark:0,markTop:0,looked:false,ready:false,pend:[],draft:'',re:null};
+const RGS=[RGW,RGF];
+RGW.tx=()=>({tab:'World',eye:'World chat',head:'Every region',the:'the world chat',The:'The world chat',lbl:'Write to every region',ph:'Write to every region…',
+  intro:'The nations of every region read this chat. Be kind. Type @ to mention a nation; a line’s menu answers it, reacts to it, reports it or blocks its nation.',
+  empty:'No lines yet. Say hello to every region.',sub:'The nations of every region, in one chat',subN:k=>`${k} regions talking today`});
+RGF.tx=()=>uiLang()==='fr'
+  ?{tab:'Français',eye:'Discussion francophone',head:'En français',the:'the French chat',The:'The French chat',lbl:'Écrire dans la discussion francophone',ph:'Écrire en français…',
+    intro:'Les nations francophones de toutes les régions discutent ici. Écrivez en français et restez courtois. Tapez @ pour mentionner une nation ; le menu d’une ligne permet d’y répondre, d’y réagir, de la signaler ou de bloquer sa nation.',
+    empty:'Aucune ligne pour l’instant. Dites bonjour à toutes les régions.',sub:'Les nations de toutes les régions, en français',subN:k=>`${k} régions en discussion aujourd’hui`}
+  :{tab:'Français',eye:'French chat',head:'En français',the:'the French chat',The:'The French chat',lbl:'Write to the French chat',ph:'Write in French…',
+    intro:'The nations that play in French talk here, from every region. Write in French, and be kind. Type @ to mention a nation; a line’s menu answers it, reacts to it, reports it or blocks its nation.',
+    empty:'No lines yet. Say bonjour to every region.',sub:'The nations of every region, in French',subN:k=>`${k} regions talking today`};
+/* the shared chat a tab or a line's ch names, or null */
+const rgsOf=k=>RGS.find(C=>C.reg===k)||null;
 /* the Edictum team's mark, in place of a flag on the lines the team signs */
 /* a line the Edictum team signed: a pill naming the writer's role (MOD or TEAM), whose hover says who wrote it,
    and which opens a short card on who the team is */
@@ -85611,12 +85704,14 @@ const RGC_TEAM_SVG='<svg viewBox="0 0 12 14" aria-hidden="true"><path d="M6 .8 1
 const RGC_SVG='<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M4.5 5.8A2.3 2.3 0 0 1 6.8 3.5h10.4a2.3 2.3 0 0 1 2.3 2.3v7.4a2.3 2.3 0 0 1-2.3 2.3h-6.6l-4 3.4c-.5.4-1.1 0-1.1-.5v-2.9a2.3 2.3 0 0 1-1-1.9Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M8.3 8.4h7.4M8.3 11.4h4.6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>';
 function rgcOn(){if(PV||!S.db)return false;if(OBS)return !!S.obsOn;return !!S.nation&&S.mode==='world'&&dmx(S.nation).rc!==0;}
 function rgcMod(){return !!S.isOwner&&!PV||isStaff(myId());}
+/* an ambassador silences the author of a line (not staff, not another ambassador), and does nothing else here */
+function rgcAmb(){return !!S.isAmb&&!PV&&!OBS;}
 /* why the player cannot write here, if they cannot: the server checks it again */
 function rgcWrite(){
   if(OBS)return {why:'You are observing this region: you can read its chat and remove lines, not write in it.'};
   if(S.banned)return {why:'Writing in the chat is unavailable while this account is banned. Contact support for help.'};
   const q=RGC.sil;
-  if(q&&q.until>Date.now())return {why:`A moderator has silenced you in the region chat${q.perm?'':` until ${fmtDate(q.until)}, ${fmtTime(q.until)}`}${q.why?`. Reason: ${q.why}`:''}. You can still read along. If you think it is a mistake, write to the team from the Help page.`};
+  if(q&&q.until>Date.now())return {why:`${q.amb?'An ambassador':'A moderator'} has silenced you in the region chat${q.perm?'':` until ${fmtDate(q.until)}, ${fmtTime(q.until)}`}${q.why?`. Reason: ${q.why}`:''}. You can still read along. If you think it is a mistake, write to the team from the Help page.`};
   const a=accountInfo();
   if(a&&a.reason==='moderated')return {why:'Writing in the chat is unavailable while this nation is under moderation.'};
   return null;
@@ -85626,7 +85721,7 @@ function rgcGuest(){const a=accountInfo();return !OBS&&!!a&&a.kind==='guest';}
 /* the times of the guest's lines in the last hour: what the server last told, and their lines in the chat */
 function rgcGuestTimes(){
   const now=Date.now(),me=myId(),s=new Set((RGC.gt||[]).filter(t=>t>now-3600000&&t<=now));
-  for(const m of RGC.list.concat(RGW.list))if(m.a===me&&!m.tm&&!m.sys&&m.t>now-3600000)s.add(m.t);
+  for(const m of RGC.list.concat(...RGS.map(C=>C.list)))if(m.a===me&&!m.tm&&!m.sys&&m.t>now-3600000)s.add(m.t);
   return [...s].sort((a,b)=>a-b);
 }
 function rgcGuestNote(){
@@ -85636,7 +85731,7 @@ function rgcGuestNote(){
   return `You have sent your ${RGC_GUEST} lines for this hour. You can write again at ${fmtTime(at)}. ${link} to chat freely.`;
 }
 function rgcConnect(){if(hmQuiet())return;
-  try{rgwConnect();}catch(e){}
+  for(const C of RGS)try{rgwConnect(C);}catch(e){}
   const reg=rgcOn()&&!(sgSaverOn()&&!RGC.open)?REG.id:'',now=Date.now();
   if(RGC.reg===reg&&(RGC.unsub||!reg||now<RGC.retry))return;
   if(RGC.unsub)try{RGC.unsub();}catch(e){}
@@ -85654,14 +85749,14 @@ function rgcConnect(){if(hmQuiet())return;
     RGC.err=RGC.ready?'The chat lost its connection. It tries again in a moment.':'The region chat could not be loaded yet. It tries again in a moment.';rgcPaint();});}
   catch(e){RGC.retry=now+RGC_RETRY;}
 }
-/* a line as the chat draws it; one of the world chat (w) keeps its author's region, flag, rank, alliance and Founding
-   Supporter mark as the server stamped them */
+/* a line as the chat draws it; one of a shared chat (w: the world chat's or the French chat's id, kept as ch) keeps its
+   author's region, flag, rank, alliance and Founding Supporter mark as the server stamped them */
 function rgcLineOf(d,w){
   const v=d.data()||{},r=v.r&&typeof v.r==='object'&&typeof v.r.id==='string'?v.r:null;
   return {id:d.id,a:String(v.a||''),nm:String(v.nm||'A nation').slice(0,80),x:String(v.x||'').slice(0,RGC_TEXT),t:Number(v.t)||0,st:v.st==='admin'||v.st==='mod'?v.st:'',tm:v.tm===true,wn:typeof v.wn==='string'?v.wn.slice(0,80):'',sys:!w&&v.sys==='found'?'found':!w&&v.sys==='all'&&v.tm===true?'all':'',
     r:r?{id:r.id,a:String(r.a||''),nm:String(r.nm||'A nation').slice(0,80),x:String(r.x||'').slice(0,90),tm:r.tm===true,im:r.im===true}:null,im:rgcImOf(v.im),
     cd:rgcCardOf(v.cd),mn:v.mn&&typeof v.mn==='object'&&!Array.isArray(v.mn)?v.mn:null,rv:v.rv&&typeof v.rv==='object'&&!Array.isArray(v.rv)?v.rv:null,
-    ...(w?{w:true,rg:typeof v.rg==='string'?v.rg.slice(0,40):'',fl:typeof v.fl==='string'&&v.fl.length<=4000?v.fl:'',rk:Number.isInteger(v.rk)&&v.rk>=0?v.rk:-1,
+    ...(w?{w:true,ch:typeof w==='string'?w:'world',rg:typeof v.rg==='string'?v.rg.slice(0,40):'',fl:typeof v.fl==='string'&&v.fl.length<=4000?v.fl:'',rk:Number.isInteger(v.rk)&&v.rk>=0?v.rk:-1,
       al:v.al&&typeof v.al==='object'&&typeof v.al.n==='string'&&v.al.n?{n:v.al.n.slice(0,40),c:typeof v.al.c==='string'?v.al.c:''}:null,fd:v.fd===true}:{})};
 }
 function rgcHear(reg,qs){
@@ -85680,45 +85775,50 @@ function rgcHear(reg,qs){
   rgcBadge();rgcPaint();
 }
 /* the world chat's listener, beside the region's: on while the chat is and the player has not turned the World tab off
-   (Settings › Chat, dmx.rw 0); a refused or lost listener tries again as the region's does */
+   (Settings › Chat, dmx.rw 0); a refused or lost listener tries again as the region's does. The French chat's is the
+   same (rgfOn: see RGF). Each function below takes the shared chat it works on, the world chat's when none is given */
 function rgwOn(){return rgcOn()&&(OBS||!S.nation||dmx(S.nation).rw!==0);}
-function rgwConnect(){
-  const on=rgwOn()&&!(sgSaverOn()&&!RGC.open)?'world':'',now=Date.now();
-  if(RGW.on===on&&(RGW.unsub||!on||now<RGW.retry))return;
-  if(RGW.unsub)try{RGW.unsub();}catch(e){}
-  RGW.unsub=null;
-  if(RGW.on!==on){
-    Object.assign(RGW,{on,list:[],top:0,err:'',retry:0,fails:0,ready:false,pend:[],mark:0,markTop:0,looked:false});
-    RGW.seen=Number(rgcLS('edictum.rgc.world'))||0;
+/* the Français tab wanted: turned on in Settings › Chat (dmx.rf 1), or the interface in French and not turned off */
+function rgfWant(n){const v=n&&!OBS?dmx(n).rf:undefined;return v===1||v!==0&&uiLang()==='fr';}
+function rgfOn(){return rgcOn()&&rgfWant(S.nation);}
+const rgsOn=C=>C===RGF?rgfOn():rgwOn();
+function rgwConnect(C){
+  C=C||RGW;const k=C.reg,on=rgsOn(C)&&!(sgSaverOn()&&!RGC.open)?k:'',now=Date.now();
+  if(C.on===on&&(C.unsub||!on||now<C.retry))return;
+  if(C.unsub)try{C.unsub();}catch(e){}
+  C.unsub=null;
+  if(C.on!==on){
+    Object.assign(C,{on,list:[],top:0,err:'',retry:0,fails:0,ready:false,pend:[],mark:0,markTop:0,looked:false});
+    C.seen=Number(rgcLS('edictum.rgc.'+k))||0;
     if(RGC.open){RGC.menu='';RGC.ask=null;rgcPaint();}
   }
   if(!on){rgcBadge();return;}
-  try{RGW.unsub=S.db.collection('rchat/world/chat').orderBy('t','desc').limit(RGC_SHOW).onSnapshot(rgwHear,()=>{
-    if(RGW.on!=='world')return;RGW.unsub=null;RGW.retry=Date.now()+Math.min(RGC_RETRY,3000*2**RGW.fails++);
-    RGW.err=RGW.ready?'The chat lost its connection. It tries again in a moment.':'The world chat could not be loaded yet. It tries again in a moment.';rgcPaint();});}
-  catch(e){RGW.retry=now+RGC_RETRY;}
+  try{C.unsub=S.db.collection('rchat/'+k+'/chat').orderBy('t','desc').limit(RGC_SHOW).onSnapshot(qs=>rgwHear(qs,C),()=>{
+    if(C.on!==k)return;C.unsub=null;C.retry=Date.now()+Math.min(RGC_RETRY,3000*2**C.fails++);
+    C.err=C.ready?'The chat lost its connection. It tries again in a moment.':`${C.tx().The} could not be loaded yet. It tries again in a moment.`;rgcPaint();});}
+  catch(e){C.retry=now+RGC_RETRY;}
 }
-function rgwHear(qs){
-  if(RGW.on!=='world')return;
-  const me=myId(),first=!RGW.ready,top=RGW.top;
-  RGW.list=qs.docs.map(d=>rgcLineOf(d,true)).sort((a,b)=>a.t-b.t||(a.id<b.id?-1:1));
-  const last=RGW.list.length?RGW.list[RGW.list.length-1].t:0,since=first?Math.max(RGW.seen,last-RGC_FRESH):top,fresh=RGW.list.filter(m=>m.t>since&&m.a!==me&&!dmBlocked(m.a));
-  RGW.top=Math.max(top,last);RGW.err='';RGW.ready=true;RGW.retry=0;RGW.fails=0;
-  if(RGW.pend.length){const ids=new Set(RGW.list.map(m=>m.id));RGW.pend=RGW.pend.filter(p=>p.id?!ids.has(p.id):!RGW.list.some(m=>m.a===me&&m.x===p.x&&!!m.im===!!p.im&&m.t>p.top));}
-  rgcNamed(fresh,true);
-  if(RGC.open&&!document.hidden&&rgcTab()==='world'){rgwSeen();if(fresh.length){const m=fresh[fresh.length-1],l=document.getElementById('rgc-live');if(l)l.textContent=`${rgcName(m)}: ${m.im?'(a picture) ':''}${m.x}`;}}
+function rgwHear(qs,C){
+  C=C||RGW;if(C.on!==C.reg)return;
+  const me=myId(),first=!C.ready,top=C.top;
+  C.list=qs.docs.map(d=>rgcLineOf(d,C.reg)).sort((a,b)=>a.t-b.t||(a.id<b.id?-1:1));
+  const last=C.list.length?C.list[C.list.length-1].t:0,since=first?Math.max(C.seen,last-RGC_FRESH):top,fresh=C.list.filter(m=>m.t>since&&m.a!==me&&!dmBlocked(m.a));
+  C.top=Math.max(top,last);C.err='';C.ready=true;C.retry=0;C.fails=0;
+  if(C.pend.length){const ids=new Set(C.list.map(m=>m.id));C.pend=C.pend.filter(p=>p.id?!ids.has(p.id):!C.list.some(m=>m.a===me&&m.x===p.x&&!!m.im===!!p.im&&m.t>p.top));}
+  rgcNamed(fresh,C.reg);
+  if(RGC.open&&!document.hidden&&rgcTab()===C.reg){rgwSeen(C);if(fresh.length){const m=fresh[fresh.length-1],l=document.getElementById('rgc-live');if(l)l.textContent=`${rgcName(m)}: ${m.im?'(a picture) ':''}${m.x}`;}}
   rgcBadge();rgcPaint();
 }
-function rgwUnread(){if(!RGW.on)return 0;const me=myId();let k=0;for(const m of RGW.list)if(m.t>RGW.seen&&m.a!==me&&!dmBlocked(m.a))k++;return k;}
-/* the world chat's new lines that @mention the player's nation, name it or answer it: these the Chat button counts */
-function rgwNamedUnread(){if(!RGW.on||OBS)return 0;const me=myId();let k=0;for(const m of RGW.list)if(m.t>RGW.seen&&m.a!==me&&!dmBlocked(m.a)&&(m.mn&&m.mn[me]||m.r&&m.r.a===me||rgcNames(m.x)))k++;return k;}
-function rgwSeen(){const t=RGW.top;if(t>RGW.seen){RGW.seen=t;rgcLS('edictum.rgc.world',t);}}
-/* the World tab looked at: its divider stands before the first line not yet read, until the drawer closes */
-function rgwLook(){if(!RGW.looked){RGW.mark=RGW.seen;RGW.markTop=RGW.top;RGW.looked=true;}if(!document.hidden)rgwSeen();}
-/* the shown tab's chat: the world chat's on the World tab, the region's otherwise */
-const rgcCh=()=>rgcTab()==='world'?RGW:RGC;
-const rgcChOf=m=>m&&m.w?RGW:RGC;
-const rgcRegOf=m=>m&&m.w?'world':RGC.reg;
+function rgwUnread(C){C=C||RGW;if(!C.on)return 0;const me=myId();let k=0;for(const m of C.list)if(m.t>C.seen&&m.a!==me&&!dmBlocked(m.a))k++;return k;}
+/* a shared chat's new lines that @mention the player's nation, name it or answer it: these the Chat button counts */
+function rgwNamedUnread(C){C=C||RGW;if(!C.on||OBS)return 0;const me=myId();let k=0;for(const m of C.list)if(m.t>C.seen&&m.a!==me&&!dmBlocked(m.a)&&(m.mn&&m.mn[me]||m.r&&m.r.a===me||rgcNames(m.x)))k++;return k;}
+function rgwSeen(C){C=C||RGW;const t=C.top;if(t>C.seen){C.seen=t;rgcLS('edictum.rgc.'+C.reg,t);}}
+/* a shared chat's tab looked at: its divider stands before the first line not yet read, until the drawer closes */
+function rgwLook(C){C=C||RGW;if(!C.looked){C.mark=C.seen;C.markTop=C.top;C.looked=true;}if(!document.hidden)rgwSeen(C);}
+/* the shown tab's chat: a shared chat's on its tab (World, Français), the region's otherwise */
+const rgcCh=()=>rgsOf(rgcTab())||RGC;
+const rgcChOf=m=>m&&m.w?rgsOf(m.ch)||RGW:RGC;
+const rgcRegOf=m=>m&&m.w?m.ch||'world':RGC.reg;
 function rgcName(m){if(m.tm)return 'Edictum team';const x=findNation(m.a);return x?x.n.name:m.nm;}
 function rgcUnread(){if(!RGC.reg)return 0;const me=myId();let k=0;for(const m of RGC.list)if(m.t>RGC.seen&&m.a!==me&&!dmBlocked(m.a))k++;return k;}
 function rgcSeen(){const t=RGC.top;if(t>RGC.seen){RGC.seen=t;try{localStorage.setItem('edictum.rgc.'+RGC.reg,String(t));}catch(e){}}}
@@ -85747,9 +85847,9 @@ function rgcHi(x){
 }
 function rgcNamed(fresh,w){
   if(OBS||!S.nation||dmx(S.nation).rcn===0||!fresh.length)return;
-  const me=myId(),hit=fresh.filter(m=>!m.sys&&(rgcNames(m.x)||m.mn&&m.mn[me]||m.r&&m.r.a===me));if(!hit.length||RGC.open&&!document.hidden&&rgcTab()===(w?'world':'region'))return;
+  const me=myId(),hit=fresh.filter(m=>!m.sys&&(rgcNames(m.x)||m.mn&&m.mn[me]||m.r&&m.r.a===me));if(!hit.length||RGC.open&&!document.hidden&&rgcTab()===(w?(w===true?'world':w):'region'))return;
   const now=Date.now();if(now-RGC.toastAt<30000)return;RGC.toastAt=now;
-  const m=hit[hit.length-1],where=w?'the world chat':'the region chat';
+  const m=hit[hit.length-1],where=w?(rgsOf(w)||RGW).tx().the:'the region chat';
   toast(m.r&&m.r.a===me&&!(m.mn&&m.mn[me])?`${rgcName(m)} answered you in ${where}.`:`${rgcName(m)} mentioned ${S.nation.name} in ${where}.`);
 }
 /* the Chat button beside the bell; between drawings rgcBadge keeps its number */
@@ -85775,12 +85875,16 @@ function rgcDock(){
     <button type="button" class="rgc-hb rgc-dockb" data-rgc="dock" aria-pressed="false" aria-label="Dock beside the page" title="Dock beside the page"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="15" rx="1.8" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M14.5 4.5v15" stroke="currentColor" stroke-width="1.6"/><path d="M16.6 8.5h2M16.6 11h2M16.6 13.5h2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></button>
     <button type="button" class="rgc-hb" data-rgc="settings" aria-label="Chat settings" title="Chat settings"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4Z" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M19.4 13.5a7.6 7.6 0 0 0 0-3l2-1.6-2-3.4-2.4 1a7.5 7.5 0 0 0-2.6-1.5L14 2.5h-4l-.4 2.5A7.5 7.5 0 0 0 7 6.5l-2.4-1-2 3.4 2 1.6a7.6 7.6 0 0 0 0 3l-2 1.6 2 3.4 2.4-1a7.5 7.5 0 0 0 2.6 1.5l.4 2.5h4l.4-2.5a7.5 7.5 0 0 0 2.6-1.5l2.4 1 2-3.4Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg></button>
     <button type="button" class="rgc-hb" data-rgc="close" aria-label="Close the chat" title="Close (Esc)"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg></button></div>
-    <div class="rgc-tabs" id="rgc-tabs" role="tablist" aria-label="Chat"></div>
+    <div class="rgc-tabw"><button type="button" class="rgc-tarr" data-rgc="tabs-go" data-v="-1" tabindex="-1" aria-label="Show the tabs to the left" title="More tabs" hidden><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M10 3.5 5.5 8l4.5 4.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button><div class="rgc-tabs" id="rgc-tabs" role="tablist" aria-label="Chat"></div><button type="button" class="rgc-tarr" data-rgc="tabs-go" data-v="1" tabindex="-1" aria-label="Show the tabs to the right" title="More tabs" hidden><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div>
     <div class="rgc-body" id="rgc-body" role="tabpanel"><ol class="rgc-list" id="rgc-list"></ol><button type="button" class="rgc-jump" data-rgc="jump" hidden>Latest lines ↓</button></div>
     <p class="sr" id="rgc-live" aria-live="polite"></p>
     <div class="rgc-foot" id="rgc-foot"></div>`;
   document.body.appendChild(d);RGC.dock=d;
-  const body=d.querySelector('#rgc-body');
+  const body=d.querySelector('#rgc-body'),tabs=d.querySelector('#rgc-tabs');
+  /* the tab row scrolls sideways when its tabs do not fit (Region, World, Français, an alliance, Happenings on a phone):
+     arrows at its ends show there is more, and step through it */
+  tabs.addEventListener('scroll',rgcTabsArrows,{passive:true});
+  if(typeof ResizeObserver==='function')try{new ResizeObserver(rgcTabsArrows).observe(tabs);}catch(e){}
   /* the Region, World and Alliance tabs keep to their newest line (stickWatch): the reader's own scrolling lets go of it
      and shows Latest lines; a draft, an answer or picture bar or a keyboard that changes the box's size does not */
   stickWatch(body,{on:()=>RGC.stick&&rgcTab()!=='haps',set:v=>{RGC.stick=v;const j=d.querySelector('.rgc-jump');if(j)j.hidden=v||rgcTab()==='haps';}},d.querySelector('#rgc-list'));
@@ -85792,13 +85896,13 @@ function rgcOnline(){
   for(const [id,t] of Object.entries(ONL.u))if(now-t<ONL_WIN)on.add(id);
   if(onlMine())on.add(myId());return on.size;
 }
-/* the World tab's line under its title: how many regions wrote there in the last day */
-function rgwSub(){const now=Date.now(),regs=new Set(RGW.list.filter(m=>m.rg&&now-m.t<DAY).map(m=>m.rg)).size;return regs>1?`${regs} regions talking today`:'The nations of every region, in one chat';}
+/* a shared chat's line under its title: how many regions wrote there in the last day */
+function rgwSub(C){C=C||RGW;const now=Date.now(),regs=new Set(C.list.filter(m=>m.rg&&now-m.t<DAY).map(m=>m.rg)).size,T=C.tx();return regs>1?T.subN(regs):T.sub;}
 function rgcHead(){
   const d=RGC.dock;if(!d||d.hidden)return;
-  const h=d.querySelector('#rgc-h'),s=d.querySelector('#rgc-sub'),e=d.querySelector('.rgc-ht .eyebrow'),wd=rgcTab()==='world';
-  if(e)e.textContent=wd?'World chat':'Region chat';
-  if(wd){if(h)h.textContent='Every region';if(s)s.textContent=rgwSub();return;}
+  const h=d.querySelector('#rgc-h'),s=d.querySelector('#rgc-sub'),e=d.querySelector('.rgc-ht .eyebrow'),C=rgsOf(rgcTab());
+  if(e)e.textContent=C?C.tx().eye:'Region chat';
+  if(C){if(h)h.textContent=C.tx().head;if(s)s.textContent=rgwSub(C);return;}
   const n=rgcOnline();
   if(h)h.textContent=REGION;
   if(s)s.textContent=n>1?`${n} nations online now`:n===1?'Only you are online just now':`Talk with the nations of ${rgcIn()}`;
@@ -85810,7 +85914,7 @@ function rgcAsk(m,nm,mine){
     return `<div class="rgc-ask rgc-mute" role="group" aria-label="Silence ${esc(nm)}"><p>Silence <b>${esc(nm)}</b> in every region’s chat? It can still read along, and sees the reason. The audit log keeps it.</p>
       <label for="rgc-mh-${i}">For</label><select class="input" id="rgc-mh-${i}" data-rgc="mute-h" data-id="${i}">${ACX_HOURS.map(([h,l])=>`<option value="${h}"${q.hours===h?' selected':''}>${l}</option>`).join('')}</select>
       <label for="rgc-mw-${i}">Reason, shown to the player</label><input class="input" id="rgc-mw-${i}" data-rgc="mute-why" data-id="${i}" maxlength="200" value="${esc(q.why)}" placeholder="For example: spam" autocomplete="off">
-      <label class="rgc-mwipe" for="rgc-mx-${i}"><input type="checkbox" id="rgc-mx-${i}" data-rgc="mute-wipe" data-id="${i}"${q.wipe?' checked':''}> Also remove its lines of the last 24 hours</label>
+      ${rgcMod()?`<label class="rgc-mwipe" for="rgc-mx-${i}"><input type="checkbox" id="rgc-mx-${i}" data-rgc="mute-wipe" data-id="${i}"${q.wipe?' checked':''}> Also remove its lines of the last 24 hours</label>`:''}
       <div class="row"><button type="button" class="btn small danger solid" data-rgc="mute" data-id="${i}"${q.busy?' disabled':''}>${q.busy?'Silencing…':'Silence'}</button><button type="button" class="btn ghost small" data-rgc="ask-no">Cancel</button></div></div>`;}
   const blk=RGC.ask.k==='block';
   const t=blk?`Block <b>${esc(nm)}</b>? Its lines in this chat are hidden and its letters no longer reach you. It is not told. You can unblock it in Settings › Letters.`
@@ -85827,13 +85931,13 @@ function rgcLine(m,run,by,me,mod,memo){
   /* the world chat: a nation of another region shows the flag and marks its line carries, and its region */
   const wf=wd&&!x&&!m.tm&&m.fl?rgwFlag(m.fl,nm):'',from=wd&&!m.tm?rgwFrom(m.rg||(x?REG.id:'')):'';
   const who=m.tm?`<b class="rgc-nm rgc-team">${esc(nm)}</b>`:mine?`<b class="rgc-nm">${esc(nm)}</b>`:x&&!x.npc?`<button type="button" class="linkish rgc-nm" data-act="visit" data-id="${esc(m.a)}">${esc(nm)}</button>`:`<b class="rgc-nm">${esc(nm)}</b>`;
-  const pill=m.tm?rgcRolePill(m):m.st==='mod'||isModId(m.a)?MOD_PILL:m.st==='admin'||isStaff(m.a)?STAFF_PILL:'';
+  const pill=m.tm?rgcRolePill(m):m.st==='mod'||isModId(m.a)?MOD_PILL:m.st==='admin'||isStaff(m.a)?STAFF_PILL:isAmbId(m.a)?AMB_PILL:'';
   const fl=m.tm?`<span class="mflag sm rgc-tmfl" aria-hidden="true">${RGC_TEAM_SVG}</span>`:`<span class="mflag sm${x||wf?'':' rgc-nofl'}">${x?flagSVG(x.n.flag,'Flag of '+nm):wf}</span>`;
   const head=run?'':`<p class="rgc-lh">${fl}${who}${x&&!x.npc?rgcBadges(x,memo):wd&&!m.tm?rgwBadges(m):''}${pill}${from}<time datetime="${new Date(m.t).toISOString()}" title="${esc(when)}">${esc(fmtTime(m.t))}</time></p>`;
   const staff=m.tm||!!m.st||isStaff(m.a);
   let can;
   if(ally){const A=rgcAllyOn();can={del:mine||!!(A&&alCan(A,me,'o'))};}
-  else can={rx:!OBS,re:!OBS&&!rgcWrite(),rep:!mine&&!OBS&&!m.tm,blk:!mine&&!OBS&&!staff&&!dmBlocked(m.a),mute:mod&&!mine&&!staff,del:mine||mod};
+  else can={rx:!OBS,re:!OBS&&!rgcWrite(),rep:!mine&&!OBS&&!m.tm,blk:!mine&&!OBS&&!staff&&!dmBlocked(m.a),mute:(mod||rgcAmb()&&!isAmbId(m.a))&&!mine&&!staff,del:mine||mod};
   const open=RGC.menu===m.id,myRx=m.rv&&m.rv[me]||'';
   const items=(can.rx?`<div class="rgc-rxp" role="group" aria-label="React">${RGC_RX.map(([k,e,l])=>`<button type="button" role="menuitem" data-rgc="react" data-id="${i}" data-k="${k}" aria-pressed="${myRx===k}" aria-label="${esc(l)}" title="${esc(l)}">${e}</button>`).join('')}</div>`:'')
     +(can.re?`<button type="button" role="menuitem" data-rgc="reply" data-id="${i}">Answer</button>`:'')
@@ -85912,10 +86016,10 @@ function rgcPaint(){
   if(tab==='haps')h=rgcHapsHTML();
   else{
     const me=myId(),mod=rgcMod(),by=new Map(allNations().map(x=>[x.id,x])),memo=new Map(),A=tab==='ally'?rgcAllyOn():null;
-    const C=tab==='world'?RGW:RGC,src=tab==='ally'?rgcAllyLines():C.list,vis0=src.filter(m=>m.a===me||!dmBlocked(m.a)),hid=src.length-vis0.length,vis=tab==='ally'||typeof xmChatMix!=='function'?vis0:xmChatMix(vis0);
+    const C=rgcCh(),W=rgsOf(tab),src=tab==='ally'?rgcAllyLines():C.list,vis0=src.filter(m=>m.a===me||!dmBlocked(m.a)),hid=src.length-vis0.length,vis=tab==='ally'||typeof xmChatMix!=='function'?vis0:xmChatMix(vis0);
     const hidTxt=hid?` <span class="rgc-hid">${hid} ${hid===1?'line from a nation you blocked is':'lines from nations you blocked are'} hidden.</span>`:'';
     h=tab==='ally'?`<li class="rgc-intro">Only the members of ${esc(A?A.name:'your alliance')} read this channel.${hidTxt}</li>`
-      :tab==='world'?`<li class="rgc-intro">The nations of every region read this chat. Be kind. Type @ to mention a nation; a line’s menu answers it, reacts to it, reports it or blocks its nation.${hidTxt}</li>`
+      :W?`<li class="rgc-intro">${esc(W.tx().intro)}${hidTxt}</li>`
       :`<li class="rgc-intro">Everyone in ${esc(rgcIn())} can read this chat. Be kind. Type @ to mention a nation; a line’s menu answers it, reacts to it, reports it or blocks its nation.${hidTxt}</li>`;
     let prev=null,day='',fresh=false;
     for(const m of vis){
@@ -85925,7 +86029,7 @@ function rgcPaint(){
     }
     if(tab!=='ally')for(const p of C.pend)h+=`<li class="rgc-l me pend"><div class="rgc-xw">${p.cd?rgcCardHTML(rgcCardOf(p.cd),p,S.nation?S.nation.name:''):p.im?`<div class="rgc-xc">${p.x?`<p class="rgc-x">${esc(p.x)}</p>`:''}${rgcPicHTML(p.im,'',S.nation?S.nation.name:'')}</div>`:`<p class="rgc-x">${esc(p.x)}</p>`}<span class="rgc-wait">Sending…</span></div></li>`;
     const err=tab==='ally'?(AL.chat&&AL.chat.err)||'':C.err;
-    if(!vis.length&&(tab==='ally'||!C.pend.length))h+=`<li class="rgc-empty">${err?esc(err):tab==='ally'?'No messages yet. Say hello to your allies.':C.ready?`No lines yet. Say hello to ${tab==='world'?'every region':esc(rgcIn())}.`:'Opening the chat…'}</li>`;
+    if(!vis.length&&(tab==='ally'||!C.pend.length))h+=`<li class="rgc-empty">${err?esc(err):tab==='ally'?'No messages yet. Say hello to your allies.':C.ready?(W?esc(W.tx().empty):`No lines yet. Say hello to ${esc(rgcIn())}.`):'Opening the chat…'}</li>`;
     else if(err)h+=`<li class="rgc-empty err">${esc(err)}</li>`;
   }
   /* a control of a line that held the focus (its menu button, its nation's name, a field of its form) holds it again,
@@ -85958,13 +86062,13 @@ function rgcFoot(){
     const b=f.querySelector('#rgc-asend');if(b)b.disabled=RGC.abusy;
     return;
   }
-  const C=tab==='world'?RGW:RGC,to=tab==='world'?'every region':rgcIn();
+  const C=rgcCh(),W=rgsOf(tab),lbl=W?W.tx().lbl:'Write to '+rgcIn(),ph=W?W.tx().ph:`Write to ${rgcIn()}…`;
   const w=rgcWrite(),gq=!w&&rgcGuest(),pk=!w&&rgcPicCan(),key=(w?'r:'+w.why:'w')+'|'+REGION+'|'+tab+'|'+(gq?'g':'')+(pk?'p':'');
   if(RGC.foot!==key){
     RGC.foot=key;RGC.mn=null;
     if(!pk){RGC.pic=null;RGC.picErr='';}
     f.innerHTML=w?`<p class="rgc-ro">${esc(w.why)}</p>${w.link?'<div class="row"><button type="button" class="btn small" data-act="acct-open">Link a sign-in</button><button type="button" class="linkish small" data-act="account-compare">Compare account types</button></div>':''}`
-      :`<div class="rgc-rebar" id="rgc-rebar" hidden></div>${pk?'<div class="rgc-picbar" id="rgc-picbar" hidden></div>':''}<ul class="rgc-mn" id="rgc-mn" role="listbox" aria-label="Nations to mention" hidden></ul><form class="rgc-f" id="rgc-form" novalidate><label class="sr" for="rgc-x">Write to ${esc(to)}</label><textarea class="input" id="rgc-x" rows="1" maxlength="${RGC_TEXT}" placeholder="Write to ${esc(to)}…" enterkeyhint="send" autocomplete="off" spellcheck="true" aria-autocomplete="list" aria-controls="rgc-mn" aria-expanded="false"></textarea>${pk?rgcPicPicker('rgc'):''}<button class="btn" type="submit" id="rgc-send">Send</button></form><p class="rgc-msg" id="rgc-msg" role="status"></p>${gq?'<p class="rgc-gq" id="rgc-gq"></p>':''}`;
+      :`<div class="rgc-rebar" id="rgc-rebar" hidden></div>${pk?'<div class="rgc-picbar" id="rgc-picbar" hidden></div>':''}<ul class="rgc-mn" id="rgc-mn" role="listbox" aria-label="Nations to mention" hidden></ul><form class="rgc-f" id="rgc-form" novalidate><label class="sr" for="rgc-x">${esc(lbl)}</label><textarea class="input" id="rgc-x" rows="1" maxlength="${RGC_TEXT}" placeholder="${esc(ph)}" enterkeyhint="send" autocomplete="off" spellcheck="true" aria-autocomplete="list" aria-controls="rgc-mn" aria-expanded="false"></textarea>${pk?rgcPicPicker('rgc'):''}<button class="btn" type="submit" id="rgc-send">Send</button></form><p class="rgc-msg" id="rgc-msg" role="status"></p>${gq?'<p class="rgc-gq" id="rgc-gq"></p>':''}`;
     const ta=f.querySelector('#rgc-x');if(ta){ta.value=C.draft;rgcGrow(ta);}
   }
   const rb=f.querySelector('#rgc-rebar');
@@ -85984,12 +86088,12 @@ function rgcOpen(on,quiet){
   if(on){
     /* the divider stands before the first line not yet read when the drawer opened; lines that come in while it is
        open are read as they come */
-    if(!was){RGC.mark=RGC.seen;RGC.markTop=RGC.top;RGC.stick=true;RGC.foot='';RGW.looked=false;if(rgcTab()==='world')rgwLook();}
+    if(!was){RGC.mark=RGC.seen;RGC.markTop=RGC.top;RGC.stick=true;RGC.foot='';for(const C of RGS)C.looked=false;const W=rgsOf(rgcTab());if(W)rgwLook(W);}
     d.hidden=false;document.documentElement.classList.add('rgc-on');rgcConnect();rgcPaint();if(!document.hidden&&rgcTab()==='region')rgcSeen();rgcBadge();rgcSilLoad(!was);
     Promise.resolve().then(()=>onlRefresh()).then(rgcHead,()=>{});
     if(!quiet)requestAnimationFrame(()=>{const t=document.getElementById('rgc-x')||d.querySelector('[data-rgc="close"]');if(t)t.focus({preventScroll:true});});
   }else{
-    d.hidden=true;Object.assign(RGC,{menu:'',ask:null,mark:0,markTop:0});Object.assign(RGW,{mark:0,markTop:0,looked:false});document.documentElement.classList.remove('rgc-on');rgcBadge();
+    d.hidden=true;Object.assign(RGC,{menu:'',ask:null,mark:0,markTop:0});for(const C of RGS)Object.assign(C,{mark:0,markTop:0,looked:false});document.documentElement.classList.remove('rgc-on');rgcBadge();
     if(was&&!quiet){const o=RGC.opener,b=o&&o.isConnected&&o.getClientRects().length?o:[...document.querySelectorAll('.rgc-btn')].find(x=>x.getClientRects().length);if(b)b.focus({preventScroll:true});}
   }
 }
@@ -85999,14 +86103,14 @@ async function rgcCivic(d){
   const r=await api.request(d);return r&&typeof r==='object'&&r.data&&typeof r.data==='object'&&!('ok' in r)?r.data:r||{};
 }
 async function rgcSend(){
-  const ta=document.getElementById('rgc-x'),C=rgcCh(),wd=C===RGW;if(!ta||RGC.busy||!(wd?RGW.on:RGC.reg))return;
+  const ta=document.getElementById('rgc-x'),C=rgcCh(),wd=C!==RGC;if(!ta||RGC.busy||!(wd?C.on:RGC.reg))return;
   /* an admin's picture goes with the words, or alone */
   if(RGC.pic&&RGC.pic.busy){RGC.msg='The picture is still being prepared. Send it in a moment.';rgcFoot();return;}
   const P=RGC.pic&&rgcPicCan()?RGC.pic:null;
   const x=ta.value.replace(/\s+/g,' ').trim();if(!x&&!P)return;
   const cmd=!P?rgcCmd(x):null;if(cmd&&cmd.err){RGC.msg=cmd.err;rgcFoot();return;}
   const cd=cmd?cmd.cd:null;
-  const p={x:x.slice(0,RGC_TEXT),t:Date.now(),top:C.top,id:'',...(P?{im:{s:P.th,w:P.w,h:P.h}}:{}),...(cd?{cd:{...cd,nm:cd.k==='nation'?(allNations().find(o=>o.id===cd.id||(o.me&&cd.id===S.uid))||{n:{name:''}}).n.name:''}}:{})},reg=wd?'world':RGC.reg,reo=C.re,re=reo&&reo.id||'',mn=rgcMnIds(p.x);
+  const p={x:x.slice(0,RGC_TEXT),t:Date.now(),top:C.top,id:'',...(P?{im:{s:P.th,w:P.w,h:P.h}}:{}),...(cd?{cd:{...cd,nm:cd.k==='nation'?(allNations().find(o=>o.id===cd.id||(o.me&&cd.id===S.uid))||{n:{name:''}}).n.name:''}}:{})},reg=wd?C.reg:RGC.reg,reo=C.re,re=reo&&reo.id||'',mn=rgcMnIds(p.x);
   RGC.busy=true;RGC.msg='';C.pend.push(p);ta.value='';C.draft='';C.re=null;RGC.pic=null;RGC.picErr='';rgcMnShow(ta);rgcGrow(ta);RGC.stick=true;rgcPaint();
   try{
     const r=await rgcCivic({op:'rcPost',reg,x:p.x,...(re?{re}:{}),...(mn.length?{mn}:{}),...(P?{pic:rgcPicOut(P)}:{}),...(cd?{cd}:{}),...(wd?{rk:rgwRank()}:{})});
@@ -86017,7 +86121,7 @@ async function rgcSend(){
   }catch(e){
     C.pend=C.pend.filter(q=>q!==p);const d=e&&e.details;
     if(P&&!RGC.pic)RGC.pic=P;
-    if(d&&d.code==='rc_silenced'){RGC.sil={until:Number(d.until)||Date.now()+3600000,perm:d.perm===true,why:String(d.why||'').slice(0,200)};RGC.silAt=Date.now();RGC.msg='';C.draft=p.x;}
+    if(d&&d.code==='rc_silenced'){RGC.sil={until:Number(d.until)||Date.now()+3600000,perm:d.perm===true,amb:d.amb===true,why:String(d.why||'').slice(0,200)};RGC.silAt=Date.now();RGC.msg='';C.draft=p.x;}
     else{RGC.msg=alErrText(e);if(d&&d.code==='rc_guest'){RGC.gw=Date.now()+Math.max(0,Number(d.wait)||0);RGC.msg='';}
       const t=document.getElementById('rgc-x');if(t&&!t.value){t.value=p.x;C.draft=p.x;rgcGrow(t);}
       if(reo&&!(d&&d.code==='rc_gone'))C.re=C.re||reo;}
@@ -86030,13 +86134,13 @@ async function rgcSend(){
    open while the player is silenced, so a new silence or a lifted one shows at once */
 async function rgcSilLoad(force){
   if(OBS||!S.db||!S.uid)return;const now=Date.now();if(!force&&!RGC.sil&&now-RGC.silAt<60000)return;RGC.silAt=now;
-  try{const s=await S.db.doc('rcMute/'+S.uid).get(),v=s&&s.exists?s.data()||{}:null;RGC.sil=v&&Number(v.until)>Date.now()?{until:Number(v.until),perm:v.perm===true,why:String(v.why||'').slice(0,200)}:null;}catch(e){}
+  try{const s=await S.db.doc('rcMute/'+S.uid).get(),v=s&&s.exists?s.data()||{}:null;RGC.sil=v&&Number(v.until)>Date.now()?{until:Number(v.until),perm:v.perm===true,amb:v.amb===true,why:String(v.why||'').slice(0,200)}:null;}catch(e){}
   rgcFoot();
 }
 /* staff silence the author of a line, from its menu (functions/regionchat.js, rcMute) */
 async function rgcMute(m){
   const q=RGC.ask;if(!q||q.k!=='mute'||q.busy)return;q.busy=true;rgcPaint();
-  try{const r=await rgcCivic({op:'rcMute',uid:m.a,reg:rgcRegOf(m),hours:q.hours,why:q.why.trim(),wipe:q.wipe});RGC.ask=null;rgcPaint();rgcRefocus();
+  try{const r=await rgcCivic({op:'rcMute',uid:m.a,reg:rgcRegOf(m),hours:q.hours,why:q.why.trim(),wipe:q.wipe&&rgcMod()});RGC.ask=null;rgcPaint();rgcRefocus();
     toast(`${rgcName(m)} is silenced in ${m.w?'every chat':'the region chat'} ${q.hours?'for '+rgcHours(q.hours):'until it is lifted'}.${r.removed?` ${r.removed} ${r.removed===1?'line was':'lines were'} removed.`:''}`);}
   catch(e){q.busy=false;rgcPaint();toast(alErrText(e));}
 }
@@ -86046,7 +86150,7 @@ async function rgcDel(m){
 }
 function rgcReport(m){
   Promise.resolve(window.claude&&typeof window.claude.use==='function'?window.claude.use('report'):null).then(r=>{
-    /* a world chat line: rc:world:<line>, filed under its author's region */
+    /* a shared chat's line: rc:world:<line> or rc:fr:<line>, filed under its author's region */
     const reg=m.w&&m.rg&&REG_BY_ID[m.rg]?m.rg:RGC.reg||REG.id;
     if(r&&typeof r.open==='function')r.open({kind:'chat',target:m.a,post:'rc:'+rgcRegOf(m)+':'+m.id,reg,name:rgcName(m),x:m.im?('(a picture) '+m.x).trim():m.x});
     else toast('Reporting needs a connection to the region.');
@@ -86085,6 +86189,8 @@ document.addEventListener('change',e=>{
   if(a==='set-on'){const on=el.checked;if(!on&&RGC.open)rgcOpen(false,true);dmSet(x=>{if(on)delete x.rc;else x.rc=0;});rgcConnect();}
   else if(a==='set-named'){const on=el.checked;dmSet(x=>{if(on)delete x.rcn;else x.rcn=0;});}
   else if(a==='set-world'){const on=el.checked;dmSet(x=>{if(on)delete x.rw;else x.rw=0;});rgcConnect();rgcBadge();}
+  /* the Français tab: on or off as chosen, whatever the language from now on */
+  else if(a==='set-fr'){const on=el.checked;dmSet(x=>{x.rf=on?1:0;});rgcConnect();rgcBadge();}
 });
 document.addEventListener('input',e=>{const el=e.target;if(!el||el.id!=='rgc-x')return;if(/\n/.test(el.value))el.value=el.value.replace(/\n+/g,' ');rgcCh().draft=el.value;rgcGrow(el);if(RGC.msg&&!RGC.busy)RGC.msg='';rgcFoot();});
 document.addEventListener('submit',e=>{if(e.target&&e.target.id==='rgc-form'){e.preventDefault();rgcSend();}});
@@ -86096,7 +86202,7 @@ document.addEventListener('keydown',e=>{
   /* from inside the drawer, or with nothing focused (a line just blocked or deleted), or on a phone, where it covers the page */
   if(RGC.dock&&(RGC.dock.contains(t)||(!t||t===document.body)&&!document.documentElement.classList.contains('rgc-docked')||navNarrow())){e.preventDefault();rgcOpen(false);}
 });
-document.addEventListener('visibilitychange',()=>{if(!document.hidden&&RGC.open){const t=rgcTab();if(t==='region')rgcSeen();else if(t==='world')rgwSeen();else if(t==='ally')try{alChatSeen();}catch(e){}rgcBadge();}});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&RGC.open){const t=rgcTab();if(t==='region')rgcSeen();else if(rgsOf(t))rgwSeen(rgsOf(t));else if(t==='ally')try{alChatSeen();}catch(e){}rgcBadge();}});
 connect=(f=>async function(){const r=await f.apply(this,arguments);try{rgcConnect();}catch(e){}return r;})(connect);
 /* keeps the chat following the region as the game connects, changes region or turns the chat off, drops lines that
    never came back from the server, and keeps the drawer's count of who is online */
@@ -86105,7 +86211,7 @@ setInterval(()=>{try{
   if(RGC.open&&!rgcOn())rgcOpen(false,true);
   if(RGC.sil&&RGC.sil.until<=Date.now()){RGC.sil=null;rgcFoot();}
   if(RGC.open&&RGC.sil&&!document.hidden&&Date.now()-RGC.silAt>60000)rgcSilLoad();
-  for(const C of [RGC,RGW])if(C.pend.length){const now=Date.now(),n=C.pend.length;C.pend=C.pend.filter(p=>now-p.t<20000);if(C.pend.length!==n)rgcPaint();}
+  for(const C of [RGC,...RGS])if(C.pend.length){const now=Date.now(),n=C.pend.length;C.pend=C.pend.filter(p=>now-p.t<20000);if(C.pend.length!==n)rgcPaint();}
   if(RGC.open&&!document.hidden)Promise.resolve().then(()=>onlRefresh()).then(rgcHead,()=>{});
 }catch(e){}},4000);
 /* ── the chat, round two: tabs (Region, Alliance, Happenings), answers, @mentions, reactions, badges, docking ──
@@ -86123,7 +86229,7 @@ const RGC_HAPS=40,RGC_WIDE=typeof window.matchMedia==='function'?window.matchMed
 function rgcLS(k,v){try{if(v===undefined)return localStorage.getItem(k);localStorage.setItem(k,String(v));}catch(e){}return null;}
 Object.assign(RGC,{tab:rgcLS('edictum.rgc.tab')||'region',lastTab:'',re:null,mn:null,docked:rgcLS('edictum.rgc.dock')==='1',adraft:'',abusy:false,amsg:'',hapMemo:{at:0,k:'',list:[]},want:false,goto:''});
 function rgcAllyOn(){if(OBS)return null;try{const A=alMine();return A&&A.srv?A:null;}catch(e){return null;}}
-function rgcTabs(){const t=[['region','Region']];if(rgwOn())t.push(['world','World']);const A=rgcAllyOn();if(A)t.push(['ally',A.name||'Alliance',A.doc&&A.doc.tg]);t.push(['haps','Happenings']);return t;}
+function rgcTabs(){const t=[['region','Region']];for(const C of RGS)if(rgsOn(C))t.push([C.reg,C.tx().tab]);const A=rgcAllyOn();if(A)t.push(['ally',A.name||'Alliance',A.doc&&A.doc.tg]);t.push(['haps','Happenings']);return t;}
 /* the Alliance tab carries the alliance's own name; one longer than RGC_AL_MAX letters shows its short code instead,
    the one that stands beside its members' names (alCode: the leader's own, else the initials), with the full name in
    its tooltip and for screen readers.
@@ -86137,24 +86243,40 @@ function rgcTabLabel(k,l,tg){
 }
 function rgcTab(){if(!rgcTabs().some(x=>x[0]===RGC.tab))RGC.tab='region';return RGC.tab;}
 function rgcAllyUnread(){try{return rgcAllyOn()?alChatUnread():0;}catch(e){return 0;}}
-/* the Chat button counts the Region and Alliance tabs, and the world chat's lines that name the player */
-function rgcCount(){return rgcUnread()+rgcAllyUnread()+rgwNamedUnread();}
+/* the Chat button counts the Region and Alliance tabs, and the shared chats' lines that name the player */
+function rgcCount(){return rgcUnread()+rgcAllyUnread()+RGS.reduce((k,C)=>k+rgwNamedUnread(C),0);}
 function rgcAllyLines(){const C=AL.chat;return (C&&C.list||[]).map(m=>({id:m.id,a:m.a,nm:m.nm,x:m.x,t:m.t,st:'',ally:true}));}
 /* the alliance channel's listener (alChatConnect) calls this with every snapshot */
 function rgcAllyHeard(){if(RGC.open&&rgcTab()==='ally'){if(!document.hidden)try{alChatSeen();}catch(e){}rgcPaint();}rgcBadge();}
 function rgcTabsPaint(){
   const el=RGC.dock&&RGC.dock.querySelector('#rgc-tabs');if(!el)return;const cur=rgcTab();
-  const n={region:cur==='region'?0:rgcUnread(),world:cur==='world'?0:rgwUnread(),ally:cur==='ally'?0:rgcAllyUnread(),haps:cur==='haps'?0:rgcHapNew()};
+  const n={region:cur==='region'?0:rgcUnread(),ally:cur==='ally'?0:rgcAllyUnread(),haps:cur==='haps'?0:rgcHapNew()};for(const C of RGS)n[C.reg]=cur===C.reg?0:rgwUnread(C);
   const h=rgcTabs().map(([k,l,tg])=>`<button type="button" role="tab" id="rgc-tab-${k}" class="rgc-tab${k===cur?' on':''}${k==='ally'?' rgc-tab-al':''}" data-rgc="tab" data-v="${k}" aria-selected="${k===cur}" aria-controls="rgc-body" tabindex="${k===cur?0:-1}">${rgcTabLabel(k,l,tg)}${n[k]?`<span class="rgc-tn" aria-label="${n[k]} new">${n[k]>99?'99+':n[k]}</span>`:''}</button>`).join('');
   /* compared with what was last written, not innerHTML: a name with an apostrophe (escaped here, not when the browser
      reads it back) or a French label would otherwise rewrite the row on every tick */
   if(el._h!==h){const f=document.activeElement,had=f&&el.contains(f)?f.dataset.v:'';el.innerHTML=h;el._h=h;if(had){const b=document.getElementById('rgc-tab-'+had);if(b)b.focus({preventScroll:true});}}
+  /* the chosen tab is brought into view when it changes (or the drawer opens), then the arrows say what is left */
+  const vis=!RGC.dock.hidden;if(vis&&el._cur!==cur){el._cur=cur;rgcTabShow(cur);}else if(!vis)el._cur='';
+  rgcTabsArrows();
+}
+/* the row's arrows: shown only when the tabs overflow it, each dimmed at its end */
+function rgcTabsArrows(){
+  const d=RGC.dock,el=d&&d.querySelector('#rgc-tabs');if(!el)return;
+  const max=el.scrollWidth-el.clientWidth,over=!d.hidden&&max>1,x=el.scrollLeft;
+  d.querySelector('.rgc-tabw').classList.toggle('over',over);
+  for(const b of d.querySelectorAll('.rgc-tarr')){const back=b.dataset.v==='-1',end=back?x<=1:x>=max-1;b.hidden=!over;b.disabled=end;}
+}
+/* scroll the row so a tab is in full view, past the arrow that would cover its edge */
+function rgcTabShow(k){
+  const el=RGC.dock&&RGC.dock.querySelector('#rgc-tabs'),b=document.getElementById('rgc-tab-'+k);if(!el||!b)return;
+  const r=b.getBoundingClientRect(),q=el.getBoundingClientRect(),pad=8;
+  if(r.left<q.left+pad)el.scrollLeft-=q.left+pad-r.left;else if(r.right>q.right-pad)el.scrollLeft+=r.right-(q.right-pad);
 }
 function rgcSetTab(v,focus){
   if(!rgcTabs().some(x=>x[0]===v))return;
   RGC.tab=v;rgcLS('edictum.rgc.tab',v);Object.assign(RGC,{menu:'',ask:null,stick:v!=='haps',goto:''});
   if(v==='region'&&!document.hidden)rgcSeen();
-  if(v==='world')rgwLook();
+  if(rgsOf(v))rgwLook(rgsOf(v));
   if(v==='ally')try{alChatSeen();}catch(e){}
   if(v==='haps')rgcHapRead();
   rgcPaint();rgcBadge();
@@ -86215,11 +86337,11 @@ function rgwFlagOf(fl){let f=NW_FLAGS.get(fl);if(f===undefined){f=null;try{const
 function rgwFlag(fl,nm){const f=rgwFlagOf(fl);if(!f)return '';try{return flagSVG(f,'Flag of '+nm);}catch(e){return '';}}
 function rgwFrom(rg){const R=REG_BY_ID[rg];return R?`<span class="rgc-from${rg===REG.id?' home':''}" title="${esc(rg===REG.id?'Your region':'A nation of '+(R.the||R.name))}">${esc(R.name)}</span>`:'';}
 function rgwRank(){try{return Math.max(0,achRankOf(S.nation).i|0);}catch(e){return 0;}}
-/* who @ offers: the region's nations, and on the World tab the nations that wrote there lately as well */
+/* who @ offers: the region's nations, and on a shared chat's tab the nations that wrote there lately as well */
 function rgcMnPool(){
-  const me=myId(),out=allNations().filter(x=>!x.npc&&!x.me&&x.id!==me).map(x=>({id:x.id,nm:x.n.name,fl:x.n.flag}));
-  if(rgcTab()==='world'){const have=new Set(out.map(o=>o.id));
-    for(let i=RGW.list.length-1;i>=0;i--){const m=RGW.list[i];if(m.tm||m.a===me||have.has(m.a))continue;have.add(m.a);out.push({id:m.a,nm:m.nm,fl:m.fl?rgwFlagOf(m.fl):null});}}
+  const me=myId(),out=allNations().filter(x=>!x.npc&&!x.me&&x.id!==me).map(x=>({id:x.id,nm:x.n.name,fl:x.n.flag})),W=rgsOf(rgcTab());
+  if(W){const have=new Set(out.map(o=>o.id));
+    for(let i=W.list.length-1;i>=0;i--){const m=W.list[i];if(m.tm||m.a===me||have.has(m.a))continue;have.add(m.a);out.push({id:m.a,nm:m.nm,fl:m.fl?rgwFlagOf(m.fl):null});}}
   return out;
 }
 /* @mentions: the word being typed after an @ offers the region's nations; the server keeps those named after an @ */
@@ -86270,12 +86392,16 @@ function rgcDockApply(){
   if(was!==on)try{window.dispatchEvent(new Event('resize'));}catch(e){}
 }
 if(RGC_WIDE)try{RGC_WIDE.addEventListener('change',rgcDockApply);}catch(e){}
+window.addEventListener('resize',()=>{if(RGC.open)rgcTabsArrows();});
 /* show a line of the chat (an answer's quote, a mention in the bell), flashed for a moment */
 function rgcGoto(id,ch){
-  const t=(ch||(rgcTab()==='world'?'world':'region'))==='world'&&rgwOn()?'world':'region';
-  RGC.goto=id;if(rgcTab()!==t){RGC.tab=t;rgcLS('edictum.rgc.tab',t);RGC.menu='';RGC.ask=null;if(t==='world'&&RGC.open)rgwLook();}
+  /* ch: the chat the line is in ('region' or a shared chat's id); none: the tab shown, when it is one */
+  const want=ch||(rgsOf(rgcTab())?rgcTab():'region'),W=rgsOf(want);
+  if(W&&!rgsOn(W)){toast(`Turn on ${W.tx().the} in Settings › Chat to read that line.`);return;}
+  const t=W?want:'region';
+  RGC.goto=id;if(rgcTab()!==t){RGC.tab=t;rgcLS('edictum.rgc.tab',t);RGC.menu='';RGC.ask=null;if(W&&RGC.open)rgwLook(W);}
   if(!RGC.open)rgcOpen(true,true);else rgcPaint();
-  if(RGC.open&&!(t==='world'?RGW:RGC).list.some(m=>m.id===id))toast('That line is no longer among the newest lines of the chat.');
+  if(RGC.open&&!(W||RGC).list.some(m=>m.id===id))toast('That line is no longer among the newest lines of the chat.');
   setTimeout(()=>{if(RGC.goto===id){RGC.goto='';const li=document.querySelector(`#rgc-list .rgc-l[data-id="${CSS.escape(id)}"]`);if(li)li.classList.remove('flash');}},2400);
 }
 rgcOpen=(f=>function(on){
@@ -86286,6 +86412,8 @@ document.addEventListener('click',e=>{
   const t=e.target,el=t.closest&&t.closest('[data-rgc]');if(!el||el.tagName==='INPUT')return;
   const a=el.dataset.rgc,id=el.dataset.id||'',m=rgcCh().list.find(x=>x.id===id);
   if(a==='tab')rgcSetTab(el.dataset.v,true);
+  else if(a==='tabs-go'){const r=RGC.dock&&RGC.dock.querySelector('#rgc-tabs');if(r){const step=Math.max(90,Math.round(r.clientWidth*.6))*(el.dataset.v==='-1'?-1:1);
+    try{r.scrollBy({left:step,behavior:'smooth'});}catch(err){r.scrollLeft+=step;}}}
   else if(a==='dock'){RGC.docked=!RGC.docked;rgcLS('edictum.rgc.dock',RGC.docked?'1':'0');rgcDockApply();}
   else if(a==='reply'&&m){RGC.menu='';rgcCh().re={id:m.id,nm:rgcName(m),x:(m.im?(m.x?'📷 '+m.x:'📷 A picture'):m.x).slice(0,90)};rgcPaint();const f=document.getElementById('rgc-x');if(f)f.focus({preventScroll:true});}
   else if(a==='re-no'){rgcCh().re=null;rgcFoot();const f=document.getElementById('rgc-x');if(f)f.focus({preventScroll:true});}
@@ -86310,9 +86438,9 @@ document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closes
   toast(S.nation&&dmx(S.nation).rc===0?'Turn the region chat on first: Settings › Chat.':'The region chat needs a connection to the region.');});
 /* a mention in the bell opens the chat at its line */
 document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-act="nt-go"][data-rc]');if(!el)return;
-  const g=/^([a-z]{2,40})\/([A-Za-z0-9]{20})$/.exec(el.dataset.rc);if(!g)return;setTimeout(()=>{if(rgcOn())rgcGoto(g[2],g[1]==='world'?'world':'region');},0);},true);
+  const g=/^([a-z]{2,40})\/([A-Za-z0-9]{20})$/.exec(el.dataset.rc);if(!g)return;setTimeout(()=>{if(rgcOn())rgcGoto(g[2],rgsOf(g[1])?g[1]:'region');},0);},true);
 NOTIF_SOURCES.push((n,now)=>(CB.mnAll||[]).filter(m=>m.k==='chat'&&typeof m.rc==='string'&&/^[A-Za-z0-9]{20}$/.test(m.rc)&&now-m.t<30*DAY).map(m=>({t:m.t,k:'mention',kl:'Mention',go:S.view||'nation',rc:m.reg+'/'+m.rc,
-  txt:`${String(m.nm||'A nation').slice(0,80)} ${m.rp?'answered you':'mentioned you'} in the ${m.reg==='world'?'world':'region'} chat: ${String(m.x||'').slice(0,120)}`})));
+  txt:`${String(m.nm||'A nation').slice(0,80)} ${m.rp?'answered you':'mentioned you'} in ${m.reg==='fr'?'the French chat':m.reg==='world'?'the world chat':'the region chat'}: ${String(m.x||'').slice(0,120)}`})));
 document.addEventListener('mousedown',e=>{const li=e.target.closest&&e.target.closest('#rgc-mn li');if(!li)return;e.preventDefault();const ta=document.getElementById('rgc-x');if(ta)rgcMnPick(ta,Number(li.dataset.k));});
 document.addEventListener('focusout',e=>{if(e.target&&e.target.id==='rgc-x')setTimeout(()=>{const ta=document.getElementById('rgc-x');if(ta&&document.activeElement!==ta)rgcMnShow(ta);},0);});
 document.addEventListener('input',e=>{const el=e.target;if(!el)return;if(el.id==='rgc-x')rgcMnShow(el);else if(el.id==='rgc-ax'){RGC.adraft=el.value;rgcGrow(el);if(RGC.amsg){RGC.amsg='';rgcFoot();}}});
@@ -86330,13 +86458,13 @@ document.addEventListener('keydown',e=>{
     rgcSetTab(T[e.key==='Home'?0:e.key==='End'?L-1:(i+(e.key==='ArrowRight'?1:L-1))%L],true);}
 },true);
 /* #chat (a push notification's link) opens the drawer once the game is in the region */
-uxHashView=(f=>function(h){if(h==='chat'||h==='chat/world'){RGC.want=h==='chat'?true:'world';return S.view&&S.view!=='chat'?S.view:'nation';}return f.apply(this,arguments);})(uxHashView);
-if(location.hash==='#chat')RGC.want=true;else if(location.hash==='#chat/world')RGC.want='world';
+uxHashView=(f=>function(h){if(h==='chat'||h==='chat/world'||h==='chat/fr'){RGC.want=h==='chat'?true:h.slice(5);return S.view&&S.view!=='chat'?S.view:'nation';}return f.apply(this,arguments);})(uxHashView);
+if(location.hash==='#chat')RGC.want=true;else if(location.hash==='#chat/world'||location.hash==='#chat/fr')RGC.want=location.hash.slice(6);
 setInterval(()=>{try{
-  if(RGC.want&&rgcOn()){const w=RGC.want;RGC.want=false;if(w==='world'&&rgwOn()){RGC.tab='world';rgcLS('edictum.rgc.tab','world');}rgcOpen(true);}
+  if(RGC.want&&rgcOn()){const w=RGC.want,W=rgsOf(w);RGC.want=false;if(W&&rgsOn(W)){RGC.tab=w;rgcLS('edictum.rgc.tab',w);}rgcOpen(true);}
   if(RGC.open&&!document.hidden){if(rgcTab()==='haps'){if(Date.now()-RGC.hapMemo.at>30000)rgcPaint();}else if(rgcWhoSig()!==RGC.whoSig)rgcPaint();else rgcTabsPaint();}
 }catch(e){}},5000);
-dmxClean=(f=>function(x){const o=f.apply(this,arguments);if(!x||typeof x!=='object')return o;const r=o||{};if(x.rc===0)r.rc=0;if(x.rcn===0)r.rcn=0;if(x.rw===0)r.rw=0;return Object.keys(r).length?r:null;})(dmxClean);
+dmxClean=(f=>function(x){const o=f.apply(this,arguments);if(!x||typeof x!=='object')return o;const r=o||{};if(x.rc===0)r.rc=0;if(x.rcn===0)r.rcn=0;if(x.rw===0)r.rw=0;if(x.rf===0||x.rf===1)r.rf=x.rf;return Object.keys(r).length?r:null;})(dmxClean);
 /* ── Settings › Chat, and the floating Chat button ──
    Settings › Chat (after Letters) holds where the Chat button sits on this device, and the two switches kept with the
    nation (dmx.rc, dmx.rcn; until 14 November 2026 in Settings › Letters). The button sits beside the bell (the
@@ -86449,7 +86577,10 @@ function rgcSetPane(n){
     <p class="hint">Every nation of your region can read the chat. Blocking a nation, from a line’s menu or in Messages, hides its lines as well as its letters: <button type="button" class="linkish small" data-act="sg-tab" data-v="letters">Blocked nations</button></p></section>
   <section class="sg-card" id="set-chat-world"><h3 class="sg-ch">World chat</h3>
     <label class="tog"><input type="checkbox" data-rgc="set-world"${x.rw===0?'':' checked'}${off?' disabled':''}> Show the World tab, where the nations of every region talk</label>
-    <p class="hint">The World tab counts its new lines. The Chat button counts only those that mention ${esc(n.name)} or answer it.</p></section>`;
+    <p class="hint">The World tab counts its new lines. The Chat button counts only those that mention ${esc(n.name)} or answer it.</p></section>
+  <section class="sg-card" id="set-chat-fr"><h3 class="sg-ch">French chat</h3>
+    <label class="tog"><input type="checkbox" data-rgc="set-fr"${rgfWant(n)?' checked':''}${off?' disabled':''}> Show the Français tab, where the nations that play in French talk, from every region</label>
+    <p class="hint"><span>${x.rf===0||x.rf===1?'You chose this here, so it stays as it is whatever the language.':uiLang()==='fr'?'It is on because the game is in French (Settings › Display › Language).':'It shows by itself when the game is in French (Settings › Display › Language).'}</span> <span>Like the World tab, it counts its new lines; the Chat button counts only those that mention ${esc(n.name)} or answer it.</span></p></section>`;
 }
 settingsView=(f=>function(){const h=f.apply(this,arguments),i=h.indexOf('<div class="sg-pane" id="sg-p-display"');if(i<0||!S.nation)return h;
   return h.slice(0,i)+`<div class="sg-pane" id="sg-p-chat" data-sg="chat" role="tabpanel" aria-labelledby="sg-tab-chat">${rgcSetPane(S.nation)}</div>`+h.slice(i);})(settingsView);
@@ -86461,6 +86592,7 @@ document.addEventListener('click',e=>{
 });
 UX_SETTINGS.push({v:'focus:set-chat-on',l:'Region chat',g:'Settings',words:'chat region talk live messages mention block hide turn off',view:'settings',target:'#set-chat-on'},
   {v:'focus:set-chat-world',l:'World chat',g:'Settings',words:'chat world global every region all regions talk tab turn off',view:'settings',target:'#set-chat-world'},
+  {v:'focus:set-chat-fr',l:'French chat',g:'Settings',words:'chat french français francais francophone langue language tab turn on off',view:'settings',target:'#set-chat-fr'},
   {v:'focus:set-chat-btn',l:'Chat button',g:'Settings',words:'chat button floating float bubble move drag corner bell top bar where place',view:'settings',target:'#set-chat-btn'});
 
 /* ── the tutorial's designs (Version 27), each drawn where its kind is drawn: the frame (czFrameArt), the Signpost
@@ -86540,7 +86672,7 @@ function rgcCardHTML(c,m,nm){
   if(c.k==='rank'){const R=ACH_RANKS[Math.min(c.i,ACH_RANKS.length-1)];return `<div class="rgc-cd"><p class="rgc-cd-t">Rank of ${esc(nm)}</p><p class="rgc-cd-big">${esc(R[1])}</p>${rows([['Points',fmt0(c.p)],['Achievements',fmt0(c.n)]])}</div>`;}
   const x=allNations().find(o=>o.id===c.id||(o.me&&c.id===S.uid)),R=ACH_RANKS[Math.min(c.i,ACH_RANKS.length-1)];
   const name=x&&!x.me?`<button type="button" class="linkish" data-act="visit" data-id="${esc(c.id)}">${esc(c.nm)}</button>`:esc(c.nm);
-  return `<div class="rgc-cd"><p class="rgc-cd-t">Nation card</p><p class="rgc-cd-big">${x?`<span class="mflag sm">${flagSVG(x.n.flag,'Flag of '+c.nm)}</span>`:''}${name}</p>${rows([['People',esc(fmtPop(c.pop))],['Cities',fmt0(c.ci)],['Land',fmt0(c.hx)+' hexes'],['Rank',esc(R[1])],...(c.al?[['Alliance',esc(c.al)]]:[])])}</div>`;
+  return `<div class="rgc-cd"><p class="rgc-cd-t">Nation card</p><p class="rgc-cd-big">${x?`<span class="mflag sm">${flagSVG(x.n.flag,'Flag of '+c.nm)}</span>`:''}${name}${rolePillOf(c.id)}</p>${rows([['People',esc(fmtPop(c.pop))],['Cities',fmt0(c.ci)],['Land',fmt0(c.hx)+' hexes'],['Rank',esc(R[1])],...(c.al?[['Alliance',esc(c.al)]]:[])])}</div>`;
 }
 function rgcBody(m,nm){
   if(m.cd)return rgcCardHTML(m.cd,m,nm);
@@ -86665,7 +86797,10 @@ document.addEventListener('drop',e=>{const pre=rgcDropAt(e.target);if(!pre)retur
    silenced now (rcMute/, which admins read), each with Lift (rcUnmute). Everything here goes in the audit log.
    The chat and the region list are drawn in place as lines come in (acxPaint), so the team's draft and the silence form
    are never drawn over while being typed in. */
-const ACX_WORLD={id:'world',name:'World chat',the:'the world chat'};
+const ACX_WORLD={id:'world',name:'World chat',the:'the world chat',chip:'Every region'};
+/* the French chat (RC_FR): staff read it here whatever their language, as they read the world chat */
+const ACX_FR={id:'fr',name:'French chat',the:'the French chat',chip:'In French'};
+const ACX_SHARED=[ACX_WORLD,ACX_FR],acxShared=id=>ACX_SHARED.find(R=>R.id===id)||null;
 const ACX_SHOW=100,ACX_HOURS=[[1,'1 hour'],[24,'24 hours'],[168,'7 days'],[720,'30 days'],[0,'Until lifted']];
 const ACX={reg:'',last:null,lbusy:false,lerr:'',lseq:0,list:[],ready:false,unsub:null,lsReg:'',err:'',x:'',busy:false,msg:'',mute:null,ask:null,mutes:null,mbusy:false,merr:'',pic:null,picErr:'',
   cx:'',cask:false,cbusy:false,cmsg:''};
@@ -86676,7 +86811,7 @@ function acxLine(d){const v=d.data()||{};return {id:d.id,a:String(v.a||''),nm:St
 async function acxRegsLoad(){
   if(!S.db)return;const n=++ACX.lseq;ACX.lbusy=true;ACX.lerr='';
   let last=null,err='';
-  try{const per=await Promise.all([ACX_WORLD].concat(REGIONS).map(R=>S.db.collection('rchat/'+R.id+'/chat').orderBy('t','desc').limit(1).get().then(qs=>[R.id,qs.docs[0]?acxLine(qs.docs[0]):null])));last=Object.fromEntries(per);}
+  try{const per=await Promise.all(ACX_SHARED.concat(REGIONS).map(R=>S.db.collection('rchat/'+R.id+'/chat').orderBy('t','desc').limit(1).get().then(qs=>[R.id,qs.docs[0]?acxLine(qs.docs[0]):null])));last=Object.fromEntries(per);}
   catch(e){err='The region chats could not be fetched. Try again in a moment.';}
   if(n!==ACX.lseq)return;
   if(last&&ACX.lsReg&&ACX.ready)last[ACX.lsReg]=ACX.list.length?ACX.list[ACX.list.length-1]:null;
@@ -86706,8 +86841,8 @@ function acxListen(){
 }
 function acxRegsHTML(){
   const L=ACX.last,regs=regionsByAvail().map((R,i)=>[R,i]).sort((a,b)=>(L&&L[b[0].id]?L[b[0].id].t:0)-(L&&L[a[0].id]?L[a[0].id].t:0)||a[1]-b[1]).map(x=>x[0]);
-  return [ACX_WORLD].concat(regs).map(R=>{const l=L&&L[R.id],on=ACX.reg===R.id,md=R===ACX_WORLD?'world':regMode(R.id);
-    return `<li><button type="button" class="acx-reg${on?' on':''}" data-act="acx-reg" data-v="${R.id}"${on?' aria-current="true"':''}><span class="acx-rn">${esc(R.name)}${md!=='enabled'?` <span class="chip">${md==='world'?'Every region':md==='coming_soon'?'Coming soon':'Maintenance'}</span>`:''}</span>${l?`<span class="acx-rt">${esc(rel(l.t))}</span>`:''}<span class="acx-rl">${!L?'…':l?`<b>${esc(l.nm)}</b>: ${l.im?'📷 ':''}${esc((l.x||(l.im?'A picture':'')).slice(0,70))}`:'No lines yet'}</span></button></li>`;}).join('');
+  return ACX_SHARED.concat(regs).map(R=>{const l=L&&L[R.id],on=ACX.reg===R.id,md=ACX_SHARED.includes(R)?'world':regMode(R.id);
+    return `<li><button type="button" class="acx-reg${on?' on':''}" data-act="acx-reg" data-v="${R.id}"${on?' aria-current="true"':''}><span class="acx-rn">${esc(R.name)}${md!=='enabled'?` <span class="chip">${md==='world'?R.chip:md==='coming_soon'?'Coming soon':'Maintenance'}</span>`:''}</span>${l?`<span class="acx-rt">${esc(rel(l.t))}</span>`:''}<span class="acx-rl">${!L?'…':l?`<b>${esc(l.nm)}</b>: ${l.im?'📷 ':''}${esc((l.x||(l.im?'A picture':'')).slice(0,70))}`:'No lines yet'}</span></button></li>`;}).join('');
 }
 function acxLogHTML(){
   if(!ACX.reg)return '<li class="hint acx-none">Choose a region to read its chat.</li>';
@@ -86722,7 +86857,7 @@ function acxLogHTML(){
     const acts=ask&&ACX.ask.all?`<button type="button" class="btn danger small" data-act="acx-uncast-yes" data-id="${esc(m.id)}">Remove everywhere</button><button type="button" class="btn ghost small" data-act="acx-ask-no">Keep</button>`
       :ask?`<button type="button" class="btn danger small" data-act="acx-del-yes" data-id="${esc(m.id)}">Remove it</button><button type="button" class="btn ghost small" data-act="acx-ask-no">Keep</button>`
       :`<button type="button" class="linkish small" data-act="acx-del" data-id="${esc(m.id)}">${all?'Remove here':'Remove'}</button>${all?`<button type="button" class="linkish small" data-act="acx-uncast" data-id="${esc(m.id)}">Remove from every region</button>`:''}${staff?'':`<button type="button" class="linkish small" data-act="acx-mute-ask" data-id="${esc(m.id)}">Silence…</button><button type="button" class="linkish small" data-act="admin-inspect" data-id="${esc(m.a)}">Inspect</button>`}`;
-    return d+`<li class="acx-l${m.tm?' tm':''}" data-id="${esc(m.id)}"><time class="acx-t" datetime="${new Date(m.t).toISOString()}" title="${esc(fmtDate(m.t)+', '+fmtTime(m.t))}">${esc(fmtTime(m.t))}</time><span class="acx-w"><b>${esc(m.nm)}</b>${m.rg&&ACX.reg==='world'?` <span class="hint acx-rg">${esc(regName(m.rg))}</span>`:''}${pill}${sil.has(m.a)&&!staff?' <span class="chip acx-sil">Silenced</span>':''}</span><span class="acx-x">${esc(m.x)}${m.im?rgcPicHTML(m.im,`data-pic="open" data-box="acx" data-id="${esc(m.id)}"`,m.tm?'Edictum team':m.nm,true):''}</span><span class="acx-b">${acts}</span></li>`;
+    return d+`<li class="acx-l${m.tm?' tm':''}" data-id="${esc(m.id)}"><time class="acx-t" datetime="${new Date(m.t).toISOString()}" title="${esc(fmtDate(m.t)+', '+fmtTime(m.t))}">${esc(fmtTime(m.t))}</time><span class="acx-w"><b>${esc(m.nm)}</b>${m.rg&&acxShared(ACX.reg)?` <span class="hint acx-rg">${esc(regName(m.rg))}</span>`:''}${pill}${sil.has(m.a)&&!staff?' <span class="chip acx-sil">Silenced</span>':''}</span><span class="acx-x">${esc(m.x)}${m.im?rgcPicHTML(m.im,`data-pic="open" data-box="acx" data-id="${esc(m.id)}"`,m.tm?'Edictum team':m.nm,true):''}</span><span class="acx-b">${acts}</span></li>`;
   }).join('');
 }
 /* the chat and the region list again, in place */
@@ -86739,7 +86874,7 @@ function acxMuteHTML(){
   return `<div class="adm-ask acx-mute" id="acx-mute"><p>Silence <b>${esc(q.nm)}</b> in every region’s chat? It can still read along, and sees the reason.</p>
     <div class="acx-mf"><label for="acx-mh">For</label><select class="input" id="acx-mh">${ACX_HOURS.map(([h,l])=>`<option value="${h}"${q.hours===h?' selected':''}>${l}</option>`).join('')}</select>
     <label for="acx-mw">Reason</label><input class="input" id="acx-mw" maxlength="200" value="${esc(q.why)}" placeholder="Shown to the player, e.g. spam or insults" autocomplete="off"></div>
-    <label class="acx-mx" for="acx-mx"><input type="checkbox" id="acx-mx"${q.wipe?' checked':''}> Also remove its lines of the last 24 hours in ${esc(q.reg==='world'?'the world chat':regName(q.reg))}</label>
+    <label class="acx-mx" for="acx-mx"><input type="checkbox" id="acx-mx"${q.wipe?' checked':''}> Also remove its lines of the last 24 hours in ${esc(acxShared(q.reg)?acxShared(q.reg).the:regName(q.reg))}</label>
     ${q.err?`<p class="err" role="alert">${esc(q.err)}</p>`:''}
     <div class="row"><button type="button" class="btn danger small" id="acx-mute-go" data-act="acx-mute-yes"${q.busy?' disabled':''}>${q.busy?'Silencing…':'Silence'}</button><button type="button" class="btn ghost small" data-act="acx-mute-no">Cancel</button></div></div>`;
 }
@@ -86754,13 +86889,13 @@ function acxCastHTML(){
 }
 function acxView(){
   const head=`<p class="eyebrow">Admin portal</p><h1 class="display">Region chats</h1>
-    <p class="lede">Read any region’s chat, or the world chat every region shares, as it happens, write in it as the Edictum team or to every region at once, and silence players who break the rules. A silence holds in every region’s chat: the player can still read along, and sees the reason. Removing a line, a message to every region and silencing are kept in the audit log.</p>`;
+    <p class="lede">Read any region’s chat, or the world chat and the French chat every region shares, as it happens, write in it as the Edictum team or to every region at once, and silence players who break the rules. A silence holds in every region’s chat: the player can still read along, and sees the reason. Removing a line, a message to every region and silencing are kept in the audit log.</p>`;
   if(!S.db)return admShell('admin-chat',head+'<div class="info">The chats need a connection. This page works once the game is connected.</div>');
   if(!ACX.reg)ACX.reg=REG_BY_ID[REG.id]?REG.id:REGIONS[0].id;
   if(!ACX.last&&!ACX.lbusy&&!ACX.lerr)acxRegsLoad();
   if(!ACX.mutes&&!ACX.mbusy&&!ACX.merr)acxMutesLoad();
   setTimeout(acxListen,0);
-  const R=ACX.reg==='world'?ACX_WORLD:REG_BY_ID[ACX.reg];
+  const R=acxShared(ACX.reg)||REG_BY_ID[ACX.reg];
   const regs=`<section class="acx-side" aria-label="Regions"><div class="acx-sh"><h2 class="h3">Regions</h2><button type="button" class="btn ghost small" data-act="acx-reload"${ACX.lbusy?' disabled':''}>${ACX.lbusy?'Fetching…':'Fetch again'}</button></div>
     ${ACX.lerr?`<p class="err">${esc(ACX.lerr)}</p>`:''}<ul class="acx-regs" id="acx-regs">${acxRegsHTML()}</ul></section>`;
   const chat=`<section class="acx-chat" aria-labelledby="acx-ch"><h2 class="h3" id="acx-ch">${R?esc(R.name):'No region chosen'}</h2>
@@ -86795,7 +86930,7 @@ document.addEventListener('click',async e=>{
   else if(a==='acx-mute-no'){ACX.mute=null;render();}
   else if(a==='acx-mute-yes'&&ACX.mute&&!ACX.mute.busy){const q=ACX.mute;q.busy=true;q.err='';render();
     try{const r=await rgcCivic({op:'rcMute',uid:q.uid,reg:q.reg,hours:q.hours,why:q.why.trim(),wipe:q.wipe});ACX.mute=null;
-      toast(`${q.nm} is silenced in ${q.reg==='world'?'every chat':'the region chat'} ${q.hours?'for '+rgcHours(q.hours):'until it is lifted'}.${r.removed?` ${r.removed} ${r.removed===1?'line was':'lines were'} removed.`:''}`);acxMutesLoad();}
+      toast(`${q.nm} is silenced in ${acxShared(q.reg)?'every chat':'the region chat'} ${q.hours?'for '+rgcHours(q.hours):'until it is lifted'}.${r.removed?` ${r.removed} ${r.removed===1?'line was':'lines were'} removed.`:''}`);acxMutesLoad();}
     catch(err){q.busy=false;q.err=alErrText(err);}
     render();}
   else if(a==='acx-lift'){el.disabled=true;
@@ -89077,7 +89212,7 @@ const SG_SCOPE_L={dev:'This device',nat:'All your devices',pub:'Seen by others',
 const SG_SCOPE={'set-leader':'pub','set-particulars':'pub','set-culture':'pub','set-mapc':'pub','set-look':'pub',
   'away-box':'nat','set-edicts':'nat','sg-topics':'nat','set-land':'nat','set-land-auto':'nat','set-map-layers':'dev',
   'set-start':'dev','set-tasks':'dev','set-rates':'dev','set-ask':'dev','set-ntf-grid':'','set-notif':'dev','set-letters-push':'dev','set-mail':'acc',
-  'set-letters-off':'nat','set-letters-mu':'nat','set-chat-btn':'dev','set-chat-on':'nat','set-chat-world':'nat',
+  'set-letters-off':'nat','set-letters-mu':'nat','set-chat-btn':'dev','set-chat-on':'nat','set-chat-world':'nat','set-chat-fr':'nat',
   'set-reach':'pub','set-online':'pub','set-letters-rr':'pub','set-letters-bl':'nat','set-lang':'dev','set-appearance':'dev','set-access':'dev','set-fmt':'dev','set-saver':'dev',
   'set-sound':'dev','set-sound-kinds':'dev','set-haptics':'dev','set-nav-style':'nat','set-nav-presets':'nat','set-nav-pages':'nat','set-nav-tabs':'nat','set-nav-reset':'nat',
   'set-acct':'acc','set-social':'acc'};
@@ -89093,7 +89228,7 @@ const SG_WORDS={'set-appearance':'theme dark mode light night accent colour colo
   'set-tasks':'tutorial tasks whats next what’s next','set-rates':'stockpile per hour per day resource gains','set-map-layers':'map layers lens weather trade routes news night day tilt finds',
   'set-land':'land credits pause keep small','set-land-auto':'land credits spend automatically','away-box':'holiday vacation away',
   'set-look':'flag arms coat of arms banknotes currency coins portrait decrees signature signed','set-mail':'email e-mail letters by post digest',
-  'set-chat-btn':'chat button floating','set-chat-on':'chat region mentions','set-chat-world':'world chat','set-letters-push':'push notifications phone closed',
+  'set-chat-btn':'chat button floating','set-chat-on':'chat region mentions','set-chat-world':'world chat','set-chat-fr':'french chat français francophone','set-letters-push':'push notifications phone closed',
   'set-danger':'delete dissolve start over restart account','set-acct':'sign in sign-in google discord recovery key sign out','set-social':'recruit invite friend link'};
 
 /* the tabs that are new, and the ids each one owns */

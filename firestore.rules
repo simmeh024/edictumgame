@@ -27,6 +27,8 @@ rules_version = '2';
 //   bans/{uid}               {note, name, t, by}: an admin banned the account (it may save nothing)
 //   staff/{uid}              {t}: this player is Edictum staff (an admin), so other players see it; only the
 //                            admin themself can write it, and anyone may clear their own
+//   ambassadors/{uid}        {t}: an admin appointed this player an Edictum Ambassador (blue pill); only the server
+//                            writes it (functions/admin.js, setAmb), everyone reads it
 //   staffPrefs/{uid}         {tz, t}: a staff member's own portal settings (tz: the time zone its times show in);
 //                            read by them and the admins, written by them or an admin, never seen by players
 //   fx/{reg}                 the region's currencies: value, Currency Prestige, rank and history summary
@@ -534,16 +536,16 @@ service cloud.firestore {
     }
     match /alPace/{uid} { allow read, write: if false; }
     // region chat (functions/regionchat.js): written only by the server; a region's own nations read its lines (a nation
-    // whose saved record is in that region), and admins any region's. The world chat (rchat/world) is read by every
-    // player with a saved nation, of any region. rcPace/ (the pacing of each player's lines) is the server's alone
+    // whose saved record is in that region), and admins any region's. The world chat (rchat/world) and the French chat
+    // (rchat/fr) are read by every player with a saved nation, of any region. rcPace/ (the pacing of each player's lines) is the server's alone
     match /rchat/{reg}/chat/{id} {
-      allow read: if isStaff() || signedIn() && (reg == 'world' && exists(/databases/$(database)/documents/nations/$(request.auth.uid))
+      allow read: if isStaff() || signedIn() && (reg in ['world', 'fr'] && exists(/databases/$(database)/documents/nations/$(request.auth.uid))
         || region(reg) && get(/databases/$(database)/documents/nations/$(request.auth.uid)).data.reg == reg);
     }
     // the picture an admin's line carries (rcimg/{reg}/chat/{line} {a, d, k, t, exp}): read as its line is, written only by
     // the server
     match /rcimg/{reg}/chat/{id} {
-      allow read: if isStaff() || signedIn() && (reg == 'world' && exists(/databases/$(database)/documents/nations/$(request.auth.uid))
+      allow read: if isStaff() || signedIn() && (reg in ['world', 'fr'] && exists(/databases/$(database)/documents/nations/$(request.auth.uid))
         || region(reg) && get(/databases/$(database)/documents/nations/$(request.auth.uid)).data.reg == reg);
     }
     match /rcPace/{uid} { allow read, write: if false; }
@@ -897,6 +899,12 @@ service cloud.firestore {
           || isMod() && !isAdmin() && request.resource.data.keys().hasOnly(['t', 'm']) && request.resource.data.m == true)
         && request.resource.data.t is number;
       allow delete: if isSelf(uid) || isAdmin();
+    }
+    // ambassadors: a player an admin appointed to help keep the chats friendly (functions/admin.js, setAmb). They may
+    // silence players (functions/regionchat.js, rcMute) and nothing else, so the claim reads nothing more here; every
+    // player reads the list for the blue Ambassador pill, and only the server writes it
+    match /ambassadors/{uid} {
+      allow read: if true;
     }
     // staffPrefs: one staff member's portal clock, written by the game itself. A moderator keeps
     // their own; an admin keeps theirs and may set another staff member's. Players never read it: where staff live

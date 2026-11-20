@@ -57,9 +57,12 @@ const draws = () => page.evaluate(() => window.__draws);
    to #app, the map's own canvases and tooltip aside). The game's clock may draw the page again in the window (a
    countdown in the panel), and each such page is a picture of its own; what must not happen is more pictures than
    pages, as when one page drew the map two or three times. The clock also draws the map when the minute turns, so a
-   count over a turn of the minute is taken again. */
-async function drawn(f, ms) {
+   count over a turn of the minute is taken again: before (when given) runs ahead of each count, outside it, and f must
+   change the page again each time it runs (opening the map when it is open already changes nothing, and a count of
+   nothing failed the first check whenever a minute turned in its window: {n:0, ch:0}). */
+async function drawn(f, ms, before) {
   for (let k = 0; ; k++) {
+    if (before) await before();
     const [d0, m0] = await page.evaluate(() => {
       window.__ch = 0; if (window.__mo) window.__mo.disconnect();
       const skip = t => { const e = t && (t.nodeType === 1 ? t : t.parentElement); return !!(e && (e.localName === 'canvas' || e.closest('.map-tip'))); };
@@ -75,8 +78,7 @@ async function drawn(f, ms) {
 
 /* 1. one picture per page drawn */
 for (let k = 0; k < 2; k++) {
-  await go('nation'); await sleep(800);
-  const r = await drawn(() => go('map'), 1200);
+  const r = await drawn(() => go('map'), 1200, async () => { await go('nation'); await sleep(800); });
   check(`opening the World map draws it once (${k + 1})`, r.n >= 1 && r.n <= r.ch, r);
 }
 {
@@ -86,7 +88,8 @@ for (let k = 0; k < 2; k++) {
   check('a page drawn while the map is open draws it once', r.n >= 1 && r.n <= r.ch, r);
   const r1 = await drawn(() => page.evaluate(m => { const G = window.__game; for (let i = 0; i < 3; i++) { G.S.warMsg = 'Thrice ' + m + i; G.render(); } }, ++k), 800);
   check('three pages drawn in one go: one picture', r1.n >= 1 && r1.n <= r1.ch, r1);
-  const r2 = await drawn(() => page.setViewportSize({ width: 1180, height: 820 }), 1000);
+  let w = 1180; // a new width each time it is counted
+  const r2 = await drawn(() => page.setViewportSize({ width: w--, height: 820 }), 1000);
   check('a new size draws it again', r2.n >= 1, r2);
   const sz = await page.evaluate(() => { const c = document.querySelector('canvas.map-cv[data-map="main"]'); return [c._sz, c.clientWidth + 'x' + c.clientHeight]; });
   check('drawn at the size it has', sz[0] === sz[1], sz);
