@@ -3,19 +3,20 @@ import { eligibility, refuse, nationJSON } from './eligibility.js';
 import { NPC, npcAffinity, warWithNpc } from './alliances.js';
 import { TR_KINDS, TR_MAX, TR_NOTICE, TR_RECORD, TR_REOFFER, TR_NPC_MIN, trId, trLive, trVoid } from './treaty-rules.js';
 
-/* Treaties between two nations, written only here (civic ops tr*): a non-aggression pact, a trade agreement or a
-   research pact (functions/treaty-rules.js holds the data's shape and the rules). A player offers one; the other
+/* Treaties between two nations, written only here (civic ops tr*): a non-aggression pact, a trade agreement, a
+   research pact or joint military training (functions/treaty-rules.js holds the data's shape and the rules). A player offers one; the other
    player accepts or declines it, and a computer nation answers at once by its affinity. Either side may end one with
    notice, or break it at once: a broken treaty stays on the breaker's record for a month, and no computer nation signs
    with a recent breaker. The referee (functions/index.js) refuses a battle between the two sides of a live
-   non-aggression pact; the game applies the trade agreement and the research pact, and the goodwill a breaker loses. */
+   non-aggression pact or joint training, readies an army sooner for its joint training and holds the odds to a broken
+   one's edge; the game applies the rest, and the goodwill a breaker loses. */
 const isId = v => typeof v === 'string' && /^[\w-]{1,128}$/.test(v);
 const isUid = v => isId(v) && !v.startsWith('npc-');
-const isTid = v => typeof v === 'string' && /^(nap|trade|research)_[\w-]{1,128}_[\w-]{1,128}$/.test(v);
+const isTid = v => typeof v === 'string' && /^(nap|trade|research|drill)_[\w-]{1,128}_[\w-]{1,128}$/.test(v);
 const regOf = e => e.n.reg || e.saved.get('reg') || '';
 const founded = n => Number.isFinite(Number(n && n.founded)) && Number(n.founded) > 0 ? Number(n.founded) : 0;
-export const TR_NAME = { nap: 'non-aggression pact', trade: 'trade agreement', research: 'research pact' };
-const PLURAL = { nap: 'non-aggression pacts', trade: 'trade agreements', research: 'research pacts' };
+export const TR_NAME = { nap: 'non-aggression pact', trade: 'trade agreement', research: 'research pact', drill: 'joint military training pact' };
+const PLURAL = { nap: 'non-aggression pacts', trade: 'trade agreements', research: 'research pacts', drill: 'joint military training pacts' };
 
 /* every treaty a nation is party to, read in the transaction */
 async function partyTo(tx, db, id) {
