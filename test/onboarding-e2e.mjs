@@ -9,6 +9,7 @@ await clearEmulators();
 // never needs a toast seen (it reads their text), so one in the way of a click is hidden instead of taking it.
 const quiet=p=>p.addLocatorHandler(p.locator('#toast .reward-links a').first(),()=>p.evaluate(()=>document.querySelector('#toast')?.style.setProperty('visibility','hidden')));
 const A=await player('new player desktop',{recovery:true,desk:true}),uid=await open(A);await quiet(A);await A.waitForSelector('#d-name');
+await A.click('[data-act="hm-custom"]');await A.waitForSelector('#found-form');
 check('founding offers a basic flag without the layer workshop',await A.locator('#d-fgd').isVisible()&&await A.locator('[data-fgg="d:layers"]').count()===0);
 await found(A,'Beginnings',{newPlayer:true});
 await A.waitForSelector('#ed-recovery-code',{timeout:25000});await A.click('[data-ed="recovery-saved"]');

@@ -64,6 +64,8 @@ try {
   /* ── 1, 2. the founding page: a suggested name is replaced by typing; one region box ── */
   {
     const { ctx, page, errors } = await fresh({ width: 1280, height: 900 });
+    /* the charter: Customize first, from the front page */
+    await page.click('[data-act="hm-custom"]'); await page.waitForSelector('#found-form');
     const sug = await page.inputValue('#d-name');
     await page.click('#d-name'); await page.keyboard.type('Polishia');
     check('a click on the suggested name selects it, so typing replaces it', await page.inputValue('#d-name') === 'Polishia', [sug, await page.inputValue('#d-name')]);

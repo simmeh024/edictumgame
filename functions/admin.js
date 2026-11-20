@@ -2,7 +2,7 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
-import { registered, banMarks } from './eligibility.js';
+import { registered, banMarks, regionClosed } from './eligibility.js';
 import { nationText } from './nationtext.js';
 import { gather, summarize, nationRow, saveEngage, loadEngage } from './stats.js';
 import { nationDetail } from './stats-acts.js';
@@ -361,11 +361,31 @@ async function setRegion(db, actor, data) {
   await db.runTransaction(async tx => {
     const previous = await tx.get(ref), before = previous.get('enabled') !== false;
     const beforeMode = before ? 'enabled' : previous.get('mode') === 'coming_soon' ? 'coming_soon' : 'maintenance';
-    // Public availability contains no staff notes or actor identity; those belong to the private audit.
-    tx.set(ref, { enabled: data.enabled, mode, at: FieldValue.serverTimestamp() });
+    // Public availability contains no staff notes or actor identity; those belong to the private audit. Merged, so the
+    // region keeps its mark as the default for newcomers (def, regionDefault) through a change of status.
+    tx.set(ref, { enabled: data.enabled, mode, at: FieldValue.serverTimestamp() }, { merge: true });
     tx.create(event, { actor, action: data.enabled ? 'region_enabled' : 'region_disabled', target, reason, before, after: data.enabled, beforeMode, mode, outcome: 'completed', at: FieldValue.serverTimestamp() });
   });
   return { ok: true };
+}
+/* The region newcomers are shown first on the front page (game/edictum.html, hmDef; functions/home.js copies it into
+   home/live): one regionStatus/<id> marked def, which every visitor already reads. reg '' clears it, and newcomers get
+   the game's own (FIRST_REG). Only an open region: a closed one, or one coming soon with no status of its own, is refused. */
+async function setDefaultRegion(db, actor, data) {
+  const target = text(data.reg, 40);
+  if (target && !REGIONS.has(target)) throw new HttpsError('invalid-argument', 'Choose a region.');
+  const event = db.collection('adminAudit').doc();
+  await db.runTransaction(async tx => {
+    const marked = await tx.get(db.collection('regionStatus').where('def', '==', true));
+    const ref = target ? db.doc('regionStatus/' + target) : null, cur = ref ? await tx.get(ref) : null;
+    if (ref && regionClosed(cur, target)) throw new HttpsError('failed-precondition', 'Open the region before making it the default.');
+    const before = marked.docs.map(d => d.id).join(',');
+    for (const d of marked.docs) if (d.id !== target) tx.update(d.ref, { def: FieldValue.delete() });
+    // a region with no status of its own yet gets a whole one: the rules read enabled from any that exists (regionEnabled)
+    if (ref) tx.set(ref, cur.exists ? { def: true } : { def: true, enabled: true, mode: 'enabled', at: FieldValue.serverTimestamp() }, { merge: true });
+    tx.create(event, { actor, action: 'region_default', target: target || '-', before: before || '-', after: target || '-', outcome: 'completed', at: FieldValue.serverTimestamp() });
+  });
+  return { ok: true, reg: target };
 }
 const AD_KEEP = 12 * 86400000;
 async function adOff(db, reg, key, now, field = 'x', keep = AD_KEEP) {
@@ -656,6 +676,7 @@ export const adminConsole = onCall({ region: 'europe-west1', maxInstances: 5, me
   if (d.op === 'statsNation') return statsNation(db, d);
   if (d.op === 'audit') return audit(db, d);
   if (d.op === 'region') return setRegion(db, actor, d);
+  if (d.op === 'regionDefault') return setDefaultRegion(db, actor, d);
   if (d.op === 'moderate') return mutate(db, actor, d);
   if (d.op === 'note') return note(db, actor, d);
   if (d.op === 'letters') return lettersOp(db, actor, d);

@@ -77,7 +77,7 @@ check('saved plans restore after reload',await A.locator('.mp-steps li').count()
 const B=await player('map development phone',{vp:{width:390,height:844},dark:true,storageState:await A.ctx.storageState({indexedDB:true})});await open(B);await B.waitForSelector('.layout');await nav(B,'map');await B.click('.mp-map-toolbar [data-v="plan"]');
 check('another device restores the private plan',await B.locator('.mp-steps li').count()===3);
 check('planner fits the phone without sideways scrolling',await B.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
-await B.evaluate(()=>window.scrollTo(0,0));await settle(B);await B.screenshot({path:OUT+'/map-planner-390.png'});await B.locator('.mp-tool').screenshot({path:OUT+'/map-planner-panel-390.png'});await B.ctx.close();
+await B.evaluate(()=>window.scrollTo(0,0));await settle(B);await B.screenshot({path:OUT+'/map-planner-390.png'});await B.locator('.mp-tool').screenshot({path:OUT+'/map-planner-panel-390.png'}).catch(()=>{}); /* a picture only: a redraw may replace the panel */await B.ctx.close();
 await A.click('[data-act="mp-apply"]');await saved();
 check('applying a plan claims the selected hexes exactly once',await A.evaluate(plan=>{const T=G.territory(),hi=T.byId[G.myId()];return plan.every(c=>T.owner[c]===hi)&&G.S.nation.claims.filter(e=>plan.includes(e.c)).length===plan.length;},plan));
 check('applied plans clear their private saved draft',!(await localNation(A)).mapPlan);

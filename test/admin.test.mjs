@@ -405,6 +405,26 @@ test('region switches preserve records, stop battles, and atomically log the aut
   await call(a, { op: 'region', reg: 'terra', enabled: false, mode: 'coming_soon', reason: 'Not yet' });
   assert.equal((await get('regionStatus/terra')).fields.mode.stringValue, 'coming_soon');
 });
+test('the default region for newcomers: one at a time, open regions only, kept through a change of status, logged', async () => {
+  const a = await user(true), p = await user();
+  await assert.rejects(call(p, { op: 'regionDefault', reg: 'greywater' }), e => e.status === 'PERMISSION_DENIED');
+  await call(a, { op: 'regionDefault', reg: 'greywater' });
+  const g = await get('regionStatus/greywater');
+  assert.equal(g.fields.def.booleanValue, true);
+  assert.equal(g.fields.enabled.booleanValue, true, 'a region with no status of its own gets a whole one, so the rules still read it as open');
+  await call(a, { op: 'regionDefault', reg: 'saffron' });
+  assert.equal((await get('regionStatus/greywater')).fields.def, undefined, 'the old default loses its mark');
+  assert.equal((await get('regionStatus/saffron')).fields.def.booleanValue, true);
+  await call(a, { op: 'region', reg: 'saffron', enabled: false, reason: 'Maintenance' });
+  assert.equal((await get('regionStatus/saffron')).fields.def.booleanValue, true, 'a change of status keeps the mark');
+  await assert.rejects(call(a, { op: 'regionDefault', reg: 'frostmarch' }).then(() => call(a, { op: 'region', reg: 'frostmarch', enabled: false, reason: 'x' })).then(() => call(a, { op: 'regionDefault', reg: 'frostmarch' })), e => e.status === 'FAILED_PRECONDITION');
+  await assert.rejects(call(a, { op: 'regionDefault', reg: 'terra' }), e => e.status === 'FAILED_PRECONDITION', 'a region coming soon with no status of its own is closed');
+  await assert.rejects(call(a, { op: 'regionDefault', reg: 'atlantis' }), e => e.status === 'INVALID_ARGUMENT');
+  await call(a, { op: 'regionDefault', reg: '' });
+  assert.equal((await get('regionStatus/saffron')).fields.def, undefined, 'none: newcomers get the game’s own');
+  assert.ok((await call(a, { op: 'audit', target: 'greywater' })).events.some(e => e.action === 'region_default' && e.actor === a.uid && e.after === 'greywater'));
+  for (const r of ['saffron', 'frostmarch']) await call(a, { op: 'region', reg: r, enabled: true, reason: 'Back' });
+});
 test('save health reports client diagnostics alongside independently confirmed server saves', async () => {
   const a = await user(true), p = await user(); await seed(p.uid, 'Healthland');
   await put('saveHealth/' + p.uid + '_test', { uid: p.uid, reg: 'meridian', device: 'Desktop', status: 'offline', pending: true, error: 'unavailable', conflicts: 2, revision: 6, t: new Date() });
