@@ -81689,10 +81689,11 @@ async function flcWithdraw(){
    can be changed until judging closes: "Change a score" lists the flags scored (fcMine) and opens one again (FLC.edit).
    The keyboard scores too: 1 to 5 give the marked category its stars and move on, the arrows move the mark, Enter
    submits and S skips (FLC.kc is the marked category). A judge may report a flag to the staff (fcReport). */
-/* every flag of a competition scored (five at least): counted once a competition (n.fca), for its achievement */
+/* every flag of a competition scored: the server dealt none left. Kept once a competition (n.fca), which lets the desk's
+   judging task go (no flag comes in while judging runs); with five at least it also counts for its achievement */
 function flcAllDone(){
   const st=FLC.st,n=S.nation;if(!st||!n||!Array.isArray(FLC.deal)||FLC.deal.length)return;const id=flcCur(),others=Math.max(0,(st.n||0)-(st.mine?1:0));
-  if(!(st.judged>=5&&st.judged>=others)||n.fca===id)return;const m=clone(n);m.fca=id;gbBump(m,'fcall',1,Date.now());commit(m);
+  if(!(others>0&&st.judged>=others)||n.fca===id)return;const m=clone(n);m.fca=id;if(st.judged>=5)gbBump(m,'fcall',1,Date.now());commit(m);
 }
 const flcJudgeReset=()=>{FLC.stars={};FLC.kc=0;FLC.rep=null;FLC.repWhy='';FLC.repNote='';};
 async function flcDeal(){
@@ -81952,9 +81953,11 @@ function flcVisited(id){try{return Number(localStorage.getItem(flcVisKey(id)))||
 function flcVisit(id){try{localStorage.setItem(flcVisKey(id),String(flcNow()));}catch(e){}}
 const flcEntered=(n,id)=>!!(FLC.st&&FLC.st.id===id&&FLC.st.mine)||!!(n&&(n.fce||[]).includes(id));
 const flcReg=()=>FLC.st?!!FLC.st.reg:tutReg();
+/* this nation has scored every flag of the competition now judging (flcAllDone): no mark, no desk task */
+const flcAllScored=n=>!!n&&n.fca===flcCur();
 function flcTodo(){
   const id=flcCur(),now=flcNow(),ph=flcPhase(id,now),d=FLC.sum[id];
-  if(ph==='judge'&&d&&d.n>1&&flcReg()){const st=FLC.st;if(st&&st.id===id){const others=Math.max(0,(st.n||0)-(st.mine?1:0)),need=st.mine?Math.min(st.duty||0,others):1;if((st.judged||0)<need)return 'flags to score';return '';}return 'flags to score';}
+  if(ph==='judge'&&d&&d.n>1&&flcReg()){if(flcAllScored(S.nation))return '';const st=FLC.st;if(st&&st.id===id){const others=Math.max(0,(st.n||0)-(st.mine?1:0)),need=st.mine?Math.min(st.duty||0,others):1;if((st.judged||0)<need)return 'flags to score';return '';}return 'flags to score';}
   for(const c of [id,flcPrev(id)]){const x=FLC.sum[c];if(x&&x.st==='done'&&x.res&&x.res.top&&x.res.top.length&&!flcRevealed(c)&&(c===id||flcPhase(id,flcNow())==='enter'))return 'a podium to see';}
   if(ph==='enter'&&flcReg()&&!flcEntered(S.nation,id)){const T=flcTimes(id),seen=flcVisited(id),last=now>=T.judge-DAY;
     if(last&&seen<T.judge-DAY)return 'the last day to enter a flag';if(!seen)return 'entries are open';}
@@ -81976,10 +81979,12 @@ notifItems=(f=>function(now){const r=f.apply(this,arguments);try{const t=flcNow(
 
 /* the daily desk: while judging is open, a Registered Nation gets one more task, to score FLC_DESK.g flags (n.dd.f
    {g, c, p}, counted from the tally fcj, which only a flag's first score moves). It pays like a task and stands apart
-   from the three: the desk is clear without it. */
+   from the three: the desk is clear without it. Once a nation has scored every flag (n.fca, flcAllDone) there is
+   nothing left to ask: no such task is drawn, and one drawn that day is paid if it took some of the last scores, or
+   else is let go. */
 const FLC_DESK={g:3,gift:{goods:5,iron:5}};
 /* (the competition's clock, flcNow, decides the phase, not the time the desk is drawn for) */
-const flcDeskOn=n=>!!n&&!n.npc&&!!n.name&&ddOn()&&flcPhase(flcCur(),flcNow())==='judge'&&flcReg()&&!(FLC.sum[flcCur()]&&!(FLC.sum[flcCur()].n>1));
+const flcDeskOn=n=>!!n&&!n.npc&&!!n.name&&ddOn()&&flcPhase(flcCur(),flcNow())==='judge'&&flcReg()&&!(FLC.sum[flcCur()]&&!(FLC.sum[flcCur()].n>1))&&!flcAllScored(n);
 NORM_HOOKS.push((n,d)=>{const F=d&&d.dd&&d.dd.f;if(n.dd&&F&&d.dd.d===n.dd.d&&Number.isInteger(F.g)&&F.g>=1&&F.g<=10)n.dd.f={g:F.g,c:Number.isInteger(F.c)&&F.c>0?Math.min(F.c,F.g):0,p:F.p===1?1:0};});
 COMMIT_HOOKS.push((n,old,now)=>{
   if(!n||n.npc||!n.name||!n.dd||!ddOn())return;const D=n.dd,out=[];
@@ -81987,13 +81992,15 @@ COMMIT_HOOKS.push((n,old,now)=>{
   const F=D.f;if(!F||F.p)return out;
   const base=old&&old.name===n.name&&old.tly&&typeof old.tly==='object'?old:null,dv=base?Math.max(0,tallyOf(n,'fcj')-tallyOf(base,'fcj')):0;
   if(dv)F.c=Math.min(F.g,(F.c||0)+dv);
-  if(F.c>=F.g){F.p=1;try{gbBump(n,'ddt',1,now);}catch(e){}
+  const all=F.c<F.g&&flcAllScored(n);
+  if(all&&!F.c){delete D.f;return out;}
+  if(F.c>=F.g||all){F.p=1;try{gbBump(n,'ddt',1,now);}catch(e){}
     for(const r in FLC_DESK.gift){const st=stockNow(n,now);st[r]=stockLimit(n,r,num0(st[r])+FLC_DESK.gift[r],st[r]);n.stock=roundStock(st);n.stockAt=now;}
-    out.push(`Desk task done: score ${F.g} flags in the flag competition. +${FLC_DESK.gift.goods} goods and +${FLC_DESK.gift.iron} iron.`);}
+    out.push(`Desk task done: ${all?'every flag in the flag competition is scored':`score ${F.g} flags in the flag competition`}. +${FLC_DESK.gift.goods} goods and +${FLC_DESK.gift.iron} iron.`);}
   return out;
 });
 ddCard=(f=>function(now){const h=f.apply(this,arguments);try{const n=S.nation;if(!h||!n)return h;
-  const D=n.dd&&!ddLater(ddDay(now),n.dd.d)?n.dd:null,F=D&&D.f?D.f:flcDeskOn(n)?{g:FLC_DESK.g,c:0,p:0}:null;if(!F)return h;
+  const D=n.dd&&!ddLater(ddDay(now),n.dd.d)?n.dd:null,F=D&&D.f?D.f:flcDeskOn(n)?{g:FLC_DESK.g,c:0,p:0}:null;if(!F||!F.p&&!F.c&&flcAllScored(n))return h;
   const done=!!F.p,c=Math.min(F.g,F.c||0);
   const row=`<li class="dd-t dd-fc${done?' done':''}"><span class="dd-i" aria-hidden="true"></span><span class="dd-x"><b><span class="dd-fc-tag">Judging</span> Score ${F.g} flags in the flag competition</b><span class="hint">${done?'Done':`${c} of ${F.g}`} · +${FLC_DESK.gift.goods} goods, +${FLC_DESK.gift.iron} iron</span></span>${done?'':`<button type="button" class="btn ghost small-btn" data-act="go" data-v="flagcomp">Score flags</button>`}</li>`;
   const i=h.indexOf('</ol>');return i<0?h:h.slice(0,i)+row+h.slice(i);}catch(e){return h;}})(ddCard);
