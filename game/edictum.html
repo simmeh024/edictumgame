@@ -54205,13 +54205,12 @@ function renderPatch(app,html){
    the page could stay inert after the dialog had closed. When the founding edict opened 40 ms after the recovery code
    was saved, the page column (.wrap, restyled as the edict was drawn into it) came out inert with everything inside it,
    while looking just as usual, so the edict's answers ignored every click until something else restyled the column
-   (caught in the Core game test on CI, about one run in fifteen; test/hit-diag.mjs). The browser seems to reuse a
+   (caught in the Core game test on CI, 1 run in 12 on 20 Nov; test/hit-diag.mjs). The browser seems to reuse a
    style worked out while the dialog was open. So while anything is modal the root carries a class (ed-modal) whose
    rule gives every element one more declaration: a style worked out then never matches one worked out afterwards,
    and the class going away has every element's style worked out afresh. */
 const MODAL_ERA={on:false};
 function modalEra(){
-  if(window.EDICTUM_NO_MODAL_ERA)return;
   let m=null;try{m=document.querySelector('dialog:modal');}catch(e){m=document.querySelector('dialog[open]');}
   const app=document.getElementById('app'),on=!!(m||(app&&app.inert));
   if(on!==MODAL_ERA.on){MODAL_ERA.on=on;document.documentElement.classList.toggle('ed-modal',on);}

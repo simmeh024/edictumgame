@@ -436,7 +436,7 @@ await A.waitForSelector('.edict .opt');
 check('in a republic an edict goes before the Senate, its motions in Roman numerals', /Curia of Aldoria · Anno I/.test(await text(A, '.edict .form-code')) && /Speeches before the Senate/.test(await text(A, '.edict')) && /^Vote for motion I$/.test(await text(A, '.edict [data-act="answer"]')) && /^Veto$/.test(await text(A, '.edict [data-act="dismiss"]')));
 await A.click('[data-act="close-issue"]');
 const KG = await player('KG');
-if (process.env.HIT_TRACE !== '0') await KG.ctx.addInitScript(traceInit); // a timeline for the diagnosis below
+await KG.ctx.addInitScript(traceInit); // a timeline for the diagnosis below
 await open(KG);
 await KG.waitForSelector('#d-name');
 await KG.fill('#d-name', 'Kingsmoor');
@@ -447,7 +447,7 @@ await until(() => KG.$('.issue-card')); await KG.click('.issue-card'); await KG.
 check('in a kingdom it goes before the Privy Council', /Privy Council of Kingsmoor/.test(await text(KG, '.edict .form-code')) && /^Assent to motion I$/.test(await text(KG, '.edict [data-act="answer"]')));
 /* when the answer cannot be clicked, say why (test/hit-diag.mjs: which ancestors the browser treats as inert, where the
    button can be hit, what makes it hittable again, and what the page did before) and keep a picture in test/out */
-try { await KG.click('.edict [data-act="answer"]', { timeout: 20000 }); if (process.env.HIT_TRACE_PRINT) console.log('KG timeline:', JSON.stringify(await KG.evaluate(() => (window.__tl || []).slice(-70)))); }
+try { await KG.click('.edict [data-act="answer"]', { timeout: 20000 }); }
 catch (e) {
   console.log('the founding edict’s answer could not be clicked:', JSON.stringify(await hitDiag(KG, '.edict [data-act="answer"]').catch(err => ({ evaluate: String(err) })), null, 1));
   await KG.screenshot({ path: path.join(OUT, 'core-founding-answer-blocked.png') }).catch(() => {});
@@ -468,6 +468,16 @@ check('and by the leader’s title, without the name', await until(async () => /
 await KG.click('#cz-l-ds-l');
 await until(async () => (await KG.getAttribute('#cz-l-ds-l', 'aria-pressed')) === 'true');
 await KG.locator('#cz-sec-s').screenshot({ path: path.join(OUT, 'customise-decrees.png') }); // a locator: choosing redraws the page
+/* that answer once ignored every click (1 Core game run in 12 on CI, 20 Nov): the guest recovery dialog had just closed
+   and Chrome kept the page column inert. While anything is modal the root carries ed-modal (game: modalEra), so
+   no style worked out then is used after it */
+check('while a dialog is modal, or the page behind a guide inert, the root says so, and not after', await KG.evaluate(async () => {
+  const fr = () => new Promise(r => requestAnimationFrame(() => r())), on = () => document.documentElement.classList.contains('ed-modal'), app = document.getElementById('app'), seen = [on()];
+  const d = document.createElement('dialog'); document.body.appendChild(d); d.showModal(); await fr(); seen.push(on()); d.close(); await fr(); seen.push(on());
+  d.showModal(); await fr(); seen.push(on()); d.remove(); await fr(); seen.push(on());
+  app.inert = true; await fr(); seen.push(on()); app.inert = false; await fr(); seen.push(on());
+  return seen.join() === 'false,true,false,true,false,true,false';
+}));
 await KG.ctx.close();
 // the passport: A opens B's page and collects its entry stamp
 await nav(A, 'region'); await regionTab(A);
