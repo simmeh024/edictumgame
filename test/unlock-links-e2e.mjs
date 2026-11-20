@@ -5,12 +5,16 @@ const A=await player('unlock desktop');await open(A);await found(A,'Honourland')
 const saved=async()=>{if(!await until(async()=>{const n=await localNation(A);return n?._rev>0&&!n._dirty;},15000))throw Error('Save did not settle');};
 await saved();
 /* founding and settling earn several achievements, each announced in a toast; which one is showing when the
-   nation is ready depends on timing, so the first achievement link seen is the one followed. Hovering holds it. */
+   nation is ready depends on timing, so the first achievement link seen is the one followed. Hovering holds it. The
+   guest's recovery-code dialog can open in between (lib.mjs closes it, which moves the mouse off the toast), and the
+   toast may move on meanwhile: then the link showing next is found, hovered and followed instead. */
 const achLink=()=>A.$('#toast a[href^="#achievements/"]');
-check('new achievement toast includes its exact unlock link',!!await until(achLink,25000));
-const achHref=await (await achLink()).getAttribute('href'),achId=achHref.split('/')[1];await A.hover(`#toast a[href="${achHref}"]`);
-await settle(A);await A.locator('#toast').screenshot({path:OUT+'/unlock-toast-1280.png'});
-await A.click(`#toast a[href="${achHref}"]`);
+let achHref='';
+const followAch=async()=>{const l=await achLink(),h=l&&await l.getAttribute('href').catch(()=>'');if(!h)return false;const a=`#toast a[href="${h}"]`;
+  try{await A.hover(a,{timeout:3000});await settle(A);await A.locator('#toast').screenshot({path:OUT+'/unlock-toast-1280.png',timeout:3000});await A.click(a,{timeout:3000});}catch(e){return false;}
+  achHref=h;return true;};
+check('new achievement toast includes its exact unlock link',!!await until(followAch,25000));
+const achId=achHref.split('/')[1];
 check('toast link opens and focuses the earned achievement',await until(()=>A.locator(`#ach-${achId}.on`).count())&&await A.evaluate(id=>document.activeElement?.id==='ach-'+id,achId)&&A.url().endsWith(achHref),achHref);
 await A.mouse.move(0,0);await A.reload();await A.waitForSelector(`#ach-${achId}.on`);
 check('achievement deep link survives refresh',await A.evaluate(id=>document.activeElement?.id==='ach-'+id,achId));
