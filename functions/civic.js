@@ -18,6 +18,7 @@ import { regionChat, isRegionChatOp } from './regionchat.js';
 import { supply, isSupplyOp } from './supply.js';
 import { venture, isVentureOp } from './ventures.js';
 import { riddle, isRiddleOp } from './riddles.js';
+import { xmSettle, xmNowMs } from './xmas-rules.js';
 
 const regions = new Set(DATA.regions.map(r => r.id));
 const statKeys = Object.keys(DATA.regions[0].npcs[0].s);
@@ -115,6 +116,8 @@ async function permit(db, who, d) {
     else n.asm = { r: p.reg, e: [], s: [], v: [] };
     /* the population: a create held to createCap; an update noted at no more than the rules will let it save, and, for
        a client that asks (cap), saved at no more (heldPop) */
+    /* the Christmas answers (functions/xmas-rules.js): each new one held to its letter's date and order by this clock */
+    const xmKept = xmSettle(n, before, xmNowMs());
     const now = Date.now();
     let most = Infinity, pop = p.pop;
     if (!e.saved.exists) {
@@ -144,8 +147,8 @@ async function permit(db, who, d) {
        this permit's z; a build from before saves j as it always did */
     const z = deflateNation(result.j);
     tx.create(ref, { ...result, z, sk, exp: Timestamp.fromMillis(Date.now() + 120000), authGeneration: who.generation, sensitive: !!(founded || pvp.length), nationGeneration: e.generation });
-    if (d.zip === 1) { const { j, ...rest } = result; return { ...rest, z: z.toString('base64'), sk, permit: ref.id }; }
-    return { ...result, sk, permit: ref.id };
+    if (d.zip === 1) { const { j, ...rest } = result; return { ...rest, z: z.toString('base64'), sk, permit: ref.id, xm: xmKept }; }
+    return { ...result, sk, permit: ref.id, xm: xmKept };
   });
 }
 
@@ -651,7 +654,7 @@ async function newsUpvote(db, who, d) {
    region in its transaction (only a Registered Nation a day old gets that far), so it is paced more closely (functions/pace.js) */
 const ASSEMBLY_ACTS = new Set(['vote', 'propose', 'withdraw', 'endorse', 'support', 'agenda', 'message', 'paper', 'resign', 'rejoin', 'sway']);
 const CIVIC_OPS = new Set(['authorizeSave', 'carryKey', 'newsComment', 'newsModerate', 'newsReact', 'newsVote', 'newsClick', 'newsUpvote', 'renamed',
-  'cbTopic', 'cbReply', 'cbEdit', 'cbDelete', 'cbMod', 'cbPost', 'cbFollow', 'cbReact', 'cbSig', 'topic', 'topicReact', 'state', 'book', 'online', ...ASSEMBLY_ACTS]);
+  'cbTopic', 'cbReply', 'cbEdit', 'cbDelete', 'cbMod', 'cbPost', 'cbFollow', 'cbReact', 'cbSig', 'topic', 'topicReact', 'state', 'book', 'online', 'xmClock', ...ASSEMBLY_ACTS]);
 
 /* One vCPU serves up to 80 requests at once; a smaller share of one serves a single request, and every nation
    save asks here for its permit. maxInstances still caps the bill. */
@@ -682,7 +685,11 @@ export const civic = onCall({ region: 'europe-west1', maxInstances: 10, cpu: 1, 
     // answered without counting), so ten at once and then one every five seconds
     ...(isRiddleOp(op) ? [['rd:' + uid, 10, 1 / 5]] : []),
     // who of a region is online (presence.js): the Region page asks every two minutes; six at once, then one in 20 s
-    ...(op === 'online' ? [['con:' + uid, 6, 1 / 20]] : [])]);
+    ...(op === 'online' ? [['con:' + uid, 6, 1 / 20]] : []),
+    // the Christmas calendar's clock: asked when the page opens, then every half hour at most
+    ...(op === 'xmClock' ? [['xc:' + uid, 6, 1 / 30]] : [])]);
+  /* the server's time, for the Christmas calendar's countdown and its answers (game/edictum.html, xmSync) */
+  if (op === 'xmClock') return { now: xmNowMs() };
   /* read-only and public (the green dot on the Region page), so asked before the account is looked up */
   if (op === 'online') {
     if (typeof d.reg !== 'string' || !regions.has(d.reg)) throw new HttpsError('invalid-argument', 'Choose a region.');
