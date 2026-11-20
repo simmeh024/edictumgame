@@ -1,5 +1,6 @@
 // The Government page in five tabs (emulators): Overview with the leader's record, approval explained and the mandate;
-// a parliament whose seats follow the population and the edicts; the budget beside the region with an emergency shift;
+// a parliament whose seats follow the population and the edicts; the budget beside the region with an emergency shift
+// and a tax decree;
 // the laws by topic with where each came from, repeal and restore paid for from the mandate; the daily cabinet briefing
 // and a quiet word with a restless minister; the private half keeps the new fields; visitors see another cabinet.
 import { check, finish, sleep, until, player, open, found, nav, text, localNation, errors, clearEmulators, ready, nationDoc, regionTab } from './lib.mjs';
@@ -124,11 +125,27 @@ check('a restless minister can be reassured, for 2 mandate', /Reassure\s*2/.test
 await A.click(`.gv-calm[data-pf="${pf}"]`);
 check('loyalty +15, the mandate −2', await A.evaluate(pf => G.S.nation.cab[pf].lo, pf) === 45 && Math.abs((await A.evaluate(() => G.GV().md(G.S.nation))) - 8) < 0.05 && /quiet word/.test(await text(A, '.cv-cab>.war-msg')));
 
+// the tax decree: three points either way, once a week, for 3 mandate; every department moves by the same part
+await A.evaluate(() => { const n = G.clone(G.S.nation); n.s.tax = 40; G.commit(n); G.render(); });
+await A.click('#gv-tab-budget');
+const tx = () => text(A, '#gv-tax');
+check('the tax decree previews both ways', await shown(A, '#gv-tax') && /Tax cut from 40\.0% to 37\.0%/.test(await tx()) && /Tax rise from 40\.0% to 43\.0%/.test(await tx()), await tx());
+check('every department moves by the same part, with the side effects named', /every department −7\.5%/.test(await tx()) && /every department \+7\.5%/.test(await tx()) && /Economic Freedom \+1, Income Equality −1/.test(await tx()) && /Income Equality \+1, Economic Freedom −1, Happiness −1/.test(await tx()), await tx());
+const txBtns = await A.$$eval('[data-act="gv-tax"]', b => b.map(x => [x.disabled, x.textContent.replace(/\s+/g, ' ').trim()]));
+check('both buttons ready, for 3 mandate', JSON.stringify(txBtns) === JSON.stringify([[false, 'Cut by decree 3'], [false, 'Raise by decree 3']]), JSON.stringify(txBtns) + ' mandate ' + await A.evaluate(() => G.GV().md(G.S.nation)));
+const shares0 = await A.evaluate(() => JSON.stringify(G.S.nation.budget));
+await A.click('[data-act="gv-tax"][data-v="-1"]');
+check('a cut: income tax 40% → 37%, the shares untouched, 3 mandate spent', await A.evaluate(() => Math.abs(G.S.nation.s.tax - 37) < 0.01) && await A.evaluate(() => JSON.stringify(G.S.nation.budget)) === shares0
+  && Math.abs((await A.evaluate(() => G.GV().md(G.S.nation))) - 5) < 0.05 && /By decree, income tax is cut from 40\.0% to 37\.0%\. Every department gets 7\.5% less\./.test(await text(A, '#gv-tax .war-msg')), await tx());
+check('in the record as a decree, for the paper and the happenings', await A.evaluate(() => { const l = G.S.nation.log[0]; return l.k === 'tax' && l.a === 'cut' && l.b === '37' && l.fx === '3' && Array.isArray(G.S.nation.txd) && G.S.nation.txd[1] === -1; }));
+check('and the next must wait a week, either way', (await A.$$eval('[data-act="gv-tax"]', b => b.map(x => x.disabled))).join() === 'true,true' && /One tax decree a week: the next in 6 days/.test(await tx()), await tx());
+check('the mandate card lists it, on the Budget tab', await A.evaluate(() => [...document.querySelectorAll('.gv-md-c li')].some(li => /Cut or raise income tax/.test(li.textContent) && /Budget/.test(li.textContent) && /3$/.test(li.textContent.trim()))));
+
 // what is saved: the new fields stay in the private half
 await A.evaluate(() => G.PG.saveSoon());
-check('mandate, briefing, origins and the record are saved privately', await until(async () => { const d = await nationDoc(uid); return d && d.rec.mdt && d.rec.brf && d.rec.pso && d.rec.ldr && d.rec.aph && !('mdt' in d.shared) && !('brf' in d.shared) && !('pso' in d.shared); }, 15000));
+check('mandate, briefing, origins and the record are saved privately', await until(async () => { const d = await nationDoc(uid); return d && d.rec.mdt && d.rec.brf && d.rec.pso && d.rec.ldr && d.rec.aph && d.rec.txd && !('mdt' in d.shared) && !('brf' in d.shared) && !('pso' in d.shared) && !('txd' in d.shared); }, 15000));
 await A.reload(); await ready(A); await A.waitForSelector('.layout');
-check('and survive a reload', await A.evaluate(() => { const n = G.S.nation; return !!(n.mdt && n.brf && n.ldr && n.ldr.d === 3 && n.aph.length >= 1); }));
+check('and survive a reload', await A.evaluate(() => { const n = G.S.nation; return !!(n.mdt && n.brf && n.ldr && n.ldr.d === 4 && n.aph.length >= 1 && n.txd && n.txd[1] === -1); }));
 
 // visitors see another nation's cabinet: offices and names, never loyalty
 await nav(A, 'region'); await regionTab(A); await A.click('.tbl [data-act="visit"]'); await A.waitForSelector('.gv-pub');
