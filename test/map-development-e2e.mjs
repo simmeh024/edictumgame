@@ -62,12 +62,28 @@ const clickCell=async(p,c)=>{
  const pos=await p.evaluate(c=>{const cv=document.querySelector('canvas[data-map="main"]'),v=G.MD.viewOf('main',cv),s=G.MD.mapScale(cv,v);return {x:cv.clientWidth/2+(G.MAP.cx[c]-v.cx)*s,y:cv.clientHeight/2+(G.MAP.cy[c]-v.cy)*s};},c);
  await cv.click({position:pos});
 };
+/* A planning click, checked: the hex must be in the draft afterwards. Even read after the draw, the view can still move
+   on a slow runner before the click lands (CI, 20 Nov 2026: the click took a neighbour, the plan came out short of three,
+   and the restore and apply checks after it fell with it; it passed again on the same code). A missed click is undone,
+   the draft put back as it was (a stray hex added, or a planned one toggled off), and placed again, at most three
+   times; what each miss did is logged. A planner that ignores clicks still fails the checks. */
+const draftOf=p=>p.evaluate(()=>(G.S.mpDraft||[]).slice());
+const planCell=async(p,c)=>{
+ for(let i=0;i<3;i++){
+  const before=await draftOf(p);
+  await clickCell(p,c);
+  if(await until(async()=>(await draftOf(p)).includes(c),1500))return;
+  const after=await draftOf(p);
+  console.log('map development: a planning click on hex',c,'missed:',JSON.stringify({before,after,msg:await p.evaluate(()=>G.S.mpMsg||'')}));
+  await p.evaluate(b=>{G.S.mpDraft=b;G.render();},before);
+ }
+};
 const plan=await A.evaluate(cap=>{
  const T=G.territory(),a=[];for(const c of G.MD.claimFrontier(T)){if(G.MAP.comp[c]!==G.MAP.comp[cap])continue;const p=G.MD.mpClaimSequence(T,a.concat(c));if(!p.blocked.length&&p.cost===a.length+1)a.push(c);if(a.length===3)break;}return a;
 },coast.cap);
 if(plan.length!==3)throw Error('Need three free expansion steps');
 const beforePlan=(await localNation(A)).claims.length;
-await A.click('.mp-map-toolbar [data-v="plan"]');for(const c of plan)await clickCell(A,c);
+await A.click('.mp-map-toolbar [data-v="plan"]');for(const c of plan)await planCell(A,c);
 check('map selections build an ordered three-hex plan with a yield preview',await A.locator('.mp-steps li').count()===3&&/Base yield per day/.test(await text(A,'.mp-tool')));
 check('previewing a plan claims no land and spends no credits',(await localNation(A)).claims.length===beforePlan);
 await A.click('[data-act="mp-save"]');await saved();
@@ -85,7 +101,7 @@ await A.click('.mp-map-toolbar [data-act="mp-mode"][data-v=""]');
 const island=await A.evaluate(()=>{const T=G.territory();return [...G.MD.mpHarbourFrontier(T)].find(([c,e])=>e.path.length===5)?.[0]??null;});
 if(island==null)throw Error('Harbour fixture has no free four-step shore: '+JSON.stringify(await A.evaluate(coast=>{const T=G.territory();return {coast,targetOwner:T.owner[coast.island],cities:G.S.nation.cities,shores:[...G.MD.mpHarbourFrontier(T)].map(([c,e])=>[c,e.path.length-1])};},coast)));
 check('a completed harbour exposes four-step island annexation',island!=null);
-await A.click('.mp-map-toolbar [data-v="plan"]');await clickCell(A,island);
+await A.click('.mp-map-toolbar [data-v="plan"]');await planCell(A,island);
 check('an island shore can start a one-credit plan',await A.locator('.mp-steps li').count()===1&&/Claim plan \(1 credit\)/.test(await text(A,'[data-act="mp-apply"]')));
 await A.click('[data-act="mp-apply"]');await saved();
 check('island annexation actually changes ownership',await A.evaluate(c=>{const T=G.territory();return T.owner[c]===T.byId[G.myId()];},island));
