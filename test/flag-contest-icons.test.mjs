@@ -27,7 +27,7 @@ function game() {
     const UNLOCKS={${unlockSrc},'pi-uv':{k:'ppink',n:'Ultraviolet ink',src:'edict',ed:'pp-uv-ink'}};
     const NORM_HOOKS=[],UNLOCK_SOURCES=[],PP_INK={};let geoAfter=()=>[];
     ${fn('achTwin')}${fn('achUnlockWords')}
-    ${cut('/* designs for the flag and arms that come with one answer', 'return notes;})(geoAfter);')}
+    ${cut('/* designs that come with one answer to an edict', 'return notes;})(geoAfter);')}
     function unlocksOf(n){const o=new Set();for(const s of UNLOCK_SOURCES)for(const id of s.earned(n)||[])o.add(id);return o;}
     function normalize(d){const n=JSON.parse(JSON.stringify(d));for(const h of NORM_HOOKS)h(n,d);return n;}
     this.G={ISSUE,UNLOCKS,UNLOCK_SOURCES,geoAfter,unlocksOf,normalize};`, ctx);
@@ -46,7 +46,7 @@ test('honouring the result lists both icons, each a charge with its twin emblem,
   assert.equal(G.UNLOCKS['c-volcano'].tw, 'e-volcano');
   assert.match(html, /'e-motorbike':'motorbike','e-volcano':'volcano'\}\[e\]/, 'the flag emblems draw the charges');
   assert.match(html, /motorbike:'a motorbike',volcano:'a volcano in eruption'\}/, 'the blazon names them');
-  assert.match(html, /ppu:'Passport design',ul:'Flag and arms designs'\}/, 'the admin edicts page names the effect');
+  assert.match(html, /ppu:'Passport design',ul:'Designs'\}/, 'the admin edicts page names the effect');
   const draw = new Function(['czEll', 'czCirc', 'czStarPts', 'czSil', 'czCharge'].map(fn).join('\n') + '\nreturn czCharge;')();
   for (const k of ['motorbike', 'volcano']) for (const flat of [0, 1]) {
     const svg = draw(k, '#F2C230', '#000', flat);
