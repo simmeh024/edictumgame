@@ -27,6 +27,8 @@ rules_version = '2';
 //   bans/{uid}               {note, name, t, by}: an admin banned the account (it may save nothing)
 //   staff/{uid}              {t}: this player is Edictum staff (an admin), so other players see it; only the
 //                            admin themself can write it, and anyone may clear their own
+//   staffPrefs/{uid}         {tz, t}: a staff member's own portal settings (tz: the time zone its times show in);
+//                            read by them and the admins, written by them or an admin, never seen by players
 //   fx/{reg}                 the region's currencies: value, Currency Prestige, rank and history summary
 //   fxh/{id}                 one currency's daily history of value and prestige
 //   fxs/{reg}                the currency job's own state (smoothing, volatility, a lease)
@@ -112,8 +114,10 @@ service cloud.firestore {
     // v 1 holds it in j (text); v 2 deflated in z (bytes, functions/nationtext.js), a fifth of the size or less.
     function validNation(d) {
       return d.keys().hasAll(['v', 'reg', 'name', 'updatedAt', 'ts'])
-        && d.keys().hasOnly(['v', 'j', 'z', 'reg', 'name', 'updatedAt', 'ts', 'pop', 'army', 'cl', 'rev', 'storageV', 'permit', 'iq'])
+        && d.keys().hasOnly(['v', 'j', 'z', 'reg', 'name', 'updatedAt', 'ts', 'pop', 'army', 'cl', 'rev', 'storageV', 'permit', 'iq', 'mv'])
         && (!('storageV' in d) || (d.storageV is int && d.storageV == 1))
+        // mv: the map version the saving page numbers hexes on (the game's MAP_VER; src/shim.js, encode)
+        && (!('mv' in d) || (d.mv is int && d.mv >= 1 && d.mv <= 999))
         && (!('iq' in d) || (d.iq is int && d.iq == 1))
         && (!('rev' in d) || (d.rev is int && d.rev > 0))
         && ((d.v == 1 && !('z' in d) && d.j is string && d.j.size() > 2 && d.j.size() <= 750000)
@@ -202,6 +206,10 @@ service cloud.firestore {
         // iq: the nation has held more than five waiting edicts (the Chancery Club's desk); from then on a build that
         // would cut the queue back to five may not save it
         && (!('iq' in resource.data) || request.resource.data.get('iq', 0) == resource.data.iq)
+        // mv: no page of an older map saves over a record a newer map's page saved: its hex numbers are another grid's,
+        // and the older page reads the nation's capital, cities and land as lost (Lévice, 19 Nov 2026). A save without mv
+        // comes from a build before it was written, which is map version 5 (the frontier) or older.
+        && request.resource.data.get('mv', 5) >= resource.data.get('mv', 0)
         && nextRevision(request.resource.data)
         && summarised(uid, request.resource.data) && paced(1) && !banned(uid);
       allow delete: if isSelf(uid) || isAdmin();
@@ -885,6 +893,17 @@ service cloud.firestore {
           || isMod() && !isAdmin() && request.resource.data.keys().hasOnly(['t', 'm']) && request.resource.data.m == true)
         && request.resource.data.t is number;
       allow delete: if isSelf(uid) || isAdmin();
+    }
+    // staffPrefs: one staff member's portal clock, written by the game itself. A moderator keeps
+    // their own; an admin keeps theirs and may set another staff member's. Players never read it: where staff live
+    // is nobody else's business.
+    match /staffPrefs/{uid} {
+      allow read: if isAdmin() || isSelf(uid) && isMod();
+      allow create, update: if (isAdmin() || isSelf(uid) && isMod())
+        && request.resource.data.keys().hasOnly(['tz', 't'])
+        && request.resource.data.tz is string && request.resource.data.tz.size() > 0 && request.resource.data.tz.size() <= 64
+        && request.resource.data.t is number;
+      allow delete: if isAdmin() || isSelf(uid);
     }
 
     // Availability defaults to enabled. Only the audited staff Cloud Function changes it.

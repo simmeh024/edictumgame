@@ -92,6 +92,26 @@ test('expanded storage version rejects invalid or downgraded values', async () =
   for (const storageV of [0, 2, '1', null]) await assertFails(save(as('alice'), 'alice', nation('Aliceland', { storageV })));
 });
 
+// mv (src/shim.js, encode): the map version the saving page numbers hexes on. A page of an older map never saves over a
+// record a newer map's page saved (Lévice, 19 Nov 2026: a tab on map 4 read its own map-5 record as lost land and saved that)
+test('a save from an older map cannot go over a record a newer map saved', async () => {
+  await assertSucceeds(save(as('bob'), 'bob', nation('Bobland', { mv: 5 })));
+  await sleep(1100);
+  await assertSucceeds(save(as('bob'), 'bob', nation('Bobland'))); // a build from before mv counts as map 5
+  await env.withSecurityRulesDisabled(async ctx => {
+    const n = nation('Bobland', { mv: 6, rev: 9, ts: AGO(60000) });
+    await ctx.firestore().doc('nations/bob').set(n);
+    await ctx.firestore().doc('summaries/bob').set(summaryOf(n));
+  });
+  await assertFails(save(as('bob'), 'bob', nation('Bobland', { mv: 5 })));
+  await assertFails(save(as('bob'), 'bob', nation('Bobland')));
+  await assertSucceeds(save(as('bob'), 'bob', nation('Bobland', { mv: 6 })));
+  await sleep(1100);
+  await assertSucceeds(save(as('bob'), 'bob', nation('Bobland', { mv: 7 }))); // and a newer map still may
+  await assertSucceeds(save(as('alice'), 'alice', nation('Aliceland', { mv: 5 }))); // a new record names its map
+  for (const mv of [0, 1000, '5', 5.5, null]) await assertFails(save(as('dana'), 'dana', nation('Danaland', { mv })));
+});
+
 test('disabled regions reject founding, saves, moves out and posts without deleting existing records', async () => {
   await env.withSecurityRulesDisabled(ctx => ctx.firestore().doc('regionStatus/meridian').set({ enabled: false }));
   await assertFails(save(as('alice'), 'alice', nation('Aliceland')));
@@ -561,6 +581,27 @@ test('only an admin marks themself as staff; everyone reads it, and anyone clear
   await assertFails(as('bob').doc('staff/mod').delete());
   await env.withSecurityRulesDisabled(ctx => ctx.firestore().doc('staff/bob').set({ t: 1 }));
   await assertSucceeds(as('bob').doc('staff/bob').delete());                               // rights taken away: the page clears it
+});
+
+test("a staff member's portal clock: their own, or an admin's to set; players never read it", async () => {
+  const adm = as('adm', { admin: true }), mo = as('mo', { mod: true }), tz = z => ({ tz: z, t: Date.now() });
+  await assertSucceeds(adm.doc('staffPrefs/adm').set(tz('America/Mexico_City')));          // an admin keeps their own
+  await assertSucceeds(adm.doc('staffPrefs/yal').set(tz('Europe/Amsterdam')));             // and may set a team member's
+  await assertSucceeds(mo.doc('staffPrefs/mo').set(tz('Europe/Amsterdam')));               // a moderator keeps their own
+  await assertFails(mo.doc('staffPrefs/adm').set(tz('UTC')));                              // but nobody else's
+  await assertFails(mo.doc('staffPrefs/adm').get());
+  await assertSucceeds(mo.doc('staffPrefs/mo').get());
+  await assertSucceeds(adm.doc('staffPrefs/mo').get());
+  await assertFails(as('bob').doc('staffPrefs/bob').set(tz('UTC')));                       // a player has no portal
+  await assertFails(as('bob').doc('staffPrefs/adm').get());                                // nor sees where staff live
+  await assertFails(anon().doc('staffPrefs/adm').get());
+  await assertFails(adm.doc('staffPrefs/adm').set({ tz: 'UTC', t: Date.now(), name: 'x' }));// only the zone and its time
+  await assertFails(adm.doc('staffPrefs/adm').set({ tz: '', t: Date.now() }));
+  await assertFails(adm.doc('staffPrefs/adm').set({ tz: 'x'.repeat(65), t: Date.now() }));
+  await assertFails(adm.doc('staffPrefs/adm').set({ tz: 'UTC', t: 'now' }));
+  await assertSucceeds(as('bob').doc('staffPrefs/bob').delete());                          // anyone clears their own
+  await assertFails(as('bob').doc('staffPrefs/adm').delete());
+  await assertSucceeds(adm.doc('staffPrefs/mo').delete());
 });
 
 test('a summary may count a holiday after the save (e), up to 32 days past it and never before', async () => {

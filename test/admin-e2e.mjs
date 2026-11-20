@@ -414,5 +414,33 @@ const rowG = 'tr:has(.agn-nm:text-is("Farewellia"))';
 check('Recently dissolved lists it as deleted with its account, with nothing to restore', await until(async () => { const t = await text(A, rowG).catch(() => ''); return /Deleted with its account/.test(t) && /Account deleted/.test(t); })
   && !await A.$(rowG + ' [data-act="agn-ask"]') && !await A.$(rowG + ' [data-act="admin-inspect"]'));
 await A.screenshot({ path: OUT + '/admin-gone.png', fullPage: true });
+// The portal's clock: an admin reads every portal time in a zone of their own (the owner in Mexico City on a computer
+// set to Dutch time), kept on their account; the game's own pages keep the device's clock.
+// staffPrefs past the rules (players, and so restGet, may not read it): the zone kept, or null when there is none
+const prefTz = async uid => { const r = await fetch(`http://${FS_HOST}/v1/projects/${PROJECT}/databases/(default)/documents/staffPrefs/${uid}`, { headers: { authorization: 'Bearer owner' } }); return r.status === 200 ? (await r.json()).fields?.tz?.stringValue ?? '' : null; };
+check('players cannot read where staff keep their clock', (await restGet('staffPrefs/' + uidA)).status === 403);
+const noonUTC = Date.UTC(2026, 0, 15, 12, 0), clock = () => A.evaluate(t => new Date(t).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }), noonUTC);
+const deviceNoon = await A.evaluate(t => new Date(t).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone }), noonUTC);
+check('the admin menu offers the time zone its times are shown in, the device\'s clock at first', await A.inputValue('#adm-tz') === '' && /Mexico City \(GMT−6\)/.test(await text(A, '#adm-tz')) && /The Netherlands \(GMT\+[12]\)/.test(await text(A, '#adm-tz')));
+await A.selectOption('#adm-tz', 'America/Mexico_City');
+check('choosing Mexico City keeps it on the admin\'s account', await until(async () => await prefTz(uidA) === 'America/Mexico_City'));
+check('and every portal time follows it: noon UTC reads 06:00', await clock() === '06:00');
+await A.screenshot({ path: OUT + '/admin-clock.png' });
+check('times pinned to UTC keep theirs', await A.evaluate(t => new Date(t).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }), noonUTC) === '12:00');
+await A.click('[data-act="admin-close"]');
+check('the game\'s own pages keep the device\'s clock', await until(async () => await clock() === deviceNoon));
+await A.evaluate(() => localStorage.removeItem('edictum.admtz')); await A.reload(); await ready(A);
+await A.click('.side-who .adm-pill');
+check('on another device (nothing in the browser) the choice comes back from the account', await until(async () => await A.inputValue('#adm-tz').catch(() => '') === 'America/Mexico_City') && await clock() === '06:00');
+// an admin sets a team member's from their Player page (here the admin's own, the one staff member there is)
+await page('admin-players'); await A.fill('#admin-q', uidA); await A.click('#admin-search button:not([type])');
+await until(async () => /Adminland/.test(await text(A, '.adm-main .adm-ptbl').catch(() => '')));
+await A.click(`[data-act="admin-inspect"][data-id="${uidA}"]`);
+check('a staff member\'s Player page shows their portal clock', await until(async () => await A.inputValue('#admin-tz').catch(() => '') === 'America/Mexico_City'));
+await A.selectOption('#admin-tz', 'Europe/Amsterdam');
+check('and an admin can set it for them: The Netherlands', await until(async () => await prefTz(uidA) === 'Europe/Amsterdam' && /their portal now shows The Netherlands/.test(await text(A, '.adm-detail'))));
+check('which their own portal follows at once: noon UTC reads 13:00 in January', await until(async () => await clock() === '13:00' && await A.inputValue('#adm-tz') === 'Europe/Amsterdam'));
+await A.selectOption('#adm-tz', '');
+check('the device\'s clock again clears the choice', await until(async () => await prefTz(uidA) === null && await clock() === deviceNoon));
 await C.ctx.close(); await D.ctx.close(); await R.ctx.close(); await E.ctx.close(); await G.ctx.close();
 await finish();

@@ -5990,6 +5990,10 @@ a.adm-pill:focus-visible{outline:2px solid var(--stamp);outline-offset:2px}
 .adm-brand{display:flex;align-items:center;gap:10px;margin:0 4px 28px}
 .adm-brand .adm-pill{margin:0}
 .adm-return{width:100%;margin-top:28px;white-space:normal;text-align:left}
+.adm-tz{display:grid;gap:5px;margin:24px 12px 0}
+.adm-tz label{color:var(--ink-2);font:600 10px/1.4 var(--f-mono);letter-spacing:.13em;text-transform:uppercase}
+.adm-tz select{width:100%}
+.adm-tz .hint{margin:0}
 .adm-menu-toggle,.adm-menu-close{display:none}
 .adm-kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin:18px 0 8px}
 .adm-kpi{padding:14px 16px;border:1px solid var(--rule-2);border-radius:4px;background:var(--sheet)}
@@ -31337,8 +31341,18 @@ NORM_HOOKS.push((n,d)=>{
 /* FWD_NEVER: names that are never data, the shim's own fold of the Assembly (asmLocal), and apw, which every save of
    this build writes again (commit) and loading never needs: the only field the live records showed as unread (13 Nov) */
 const FWD_MAX=60,FWD_SIZE=120000,FWD_NEVER=new Set(['__proto__','constructor','prototype','asmLocal','apw']);
+/* A record saved on a newer map than this page's (map version MAP_VER): every hex in it is numbered for a grid this page
+   does not have. Read here, the capital, cities, claims and conquests were another map's and went, the player was asked
+   to settle again, land credits were laid out elsewhere, and the next save put that over the record (Lévice, 19 Nov
+   2026: a tab still on map version 4, left in front for hours, met its own nation's first save on the frontier's map 5
+   from another device). Such a record is never adopted or saved from here: its own nation's stops this page and
+   reloads it for the new build (mapStaleStop), another nation's is left out until then (the region's listener). */
+function mapAhead(d){return !!d&&typeof d==='object'&&(typeof d.cv==='number'&&d.cv>MAP_VER||!!d.loc&&typeof d.loc==='object'&&typeof d.loc.m==='number'&&d.loc.m>MAP_VER);}
+/* src/shim.js writes it beside every save (mv), and refuses to save over a record a newer map's page saved */
+if(window.__edictum)window.__edictum.mapVer=MAP_VER;
 function normalize(d){
-  const r=remapFront(remapLegacy(d));if(!r||typeof r!=='object'||Array.isArray(r))return normalizeR2(r);
+  /* a newer map's record is moved by nothing here: neither remap knows its numbers */
+  const ahead=mapAhead(d),r=ahead?d:remapFront(remapLegacy(d));if(!r||typeof r!=='object'||Array.isArray(r))return normalizeR2(r);
   const seen=new Set(),px=new Proxy(r,{get(t,k,rv){if(typeof k==='string')seen.add(k);return Reflect.get(t,k,rv);},has(t,k){if(typeof k==='string')seen.add(k);return Reflect.has(t,k);}});
   const n=normalizeR2(px);if(!n||typeof n!=='object')return n;
   const fk=[];let size=0;
@@ -31352,8 +31366,8 @@ function normalize(d){
   /* a nation of another region is checked against this page's map, not its own: its cities, roads and land would
      not fit and be dropped, and a save that followed (or the copy regionReload keeps) lost them for good (Guatapanal,
      17 Nov 2026: signed in on a new phone, which opens FIRST_REG). They are kept as they were; the region's own page
-     checks them. */
-  if(typeof r.reg==='string'&&REG_BY_ID[r.reg]&&r.reg!==REG.id)for(const k of MAP_KEEP){
+     checks them. A newer map's record (mapAhead) is kept so too: a path that reads one anyway drops nothing of it. */
+  if(ahead||typeof r.reg==='string'&&REG_BY_ID[r.reg]&&r.reg!==REG.id)for(const k of MAP_KEEP){
     if(!(k in r))continue;let s;try{s=JSON.stringify(r[k]);}catch(e){continue;}if(s!==undefined)n[k]=JSON.parse(s);}
   return n;
 }
@@ -31405,6 +31419,7 @@ async function moveTo(rid,wake){
 /* this device is behind: the record lives in another region now */
 function regionReload(raw){
   if(OBS)return;
+  if(mapAhead(raw)){mapStaleStop();return;}
   try{const k='statehood.rr',v=JSON.parse(sessionStorage.getItem(k)||'[]').filter(t=>Date.now()-t<15000);if(v.length>=2)return;v.push(Date.now());sessionStorage.setItem(k,JSON.stringify(v));}catch(e){}
   try{localStorage.setItem(LS_KEY,JSON.stringify(raw));}catch(e){}
   location.reload();
@@ -47984,7 +47999,8 @@ function normalizeBase(d){
     ruler:str(d.ruler,40).trim(),lang:str(d.lang,30).trim(),faith:str(d.faith,50).trim(),sport:str(d.sport,30).trim(),dish:str(d.dish,40).trim(),anthem:str(d.anthem,60).trim(),about:str(d.about,280).trim(),mapc:safeColor(d.mapc,''),topics};
 }
 /* observing another region (OBS), this browser's copy is neither read (its cells belong to another map) nor written */
-function loadLocal(){if(OBS||PV)return null;try{const raw=localStorage.getItem(LS_KEY);return raw?normalize(JSON.parse(raw)):null;}catch(e){return null;}}
+/* a copy a newer map's page left in this browser (a tab of the new build played here since) is not read: mapStaleStop */
+function loadLocal(){if(OBS||PV)return null;try{const raw=localStorage.getItem(LS_KEY),d=raw?JSON.parse(raw):null;if(mapAhead(d)){mapStaleStop();return null;}return raw?normalize(d):null;}catch(e){return null;}}
 function saveLocal(n){if(OBS||PV||tabPassive)return;try{if(n)localStorage.setItem(LS_KEY,JSON.stringify(n));else localStorage.removeItem(LS_KEY);}catch(e){}}
 
 /* Saves reach the region at most once every SAVE_GAP (this browser's copy is saved at once): the first
@@ -48035,6 +48051,22 @@ function tabYield(){
   publishSync();
 }
 window.addEventListener('storage',e=>{if(e.key!==TAB_KEY||!e.newValue||OBS||PV)return;let v=null;try{v=JSON.parse(e.newValue);}catch(err){}if(tabNewer(v))tabYield();});
+/* This nation's record, from the server or this browser, saved on a newer map than this page's (mapAhead). The page
+   stops playing for good, as a tab that yielded does (tabPassive: no clock, commits or saves, this browser's copy left as
+   it is). Nothing waiting to go is sent: it is this page's map's, and would land on the newer record. src/shim.js
+   (newerMap) then reloads for the new build, or, while the player is writing, says so and reloads once they are done;
+   the page reloads straight from the newer save, with this browser's copy as the new build reads it. Called before
+   the adapter is there (this browser's copy, read at start), the adapter takes it up when it starts (E.mapStale). A tab
+   that already let another play (tabYield) saves nothing and stays as it is: reloading, it would take the nation back
+   from the tab in use; its Play here button loads the new build. */
+var mapStale=false;
+function mapStaleStop(){
+  if(mapStale||OBS||PV||tabPassive)return;
+  mapStale=true;tabPassive=true;clearTimeout(remoteTimer);remoteTimer=0;remoteDirty=false;publishSync();
+  const E=window.__edictum;
+  if(!E){setTimeout(()=>toast('Your nation was saved by a newer version of Edictum. Reload the page to play it.'),0);return;}
+  E.mapStale=true;if(typeof E.newerMap==='function')E.newerMap();
+}
 const saveWithin=(p,ms)=>new Promise((res,rej)=>{const t=setTimeout(()=>rej(Object.assign(new Error('The save took too long.'),{code:'unavailable'})),ms);p.then(v=>{clearTimeout(t);res(v);},e=>{clearTimeout(t);rej(e);});});
 /* Player changes since the last confirmed save. A save refused because another device saved first (save_conflict)
    replays them onto that save (rebaseActs) instead of discarding them. Each entry is what one action changed, read at
@@ -48163,7 +48195,9 @@ async function syncOwnNation(force=false){
   if(OBS||PV||tabPassive||ownSyncBusy||remoteBusy||remoteDirty||!S.db||!S.uid||S.mode!=='world')return;
   if(!force&&!conflictPending&&!savedAfter(ownLatest,S.nation))return;
   ownSyncBusy=true;const before=commitNo;
-  try{const snap=await S.db.doc('nations/'+S.uid).get(),n=snap.exists?normalize(snap.data()):null;
+  try{const snap=await S.db.doc('nations/'+S.uid).get(),raw=snap.exists?snap.data():null;
+    if(mapAhead(raw)){mapStaleStop();return;}
+    const n=raw?normalize(raw):null;
     saveChecked=true;saveFailed=false;
     /* refused as another device's save, yet this account holds no nation (ownGone) */
     if(!n){if(conflictPending)await ownGone();return;}
@@ -48279,8 +48313,9 @@ if(window.__edictum)window.__edictum.beforeSignOut=async()=>{await flushNow();if
 if(window.__edictum)window.__edictum.useUnsaved=async()=>{
   if(OBS||PV||tabPassive||!S.db||!S.uid||S.mode!=='world')return false;
   const c=unsavedCopies()[0];if(!c||!c.nation)return false;
-  const snap=await S.db.doc('nations/'+S.uid).get(),cur=snap.exists?normalize(snap.data()):null;
-  const n=normalize(clone(c.nation));if(!n||cur&&cur.founded&&n.founded&&cur.founded!==n.founded)return false;
+  const snap=await S.db.doc('nations/'+S.uid).get(),raw=snap.exists?snap.data():null;
+  if(mapAhead(raw)||mapAhead(c.nation)){mapStaleStop();return false;}
+  const cur=raw?normalize(raw):null,n=normalize(clone(c.nation));if(!n||cur&&cur.founded&&n.founded&&cur.founded!==n.founded)return false;
   n._rev=cur?saveRev(cur):0;n._dirty=true;n.updatedAt=Date.now();
   ownActs=[];ownActsBroken=0;conflictPending=false;carried=false;ownLatest=cur;
   unsavedDrop(c.at);S.nation=n;S.openIssue=null;S.result=null;saveLocal(n);render();queueRemote(true);publishSync();
@@ -48290,7 +48325,9 @@ if(window.__edictum)window.__edictum.reviseOwn=rev=>{if(OBS||PV||tabPassive||!S.
 /* a reload for a newer build (src/shim.js, versionCheck) first sends the latest changes, and leaves alone a page that
    holds something the player is writing that lives only here: a message, a resolution, a notice, a post, a history */
 /* a tab that let another play (tabYield) is never reloaded by itself: that would take the nation back from the tab in use */
-if(window.__edictum){window.__edictum.flushSaves=flushNow;window.__edictum.keepPage=()=>tabPassive||!S.nation||!!(S.msgDraft||S.asmDraft||S.asmMsgDraft||S.dspDraft||S.flkDraft||S.rmbDraft||S.loreEdit);}
+/* drafts: those alone, which the reload for a newer map's record (src/shim.js, newerMap) waits for, as for typing */
+const pageDrafts=()=>!!(S.msgDraft||S.asmDraft||S.asmMsgDraft||S.dspDraft||S.flkDraft||S.rmbDraft||S.loreEdit);
+if(window.__edictum){window.__edictum.flushSaves=flushNow;window.__edictum.drafts=pageDrafts;window.__edictum.keepPage=()=>tabPassive||!S.nation||pageDrafts();}
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')flushNow();});
 window.addEventListener('pagehide',()=>{flushNow();});
 function resumeNation(e){
@@ -51863,6 +51900,8 @@ async function connect(){
   if(!db||!user)return quit();
   const uid=await user.id();if(!uid)return quit();
   S.db=db;S.uid=uid;
+  /* this browser's copy is a newer map's (loadLocal): the page is on its way to the new build, and reads nothing more */
+  if(mapStale)return;
   S.isOwner=await user.isOwner();
   S.isMod=!S.isOwner&&typeof user.isMod==='function'&&await user.isMod();
   if((OBS||PV)&&!S.isOwner)return quit();
@@ -51882,6 +51921,8 @@ async function connect(){
     const snap=await db.doc('nations/'+uid).get();
     saveChecked=true;saveFailed=false;
     const rawMe=snap.exists?snap.data():null;
+    /* saved on a newer map (another device on the new build): never normalised here, nor this page's copy sent over it */
+    if(mapAhead(rawMe)){mapStaleStop();return;}
     if(rawMe&&typeof rawMe.reg==='string'&&REG_BY_ID[rawMe.reg]&&rawMe.reg!==REG.id&&(!S.nation||saveRev(rawMe)>saveRev(S.nation)||(saveRev(rawMe)===saveRev(S.nation)&&(rawMe.updatedAt||0)>=(S.nation.updatedAt||0)))){if(S.nation)keepUnsaved(S.nation);regionReload(rawMe);return;}
     const remote=rawMe?normalize(rawMe):null;
     if(remote&&(!S.nation||savedAfter(remote,S.nation)||saveRev(remote)===saveRev(S.nation)&&!S.nation._dirty&&remote.updatedAt>=S.nation.updatedAt)){
@@ -51928,10 +51969,18 @@ async function connect(){
       all[d.id]={reg:raw.reg,name:String(raw.name||'').slice(0,40),pop:0,t:Number(raw.updatedAt)||0};spKeep(all[d.id],raw);}
     let mineHere=false;const hw={};
     /* a hidden nation leaves the region's records but keeps its land (HIDN), unless it has fallen dormant */
+    /* A record saved on a newer map (mapAhead) is never read with this page's: its own nation's stops this page, which
+       reloads for the new build (mapStaleStop); another nation's is left out of the map and the region until then, and
+       the adapter asks at once whether a new build is out (src/shim.js, checkVersion: the server's word, not a record's) */
+    let ahead=false;
     for(const d of regQS.docs){const raw=d.data()||{};if(raw.reg!==REG.id)continue;if(hidden(d.id)){if(d.id===S.uid)mineHere=true;
+        if(mapAhead(raw)){ahead=true;continue;}
         const x=NX[d.id],n=normalize(x&&x.d?nxJoin(raw,x.d):raw);if(n){auditNation(n,raw,d.id,Date.now(),false);if(!isDormant(n))hw[d.id]=n;}continue;}
       all[d.id]={reg:REG.id,name:String(raw.name||'').slice(0,40),pop:Number(raw.pop)||0,t:Number(raw.updatedAt)||0};spKeep(all[d.id],raw);
-      if(d.id===S.uid)mineHere=true;const x=NX[d.id],n=normalize(x&&x.d?nxJoin(raw,x.d):raw);if(n){auditNation(n,raw,d.id,Date.now());w[d.id]=n;}}
+      if(d.id===S.uid)mineHere=true;
+      if(mapAhead(raw)){if(d.id===S.uid&&!OBS&&!PV)mapStaleStop();else ahead=true;continue;}
+      const x=NX[d.id],n=normalize(x&&x.d?nxJoin(raw,x.d):raw);if(n){auditNation(n,raw,d.id,Date.now());w[d.id]=n;}}
+    if(ahead&&!mapStale&&window.__edictum&&typeof window.__edictum.checkVersion==='function')window.__edictum.checkVersion();
     /* this record left the region from another device: follow it there */
     if(!OBS&&!PV&&hadMine&&!mineHere&&S.nation&&!S.moving)db.doc('nations/'+uid).get().then(s=>{const raw=s.exists?s.data():null;
       if(raw&&typeof raw.reg==='string'&&REG_BY_ID[raw.reg]&&raw.reg!==REG.id&&savedAfter(raw,S.nation)){ownLatest=raw;syncOwnNation();}},()=>{});
@@ -51980,6 +52029,7 @@ async function connect(){
     else if(!S.isOwner&&!S.isMod&&st.has(uid))db.doc('staff/'+uid).delete().catch(()=>{});
     if(['nation','visit','region','messages'].includes(S.view))quietRender();
   },()=>{});
+  if((S.isOwner||S.isMod)&&!PV)admTzListen(db,uid);
   render();
 }
 /* The region's listener is how this page hears of a save from another device, and on a phone it can go quiet
@@ -54900,6 +54950,79 @@ document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closes
   if(a==='adme-go'){e.preventDefault();const is=ISSUE_BY_ID[el.dataset.id];if(!is)return;
     if(ADME.cat!=='all')ADME.cat=is.c;ADME.raw=ADME.q='';ADME.open.add(is.id);render();
     const row=document.querySelector(`.adme-row[data-id="${CSS.escape(is.id)}"]`);if(row){row.scrollIntoView({block:'start'});row.querySelector('summary').focus({preventScroll:true});}}});
+/* ───────── the portal's clock ─────────
+   Staff read the portal in a time zone of their own, whatever their device's clock says: the owner in Mexico City on a
+   computer set to Dutch time, a team member in the Netherlands. The choice is kept in staffPrefs/<uid> {tz, t}, which only
+   staff read (an admin may set another staff member's from their Player page), so it follows them to every device; a copy
+   in this browser paints the first page before it arrives. While a portal page shows, every toLocaleString,
+   toLocaleDateString and toLocaleTimeString that names no time zone of its own uses it, so all the portal's times follow
+   without each page passing the zone along; times pinned to UTC (the statistics' days) keep theirs, and the game's own
+   pages keep the device's clock. No choice ('') is the device's own time. */
+const ADM_TZS=[['America/Mexico_City','Mexico City'],['Europe/Amsterdam','The Netherlands'],['Europe/London','London'],['America/New_York','New York'],['UTC','UTC']];
+const ADM_TZ_LS='edictum.admtz';
+function admTzOk(z){if(!z)return true;if(typeof z!=='string'||z.length>64)return false;try{new Intl.DateTimeFormat('en-GB',{timeZone:z});return true;}catch(e){return false;}}
+const ADMTZ={z:(()=>{try{const z=localStorage.getItem(ADM_TZ_LS)||'';return admTzOk(z)?z:'';}catch(e){return '';}})(),busy:false,msg:'',other:null};
+const admTzOn=()=>!!ADMTZ.z&&!!(S.isOwner||S.isMod)&&typeof S.view==='string'&&S.view.slice(0,5)==='admin';
+(()=>{const P=Date.prototype;for(const k of ['toLocaleString','toLocaleDateString','toLocaleTimeString']){const f=P[k];
+  P[k]=function(loc,o){return admTzOn()&&!(o&&o.timeZone)?f.call(this,loc,Object.assign({},o,{timeZone:ADMTZ.z})):f.call(this,loc,o);};}})();
+const admTzDevice=()=>{try{return Intl.DateTimeFormat().resolvedOptions().timeZone||'';}catch(e){return '';}};
+/* "Mexico City (GMT−6)": a zone's name in the list, or its own, with its offset from UTC today */
+function admTzName(z){
+  const k=ADM_TZS.find(x=>x[0]===z),nm=k?k[1]:String(z||'').replace(/^.*\//,'').replace(/_/g,' ');
+  let off='';try{const pt=new Intl.DateTimeFormat('en-GB',{timeZone:z||undefined,timeZoneName:'shortOffset'}).formatToParts(Date.now()).find(x=>x.type==='timeZoneName');off=pt?pt.value.replace('-','−'):'';}catch(e){}
+  return off&&off!==nm?`${nm} (${off})`:nm;
+}
+function admTzOptions(cur){
+  const dev=admTzDevice(),list=ADM_TZS.slice();if(cur&&!list.some(x=>x[0]===cur))list.push([cur,cur]);
+  return `<option value=""${cur?'':' selected'}>This device’s clock${dev?' · '+esc(admTzName(dev)):''}</option>${list.map(([z])=>`<option value="${esc(z)}"${z===cur?' selected':''}>${esc(admTzName(z))}</option>`).join('')}`;
+}
+function admTzPicker(){
+  return `<div class="adm-tz"><label for="adm-tz">Times shown in</label><select class="input" id="adm-tz"${ADMTZ.busy?' disabled':''}>${admTzOptions(ADMTZ.z)}</select>${ADMTZ.msg?`<p class="hint" aria-live="polite">${esc(ADMTZ.msg)}</p>`:''}</div>`;
+}
+function admTzUse(z){
+  z=admTzOk(z)?String(z||''):'';const o=ADMTZ.other;if(o&&o.uid===S.uid&&!o.busy&&o.z!==null)o.z=z;
+  if(z===ADMTZ.z)return false;ADMTZ.z=z;
+  try{if(z)localStorage.setItem(ADM_TZ_LS,z);else localStorage.removeItem(ADM_TZ_LS);}catch(e){}
+  return true;
+}
+/* one's own choice, as the server has it: on signing in, and live, so a change made on another device or by an admin lands */
+function admTzListen(db,uid){
+  quietListen(db.doc('staffPrefs/'+uid),d=>{const v=d&&d.exists?d.data()||{}:{};if(admTzUse(v.tz)&&typeof S.view==='string'&&S.view.slice(0,5)==='admin')render();},()=>{});
+}
+/* a staff member's choice, written by themself or by an admin; '' clears it (back to the device's clock) */
+async function admTzSave(uid,z){
+  if(!admTzOk(z))throw new Error('That time zone is unknown.');
+  const ref=S.db.doc('staffPrefs/'+uid);
+  if(z)await ref.set({tz:z,t:Date.now()});else await ref.delete();
+}
+async function admTzPick(z){
+  if(ADMTZ.busy)return;const was=ADMTZ.z;admTzUse(z);ADMTZ.busy=true;ADMTZ.msg='';render();
+  try{await admTzSave(S.uid,ADMTZ.z);}
+  catch(e){admTzUse(was);ADMTZ.msg='Not saved: '+(e.message||e.code||'unknown error');}
+  ADMTZ.busy=false;render();
+}
+/* the Player page of a staff member: their portal's clock, which an admin may set for them */
+function adminClock(p){
+  const o=ADMTZ.other;
+  if(!o||o.uid!==p.uid){ADMTZ.other={uid:p.uid,z:null,busy:true,msg:''};admTzOtherLoad(p.uid);return '<p class="hint">Reading their choice…</p>';}
+  if(o.z===null)return `<p class="hint">${o.msg?esc(o.msg):'Reading their choice…'}</p>`;
+  return `<div class="row"><select class="input" id="admin-tz" data-id="${esc(p.uid)}" aria-label="Their portal's times"${o.busy?' disabled':''}>${admTzOptions(o.z)}</select></div>
+    <p class="hint">The time zone their admin portal shows its times in, on every device. “This device’s clock” follows the clock of whatever they play on.${p.uid===S.uid?' This is your own: the same choice as at the foot of the admin menu.':''}</p>${o.msg?`<p class="hint" aria-live="polite">${esc(o.msg)}</p>`:''}`;
+}
+async function admTzOtherLoad(uid){
+  let z=null,msg='';try{const d=await S.db.doc('staffPrefs/'+uid).get();z=d.exists?String((d.data()||{}).tz||''):'';if(!admTzOk(z))z='';}catch(e){msg='Could not read it: '+(e.message||e.code||'unknown error');}
+  const o=ADMTZ.other;if(!o||o.uid!==uid)return;Object.assign(o,{z,busy:false,msg});if(S.view==='admin-players')render();
+}
+async function admTzOtherSet(uid,z){
+  const o=ADMTZ.other;if(!o||o.uid!==uid||o.busy)return;const was=o.z;Object.assign(o,{z:admTzOk(z)?z:'',busy:true,msg:''});render();
+  try{await admTzSave(uid,o.z);o.msg=`Saved: their portal now shows ${o.z?admTzName(o.z):'their device’s clock'}.`;if(uid===S.uid)admTzUse(o.z);}
+  catch(e){o.z=was;o.msg='Not saved: '+(e.message||e.code||'unknown error');}
+  o.busy=false;render();
+}
+document.addEventListener('change',e=>{const t=e.target;if(!t||!(S.isOwner||S.isMod))return;
+  if(t.id==='adm-tz'){admTzPick(t.value);return;}
+  if(t.id==='admin-tz'&&S.isOwner&&t.dataset.id){admTzOtherSet(t.dataset.id,t.value);}
+});
 const ADM_MOBILE=window.matchMedia('(max-width:900px)');
 let admMenuOpen=false;
 function admHideMenu(){
@@ -54956,6 +55079,7 @@ function admShell(v,body){
         ${group('Game content',tab('admin-edicts','All edicts')+tab('admin-news','Development news')+tab('admin-board','Community boards')+tab('admin-flagc','Flag competition',window.fcaRep||0)+tab('admin-notes','Banknote design guide')+tab('admin-balance','Balance'))}
         ${group('Operations',tab('admin-health','Save health')+tab('admin-audit','Admin audit log'))}`}
       </nav>
+      ${admTzPicker()}
       <button type="button" class="btn ghost adm-return" data-act="admin-close">← Back to the game</button>
     </dialog>
     <main class="adm-main" id="adm-main" tabindex="-1"><button type="button" id="adm-menu-toggle" class="btn ghost adm-menu-toggle" data-act="adm-menu-open" aria-haspopup="dialog" aria-controls="adm-menu">☰ Admin menu</button>${admFresh(v)}${body}</main>
@@ -55070,6 +55194,7 @@ ${adminCards(p)}
     <h3 class="help-h3">Timeline</h3>${adminTimeline(p)}
     <div class="row"><button class="btn ghost small" data-act="admin-history" data-id="${esc(p.uid)}">View admin history</button>${p.exists?pvBtn(p.reg,p.uid):''}${p.exists&&p.reg===REG.id?`<button class="btn ghost small" data-act="visit" data-id="${esc(p.uid)}">View nation</button>`:p.exists?obsVisitBtn(p.reg,p.uid):''}</div>
     <h3 class="help-h3">Moderator</h3>${adminModRole(p)}
+    ${isStaff(p.uid)||isModId(p.uid)?`<h3 class="help-h3">Portal clock</h3>${adminClock(p)}`:''}
     <h3 class="help-h3">The Chancery Club</h3>${adminClub(p)}
     <h3 class="help-h3">Shop packs</h3>${adminPacks(p)}
     <h3 class="help-h3">Staff notes</h3>${adminNotes(p)}
@@ -55415,7 +55540,7 @@ document.addEventListener('click',async e=>{
   if(a==='admin-modrole'){adminModRoleSet(id,el.dataset.v==='on');return;}
   if(a==='admin-pack'){adminPackSet(id,el.dataset.v==='on'?ADMX.packP:el.dataset.p,el.dataset.v==='on');return;}
   if(a==='admin-inspect'){
-    ADMX.err='';ADMX.mod=null;ADMX.modReason='';ADMX.modMsg='';ADMX.note='';ADMX.noteFor='';ADMX.noteMsg='';ADMX.clubWhy='';ADMX.clubMsg='';ADMX.modRoleMsg='';ADMX.packWhy='';ADMX.packMsg='';ADMX.packP='';ADMX.watchWhy='';ADMX.watchFor='';ADMX.watchMsg='';ADMX.onceFor='';ADMX.onceAsk='';ADMX.onceMsg='';ADMX.onceLink='';
+    ADMTZ.other=null;ADMX.err='';ADMX.mod=null;ADMX.modReason='';ADMX.modMsg='';ADMX.note='';ADMX.noteFor='';ADMX.noteMsg='';ADMX.clubWhy='';ADMX.clubMsg='';ADMX.modRoleMsg='';ADMX.packWhy='';ADMX.packMsg='';ADMX.packP='';ADMX.watchWhy='';ADMX.watchFor='';ADMX.watchMsg='';ADMX.onceFor='';ADMX.onceAsk='';ADMX.onceMsg='';ADMX.onceLink='';
     try{ADMX.player=await adminRequest({op:'player',uid:id});if(S.view!=='admin-players')go('admin-players');else render();}
     catch(err){ADMX.err=err.message;render();}
   }

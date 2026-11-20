@@ -97,7 +97,7 @@
      board message (boards/, which the rules let only its author or an admin delete, and nobody create), and sending a
      newspaper edition back to be filed again from the records (papers/, which only an admin may delete; the game files
      none while observing, and the rules want a nation of that region). */
-  var SS_OBSERVE = 'edictum.observe', OBS_WRITE = ['staff', 'devnews', 'devnewsImg', 'devnewsMeta', 'boards', 'papers'];
+  var SS_OBSERVE = 'edictum.observe', OBS_WRITE = ['staff', 'staffPrefs', 'devnews', 'devnewsImg', 'devnewsMeta', 'boards', 'papers'];
   /* An admin viewing the game as a player (game/edictum.html, PV: sessionStorage edictum.pview = "<uid>|<region>") sees
      that player's nation, pages and settings and may do nothing at all: every write, board post, callable and letter is
      refused, the admin's own team posts included; only the Assembly's read-only state (civic state with obs) is asked. */
@@ -153,6 +153,9 @@
     var out = { v: 1, j: j, reg: str(d.reg, 40) || 'meridian', name: str(d.name, 80), updatedAt: num(d.updatedAt), ts: serverTime(),
       pop: Math.round(Math.min(1e7, Math.max(0, num(d.pop))) * 1e4) / 1e4, army: Math.round(Math.max(0, num(d.apw)) * 1e3) / 1e3,
       cl: Array.isArray(d.claims) ? d.claims.length : 0 };
+    // The map this page numbers hexes on (the game's MAP_VER): no page of an older map saves over it (saveNation, rules).
+    var mv = mapVer();
+    if (mv) out.mv = mv;
     // Once expanded storage is used, older clients must not save their 400-unit interpretation over it.
     if (d.whv === 1) out.storageV = 1;
     // Once the desk has held more than five edicts (the Chancery Club's ten), no build that cuts it back may save.
@@ -361,6 +364,11 @@
           var maintenance = new Error(availability.data().mode === 'coming_soon' ? 'This region is coming soon. Please check back later.' : 'Current region is disabled and undergoing maintainance, check back soon.'); maintenance.code = 'region_disabled'; throw maintenance;
         }
       }
+      /* the record was saved by a page on a newer map (its mv): nothing of this page's goes over it, whatever its revision.
+         The page stops and reloads for the new build (newerMap); the rules refuse it too. */
+      if (saved && enc.mv && num(saved.mv) > enc.mv) {
+        var ahead = new Error('Your nation was saved by a newer version of Edictum.'); ahead.code = 'newer_map'; throw ahead;
+      }
       if ((saved ? num(saved.rev) : 0) !== expected || (!saved && expected !== 0)) {
         var conflict = new Error('Another device saved this nation.'); conflict.code = 'save_conflict'; throw conflict;
       }
@@ -451,7 +459,11 @@
           if (!A.auth.currentUser || A.auth.currentUser.uid !== p[1]) return Promise.reject(mapError({ code: 'permission-denied' }));
           try { encode(col, data); } catch (e) { return Promise.reject(e && e.firebaseCode ? e : mapError(e)); }
           var t0 = performance.now(), took = function (how) { perfTrace('nation_save', t0, performance.now() - t0, {}, { result: how }); };
-          return retried(function (noSpace) { return saveNation(p[1], data, noSpace); }).then(function (r) { took('saved'); return r; }, function (e) { took(e && e.code === 'save_conflict' ? 'conflict' : 'failed'); throw mapError(e); });
+          return retried(function (noSpace) { return saveNation(p[1], data, noSpace); }).then(function (r) { took('saved'); return r; }, function (e) {
+            /* a newer map's save is on the server: this save never ends, and the page reloads for the new build */
+            if (e && e.code === 'newer_map') { took('newer_map'); newerMap(); return hang(); }
+            took(e && e.code === 'save_conflict' ? 'conflict' : 'failed'); throw mapError(e);
+          });
         }
         return ref.set(encode(col, data)).then(function () {}, function (e) { throw mapError(e); });
       },
@@ -1478,7 +1490,7 @@
   var VERSION_AWAY = msOr(window.EDICTUM_VERSION_AWAY, 30000);
   var VERSION_MIN = msOr(window.EDICTUM_VERSION_MIN, 5 * 60000);
   var VERSION_EVERY = 30 * 60000;
-  var V = { build: '', at: 0, hiddenAt: 0, busy: false, next: '', told: '' };
+  var V = { build: '', at: 0, hiddenAt: 0, busy: false, next: '', told: '', asked: 0 };
   /* a field the player has typed into since the page drew it, or is typing in now */
   function typing() {
     var plain = /^(button|submit|reset|image|checkbox|radio|range|color|file|hidden)$/;
@@ -1523,6 +1535,54 @@
     });
     setInterval(function () { if (!document.hidden) versionCheck(false); }, VERSION_EVERY);
   }
+  /* the game met another nation's record from a newer map (game/edictum.html, the region's listener): ask now, at most
+     once a minute, whether a new build is out, and if so reload as on coming back. The server's version.json decides,
+     not the record: a player cannot reload the region by writing a high map version into their own. */
+  E.checkVersion = function () {
+    if (Date.now() - V.asked < 60000) return;
+    V.asked = Date.now(); V.at = 0; versionCheck(true);
+  };
+
+  /* ───────── a nation saved on a newer map ───────── */
+  /* When the map grows (the game's MAP_VER), every hex of a record is numbered anew, and a page still on the build
+     before cannot read a record the new build saved: it took the capital, cities and land for another map's, asked its
+     player to settle again and saved that over the record (Lévice, 19 Nov 2026, a tab left in front across the frontier,
+     which versionCheck never reloads). The game stops as soon as it meets its own nation's record from a newer map
+     (game/edictum.html, mapAhead, mapStaleStop) and calls this; a save that finds the server's copy saved by a newer
+     map's page stops here too (saveNation, mv). Nothing more goes out from this page, not even what waits to be saved,
+     which is the older map's (A.frozen: every write waits for good). It reloads for the new build at once, or, while the
+     player is writing, says so and reloads once they are done. A page that keeps coming back on the old build (a copy
+     cached on the way) does not reload in a loop: after MAP_TRIES reloads within MAP_WINDOW it stays, read-only, and
+     says so. */
+  var MAP_MSG = 'Edictum was updated: the page has loaded the new version. Your nation is as you left it.';
+  var SS_MAP_TRIES = 'edictum.mapReloads', MAP_TRIES = 2, MAP_WINDOW = 120000;
+  var M = { on: false, timer: 0 };
+  function mapVer() { var v = E.mapVer; return Number.isInteger(v) && v > 0 && v < 1000 ? v : 0; }
+  function newerMap() {
+    if (M.on || A.leaving) return;
+    M.on = true; A.frozen = true;
+    var now = Date.now(), seen = parse(SS.get(SS_MAP_TRIES));
+    var tries = (Array.isArray(seen) ? seen : []).filter(function (t) { return typeof t === 'number' && now - t >= 0 && now - t < MAP_WINDOW; });
+    var stuck = tries.length >= MAP_TRIES;
+    function go() { clearInterval(M.timer); tries.push(Date.now()); SS.set(SS_MAP_TRIES, JSON.stringify(tries)); leave({}, MAP_MSG); }
+    function busy() { return typing() || !!ui.busy || !!(ui.dlg && ui.dlg.open) || (typeof E.drafts === 'function' && !!E.drafts()); }
+    if (!stuck && !busy()) { go(); return; }
+    /* back on the old build: the last reload's word that the new version loaded is not true, and goes */
+    if (stuck) { SS.set(SS_FLASH, null); Array.prototype.forEach.call(document.querySelectorAll('.ed-toast'), function (t) { if (t.textContent === MAP_MSG) t.remove(); }); }
+    var el = document.createElement('div');
+    el.id = 'ed-map-stale'; el.className = 'ed-map-stale'; el.setAttribute('role', 'alert');
+    el.innerHTML = '<p>' + esc(stuck
+      ? 'Edictum was updated and your nation was saved by the new version, but this page keeps loading the old one. Nothing is saved from it. Reload the page in a moment, or close it and open Edictum again.'
+      : 'Edictum was updated and your nation was saved by the new version. Nothing more is saved from this page: it loads the new version as soon as you have finished typing. Copy anything you want to keep first.') +
+      '</p><button type="button" class="btn">Load the new version</button>';
+    el.querySelector('button').addEventListener('click', go);
+    document.body.appendChild(el);
+    if (!stuck) M.timer = setInterval(function () { if (!busy()) go(); }, 2000);
+    paintSync(); paintStuck();
+  }
+  E.newerMap = newerMap;
+  /* this browser's copy was a newer map's, read before this file ran (the game's loadLocal) */
+  if (E.mapStale) setTimeout(newerMap, 0);
 
   /* ───────── the account control and its dialog ───────── */
   var ui = { box: null, btn: null, sync: null, out: null, dlg: null, inn: null, msg: null, view: 'main', direct: false, busy: '', report: null, support: null };
@@ -1608,10 +1668,11 @@
   function paintSync() {
     if (!ui.sync) return;
     ui.sync.hidden = ui.box.classList.contains('ed-head') || !localNation();
-    var state = observing() ? 'observing' : !A.online || navigator.onLine === false ? 'offline' : E.syncStatus || 'saving';
-    var labels = { synced: 'Synced', saving: 'Saving', offline: 'Offline', observing: 'Read-only' };
+    var state = observing() ? 'observing' : M.on ? 'stale' : !A.online || navigator.onLine === false ? 'offline' : E.syncStatus || 'saving';
+    var labels = { synced: 'Synced', saving: 'Saving', offline: 'Offline', observing: 'Read-only', stale: 'Read-only' };
     var tips = { synced: 'Your latest changes are saved online.', saving: 'Your latest changes are waiting for server confirmation.',
-      offline: 'Your nation is saved in this browser. Reconnect or reload to sync.', observing: 'You are observing a region: nothing is saved in this tab.' };
+      offline: 'Your nation is saved in this browser. Reconnect or reload to sync.', observing: 'You are observing a region: nothing is saved in this tab.',
+      stale: 'Edictum was updated: nothing is saved from this page until it loads the new version.' };
     if (ui.sync.dataset.state === state) return;
     ui.sync.dataset.state = state;
     ui.sync.textContent = labels[state];
@@ -1625,7 +1686,7 @@
   var stuckSince = 0;
   function stuckLimit() { var v = Number(window.EDICTUM_UNSAVED_WARN); return v > 0 ? v : 180000; }
   function paintStuck() {
-    var st = observing() || !localNation() ? 'none' : !A.online || navigator.onLine === false ? 'offline' : E.syncStatus || 'saving';
+    var st = observing() || M.on || !localNation() ? 'none' : !A.online || navigator.onLine === false ? 'offline' : E.syncStatus || 'saving';
     if (st === 'synced' || st === 'none') stuckSince = 0; else if (!stuckSince) stuckSince = Date.now();
     var show = !!stuckSince && Date.now() - stuckSince >= stuckLimit(), el = document.getElementById('ed-unsaved-warn');
     if (!show) { if (el) el.hidden = true; return; }
