@@ -52270,7 +52270,9 @@ async function connect(){
      itself makes; founding then waits for the region (found, below). */
   const lazyFeeds=[];let engaged=!!S.nation||!!OBS||connectEngaged||hmEngaged;if(engaged){hmEngaged=true;rctrlListen();}
   const listen=(q,next,err)=>{if(engaged)return quietListen(q,next,err);lazyFeeds.push([q,next,err]);};
-  const engage=()=>{connectEngaged=true;if(engaged)return;engaged=true;for(const [q,nx,er] of lazyFeeds.splice(0))quietListen(q,nx,er);};
+  /* and the region read once at the same moment, straight from the server (landKick): a live feed's first news can be
+     slow or stall (the core suite, 13 Nov 2026), and the region must be known for founding, settling and its pages */
+  const engage=()=>{connectEngaged=true;if(engaged)return;engaged=true;for(const [q,nx,er] of lazyFeeds.splice(0))quietListen(q,nx,er);setTimeout(()=>{try{if(typeof landKick==='function'){landKickAt=Date.now();landKick();}}catch(e){}},0);};
   engageNow=engage;
   let regQS=null,spQS=null,hadMine=false;S.mod=S.mod||{};
   const hidden=id=>!!(S.mod[id]&&S.mod[id].hidden)&&id!==S.uid;
