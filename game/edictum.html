@@ -31232,8 +31232,18 @@ NORM_HOOKS.push((n,d)=>{
 /* FWD_NEVER: names that are never data, the shim's own fold of the Assembly (asmLocal), and apw, which every save of
    this build writes again (commit) and loading never needs: the only field the live records showed as unread (13 Nov) */
 const FWD_MAX=60,FWD_SIZE=120000,FWD_NEVER=new Set(['__proto__','constructor','prototype','asmLocal','apw']);
+/* A record saved on a newer map than this page's (map version MAP_VER): every hex in it is numbered for a grid this page
+   does not have. Read here, the capital, cities, claims and conquests were another map's and went, the player was asked
+   to settle again, land credits were laid out elsewhere, and the next save put that over the record (Lévice, 19 Nov
+   2026: a tab still on map version 4, left in front for hours, met its own nation's first save on the frontier's map 5
+   from another device). Such a record is never adopted or saved from here: its own nation's stops this page and
+   reloads it for the new build (mapStaleStop), another nation's is left out until then (the region's listener). */
+function mapAhead(d){return !!d&&typeof d==='object'&&(typeof d.cv==='number'&&d.cv>MAP_VER||!!d.loc&&typeof d.loc==='object'&&typeof d.loc.m==='number'&&d.loc.m>MAP_VER);}
+/* src/shim.js writes it beside every save (mv), and refuses to save over a record a newer map's page saved */
+if(window.__edictum)window.__edictum.mapVer=MAP_VER;
 function normalize(d){
-  const r=remapFront(remapLegacy(d));if(!r||typeof r!=='object'||Array.isArray(r))return normalizeR2(r);
+  /* a newer map's record is moved by nothing here: neither remap knows its numbers */
+  const ahead=mapAhead(d),r=ahead?d:remapFront(remapLegacy(d));if(!r||typeof r!=='object'||Array.isArray(r))return normalizeR2(r);
   const seen=new Set(),px=new Proxy(r,{get(t,k,rv){if(typeof k==='string')seen.add(k);return Reflect.get(t,k,rv);},has(t,k){if(typeof k==='string')seen.add(k);return Reflect.has(t,k);}});
   const n=normalizeR2(px);if(!n||typeof n!=='object')return n;
   const fk=[];let size=0;
@@ -31247,8 +31257,8 @@ function normalize(d){
   /* a nation of another region is checked against this page's map, not its own: its cities, roads and land would
      not fit and be dropped, and a save that followed (or the copy regionReload keeps) lost them for good (Guatapanal,
      17 Nov 2026: signed in on a new phone, which opens FIRST_REG). They are kept as they were; the region's own page
-     checks them. */
-  if(typeof r.reg==='string'&&REG_BY_ID[r.reg]&&r.reg!==REG.id)for(const k of MAP_KEEP){
+     checks them. A newer map's record (mapAhead) is kept so too: a path that reads one anyway drops nothing of it. */
+  if(ahead||typeof r.reg==='string'&&REG_BY_ID[r.reg]&&r.reg!==REG.id)for(const k of MAP_KEEP){
     if(!(k in r))continue;let s;try{s=JSON.stringify(r[k]);}catch(e){continue;}if(s!==undefined)n[k]=JSON.parse(s);}
   return n;
 }
@@ -31300,6 +31310,7 @@ async function moveTo(rid,wake){
 /* this device is behind: the record lives in another region now */
 function regionReload(raw){
   if(OBS)return;
+  if(mapAhead(raw)){mapStaleStop();return;}
   try{const k='statehood.rr',v=JSON.parse(sessionStorage.getItem(k)||'[]').filter(t=>Date.now()-t<15000);if(v.length>=2)return;v.push(Date.now());sessionStorage.setItem(k,JSON.stringify(v));}catch(e){}
   try{localStorage.setItem(LS_KEY,JSON.stringify(raw));}catch(e){}
   location.reload();
@@ -47879,7 +47890,8 @@ function normalizeBase(d){
     ruler:str(d.ruler,40).trim(),lang:str(d.lang,30).trim(),faith:str(d.faith,50).trim(),sport:str(d.sport,30).trim(),dish:str(d.dish,40).trim(),anthem:str(d.anthem,60).trim(),about:str(d.about,280).trim(),mapc:safeColor(d.mapc,''),topics};
 }
 /* observing another region (OBS), this browser's copy is neither read (its cells belong to another map) nor written */
-function loadLocal(){if(OBS||PV)return null;try{const raw=localStorage.getItem(LS_KEY);return raw?normalize(JSON.parse(raw)):null;}catch(e){return null;}}
+/* a copy a newer map's page left in this browser (a tab of the new build played here since) is not read: mapStaleStop */
+function loadLocal(){if(OBS||PV)return null;try{const raw=localStorage.getItem(LS_KEY),d=raw?JSON.parse(raw):null;if(mapAhead(d)){mapStaleStop();return null;}return raw?normalize(d):null;}catch(e){return null;}}
 function saveLocal(n){if(OBS||PV||tabPassive)return;try{if(n)localStorage.setItem(LS_KEY,JSON.stringify(n));else localStorage.removeItem(LS_KEY);}catch(e){}}
 
 /* Saves reach the region at most once every SAVE_GAP (this browser's copy is saved at once): the first
@@ -47930,6 +47942,22 @@ function tabYield(){
   publishSync();
 }
 window.addEventListener('storage',e=>{if(e.key!==TAB_KEY||!e.newValue||OBS||PV)return;let v=null;try{v=JSON.parse(e.newValue);}catch(err){}if(tabNewer(v))tabYield();});
+/* This nation's record, from the server or this browser, saved on a newer map than this page's (mapAhead). The page
+   stops playing for good, as a tab that yielded does (tabPassive: no clock, commits or saves, this browser's copy left as
+   it is). Nothing waiting to go is sent: it is this page's map's, and would land on the newer record. src/shim.js
+   (newerMap) then reloads for the new build, or, while the player is writing, says so and reloads once they are done;
+   the page reloads straight from the newer save, with this browser's copy as the new build reads it. Called before
+   the adapter is there (this browser's copy, read at start), the adapter takes it up when it starts (E.mapStale). A tab
+   that already let another play (tabYield) saves nothing and stays as it is: reloading, it would take the nation back
+   from the tab in use; its Play here button loads the new build. */
+var mapStale=false;
+function mapStaleStop(){
+  if(mapStale||OBS||PV||tabPassive)return;
+  mapStale=true;tabPassive=true;clearTimeout(remoteTimer);remoteTimer=0;remoteDirty=false;publishSync();
+  const E=window.__edictum;
+  if(!E){setTimeout(()=>toast('Your nation was saved by a newer version of Edictum. Reload the page to play it.'),0);return;}
+  E.mapStale=true;if(typeof E.newerMap==='function')E.newerMap();
+}
 const saveWithin=(p,ms)=>new Promise((res,rej)=>{const t=setTimeout(()=>rej(Object.assign(new Error('The save took too long.'),{code:'unavailable'})),ms);p.then(v=>{clearTimeout(t);res(v);},e=>{clearTimeout(t);rej(e);});});
 /* Player changes since the last confirmed save. A save refused because another device saved first (save_conflict)
    replays them onto that save (rebaseActs) instead of discarding them. Each entry is what one action changed, read at
@@ -48058,7 +48086,9 @@ async function syncOwnNation(force=false){
   if(OBS||PV||tabPassive||ownSyncBusy||remoteBusy||remoteDirty||!S.db||!S.uid||S.mode!=='world')return;
   if(!force&&!conflictPending&&!savedAfter(ownLatest,S.nation))return;
   ownSyncBusy=true;const before=commitNo;
-  try{const snap=await S.db.doc('nations/'+S.uid).get(),n=snap.exists?normalize(snap.data()):null;
+  try{const snap=await S.db.doc('nations/'+S.uid).get(),raw=snap.exists?snap.data():null;
+    if(mapAhead(raw)){mapStaleStop();return;}
+    const n=raw?normalize(raw):null;
     saveChecked=true;saveFailed=false;
     /* refused as another device's save, yet this account holds no nation (ownGone) */
     if(!n){if(conflictPending)await ownGone();return;}
@@ -48174,8 +48204,9 @@ if(window.__edictum)window.__edictum.beforeSignOut=async()=>{await flushNow();if
 if(window.__edictum)window.__edictum.useUnsaved=async()=>{
   if(OBS||PV||tabPassive||!S.db||!S.uid||S.mode!=='world')return false;
   const c=unsavedCopies()[0];if(!c||!c.nation)return false;
-  const snap=await S.db.doc('nations/'+S.uid).get(),cur=snap.exists?normalize(snap.data()):null;
-  const n=normalize(clone(c.nation));if(!n||cur&&cur.founded&&n.founded&&cur.founded!==n.founded)return false;
+  const snap=await S.db.doc('nations/'+S.uid).get(),raw=snap.exists?snap.data():null;
+  if(mapAhead(raw)||mapAhead(c.nation)){mapStaleStop();return false;}
+  const cur=raw?normalize(raw):null,n=normalize(clone(c.nation));if(!n||cur&&cur.founded&&n.founded&&cur.founded!==n.founded)return false;
   n._rev=cur?saveRev(cur):0;n._dirty=true;n.updatedAt=Date.now();
   ownActs=[];ownActsBroken=0;conflictPending=false;carried=false;ownLatest=cur;
   unsavedDrop(c.at);S.nation=n;S.openIssue=null;S.result=null;saveLocal(n);render();queueRemote(true);publishSync();
@@ -48185,7 +48216,9 @@ if(window.__edictum)window.__edictum.reviseOwn=rev=>{if(OBS||PV||tabPassive||!S.
 /* a reload for a newer build (src/shim.js, versionCheck) first sends the latest changes, and leaves alone a page that
    holds something the player is writing that lives only here: a message, a resolution, a notice, a post, a history */
 /* a tab that let another play (tabYield) is never reloaded by itself: that would take the nation back from the tab in use */
-if(window.__edictum){window.__edictum.flushSaves=flushNow;window.__edictum.keepPage=()=>tabPassive||!S.nation||!!(S.msgDraft||S.asmDraft||S.asmMsgDraft||S.dspDraft||S.flkDraft||S.rmbDraft||S.loreEdit);}
+/* drafts: those alone, which the reload for a newer map's record (src/shim.js, newerMap) waits for, as for typing */
+const pageDrafts=()=>!!(S.msgDraft||S.asmDraft||S.asmMsgDraft||S.dspDraft||S.flkDraft||S.rmbDraft||S.loreEdit);
+if(window.__edictum){window.__edictum.flushSaves=flushNow;window.__edictum.drafts=pageDrafts;window.__edictum.keepPage=()=>tabPassive||!S.nation||pageDrafts();}
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')flushNow();});
 window.addEventListener('pagehide',()=>{flushNow();});
 function resumeNation(e){
@@ -51758,6 +51791,8 @@ async function connect(){
   if(!db||!user)return quit();
   const uid=await user.id();if(!uid)return quit();
   S.db=db;S.uid=uid;
+  /* this browser's copy is a newer map's (loadLocal): the page is on its way to the new build, and reads nothing more */
+  if(mapStale)return;
   S.isOwner=await user.isOwner();
   S.isMod=!S.isOwner&&typeof user.isMod==='function'&&await user.isMod();
   if((OBS||PV)&&!S.isOwner)return quit();
@@ -51777,6 +51812,8 @@ async function connect(){
     const snap=await db.doc('nations/'+uid).get();
     saveChecked=true;saveFailed=false;
     const rawMe=snap.exists?snap.data():null;
+    /* saved on a newer map (another device on the new build): never normalised here, nor this page's copy sent over it */
+    if(mapAhead(rawMe)){mapStaleStop();return;}
     if(rawMe&&typeof rawMe.reg==='string'&&REG_BY_ID[rawMe.reg]&&rawMe.reg!==REG.id&&(!S.nation||saveRev(rawMe)>saveRev(S.nation)||(saveRev(rawMe)===saveRev(S.nation)&&(rawMe.updatedAt||0)>=(S.nation.updatedAt||0)))){if(S.nation)keepUnsaved(S.nation);regionReload(rawMe);return;}
     const remote=rawMe?normalize(rawMe):null;
     if(remote&&(!S.nation||savedAfter(remote,S.nation)||saveRev(remote)===saveRev(S.nation)&&!S.nation._dirty&&remote.updatedAt>=S.nation.updatedAt)){
@@ -51823,10 +51860,18 @@ async function connect(){
       all[d.id]={reg:raw.reg,name:String(raw.name||'').slice(0,40),pop:0,t:Number(raw.updatedAt)||0};spKeep(all[d.id],raw);}
     let mineHere=false;const hw={};
     /* a hidden nation leaves the region's records but keeps its land (HIDN), unless it has fallen dormant */
+    /* A record saved on a newer map (mapAhead) is never read with this page's: its own nation's stops this page, which
+       reloads for the new build (mapStaleStop); another nation's is left out of the map and the region until then, and
+       the adapter asks at once whether a new build is out (src/shim.js, checkVersion: the server's word, not a record's) */
+    let ahead=false;
     for(const d of regQS.docs){const raw=d.data()||{};if(raw.reg!==REG.id)continue;if(hidden(d.id)){if(d.id===S.uid)mineHere=true;
+        if(mapAhead(raw)){ahead=true;continue;}
         const x=NX[d.id],n=normalize(x&&x.d?nxJoin(raw,x.d):raw);if(n){auditNation(n,raw,d.id,Date.now(),false);if(!isDormant(n))hw[d.id]=n;}continue;}
       all[d.id]={reg:REG.id,name:String(raw.name||'').slice(0,40),pop:Number(raw.pop)||0,t:Number(raw.updatedAt)||0};spKeep(all[d.id],raw);
-      if(d.id===S.uid)mineHere=true;const x=NX[d.id],n=normalize(x&&x.d?nxJoin(raw,x.d):raw);if(n){auditNation(n,raw,d.id,Date.now());w[d.id]=n;}}
+      if(d.id===S.uid)mineHere=true;
+      if(mapAhead(raw)){if(d.id===S.uid&&!OBS&&!PV)mapStaleStop();else ahead=true;continue;}
+      const x=NX[d.id],n=normalize(x&&x.d?nxJoin(raw,x.d):raw);if(n){auditNation(n,raw,d.id,Date.now());w[d.id]=n;}}
+    if(ahead&&!mapStale&&window.__edictum&&typeof window.__edictum.checkVersion==='function')window.__edictum.checkVersion();
     /* this record left the region from another device: follow it there */
     if(!OBS&&!PV&&hadMine&&!mineHere&&S.nation&&!S.moving)db.doc('nations/'+uid).get().then(s=>{const raw=s.exists?s.data():null;
       if(raw&&typeof raw.reg==='string'&&REG_BY_ID[raw.reg]&&raw.reg!==REG.id&&savedAfter(raw,S.nation)){ownLatest=raw;syncOwnNation();}},()=>{});
