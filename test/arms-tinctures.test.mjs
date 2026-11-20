@@ -46,9 +46,11 @@ test('four new tinctures, each with an unlock of its own and a free neighbour', 
     assert.equal(X.czTnKey(u), t);
     assert.ok(X.CZ_TINCT[X.CZ_TN_FB[t]] && !X.CZ_TN_U[X.CZ_TN_FB[t]], 'falls back to a free tincture: ' + t);
   }
-  /* after them Platinum, the 200-nation gift's (test/milestone-200.test.mjs), held the same way and falling back to Argent */
-  assert.deepEqual(Object.keys(X.CZ_TINCT).slice(-5), [...TN, 'plat'], 'the earned ones sit at the end of the row');
-  assert.equal(Object.keys(X.CZ_TINCT).length, 19);
+  /* after them Platinum, the 200-nation gift's (test/milestone-200.test.mjs), held the same way and falling back to Argent,
+     then Past Green, which comes with an edict (test/edict-designs.test.mjs) and falls back to Vert */
+  assert.deepEqual(Object.keys(X.CZ_TINCT).slice(-6), [...TN, 'plat', 'pgreen'], 'the earned ones sit at the end of the row');
+  assert.equal(Object.keys(X.CZ_TINCT).length, 20);
+  assert.equal(X.CZ_TN_U.pgreen, 'tn-pgreen'); assert.equal(X.CZ_TN_FB.pgreen, 'vert');
   assert.equal(X.CZ_TN_U.plat, 'tn-plat');
   assert.equal(X.CZ_TN_FB.plat, 'argent');
   assert.equal(X.CZ_METAL.gilt, 1, 'Shining gold is a metal');

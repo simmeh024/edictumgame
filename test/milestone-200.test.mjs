@@ -55,10 +55,10 @@ test('eight pieces of regalia: seven unlocks, the map colour through ctgMcOk and
   has("if(fr!=='f-platinum')return f.apply(this,arguments);",'czFrameArt draws the frame');
   has("if(s!=='s-platinum')return f.apply(this,arguments);",'czStampArt draws the seal');
   /* the tincture, a metal, held like the earned four, falling back to Argent */
-  has("plat:['Platinum','#C3CCD6']};");
+  has("plat:['Platinum','#C3CCD6']");
   has("const CZ_METAL={or:1,argent:1,gilt:1,plat:1};");
-  has(",plat:'tn-plat'},CZ_TN_FB={");
-  has(",plat:'argent'};");
+  has(",plat:'tn-plat',");
+  has(",plat:'argent',");
   /* the map colour and the shield read n.m200 */
   has('function ctgMcOk(n,c){if(c===M100_MC)return m100Got(n);if(c===M200_MC)return m200Got(n);');
   has("const mcGiftName=c=>c===M100_MC?M100_MCN:c===M200_MC?M200_MCN:'';");
