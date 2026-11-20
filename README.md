@@ -24,7 +24,7 @@ or an email address if they like), and **Firestore** holds the shared world.
 | `firestore.rules`, `firestore.indexes.json` | Who may read and write what. |
 | `functions/` | The referee: one Cloud Function (`referee`, in `europe-west1`) that rolls battles on the server, keeps each army's readiness and seals every victory (see Fair play). |
 | `firebase.json`, `.firebaserc` | Hosting (cache headers, clean URLs), Firestore and the local emulators. `.firebaserc` names the live project, `edictum-b30de` (served at <https://edictumgame.com>); the workflows pass the id explicitly from the `FIREBASE_PROJECT_ID` variable, and the emulator scripts use `demo-edictum`. |
-| `.github/workflows/` | `deploy.yml` deploys on every push to `main`; `preview.yml` tests the rules and deploys a preview of each pull request to the staging project; `currency.yml` runs the daily currency job; `stats.yml` records the day's player statistics; `mail.yml` sends Letters by post every hour; `alerts.yml` files staff alerts every 15 minutes; `home.yml` writes the front page's live figures every 5 minutes and `home-maps.yml` its region maps every night (see 9c2d). |
+| `.github/workflows/` | `deploy.yml` deploys on every push to `main`; `preview.yml` tests the rules and deploys a preview of each pull request to the staging project; `currency.yml` runs the daily currency job; `stats.yml` records the day's player statistics; `mail.yml` sends Letters by post every hour; `alerts.yml` files staff alerts every 15 minutes; `home.yml` writes the front page's live figures when run by hand (the `homeLive` function does every 5 minutes) and `home-maps.yml` its region maps every night (see 9c2d). GitHub starts these scheduled workflows late, often hours late. |
 | `jobs/fx/` | The daily currency job: every currency's exchange value and Currency Prestige, from the nations' records (Firebase Admin SDK, its own `package.json`). See Currencies below. |
 | `jobs/stats/` | The nightly record of player statistics for the admin portal's Statistics page (`functions/stats.js` does the counting), the staff alerts, and the front page's figures (`home.mjs`, `functions/home.js`) and region maps (`home-maps.mjs`). See 9c2 and 9c2d below. |
 | `test/` | Rules tests, end-to-end tests and a smoke test, all on the Firebase emulators, and the currency engine's tests. |
@@ -902,7 +902,12 @@ the commands it shows; GitHub does the deploying. Your site's first address is
    `firebase-adminsdk-…@<project id>.iam.gserviceaccount.com`, choose **Edit** (the pencil) and add
    these roles: **Firebase Admin**, **API Keys Viewer** and **Service Usage Consumer**, and for the
    referee **Cloud Functions Admin**, **Service Account User** and **Artifact Registry
-   Reader**. Save.
+   Reader**, and for the front page's five-minute figures (`homeLive`, 9c2d) **Cloud Scheduler Admin** and
+   **Cloud Run Admin**. Save. Also switch on the Cloud Scheduler API once:
+   <https://console.cloud.google.com/apis/library/cloudscheduler.googleapis.com> → **Enable**. Until
+   both are there, Deploy (and Preview, on staging) leaves `homeLive` out with a yellow warning that
+   says what is missing (`scripts/schedule-ready.mjs`), and deploys everything else; the next deploy
+   after you have set them up adds it.
 4. The referee runs on Cloud Functions, which needs the **Blaze** plan (**Usage and billing** →
    **Modify plan**) and, once, a deploy from your own computer, which switches on the Google Cloud
    services it uses and keeps only the latest build of it:
@@ -1272,19 +1277,24 @@ The front page (`hmView` in the game) shows what is going on without reading the
 public events and a map of each region with player nations. They come from two public documents only the server
 writes, which every visitor reads once (never listens to) and keeps in the browser a while:
 
-- `home/live` — written every five minutes by `.github/workflows/home.yml` (`jobs/stats/home.mjs`,
-  `functions/home.js`): the player nations, those active in the past day and the edicts decided in the past day, each
-  region's counts, and the latest public events (foundings, cities, alliances, wars, peace, trade deals, treaties,
-  wonders, population milestones, the Games) from the public summaries and the shared half of the records saved since
-  the last run. Never letters, spying or reports; never a hidden, removed or banned nation; never a uid. The job's
+- `home/live` — written every five minutes by the `homeLive` Cloud Function (`functions/home-live.js`, Cloud
+  Scheduler, europe-west1; the same run as `jobs/stats/home.mjs`, `functions/home.js`): the player nations, those
+  active in the past day and the edicts decided in the past day, each region's counts, and the latest public events
+  (foundings, cities, alliances, wars, peace, trade deals, treaties, wonders, population milestones, the Games) from
+  the public summaries and the shared half of the records saved since the last run. Never letters, spying or reports; never a hidden, removed or banned nation; never a uid. The job's
   own memory is `homeState/main`, which no client reads.
 - `home/map-<region>` — written every night by `.github/workflows/home-maps.yml` (`jobs/stats/home-maps.mjs`): who
   holds each hex and where the capitals stand, worked out by the game's own `territory()` in a headless browser on
   the site built from `main`. The page draws it on the region's baked terrain.
 
-Both workflows use the same service account secret and project variable as Deploy, and can be run by hand (Actions
-› Front page figures / Front page maps), for staging too. Until the figures job has run, the front page counts the
-regions as it always did.
+GitHub Actions wrote `home/live` at first (`.github/workflows/home.yml`, a five-minute cron), but GitHub starts this
+repository's scheduled workflows only every five to nine hours whatever the cron says, so the figures were always late;
+the function needs the Cloud Scheduler API and roles of Owner setup, step 5.2: without them, Deploy and Preview check
+first (`scripts/schedule-ready.mjs`) and deploy the other functions without it, with a warning. Both workflows use the same service account
+secret and project variable as Deploy, and can be run by hand (Actions › Front page figures / Front page maps), for
+staging too. Until the figures have been written once, the front page counts the regions as it always did. A failed
+run shows in the function's logs (Firebase console › Functions › homeLive); Cloud Scheduler's job
+`firebase-schedule-homeLive-europe-west1` can be forced to run from the Google Cloud console.
 
 **Region control › Front page** (`#admin-regions`) sets the **default region for newcomers** (the region the front
 page shows first and founds in when a visitor has chosen none: `regionStatus/<id>` `def`, `op: 'regionDefault'`,
@@ -1380,6 +1390,10 @@ for current figures; at the time of writing:
   two writes each, and Cloud Functions' free allowance (two million calls a month) covers far more
   battles than readiness allows. Building it on each deploy stores a container image in Artifact
   Registry; the clean-up policy (Owner setup, step 5) keeps that to a few cents a month.
+- **The front page's figures** (`homeLive`, 9c2d) run 288 times a day. With 126 nations (20 Nov 2026) a run reads
+  about 250–300 documents (the summaries of the past day and week, the week's treaties, a count per region, the
+  records saved since the last run), some 80,000 reads a day, about €1 a month beyond the free quota. Cloud
+  Scheduler's first three jobs per billing account are free; this is the first.
 
 - **The currency job** reads each region's nation records once a day and writes one document per region
   plus one history entry per currency: for 26 regions of 250 nations, about 6,600 reads and 6,600 writes a
