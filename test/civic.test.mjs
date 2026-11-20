@@ -19,7 +19,7 @@ async function player(linked=false,old=false,reg='meridian'){
   return p;
 }
 async function age(p,ms){const s=await db.doc('nations/'+p.uid).get();await db.doc('accountIdentity/'+p.uid).set({nationAt:Date.now()-ms,nationGeneration:s.createTime.toMillis()},{merge:true});}
-async function call(p,service,data){const r=await fetch(`http://${FN}/${PROJECT}/europe-west1/${service}`,{method:'POST',headers:{'content-type':'application/json',authorization:'Bearer '+p.token},body:JSON.stringify({data})});const b=await r.json();if(b.error)throw Object.assign(new Error(b.error.message),{code:b.error.details?.code,status:b.error.status});return b.result;}
+async function call(p,service,data){const r=await fetch(`http://${FN}/${PROJECT}/europe-west1/${service}`,{method:'POST',headers:{'content-type':'application/json',authorization:'Bearer '+p.token},body:JSON.stringify({data})});const b=await r.json();if(b.error)throw Object.assign(new Error(b.error.message),{code:b.error.details?.code,status:b.error.status,details:b.error.details});return b.result;}
 const civic=(p,d)=>call(p,'civic',d), account=(p,d)=>call(p,'accounts',d);
 const code=()=> 'EDC-'+Array.from(crypto.getRandomValues(new Uint8Array(20))).map(n=>n.toString(16).padStart(2,'0')).join('');
 const rejects=(p,code)=>assert.rejects(p,e=>e.code===code);
@@ -1205,6 +1205,43 @@ test('Region chat staff: the team writes in any region, staff silence a player e
   assert.ok(un&&un.actor===staff.uid);
 });
 
+test('An Edictum Ambassador silences a player in the chats, and nothing more: no lines taken, no lifting, no team lines, no deleting, never staff or another ambassador',async()=>{
+  const r=await player(true),amb=await player(true),amb2=await player(true),mod=await player(true),far=await player(true,false,'frostmarch');
+  await auth.setCustomUserClaims(amb.uid,{amb:true});await auth.setCustomUserClaims(amb2.uid,{amb:true});await auth.setCustomUserClaims(mod.uid,{mod:true});
+  const l1=await civic(r,{op:'rcPost',x:'Rude words here'});
+  // what stays with staff
+  await assert.rejects(civic(amb,{op:'rcPost',team:true,reg:'meridian',x:'As the team'}),e=>e.status==='PERMISSION_DENIED');
+  await assert.rejects(civic(amb,{op:'rcDelete',reg:'meridian',id:l1.id}),e=>e.status==='PERMISSION_DENIED');
+  assert.equal((await db.doc('rchat/meridian/chat/'+l1.id).get()).exists,true,'the line stays');
+  await assert.rejects(civic(amb,{op:'rcMute',uid:r.uid,hours:24,wipe:true}),e=>e.status==='PERMISSION_DENIED');
+  assert.equal((await db.doc('rcMute/'+r.uid).get()).exists,false,'a silence asked with its lines is not half done');
+  // never staff, nor another ambassador, nor themself
+  await rejects(civic(amb,{op:'rcMute',uid:mod.uid,hours:24}),'rc_staff');
+  await rejects(civic(amb,{op:'rcMute',uid:amb2.uid,hours:24}),'rc_amb');
+  await assert.rejects(civic(amb,{op:'rcMute',uid:amb.uid,hours:24}),e=>e.status==='FAILED_PRECONDITION');
+  // a player: the silence holds everywhere, and the player is told an ambassador set it
+  const mu=await civic(amb,{op:'rcMute',uid:r.uid,hours:24,why:'Rudeness'});
+  assert.equal(mu.removed,0);assert.equal(mu.perm,false);
+  assert.equal((await db.doc('rchat/meridian/chat/'+l1.id).get()).exists,true,'the lines stay');
+  const m=(await db.doc('rcMute/'+r.uid).get()).data();
+  assert.equal(m.by,amb.uid);assert.equal(m.amb,true);assert.equal(m.why,'Rudeness');
+  await new Promise(res=>setTimeout(res,1600));
+  await assert.rejects(civic(r,{op:'rcPost',x:'Let me speak',reg:'world'}),e=>e.code==='rc_silenced'&&e.details&&e.details.amb===true);
+  // in another region's chat too, until lifted
+  assert.equal((await civic(amb,{op:'rcMute',uid:far.uid,hours:0,why:'Threats'})).perm,true);
+  // lifting stays with staff
+  await assert.rejects(civic(amb,{op:'rcUnmute',uid:r.uid}),e=>e.status==='PERMISSION_DENIED');
+  await civic(mod,{op:'rcUnmute',uid:r.uid});
+  // staff may silence an ambassador; a moderator's silence is not marked
+  const ms=await civic(mod,{op:'rcMute',uid:amb2.uid,hours:1,why:'Overreach'});assert.equal(ms.perm,false);
+  assert.equal((await db.doc('rcMute/'+amb2.uid).get()).get('amb'),undefined);
+  const sil=(await db.collection('adminAudit').where('target','==',r.uid).get()).docs.map(d=>d.data()).find(a=>a.action==='chat_silence');
+  assert.ok(sil&&sil.actor===amb.uid&&sil.role==='amb'&&sil.reason==='Rudeness',JSON.stringify(sil));
+  // stood down (the claim gone), the next silence is refused at once, whatever the old token says
+  await auth.setCustomUserClaims(amb.uid,{});
+  await assert.rejects(civic(amb,{op:'rcMute',uid:r.uid,hours:1}),e=>e.status==='PERMISSION_DENIED');
+});
+
 test('Region chat to every region: only an admin sends one line to every region at once, under one id; the same words again are refused; removing it takes every copy and nothing else, all audited',async()=>{
   const r=await player(true),mod=await player(true),staff=await sign('signUp',{});
   await auth.setCustomUserClaims(mod.uid,{mod:true});await auth.setCustomUserClaims(staff.uid,{admin:true});
@@ -1403,6 +1440,67 @@ test('World chat: every nation writes in it from its own region, the line carryi
   // a nation with no region to speak from is refused
   const lost=await player(true);await db.doc('nations/'+lost.uid).update({reg:'atlantis',j:JSON.stringify({reg:'atlantis',name:lost.uid,pop:10,s:{civil:50,econ:50,pol:50}})});
   await rejects(civic(lost,{op:'rcPost',reg:'world',x:'Hello?'}),'rc_region');
+});
+
+test('French chat: a second chat every region shares, its lines marked as the world chat’s; paced on its own; mentions cross regions and push to #chat/fr unless the player turned the Français tab off; removal, reports, silences and forgetting reach it',async()=>{
+  const m=await player(true),f=await player(true,false,'frostmarch'),o=await player(true),q=await player(true);
+  const sleep=ms=>new Promise(res=>setTimeout(res,ms));
+  const a=await civic(m,{op:'rcPost',reg:'fr',x:'Bonjour à toutes les régions !',rk:3});
+  assert.equal(a.reg,'fr');
+  const L=(await db.doc('rchat/fr/chat/'+a.id).get()).data();
+  assert.equal(L.a,m.uid);assert.equal(L.x,'Bonjour à toutes les régions !');assert.equal(L.rg,'meridian');assert.equal(L.rk,3);assert.ok(L.exp.toMillis()>Date.now()+29*DAY);
+  assert.equal((await db.doc('rchat/world/chat/'+a.id).get()).exists,false,'not in the world chat');
+  // paced on its own: the world chat takes the same words at once, the French chat holds a second line for four seconds
+  await sleep(1600);
+  assert.equal((await civic(m,{op:'rcPost',reg:'world',x:'Bonjour à toutes les régions !'})).reg,'world');
+  await sleep(1600);
+  await assert.rejects(civic(m,{op:'rcPost',reg:'fr',x:'Encore ?'}),e=>e.code==='rc_paced');
+  await sleep(1000);
+  await rejects(civic(m,{op:'rcPost',reg:'fr',x:'bonjour à toutes les RÉGIONS'}),'rc_same');
+  const pace=(await db.doc('rcPace/'+m.uid).get()).data();assert.equal(pace.f,L.t);assert.ok(pace.fh&&pace.w&&pace.wh);
+  // from the Frostmarch: an answer that names a nation of the Meridian Reach, told in its bell and by a push to #chat/fr
+  await db.doc('pushSubs/'+o.uid).set({s:[{e:'https://push.example/fr',k:{p256dh:'p',auth:'a'},at:Date.now()}]});
+  const c=await civic(f,{op:'rcPost',reg:'fr',re:a.id,mn:[o.uid],x:`@${o.uid} viens voir`});
+  const C=(await db.doc('rchat/fr/chat/'+c.id).get()).data();
+  assert.equal(C.rg,'frostmarch');assert.equal(C.r.id,a.id);assert.deepEqual(C.mn,{[o.uid]:o.uid});
+  const told=async u=>(await db.collection('mentions/'+u+'/m').get()).docs.map(d=>d.data());
+  const to=await told(o.uid);assert.equal(to.length,1);assert.equal(to[0].reg,'fr');assert.equal(to[0].rc,c.id);
+  assert.equal((await told(m.uid))[0].reg,'fr');
+  const out=(await db.collection('pushOutbox').where('to','==',o.uid).get()).docs.map(d=>d.data());
+  assert.equal(out.length,1);assert.match(out[0].payload.title,/mentioned you in the French chat/);assert.equal(out[0].payload.url,'/#chat/fr');
+  // a player who turned the Français tab off (dmx.rf 0) is still told in the bell, but gets no push
+  await db.doc('nationp/'+q.uid).set({j:JSON.stringify({dmx:{rf:0}})});
+  await db.doc('pushSubs/'+q.uid).set({s:[{e:'https://push.example/fr-off',k:{p256dh:'p',auth:'a'},at:Date.now()}]});
+  await sleep(4100);
+  await civic(f,{op:'rcPost',reg:'fr',mn:[q.uid],x:`@${q.uid} salut`});
+  assert.equal((await told(q.uid)).length,1);
+  assert.equal((await db.collection('pushOutbox').where('to','==',q.uid).get()).size,0);
+  // a line of the French chat answers only a line of the French chat
+  await sleep(4100);
+  const w=(await db.collection('rchat/world/chat').where('a','==',m.uid).get()).docs[0];
+  await rejects(civic(f,{op:'rcPost',reg:'fr',re:w.id,x:'Quelle ligne ?'}),'rc_gone');
+  // reactions from any region; a deleted account's go too
+  await civic(o,{op:'rcReact',reg:'fr',id:c.id,k:'bravo'});
+  assert.deepEqual((await db.doc('rchat/fr/chat/'+c.id).get()).get('rv'),{[o.uid]:'bravo'});
+  const { rcForget } = await import('../functions/regionchat.js');
+  assert.equal(await rcForget(db,o.uid,['meridian']),1);
+  // deleting: staff anyone's, audited as the French chat's
+  await auth.setCustomUserClaims(o.uid,{mod:true});
+  await civic(o,{op:'rcDelete',reg:'fr',id:c.id});assert.equal((await db.doc('rchat/fr/chat/'+c.id).get()).exists,false);
+  const au=(await db.collection('adminAudit').where('line','==',c.id).get()).docs[0];
+  assert.equal(au.get('reg'),'fr');assert.equal(au.get('reason'),'Removed from the French chat');
+  // the Reports queue removes a French line (rc:fr:<line>)
+  const admin=await player(true);await auth.setCustomUserClaims(admin.uid,{admin:true});
+  const console2=await sign('signInWithCustomToken',{token:await auth.createCustomToken(admin.uid,{admin:true})});
+  await call(console2,'adminConsole',{op:'moderate',action:'delete_post',target:'rc:fr:'+a.id,reg:'meridian',reason:'Spam or advertising'});
+  assert.equal((await db.doc('rchat/fr/chat/'+a.id).get()).exists,false);
+  // the team writes there; a silence may take the player's French lines of the last day
+  const t=await civic(admin,{op:'rcPost',team:true,reg:'fr',x:'Bienvenue à toutes et à tous.'});
+  assert.equal((await db.doc('rchat/fr/chat/'+t.id).get()).get('tm'),true);
+  const s=await civic(o,{op:'rcMute',uid:f.uid,hours:1,why:'Cris',reg:'fr',wipe:true});assert.equal(s.removed,1);
+  await assert.rejects(civic(f,{op:'rcPost',reg:'fr',x:'Laissez-moi parler'}),e=>e.code==='rc_silenced'&&/silenced in the chats/.test(e.message));
+  // no other name is a chat
+  await assert.rejects(civic(m,{op:'rcReact',reg:'es',id:t.id,k:'hear'}),e=>e.status==='INVALID_ARGUMENT');
 });
 
 test('A commendation or a condemnation names one nation of the region, checked at the backend',async()=>{

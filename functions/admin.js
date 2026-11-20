@@ -10,7 +10,7 @@ import { feed, SPANS, GROUP } from './feed.js';
 import { alertConfig, ALERT_DEFAULTS } from './alerts.js';
 import { setComp, setGrant, packState } from './shop.js';
 import { cbDelete, rmbForget, cbForget } from './board.js';
-import { rcForget, RC_WORLD } from './regionchat.js';
+import { rcForget, rcShared } from './regionchat.js';
 import { alDrop } from './alliances.js';
 import { trDrop } from './treaties.js';
 import { bdDrop } from './borders.js';
@@ -405,7 +405,8 @@ const MOD_ACTIONS = ['delete_post', 'close_report'];
 export const BAN_DAYS = [1, 3, 7, 30, 90, 0];
 const banUntil = b => +b.get('until') || 0;
 /* an admin appoints a moderator, or stands one down: the custom claim mod (the player's game sees it at the next load) and
-   staff/<uid> {t, m: true}, which shows the other players the green Mod pill at once */
+   staff/<uid> {t, m: true}, which shows the other players the green Mod pill at once. A moderator is no longer an
+   ambassador (setAmb): the moderator's powers hold the ambassador's */
 async function setMod(db, actor, data) {
   const uid = id(data.uid), on = data.on === true;
   if (!uid) throw new HttpsError('invalid-argument', 'Choose a player.');
@@ -413,14 +414,34 @@ async function setMod(db, actor, data) {
   try { u = await getAuth().getUser(uid); } catch (e) { throw new HttpsError('not-found', 'No such player.'); }
   const claims = { ...(u.customClaims || {}) };
   if (on && claims.admin === true) throw new HttpsError('failed-precondition', 'That player is already an admin.');
-  if (on) claims.mod = true; else delete claims.mod;
+  const wasAmb = on && claims.amb === true;
+  if (on) { claims.mod = true; delete claims.amb; } else delete claims.mod;
   await getAuth().setCustomUserClaims(uid, claims);
   if (on) await db.doc('staff/' + uid).set({ t: Date.now(), m: true });
   else if (claims.admin !== true) await db.doc('staff/' + uid).delete();
+  if (wasAmb) await db.doc('ambassadors/' + uid).delete();
   const nation = await db.doc('nations/' + uid).get();
   await db.collection('adminAudit').doc().set({ actor, action: on ? 'mod_appointed' : 'mod_removed', target: uid, ...(nation.exists ? { name: text(nation.get('name'), 80) } : {}),
     reason: on ? 'Appointed as moderator' : 'No longer a moderator', outcome: 'completed', at: FieldValue.serverTimestamp() });
   return { uid, mod: on };
+}
+/* an admin appoints an Edictum Ambassador, or stands one down: the custom claim amb (their game sees it at the next load)
+   and ambassadors/<uid> {t}, which shows every player the blue Ambassador pill at once. An ambassador may only silence
+   players in the chats (functions/regionchat.js, rcMute): no portal, no console, no deleting. Staff are not appointed */
+async function setAmb(db, actor, data) {
+  const uid = id(data.uid), on = data.on === true;
+  let u;
+  try { u = await getAuth().getUser(uid); } catch (e) { throw new HttpsError('not-found', 'No such player.'); }
+  const claims = { ...(u.customClaims || {}) };
+  if (on && (claims.admin === true || claims.mod === true)) throw new HttpsError('failed-precondition', 'That player is already Edictum staff.');
+  if (on) claims.amb = true; else delete claims.amb;
+  await getAuth().setCustomUserClaims(uid, claims);
+  if (on) await db.doc('ambassadors/' + uid).set({ t: Date.now() });
+  else await db.doc('ambassadors/' + uid).delete();
+  const nation = await db.doc('nations/' + uid).get();
+  await db.collection('adminAudit').doc().set({ actor, action: on ? 'amb_appointed' : 'amb_removed', target: uid, ...(nation.exists ? { name: text(nation.get('name'), 80) } : {}),
+    reason: on ? 'Appointed as ambassador' : 'No longer an ambassador', outcome: 'completed', at: FieldValue.serverTimestamp() });
+  return { uid, amb: on };
 }
 async function modsList(db) {
   const qs = await db.collection('staff').where('m', '==', true).get();
@@ -488,11 +509,11 @@ async function mutate(db, actor, data) {
     // and a Community Board post is cb:<region>:<topic>[:<reply>] (functions/board.js keeps the counts right)
     const cb = action === 'delete_post' && /^cb:([a-z]{2,40}):([A-Za-z0-9]{20})(?::([A-Za-z0-9]{20}))?$/.exec(target);
     if (cb) await cbDelete(db, { uid: actor, admin: true }, { reg: cb[1], topic: cb[2], ...(cb[3] ? { reply: cb[3] } : {}), reason }, new Set([cb[1]]));
-    // a line of a region chat is rc:<region>:<line> (functions/regionchat.js), of the world chat rc:world:<line>, with the
-    // picture it may carry; the audit entry below keeps who removed it
+    // a line of a region chat is rc:<region>:<line> (functions/regionchat.js), of a shared chat rc:world:<line> or
+    // rc:fr:<line>, with the picture it may carry; the audit entry below keeps who removed it
     const rc = action === 'delete_post' && /^rc:([a-z]{2,40}):([A-Za-z0-9]{20})$/.exec(target);
     if (rc) {
-      if (!REGIONS.has(rc[1]) && rc[1] !== RC_WORLD) throw new HttpsError('invalid-argument', 'Choose a region.');
+      if (!REGIONS.has(rc[1]) && !rcShared(rc[1])) throw new HttpsError('invalid-argument', 'Choose a region.');
       const b = db.batch();
       b.delete(db.doc('rchat/' + rc[1] + '/chat/' + rc[2])); b.delete(db.doc('rcimg/' + rc[1] + '/chat/' + rc[2]));
       await b.commit();
@@ -661,6 +682,7 @@ export const adminConsole = onCall({ region: 'europe-west1', maxInstances: 5, me
     throw new HttpsError('permission-denied', 'Only Edictum admins can use the console.');
   }
   if (d.op === 'setMod') return setMod(db, actor, d);
+  if (d.op === 'setAmb') return setAmb(db, actor, d);
   if (d.op === 'mods') return modsList(db);
   if (d.op === 'search') return players(db, d);
   if (d.op === 'player') return player(db, id(d.uid));
