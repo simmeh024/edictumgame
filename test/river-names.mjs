@@ -71,7 +71,7 @@ try {
   const recov = await page.$('[data-ed="recovery-saved"]'); if (recov) await recov.click().catch(() => {});
   await page.evaluate(() => window.__game.RVN().rvData());
   check('the river network is made', await until(() => page.evaluate(() => !!window.__game.RVN().RV), 20000));
-  check('every river has a key of its own', await page.evaluate(() => { const RV = window.__game.RVN().RV; return RV.byKey.size === RV.list.length && RV.list.every(r => RV.byKey.get(window.__game.RVN().rvKey(r)) === r.id); }));
+  check('every river has a key of its own', await page.evaluate(() => { const RV = window.__game.RVN().RV; const K = window.__game.RVN(); return new Set(RV.list.map(K.rvKey)).size === RV.list.length && RV.list.every(r => RV.byKey.get(K.rvKey(r)) === r.id); }));
 
   /* a river in reach that nobody holds, away from other capitals, with a few edges: the nation will hold its upper
      stretch first (less than half of it), then all of it */
@@ -263,7 +263,8 @@ try {
   const big = await page.evaluate(() => {
     const G = window.__game, K = G.RVN(), RV = K.RV, M = G.MAP, T = G.territory(), mi = T.list.findIndex(x => x.me);
     const far = c => T.list.every((y, j) => j === mi || K.hexDist(c, y.cap) > 6);
-    for (const r of RV.list.filter(r => r.name0 && r.cells.length <= 40).sort((a, b) => a.cells.length - b.cells.length)) {
+    /* the shortest name first: the map's name must still fit along the two thirds of the river the nation gives up */
+    for (const r of RV.list.filter(r => r.name0 && r.cells.length <= 40).sort((a, b) => a.name0.length - b.name0.length || a.cells.length - b.cells.length)) {
       if (!r.cells.every(c => T.owner[c] < 0 && far(c))) continue;
       /* the hex to select: a bank, not a lake the river feeds, whose panel is the lake's and names nothing (the frontier's
          maps, 19 Nov 2026, put a lake second on the first river this picks) */

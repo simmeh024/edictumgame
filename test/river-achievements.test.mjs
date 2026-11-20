@@ -26,7 +26,7 @@ function world(me = 'a') {
   const A = {}, HOOKS = [], PEND = new Map();
   const ctx = vm.createContext({
     Math, Object, Set, Map, Array, Number, isFinite, JSON, String,
-    S: { nation: null, world: {} }, REG: { id: 'meridian' }, REG_BY_ID: { meridian: {}, frostmarch: {} }, HIDN: { w: {} }, NORM_HOOKS: [], REGION: 'the Meridian Reach',
+    S: { nation: null, world: {} }, REG: { id: 'meridian' }, REG_BY_ID: { meridian: {}, frostmarch: {} }, HIDN: { w: {} }, NORM_HOOKS: [], REGION: 'the Meridian Reach', FRONT_AT: Date.UTC(2026, 10, 19, 19, 41, 53),
     COMMIT_HOOKS: HOOKS, myId: () => me, PEND,
     achDef: (c, id, t, n, d, g, f, o) => { assert.ok(!A[id], 'defined twice: ' + id); A[id] = { c, id, t, n, d, g, f, o: o || {} }; },
     achM: (x, k, f) => k in x.m ? x.m[k] : (x.m[k] = f()), achYes: v => v ? 1 : 0,

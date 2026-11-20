@@ -35969,11 +35969,68 @@ function* rvAssembleIt(X,R){
   const at=new Map();for(let i=0;i<N;i++)if(atI[i]>=0)at.set(i,atI[i]);
   return {list,lakes,at,lake,lakeAt,E6,bonus,bank,R};
 }
+/* The rivers of a region that grew (the frontier, 19 Nov 2026). Made afresh on the wider grid, the charted map's rivers
+   came out elsewhere: the flood breaks its ties by a corner's number, and the thresholds and the main rivers are counted
+   over the whole map, so the larger grid moved nearly every river (about one edge in seven stayed a river) and the
+   names, valleys, lakes and crossings with them (players' report, 20 Nov 2026: "river names reset"). The charted map's
+   rivers are made on the charted map, as every page made them before (rvChartOf), and the frontier's new land keeps
+   the rivers the wider grid gives it; rvJoin puts the two together on the wider grid. The new land lies across open
+   sea from the charted coast, so no river runs from one into the other. */
+function* rvChartIt(G){
+  const oc=CHART_COLS,or=CHART_ROWS,NC=G.COLS,G0=genGeom(oc,or),T=new Uint8Array(G0.N),leg=G.leg?new Int32Array(G0.N):null;
+  for(let r=0;r<or;r++){T.set(G.T.subarray(r*NC,r*NC+oc),r*oc);if(leg)leg.set(G.leg.subarray(r*NC,r*NC+oc),r*oc);}
+  const npcLoc={};for(const id of Object.keys(G.npcLoc||{})){const i=G.npcLoc[id],r=(i/NC)|0,c=i%NC;if(c<oc&&r<or)npcLoc[id]=r*oc+c;}
+  yield;return {...G0,T,...genComps(G0,T,()=>{}),npcLoc,leg,chart:null};
+}
+function rvChartOf(G){const it=rvChartIt(G);for(;;){const r=it.next();if(r.done)return r.value;}}
+/* A (the wider grid's own network) and A0 (the charted map's), joined on the wider grid: the charted map's rivers and
+   lakes first, under the numbers they had, then the new land's. fz: each charted river the wider grid had made, by its
+   key (rvKey), to the river now running most nearly where it ran, for the names given on it while it was on the map. */
+function rvJoin(G,A,A0){const it=rvJoinIt(G,A,A0);for(;;){const r=it.next();if(r.done)return r.value;}}
+function* rvJoinIt(G,A,A0){
+  const oc=CHART_COLS,NC=G.COLS,N=G.N,ch=G.chart,fc=k=>((k/oc)|0)*NC+k%oc,fv=v=>2*fc(v>>1)+(v&1);
+  const list=A0.list.map(r=>({...r,verts:r.verts.map(fv),end:fv(r.end),eh:r.eh.map(e=>fc((e/6)|0)*6+e%6),bk:r.bk.map(fc),cells:r.cells.map(fc)}));
+  const idA=new Map();for(const r of A.list)if(ch[r.cells[0]]<0){idA.set(r.id,list.length);list.push({...r,id:list.length});}
+  for(let k=A0.list.length;k<list.length;k++){const r=list[k];r.parent=idA.has(r.parent)?idA.get(r.parent):-1;}
+  const E6=new Int32Array(N*6);for(const r of list)for(let j=0;j<r.len;j++){const e=r.eh[j];E6[e]=E6[r.bk[2*j+1]*6+(e%6+3)%6]=r.id+1;}
+  yield;
+  /* the banks, the valleys and each hex's river: the charted map's on its hexes, the wider grid's on the new land */
+  const bank=Int8Array.from(A.bank),bonus=Float32Array.from(A.bonus),id=new Int32Array(N).fill(-1),at=new Map();
+  for(const [c,k] of A.at)if(ch[c]<0&&idA.has(k))id[c]=idA.get(k);
+  for(let r=0;r<A0.bank.length/oc;r++){bank.set(A0.bank.subarray(r*oc,(r+1)*oc),r*NC);bonus.set(A0.bonus.subarray(r*oc,(r+1)*oc),r*NC);}
+  for(const [k,v] of A0.at)id[fc(k)]=v;
+  for(let i=0;i<N;i++)if(id[i]>=0)at.set(i,id[i]);
+  const lakes=A0.lakes.map(L=>({...L,cells:L.cells.map(fc)}));
+  for(const L of A.lakes)if(ch[L.cells[0]]<0)lakes.push({...L,id:lakes.length,river:idA.has(L.river)?idA.get(L.river):-1});
+  const lake=new Set(),lakeAt=new Map();for(const L of lakes)for(const h of L.cells){lake.add(h);lakeAt.set(h,L.id);}
+  yield;
+  /* by its edges that are a river's edges now, then its banks that are a river's banks, then the hexes beside them */
+  const fz=new Map(),nb=G.nbr;
+  for(const r of A.list){if(ch[r.cells[0]]<0)continue;const n=new Map(),add=(k,w)=>{if(k>=0)n.set(k,(n.get(k)||0)+w);};
+    for(let j=0;j<r.len;j++)add(E6[r.eh[j]]-1,4);
+    for(const c of r.cells){add(id[c],2);for(let d=0;d<6;d++){const q=nb[c*6+d];if(q>=0)add(id[q],1);}}
+    let best=-1,bn=0;for(const [k,s] of n)if(s>bn||(s===bn&&k<best)){best=k;bn=s;}
+    if(best>=0)fz.set(r.verts[r.verts.length-2],best);}
+  yield;
+  /* the wider grid named the new land's rivers and lakes from the same list as the charted map's, so a few carry a name
+     a charted river or lake has: those get names of their own, from more of the region's roots */
+  const R=A.R,taken=new Set();for(let k=0;k<A0.list.length;k++)if(list[k].name)taken.add(list[k].name);for(let k=0;k<A0.lakes.length;k++)if(lakes[k].name)taken.add(lakes[k].name);
+  const dup=list.slice(A0.list.length).concat(lakes.slice(A0.lakes.length)).filter(x=>x.name&&taken.has(x.name));
+  if(dup.length){for(const x of list.concat(lakes))if(x.name)taken.add(x.name);
+    const fam=RV_PAT[RV_FAM[R.id]||'en'],rnd=rng(hash('rivers:'+R.id+':join')),roots=rvRoots(R,rnd,48+4*dup.length);let ri=0;
+    for(const x of dup){const pats=x.cls?fam.r:fam.l;x.name='';
+      while(ri<roots.length){const pt=pats[Math.floor(rnd()*pats.length)],rt=roots[ri++];if(pt.includes('-')&&rt.length>7)continue;const nm=rvFill(pt,rt);if(!taken.has(nm)){taken.add(nm);x.name=nm;break;}}}}
+  return {list,lakes,at,lake,lakeAt,E6,bonus,bank,R,fz};
+}
 /* this region's network, made once from the original terrain: lazily, in an idle moment after load or
    the first time anything asks (the map, a battle, a tip), so the page loads no slower */
 let RV=null,RVAPI=null,rvTried=false,rvJob=null,rvWork=0,rvSlices=0,rvLong=0,rvSteps=[];
-function* rvBuildIt(G,R){const X=yield* rvGenIt(G,R);const A=yield* rvAssembleIt(X,R);A.X=X;return A;}
-/* run the job for about `budget` ms (0: to the end); a job of 40 to 60 ms in all, in steps of under 15 */
+function* rvBuildIt(G,R){const X=yield* rvGenIt(G,R);const A=yield* rvAssembleIt(X,R);A.X=X;if(!G.chart)return A;
+  /* a region that grew: the charted map's rivers made on the charted map (rvChartOf, rvJoin) */
+  const G0=yield* rvChartIt(G);yield;const X0=yield* rvGenIt(G0,R);const A0=yield* rvAssembleIt(X0,R);yield;
+  const J=yield* rvJoinIt(G,A,A0);J.X=X;return J;}
+/* run the job for about `budget` ms (0: to the end); a job of 40 to 60 ms in all (twice that in a region that grew,
+   which makes the charted map's rivers as well), in steps of under 15 */
 function rvRun(budget){
   if(rvTried)return RV;if(!rvJob)rvJob=rvBuildIt({...MAP,T:MAP_T0},REG);const t0=performance.now();let A=null;
   try{for(;;){const ts=performance.now(),r=rvJob.next();rvSteps.push(+(performance.now()-ts).toFixed(1));if(r.done){A=r.value;break;}if(budget&&performance.now()-t0>budget)break;}}catch(e){rvJob=null;rvTried=true;return null;}
@@ -35992,6 +36049,9 @@ function rvFinish(A){
   for(const L of RV.lakes)L.path=rvLoopPath(L.loop,1,L.x,L.y);
   /* the names the map made, kept apart from the ones players give (rvSync), and each river's key */
   RV.byKey=new Map();for(const r of RV.list){r.name0=r.name;r.by=null;RV.byKey.set(rvKey(r),r.id);}
+  /* a name given on a river of the wider grid's own making (rvJoin's fz: 19 to 20 Nov 2026) goes on the river that runs
+     most nearly where that one did */
+  if(RV.fz)for(const [k,id] of RV.fz)if(!RV.byKey.has(k))RV.byKey.set(k,id);
   RVAPI={list:RV.list,lakes:RV.lakes,at:RV.at,lake:RV.lake,lakeAt:RV.lakeAt,bonus:RV.bonus,
     crossing:(a,b)=>{const id=rvEdge(a,b);return id>=0&&RV.list[id].cls>=2?id:null;},
     stream:(a,b)=>{const id=rvEdge(a,b);return id>=0?id:null;}};
@@ -36024,6 +36084,11 @@ function rvLabel(r){
    own), name0 (the map's own name, '' if none), nm (Map nation id → name, of every name that shows), and sn / sb
    (per edge of its course, the name there and who gave it; null while every edge carries the river's own name). */
 const RVN_MAX=40,RVN_LEN=32;
+/* until when a name given since the frontier gives way to the same name the nation gave another river before it (rvSync):
+   the day and a half the charted rivers were away (19 to 21 Nov 2026), and a day for tabs left open on that build */
+const RVN_FZ_TO=Date.UTC(2026,10,22);
+/* a name as names are compared: without a leading “the”, in nameFold's letters */
+const rvFold=v=>nameFold(String(v||'').replace(/^the\s+/i,''));
 function rvKey(r){return r.verts[r.verts.length-2];}
 function rvHeld(T,r,i){let k=0;for(const c of r.cells)if(T.owner[c]===i)k++;return k;}
 /* who holds edge j of a river: the nation on both banks, or on one bank with unclaimed land across; -1 if nobody */
@@ -36046,8 +36111,17 @@ function rvSync(T){
   for(const r of RV.list){r.name=r.name0;r.by=null;r.nm=null;r.sn=null;r.sb=null;}
   const want=new Map();
   T.list.forEach((x,i)=>{if(x.npc||x.hid||!x.n||!Array.isArray(x.n.rvn))return;
-    for(const e of x.n.rvn){if(e.r!==REG.id)continue;const id=RV.byKey.get(e.v);if(id===undefined)continue;let a=want.get(id);if(!a)want.set(id,a=new Map());if(!a.has(i))a.set(i,e.n);}});
-  for(const [id,a] of want){const r=RV.list[id],hold=new Set();for(let j=0;j<r.len;j++){const h=rvEdgeHolder(T,r,j);if(h>=0)hold.add(h);}
+    /* a name given on a river the wider grid had made (19 to 20 Nov 2026, rvJoin) goes on the river now running most
+       nearly where that one ran, unless the nation has named that river itself, or gives the same name to another. And a
+       name given since the frontier that the nation had given another river before it (while the old names were not
+       shown) stays with the river it was given first. */
+    const es=x.n.rvn.filter(e=>e&&e.r===REG.id&&RV.byKey.has(e.v)),own=e=>rvKey(RV.list[RV.byKey.get(e.v)])===e.v;
+    const mine=new Set(es.filter(own).map(e=>rvFold(e.n))),pre=new Map();
+    for(const e of es)if(own(e)&&!(e.t>=FRONT_AT)){const f=rvFold(e.n);if(!pre.has(f))pre.set(f,new Set());pre.get(f).add(RV.byKey.get(e.v));}
+    for(const e of es){const id=RV.byKey.get(e.v),d=own(e),f=rvFold(e.n);if(!d&&mine.has(f))continue;if(e.t>=FRONT_AT&&e.t<RVN_FZ_TO&&pre.has(f)&&!pre.get(f).has(id))continue;
+      let a=want.get(id);if(!a)want.set(id,a=new Map());
+      const o=a.get(i),t=typeof e.t==='number'?e.t:0;if(!o||d>o.d||(d===o.d&&t>=o.t))a.set(i,{n:e.n,t,d});}});
+  for(const [id,a0] of want){const a=new Map([...a0].map(([i,o])=>[i,o.n]));const r=RV.list[id],hold=new Set();for(let j=0;j<r.len;j++){const h=rvEdgeHolder(T,r,j);if(h>=0)hold.add(h);}
     let maj=-1;for(const i of a.keys())if(rvMost(T,r,i)){maj=i;break;}
     const nm=new Map();for(const [i,n] of a)if(i===maj||hold.has(i))nm.set(i,n);if(!nm.size)continue;
     if(maj>=0){r.name=nm.get(maj);r.by=T.list[maj].id;}
@@ -36073,7 +36147,6 @@ function rvParts(r,n){
 }
 /* why a name will not do, or '' (names are unique among the region's rivers and lakes, old names included; nations
    sharing one river may give it the same name) */
-const rvFold=v=>nameFold(String(v||'').replace(/^the\s+/i,''));
 function rvNameProblem(r,nm){
   if(nm.length<2||!/\p{L}/u.test(nm))return 'Give the river a name of at least two characters, with a letter in it.';
   const f=rvFold(nm);
@@ -36100,6 +36173,8 @@ function rvMine(key){
   if(!r)return 'That river is not on this map.';if(mi===undefined||!(rvStretch(T,r,mi)>0||rvMost(T,r,mi)))return 'You can name a river only where it runs through your land.';
   rvSync(T);wnSync(T);return [T,r];
 }
+/* a name on record for river r (key): under its key, or under the key of a river the wider grid had made there (rvJoin) */
+function rvSame(e,key,r){return !!e&&e.r===REG.id&&(e.v===key||RV.byKey.get(e.v)===r.id);}
 function rvRename(key,raw){
   const m=rvMine(key);if(typeof m==='string'){S.rvnErr=m;updateMapPanel();return false;}
   const [T,r]=m,{most,mine,back}=rvMineOf(T,r,T.byId[myId()]),old=mine||back,nm=rvTidy(raw),what=r.cls>=2?'river':'stream';
@@ -36107,7 +36182,7 @@ function rvRename(key,raw){
   if(back&&nm===back)return rvReset(key);
   const why=rvNameProblem(r,nm);if(why){S.rvnVal=nm;S.rvnErr=why;updateMapPanel();return false;}
   const n=clone(S.nation),now=Date.now();
-  n.rvn=(Array.isArray(n.rvn)?n.rvn:[]).filter(e=>!(e.r===REG.id&&e.v===key)).concat({r:REG.id,v:key,n:nm,t:now}).slice(-RVN_MAX);
+  n.rvn=(Array.isArray(n.rvn)?n.rvn:[]).filter(e=>!rvSame(e,key,r)).concat({r:REG.id,v:key,n:nm,t:now}).slice(-RVN_MAX);
   rvLog(n,nm,old,now);commit(n);
   S.rvnEdit=null;S.rvnVal=null;S.rvnErr='';rvSync(territory());updateMapPanel();redrawMaps();
   const was=old?cap1(old):'The '+what;
@@ -36117,7 +36192,7 @@ function rvRename(key,raw){
 function rvReset(key){
   const m=rvMine(key);if(typeof m==='string'){S.rvnErr=m;updateMapPanel();return false;}
   const [T,r]=m,{most,mine,back}=rvMineOf(T,r,T.byId[myId()]),n=clone(S.nation),now=Date.now(),what=r.cls>=2?'river':'stream',where=most?'':' in your land';
-  const left=(Array.isArray(n.rvn)?n.rvn:[]).filter(e=>!(e.r===REG.id&&e.v===key));if(left.length)n.rvn=left;else delete n.rvn;
+  const left=(Array.isArray(n.rvn)?n.rvn:[]).filter(e=>!rvSame(e,key,r));if(left.length)n.rvn=left;else delete n.rvn;
   rvLog(n,back,mine,now);if(back)achPend('rvback');commit(n);
   S.rvnEdit=null;S.rvnVal=null;S.rvnErr='';rvSync(territory());updateMapPanel();redrawMaps();
   toast(back?`${cap1(mine||back)} is ${back} again${where}.`:`The ${what} has no name again${where}.`);return true;
@@ -44650,7 +44725,8 @@ function tutDue(n,now){
 /* never in the middle of something: typing, an issue or its result, an animation, another dialog */
 function tutBusy(){
   if(document.hidden||!S.nation||TUT.g)return true;
-  try{if(FX.busy||FX.seq||document.documentElement.classList.contains('fx-vt'))return true;}catch(e){}
+  /* an answer's animation counts while its paper is on screen: one left behind by a page change ends at the next frame */
+  try{if(FX.busy||(FX.seq&&FX.seq.paper&&FX.seq.paper.isConnected)||document.documentElement.classList.contains('fx-vt'))return true;}catch(e){}
   const a=document.activeElement;
   if(a&&a!==document.body){const t=a.tagName;if(t==='TEXTAREA'||t==='SELECT'||a.isContentEditable)return true;if(t==='INPUT'&&!/^(checkbox|radio|button|submit|reset|range|color|file|image)$/i.test(a.type||''))return true;}
   if(S.openIssue||S.result||S.notifOpen)return true;
@@ -44660,7 +44736,10 @@ function tutBusy(){
 /* if several are due at once (a player arriving with all of space open), only the furthest shows; the others
    count as shown and wait under “?” */
 function tutCheck(){
-  TUT.chk=0;const n=S.nation;if(!n||n.npc||tutBusy())return;
+  TUT.chk=0;const n=S.nation;if(!n||n.npc)return;
+  /* busy for the moment (an animation ending, a dialog, a field being typed in): with a guide due, look again shortly rather
+     than wait for the next render, which may not come (Space page tour on a slow phone, 20 Nov 2026) */
+  if(tutBusy()){if(!TUT.g&&tutDue(n).length)TUT.chk=setTimeout(tutCheck,400);return;}
   const due=tutDue(n);if(!due.length)return;const g=due[due.length-1],seed=String(n.seed);
   due.forEach(x=>TUT.shown.add(seed+':'+x));tutGuideOpen(g,true);
   setTimeout(()=>{const m=S.nation;if(!m||String(m.seed)!==seed)return;const c=clone(m),t=Object.assign({},c.tut||{});t.g=[...TUT_GS].filter(x=>(t.g||'').includes(x)||due.includes(x)).join('');const v=tutNorm(t);if(v)c.tut=v;commit(c);},0);
