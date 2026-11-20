@@ -49,15 +49,15 @@ test('the regalia: the pattern as an unlock, the map colour through ctgMcOk, the
   has("if(p!=='p-centum')return f.apply(this,arguments);",'czPatSVG draws it');
   has('function ctgMcOk(n,c){if(c===M100_MC)return m100Got(n);');
   has("triumph:'Triumphal arch'");
-  has('const CZ_SH_GIFT={royal:50,triumph:100};');
+  has('const CZ_SH_GIFT={royal:50,triumph:100,twin:200};','the Twin arches joined it with the 200-nation gift');
   has("case 'triumph':return 'M6,24H22");
   /* the colour shows wherever map colours are chosen or named, once held */
   has('${mapcEarnedSw(n,st)}${ctgMcSw(n,st)}${m100McSw(n,st)}');
   has("if(ctgMcOk(n,M100_MC))sws+=sw(M100_MC,M100_MCN,");
-  assert.equal((game.match(/\|\|mcGiftName\(/g)||[]).length,3,'Settings, the map look card and its toast name it');
+  assert.equal((game.match(/\|\|mcGiftName\(/g)||[]).length,4,'Settings, the map look card, its toast and the Customise colour row name it');
 });
 
 test('one pop-up at a time',()=>{
-  has("document.getElementById('m50')||document.getElementById('m100')||!fgfOpen()",'the founders’ gift waits for it');
+  has("document.getElementById('m50')||document.getElementById('m100')||document.getElementById('m200')||!fgfOpen()",'the founders’ gift waits for it');
   has("m50Due(n)&&!m50Later||m100Busy()",'it waits for the 50-player gift and any other open dialog');
 });

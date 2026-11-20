@@ -443,7 +443,23 @@ await nav(KG, 'nation'); // founding opens the first edict, where the capital is
 await nav(KG, 'issues');
 await until(() => KG.$('.issue-card')); await KG.click('.issue-card'); await KG.waitForSelector('.edict .opt');
 check('in a kingdom it goes before the Privy Council', /Privy Council of Kingsmoor/.test(await text(KG, '.edict .form-code')) && /^Assent to motion I$/.test(await text(KG, '.edict [data-act="answer"]')));
-await KG.click('.edict [data-act="answer"]'); await KG.waitForSelector('.result');
+/* when the answer cannot be clicked, say what lies over it (the elements at its centre, its ancestors' pointer events,
+   visibility and inertness, dialogs, animations) before failing, and keep a picture in test/out */
+try { await KG.click('.edict [data-act="answer"]', { timeout: 20000 }); }
+catch (e) {
+  const why = await KG.evaluate(() => {
+    const b = document.querySelector('.edict [data-act="answer"]'); if (!b) return { button: false };
+    const r = b.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2, d = e => e ? e.tagName + '.' + String(e.className).slice(0, 40) + (e.id ? '#' + e.id : '') : null;
+    const chain = []; for (let e = b; e; e = e.parentElement) { const s = getComputedStyle(e); chain.push(`${d(e)} pe=${s.pointerEvents} vis=${s.visibility} op=${s.opacity} inert=${!!e.inert} pos=${s.position} z=${s.zIndex} tf=${s.transform} cv=${s.contentVisibility}`); }
+    return { rect: [r.left, r.top, r.width, r.height].map(Math.round), scrollY: Math.round(scrollY), innerHeight, at: document.elementsFromPoint(x, y).slice(0, 8).map(d), chain,
+      inert: [...document.querySelectorAll('[inert]')].map(d), modal: [...document.querySelectorAll('[aria-modal="true"],dialog[open]')].map(d), html: document.documentElement.className, focus: d(document.activeElement),
+      anims: document.getAnimations().slice(0, 12).map(a => `${d(a.effect && a.effect.target)} ${a.playState} t=${Math.round(a.currentTime || 0)}`), maps: [...document.querySelectorAll('canvas.map-cv,canvas.map-fx')].map(c => `${d(c)} ${c.clientWidth}x${c.clientHeight}`) };
+  }).catch(err => ({ evaluate: String(err) }));
+  console.log('the founding edict’s answer could not be clicked:', JSON.stringify(why, null, 1));
+  await KG.screenshot({ path: path.join(OUT, 'core-founding-answer-blocked.png') }).catch(() => {});
+  throw e;
+}
+await KG.waitForSelector('.result');
 check('and comes back a royal decree under a REX or REGINA seal', /^By royal decree of the \S+ of Kingsmoor, /.test(await text(KG, '.result-fx')) && /REX|REGINA/.test(await text(KG, '.result .stamp')), await text(KG, '.result-fx'));
 check('signed by the nation’s own leader, by title while the leader has no name', /^By royal decree of the President of Kingsmoor, /.test(await text(KG, '.result-fx')), await text(KG, '.result-fx'));
 // who signs decrees is a choice on the Customise page
