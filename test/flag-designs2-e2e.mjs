@@ -24,8 +24,16 @@ check('seven earn A Week in the Field', !!await earned('eco-svcall7'));
 await openFlag();
 check('and Three peaks can be chosen, Embattled still locked', !!await A.$('#c-p-peaks') && !!await A.$('[data-ux-unlock="fp-embattled"]') && !await A.$('#c-p-embattled'));
 
-// Embattled: four cities, but one without a mayor, is not enough; a mayor there too earns it
-const cities = mayors => A.evaluate(mayors => { const n = G.clone(G.S.nation), c = n.cities[0], tr = Object.keys(G.CX.traits)[0];
+// Embattled: four cities, but one without a mayor, is not enough; a mayor there too earns it.
+// The towns are copies of the capital city, so it must be there first: on CI (PR #466, 19 Nov 2026) the record was once
+// read here with no city at all, and cloning n.cities[0] threw "undefined is not valid JSON". Wait for it, and if it never
+// comes, say what the nation looked like rather than fail inside JSON.parse.
+const hasCapital = () => A.evaluate(() => !!(G.S.nation && Array.isArray(G.S.nation.cities) && G.S.nation.cities.length));
+const cities = async mayors => {
+  if (!await until(hasCapital, 20000)) throw new Error('no capital city to copy: ' + JSON.stringify(await A.evaluate(() => { const n = G.S.nation; return n ? { loc: n.loc, cities: n.cities, view: G.S.view, mode: G.S.mode, inbox: (n.inbox || []).map(x => x.id) } : null; })));
+  return citiesNow(mayors);
+};
+const citiesNow = mayors => A.evaluate(mayors => { const n = G.clone(G.S.nation), c = n.cities[0], tr = Object.keys(G.CX.traits)[0];
   while (n.cities.length < 4) n.cities.push({ ...G.clone(c), id: 'x' + n.cities.length, name: 'Town ' + n.cities.length });
   n.cities.forEach((x, i) => { if (i < mayors) x.my = { nm: 'Mayor ' + i, tr, t: Date.now() }; else delete x.my; }); G.commit(n); }, mayors);
 await cities(3);

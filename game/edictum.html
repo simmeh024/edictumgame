@@ -4209,6 +4209,7 @@ button.fp-cell-in:hover{border-color:var(--ink-3);background:var(--sheet-2);--fp
 .ldr-cat-p{margin:-2px 0 10px}
 .ldr-more{margin-top:10px}
 .ldr-dorm{color:var(--down);font-weight:600}
+.ldr-grace{color:var(--stamp);font-weight:600}
 .bld-e .ldr-chip{margin-right:4px;vertical-align:1px}
 .ldr-gov .ldr-gov-p{margin:0 0 8px;max-width:70ch}
 .mile-more{margin-top:12px}
@@ -7382,6 +7383,26 @@ span.nw-tag{cursor:default}
 .m100 .m100-say{margin:8px 0 0}.m100-foot{display:flex;flex-direction:column;align-items:center;gap:8px;margin-top:8px}
 .m100-foot .btn{min-width:140px}
 @media (max-width:420px){.m100{padding:18px 12px 12px}.m100-boxes{gap:8px}.m100-list{padding:6px;font-size:12px}.m100-pt{width:38px}.m100-sh{width:30px}.m100-mc{margin:0 4px}}
+/* the 200-nation gift (m200-): the 100-nation gift's frame and boxes (m100-), a little wider for its eight-piece regalia */
+.m200{max-width:600px}
+.m200-b1 .m50-body{background:#1f3557}.m200-b1 .m50-lid{background:#2f4e7f}
+.m200-b2 .m50-body{background:#7d8996}.m200-b2 .m50-lid{background:#aab5c0}.m200-b2 .m50-rib{background:#3b4a8c}.m200-b2 .m50-bow{border-color:#3b4a8c}
+.m200 .m200-sub{margin:-2px 0 0;font-size:11px;opacity:.75}
+.m200-reg li{gap:7px}
+.m200-pic{flex:none;width:46px;display:flex;align-items:center;justify-content:center}
+.m200-pic .cz-pt{width:46px}.m200-pic .cz-arms{width:22px;height:26px}.m200-pic .cz-tsw{width:20px;height:20px}
+.m200-pic .m200-mc{width:24px;height:21px;margin:0}.m200-pic .m200-ch{width:28px;height:28px}
+.m200-fr{display:block;width:40px}.m200-st{display:block;width:30px;line-height:0}.m200-st svg{width:30px;height:30px}
+.m200-ep{font:600 11px/1 Georgia,'Times New Roman',serif;letter-spacing:.12em;padding:4px 5px;border:1px solid #8b96a1;border-radius:3px;background:linear-gradient(135deg,#f4f7fa,#c3ccd6);color:#36404a}
+.m200-ach{display:flex;align-items:center;justify-content:center;gap:8px;margin:10px auto 0!important;padding:6px 12px;width:max-content;max-width:100%;border:1px solid rgba(143,185,207,.7);border-radius:6px;background:linear-gradient(135deg,rgba(217,234,243,.55),rgba(232,242,247,.2));text-align:left}
+.m200-ach .ach-medal{width:20px;height:20px}
+.m200-ach>span{display:flex;flex-direction:column;line-height:1.25}.m200-ach small{font-size:11px;opacity:.75}
+.m200-ach.got{border-color:#7aa7bf;box-shadow:0 0 0 2px rgba(143,185,207,.35)}
+@media (max-width:420px){.m200-pic{width:34px}.m200-pic .cz-pt{width:34px}.m200-fr{width:32px}.m200-st,.m200-st svg{width:26px;height:26px}.m200-ep{font-size:9px;padding:3px}}
+/* the Platinum seal on enacted decisions, and the Platinum frame's flag edge */
+.cz-s-platinum svg{width:104px}.stamp.cz-s-platinum{top:16px;right:22px;--fx-ink:#6f7d8a}
+.stamp.cz-s-platinum .fx-ring{border-radius:50%;inset:-2px}
+.czf-platinum>.flag-frame{border-color:#4f5a66}
 /* Supply Caches: the dialog that sends one and the crate that opens one (sc-), on the 50-player gift's frame (m50-bg, m50) */
 .sc-dlg{max-width:470px;text-align:left;max-height:calc(100vh - 32px);max-height:calc(100dvh - 32px);overflow:auto}
 .sc-dlg .h2{margin:4px 0 4px}
@@ -21095,6 +21116,12 @@ const TERRAIN_IN=['','','in the lowlands of','in the hills of','in the mountains
 const STEP=[0,2.5,1,1.35,2.1];
 const LAND_NAMES=['Great Meridia','Vellorn','Austerra','Kessandry','the Thornmarch','Saltreach','Orrin’s Rest','Lowmere','Wrenholm','Hollin','Caskey','Marrable','Dunmarrow','the Sallow Coast','Ivenhal','Tessaly Minor','the Gannet Isles','the Cinder Isles','the Isle of Tarn','the Shoals of Ebb','Little Fennick','the Pellow Rocks','Skerrow','Brisk Island','the Lantern Keys','Holm of Aire','Gull Rock','Mossbank','the Widow’s Teeth','Calder Isle','Pennick','the Outer Lees'];
 const MAP_FONT='"Bodoni Moda","Bodoni 72",Georgia,serif';
+/* label widths, remembered (2026-11-20): every picture of the map measured each nation's, city's, river's, site's and
+   province's name again. Kept by font, letter spacing and text, and forgotten when a typeface finishes loading (the
+   widths change from the fallback's) */
+const MAP_TW=new Map();
+function mapTW(g,t){const k=g.font+'\u0001'+(g.letterSpacing||'')+'\u0001'+t;let w=MAP_TW.get(k);if(w===undefined){if(MAP_TW.size>5000)MAP_TW.clear();w=g.measureText(t).width;MAP_TW.set(k,w);}return w;}
+try{document.fonts.addEventListener('loadingdone',()=>MAP_TW.clear());}catch(e){}
 function legacyMap(){return (function(){
   const COLS=160,ROWS=100,N=COLS*ROWS;
   const W=HEX_W*COLS+HEX_W/2,H=1.5*HEX_R*(ROWS-1)+2*HEX_R;
@@ -21206,9 +21233,14 @@ const CTG_MC={'#2B4C7E':['hx-prussian','Prussian Blue'],'#A3243B':['hx-carmine',
 const M100_N=100,M100_MC='#7A1F5C',M100_MCN='Triumph Purple';
 const m100Bits=n=>n&&Number.isInteger(n.m100)?n.m100&3:0;
 const m100Got=n=>!!n&&!n.npc&&(m100Bits(n)&2)===2;
-const mcGiftName=c=>c===M100_MC?M100_MCN:'';
-/* may this nation wear this map colour: the pack's while held, the gift's once its box is open, any other always */
-function ctgMcOk(n,c){if(c===M100_MC)return m100Got(n);const m=CTG_MC[c];if(!m)return true;try{return !!czHolds(n,m[0],n&&n.cz);}catch(e){return false;}}
+/* the 200-nation gift, the same way: n.m200 bits, 1 the supplies (M200_N of every material), 2 the Platinum regalia,
+   whose map colour is M200_MC */
+const M200_N=200,M200_MC='#8EA4BC',M200_MCN='Moonstone';
+const m200Bits=n=>n&&Number.isInteger(n.m200)?n.m200&3:0;
+const m200Got=n=>!!n&&!n.npc&&(m200Bits(n)&2)===2;
+const mcGiftName=c=>c===M100_MC?M100_MCN:c===M200_MC?M200_MCN:'';
+/* may this nation wear this map colour: the pack's while held, the gifts' once their box is open, any other always */
+function ctgMcOk(n,c){if(c===M100_MC)return m100Got(n);if(c===M200_MC)return m200Got(n);const m=CTG_MC[c];if(!m)return true;try{return !!czHolds(n,m[0],n&&n.cz);}catch(e){return false;}}
 function nationColor(n){const c=safeColor(n&&n.mapc,'');return (c&&ctgMcOk(n,c)?c:'')||mapColor(n&&n.flag);}
 function mapColor(f){
   const cs=(f&&Array.isArray(f.c))?f.c:DEF_FLAG.c;
@@ -21478,6 +21510,19 @@ function grow(list,over){
   }
   return {owner,grown,held};
 }
+/* The land after war and hand-overs: each hex they moved goes to its new holder, and every other hex stays where the
+   layout before them (base) has it. Until 20 Nov 2026 every nation was grown again from its capital instead, its budget
+   cut by the hexes it had lost. A hex taken that cut a nation's land in two left the land behind it out of reach of its
+   capital: those hexes fell back to unclaimed (claims further out stayed, being held), and the core grew the same number
+   somewhere else instead. A hex given back did the same, a claimed core having no way through land it holds by an event.
+   So a nation lost every hex a conquest cut off, and land an army could have marched on went blank (bug report, The
+   Wandering Isles against Tocantins). The checks of each event already read the hex's holder from base, so they agree. */
+function landMoved(base,over,L){
+  const owner=base.owner.slice(),held=new Int32Array(L);
+  for(const [c,i] of over)owner[c]=i;
+  for(let c=0;c<owner.length;c++){const o=owner[c];if(o>=0)held[o]++;}
+  return {owner,grown:base.grown,held};
+}
 /* when a nation's capital took its place: its founding, or its settling since (n.capAt), which since the founding
    edict can come hours later. A claim made before then stays, even within 2 hexes of the capital; the later of the
    two counts, so a record cannot date its capital back before its founding. */
@@ -21500,6 +21545,28 @@ function hidDoc(id){return (typeof id==='string'&&HIDN.w[id])||null;}
 /* this player's own nation is hidden: it plays on, but goes to war with nobody until it is shown again */
 function iAmHidden(){return !OBS&&!!S.uid&&!!(S.mod&&S.mod[S.uid]&&S.mod[S.uid].hidden);}
 const HID_WAR='Your nation is hidden while the moderators look into a report, so its army stays at home until it is shown again.';
+/* ── facts worked out once per pass (2026-11-20) ──
+   Drawing a page (render), a map (drawMap) or the map's panel asks the same questions many times over: who is at war
+   with whom (once for each nation, from several layers), who is protected, which land can be claimed, who holds which
+   city, how the land is shared out. Each answer had a memo already, but checking it meant building its key from every
+   nation's record again, hundreds of times for one picture: with 60 nations in a region that was 4-7 ms of every map
+   drawn on a laptop, 40-55 ms on a phone, and much of the World map page's first draw. Inside a pass (passRun, round
+   the outermost of those calls) each answer is kept the first time it is asked (passGet), and dropped when the pass
+   ends. A save (commit) during a pass forgets what was kept, and so does a new record: S.nation, S.world or the hidden
+   nations swapped for other objects. Outside a pass everything is worked out as before. */
+const PASS={d:0,m:null,n:null,w:null,h:null};
+function passHid(){try{return HIDN.w;}catch(e){return null;}}
+function passRun(f,self,args){
+  if(!PASS.d){PASS.m=new Map();PASS.n=S.nation;PASS.w=S.world;PASS.h=passHid();}
+  PASS.d++;try{return f.apply(self,args);}finally{if(!--PASS.d)PASS.m=null;}
+}
+/* the answer to question q about k (a string, or an object such as a territory) in this pass; make works it out */
+function passGet(q,k,make){
+  const m=PASS.m;if(!m)return make();
+  if(PASS.n!==S.nation||PASS.w!==S.world||PASS.h!==passHid()){m.clear();PASS.n=S.nation;PASS.w=S.world;PASS.h=passHid();}
+  let a=m.get(q);if(!a)m.set(q,a=new Map());if(a.has(k))return a.get(k);const v=make();a.set(k,v);return v;
+}
+function passForget(){if(PASS.m)PASS.m.clear();}
 const terrCache=new Map();
 function territory(extra){
   syncReclaims();
@@ -21535,7 +21602,7 @@ function territory(extra){
     if(!inReach(list[oi],e.c)||list.some((y,j)=>j!==oi&&hexDist(e.c,y.cap)<=2&&e.t>capSince(y.n)))continue;
     cityOver.set(e.c,oi);how.set(e.c,1);nat.set(e.c,oi);used[oi]++;
   }
-  const base=grow(list,cityOver.size?cityOver:null),over=new Map(cityOver),lostPre=new Int32Array(L),rate=new Map();let moved=false;
+  const base=grow(list,cityOver.size?cityOver:null),over=new Map(cityOver),rate=new Map();let moved=false;
   for(const e of ev.list){
     if(e.claim)continue;
     if(!(e.c>=0&&e.c<N)||isCap[e.c]||MAP.T[e.c]<2)continue;
@@ -21552,10 +21619,9 @@ function territory(extra){
       const q=rate.get(e.src)||[];while(q.length&&q[0]<e.t-DAY)q.shift();if(q.length>=16)continue;q.push(e.t);rate.set(e.src,q);
     }
     if(cur===oi&&!over.has(e.c))continue;
-    if(!over.has(e.c)&&cur>=0&&cur!==oi&&base.owner[e.c]===cur)lostPre[cur]++;
     over.set(e.c,oi);how.set(e.c,2);moved=true;
   }
-  const fin=moved?grow(lostPre.some(v=>v)?list.map((x,i)=>({...x,budget:Math.max(1,x.budget-lostPre[i])})):list,over):base,owner=fin.owner,count=fin.held;
+  const fin=moved?landMoved(base,over,L):base,owner=fin.owner,count=fin.held;
   const occ=new Uint8Array(N),lost=new Int32Array(L),orig=new Int16Array(N).fill(-1);
   for(const [c,i] of over){if(how.get(c)!==2)continue;const b=nat.has(c)?nat.get(c):base.owner[c];if(owner[c]===i&&b!==i){occ[c]=1;orig[c]=b;if(b>=0)lost[b]++;}}
   const sx=new Float64Array(L),sy=new Float64Array(L);
@@ -22948,7 +23014,7 @@ function bldFreeFactory(ct,T){const first=cityState(T).all.find(q=>q.active&&q.h
 function bldGain(ct,k,T){
   const tq=ct&&ct.tr&&ct.tr[k]&&Array.isArray(ct.done)&&ct.done.includes(k)?ct.tr[k]:null,B=tq?bEff(k,tq.t,tq.ln):BUILDINGS[k];if(!B||!ct||!ct.active||!(ct.hi>=0)||!Array.isArray(ct.dist))return null;
   T=T||territory();const x=T.list[ct.hi],pol=(x&&!x.npc&&x.n&&x.n.policies)||{};
-  if(B.lead&&!ldrOf(x&&x.n).includes(B.lead))return {dorm:true,lm:1,mk:1,res:[],up:[],x:[]};
+  if(B.lead&&!ldrWork(x&&x.n).includes(B.lead))return {dorm:true,lm:1,mk:1,res:[],up:[],x:[]};
   const built=ct.done.includes(k),lm=built&&ct.ug&&ct.ug[k]?CX_LV[ct.ug[k]]:1,mk=ct.mk||1,om=lm*mk,res=[],up=[],xs=[];
   if(B.res)for(const r in B.res){const [m,f0]=B.res[r],f=f0+(k==='gardens'&&r==='food'&&pol.gardensAqueduct?1:0),land=m?bldLandYield(ct,r):0;res.push({r,m,f,land,v:(m*land+f)*om});}
   if(B.up)for(const r in B.up){
@@ -23075,7 +23141,7 @@ function drawCities(g,T,scr,off,col,s,boxes){
     mfxCity(g,px,py,col);
     if(ct.done.some(k=>BUILDINGS[k].w)){g.beginPath();g.arc(px,py,7,0,Math.PI*2);g.lineWidth=1.4;g.strokeStyle=col.ink;g.stroke();}
     if(s*HEX_W<9)continue;
-    const tw=g.measureText(ct.nm).width,b={x:px-tw/2-2,y:py+6,w:tw+4,h:fs+3};
+    const tw=mapTW(g,ct.nm),b={x:px-tw/2-2,y:py+6,w:tw+4,h:fs+3};
     if(boxes.some(q=>q.x<b.x+b.w&&b.x<q.x+q.w&&q.y<b.y+b.h&&b.y<q.y+q.h))continue;
     boxes.push(b);mfxLabel(g,ct.nm,px,py+fs+5,col,3);
   }
@@ -23635,6 +23701,9 @@ function claimFrontier(T){
   landMemo={T,me,hk,fr,bs};return fr;
 }
 function claimableBlocks(T){claimFrontier(T);return landMemo.bs;}
+/* every free hex the player could claim now, block by block in claim order (blockPlan), as a list and a set: the map
+   draws them twice (shaded with a dashed edge, and the overlay's pulse), so a pass works them out once */
+function claimCells(T){return passGet('claimCells',T,()=>{const set=new Set(),list=[];for(const b of claimableBlocks(T))for(const c of blockPlan(T,b))if(freeCell(T,c)&&!set.has(c)){set.add(c);list.push(c);}return {set,list};});}
 /* the free hexes of a block that join up with your land, nearest first. from, a hex of the block the player chose,
    comes first, after the hexes that lead to it from your land: a claim of fewer hexes than the block holds (fewer
    credits) takes the chosen one, not the block's first hexes by number, which once took other land than the one
@@ -24770,7 +24839,7 @@ function logLine(l,n,id){
     case 'war':return `War was declared on ${tg()}.`;case 'peace':return `Peace was made with ${tg()}.`;case 'conq':return `A hex of ${l.fx} was taken from ${tg()}.`;case 'lost':return `${tg()} seized a hex of ${l.fx}.`;
     case 'alfound':return `The alliance ${l.b} was founded.`;case 'aljoin':return `${n.name} joined ${l.b}.`;case 'alleave':return `${n.name} left ${l.b}.`;
     case 'trade':return `A trade deal was signed with ${tg()}.`;case 'tradeend':return `A trade deal with ${tg()} ended.`;
-    case 'cityren':return `The city of ${l.b} was renamed ${l.a}.`;case 'rvren':return l.b?`${cap1(l.b)} was renamed ${l.a}.`:`A river was named ${l.a}.`;case 'cityab':return `The city of ${l.a} on ${l.fx} was abandoned.`;case 'bidoff':return `The bid to host ${l.a} was withdrawn.`;
+    case 'cityren':return `The city of ${l.b} was renamed ${l.a}.`;case 'rvren':return l.b?`${cap1(l.b)} was renamed ${l.a}.`:`A river was named ${l.a}.`;case 'wtren':return l.b?`${cap1(l.b)} was renamed ${l.a}.`:l.fx==='s'?`The sea off its coast was named ${l.a}.`:`A lake was named ${l.a}.`;case 'cityab':return `The city of ${l.a} on ${l.fx} was abandoned.`;case 'bidoff':return `The bid to host ${l.a} was withdrawn.`;
     case 'city':return `The city of ${l.a} was founded on ${l.fx}.`;case 'wonder':return `The ${l.b} was completed in ${l.a}.`;
     case 'sack':return `The ${l.a}, ${l.b}, was sacked.`;case 'leader':return `${l.a} ${l.b} took office as leader.`;
     case 'games':return `The national team won ${l.fx} at ${l.a}.`;case 'host':return `${n.name} hosted ${l.a}.`;case 'hostwin':return `${n.name} won the right to host ${l.a}.`;
@@ -25772,7 +25841,7 @@ function drawSites(g,scr,off,col,s,boxes,kind,known){
     if(!found&&at!=null)return;
     if(!found&&st.lost){if(!known&&xpSeen(si))xpDiamond(g,px,py,z>=11?9:6.5,col,st.k,z>=11);return;}
     if(found){g.beginPath();for(let k=0;k<10;k++){const a=-Math.PI/2+k*Math.PI/5,r=k%2?2.6:6;g.lineTo(px+Math.cos(a)*r,py+Math.sin(a)*r);}g.closePath();g.fillStyle=col.stamp;g.fill();g.lineWidth=1.4;g.strokeStyle=col.sheet;g.stroke();
-      if(z>=11){const nm=siteName(si);g.font='600 11px '+MAP_FONT;const tw=g.measureText(nm).width,b={x:px-tw/2-3,y:py+7,w:tw+6,h:14};if(!boxes.some(q=>q.x<b.x+b.w&&b.x<q.x+q.w&&q.y<b.y+b.h&&b.y<q.y+q.h)){boxes.push(b);mfxLabel(g,nm,px,py+14,col,3);}}}
+      if(z>=11){const nm=siteName(si);g.font='600 11px '+MAP_FONT;const tw=mapTW(g,nm),b={x:px-tw/2-3,y:py+7,w:tw+6,h:14};if(!boxes.some(q=>q.x<b.x+b.w&&b.x<q.x+q.w&&q.y<b.y+b.h&&b.y<q.y+q.h)){boxes.push(b);mfxLabel(g,nm,px,py+14,col,3);}}}
     else if(!known){const big=z>=11;g.beginPath();g.arc(px,py,big?9:6.6,0,Math.PI*2);g.fillStyle=col.sheet;g.fill();g.lineWidth=1.4;g.strokeStyle=col.ink;g.stroke();
       /* close up, the rumour shows its kind (a waterfall, a wreck…); further out a question mark */
       if(big){g.save();g.translate(px,py);g.scale(0.5,0.5);g.translate(-12,-12);g.lineWidth=2.8;g.lineCap='round';g.lineJoin='round';g.strokeStyle=col.ink;g.stroke(xpPath(st.k));g.restore();}
@@ -28541,6 +28610,7 @@ achDef('odd','odd-wildlife','b','Protected Species','Protect your national anima
 achParts('odd','odd-weather','s','Weather Permitting','Run Weather Control and a Planetary Defence Force at once, and keep an eye on the sky.',x=>[achPP(x,'weatherControl'),achPP(x,'planetaryDefence')]);
 achDef('odd','odd-rename','b','What’s in a Name?','Rename a city.',1,x=>aT(x,'log:cityren'));
 achDef('odd','odd-here','g','I Was Here','Be one of the nations in Edictum when it reached 50 players, and open the gift.',1,x=>achYes(x.n.m50===1),{fm:'bool'});
+achDef('odd','odd-here200','p','I Was Here at 200','Be one of the nations in Edictum when it reached 200 nations, and open one of its gifts.',1,x=>achYes(m200Bits(x.n)>0),{fm:'bool'});
 achDef('odd','odd-ghost','b','Ghost Town','Abandon a city.',1,x=>aT(x,'log:cityab'),{sec:'The last one out turned off the lights.'});
 achParts('odd','odd-siesta','b','Long Weekend','Have a Protected Siesta and a Four-Day Week at once.',x=>[achPP(x,'siesta'),achPP(x,'fourDay')],{sec:'Productivity is a state of mind, mostly asleep.'});
 achParts('odd','odd-killjoy','b','Killjoy','Have Sugar Prohibition and a Junk Food Tax at once.',x=>[achPP(x,'sugarBan'),achPP(x,'junkFoodTax')],{sec:'Pudding is now a matter for the police.'});
@@ -28814,24 +28884,24 @@ document.addEventListener('click',e=>{
    u (which a forger could fake, an accepted risk). Personal display settings stay in this browser. */
 const czHas=(o,k)=>typeof k==='string'&&Object.prototype.hasOwnProperty.call(o,k);
 const czU=id=>czHas(UNLOCKS,id)?UNLOCKS[id]:null;
-const CZ_SHIELDS={heater:'Heater',french:'French',iberian:'Iberian',swiss:'Swiss',oval:'Cartouche',lozenge:'Lozenge',banner:'Banner',kite:'Norman kite',round:'Roundel',polish:'Polish',tudor:'Tudor',mural:'Mural',royal:'Royal crown',midnight:'Midnight Tag',scutum:'Scutum',rope:'Rope-edge',gothic:'Gothic arch',bouche:'Bouche',gable:'Stepped Gable',triumph:'Triumphal arch',zimbabwe:'Great Zimbabwe'};
+const CZ_SHIELDS={heater:'Heater',french:'French',iberian:'Iberian',swiss:'Swiss',oval:'Cartouche',lozenge:'Lozenge',banner:'Banner',kite:'Norman kite',round:'Roundel',polish:'Polish',tudor:'Tudor',mural:'Mural',royal:'Royal crown',midnight:'Midnight Tag',scutum:'Scutum',rope:'Rope-edge',gothic:'Gothic arch',bouche:'Bouche',gable:'Stepped Gable',triumph:'Triumphal arch',zimbabwe:'Great Zimbabwe',twin:'Twin arches'};
 /* shields sold in the Shop, each with the piece that unlocks it */
 const CZ_SH_SHOP={midnight:'sh-midnight',scutum:'sh-scutum',rope:'sh-rope',gable:'sh-gable',zimbabwe:'sh-zimbabwe'};
 /* shields that open with the nation's growth: the Mural shield, its top a town wall, with five cities (kept once chosen) */
 const CZ_SH_CITY={mural:5};
 /* shields that came in a milestone's gift, kept once chosen: the Royal crown in the 50-player gift (n.m50), the
-   Triumphal arch in the 100-nation gift's regalia (n.m100, m100Got) */
-const CZ_SH_GIFT={royal:50,triumph:100};
-const czShGot=(n,s)=>CZ_SH_GIFT[s]===100?m100Got(n):n.m50===1;
+   Triumphal arch in the 100-nation gift's regalia (n.m100, m100Got), the Twin arches in the 200-nation gift's (n.m200, m200Got) */
+const CZ_SH_GIFT={royal:50,triumph:100,twin:200};
+const czShGot=(n,s)=>CZ_SH_GIFT[s]===200?m200Got(n):CZ_SH_GIFT[s]===100?m100Got(n):n.m50===1;
 const czShOk=(n,s)=>CZ_SH_SHOP[s]?(!!n&&(czMine().has(CZ_SH_SHOP[s])||!!(cz(n).a&&cz(n).a.s===s))):CZ_SH_GIFT[s]?!!n&&(czShGot(n,s)||!!(cz(n).a&&cz(n).a.s===s)):!CZ_SH_CITY[s]||(!!n&&((n.cities||[]).length>=CZ_SH_CITY[s]||!!(cz(n).a&&cz(n).a.s===s)));
-const czShHow=s=>s==='midnight'?'Part of the Black Friday Pack in the Shop.':s==='scutum'?'Part of the Old Republic Pack in the Shop.':s==='rope'?'Part of the Age of Sail Pack in the Shop.':s==='gable'?'Part of the Tulip Mania Pack in the Shop.':s==='zimbabwe'?'Part of the African Kingdoms Pack in the Shop.':CZ_SH_GIFT[s]?`The ${CZ_SHIELDS[s]} shield was a gift to the nations that were here when Edictum reached ${CZ_SH_GIFT[s]===100?'100 nations':'50 players'}.`:`Found ${CZ_SH_CITY[s]===5?'five':CZ_SH_CITY[s]} cities to use the ${CZ_SHIELDS[s]} shield.`;
+const czShHow=s=>s==='midnight'?'Part of the Black Friday Pack in the Shop.':s==='scutum'?'Part of the Old Republic Pack in the Shop.':s==='rope'?'Part of the Age of Sail Pack in the Shop.':s==='gable'?'Part of the Tulip Mania Pack in the Shop.':s==='zimbabwe'?'Part of the African Kingdoms Pack in the Shop.':CZ_SH_GIFT[s]?`The ${CZ_SHIELDS[s]} shield was a gift to the nations that were here when Edictum reached ${CZ_SH_GIFT[s]===200?'200 nations':CZ_SH_GIFT[s]===100?'100 nations':'50 players'}.`:`Found ${CZ_SH_CITY[s]===5?'five':CZ_SH_CITY[s]} cities to use the ${CZ_SHIELDS[s]} shield.`;
 const CZ_TINCT={or:['Or','#E2B13C'],argent:['Argent','#F2F1EA'],gules:['Gules','#C0282D'],azure:['Azure','#2457A6'],vert:['Vert','#23804A'],purpure:['Purpure','#743A8E'],rose:['Rose','#E07AAA'],tenne:['Tenné','#D0671F'],celeste:['Celeste','#6FA8DC'],murrey:['Murrey','#8A2846'],cendree:['Cendrée','#9EA3A8'],brunatre:['Brunâtre','#7A4A28'],carnation:['Carnation','#EDB68F'],sable:['Sable','#1E1E1E'],
-  lime:['Lime','#7CC93A'],turq:['Turquoise','#1FA6A0'],nuit:['Night blue','#17224D'],gilt:['Shining gold','#E6B640']};
+  lime:['Lime','#7CC93A'],turq:['Turquoise','#1FA6A0'],nuit:['Night blue','#17224D'],gilt:['Shining gold','#E6B640'],plat:['Platinum','#C3CCD6']};
 /* Shining gold is a metal, painted with a glint that sweeps across it (czGiltDef) */
-const CZ_METAL={or:1,argent:1,gilt:1};
-/* the last four are earned, each with an achievement (UNLOCKS tn-*), and kept to the colours freely held where they are not:
-   a nation that does not hold one shows its free neighbour instead */
-const CZ_TN_U={lime:'tn-lime',turq:'tn-turq',nuit:'tn-nuit',gilt:'tn-gilt'},CZ_TN_FB={lime:'vert',turq:'celeste',nuit:'azure',gilt:'or'};
+const CZ_METAL={or:1,argent:1,gilt:1,plat:1};
+/* the last five are earned, four each with an achievement (UNLOCKS tn-*) and Platinum in the 200-nation gift, and kept to
+   the colours freely held where they are not: a nation that does not hold one shows its free neighbour instead */
+const CZ_TN_U={lime:'tn-lime',turq:'tn-turq',nuit:'tn-nuit',gilt:'tn-gilt',plat:'tn-plat'},CZ_TN_FB={lime:'vert',turq:'celeste',nuit:'azure',gilt:'or',plat:'argent'};
 const czTnOk=t=>!CZ_TN_U[t]||czMine().has(CZ_TN_U[t]);
 const czTnKey=id=>Object.keys(CZ_TN_U).find(t=>CZ_TN_U[t]===id)||'';
 /* swap any earned tincture a nation does not hold for its free neighbour (holds: id => bool) */
@@ -29175,6 +29245,8 @@ function czShieldPath(s){switch(s){
   case 'scutum':return 'M18,4H82Q92,4 92,14Q95,60 92,106Q92,116 82,116H18Q8,116 8,106Q5,60 8,14Q8,4 18,4Z';
   /* the 100-nation gift: a triumphal arch's rounded attic rising from square shoulders */
   case 'triumph':return 'M6,24H22C22,11 34,3 50,3C66,3 78,11 78,24H94V58C94,90 74,106 50,117C26,106 6,90 6,58Z';
+  /* the 200-nation gift: two round arches side by side, meeting over the middle */
+  case 'twin':return 'M6,26C6,13 15,5 28,5C40,5 48,12 50,21C52,12 60,5 72,5C85,5 94,13 94,26V58C94,90 74,106 50,117C26,106 6,90 6,58Z';
   default:return 'M6,6H94V48C94,80 74,102 50,116C26,102 6,80 6,48Z';}}
 function czDivBody(d,b,sp){
   const R=(x,y,w,h)=>`<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${b}"/>`,P=p=>`<path d="${p}" fill="${b}"/>`,K=(p,w)=>`<path d="${p}" fill="none" stroke="${b}" stroke-width="${w}"/>`;
@@ -29513,7 +29585,7 @@ VIEWS_EXT.customise=now=>{
   const sec=(k,num,title,hint,body)=>`<section class="cz-sec" id="cz-sec-${k}"><h2 class="fs-l"><span class="fs-n">${num}</span>${title}</h2>${hint?`<p class="hint fs-hint">${hint}</p>`:''}${body}</section>`;
   /* the arms designer: the shield stays in view beside its controls, tinctures are swatches, the charge's in a popover */
   const a=c.a||czDefaultArms(n),armB=(f,v,inner,label,on,isNew)=>`<button type="button" id="cz-a-${f}-${v||'none'}" class="cz-mt${on?' on':''}" data-act="cz-arm" data-f="${f}" data-v="${v}" aria-pressed="${on}"><span class="cz-mtv" aria-hidden="true">${inner}</span><span class="cz-mtn">${esc(label)}</span>${isNew?'<span class="cz-new">New</span>':''}</button>`;
-  /* the four earned tinctures sit at the end, locked (with how to earn them) until their achievement is in; the field's
+  /* the five earned tinctures sit at the end, locked (with how to earn them) until their achievement or gift is in; the field's
      row carries data-czid, where an unlock's link lands */
   const tinc=(f,cur,lab)=>`<div class="cz-tincs" role="group" aria-label="${esc(lab)}">${Object.keys(CZ_TINCT).map(t=>{const u=CZ_TN_U[t],lk=!!u&&!has(u),nm=CZ_TINCT[t][0],how=lk?esc(unlockHow(u)):'';
     return `<button type="button" id="cz-a-${f}-${t}" class="cz-tinc${cur===t?' on':''}${lk?' locked':''}" data-act="cz-arm" data-f="${f}" data-v="${t}"${u&&f==='t0'?` data-czid="${u}"`:''} aria-pressed="${cur===t}" aria-label="${nm}${lk?', locked. '+how:''}" title="${nm}${lk?': '+how:CZ_METAL[t]?' (a metal)':' (a colour)'}">${czTnSw(t)}${lk?CZ_LOCK:''}${u&&fr.has(u)?'<span class="cz-tnew" aria-hidden="true"></span>':''}</button>`;}).join('')}</div>`;
@@ -30188,8 +30260,8 @@ function mfxCaps(g,T,scr,off,col){
 
 /* The overlay. A canvas over each large map draws what moves: glints on the open sea, surf on the
    coasts, migrants, newly claimed and conquered land, the night and the hover. The map beneath is only
-   redrawn when the view changes. One loop serves every overlay at about 30 frames a second (fewer once
-   nobody has touched the page for a while, see mfxStep), and runs only while a map is on screen, the tab
+   redrawn when the view changes. One loop serves every overlay, 15 frames a second for the sea and 30 for
+   claims and hover fades (none once nobody has touched the page for a while, see mfxTick), and runs only while a map is on screen, the tab
    is visible and motion is allowed; it holds still while the map moves (mfxHold). Reduced motion leaves still
    frames and simple fades. The night follows game time: a year is two real days, so a day is
    YEAR_MS/365, about 7.9 minutes. */
@@ -30252,16 +30324,35 @@ function mfxObserve(f){
 function mfxDrop(f){MFX.delete(f);const wrap=f.cv.parentElement;if(mfxIO&&wrap)mfxIO.unobserve(wrap);f.cv._mfx=null;}
 function mfxBusy(f,rm){return MFX_LAYERS.some(L=>{try{return !!(L.busy&&L.busy(f,rm));}catch(e){return false;}})||(f.kind==='main'&&mfxEv.length>0)||(f.hov>=0&&f.hovA<1)||f.prevA>0||(!rm&&(f.gl.length>0||!!f.sf||!!(f.mig&&f.mig.length)));}
 function mfxKick(){if(!mfxRaf&&!document.hidden&&MFX.size)mfxRaf=requestAnimationFrame(mfxTick);}
-/* 30 frames a second while someone is using the page; 12 after 20 seconds without a touch, key or pointer
-   movement, and 4 after two minutes, until the next input */
-function mfxStep(){let last=0;try{last=QUIET.last;}catch(e){}const idle=Date.now()-last;return idle>120000?250:idle>20000?1000/12:MFX_STEP;}
+/* The sea at rest (2026-11-20). It moved at 30 frames a second while the page was in use, 12 after 20 seconds without
+   a touch and 4 after two minutes, for as long as the map stayed open: about a fourteenth of a laptop's main thread
+   and half of a phone's, with nobody looking. Now the glints, the surf and the pulse of claimable land move at 15
+   frames a second (MFX_AMB), slow enough to read the same, and stop 30 seconds after the last touch, key, wheel or
+   scroll (MFX_PARK), or when the window loses focus: the last frame stays on screen, and every 10 seconds
+   (MFX_NIGHT_EVERY) a frame is drawn with the sea held still, so the night shade still follows the game's day. Any
+   input or the window's focus sets it going again (mfxWake). Claims, conquests and hover fades keep 30 frames a
+   second and are never held. */
+/* EDICTUM_MFX_PARK and EDICTUM_MFX_NIGHT: the tests' shorter waits */
+const MFX_AMB=1000/15,MFX_PARK=Math.max(500,Number(window.EDICTUM_MFX_PARK)||30000),MFX_NIGHT_EVERY=Math.max(500,Number(window.EDICTUM_MFX_NIGHT)||10000);
+let mfxBlur=false,mfxParkT=0,mfxParkOn=false,mfxFocusAt=0;
+/* coming back to the window counts as a touch */
+function mfxParked(){let last=0;try{last=QUIET.last;}catch(e){}return mfxBlur||Date.now()-Math.max(last,mfxFocusAt)>MFX_PARK;}
 function mfxTick(ts){
-  mfxRaf=0;if(document.hidden||mfxFreeze)return;const rm=mfxRM(),step=mfxStep();let again=false;
-  for(const f of MFX){if(!f.cv.isConnected){mfxDrop(f);continue;}if(!f.vis||f.held||!mfxBusy(f,rm))continue;again=true;
-    /* claims, conquests and hover fades keep the full rate */
-    const st=(f.kind==='main'&&mfxEv.length)||f.prevA>0||(f.hov>=0&&f.hovA<1)?MFX_STEP:step;if(ts-f.last>=st-4){f.last=ts;mfxFrame(f,ts);}}
+  mfxRaf=0;if(mfxParkT){clearTimeout(mfxParkT);mfxParkT=0;}if(document.hidden||mfxFreeze)return;
+  const rm=mfxRM(),park=mfxParked();let again=false,held=false;
+  for(const f of MFX){if(!f.cv.isConnected){mfxDrop(f);continue;}if(!f.vis||f.held||!mfxBusy(f,rm))continue;
+    /* claims, conquests and hover fades keep the full rate, and keep going while the rest holds still */
+    const fast=(f.kind==='main'&&mfxEv.length)||f.prevA>0||(f.hov>=0&&f.hovA<1);
+    if(park&&!fast){held=true;if(mfxNightOn&&ts-f.last>=MFX_NIGHT_EVERY-4){f.last=ts;mfxFrame(f,f.lt||ts);}continue;}
+    again=true;if(ts-f.last>=(fast?MFX_STEP:MFX_AMB)-4){f.last=ts;mfxFrame(f,ts);}}
+  mfxParkOn=held&&!again;
   if(again)mfxRaf=requestAnimationFrame(mfxTick);
+  else if(held&&mfxNightOn)mfxParkT=setTimeout(()=>{mfxParkT=0;mfxKick();},MFX_NIGHT_EVERY);
 }
+function mfxWake(){if(!mfxParkOn)return;mfxParkOn=false;mfxKick();}
+for(const t of ['pointerdown','pointermove','keydown','wheel','touchstart','scroll'])window.addEventListener(t,mfxWake,{capture:true,passive:true});
+window.addEventListener('blur',()=>{mfxBlur=true;});
+window.addEventListener('focus',()=>{mfxBlur=false;mfxFocusAt=Date.now();mfxWake();});
 /* hover moves to the overlay: a quick fade in and out instead of a full redraw */
 function mfxHover(cv){const f=cv&&cv._mfx;if(!f||!f.ov.isConnected)return false;if(f.held)return true;if(mfxRM()||!f.vis)mfxFrame(f,performance.now());mfxKick();return true;}
 /* while the map moves the overlay's sea, coasts, migrants and hover pause and leave it; only the night
@@ -34335,6 +34426,7 @@ const DSP_LOG={
   incident:{sec:'world',w:4,kick:'Exploration',go:'explore',h:['{D} explorers stray onto {X} land'],b:'Explorers from {N} were found on {X} soil near {FX}, holding the map upside down.'},
   city:{sec:'society',w:5,kick:'Cities',go:'cities',h:['{N} founds the city of {A1}','A new city rises: {A1}'],b:'{N} has founded {A1} on {FX}. Its first bylaw concerns parking.'},
   rvren:{sec:'society',w:3,kick:'Rivers',go:'map',h:['{N} names a river {A1}','A river in {N} is now {A1}'],b:'Cartographers in {CAP} have put a new name on the map: {A1}. Their colleagues across the region are reaching for the eraser.'},
+  wtren:{sec:'society',w:3,kick:'Lakes and seas',go:'map',h:['{N} names {A1}','A new name on the water: {A1}'],b:'Chart makers in {CAP} have written {A1} across the water. The fish have not been told.'},
   cityren:{sec:'society',w:3,kick:'Cities',go:'cities',h:['{B} becomes {A1}'],b:'{N} has renamed the city of {B} to {A1}. Residents have until Friday to update their letterheads.'},
   cityab:{sec:'society',w:4,kick:'Cities',go:'cities',h:['{N} abandons {A1}'],b:'The last resident of {A1}, on {FX}, turned off the lights on the way out.'},
   wonder:{sec:'culture',w:7,kick:'Wonders',go:'cities',h:['{N} completes the {B}','A wonder for {N}: the {B}'],b:'The {B} in {A1} is finished at last. Visitors are asked not to touch it, lean on it or ask how much it cost.'},
@@ -35562,6 +35654,7 @@ function rvNameProblem(r,nm){
   const f=rvFold(nm);
   for(const o of RV.list){if(o===r)continue;const hit=[o.name,o.name0].concat(o.nm?[...o.nm.values()]:[]).find(x=>x&&rvFold(x)===f);if(hit)return `There is already a river called ${cap1(hit)} in ${REGION}.`;}
   for(const L of RV.lakes)if(rvFold(L.name)===f)return `${L.name} is a lake in ${REGION} already.`;
+  if(typeof wnTaken==='function'){const w=wnTaken(f,null);if(w)return w;}
   return '';
 }
 /* a name as typed, with a leading “The” written as the map writes it: “the Silverflow” */
@@ -35580,7 +35673,7 @@ function rvMineOf(T,r,mi){const me=myId(),most=rvMost(T,r,mi);return {most,mine:
 function rvMine(key){
   if(!S.nation||!rvData())return 'The rivers are not ready yet.';const T=territory(),mi=T.byId[myId()],id=RV.byKey.get(key),r=id===undefined?null:RV.list[id];
   if(!r)return 'That river is not on this map.';if(mi===undefined||!(rvStretch(T,r,mi)>0||rvMost(T,r,mi)))return 'You can name a river only where it runs through your land.';
-  rvSync(T);return [T,r];
+  rvSync(T);wnSync(T);return [T,r];
 }
 function rvRename(key,raw){
   const m=rvMine(key);if(typeof m==='string'){S.rvnErr=m;updateMapPanel();return false;}
@@ -35744,7 +35837,7 @@ const rvGW=new Map();
 function rvGlyphW(g,font,ch){const k=font+ch;let w=rvGW.get(k);if(w===undefined){w=g.measureText(ch).width;rvGW.set(k,w);}return w;}
 function rvHit(boxes,b){return boxes.some(q=>q.x<b.x+b.w&&b.x<q.x+q.w&&q.y<b.y+b.h&&b.y<q.y+q.h);}
 function rvNames(M){
-  const G=rvGeom();if(!G)return;rvSync(M.T);const {g,s,ox,oy,w,h,boxes,col}=M,hx=s*HEX_W;if(hx<11)return;
+  const G=rvGeom();if(!G)return;rvSync(M.T);wnSync(M.T);const {g,s,ox,oy,w,h,boxes,col}=M,hx=s*HEX_W;if(hx<11)return;
   const C=rvCols(col),fs=hx>=26?13:12,font='italic 600 '+fs+'px '+MAP_FONT,sp=1.2;g.font=font;g.textAlign='left';g.textBaseline='alphabetic';g.lineJoin='round';
   const placed=[],avoid=[];
   for(const L of RV.lakes){let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;for(let k=0;k<L.loop.length;k+=2){const x=L.loop[k]*s+ox,y=L.loop[k+1]*s+oy;if(x<x0)x0=x;if(x>x1)x1=x;if(y<y0)y0=y;if(y>y1)y1=y;}if(x1>0&&x0<w&&y1>0&&y0<h)avoid.push({x:x0-2,y:y0-2,w:x1-x0+4,h:y1-y0+4});}
@@ -35771,14 +35864,14 @@ function rvNames(M){
           g.setTransform(M.dpr,0,0,M.dpr,0,0);boxes.push(...bx);placed.push({r:pk,m:mid});count++;}}
       /* a stretch too short for its name to follow it (one a player named) has the name written level above its middle */
       if(!count&&pt.by&&pt.b>pt.a){const half=(cs[pt.a]+cs[pt.b])/2;let k=pt.a;while(k<pt.b-1&&cs[k+1]<half)k++;const t=(half-cs[k])/((cs[k+1]-cs[k])||1),mx=X[k]+(X[k+1]-X[k])*t,my=Y[k]+(Y[k+1]-Y[k])*t;
-        const tw=g.measureText(pt.nm).width,y=my-fs*0.75,b={x:mx-tw/2-3,y:y-fs,w:tw+6,h:fs+5};
+        const tw=mapTW(g,pt.nm),y=my-fs*0.75,b={x:mx-tw/2-3,y:y-fs,w:tw+6,h:fs+5};
         if(mx-tw/2>4&&mx+tw/2<w-4&&y-fs>4&&my<h-8&&!rvHit(boxes,b)&&!rvHit(avoid,b)){g.setTransform(M.dpr,0,0,M.dpr,0,0);g.textAlign='center';
           g.globalAlpha=0.85;g.lineWidth=3.4;g.strokeStyle=col.sheet;g.strokeText(pt.nm,mx,y);g.globalAlpha=1;g.fillStyle=C.i;g.fillText(pt.nm,mx,y);g.textAlign='left';boxes.push(b);placed.push({r:pk,m:half});}}
     }
   }
   /* lake names, close up */
   if(hx<20)return;g.font='italic 600 '+(fs-1)+'px '+MAP_FONT;g.textAlign='center';
-  for(const L of RV.lakes){const x=L.x*s+ox,y=L.y*s+oy+HEX_R*1.15*s+fs;if(x<-80||x>w+80||y<0||y>h+20)continue;const tw=g.measureText(L.name).width,b={x:x-tw/2-3,y:y-fs,w:tw+6,h:fs+5};
+  for(const L of RV.lakes){const x=L.x*s+ox,y=L.y*s+oy+HEX_R*1.15*s+fs;if(x<-80||x>w+80||y<0||y>h+20)continue;const tw=mapTW(g,L.name),b={x:x-tw/2-3,y:y-fs,w:tw+6,h:fs+5};
     if(rvHit(boxes,b))continue;boxes.push(b);g.globalAlpha=0.85;g.lineWidth=3.4;g.strokeStyle=col.sheet;g.strokeText(L.name,x,y);g.globalAlpha=1;g.fillStyle=C.i;g.fillText(L.name,x,y);}
 }
 
@@ -35879,12 +35972,12 @@ function rvHexText(cell){
   if(li!==undefined)return RV.lakes[li].name+(bn>0?' · fertile':'');
   if(!r)return '';return 'On '+rvLabelAt(r,cell)+(bn>0?' · fertile':'');
 }
-MAP_TIP.push(ctx=>{if(ctx.kind==='mini'||ctx.kind==='atlas'||ctx.cell<0)return null;try{if(rvData())rvSync(mapTerr(ctx.kind));}catch(e){}const t=rvHexText(ctx.cell);if(!t)return null;
+MAP_TIP.push(ctx=>{if(ctx.kind==='mini'||ctx.kind==='atlas'||ctx.cell<0)return null;try{if(rvData()){const T=mapTerr(ctx.kind);rvSync(T);wnSync(T);}}catch(e){}const t=rvHexText(ctx.cell);if(!t)return null;
   try{const br=rvBridges(mapTerr(ctx.kind)).find(b=>b.c===ctx.cell);if(br)return t+(br.done?' · bridge':' · bridge being built');}catch(e){}return t;});
 MAP_PANEL.push(ctx=>{
   const c=ctx.cell;if(c==null||c<0||!rvData()||MAP.T[c]<2)return '';const li=RV.lakeAt.get(c),r=riverOf(c),bn=RV.bonus[c];if(li===undefined&&!r)return '';
   const T=territory(),mi=T.byId[myId()],mine=mi!==undefined&&T.owner[c]===mi&&S.mapCell===c,food=bn>0?` Fertile: +${fmtAmt(bn)} food a day.`:'';
-  rvSync(T);
+  rvSync(T);wnSync(T);
   let h=`<div class="rv-pn"><p class="eyebrow">${li!==undefined?'Lake':r.cls>=2?'River':'Stream'}</p><p class="rv-l"><b>${esc(li!==undefined?RV.lakes[li].name:cap1(rvLabelAt(r,c)))}</b>${li!==undefined&&r?' · fed by '+esc(rvLabelAt(r,c)):''}.${food}</p>`;
   const dir=rvBridgeEdge(c);
   if(dir>=0){const b=rvBridges(T).find(x=>x.c===c),rv=RV.list[RV.E6[c*6+dir]-1];
@@ -35896,14 +35989,253 @@ MAP_PANEL.push(ctx=>{
         <p class="hint" style="margin-top:6px">${esc(p||`Costs ${costText(rvBridgeCost(S.nation))} and takes ${fmtDur(rvBridgeHours(S.nation)*3600e3)}. You have ${n} of ${cap} ${cap===1?'bridge':'bridges'} (one for every ${BRIDGE_PER} hexes).`)}</p>${S.rvMsg?`<p class="err">${esc(S.rvMsg)}</p>`:''}`;}
     else h+=`<p class="hint">Armies attacking across ${esc(rvLabelAt(rv,c))} lose ${Math.round((1-RV_CROSS)*100)}% of their strength unless a bridge carries them.</p>`;}
   if(li===undefined&&r)h+=rvnPanel(T,r,mi,mine,c);
+  if(li!==undefined)h+=wnPanel(T,c,false);
   return h+'</div>';
 });
+/* ───────── lake and sea names chosen by players (20 November 2026) ─────────
+   A nation names the lakes and the sea within WN_REACH (5) hexes of its land, counted hex by hex from any hex it holds,
+   over land or water.
+   A lake (water shut in by land, lakeMap, or one of the small lakes of the river network, RV.lakes) carries one name.
+   Of the nations that named it and still hold land within reach, the nearest one's name is on the map (the fewest hexes
+   from its land to the lake: a nation holding the lake itself is nearest of all); as near, the name given first. A lake
+   of the river network keeps the map's own name until a nation names it.
+   The sea: a nation's waters are the hexes of sea within reach of its land. Where land or distance breaks them, they
+   fall into pieces, and a name goes on one piece: the one holding the hex it was given at. Where the named waters of
+   two nations overlap, each hex carries the nearer nation's name; as near, the name given first. Neighbours may give
+   their waters the same name, and one label then covers them.
+   Names follow the land: lose the land within reach and the name goes with it, win it back and the name comes back.
+   Kept in each namer's own record, n.wtn = [{r: region, c: hex, n: name, t: when}], c being a hex of the lake or of
+   the sea, where the name was given. A hidden nation's names are not shown.
+   After wnSync(T): WN.lake (key → the names given for that lake, the one on the map first), WN.sea (sea hex → the names
+   that reach it, the one on the map first), WN.parts (runs of sea under one name, for the labels), WN.lakes (named
+   lakes of open water, for theirs), and every lake of the river network has its name (L.name; L.name0 the map's). */
+const WN_REACH=5,WTN_MAX=30;
+NORM_HOOKS.push((n,d)=>{
+  const a=Array.isArray(d.wtn)?d.wtn:[],seen=new Map();
+  for(const e of a){if(!e||typeof e!=='object'||typeof e.r!=='string'||!REG_BY_ID[e.r]||!Number.isInteger(e.c)||e.c<0||e.c>=4e6)continue;
+    const nm=c3CleanName(e.n,RVN_LEN);if(nm.length<2)continue;const k=e.r+':'+e.c;seen.delete(k);seen.set(k,{r:e.r,c:e.c,n:nm,t:typeof e.t==='number'&&isFinite(e.t)?e.t:0});}
+  const out=[...seen.values()].slice(-WTN_MAX);if(out.length)n.wtn=out;else delete n.wtn;
+});
+/* every hex's body of water, from the map as it was made (a reclaimed hex leaves its body whole): of[c] the body, -1 on
+   land; bodies[b] = {id, n, lake, cells (a lake's only)} */
+let WB=null;
+function wbMap(){
+  if(WB)return WB;const N=MAP.N,T=MAP_T0,nb=MAP.nbr,of=new Int32Array(N).fill(-1),L=lakeMap(),bodies=[];
+  for(let i=0;i<N;i++){if(T[i]>=2||of[i]>=0)continue;const id=bodies.length,cells=[i];of[i]=id;
+    for(let q=0;q<cells.length;q++){const a=cells[q];for(let d=0;d<6;d++){const j=nb[a*6+d];if(j>=0&&T[j]<2&&of[j]<0){of[j]=id;cells.push(j);}}}
+    const lake=L[i]===1;bodies.push({id,n:cells.length,lake,cells:lake?cells:null});}
+  return WB={of,bodies};
+}
+/* what hex c is to a namer: {k:'v', id} a lake of the river network, {k:'l', id} a lake of open water (its body),
+   {k:'s', b} the sea (its body), or null (land, or a hex reclaimed from the sea) */
+function wnKind(c){
+  if(!Number.isInteger(c)||c<0||c>=MAP.N)return null;
+  if(MAP.T[c]>=2){const li=RV&&RV.lakeAt?RV.lakeAt.get(c):undefined;return li===undefined?null:{k:'v',id:li};}
+  const W=wbMap(),b=W.of[c];if(b<0)return null;return W.bodies[b].lake?{k:'l',id:b}:{k:'s',b};
+}
+const wnKey=K=>K.k==='s'?'s'+K.b:K.k+K.id;
+function wnLakeCells(K){return K.k==='v'?((RV&&RV.lakes[K.id]&&RV.lakes[K.id].cells)||[]):wbMap().bodies[K.id].cells.filter(c=>MAP.T[c]<2);}
+function wnLakeDist(R,cells){let d=Infinity;for(const c of cells){const v=R.get(c);if(v!==undefined&&v<d)d=v;}return d;}
+/* nation i's reach and waters, for the land as it stands in T (memoised per T, which is the same object while the land
+   is unchanged): R, Map hex → hexes from its land (0 on it, up to WN_REACH); pc, Map sea hex → its piece; size[p] */
+let wnWK=null,wnWM=new Map(),wnOwn=null;
+function wnWaters(T,i){
+  if(wnWK!==T){wnWK=T;wnWM=new Map();wnOwn=null;}let W=wnWM.get(i);if(W)return W;
+  if(!wnOwn){wnOwn=new Map();for(let c=0;c<MAP.N;c++){const o=T.owner[c];if(!(o>=0))continue;const a=wnOwn.get(o);if(a)a.push(c);else wnOwn.set(o,[c]);}}
+  const q=(wnOwn.get(i)||[]).slice(),R=new Map(q.map(c=>[c,0]));
+  for(let h=0;h<q.length;h++){const a=q[h],d=R.get(a);if(d>=WN_REACH)continue;for(let k=0;k<6;k++){const j=MAP.nbr[a*6+k];if(j>=0&&!R.has(j)){R.set(j,d+1);q.push(j);}}}
+  const B=wbMap(),sea=c=>MAP.T[c]<2&&B.of[c]>=0&&!B.bodies[B.of[c]].lake,pc=new Map(),size=[];
+  for(const c of R.keys()){if(!sea(c)||pc.has(c))continue;const p=size.length,z=[c];pc.set(c,p);
+    for(let h=0;h<z.length;h++){const a=z[h];for(let k=0;k<6;k++){const j=MAP.nbr[a*6+k];if(j>=0&&R.has(j)&&!pc.has(j)&&sea(j)){pc.set(j,p);z.push(j);}}}
+    size.push(z.length);}
+  W={R,pc,size};wnWM.set(i,W);return W;
+}
+/* where to write a name over these hexes: the hexes deepest inside them and nearest their middle first (map units) */
+function wnSpots(cells){
+  const set=new Set(cells),PW=MAP.W,ref=MAP.cx[cells[0]],ux=c=>{let v=MAP.cx[c];if(v-ref>PW/2)v-=PW;else if(ref-v>PW/2)v+=PW;return v;};
+  let sx=0,sy=0,x0=Infinity,x1=-Infinity,y0=Infinity,y1=-Infinity;
+  for(const c of cells){const x=ux(c),y=MAP.cy[c];sx+=x;sy+=y;if(x<x0)x0=x;if(x>x1)x1=x;if(y<y0)y0=y;if(y>y1)y1=y;}
+  const mx=sx/cells.length,my=sy/cells.length,dep=new Map(),q=[];
+  for(const c of cells){for(let d=0;d<6;d++){const j=MAP.nbr[c*6+d];if(j<0||!set.has(j)){dep.set(c,0);q.push(c);break;}}}
+  for(let h=0;h<q.length;h++){const a=q[h],v=dep.get(a);for(let d=0;d<6;d++){const j=MAP.nbr[a*6+d];if(j>=0&&set.has(j)&&!dep.has(j)){dep.set(j,v+1);q.push(j);}}}
+  const sc=new Map(cells.map(c=>[c,Math.min(dep.get(c)||0,3)*2*HEX_W-Math.hypot(ux(c)-mx,MAP.cy[c]-my)]));
+  return {list:cells.slice().sort((a,b)=>sc.get(b)-sc.get(a)).slice(0,12),w:x1-x0+HEX_W,h:y1-y0+2*HEX_R};
+}
+const WN={lake:new Map(),sea:new Map(),parts:[],lakes:[]};
+let wnK=null;
+function wnSync(T){
+  if(!T||!T.list||!T.owner)return WN;const K=wnK;
+  if(K&&K[0]===T&&K[1]===S.nation&&K[2]===S.world&&K[3]===HIDN.w&&K[4]===RV)return WN;
+  wnK=[T,S.nation,S.world,HIDN.w,RV];
+  if(RV)for(const L of RV.lakes){if(L.name0===undefined)L.name0=L.name;L.name=L.name0;}
+  const lake=new Map(),sea=new Map();
+  T.list.forEach((x,i)=>{if(x.npc||x.hid||!x.n||!Array.isArray(x.n.wtn))return;
+    const es=x.n.wtn.filter(e=>e&&e.r===REG.id);if(!es.length)return;
+    const W=wnWaters(T,i),seen=new Set();
+    /* the newest name first: two names for one lake or one piece (pieces that grew together) leave the newer */
+    for(const e of es.slice().sort((a,b)=>(b.t||0)-(a.t||0))){const Kd=wnKind(e.c);if(!Kd)continue;
+      if(Kd.k==='s'){const p=W.pc.get(e.c);if(p===undefined||seen.has('s'+p))continue;seen.add('s'+p);
+        for(const [c,pp] of W.pc){if(pp!==p)continue;const o={i,id:x.id,nm:e.n,t:e.t||0,d:W.R.get(c),c:e.c};const a=sea.get(c);if(a)a.push(o);else sea.set(c,[o]);}}
+      else{const key=wnKey(Kd);if(seen.has(key))continue;seen.add(key);const d=wnLakeDist(W.R,wnLakeCells(Kd));if(!(d<=WN_REACH))continue;
+        const o={i,id:x.id,nm:e.n,t:e.t||0,d,c:e.c};const a=lake.get(key);if(a)a.push(o);else lake.set(key,[o]);}}
+  });
+  /* nearest first; as near, the name given first */
+  const by=(a,b)=>a.d-b.d||a.t-b.t||a.i-b.i;
+  for(const a of lake.values())a.sort(by);for(const a of sea.values())a.sort(by);
+  if(RV)for(const [key,a] of lake)if(key[0]==='v'&&RV.lakes[+key.slice(1)])RV.lakes[+key.slice(1)].name=a[0].nm;
+  /* the runs of sea under one name, and the named lakes of open water, with where to write their names */
+  const parts=[],done=new Set();
+  for(const [c,a] of sea){if(done.has(c))continue;const nm=a[0].nm,cells=[c];done.add(c);
+    for(let q=0;q<cells.length;q++){const z=cells[q];for(let d=0;d<6;d++){const j=MAP.nbr[z*6+d];if(j<0||done.has(j))continue;const b=sea.get(j);if(b&&b[0].nm===nm){done.add(j);cells.push(j);}}}
+    parts.push({nm,n:cells.length,...wnSpots(cells)});}
+  parts.sort((a,b)=>b.n-a.n);
+  const lakes=[];for(const [key,a] of lake)if(key[0]==='l'){const cells=wnLakeCells({k:'l',id:+key.slice(1)});if(cells.length)lakes.push({nm:a[0].nm,n:cells.length,...wnSpots(cells)});}
+  WN.lake=lake;WN.sea=sea;WN.parts=parts;WN.lakes=lakes;return WN;
+}
+/* the name of the lake or sea at hex c: {k, id|b, nm (on the map; '' if none), by (who gave it, null: the map's own),
+   nm0 (the map's own), all (every name given for it there, the one on the map first)}, or null */
+function wnAt(T,c){
+  const Kd=wnKind(c);if(!Kd)return null;wnSync(T);
+  if(Kd.k==='s'){const a=WN.sea.get(c)||[];return {...Kd,nm:a.length?a[0].nm:'',by:a.length?a[0].id:null,nm0:'',all:a};}
+  const a=WN.lake.get(wnKey(Kd))||[],nm0=Kd.k==='v'&&RV&&RV.lakes[Kd.id]?RV.lakes[Kd.id].name0||'':'';
+  return {...Kd,nm:a.length?a[0].nm:nm0,by:a.length?a[0].id:null,nm0,all:a};
+}
+/* a lake or sea of this region already called this (folded) name, as a reason, or ''; Kd, if given, is the one being
+   named (its own names are no clash, nor are the names of other waters of the same sea) */
+function wnTaken(f,Kd){
+  if(RV)for(const L of RV.lakes){if(Kd&&Kd.k==='v'&&Kd.id===L.id)continue;const hit=[L.name,L.name0].find(x=>x&&rvFold(x)===f);if(hit)return `${cap1(hit)} is a lake in ${REGION} already.`;}
+  for(const [key,a] of WN.lake){if(Kd&&key===wnKey(Kd))continue;const h=a.find(o=>rvFold(o.nm)===f);if(h)return `${cap1(h.nm)} is a lake in ${REGION} already.`;}
+  const of=wbMap().of;for(const [c,a] of WN.sea){if(Kd&&Kd.k==='s'&&of[c]===Kd.b)continue;const h=a.find(o=>rvFold(o.nm)===f);if(h)return `There is already a sea called ${cap1(h.nm)} in ${REGION}.`;}
+  return '';
+}
+function wnNameProblem(c,nm){
+  if(nm.length<2||!/\p{L}/u.test(nm))return 'Give it a name of at least two characters, with a letter in it.';
+  const f=rvFold(nm);
+  if(RV)for(const o of RV.list){const hit=[o.name,o.name0].concat(o.nm?[...o.nm.values()]:[]).find(x=>x&&rvFold(x)===f);if(hit)return `There is already a river called ${cap1(hit)} in ${REGION}.`;}
+  return wnTaken(f,wnKind(c));
+}
+/* whether this nation may name the lake or sea at hex c: [T, kind, waters, index] or the reason it may not */
+function wnMine(c){
+  if(!S.nation||cellOf(S.nation.loc)<0)return 'Settle your nation on the map first.';
+  const T=territory(),mi=T.byId[myId()],Kd=wnKind(c);if(mi===undefined)return 'Settle your nation on the map first.';
+  if(!Kd)return 'Only lakes and the sea can be named here.';
+  const W=wnWaters(T,mi);
+  if(Kd.k==='s'?!W.pc.has(c):!(wnLakeDist(W.R,wnLakeCells(Kd))<=WN_REACH))return `You can name ${Kd.k==='s'?'the sea':'a lake'} only within ${WN_REACH} hexes of your land.`;
+  wnSync(T);return [T,Kd,W,mi];
+}
+/* this nation's names on record for the same lake, or the same piece of its waters, as hex c */
+function wnSame(Kd,W,c){
+  const p=Kd.k==='s'?W.pc.get(c):null;
+  return e=>{if(!e||e.r!==REG.id)return false;const K2=wnKind(e.c);if(!K2||K2.k!==Kd.k)return false;return Kd.k==='s'?W.pc.get(e.c)===p:K2.id===Kd.id;};
+}
+/* where this nation stands at hex c: its name there (mine), what shows there without it (back), what shows (shown) */
+function wnMineOf(T,c){
+  const me=myId(),at=wnAt(T,c),my=at.all.find(o=>o.id===me),rest=at.all.filter(o=>o.id!==me);
+  return {mine:my?my.nm:'',back:rest.length?rest[0].nm:at.nm0||'',shown:at.nm,by:at.by,at,my};
+}
+/* one line in the nation's history for a run of renames within six hours; back where it began, no line at all */
+function wnLog(n,nm,old,fx,now){
+  n.log=Array.isArray(n.log)?n.log:[];
+  const j=n.log.findIndex((l,i)=>i<12&&l&&l.k==='wtren'&&l.a===old&&now-l.t<6*3600e3);
+  if(j>=0){const l=n.log.splice(j,1)[0];if(nm&&(l.b||'')!==nm)n.log.unshift({...l,a:nm,t:now});return;}
+  if(!nm)return;n.log.unshift({t:now,k:'wtren',a:nm,b:old||'',fx});n.log=n.log.slice(0,60);
+}
+function wnDone(){S.wnEdit=null;S.wnVal=null;S.wnErr='';}
+function wnRename(c,raw){
+  const m=wnMine(c);if(typeof m==='string'){S.wnErr=m;updateMapPanel();return false;}
+  const [T,Kd,W]=m,lake=Kd.k!=='s',{mine,back}=wnMineOf(T,c),old=mine||back,nm=rvTidy(raw);
+  if(nm===old){wnDone();updateMapPanel();return false;}
+  if(mine&&back&&nm===back)return wnReset(c);
+  const why=wnNameProblem(c,nm);if(why){S.wnVal=nm;S.wnErr=why;updateMapPanel();return false;}
+  const n=clone(S.nation),now=Date.now(),same=wnSame(Kd,W,c);
+  n.wtn=(Array.isArray(n.wtn)?n.wtn:[]).filter(e=>!same(e)).concat({r:REG.id,c,n:nm,t:now}).slice(-WTN_MAX);
+  wnLog(n,nm,old,lake?'l':'s',now);commit(n);
+  wnDone();const T2=territory(),at=wnAt(T2,c);updateMapPanel();redrawMaps();
+  const was=old?cap1(old):lake?'The lake':'The sea off your coast';
+  if(!lake){toast(`${was} is now called ${nm}. Every player in ${REGION} sees the name on the sea within ${WN_REACH} hexes of your land there.`);return true;}
+  if(at&&at.by===myId())toast(`${was} is now called ${nm} on every map in ${REGION}.`);
+  else{const w=at&&at.all[0],i=w?T2.byId[w.id]:undefined,who=i===undefined?'Another nation':T2.list[i].n.name,me=at&&at.all.find(o=>o.id===myId());
+    toast(`You call the lake ${nm}. ${who}’s name for it, ${at?at.nm:''}, stays on the map: ${me&&w&&w.d<me.d?'its land lies nearer the lake':'it named the lake first'}.`);}
+  return true;
+}
+/* this nation's name goes, and the lake or sea shows what it would without it */
+function wnReset(c){
+  const m=wnMine(c);if(typeof m==='string'){S.wnErr=m;updateMapPanel();return false;}
+  const [T,Kd,W]=m,lake=Kd.k!=='s',{mine,back}=wnMineOf(T,c),n=clone(S.nation),now=Date.now(),same=wnSame(Kd,W,c);
+  const left=(Array.isArray(n.wtn)?n.wtn:[]).filter(e=>!same(e));if(left.length)n.wtn=left;else delete n.wtn;
+  wnLog(n,back,mine,lake?'l':'s',now);commit(n);
+  wnDone();wnSync(territory());updateMapPanel();redrawMaps();
+  toast(back?`${cap1(mine||back)} is ${back} again.`:lake?'The lake has no name again.':'The sea off your coast has no name again.');return true;
+}
+/* the other names given where the map shows one: “the Cold Sound in Brask” */
+function wnOtherNames(T,at){
+  const out=[],seen=new Set([at.nm]);
+  for(const o of at.all){if(seen.has(o.nm))continue;seen.add(o.nm);const i=T.byId[o.id],who=i===undefined?'':T.list[i].n.name;out.push(esc(o.nm)+(who?' in '+esc(who):''));}
+  if(at.nm0&&!seen.has(at.nm0))out.push(esc(at.nm0)+' on the old maps');
+  return list(out.slice(0,4));
+}
+/* the side panel's part for a lake or the sea at hex c: its name and who gave it, its other names, and naming it
+   (head: the eyebrow and the name too, for open water; a lake of the river network has them from the river panel) */
+function wnPanel(T,c,head){
+  const Kd=wnKind(c);if(!Kd)return '';const at=wnAt(T,c),me=myId(),lake=Kd.k!=='s',what=lake?'the lake':'these waters';let h='';
+  if(head)h+=`<p class="eyebrow">${lake?'Lake':'Sea'}</p><p class="rv-l wn-l">${at.nm?`<b>${esc(cap1(at.nm))}</b>.`:lake?'A lake with no name yet.':'Waters with no name yet.'}</p>`;
+  if(at.by&&at.by!==me){const i=T.byId[at.by],nm=i===undefined?'':T.list[i].n.name;if(nm)h+=`<p class="hint wn-by">Named by ${esc(nm)}${at.nm0&&at.nm!==at.nm0?`; on the old maps, ${esc(at.nm0)}`:''}.</p>`;}
+  else if(at.by===me)h+=`<p class="hint wn-by">Named by you.</p>`;
+  const aka=wnOtherNames(T,at);if(aka)h+=`<p class="hint wn-aka">Also called ${aka}.</p>`;
+  if(!S.nation||cellOf(S.nation.loc)<0)return h;const mi=T.byId[me];if(mi===undefined)return h;
+  const W=wnWaters(T,mi),d=lake?wnLakeDist(W.R,wnLakeCells(Kd)):W.R.get(c);
+  if(lake?!(d<=WN_REACH):!W.pc.has(c))return h+`<p class="hint wn-why">${lake?`To name this lake, hold land within ${WN_REACH} hexes of it.`:`Nations name the sea within ${WN_REACH} hexes of their land.`}</p>`;
+  const M=wnMineOf(T,c),re=M.mine||M.back?'Rename':'Name';
+  if(S.wnEdit===c){const val=S.wnVal!=null?S.wnVal:(M.mine||M.back);
+    return h+`<form id="wn-form" class="rvn-form wn-form" data-c="${c}" novalidate><label class="rvn-lab" for="wn-name">${re} ${what}</label>
+      <p class="hint">${lake?`The name goes on every map in ${esc(REGION)} while no nation nearer the lake has named it.`:`The name goes on the sea within ${WN_REACH} hexes of your land here, for every player in ${esc(REGION)} to see.`} Write it as you would say it: ${lake?'“Lake Morrow”, “the Mere”':'“the Amber Sea”, “Gull Bay”'}.</p>
+      <div class="name-row"><input class="input" id="wn-name" maxlength="${RVN_LEN}" value="${esc(val)}" autocomplete="off" spellcheck="false"><button class="btn" type="submit">Name it</button></div>
+      <div class="row rvn-acts"><button type="button" class="linkish small" data-act="wn-cancel">Cancel</button>${M.mine?`<button type="button" class="linkish small" data-act="wn-reset" data-c="${c}">${M.back?'Bring back '+esc(M.back):'Take the name away'}</button>`:''}</div>
+      ${S.wnErr?`<p class="err">${esc(S.wnErr)}</p>`:''}</form>`;}
+  const you=M.mine?`You call ${lake?'it':'them'} ${esc(M.mine)}${M.shown&&M.shown!==M.mine?`; the map shows ${esc(M.shown)} here`:''}. `:'';
+  const how=lake?`${d===0?'Your land takes in this lake':`This lake lies ${d} ${d===1?'hex':'hexes'} from your land`}, within the ${WN_REACH} that let you name it. Where several nations name a lake, the map shows the name of the one nearest it; as near, the one named first.`
+    :`These waters lie within ${WN_REACH} hexes of your land (${W.size[W.pc.get(c)]} hexes of sea), so you may name them. Where a nation nearer has named its own waters, its name shows there.`;
+  return h+`<p class="hint wn-own">${you}${how}</p>
+    <div class="row" style="margin-top:8px"><button class="btn ghost" data-act="wn-edit" data-c="${c}">${re} ${what}</button></div>`;
+}
+document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-act^="wn-"]');if(!el)return;const a=el.dataset.act;
+  if(a==='wn-edit'){S.wnEdit=parseInt(el.dataset.c,10);S.wnVal=null;S.wnErr='';updateMapPanel();
+    const i=document.getElementById('wn-name');if(i){i.focus();try{i.select();}catch(x){}}return;}
+  if(a==='wn-cancel'){wnDone();updateMapPanel();return;}
+  if(a==='wn-reset')wnReset(parseInt(el.dataset.c,10));
+});
+document.addEventListener('input',e=>{if(e.target&&e.target.id==='wn-name')S.wnVal=e.target.value;});
+document.addEventListener('submit',e=>{if(!e.target||e.target.id!=='wn-form')return;e.preventDefault();const i=document.getElementById('wn-name');wnRename(parseInt(e.target.dataset.c,10),i?i.value:S.wnVal||'');});
+/* the panel for a hex of open water (a lake of the river network has its part in the river panel), and the hover tip */
+MAP_PANEL.push(ctx=>{const c=ctx.cell;if(c==null||!(c>=0&&c<MAP.N)||MAP.T[c]>=2||!S.nation||!wnKind(c))return '';return `<div class="rv-pn wn-pn">${wnPanel(territory(),c,true)}</div>`;});
+MAP_TIP.push(ctx=>{if(ctx.kind==='mini'||ctx.kind==='atlas'||!(ctx.cell>=0&&ctx.cell<MAP.N)||MAP.T[ctx.cell]>=2)return null;try{const a=wnAt(mapTerr(ctx.kind),ctx.cell);return a&&a.nm?cap1(a.nm):null;}catch(e){return null;}});
+/* the names on the map: the sea's spaced out in italic across its waters, a lake's in the lake (the river network's
+   lakes are written by rvNames). Each tries its best few hexes and gives way to every name already written. */
+function wnLabels(M){
+  const {g,s,ox,oy,w,h,boxes,col,T}=M,hx=s*HEX_W;if(hx<5||!T)return;wnSync(T);if(!WN.parts.length&&!WN.lakes.length)return;
+  const C=rvCols(col),sp=(a,b)=>{try{g.letterSpacing=a;}catch(e){}return b;};g.textBaseline='middle';g.textAlign='center';g.lineJoin='round';
+  /* how many points along the top and the foot of the words fall on land (a sea's name is written on open water only) */
+  const water=(x,y)=>{const c=cellAt((x-ox)/s,(y-oy)/s);return c>=0&&MAP.T[c]<2;};
+  const dryAt=(x,y,tw,fs)=>{const st=Math.max(4,hx/2);let k=0;for(let t=x-tw/2;t<=x+tw/2+0.1;t+=st)for(const v of [-0.35,0.35])if(!water(t,y+v*fs))k++;return k;};
+  const put=(P,fs,font,lsp,minHx,lake)=>{if(hx<minHx)return;g.font=font;sp(lsp);const tw=g.measureText(P.nm).width;
+    if(P.w*s<tw*0.55&&P.h*s<fs*3)return;
+    /* a lake's name may reach over its shore when the lake is too small for it, after every hex that keeps it on water */
+    for(const wet of lake?[1,0]:[1])for(const c of P.list)for(const dx of lake?[0]:[0,-0.3,0.3]){const x=MAP.cx[c]*s+ox+dx*tw,y=MAP.cy[c]*s+oy;if(x-tw/2<4||x+tw/2>w-4||y-fs<4||y+fs>h-4)continue;
+      const b={x:x-tw/2-3,y:y-fs*0.75,w:tw+6,h:fs*1.5};if(rvHit(boxes,b)||(wet&&dryAt(x,y,tw,fs)))continue;
+      boxes.push(b);g.globalAlpha=0.85;g.lineWidth=3.4;g.strokeStyle=col.sheet;g.strokeText(P.nm,x,y);g.globalAlpha=1;g.fillStyle=C.i;g.fillText(P.nm,x,y);return;}};
+  const fs=Math.round(clamp(8+hx*0.3,11,17));
+  for(const P of WN.parts)put(P,fs,'italic 500 '+fs+'px '+MAP_FONT,Math.round(fs*0.22)+'px',P.n>=12?5:9,false);
+  for(const P of WN.lakes)put(P,fs-1,'italic 600 '+(fs-1)+'px '+MAP_FONT,'0px',P.n>=6?9:14,true);
+  sp('0px');
+}
+MAP_LAYERS.push({stage:'top',kinds:['main','visit','found'],draw:wnLabels});
 MAP_LEGEND.push(()=>`<span class="lg"><svg class="lg-t" width="20" height="15" viewBox="0 0 20 15" aria-hidden="true"><path d="M1 3c5 0 4 9 9 9s5-6 9-7" style="fill:none;stroke:var(--river-bank);stroke-width:3.2;stroke-linecap:round"/><path d="M1 3c5 0 4 9 9 9s5-6 9-7" style="fill:none;stroke:var(--river);stroke-width:1.8;stroke-linecap:round"/></svg>River, named at middle zoom</span><span class="lg"><svg class="lg-t" width="20" height="15" viewBox="0 0 20 15" aria-hidden="true"><path d="M4 7c0-4 6-5 9-3s4 6 0 8-9 0-9-5z" style="fill:var(--river);stroke:var(--river-bank)"/></svg>Lake</span><span class="lg"><svg class="lg-t" width="20" height="15" viewBox="0 0 20 15" aria-hidden="true"><path d="M10 0v15" style="stroke:var(--river);stroke-width:5"/><rect x="4" y="5.5" width="12" height="4" style="fill:var(--sheet);stroke:var(--ink);stroke-width:.9"/></svg>Bridge</span>`);
 HELP_EXT.push({k:'rivers',t:'Rivers and lakes',body:()=>`<p>Rivers run from the hills and mountains to the sea along the edges between hexes, and lakes lie where they pool or rise. Main rivers show on the whole map, smaller rivers from middle zoom, and streams close up.</p>
   <p><b>Fertile valleys.</b> Flat land on the bank of a river yields <b>+1 food</b> a day, hills on a river <b>+0.5</b>, and a lake hex <b>+1</b>. Streams, which show only close up, add nothing.</p>
   <p><b>Crossings.</b> When every hex your side holds next to a target lies across a river from it, the attack is <b>${Math.round((1-RV_CROSS)*100)}% weaker</b>. Streams do not count.</p>
   <p><b>Bridges.</b> Select a river hex of your own on the map to build one: ${costText(BRIDGE_COST)}, ${BRIDGE_H} hours, and one for every ${BRIDGE_PER} hexes you hold. A bridge removes the penalty for attacks from or into its hex, and for your attacks over the same river within ${RV_BRIDGE_REACH} hexes. It stands while you hold the hex; lose the hex and the bridge is lost too. Bridges on the target hex help an attacker as well, so choose where you build.</p>
-  <p><b>Names.</b> Every nation holding a stretch of a river or stream (its land on both banks, or on one bank with unclaimed land across) may give it a name of its own, which goes on the stretches in its land, so a river shared by several nations can carry a different name in each. The nation holding most of a river, more than half the hexes on its banks, names it across the region, except on stretches others have named. Select a hex of a river in your land and choose Name or Rename. Names follow the land: lose your stretch and your name goes with it until you win it back.</p>`});
+  <p><b>Names.</b> Every nation holding a stretch of a river or stream (its land on both banks, or on one bank with unclaimed land across) may give it a name of its own, which goes on the stretches in its land, so a river shared by several nations can carry a different name in each. The nation holding most of a river, more than half the hexes on its banks, names it across the region, except on stretches others have named. Select a hex of a river in your land and choose Name or Rename. Names follow the land: lose your stretch and your name goes with it until you win it back.</p>
+  <p><b>Lakes and seas.</b> A nation may also name the lakes and the sea within ${WN_REACH} hexes of its land: select the water on the map and choose Name or Rename. A lake carries one name: where several nations have named it, the map shows the name of the one nearest it (holding the lake itself is nearest of all), and when two are as near, the one named first. On the sea, your name goes on the waters within ${WN_REACH} hexes of your land where you gave it, and where your waters meet a neighbour’s, each hex carries the name of the nearer nation. Neighbours may give their waters the same name. These names follow the land too.</p>`});
 
 /* the overlay: a few slow glints drift downstream on the rivers in view (none with reduced motion) */
 MFX_LAYERS.push({
@@ -36903,8 +37235,53 @@ function ldrCalc(n){
   return o;
 }
 const ldrNames=g=>g.map(k=>LDR_BY[k].n),ldrLow=t=>/^Games/.test(t)?t:t.charAt(0).toLowerCase()+t.slice(1);
-/* mixed into the cityState memo key, so a change of government shows at once */
-function ldrMix(h,x){if(!x.n||!x.n.s)return h;ldrOf(x.n);const m=LDR_MEMO.get(x.n).mask;return m?Math.imul(h^(m*7919+1),16777619):Math.imul(h^1,16777619);}
+/* ── the leadership grace: a nation that leaves a group while one of its buildings stands keeps that building working
+   for LDR_GRACE. The record keeps when each such group was lost (n.ldg {group: time}, in the shared half, so every
+   viewer counts the same economy); holding the group again clears it, and the commit hook dates a fresh loss. Only the
+   working is graced: building a new one still needs the group itself (ldrOf). A dip of a point or two, from an edict,
+   no longer switches a building off at once (Zatra's Free Port, 19 Nov 2026). ── */
+const LDR_GRACE=3*DAY,LDR_WORK=new WeakMap();
+/* {group: when its grace ends}, for the groups in grace now */
+function ldrGrace(n,now){
+  const o={},L=n&&n.ldg;if(!L||typeof L!=='object')return o;const held=ldrOf(n);
+  for(const g of Object.keys(L)){const t=L[g];if(LDR_BY[g]&&!held.includes(g)&&typeof t==='number'&&isFinite(t)&&t<=now+60000&&now<t+LDR_GRACE)o[g]=t+LDR_GRACE;}
+  return o;
+}
+/* the groups whose buildings work: those held, and those in grace */
+function ldrWork(n,now){
+  if(!n||!n.s)return [];const g=ldrOf(n);if(!n.ldg)return g;
+  now=now||Date.now();const m=LDR_WORK.get(n);
+  if(m&&m.g===g&&m.l===n.ldg&&now>=m.a&&now<m.u)return m.w;
+  const gr=ldrGrace(n,now),ks=Object.keys(gr),w=ks.length?g.concat(ks):g;
+  LDR_WORK.set(n,{g,l:n.ldg,a:now,u:ks.length?Math.min(...ks.map(k=>gr[k])):Infinity,w});return w;
+}
+/* a figure as the reader sees it, never rounded across a line (69.96 is 69.9, not 70.0) */
+const ldrFig=v=>(Math.floor((+v||0)*10)/10).toFixed(1);
+/* why a nation is outside group g, in words: is ('Economic Freedom is 69.5'), was (… 'fell to' …), the line it needs,
+   and the fix */
+function ldrGap(n,g){
+  const s=(n&&n.s)||{},pt=String((n&&n.pretitle)||''),f=k=>ldrFig(s[k]),title=`your type of state is “${pt||'nation'}”`;
+  const st=(fig,k,dir,need,fix)=>({is:`${fig} is ${f(k)}`,was:`${fig} ${dir} to ${f(k)}`,need,fix});
+  if(g==='free')return st('Economic Freedom','econ','fell','the Free market group needs 70 or more','bring Economic Freedom back to 70');
+  if(g==='faith')return st('Religiousness','relig','fell','the Faith group needs 70 or more, or a holy type of state','bring Religiousness back to 70');
+  if(g==='rep'){const ok=!(MONARCH_PRE.includes(pt)||LDR_CROWN.test(pt))&&!/people/i.test(pt)&&(REPUBLIC_PRE.includes(pt)||LDR_REP.test(pt));
+    return ok?st('Political Freedom','pol','fell','the Republic group needs 50 or more','bring Political Freedom back to 50')
+      :{is:title,was:`${title} now`,need:'the Republic group needs a republic, federation or other elected state',fix:'choose an elected type of state in Settings'};}
+  if(g==='peop')return (typeof s.econ==='number'?s.econ:50)>=36?st('Economic Freedom','econ','rose','the People’s group needs it under 36, with Income Equality of 60 or more','bring Economic Freedom back under 36')
+    :st('Income Equality','equal','fell','the People’s group needs 60 or more, with Economic Freedom under 36','bring Income Equality back to 60');
+  if(g==='iron')return {is:`Civil Rights is ${f('civil')} and Political Freedom ${f('pol')}`,was:`Civil Rights and Political Freedom are both 30 or more now (${f('civil')} and ${f('pol')})`,need:'the Iron fist group needs one of them under 30',fix:'bring one of them back under 30'};
+  return {is:title,was:`${title} now`,need:'the Crown group needs a crowned state, such as a kingdom or an empire',fix:'choose a crowned type of state in Settings'};
+}
+/* the buildings of the given groups that stand in the nation's cities, by name: finished or going up, or with now
+   only those finished by then */
+function ldrBldNames(n,gs,now){return [...new Set((Array.isArray(n&&n.cities)?n.cities:[]).flatMap(c=>(c.b||[]).filter(x=>BUILDINGS[x.k]&&gs.includes(BUILDINGS[x.k].lead)&&!(now&&x.d>now)).map(x=>BUILDINGS[x.k].n)))];}
+NORM_HOOKS.push((n,d)=>{
+  delete n.ldg;const L=d&&d.ldg;if(!L||typeof L!=='object')return;const o={},lim=Date.now()+60000;
+  for(const g of Object.keys(L).slice(0,LDR.length)){const t=L[g];if(LDR_BY[g]&&typeof t==='number'&&isFinite(t)&&t>0&&t<=lim)o[g]=t;}
+  if(Object.keys(o).length)n.ldg=o;
+});
+/* mixed into the cityState memo key, so a change of government, or the end of a grace, shows at once */
+function ldrMix(h,x){if(!x.n||!x.n.s)return h;let m=0;for(const k of ldrWork(x.n,Date.now()))m|=1<<LDR.findIndex(q=>q.k===k);return m?Math.imul(h^(m*7919+1),16777619):Math.imul(h^1,16777619);}
 
 Object.assign(BUILDINGS,{
   /* general, mid game: none of them adds room or growth, so the road to a billion is unchanged */
@@ -36964,7 +37341,7 @@ function mileMore(pop){const k=MILESTONES.length-1-mileShown(pop).length;return 
 
 /* ── the city aggregate: dormant buildings and the new fields ── */
 function bldAgg(a,B,key,x){
-  if(B.lead&&!ldrOf(x&&x.n).includes(B.lead)){(a.dorm||(a.dorm=[])).push(key);return true;}
+  if(B.lead&&!ldrWork(x&&x.n).includes(B.lead)){(a.dorm||(a.dorm=[])).push(key);return true;}
   const h=a.has||(a.has=new Set()),first=!h.has(key);h.add(key);
   if(B.room)a.room=(a.room||0)+B.room;
   if(!first)return false;
@@ -36977,7 +37354,7 @@ function bldAgg(a,B,key,x){
   return false;
 }
 /* extra capacity units from a city: room from working buildings, and dormant ones stop counting */
-function bldRoom(ct,T){const x=T.list[ct.hi],g=x?ldrOf(x.n):[];let r=0;for(const k of ct.done){const B=BUILDINGS[k];if(!B)continue;if(B.lead&&!g.includes(B.lead))r-=1;else if(B.room)r+=B.room;}return r;}
+function bldRoom(ct,T){const x=T.list[ct.hi],g=x?ldrWork(x.n):[];let r=0;for(const k of ct.done){const B=BUILDINGS[k];if(!B)continue;if(B.lead&&!g.includes(B.lead))r-=1;else if(B.room)r+=B.room;}return r;}
 let bfxBusy=false,BFX_HAND=null;const BFX_MEMO=new WeakMap();
 /* a nation's city aggregate, reused while cityState has not been recomputed (and for a second at most);
    economy() hands over the ones it has (BFX_HAND, with the cityState they came from) */
@@ -37016,7 +37393,7 @@ function ldrShow(n,k){const B=BUILDINGS[k];return !B||!B.lead||!!(n&&ldrOf(n).in
 function ldrWhy(n,g){return `Only ${LDR_BY[g].who} may build it.${n&&n.name?` ${n.name} is a ${n.pretitle||'nation'}.`:''}`;}
 function bldProblemX(n,ct,key){
   const B=BUILDINGS[key];if(!B)return null;
-  if(ct.done.includes(key)||ct.prog.some(b=>b.k===key))return B.lead&&ct.done.includes(key)&&!ldrOf(n).includes(B.lead)?{k:'have',t:'Built here, and dormant under your government.'}:null;
+  if(ct.done.includes(key)||ct.prog.some(b=>b.k===key)){if(!B.lead||!ct.done.includes(key)||ldrWork(n).includes(B.lead))return null;const q=ldrGap(n,B.lead);return {k:'have',t:`Built here, and dormant: ${q.is}, and ${q.need}.`};}
   if(B.late&&popNow(n)<bldUnlockAt(key)-1e-9)return {k:'lock',t:'Unlocks at '+fmtPopShort(bldUnlockAt(key))+' people. Stolen plans are no help: it needs the people to fill it.'};
   if(B.lead&&!ldrOf(n).includes(B.lead))return {k:'lead',t:ldrWhy(n,B.lead)};
   if(B.one&&nationHas(n,key))return {k:'have',t:'A nation needs only one, and you already have it.'};
@@ -37039,7 +37416,7 @@ function bldTop(k,n){
   if(B.q)h+=`<p class="opt-q">${esc(B.q)}</p>`;
   return h;
 }
-function bldLeadHead(n){const g=ldrOf(n);return `<p class="hint ldr-cat-p">${g.length?`Your government counts as ${list(ldrNames(g).map(x=>'<b>'+esc(x)+'</b>'))}.`:'Your government belongs to no leadership group at present.'} These buildings work only while it does. <button class="linkish small" data-act="go" data-v="government">See the Government page</button></p>`;}
+function bldLeadHead(n){const g=ldrOf(n);return `<p class="hint ldr-cat-p">${g.length?`Your government counts as ${list(ldrNames(g).map(x=>'<b>'+esc(x)+'</b>'))}.`:'Your government belongs to no leadership group at present.'} These buildings work only while it does, and for three days after. <button class="linkish small" data-act="go" data-v="government">See the Government page</button></p>`;}
 function bldLeadMore(n,ct){
   const g=ldrOf(n),other=Object.keys(BUILDINGS).filter(k=>BUILDINGS[k].lead&&!g.includes(BUILDINGS[k].lead)&&!ct.done.includes(k)&&!ct.prog.some(b=>b.k===k));
   if(!other.length)return '';
@@ -37050,7 +37427,9 @@ function bldRowNote(ct,k){
   const T=territory(),x=T.list[ct.hi];if(!x)return '';
   const tag=`<span class="chip ldr-chip">${esc(LDR_BY[B.lead].n)}</span> `;
   if(ldrOf(x.n).includes(B.lead))return tag;
-  return tag+`<b class="ldr-dorm">${x.me?'Dormant under your new government.':'Dormant under '+esc(poss(x.n.name))+' government.'}</b> `;
+  const now=Date.now(),u=ldrGrace(x.n,now)[B.lead],q=ldrGap(x.n,B.lead);
+  if(u)return tag+`<b class="ldr-grace">${x.me?`Working until ${esc(awayWhen(u))}, then dormant: ${esc(q.is)}, and ${esc(q.need)}.`:`Working on grace until ${esc(awayWhen(u))}.`}</b> `;
+  return tag+`<b class="ldr-dorm">${x.me?`Dormant: ${esc(q.is)}, and ${esc(q.need)}.`:'Dormant under '+esc(poss(x.n.name))+' government.'}</b> `;
 }
 document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-act="ldr-all"],[data-act="ldr-help"]');if(!el)return;
   if(el.dataset.act==='ldr-all'){S.ldrAll=!S.ldrAll;render();return;}
@@ -37058,30 +37437,58 @@ document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closes
 
 /* ── the Government page ── */
 function ldrGovSection(n){
-  const g=ldrOf(n),T=territory(),i=T.byId[myId()],a=i===undefined?null:cityState(T).agg[i];
+  const now=Date.now(),g=ldrOf(n),T=territory(),i=T.byId[myId()],a=i===undefined?null:cityState(T).agg[i];
   const ok=Object.keys(BUILDINGS).filter(k=>g.includes(BUILDINGS[k].lead)).map(k=>BUILDINGS[k].n);
-  const dorm=a&&a.dorm?[...new Set(a.dorm)].map(k=>BUILDINGS[k].n):[];
+  /* in grace: until when, which figure, the line and the fix; dormant: the same, by group */
+  const gr=ldrGrace(n,now),grace=Object.keys(gr).sort((p,q)=>gr[p]-gr[q]).map(k=>{const nm=ldrBldNames(n,[k],now);if(!nm.length)return '';const q=ldrGap(n,k),one=nm.length===1;
+    return `<p class="ldr-gov-p"><b class="ldr-grace">Working until ${esc(awayWhen(gr[k]))}:</b> the ${esc(list(nm))}. ${esc(cap1(q.is))}, and ${esc(q.need)}. ${esc(cap1(q.fix))} by then and ${one?'it keeps':'they keep'} working; otherwise ${one?'it falls':'they fall'} dormant until you do.</p>`;}).join('');
+  const byG={};for(const k of a&&a.dorm?[...new Set(a.dorm)]:[]){const G=BUILDINGS[k].lead;(byG[G]=byG[G]||[]).push(BUILDINGS[k].n);}
+  const dorm=Object.keys(byG).map(G=>{const q=ldrGap(n,G),one=byG[G].length===1;return `<p class="ldr-gov-p"><b class="ldr-dorm">Dormant:</b> the ${esc(list(byG[G]))}. ${esc(cap1(q.is))}, and ${esc(q.need)}. ${esc(cap1(q.fix))} and ${one?'it works':'they work'} again.</p>`;}).join('');
   return `<section class="section ldr-gov"><h2 class="h2">Leadership</h2>
     <p class="ldr-gov-p">${g.length?`As ${esc(theName(n))}, your nation counts as ${list(ldrNames(g).map(x=>'<b>'+esc(x)+'</b>'))}, so it may build the ${esc(list(ok))}.`:`${esc(cap1(theName(n)))} belongs to no leadership group at present, so it may build none of the ${Object.keys(BUILDINGS).filter(k=>BUILDINGS[k].lead).length} leadership buildings.`}</p>
-    ${dorm.length?`<p class="ldr-gov-p"><b class="ldr-dorm">Dormant under your new government:</b> the ${esc(list(dorm))}. ${dorm.length===1?'It works':'They work'} again if your government returns.</p>`:''}
-    <p class="hint">The groups follow your type of state, which Settings and some edicts change, and your freedoms. <button class="linkish small" data-act="ldr-help">How leadership buildings work</button></p></section>`;
+    ${grace}${dorm}
+    <p class="hint">The groups follow your type of state, which Settings and some edicts change, and your freedoms. A building whose group you leave keeps working for three more days. <button class="linkish small" data-act="ldr-help">How leadership buildings work</button></p></section>`;
 }
+/* the edict that has just been decided, if this save carries one: ' after “Title”' */
+function ldrCause(n,old,now){
+  const A=Array.isArray(n&&n.answered)?n.answered:[],e=A[A.length-1],P=Array.isArray(old&&old.answered)?old.answered:[],p=P[P.length-1];
+  if(!e||!(e.o>=0)||!(e.t>=now-60000||e.c===1)||p&&p.t===e.t&&p.id===e.id)return '';
+  const is=ISSUE_BY_ID[e.id];if(!is)return '';let t='';try{t=fill(is.t,n,{});}catch(err){t=String(is.t||'');}
+  return t&&!/[{}]/.test(t)?` after “${t}”`:'';
+}
+/* a group left or joined: the grace record (n.ldg) is kept here, and the player is told what moved, the line, and until when */
 COMMIT_HOOKS.push((n,old,now)=>{
   if(!old||!old.s||!Array.isArray(n.cities))return [];
-  const a=ldrOf(old),b=ldrOf(n);if(a.join()===b.join())return [];
-  const of=gs=>[...new Set(n.cities.flatMap(c=>(c.b||[]).filter(x=>x.d<=now&&BUILDINGS[x.k]&&gs.includes(BUILDINGS[x.k].lead)).map(x=>BUILDINGS[x.k].n)))];
-  const L=of(a.filter(g=>!b.includes(g))),W=of(b.filter(g=>!a.includes(g))),out=[];
-  if(L.length)out.push(`Under your new government the ${list(L)} ${L.length===1?'falls':'fall'} dormant. Nothing is lost: ${L.length===1?'it works':'they work'} again if the old government returns.`);
-  if(W.length)out.push(`The ${list(W)} ${W.length===1?'wakes and works':'wake and work'} again under your government.`);
+  const a=ldrOf(old),b=ldrOf(n),gr0=ldrGrace(old,now),L0=n.ldg&&typeof n.ldg==='object'?n.ldg:{},L={};
+  /* groups held again leave the record, and graces that have run out drop off it */
+  for(const g of Object.keys(L0))if(LDR_BY[g]&&!b.includes(g)&&typeof L0[g]==='number'&&now<L0[g]+LDR_GRACE)L[g]=L0[g];
+  const out=[],by=a.join()===b.join()?'':ldrCause(n,old,now);
+  for(const g of a.filter(g=>!b.includes(g))){
+    if(!ldrBldNames(n,[g]).length)continue;L[g]=now;
+    const nm=ldrBldNames(n,[g],now);if(!nm.length)continue;const q=ldrGap(n,g),one=nm.length===1;
+    out.push(`${cap1(q.was)}${by}, and ${q.need}. Your ${list(nm)} ${one?'keeps':'keep'} working for three more days, until ${awayWhen(now+LDR_GRACE)}. ${cap1(q.fix)} by then and nothing stops; otherwise ${one?'it falls':'they fall'} dormant until you do.`);
+  }
+  for(const g of b.filter(g=>!a.includes(g))){
+    const nm=ldrBldNames(n,[g],now);if(!nm.length)continue;const one=nm.length===1;
+    out.push(gr0[g]?`${LDR_BY[g].n} again: your ${list(nm)} ${one?'keeps':'keep'} working, with no deadline.`:`The ${list(nm)} ${one?'wakes and works':'wake and work'} again under your government.`);
+  }
+  if(Object.keys(L).length)n.ldg=L;else delete n.ldg;
   return out;
 });
+/* the Nation page: a building on grace, with the day it stops and what would save it */
+function ldrNotice(n,now){
+  if(!n||n.npc||!n.ldg)return '';
+  const gr=ldrGrace(n,now),ks=Object.keys(gr).filter(k=>ldrBldNames(n,[k],now).length).sort((p,q)=>gr[p]-gr[q]);if(!ks.length)return '';
+  const k=ks[0],nm=ldrBldNames(n,[k],now),q=ldrGap(n,k),one=nm.length===1;
+  return `<button class="notice ldr-notice" data-act="ux-government"><span class="notice-k">Leadership</span><span>Your ${esc(list(nm))} ${one?'stops':'stop'} working on ${esc(awayWhen(gr[k]))} unless you ${esc(q.fix)}. ${esc(cap1(q.is))}.</span><span class="notice-go">Government →</span></button>`;
+}
 
 /* ── How to play ── */
 HELP_EXT.push({k:'leadbld',t:'Leadership buildings',body:n=>{
   const g=n?ldrOf(n):[];
   return `<p>Twelve buildings belong to a kind of government. A nation’s leadership groups follow its type of state, set in Settings and changed by some edicts, and its freedoms. A nation can belong to several groups, or to none.${n?` Right now ${esc(n.name)} counts as ${g.length?list(ldrNames(g).map(esc)):'none of them'}.`:''}</p>
     <ul>${LDR.map(G=>`<li><b>${esc(G.n)}</b>: ${esc(G.who)}. ${esc(cap1(list(Object.keys(BUILDINGS).filter(k=>BUILDINGS[k].lead===G.k).map(k=>BUILDINGS[k].n+' ('+ldrLow(BUILDINGS[k].d.replace(/\.$/,''))+')'))))}.</li>`).join('')}</ul>
-    <p>The catalogue tags each one, such as “Crown only”. Most are one per nation. If your government changes and you leave a group, its buildings are never lost: they fall dormant, keep their block, give nothing, and work again the moment you return. A captured one works only if its new holder belongs to the group. Stolen plans cannot unlock them.</p>`;}});
+    <p>The catalogue tags each one, such as “Crown only”. Most are one per nation. If you leave a group, its buildings are never lost. They keep working for three more days, so a dip of a point or two can be put right in time; after that they fall dormant, keep their block, give nothing, and work again the moment you return. The Government page says which figure moved, the line it must reach, and until when. A captured one works only if its new holder belongs to the group. Stolen plans cannot unlock them.</p>`;}});
 HELP_EXT.push({k:'giants',t:'Half a billion and beyond',body:n=>`<p>From half a billion people, land alone cannot hold a nation. Vertical Farms (from 500 million), Arcologies, Orbital Habitats and the Orbital Elevator add room for billions more, counted with your science and health like the rest of your capacity. Fusion Plants and Hyperloop Terminals keep them supplied, and from a hundred million people, once Mission Control has tested a habitat, the Lunar Colony opens the Moon.</p>
   <p>Milestones carry on to a trillion people, through ${list(MILESTONES.filter(m=>m.p>1000&&m.t).map(m=>esc(m.t)))}, with more cities (up to ${MAX_CITIES}) and bonus land credits. Land credits from population slow down above a billion: about ${budgetOf(1e6)-budgetOf(1000)} more between a billion and a trillion.</p>
   <p>It is a long road. The late buildings are dear, take days to finish and each needs a free building block, which only a big city has to spare. Expect months, not days. Stolen plans cannot bring them early.</p>`});
@@ -37572,7 +37979,7 @@ function dcCities(g,T,scr,off,col,s,boxes){
     if(!pl){mfxCity(g,px,py,col);if(ct.done.some(k=>BUILDINGS[k]&&BUILDINGS[k].w)){g.beginPath();g.arc(px,py,7,0,Math.PI*2);g.lineWidth=1.4;g.strokeStyle=col.ink;g.stroke();}}
     if(s*HEX_W<9||mini)continue;
     g.font='italic 600 '+fs+'px '+MAP_FONT;g.textAlign='center';g.textBaseline='alphabetic';
-    const ly=pl?pl.b.y+pl.b.h-1:py+6,tw=g.measureText(ct.nm).width,b={x:px-tw/2-2,y:ly,w:tw+4,h:fs+3};
+    const ly=pl?pl.b.y+pl.b.h-1:py+6,tw=mapTW(g,ct.nm),b={x:px-tw/2-2,y:ly,w:tw+4,h:fs+3};
     if(dcHit(b,boxes))continue;
     boxes.push(b);mfxLabel(g,ct.nm,px,ly+fs-1,col,3);cpLine(g,ct,T,px,ly+fs+3,Rp,boxes,col);
     if(band>0&&ct.rec&&ct.fn&&ccHas(ct.rec)){const im=ccImg(ct),ch=fs+4,cw=ch*106/126,cb={x:b.x-cw-1,y:ly-1,w:cw,h:ch};if(im&&!dcHit(cb,boxes)){g.drawImage(im,cb.x,cb.y,cw,ch);boxes.push(cb);}}
@@ -40905,7 +41312,7 @@ function flDraw(M){
     if(!flSeen.has(s.key))flSeen.set(s.key,fresh?now:0);
     flMarker(g,x,y,R,s,st,col,dk,t,lod,S.flSel===s.key,fresh);items.push({x,y,key:s.key,st:flSeen.get(s.key)});
     if(lod===2){const left=s.e-t,nm=flLabel(s)+(z>=26?` · ${st.taken}/5 · ${left>=FL_H?Math.floor(left/FL_H)+' h':Math.max(1,Math.ceil(left/60000))+' min'}`:'');
-      g.font='600 11px '+MAP_FONT;const tw=g.measureText(nm).width,ly=y+R+16,b={x:x-tw/2-3,y:ly-8,w:tw+6,h:15};
+      g.font='600 11px '+MAP_FONT;const tw=mapTW(g,nm),ly=y+R+16,b={x:x-tw/2-3,y:ly-8,w:tw+6,h:15};
       if(!boxes.some(q=>q.x<b.x+b.w&&b.x<q.x+q.w&&q.y<b.y+b.h&&b.y<q.y+q.h)){boxes.push(b);mfxLabel(g,nm,x,ly,col,3);}}}
   g.textBaseline='alphabetic';M.cv._fl={items,R};flDrawMs+=performance.now()-t0;flDrawN++;
 }
@@ -41523,7 +41930,7 @@ const cpRec=(g,b,t,boxes)=>{const r=g.canvas&&g.canvas._cp;if(r){r.lines.push(Ob
 function cpLine(g,ct,T,px,y,Rp,boxes,col){
   if(Rp<7.5)return;const pop=cpPop(ct,T);if(!(pop>0))return;
   const fs=Rp<12?9:10,t=cpFmt(pop);g.save();g.font='500 '+fs+'px '+MAP_FONT;g.textAlign='center';g.textBaseline='alphabetic';
-  const tw=g.measureText(t).width,b={x:px-tw/2-2,y:y,w:tw+4,h:fs+2};
+  const tw=mapTW(g,t),b={x:px-tw/2-2,y:y,w:tw+4,h:fs+2};
   if(!dcHit(b,boxes)){boxes.push(b);cpRec(g,b,t,boxes);g.globalAlpha*=0.8;mfxLabel(g,t,px,y+fs-1,col,2.4);}
   g.restore();
 }
@@ -41534,7 +41941,7 @@ function cpCapLines(g,T,q,Rp,boxes,col,mini){
   for(const [ct,pl,px] of q){
     const pop=cpPop(ct,T);if(!(pop>0))continue;
     const t=(ct.nm?ct.nm+' · ':'')+cpFmt(pop);g.font='italic 500 '+fs+'px '+MAP_FONT;
-    const tw=g.measureText(t).width,y=pl.b.y+pl.b.h-1,b={x:px-tw/2-2,y,w:tw+4,h:fs+3};
+    const tw=mapTW(g,t),y=pl.b.y+pl.b.h-1,b={x:px-tw/2-2,y,w:tw+4,h:fs+3};
     if(dcHit(b,boxes))continue;boxes.push(b);cpRec(g,b,t,boxes);g.globalAlpha=0.85;mfxLabel(g,t,px,y+fs,col,2.6);g.globalAlpha=1;
   }
   g.restore();
@@ -45277,7 +45684,7 @@ MAP_LAYERS.push({stage:'top',kinds:['main','visit','prov'],draw:M=>{
   const list=[];for(const [i,N] of st.nats){if(mine&&!M.T.list[i].me)continue;for(const p of N.prov)if(!p.dorm&&p.label>=0&&p.cells.length>=(mine?1:3))list.push(p);}
   list.sort((a,b)=>b.cells.length-a.cells.length);
   for(const p of list){
-    const [px,py0]=M.scr(p.label);if(M.off(px,py0))continue;const t=p.nm.toUpperCase(),tw=g.measureText(t).width;let b=null,py=0;
+    const [px,py0]=M.scr(p.label);if(M.off(px,py0))continue;const t=p.nm.toUpperCase(),tw=mapTW(g,t);let b=null,py=0;
     for(const dy of [0.36,1.9,-1.3]){py=py0+fs*dy;const c={x:px-tw/2-2,y:py-fs,w:tw+4,h:fs+4};if(c.x<0||c.x+c.w>M.w||c.y<0||c.y+c.h>M.h||boxes.some(q=>q.x<c.x+c.w&&c.x<q.x+q.w&&q.y<c.y+c.h&&c.y<q.y+q.h))continue;b=c;break;}
     if(!b)continue;boxes.push(b);g.globalAlpha=mine&&p.id!==PRV.ui.sel?0.8:0.92;mfxLabel(g,t,px,py,M.col,2.6);g.globalAlpha=1;
   }
@@ -46932,6 +47339,50 @@ function terrainTiles(g,col,s,ox,oy,dpr,x0,x1,y0,y1,cv){
   if(lowRes&&cv)setTimeout(()=>schedule(cv),0);
   return true;
 }
+/* ── the land, ready drawn (2026-11-20) ──
+   Zoomed out on the World map (where the terrain is one picture, terrainBitmap), every held hex was filled in its
+   nation's colour and every border drawn edge by edge for each picture: with 60 nations in a region, some 12,000 hexes,
+   30 ms of a laptop's 55 ms frame and 280 ms on a phone, with the loop that sorted all of the region's 129,000 hexes on
+   screen by terrain, paint and holder besides. Now the colours and the borders are drawn once into two pictures of the
+   whole region at the view's scale (device pixels per map unit), transparent layers laid where the fills and the border
+   lines went, under and over the same layers as before, and kept while the land, its colours, the shade (--terr-a) and
+   the scale stay the same: the same view drawn again (the clock's minute, a page drawn, a snapshot) or a drag at the
+   same zoom lays two pictures. At the pixel phase of the view they were made for they match the hex-by-hex picture; at
+   another phase they are laid at the nearest whole pixel. The nations go in the same order as before (by their first
+   hex on the map), which decides the colour of a border two nations share. Only when the whole region at that scale is
+   not much bigger than the canvas (MTP_MIN, MTP_MAX); a plate draws with them only when they are already made for its
+   scale; and they are let go when the map is zoomed in further or leaves the page. */
+const MTP_MIN=1.5e6,MTP_MAX=6e6,MTP_PAD=3;
+const MTP={T:null,key:'',fill:null,edge:null,fx:0,fy:0};
+/* every held hex by holder, in map order, worked out once for each share-out of the land */
+function mtpCells(T){if(T._mtpC)return T._mtpC;const C=T.list.map(()=>[]);for(let i=0;i<MAP.N;i++){const o=T.owner[i];if(o>=0&&C[o])C[o].push(i);}return T._mtpC=C;}
+/* the held hexes in the view by holder, in the order the hex-by-hex loop met them */
+function mtpByO(T,x0,x1,y0,y1){
+  const C=mtpCells(T),out=[];
+  for(let o=0;o<C.length;o++){let a=null;for(const i of C[o]){const x=MAP.cx[i],y=MAP.cy[i];if(x<x0||x>x1||y<y0||y>y1)continue;if(!a)a=[];a.push(i);}if(a)out.push(a);}
+  out.sort((p,q)=>p[0]-q[0]);return new Map(out.map(a=>[T.owner[a[0]],a]));
+}
+function mtpDrop(){for(const c of [MTP.fill,MTP.edge])if(c){c.width=0;c.height=0;}MTP.T=null;MTP.key='';MTP.fill=MTP.edge=null;}
+function mtpTidy(){if(MTP.fill&&!document.querySelector('canvas.map-cv[data-map="main"]'))mtpDrop();}
+/* the two pictures for this view, made now when build allows; null when the region at this scale is too big for them */
+function mtpGet(T,kind,s,dpr,ox,oy,alpha,build,cvPx){
+  const q=s*dpr,W=Math.ceil(MAP.W*q)+2*MTP_PAD,H=Math.ceil(MAP.H*q)+2*MTP_PAD;
+  if(W*H>Math.min(MTP_MAX,Math.max(MTP_MIN,1.25*cvPx))){if(build)mtpDrop();return null;}
+  const fill=[],edge=[];for(let o=0;o<T.list.length;o++){const on=T.count[o]>0;fill.push(on?mapTerrCol(T,o,kind):'');edge.push(on?lensEdge(T,o,kind):'');}
+  const key=[q,s,alpha,W,H,fill.join(','),edge.join(',')].join('|');
+  if(MTP.T===T&&MTP.key===key)return MTP;
+  if(!build)return null;
+  mtpDrop();
+  const mk=()=>{const c=document.createElement('canvas');c.width=W;c.height=H;return c;},F=mk(),E=mk(),gf=F.getContext('2d'),ge=E.getContext('2d');if(!gf||!ge)return null;
+  const fx=dpr*ox-Math.floor(dpr*ox),fy=dpr*oy-Math.floor(dpr*oy);
+  for(const q2 of [gf,ge]){q2.setTransform(q,0,0,q,MTP_PAD+fx,MTP_PAD+fy);q2.lineJoin='round';q2.lineCap='round';}
+  const C=mtpCells(T),order=[];for(let o=0;o<C.length;o++)if(fill[o]&&C[o].length)order.push(o);order.sort((a,b)=>C[a][0]-C[b][0]);
+  gf.globalAlpha=alpha;for(const o of order)fillHeld(gf,C[o],fill[o],HEX_R+0.5);
+  ge.lineWidth=1.4/s;for(const o of order){ge.beginPath();edgeList(ge,C[o],(i,j)=>j<0||T.owner[j]!==o);ge.strokeStyle=edge[o];ge.stroke();}
+  Object.assign(MTP,{T,key,fill:F,edge:E,fx,fy});return MTP;
+}
+/* one of them laid on the map at the view's offset (ox, oy in CSS pixels), at whole device pixels */
+function mtpDraw(g,c,dpr,ox,oy){g.save();g.setTransform(1,0,0,1,0,0);g.globalAlpha=1;g.drawImage(c,Math.round(dpr*ox-MTP.fx)-MTP_PAD,Math.round(dpr*oy-MTP.fy)-MTP_PAD);g.restore();}
 /* Draft detail, for the frames drawn while the map moves (see map motion below): no mountain facets, glyphs,
    river banks and highlights, tree crowns or shadows, and the relief only as its baked picture (one image,
    where close up it is drawn as bevels): left out, its light and shade would show the plate's edge against
@@ -46940,7 +47391,7 @@ let mapDraftOn=false;
 /* The whole picture, onto the canvas; or, given a plate {c, m, dpr}, onto that canvas with a margin of m CSS
    pixels round the view, at that pixel density (the frames while the map moves are cut from it). */
 function drawMap(cv,P){
-  const cw=cv.clientWidth,ch=cv.clientHeight;if(!cw||!ch)return;
+  const cw=cv.clientWidth,ch=cv.clientHeight;if(!cw||!ch)return;if(!P)cv._sz=cw+'x'+ch;
   const m=P?P.m:0,w=cw+2*m,h=ch+2*m,tc=P?P.c:cv;
   const dpr=P?P.dpr:mfxDpr(cv),PW=Math.round(w*dpr),PH=Math.round(h*dpr);
   if(tc.width!==PW||tc.height!==PH){tc.width=PW;tc.height=PH;}
@@ -46957,32 +47408,41 @@ function drawMap(cv,P){
   for(const ox of mapTurns(OX,s,w,HEX_W*s)){
   g.setTransform(dpr*s,0,0,dpr*s,dpr*ox,dpr*oy);
   const x0=-ox/s-HEX_W,x1=(w-ox)/s+HEX_W,y0=-oy/s-2*HEX_R,y1=(h-oy)/s+2*HEX_R;
-  const T=mapTerr(kind),byT=[[],[],[],[],[]],byP=PAINT_COL.map(()=>[]),byO=new Map();
-  /* only the rows and columns on screen, not all of the region's hexes */
+  const T=mapTerr(kind),byT=[[],[],[],[],[]],byP=PAINT_COL.map(()=>[]),TA=parseFloat(C('--terr-a'))||0.5,useBmp=s*dpr<=TBMP_SCALE*1.05;
+  /* zoomed out on the World map, the land's colours and borders come ready drawn (see the land, ready drawn) */
+  const tp=useBmp&&kind==='main'?mtpGet(T,kind,s,dpr,ox,oy,TA,!P,PW*PH):null;
+  if(!tp&&!useBmp&&!P&&kind==='main'&&MTP.fill)mtpDrop();
+  let byO=tp?mtpByO(T,x0,x1,y0,y1):new Map(),cellsDone=false;
+  /* only the rows and columns on screen, not all of the region's hexes; and, with the land ready drawn, only when
+     something asks for the hexes by terrain or paint (byT, byP: close up, or a layer that wants them) */
   const c0=Math.max(0,Math.floor(x0/HEX_W)-1),c1=Math.min(MAP.COLS-1,Math.ceil(x1/HEX_W)),r0=Math.max(0,Math.floor((y0-HEX_R)/(1.5*HEX_R))),r1=Math.min(MAP.ROWS-1,Math.ceil((y1-HEX_R)/(1.5*HEX_R)));
-  for(let r=r0;r<=r1;r++)for(let c=c0,i=r*MAP.COLS+c0;c<=c1;c++,i++){
-    const x=MAP.cx[i],y=MAP.cy[i];if(x<x0||x>x1||y<y0||y>y1)continue;
-    byT[MAP.T[i]].push(i);byP[kind==='atlas'&&RECL.time.size&&(RECL.time.get(i)||0)>atlasCut()?1:paintOf(i)].push(i);
-    const o=T.owner[i];if(o>=0){let a=byO.get(o);if(!a)byO.set(o,a=[]);a.push(i);}
-  }
+  const needCells=()=>{if(cellsDone)return;cellsDone=true;
+    for(let r=r0;r<=r1;r++)for(let c=c0,i=r*MAP.COLS+c0;c<=c1;c++,i++){
+      const x=MAP.cx[i],y=MAP.cy[i];if(x<x0||x>x1||y<y0||y>y1)continue;
+      byT[MAP.T[i]].push(i);byP[kind==='atlas'&&RECL.time.size&&(RECL.time.get(i)||0)>atlasCut()?1:paintOf(i)].push(i);
+      if(tp)continue;const o=T.owner[i];if(o>=0){let a=byO.get(o);if(!a)byO.set(o,a=[]);a.push(i);}
+    }};
+  if(!tp)needCells();
   const fillCells=(cells,style)=>{if(!cells.length)return;g.beginPath();for(const i of cells)hexFill(g,i,HEX_R+0.5);g.fillStyle=style;g.fill();};
-  const useBmp=s*dpr<=TBMP_SCALE*1.05,useTiles=!useBmp&&s*dpr<=TT_MAX&&terrainTiles(g,col,s,ox,oy,dpr,x0,x1,y0,y1,P?null:cv),baked=useBmp||useTiles;
+  const useTiles=!useBmp&&s*dpr<=TT_MAX&&terrainTiles(g,col,s,ox,oy,dpr,x0,x1,y0,y1,P?null:cv),baked=useBmp||useTiles;
   if(useBmp){g.setTransform(dpr,0,0,dpr,0,0);g.imageSmoothingEnabled=true;g.drawImage(terrainBitmap(col),ox,oy,MAP.W*s,MAP.H*s);g.setTransform(dpr*s,0,0,dpr*s,dpr*ox,dpr*oy);}
   else if(!useTiles){sfUnder(g,col);byP.forEach((cells,p)=>{if(p===2)sfOver(g,col,1/s,x0,y0,x1,y1);if(p)fillCells(cells,col[PAINT_COL[p]]);});if(!draft)rlfFacets(g,byP[4],col);}
-  if(baked&&kind==='atlas'&&RECL.time.size){const fr=byP[1].filter(i=>(RECL.time.get(i)||0)>atlasCut());if(fr.length)fillCells(fr,col.sea2);}
+  if(baked&&kind==='atlas'&&RECL.time.size){needCells();const fr=byP[1].filter(i=>(RECL.time.get(i)||0)>atlasCut());if(fr.length)fillCells(fr,col.sea2);}
   /* layers marked fixed sit at one place on the screen (the season badge): never on a plate, which moves */
-  const M={cv,g,kind,s,ox,oy,w,h,dpr,col,T,x0,x1,y0,y1,byT,byP,byO,useBmp:baked,draft,fixed:[],first},ML=st=>{for(const L of MAP_LAYERS){if(L.stage!==st||(L.kinds&&!L.kinds.includes(kind))||((P||!first)&&L.fixed))continue;g.save();try{L.draw(M);}catch(e){}g.restore();}};
+  const M={cv,g,kind,s,ox,oy,w,h,dpr,col,T,x0,x1,y0,y1,get byT(){needCells();return byT;},get byP(){needCells();return byP;},byO,useBmp:baked,draft,fixed:[],first},ML=st=>{for(const L of MAP_LAYERS){if(L.stage!==st||(L.kinds&&!L.kinds.includes(kind))||((P||!first)&&L.fixed))continue;g.save();try{L.draw(M);}catch(e){}g.restore();}};
   ML('terrain');
-  g.globalAlpha=parseFloat(C('--terr-a'))||0.5;
-  for(const [o,cells] of byO)fillHeld(g,cells,mapTerrCol(T,o,kind),HEX_R+0.5);
+  if(tp)mtpDraw(g,tp.fill,dpr,ox,oy);
+  else{g.globalAlpha=TA;for(const [o,cells] of byO)fillHeld(g,cells,mapTerrCol(T,o,kind),HEX_R+0.5);}
+  if(!draft&&s*HEX_W>=RLF_VEC)needCells();
   g.globalAlpha=1;g.lineJoin='round';g.lineCap='round';rlfShade(g,col,s,draft?null:byP);
-  if(s*HEX_W>=13&&!draft){g.beginPath();for(const t of [2,3])for(const i of byT[t]){if(!CELL_RES.oil[i])continue;const x=MAP.cx[i]+3.2,y=MAP.cy[i]+2.6;g.moveTo(x,y-4.4);g.quadraticCurveTo(x+3.4,y+0.4,x,y+3.2);g.quadraticCurveTo(x-3.4,y+0.4,x,y-4.4);}g.globalAlpha=0.6;g.fillStyle=col.ink;g.fill();g.globalAlpha=1;
+  if(s*HEX_W>=13&&!draft){needCells();g.beginPath();for(const t of [2,3])for(const i of byT[t]){if(!CELL_RES.oil[i])continue;const x=MAP.cx[i]+3.2,y=MAP.cy[i]+2.6;g.moveTo(x,y-4.4);g.quadraticCurveTo(x+3.4,y+0.4,x,y+3.2);g.quadraticCurveTo(x-3.4,y+0.4,x,y-4.4);}g.globalAlpha=0.6;g.fillStyle=col.ink;g.fill();g.globalAlpha=1;
     /* iron deposits: a small faceted nugget */
     g.beginPath();for(const t of [2,3,4])for(const i of byT[t]){if(!IRON_DEP[i])continue;const x=MAP.cx[i]-3.4,y=MAP.cy[i]+2.4,k=1.35;g.moveTo(x-3*k,y+1.2*k);g.lineTo(x-1.4*k,y-2.6*k);g.lineTo(x+2.2*k,y-2.2*k);g.lineTo(x+3.2*k,y+k);g.lineTo(x,y+3*k);g.closePath();}g.fillStyle='#8a4a26';g.fill();g.strokeStyle='rgba(255,236,210,.85)';g.lineWidth=0.9/s;g.stroke();}
-  if(s*HEX_W>=13&&!draft){g.beginPath();for(const i of byT[4]){const x=MAP.cx[i],y=MAP.cy[i];g.moveTo(x-4.2,y+2.6);g.lineTo(x,y-3.2);g.lineTo(x+4.2,y+2.6);}g.strokeStyle=col.coast;g.lineWidth=1.1/s;g.stroke();biomeGlyphs(g,byP,col,s,T,kind);hillGlyphs(g,byP[3],col,s);}
-  if(!baked){g.beginPath();edgeList(g,byT[2].concat(byT[3],byT[4]),(i,j)=>j<0||MAP.T[j]<2);g.strokeStyle=col.coast;g.lineWidth=1/s;g.stroke();}
+  if(s*HEX_W>=13&&!draft){needCells();g.beginPath();for(const i of byT[4]){const x=MAP.cx[i],y=MAP.cy[i];g.moveTo(x-4.2,y+2.6);g.lineTo(x,y-3.2);g.lineTo(x+4.2,y+2.6);}g.strokeStyle=col.coast;g.lineWidth=1.1/s;g.stroke();biomeGlyphs(g,byP,col,s,T,kind);hillGlyphs(g,byP[3],col,s);}
+  if(!baked){needCells();g.beginPath();edgeList(g,byT[2].concat(byT[3],byT[4]),(i,j)=>j<0||MAP.T[j]<2);g.strokeStyle=col.coast;g.lineWidth=1/s;g.stroke();}
   ML('land');
-  for(const [o,cells] of byO){g.beginPath();edgeList(g,cells,(i,j)=>j<0||T.owner[j]!==o);g.strokeStyle=lensEdge(T,o,kind);g.lineWidth=1.4/s;g.stroke();}
+  if(tp)mtpDraw(g,tp.edge,dpr,ox,oy);
+  else for(const [o,cells] of byO){g.beginPath();edgeList(g,cells,(i,j)=>j<0||T.owner[j]!==o);g.strokeStyle=lensEdge(T,o,kind);g.lineWidth=1.4/s;g.stroke();}
   const outline=(o,style,lw)=>{const cells=byO.get(o);if(!cells)return;g.beginPath();edgeList(g,cells,(i,j)=>j<0||T.owner[j]!==o);g.strokeStyle=style;g.lineWidth=lw/s;g.stroke();};
   const meIdx=T.list.findIndex(x=>x.me),selIdx=kind==='main'&&S.mapSel!=null?T.byId[S.mapSel]:undefined;
   if(S.nation&&kind!=='found'&&kind!=='atlas')for(const id of alliesOf(myId())){const j=T.byId[id];if(j!==undefined&&j!==meIdx)outline(j,col.accent,2.2);}
@@ -46995,7 +47455,7 @@ function drawMap(cv,P){
     if(fr.size){g.beginPath();for(const c of fr.keys()){const x=MAP.cx[c],y=MAP.cy[c];if(x<x0||x>x1||y<y0||y>y1)continue;hexPath(g,c,HEX_R-1.3);}g.setLineDash([3.5/s,2.5/s]);g.strokeStyle=col.down;g.lineWidth=1.6/s;g.stroke();g.setLineDash([]);}
     if(S.mapTarget!=null){g.beginPath();hexPath(g,S.mapTarget,HEX_R-1);g.strokeStyle=col.down;g.lineWidth=3.2/s;g.stroke();}
     const lcr=landCredits(S.nation);
-    if(lcr>0){const set=new Set(),cells=[];for(const b of claimableBlocks(T))for(const c of blockPlan(T,b))if(freeCell(T,c)){set.add(c);const x=MAP.cx[c],y=MAP.cy[c];if(x>=x0&&x<=x1&&y>=y0&&y<=y1)cells.push(c);}
+    if(lcr>0){const CC=claimCells(T),set=CC.set,cells=CC.list.filter(c=>{const x=MAP.cx[c],y=MAP.cy[c];return x>=x0&&x<=x1&&y>=y0&&y<=y1;});
       g.globalAlpha=0.16;fillCells(cells,col.accent);g.globalAlpha=1;
       g.beginPath();edgeList(g,cells,(i,j)=>j<0||!set.has(j)||BLOCKS.of[j]!==BLOCKS.of[i]);g.setLineDash([3/s,2.2/s]);g.strokeStyle=col.accent;g.lineWidth=1.3/s;g.stroke();g.setLineDash([]);
       if(S.mapClaim){const plan=blockPlan(T,S.mapClaim.b,S.mapClaim.c).slice(0,lcr),ps=new Set(plan);g.globalAlpha=0.5;fillCells(plan,col.accent);g.globalAlpha=1;g.beginPath();edgeList(g,plan,(i,j)=>j<0||!ps.has(j));g.strokeStyle=col.accent;g.lineWidth=2.4/s;g.stroke();
@@ -47023,7 +47483,7 @@ function drawMap(cv,P){
     const name=String((sheet?x.n.capital:x.n.name)||''),lc=sheet?x.cap:dcLabelAt(T,i,s,kind,scr),[px,py0]=scr(lc),py=py0-(lc===x.cap?dcLift(T,i,s,kind):7);
     const fs=sheet?Math.round(13.5*zf):Math.round(clamp(10.5+Math.sqrt(T.count[i])*0.55,11,19)*zf);
     g.font=(x.me?700:600)+' '+fs+'px '+MAP_FONT;
-    const tw=g.measureText(name).width,b={x:px-tw/2-3,y:py-fs,w:tw+6,h:fs+5};
+    const tw=mapTW(g,name),b={x:px-tw/2-3,y:py-fs,w:tw+6,h:fs+5};
     if(b.x+b.w<0||b.x>w||b.y+b.h<0||b.y>h)continue;
     if(boxes.some(q=>q.x<b.x+b.w&&b.x<q.x+q.w&&q.y<b.y+b.h&&b.y<q.y+q.h))continue;
     boxes.push(b);
@@ -47125,12 +47585,19 @@ function mapMotionFrame(cv){
   mapDraftOn=true;try{drawMap(cv);}finally{mapDraftOn=false;}
 }
 function redrawMaps(){document.querySelectorAll('canvas.map-cv').forEach(schedule);}
-let mapRO=null;
+/* One picture per map per page drawn (2026-11-20). Each page drawn (render) used to draw every map on it at once and
+   then observe it afresh, and the observer's first report drew it a second time: opening the World map drew it three
+   times (the land office's offer asks for one more), and every page drawn while the map was open drew it twice. A page
+   drawn now asks for one picture in the next frame (schedule: before the browser paints, so a new canvas never shows
+   empty, and once however often it is asked). The observer stays, watches each canvas once, lets go of canvases that
+   have left the page, and asks for a picture only when a canvas is not the size its last picture was drawn at (cv._sz,
+   set by drawMap). */
+let mapRO=null;const mapObs=new Set();
 function initMaps(){
-  if(mapRO){mapRO.disconnect();mapRO=null;}
-  const cvs=document.querySelectorAll('canvas.map-cv');if(!cvs.length)return;
-  if(window.ResizeObserver)mapRO=new ResizeObserver(es=>es.forEach(e=>schedule(e.target)));
-  cvs.forEach(cv=>{bindMap(cv);if(mapRO)mapRO.observe(cv);drawMap(cv);});
+  for(const cv of mapObs)if(!cv.isConnected){mapObs.delete(cv);if(mapRO)mapRO.unobserve(cv);}
+  const cvs=document.querySelectorAll('canvas.map-cv');mtpTidy();if(!cvs.length)return;
+  if(!mapRO&&window.ResizeObserver)mapRO=new ResizeObserver(es=>es.forEach(e=>{const cv=e.target;if(cv.isConnected&&cv._sz!==cv.clientWidth+'x'+cv.clientHeight)schedule(cv);}));
+  cvs.forEach(cv=>{bindMap(cv);if(mapRO&&!mapObs.has(cv)){mapObs.add(cv);mapRO.observe(cv);}schedule(cv);});
 }
 function zoomAt(cv,sx,sy,f){
   mapGlideStop(cv.dataset.map);
@@ -47646,7 +48113,7 @@ async function ownGone(){
   render();publishSync();
   toast(`${n.name} is no longer saved: it was dissolved on another device. You can found a new nation.${kept?' A copy of the old one is in your account menu.':''}`);
 }
-function commit(n){if(OBS||PV||tabPassive||regBlocked())return;const act=actRecord(n),now=Date.now();migAccrue(n,now);n.pop=popNow(n,now);n.popAt=now;
+function commit(n){passForget();if(OBS||PV||tabPassive||regBlocked())return;const act=actRecord(n),now=Date.now();migAccrue(n,now);n.pop=popNow(n,now);n.popAt=now;
   if(n.name&&!n.npc&&Array.isArray(n.log)){driftTick(n,now);const tk=[...retireTick(n,now),...npcWarTick(n,now)];allyTick(n,now);if(tk.length)setTimeout(()=>toast(tk.join(' ')),0);}
   if(n._stockSet)delete n._stockSet;else if(S.nation&&cellOf(S.nation.loc)>=0){n.stock=roundStock(stockNow(S.nation,now));n.stockAt=now;}else n.stockAt=now;
   ensureCities(n);syncBuildings(n,now);const warehouseNotes=whSync(n,now);if(warehouseNotes.length)setTimeout(()=>warehouseNotes.forEach(t=>toast(t)),0);
@@ -51597,7 +52064,11 @@ function allNations(){
   if(S.nation&&!OBS)out.push({id:S.uid||'me',n:S.nation,me:true});
   return out;
 }
-function findNation(id){return allNations().find(x=>x.id===id);}
+function findNation(id){
+  /* in a pass (see passRun) every nation by its id once, not the whole list built and searched for each question */
+  if(PASS.m)return passGet('nat','',()=>{const m=new Map();for(const x of allNations())if(!m.has(x.id))m.set(x.id,x);return m;}).get(id);
+  return allNations().find(x=>x.id===id);
+}
 
 /* ───────── views ───────── */
 const NAV=[['nation','Nation'],['issues','Edicts'],['map','Map'],['cities','Cities'],PRV_NAV,['diplomacy','Diplomacy'],['intel','Intelligence'],['trade','Trade'],['government','Government'],['games','Games'],['museum','Museum'],['achievements','Achievements'],['passport','Passport'],['census','Census'],['stats','Statistics'],['region','Region'],['dispatch','Dispatch'],['assembly','Assembly'],['world','World'],['space','Space'],['messages','Messages'],['flock','Flock'],['settings','Settings'],['customise','Customise'],['help','Help']];
@@ -51793,7 +52264,7 @@ function nationView(v,now){
    (navSoft draws them again on their own when a timer changes what they count) */
 function nationNotes(n,cnt,now){
   return `${cnt&&!pgGuided(n)?`<button class="notice" data-act="go" data-v="issues"><span class="notice-k">${esc(chamberOf(n).house)}</span><span>${cnt===1?'One edict awaits':cnt+' edicts await'} ${esc(chamberOf(n).notice)}.</span><span class="notice-go">Open edicts →</span></button>`:''}
-  ${crsNotice(n,now)}${awayNotice(n,now)}${pgGuided(n)?'':landNotice()}${warNotice()}${allianceNotice()}${tradeNotice()}`;
+  ${crsNotice(n,now)}${ldrNotice(n,now)}${awayNotice(n,now)}${pgGuided(n)?'':landNotice()}${warNotice()}${allianceNotice()}${tradeNotice()}`;
 }
 /* ───────── the Senate's forms: Roman numerals, years and the laurel ───────── */
 /* Roman numerals for edicts and motions (1 to 3999; anything else stays in Arabic figures) */
@@ -53051,6 +53522,7 @@ function regionHaps(all,now){
     if(l.k==='bid')return `${nm} bid to host ${esc(l.a)}.`;
     if(l.k==='cityren')return `${nm} renamed the city of ${esc(l.b)} to ${esc(l.a)}.`;
     if(l.k==='rvren')return l.b?`${nm} renamed ${esc(l.b)} to ${esc(l.a)}.`:`${nm} named a river ${esc(l.a)}.`;
+    if(l.k==='wtren')return l.b?`${nm} renamed ${esc(l.b)} to ${esc(l.a)}.`:`${nm} named ${l.fx==='s'?'the sea off its coast':'a lake'} ${esc(l.a)}.`;
     if(l.k==='cityab')return `${nm} abandoned the city of ${esc(l.a)} on ${esc(l.fx)}.`;
     if(l.k==='bidoff')return `${nm} withdrew its bid to host ${esc(l.a)}.`;
     if(l.k==='city')return `${nm} founded the city of ${esc(l.a)} on ${esc(l.fx)}.`;
@@ -53324,7 +53796,7 @@ function settingsView(){
       </fieldset>
       <fieldset class="sg-fs" id="set-mapc"><legend class="sg-ch">Map colour</legend>
         <div class="mapc-prev"><span class="hexchip" style="--hx:${mc}" aria-hidden="true"></span><span class="hint">${st.mapc?'Your territory is shaded in '+esc((MAP_COLORS[st.mapc]||(tutMapcOf(st.mapc)||{}).mapcN||(CTG_MC[st.mapc]||[])[1]||mcGiftName(st.mapc)||'your chosen colour').toLowerCase())+' on the world map.':'Your territory takes its colour from your flag.'}</span></div>
-        <div class="mapc-row"><button type="button" class="chip-btn${!st.mapc?' on':''}" data-act="mapc" data-val="" aria-pressed="${!st.mapc}">Match my flag</button>${Object.keys(MAP_COLORS).map(c=>`<button type="button" class="sw${st.mapc===c?' on':''}" style="--sw:${c}" data-act="mapc" data-val="${c}" aria-pressed="${st.mapc===c}" aria-label="Map colour: ${MAP_COLORS[c]}" title="${MAP_COLORS[c]}"></button>`).join('')}${mapcEarnedSw(n,st)}${ctgMcSw(n,st)}${m100McSw(n,st)}</div>
+        <div class="mapc-row"><button type="button" class="chip-btn${!st.mapc?' on':''}" data-act="mapc" data-val="" aria-pressed="${!st.mapc}">Match my flag</button>${Object.keys(MAP_COLORS).map(c=>`<button type="button" class="sw${st.mapc===c?' on':''}" style="--sw:${c}" data-act="mapc" data-val="${c}" aria-pressed="${st.mapc===c}" aria-label="Map colour: ${MAP_COLORS[c]}" title="${MAP_COLORS[c]}"></button>`).join('')}${mapcEarnedSw(n,st)}${ctgMcSw(n,st)}${m100McSw(n,st)}${m200McSw(n,st)}</div>
       </fieldset>
       <div class="save-bar${dirty?' is-dirty':''}${SG.leave?' sg-leaving':''}" id="sg-save">${save}</div>
     </form>`;
@@ -54994,7 +55466,7 @@ const ST_LOG_G={war:'War and spies',dip:'Diplomacy and trade',land:'Land and cit
 const ST_LOG={found:['land','Was founded'],war:['war','Declared war on {b}'],npcwar:['war','{b} declared war on it'],conq:['war','Took a hex of {fx} from {b}'],lost:['war','Lost a hex of {fx} to {b}'],peace:['war','Made peace with {b}'],hand:['war','Handed a hex on {fx} taken in war to {b}'],caught:['war','Had a spy caught by {b}'],incident:['war','Had an expedition stray onto {b}’s land'],cta:['war','Called {b} to arms against {fx}'],
   trade:['dip','Signed a trade deal with {b}'],tradeend:['dip','Saw a trade deal with {b} end'],tradeno:['dip','Declined a trade offer from {b}'],shared:['dip','Shared an edict with {b}'],reply:['dip','Answered an edict {b} shared'],cede:['dip','Ceded a border hex on {fx} to {b}'],take:['dip','Annexed a border hex on {fx} from {b}'],lswap:['dip','Gave up a hex on {a} for free land on {fx}'],
   alfound:['dip','Founded the alliance {b}'],aljoin:['dip','Joined {b}'],aladmit:['dip','Admitted {b} to its alliance'],alremove:['dip','Removed {b} from its alliance'],alleave:['dip','Left {b}'],aldisband:['dip','Dissolved {b}'],npcleft:['dip','Was left by {b}'],
-  settle:['land','Settled on {a}'],city:['land','Founded the city of {a} on {fx}'],cityren:['land','Renamed the city of {b} {a}'],cityab:['land','Abandoned the city of {a}'],move:['land','Moved to {fx}'],wake:['land','Woke after {a} days asleep'],autoland:['land','Took {a} hexes of land on its own'],rec:['land','Reclaimed land off {fx} from the sea'],provon:['land','Drew {a} provinces'],provmrg:['land','Merged the provinces {a} and {b}'],rvren:['land','Named a river {a}'],warehouse:['land','Fitted {fx} in {a}'],mile:['land','Passed {a} people'],
+  settle:['land','Settled on {a}'],city:['land','Founded the city of {a} on {fx}'],cityren:['land','Renamed the city of {b} {a}'],cityab:['land','Abandoned the city of {a}'],move:['land','Moved to {fx}'],wake:['land','Woke after {a} days asleep'],autoland:['land','Took {a} hexes of land on its own'],rec:['land','Reclaimed land off {fx} from the sea'],provon:['land','Drew {a} provinces'],provmrg:['land','Merged the provinces {a} and {b}'],rvren:['land','Named a river {a}'],wtren:['land','Named a lake or sea {a}'],warehouse:['land','Fitted {fx} in {a}'],mile:['land','Passed {a} people'],
   govnew:['gov','Made {b} Governor of {a}'],govsack:['gov','Sacked {b}, Governor of {a}'],sack:['gov','Sacked the {a}, {b}'],leader:['gov','Saw {a} {b} take office'],resign:['gov','Saw its leader resign'],retire:['gov','Saw its leader retire'],repeal:['gov','Repealed a law'],restore:['gov','Restored {b}'],cur:['gov','Renamed its currency the {b}'],fxm:['gov','Passed a currency milestone'],flag:['gov','Adopted a new flag'],sym:['gov','Could choose a new national symbol'],cat:['gov','Was reclassified as {b}'],
   wonder:['cult','Finished the {b} in {a}'],wndr:['cult','Earned a region wonder reward'],damr:['cult','Took a share of the Great Dam'],games:['cult','Won {fx} at {a}'],gres:['cult','Took part in {a}'],host:['cult','Hosted {a}'],hostwin:['cult','Won the right to host {a}'],bid:['cult','Bid to host {a}'],bidoff:['cult','Withdrew a bid to host the Games'],disc:['cult','Made a discovery']};
 function stLogText(e){
@@ -55006,7 +55478,7 @@ const stStyleChip=s=>s&&ST_STYLE[s]?`<span class="adst-style s-${esc(s)}" data-t
 const stActWord=(k,n)=>`${stN(n)} ${ST_ACT[k]?ST_ACT[k][0].toLowerCase():k}`;
 const stNatBtn=(id,name)=>`<button type="button" class="linkish" data-act="st-nat" data-id="${esc(id)}">${esc(name||'A nation')}</button>`;
 const ST_LAST={found:'Was founded',war:'Declared war',conq:'Took a hex in war',peace:'Made peace',hand:'Handed over a hex',cta:'Called an ally to arms',trade:'Signed a trade deal',tradeend:'A trade deal ended',tradeno:'Declined a trade offer',shared:'Shared an edict',reply:'Answered a shared edict',cede:'Ceded a hex',take:'Annexed a hex',lswap:'Swapped a hex',
-  alfound:'Founded an alliance',aljoin:'Joined an alliance',aladmit:'Admitted an ally',alremove:'Removed an ally',alleave:'Left an alliance',aldisband:'Dissolved an alliance',settle:'Settled',city:'Founded a city',cityren:'Renamed a city',cityab:'Abandoned a city',move:'Moved region',autoland:'Took land',rec:'Reclaimed land',provon:'Drew provinces',provmrg:'Merged provinces',rvren:'Named a river',warehouse:'Upgraded a warehouse',
+  alfound:'Founded an alliance',aljoin:'Joined an alliance',aladmit:'Admitted an ally',alremove:'Removed an ally',alleave:'Left an alliance',aldisband:'Dissolved an alliance',settle:'Settled',city:'Founded a city',cityren:'Renamed a city',cityab:'Abandoned a city',move:'Moved region',autoland:'Took land',rec:'Reclaimed land',provon:'Drew provinces',provmrg:'Merged provinces',rvren:'Named a river',wtren:'Named a lake or sea',warehouse:'Upgraded a warehouse',
   govnew:'Appointed a governor',govsack:'Sacked a governor',sack:'Sacked a minister',leader:'Changed leader',resign:'Leader resigned',retire:'Leader retired',repeal:'Repealed a law',cur:'Renamed the currency',flag:'Adopted a flag',wonder:'Finished a wonder',wndr:'Earned a wonder reward',damr:'Shared in the Great Dam',games:'Won a medal',gres:'Took part in the Games',host:'Hosted the Games',hostwin:'Won a bid to host',bid:'Bid to host the Games',bidoff:'Withdrew a bid',disc:'Made a discovery'};
 /* the latest thing a nation did: [time, kind] with a kind of ACT or 'log:<kind>' (functions/stats-acts.js) */
 function stLast(l){
@@ -58137,7 +58609,7 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-act]');if
 });
 /* the claimable hexes breathe while the card is up */
 MAP_LAYERS.push({stage:'over',kinds:['main'],draw:M=>{M.cv._lcP=null;if(!LC.on||S.view!=='map'||typeof Path2D!=='function')return;
-  const P=new Path2D();let any=false;for(const b of claimableBlocks(M.T))for(const c of blockPlan(M.T,b))if(freeCell(M.T,c)){hexPath(P,c,HEX_R-0.6);any=true;}
+  const P=new Path2D();let any=false;for(const c of claimCells(M.T).list){hexPath(P,c,HEX_R-0.6);any=true;}
   if(any)M.cv._lcP=P;}});
 MFX_LAYERS.push({
   busy:(f,rm)=>!rm&&f.kind==='main'&&LC.on&&S.view==='map'&&!!f.cv._lcP,
@@ -58279,7 +58751,7 @@ const ddlcOf=n=>n&&Number.isInteger(n.ddlc)&&n.ddlc>0?Math.min(n.ddlc,DD_LEG_MAX
    most any resource is over, kept while one is over and shrinking as it is used. Income adds nothing to a resource
    that is over (whAccrue) until some is used or a Warehouse raises the limit; the load check allows it (auditNation).
    Never more than those rewards can have given. */
-function xsMax(n){return DD_LEG_GIFT*ddlcOf(n)+(n&&n.m50===1&&typeof M50_N==='number'?M50_N:0)+(typeof m100Bits==='function'&&m100Bits(n)&1?M100_N:0);}
+function xsMax(n){return DD_LEG_GIFT*ddlcOf(n)+(n&&n.m50===1&&typeof M50_N==='number'?M50_N:0)+(typeof m100Bits==='function'&&m100Bits(n)&1?M100_N:0)+(typeof m200Bits==='function'&&m200Bits(n)&1?M200_N:0);}
 const xsOf=n=>n&&Number.isFinite(n.xs)&&n.xs>0?Math.min(n.xs,xsMax(n)):0;
 function xsOver(n,st,now){const cap=stockCap(n,now);let x=0;for(const r of RES)x=Math.max(x,num0(st[r])-cap);return Math.ceil(x);}
 function xsMark(n,st,now){const x=xsOver(n,st,now);if(x>0)n.xs=Math.max(Number.isFinite(n.xs)?n.xs:0,x);}
@@ -60149,6 +60621,155 @@ setInterval(()=>{try{const n=S.nation;
   m100Count();
   if(!m100Due(n)||document.getElementById('m100')||m50Due(n)&&!m50Later||m100Busy())return;
   m100Show();}catch(e){}},2000);
+
+/* ───────── 200-nation gift ─────────
+   The 100-nation gift again, for the first two hundred: a pop-up with two boxes, each opened with a click. The first
+   holds M200_N (200) of every material (RES, above the storage limit, see xsMax), the second the Platinum regalia,
+   eight things for Customise that cannot be had any other way: the Ducenti card pattern (p-ducenti), the Moonstone
+   map colour (M200_MC, ctgMcOk), the Twin arches shield (CZ_SH_GIFT), the Platinum tincture (tn-plat), the Milestone
+   as a charge and a flag emblem (c-milestone, e-milestone), the Platinum frame round the flag (f-platinum), the
+   Platinum seal on enacted decisions (s-platinum) and the epithet "of the Two Hundred" (t-ducenti). The first box
+   opened also earns the platinum achievement I Was Here at 200 (odd-here200). n.m200 keeps the boxes opened as bits
+   (m200Bits: 1 supplies, 2 regalia); closed with a box still shut, it comes back on the next visit.
+   Counted like the 100-nation gift (all summaries, and those founded after this one), on its own: again every
+   M200_EVERY until the total reaches 200, then once a visit. It waits for the 50-player and 100-nation pop-ups. */
+const M200_EVERY=10*60e3;
+const M200={tot:null,after:null,f:0,at:0,busy:false,later:false};
+NORM_HOOKS.push((n,d)=>{const v=d&&Number.isInteger(d.m200)?d.m200&3:0;if(v)n.m200=v;else delete n.m200;});
+/* one of the first two hundred: settled once a box is open, else by this visit's counts for this nation */
+function m200In(n){
+  if(m200Bits(n))return true;
+  return M200.f>0&&M200.f===Math.floor(+n.founded||0)&&M200.tot!=null&&M200.tot>=M200_N&&M200.after!=null&&M200.tot-M200.after<=M200_N;
+}
+const m200Due=n=>!!n&&!n.npc&&!!n.name&&+n.founded>0&&m200Bits(n)!==3&&m200In(n);
+function m200Count(){
+  const n=S.nation,f=Math.floor(+(n&&n.founded)||0);
+  if(!(f>0)||m200Bits(n)||M200.busy||S.mode!=='world'||!S.db||typeof S.db.count!=='function')return;
+  if(M200.f===f&&(M200.after!=null||Date.now()-M200.at<M200_EVERY))return;
+  M200.busy=true;M200.at=Date.now();
+  Promise.resolve().then(()=>S.db.count('summaries')).then(tot=>{
+    if(!(tot>=M200_N)){M200.tot=tot;M200.after=null;M200.f=f;return;}
+    return S.db.count('summaries',[['f','>',f]]).then(after=>{M200.tot=tot;M200.after=after;M200.f=f;});
+  }).catch(()=>{}).then(()=>{M200.busy=false;});
+}
+/* the regalia's unlocks (the map colour and the shield are not unlocks: ctgMcOk and czShGot read n.m200 themselves) */
+const M200_U=['p-ducenti','tn-plat','c-milestone','e-milestone','f-platinum','s-platinum','t-ducenti'];
+Object.assign(UNLOCKS,{'p-ducenti':{k:'pattern',n:'Ducenti',src:'m200'},'tn-plat':{k:'tinct',n:'Platinum',src:'m200'},
+  'c-milestone':{k:'charge',n:'Milestone',src:'m200'},'e-milestone':{k:'emblem',n:'Milestone',src:'m200'},'f-platinum':{k:'frame',n:'Platinum',src:'m200'},
+  's-platinum':{k:'stamp',n:'Platinum seal',src:'m200'},'t-ducenti':{k:'title',n:'of the Two Hundred',src:'m200'}});
+EMBLEMS['e-milestone']='Milestone';if(!CZ_EMBS.includes('e-milestone'))CZ_EMBS.push('e-milestone');CZ_CHB.milestone='a Roman milestone';
+UNLOCK_SOURCES.push({earned:n=>m200Got(n)?M200_U.slice():[],
+  how:id=>M200_U.includes(id)?'A gift to the nations that were here when Edictum reached 200 nations.':null});
+/* the Ducenti card pattern: a medal with a beaded rim round a Roman CC (two hundred) on the right, beside two hundred dots */
+function m200PatBody(seed){
+  const q=v=>(+v).toFixed(1),r=rng(seed||11),cx=835,cy=160;
+  let o=`<circle cx="${cx}" cy="${cy}" r="124"/><circle cx="${cx}" cy="${cy}" r="98"/><circle cx="${cx}" cy="${cy}" r="92" stroke-opacity=".6"/>`;
+  for(let i=0;i<60;i++){const a=i*Math.PI/30;o+=`<circle cx="${q(cx+111*Math.cos(a))}" cy="${q(cy+111*Math.sin(a))}" r="3.4"/>`;}
+  /* CC: two Roman Cs with serifs, side by side */
+  const Ro=34,Ri=25,A=0.72,ca=Math.cos(A),sa=Math.sin(A);
+  for(const dx of [-33,30]){const x0=cx+dx,P=(rr,a)=>q(x0+rr*Math.cos(a))+','+q(cy+rr*Math.sin(a)),xo=x0+Ro*ca,xi=x0+Ri*ca;
+    o+=`<path d="M${P(Ro,-A)}A${Ro},${Ro} 0 1 0 ${P(Ro,A)}L${P(Ri,A)}A${Ri},${Ri} 0 1 1 ${P(Ri,-A)}Z" stroke-width="1.4"/>`;
+    for(const sg of [-1,1])o+=`<path d="M${q(xo)},${q(cy+sg*(Ro*sa+6))}V${q(cy+sg*Ri*sa)}H${q(xi)}" stroke-width="1.4"/>`;}
+  /* two hundred dots, twenty by ten */
+  for(let i=0;i<10;i++)for(let j=0;j<20;j++)o+=`<circle cx="${430+j*13}" cy="${101.5+i*13}" r="2" fill="currentColor" stroke="none"/>`;
+  /* and small four-pointed stars further off */
+  for(let i=0;i<14;i++){const x=30+r()*360,y=24+r()*272,s=3+r()*5;
+    o+=`<path d="M${q(x)},${q(y-s)}L${q(x+s*.25)},${q(y-s*.25)}L${q(x+s)},${q(y)}L${q(x+s*.25)},${q(y+s*.25)}L${q(x)},${q(y+s)}L${q(x-s*.25)},${q(y+s*.25)}L${q(x-s)},${q(y)}L${q(x-s*.25)},${q(y-s*.25)}Z" fill="currentColor" fill-opacity=".5"/>`;}
+  return o;
+}
+czPatSVG=(f=>function(p,seed,mini){
+  if(p!=='p-ducenti')return f.apply(this,arguments);
+  return `<svg class="czp${mini?' mini':''}" viewBox="0 0 1000 320" preserveAspectRatio="xMaxYMid slice" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1">${m200PatBody(seed)}</g></svg>`;
+})(czPatSVG);
+/* the Milestone: a Roman milestone, a round column with a domed top on a plinth and a square base, CC cut into it */
+czCharge=(f=>function(k,c,d,flat){
+  if(k!=='milestone')return f.apply(this,arguments);
+  const L=(p,w)=>`<path d="${p}" fill="none" stroke="${d}" stroke-width="${w||1.5}" stroke-linecap="round" stroke-linejoin="round"/>`;
+  return czSil([['M37,76V27C37,18.5 42.5,13 50,13C57.5,13 63,18.5 63,27V76Z',0],['M33,74H67V82H33Z',0],['M27,81H73V92H27Z',0]],c,d,flat)
+    +L('M37,27H63',1.2)+L('M48.5,36.3A5.5,5.5 0 1 0 48.5,44.7M60,36.3A5.5,5.5 0 1 0 60,44.7',1.9)+L('M42,54H58M43,60H57M42,66H58',1.2)+L('M33,82H67',1);
+})(czCharge);
+czEmblemSVG=(f=>function(e,x,y,r,col){if(e!=='e-milestone')return f.apply(this,arguments);const s=r/40;return `<g transform="translate(${(x-50*s).toFixed(2)},${(y-50*s).toFixed(2)}) scale(${s.toFixed(4)})">${czCharge('milestone',col,'rgba(0,0,0,.28)',1)}</g>`;})(czEmblemSVG);
+/* the Platinum frame: brushed platinum with a beaded rule, and a plaque with CC under the flag */
+CZ_FR['f-platinum']=[18,18,264,34];
+czFrameArt=(f=>function(fr,H,id){
+  if(fr!=='f-platinum')return f.apply(this,arguments);
+  const q=v=>(+v).toFixed(2),Rr=(x,y,w,h,sw,a)=>`<rect x="${x}" y="${y}" width="${q(w)}" height="${q(h)}" fill="none" stroke-width="${sw}"${a}/>`,py=H-21;
+  let bd='';for(const [x,y] of czPerim(9,9,282,H-18,Math.round((282+H-18)*2/9)))bd+=`<circle cx="${q(x)}" cy="${q(y)}" r="1.9" fill="#f7fafc" stroke="#6d7782" stroke-width=".5"/>`;
+  return [`<defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8b96a1"/><stop offset=".18" stop-color="#eef2f5"/><stop offset=".4" stop-color="#a9b4be"/><stop offset=".58" stop-color="#f7f9fb"/><stop offset=".8" stop-color="#97a2ad"/><stop offset="1" stop-color="#dfe5ea"/></linearGradient></defs><rect width="300" height="${q(H)}" fill="url(#${id})"/>`
+    +Rr(1,1,298,H-2,1.2,' stroke="#ffffff" stroke-opacity=".75"')+Rr(3.5,3.5,293,H-7,.7,' stroke="#5d6874" stroke-opacity=".6"')+Rr(16.5,16.5,267,179,1.4,' stroke="#4f5a66" stroke-opacity=".8"')+bd
+    +`<rect x="124" y="${q(py-8)}" width="52" height="16" rx="3" fill="#eef2f5" stroke="#4f5a66" stroke-width=".9"/><text x="150" y="${q(py+4.3)}" text-anchor="middle" font-family="Georgia,'Times New Roman',serif" font-size="12" letter-spacing="3" fill="#3e4853">CC</text>`,''];
+})(czFrameArt);
+/* the Platinum seal: a platinum medal, beaded, the nation's name round a Roman CC */
+czStampArt=(f=>function(s,n){
+  if(s!=='s-platinum')return f.apply(this,arguments);
+  const id='czs'+(++czSeq),nm=String((n&&n.name)||''),ring=('One of the two hundred · '+theName(n||{pretitle:'Republic',name:nm})+' · ').toUpperCase(),fs=Math.max(4.2,Math.min(7,250/(ring.length*.74))).toFixed(2);
+  let bd='';for(let i=0;i<48;i++){const a=i*Math.PI/24;bd+=`<circle cx="${(60+51*Math.cos(a)).toFixed(2)}" cy="${(60+51*Math.sin(a)).toFixed(2)}" r="1.6" fill="#f4f7fa" stroke="#6d7782" stroke-width=".4"/>`;}
+  return `<svg viewBox="0 0 120 120" aria-hidden="true"><defs><radialGradient id="${id}" cx=".36" cy=".3" r=".8"><stop offset="0" stop-color="#ffffff"/><stop offset=".45" stop-color="#cdd5dd"/><stop offset="1" stop-color="#7c8894"/></radialGradient><path id="${id}p" d="M60,60m-41,0a41,41 0 1,1 82,0a41,41 0 1,1 -82,0"/></defs>
+<circle cx="60" cy="60" r="57" fill="url(#${id})" stroke="#5b6672" stroke-width="1.2"/>${bd}<circle cx="60" cy="60" r="34" fill="none" stroke="#5b6672" stroke-width=".9"/>
+<text class="cz-st-ring" font-size="${fs}" fill="#3f4954"><textPath href="#${id}p">${esc(ring)}</textPath></text><text x="60" y="70" text-anchor="middle" class="cz-st-roman" font-size="27" fill="#36404a" letter-spacing="1">CC</text><path d="${czEll(42,30,15,6.5,-32)}" fill="#fff" fill-opacity=".3"/></svg>`;
+})(czStampArt);
+/* the pop-up */
+function m200Close(){const o=document.getElementById('m200');if(o)o.remove();}
+function m200Say(){
+  const b=m200Bits(S.nation),say=document.getElementById('m200-say'),ok=document.getElementById('m200-ok'),go=document.getElementById('m200-go'),lt=document.getElementById('m200-later'),ach=document.getElementById('m200-ach');
+  if(say)say.textContent=b===3?'Both gifts are yours.':b?'One more box to open.':'Click a box to open it.';
+  if(ok)ok.hidden=b!==3;if(go)go.hidden=!(b&2);if(lt)lt.hidden=b===3;
+  if(ach){ach.classList.toggle('got',b>0);const w=ach.querySelector('small');if(w)w.textContent=b?'Platinum achievement, earned':'Platinum achievement, earned with the first box you open';}
+}
+function m200Show(){
+  if(document.getElementById('m200'))return;const n=S.nation,b=m200Bits(n);
+  const a=cz(n).a||czDefaultArms(n),seed=hash(String(n.seed||n.name||'m200'));
+  const box=k=>`<button type="button" class="m50-box m200-b${k}" id="m200-box${k}" aria-label="Open the ${k===1?'first':'second'} gift: ${k===1?'supplies':'Platinum regalia'}"><span class="m50-body"></span><span class="m50-lid"></span><span class="m50-rib"></span><span class="m50-bow"></span></button>`;
+  const li=(pic,nm,what)=>`<li><span class="m200-pic" aria-hidden="true">${pic}</span><span><b>${nm}</b><small>${what}</small></span></li>`;
+  let fl='';try{fl=czFramed('f-platinum',flagSVG(n.flag,''));}catch(e){}
+  const reg=[
+    li(`<span class="cz-pt m200-pt">${czPatSVG('p-ducenti',seed,1)}</span>`,'Ducenti','Card pattern'),
+    li(`<span class="hexchip m200-mc" style="--hx:${M200_MC}"></span>`,esc(M200_MCN),'Map colour'),
+    li(czArmsSVG({...a,s:'twin',c:''}),'Twin arches','Shield for your arms'),
+    li(czTnSw('plat'),'Platinum','Tincture for your arms'),
+    li(`<svg class="m200-ch" viewBox="0 0 100 100">${czCharge('milestone',CZ_TINCT.plat[1],'#151515')}</svg>`,'Milestone','Charge for your arms and emblem for your flag'),
+    li(`<span class="m200-fr">${fl}</span>`,'Platinum','Frame for your flag'),
+    li(`<span class="m200-st">${czStampArt('s-platinum',n)}</span>`,'Platinum seal','Stamp on enacted decisions'),
+    li('<span class="m200-ep">CC</span>','of the Two Hundred',`Epithet: ${esc(n.name)} of the Two Hundred`)].join('');
+  const o=document.createElement('div');o.id='m200';o.className='m50-bg m100-bg';
+  o.innerHTML=`<div class="m50 m100 m200" role="dialog" aria-modal="true" aria-labelledby="m200-h" aria-describedby="m200-d"><p class="eyebrow">All regions · once only</p>
+  <h2 class="h2" id="m200-h">200 nations milestone reached!</h2><p id="m200-d">Edictum has 200 nations, and ${esc(n.name)} is one of them. Two gifts to celebrate: open both.</p>
+  <div class="m100-boxes">
+    <div class="m100-gift${b&1?' open':''}" id="m200-g1">${box(1)}<p class="m100-n">Supplies</p>
+      <div class="m100-got"><p class="m100-big"><b>+${M200_N}</b> of every material</p><ul class="m100-list">${RES.map(r=>`<li>${resIco(r)}<span>+${M200_N} ${esc(resName(r))}</span></li>`).join('')}</ul></div></div>
+    <div class="m100-gift${b&2?' open':''}" id="m200-g2">${box(2)}<p class="m100-n">Platinum regalia</p><p class="m200-sub">8 new things for Customise</p>
+      <div class="m100-got"><ul class="m100-list m100-reg m200-reg">${reg}</ul></div></div>
+  </div>
+  <p class="m200-ach${b?' got':''}" id="m200-ach">${achMedal('p')}<span><b>I Was Here at 200</b><small></small></span></p>
+  <p class="hint m100-say" id="m200-say" aria-live="polite"></p>
+  <div class="m100-foot"><button type="button" class="btn" id="m200-ok" hidden>Collect</button><button type="button" class="linkish small" id="m200-go" hidden>Try the regalia on in Customise</button></div>
+  <button type="button" class="linkish small m50-later" id="m200-later">Later</button></div>`;
+  document.body.appendChild(o);m200Say();
+  const first=document.querySelector('#m200 .m100-gift:not(.open) .m50-box')||document.getElementById('m200-ok');if(first)first.focus();
+}
+function m200Open(k){
+  const n=S.nation,b=m200Bits(n);if(!m200Due(n)||(b&k))return;
+  const m=clone(n),now=Date.now();
+  if(k===1){const st=stockNow(m,now);for(const r of RES)st[r]=num0(st[r])+M200_N;m.m200=b|1;xsMark(m,st,now);m.stock=roundStock(st);m.stockAt=now;m._stockSet=true;}
+  else m.m200=b|2;
+  commit(m);
+  const g=document.getElementById('m200-g'+k);if(!g)return;g.classList.add('open');m200Say();
+  const box=g.querySelector('.m50-box'),fr=document.querySelector('#m200 .m50');
+  if(box&&fr){const x=box.offsetLeft+box.offsetWidth/2,y=box.offsetTop+box.offsetHeight/2;
+    for(let i=0;i<24;i++){const c=document.createElement('i');c.className='m50-cf';c.style.cssText=`left:${x}px;top:${y}px;--x:${Math.round(Math.random()*260-130)}px;--y:${Math.round(-70-Math.random()*160)}px;--r:${Math.round(Math.random()*720)}deg;background:${(k===1?['#E2B13C','#2F4E7F','#23804A','#C0282D','#8A5F36']:['#F2F5F8','#AAB5C0','#7D8996','#3B4A8C','#E2B13C'])[i%5]}`;fr.appendChild(c);}}
+  setTimeout(()=>{const nx=document.querySelector('#m200 .m100-gift:not(.open) .m50-box')||document.getElementById('m200-ok');if(nx&&!nx.hidden)nx.focus();},700);
+}
+document.addEventListener('click',e=>{const t=e.target.closest&&e.target.closest('#m200-box1,#m200-box2,#m200-ok,#m200-go,#m200-later');if(!t)return;
+  if(t.id==='m200-box1'||t.id==='m200-box2'){m200Open(t.id==='m200-box1'?1:2);return;}
+  if(t.id==='m200-later')M200.later=true;
+  m200Close();if(t.id==='m200-go')go('customise');else quietRender();});
+document.addEventListener('keydown',e=>{if(e.key!=='Escape'||!document.getElementById('m200'))return;if(m200Bits(S.nation)!==3)M200.later=true;m200Close();quietRender();});
+/* after the 50-player and 100-nation gifts and any other open dialog */
+setInterval(()=>{try{const n=S.nation;
+  if(M200.later||!n||n.npc||navigator.webdriver&&!window.EDICTUM_M200||document.hidden||OBS||PV||tabPassive||regBlocked()||S.mode==='readonly'||S.moving||S.db&&!RCTRL.ready||!(n.cities&&n.cities.length))return;
+  m200Count();
+  if(!m200Due(n)||document.getElementById('m200')||document.getElementById('m100')||m50Due(n)&&!m50Later||m100Due(n)&&!M100.later||m100Busy())return;
+  m200Show();}catch(e){}},2000);
 
 /* ───────── Community Board ─────────
    Under Other: a board for every region, where any Registered Nation opens topics and replies, wherever it lives.
@@ -66754,6 +67375,7 @@ function mlkCard(n){
   if(cl.length)locks.push(`<li>${CZ_LOCK}<span><b>${list(cl.map(esc))}</b>: ${mlkLockTxt('cartopack')}</span></li>`);
   /* the 100-nation gift's colour, once its box is open (never shown locked: it cannot be had any other way) */
   if(ctgMcOk(n,M100_MC))sws+=sw(M100_MC,M100_MCN,'a gift for 100 nations');
+  if(ctgMcOk(n,M200_MC))sws+=sw(M200_MC,M200_MCN,'a gift for 200 nations');
   /* the hex backgrounds: Plain and those held first, then those locked, under a line for each pack and its price */
   const tes=mlkTes(n),anyLock=tes.some(x=>!x.own);
   const tile=(id,name,x)=>{const lock=!!x&&!x.own;return `<button type="button" class="mlk-t${lock?' lock':''}${cur===id?' on':''}" data-act="${lock?'mlk-shop':'mlk-cz'}"${id?` data-id="${id}"`:''}${lock?` data-p="${x.p}" aria-label="${esc(name)}, locked. ${esc(mlkLockSay(x.p))}: see how it looks on ${esc(n.name)}"`:''}><span class="mlk-tv" aria-hidden="true">${ctgLandSVG(n,{mini:1,te:id})}</span><span class="mlk-tn">${esc(name)}</span>${cur===id?'<span class="mlk-ts">Wearing</span>':''}</button>`;};
@@ -66826,6 +67448,11 @@ function ctgMcSw(n,st){
 function m100McSw(n,st){
   if(!ctgMcOk(n,M100_MC))return '';
   return `<button type="button" class="sw${st.mapc===M100_MC?' on':''}" style="--sw:${M100_MC}" data-act="mapc" data-val="${M100_MC}" aria-pressed="${st.mapc===M100_MC}" aria-label="Map colour: ${M100_MCN}, a gift for 100 nations" title="${M100_MCN}, a gift for 100 nations"></button>`;
+}
+/* and the 200-nation gift's, after it */
+function m200McSw(n,st){
+  if(!ctgMcOk(n,M200_MC))return '';
+  return `<button type="button" class="sw${st.mapc===M200_MC?' on':''}" style="--sw:${M200_MC}" data-act="mapc" data-val="${M200_MC}" aria-pressed="${st.mapc===M200_MC}" aria-label="Map colour: ${M200_MCN}, a gift for 200 nations" title="${M200_MCN}, a gift for 200 nations"></button>`;
 }
 /* land in a picture, for the Shop and Customise: the player's own hexes round their capital when the nation is on
    the map (opts.big: a wider ring), otherwise a small made-up patch (always for opts.mini); in a finish (te), with a
@@ -67706,7 +68333,7 @@ document.addEventListener('click',e=>{const t=e.target.closest&&e.target.closest
   fgfClose();});
 document.addEventListener('keydown',e=>{if(e.key!=='Escape'||!document.getElementById('fgf')||FGF.busy)return;if(!FGF.done){FGF.later=true;fgfSeen();}fgfClose();});
 setInterval(()=>{try{const n=S.nation;
-  if(FGF.later||!n||n.fgs===1||document.getElementById('fgf')||document.getElementById('m50')||document.getElementById('m100')||!fgfOpen()||SHOP.open||SHOP.wait||SHOP.gr&&Date.now()-(SHOP.gr.founder||0)<3000
+  if(FGF.later||!n||n.fgs===1||document.getElementById('fgf')||document.getElementById('m50')||document.getElementById('m100')||document.getElementById('m200')||!fgfOpen()||SHOP.open||SHOP.wait||SHOP.gr&&Date.now()-(SHOP.gr.founder||0)<3000
     ||navigator.webdriver&&!window.EDICTUM_FG||document.hidden||OBS||PV||tabPassive||regBlocked()||S.mode!=='world'||S.moving||S.db&&!RCTRL.ready||!(n.cities&&n.cities.length))return;
   fgfShow();}catch(e){}},2000);
 
@@ -68311,7 +68938,7 @@ nationNotes=(f=>function(n,cnt,now){
   if(cnt)items.push({v:'issues',k:chamberOf(n).house,t:`${cnt===1?'One edict awaits':cnt+' edicts await'} ${chamberOf(n).notice}.`,b:'Open edicts',s:`${cnt} ${cnt===1?'edict':'edicts'} to decide`});
   if(cr)items.push({v:'map',k:'Land office',t:`You have ${cr} land ${cr===1?'credit':'credits'} to spend. Choose where ${n.name} grows next.`,b:'Open the map',s:`${cr} land ${cr===1?'credit':'credits'} to spend`});
   /* the other notices (holiday, war, alliances, trade) are rare and urgent, and keep their own banners */
-  const rest=`${crsNotice(n,now)}${awayNotice(n,now)}${warNotice()}${allianceNotice()}${tradeNotice()}`;
+  const rest=`${crsNotice(n,now)}${ldrNotice(n,now)}${awayNotice(n,now)}${warNotice()}${allianceNotice()}${tradeNotice()}`;
   if(!items.length)return rest;const [a,...more]=items;
   return `<section class="nx-card" aria-label="Waiting for you"><button class="notice nx-main" data-act="go" data-v="${a.v}"><span class="notice-k">${esc(a.k)}</span><span>${esc(a.t)}</span><span class="notice-go">${esc(a.b)} →</span></button>${more.length?`<p class="nx-more"><span class="lbl">Also waiting</span>${more.map(x=>`<button type="button" class="chip-btn" data-act="go" data-v="${x.v}">${esc(x.s)}</button>`).join('')}</p>`:''}</section>${rest}`;
 })(nationNotes);
@@ -69247,13 +69874,15 @@ function ifcPlan(n,quick){
   if(ifcMemo.n===n&&ifcMemo.k===k&&(quick||!ifcMemo.q))return ifcMemo.v;
   const groups=quick?(works.length?[works]:[]):works.length>IFC_MAX?works.slice(0,IFC_MAX-1).map(w=>[w]).concat([works.slice(IFC_MAX-1)]):works.map(w=>[w]);
   const saved={e:econMemo,c:cityMemo},undo=[],steps=[];let base=null,prev=null,ok=true;
-  const fresh=()=>{econMemo={T:null,k:'',at:0,v:null};cityMemo={T:null,k:'',v:null};return {rt:{...stockRates(n)},cap:stockCap(n)};};
+  /* the works are finished on the record itself, so every memo is worked out afresh: the pass's answers too (see passRun),
+     or a forecast drawn with a page would read the record as it was before each work */
+  const fresh=()=>{econMemo={T:null,k:'',at:0,v:null};cityMemo={T:null,k:'',v:null};passForget();return {rt:{...stockRates(n)},cap:stockCap(n)};};
   const diff=(a,b)=>Object.fromEntries(RES.map(r=>[r,a[r]-b[r]]));
   try{
     base=prev=fresh();
     for(const g of groups){for(const w of g)undo.push(ifcFinish(w,now));const m=fresh();steps.push({works:g,d:g[g.length-1].d,rt:diff(m.rt,prev.rt),cap:m.cap-prev.cap});prev=m;}
   }catch(e){ok=false;}
-  finally{for(let j=undo.length-1;j>=0;j--)undo[j]();econMemo=saved.e;cityMemo=saved.c;try{territory();}catch(e){}}
+  finally{for(let j=undo.length-1;j>=0;j--)undo[j]();econMemo=saved.e;cityMemo=saved.c;passForget();try{territory();}catch(e){}}
   const v=ok&&base?{works,steps,base,after:prev,total:{rt:diff(prev.rt,base.rt),cap:prev.cap-base.cap},last:works.length?works[works.length-1].d:0}:null;
   ifcMemo={k,n,q:!!quick,v};return v;
 }
@@ -70279,7 +70908,7 @@ function elQuote(n,ct,k,l){const base=bCost(n,k),m=EL_COST*Math.pow(EL_GROW_C,l-
 function elLv(b,now){const e=elExtras(b);return e.eu&&e.eu.d<=now?e.eu.l:e.el||0;}
 function elMap(c,now){const o={};for(const b of (c&&c.b)||[])if(b&&b.d<=now&&(b.k==='market'||b.k==='exchange'||b.k==='cbank')){const l=elLv(b,now);if(l)o[b.k]=l;}return o;}
 /* the economy a city's levels add, for cityState: only from a building that works (a Stock Exchange needs its group) */
-function elCityAdd(ct,x){let v=0;if(!ct||!ct.el)return 0;for(const k in ct.el){if(!ct.done.includes(k))continue;const B=BUILDINGS[k];if(B&&B.lead&&!ldrOf(x&&x.n).includes(B.lead))continue;v+=EL_FX*ct.el[k];}return v;}
+function elCityAdd(ct,x){let v=0;if(!ct||!ct.el)return 0;for(const k in ct.el){if(!ct.done.includes(k))continue;const B=BUILDINGS[k];if(B&&B.lead&&!ldrWork(x&&x.n).includes(B.lead))continue;v+=EL_FX*ct.el[k];}return v;}
 function elBusy(rec,now){return ((rec&&rec.b)||[]).find(b=>{const e=elExtras(b);return e.eu&&e.eu.d>now;})||null;}
 function elProblem(n,ct,k,st,now){
   if(!elOn(k))return 'This building has no economy levels.';
@@ -76795,7 +77424,7 @@ mapBox=(f=>function(kind){const h=f.apply(this,arguments),n=S.nation;if(kind!=='
 
 /* the browser tests' window into the game: test/lib.mjs sets EDICTUM_PROBE before the page loads (a
    player's own browser can reach all of this anyway) */
-if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({RPATCH,SC:()=>scProbe(),SCR:()=>({scrOf,scrClean,scrDef,scrFamOf,scrEdParse,scrGlyphs,scrLay,scrChars,scrSVG,scrLine,scrCard,scrCharterSVG,scrFmt,scrFor,dmRich,dmPlain,scrDmWith,SCR_FAM,SCR_ABC,SCS}),BDX:()=>bdProbe(),FLY:()=>({flagSVG,fgSplit,fgFused}),RD:()=>rdProbe(),JV:()=>jvProbe(),M100P:()=>({M100,M100_N,M100_MC,M100_MCN,m100Bits,m100Got,m100In,m100Due,m100Count,m100Show,m100Open,ctgMcOk,nationColor,czShOk,czShieldPath,unlocksOf,czPatSVG,xsMax}),RVN:()=>({RV,rvData,rvSync,rvKey,rvHeld,rvStretch,rvMost,rvEdgeHolder,rvAt,rvNameAt,rvLabelAt,rvParts,rvRename,rvReset,rvNameProblem,rvTidy,rvLabel,rvnPanel,logLine,RVN_MAX,RVN_LEN,updateMapPanel,hexDist,HEX_W,REG}),CP2:()=>({BLD_ICO,bldIco,bldLead,cxDefTotal,cxOrder,qjBuilding,BUILDINGS}),PRVC:()=>({cxPrvOf,cxPrvSeatTrial,cxOvwCols,prvSeat,prvMine,prvOfCell,prvSetAut,prvAppoint,PRV}),NPX:()=>({fbTrend,fbYesterday,heroLead,heroOpen,opOf,OPEN_TO,hnOf,hnFill,hnLine,nbSection,ppWho,ppWhoHTML,ppHash,ppCarried,economy,territory,bordersOf,fillDeal,findNation,clsHide,MAP,hexDist,STAT_KEYS,popNow,myId}),PT:()=>ptProbe(),LTH:()=>lthProbe(),DAM:()=>damProbe(),CHAT:()=>({RGC,RGW,tab:rgcTab(),count:rgcCount(),region:rgcUnread(),world:rgwUnread(),named:rgwNamedUnread(),hidden:document.hidden}),UXP2:()=>({edictDesk,edictStep,edictOpen,fill,ISSUE_BY_ID,ACH,keysOpen,dmOthers,dmPickList,stGroups,stTabLast,navRecent,vhData,VH_KEY,VH_AFTER,QJ_DO,qjItems:q=>navQjItems(q),NAV_REC_KEY,ST_KEY}),HID:()=>({HIDN,hidMask,iAmHidden,frontier,mapPanel,warControls}),WG:()=>({wgTakers,wgForField,wgForPick,warGiveHex,warGive,occupiedFrom,attack,offerPeace,declareWar,collectConquests,dedupeConq}),WAKE:()=>({dormFresh,dormQuiet,dormWelcome,moveTo,RSTAT,REGIONS,REG,regDisabled}),LAND:()=>({landWait,capLift,capWrong,capNote,raceKnown,RACE,worldHeardAt:()=>worldHeardAt,landQ:()=>S.landQ,landQueued,fdSites:(n,T)=>fdSites(n,T)}),BG:{gain:bldGain,html:bldGainHtml},IB:()=>({agRoster,agPick,agStatus,heatOf,cvRoll,cvKey,cvBlock,cvOdds,buLv,buGap,buAll,BU,BU_KEYS,ibFile,ibWanted,ibChatter,HEAT_MAX,DD_TASKS,DD_LEG,findNation,allNations,cvProtected}),VL:()=>({VL_SECS,VL_DEF,CLS,CLS_OPS,CLS_READ,vlOrder,clsOf,clsRaw,clsMax,clsSeen,clsHide,clsRead,vlSave,findNation}),IFC:()=>({plan:ifcPlan,works:ifcWorks,line:ifcLine,tab:ifcTab}),XP:()=>({BUILDINGS,XU,XU_KEYS,XU_TOTAL,LOST_KINDS,LOST_ORDER,xuLv,xuWhy,xuHave,xuStart,xuCost,xuGear,xpSeen,expFree,xpTeamOpen,nationBuilt,expBackTeam,SITES,SITE_KINDS,expPlan,expOdds,expRuns,expRange,flRange,flAlive,flPlan,flDebug,flNow,discoveries,sendExpedition,hearReport,xpRoute,xpRivals,xpRivalText,xpFinds,flOdds,territory}),SVC:()=>({SVC,SVC_N,SVC_V,SVC_NEED,svcPlan,svcOpen,svcDig,svcShort,svcRoll,svcAmt,svcDayOf,svcRoom,svcNext}),FLC:()=>({FLC,FLC_RULES,FLC_CAT,flcId,flcTimes,flcPhase,flcPrev,flcView,flcLoad,flcChamp,flcTodo,flcClaims,flcLand,flcStreak,flcAllDone,flcSeen,flcDuty,flcDeskOn,flcDraftPush,FCA}),LK:{lakeMap,isLake,claimLand,lakeShore,fillHeld,LAKE_MAX,LAKE_A,freeCell,claimFrontier,blockPlan,autoPlan,terrCount,placePhrase,claimWhy,swapCheck,inspectPanel,writeClaims,landCredits:n=>landCredits(n)},PST:()=>({PST,PST_LOOKS,PST_SHAPES,pstBar,pstKm,pstView,pstBox,pstPlace,pstKeyOf,pstRender,pstShow,pstHide}),DIG:()=>({DIG_SETS,DIG_FIRST,DIG_POOL,DIG_SITES,DIG_LEN,DIG_EVENTS,DIG_SCH,digSet,digHeld,digDone,digRew,digCredits,digOrder,digActive,digRetired,digOpenedAt,digPlan,digSend,digOpen,digChoose,digMod,digEvent,digPity,digGround,digInvites,digJoin,digJointOn,digGiftsIn,digTake,digGiveSpare,digSellSpare,digHire,digRegionFinds,digFirsts,landEarned:n=>landEarned(n),REG,REGIONS,COL_BY_ID}),MW:()=>({mwOf,mwPoints,mwVisitors,mwTakings,mwExhibit,mwExhibitItems,mwRanking,mwWorn,mwSlots,mwOnShow,COL_BY_ID,COL_ITEMS,DIG_SETS,MW_FLOORS}),GM:()=>({gamesResults,edOf,b1Now,gevWhy,baseScores,entryOf,medalsIn,gamesRecords,gamesCeremony,unlocksOf,myId,formOf,GAME_EVENTS,clone,commit}),GB:()=>({IRON_DEP,IRON_DEP_YIELD,CELL_RES,MAP_T:MAP.T,mapAt:c=>{centerMain(c,NEAR_Z*1.6);},stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,FOOD_SPOIL,FOOD_EAT,FOOD_TIERS,FOOD_LAND,foodTier,TIMBER_BURN,foodGrowth,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({dspShown,dspRegShown,dspRegs,dspPic,dspLocator,dspHtDefs,pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),ASMX:()=>({ASMX,ASMX_TABS,asmBookAt,asmState,asmArcLoad,REG}),RGNX:()=>({RGN,RGN_PAGE,notifItems,ONL,onlRefresh}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals}),TYX:()=>({TY,TY_RULES,TY_K,tyOf,tyList,tyWarBlock,tyIncoming,affinity,alPactLive,alRelationsHTML}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,achTierCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC,step:rcStepCheck,head:rcHead,sponsoring:rcSponsoring,qr:qrMatrix,card:rcCardDraw,invCap:rcInvCap,free:rcFreeLand,STEPS:RC_STEPS,UNL:RC_UNLOCKS}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend,card:n=>tutCard(n),phase:n=>tutPhase(n),picks:(n,ph)=>tutPicks(n,ph),group:(n,k)=>tutGroup(n,tutL(k)),hid:n=>tutHid(n)},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours},WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR,bell:now=>notifItems(now||Date.now())},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},TIER:()=>({BTIER,bEff,bTier,bTierNext,bTierLine,tierQuote,tierProblem,cxTier,cxTrMap,tierSettle,tierReady,cxGoldNow,cxUpQuote,cxUpList,cxUps}),CX:{upgradable:cxUpgradable,mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState,UG:CX_UG,LV:CX_LV,ups:cxUps,upMap:cxUpMap,extras:cxBldExtras,quote:cxUpQuote},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo,unlockTarget,unlockShow,unlockFresh,unlockQueue,ULK,UNLOCKS,unlocksOf,toast:m=>toast(m)},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{coinBackSVG:cuCoinBackSVG,noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,coinSVG:cuCoinSVG,guide:cuGuideHTML,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,drawMap,sfKey,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ACH_RANKS_V1,ID_BD,achVal,achCtx,achEvalNew,achState,stockRates:n=>stockRates(n),achPoints,achRank,achRankOf,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,flagNorm:(f,n)=>flagNorm(f,n),flagSVG:(f,l)=>flagSVG(f,l),mapTip:id=>{const T=mapTerr('main'),i=T.list.findIndex(x=>x.id===id);if(i<0)return '';const cell=Array.prototype.indexOf.call(T.owner,i);return MAP_TIP.map(h=>{try{return h({kind:'main',cell,cv:null,x:0,y:0});}catch(e){return '';}}).filter(x=>typeof x==='string').join(' | ');},cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
+if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({RPATCH,SC:()=>scProbe(),MTP:()=>({MTP,MTP_PAD,TBMP_SCALE,redrawMaps,mapScale,viewOf}),SCR:()=>({scrOf,scrClean,scrDef,scrFamOf,scrEdParse,scrGlyphs,scrLay,scrChars,scrSVG,scrLine,scrCard,scrCharterSVG,scrFmt,scrFor,dmRich,dmPlain,scrDmWith,SCR_FAM,SCR_ABC,SCS}),BDX:()=>bdProbe(),FLY:()=>({flagSVG,fgSplit,fgFused}),RD:()=>rdProbe(),JV:()=>jvProbe(),M100P:()=>({M100,M100_N,M100_MC,M100_MCN,m100Bits,m100Got,m100In,m100Due,m100Count,m100Show,m100Open,ctgMcOk,nationColor,czShOk,czShieldPath,unlocksOf,czPatSVG,xsMax}),M200P:()=>({M200,M200_N,M200_MC,M200_MCN,M200_U,m200Bits,m200Got,m200In,m200Due,m200Count,m200Show,m200Open,ctgMcOk,nationColor,czShOk,czShieldPath,unlocksOf,czPatSVG,czStampArt,czFrameArt,czCharge,czFramed,flagSVG,xsMax,ACH_BY_ID,achEarnedIds}),WTN:()=>({WN,wbMap,wnKind,wnWaters,wnSync,wnAt,wnRename,wnReset,wnNameProblem,wnTaken,wnPanel,wnLabels,lakeMap,isLake,cellAt,WN_REACH,WTN_MAX,REG,RV,rvData,hexDist,territory,MAP,HEX_W,updateMapPanel,logLine}),RVN:()=>({RV,rvData,rvSync,rvKey,rvHeld,rvStretch,rvMost,rvEdgeHolder,rvAt,rvNameAt,rvLabelAt,rvParts,rvRename,rvReset,rvNameProblem,rvTidy,rvLabel,rvnPanel,logLine,RVN_MAX,RVN_LEN,updateMapPanel,hexDist,HEX_W,REG}),CP2:()=>({BLD_ICO,bldIco,bldLead,cxDefTotal,cxOrder,qjBuilding,BUILDINGS}),PRVC:()=>({cxPrvOf,cxPrvSeatTrial,cxOvwCols,prvSeat,prvMine,prvOfCell,prvSetAut,prvAppoint,PRV}),NPX:()=>({fbTrend,fbYesterday,heroLead,heroOpen,opOf,OPEN_TO,hnOf,hnFill,hnLine,nbSection,ppWho,ppWhoHTML,ppHash,ppCarried,economy,territory,bordersOf,fillDeal,findNation,clsHide,MAP,hexDist,STAT_KEYS,popNow,myId}),PT:()=>ptProbe(),LTH:()=>lthProbe(),DAM:()=>damProbe(),CHAT:()=>({RGC,RGW,tab:rgcTab(),count:rgcCount(),region:rgcUnread(),world:rgwUnread(),named:rgwNamedUnread(),hidden:document.hidden}),UXP2:()=>({edictDesk,edictStep,edictOpen,fill,ISSUE_BY_ID,ACH,keysOpen,dmOthers,dmPickList,stGroups,stTabLast,navRecent,vhData,VH_KEY,VH_AFTER,QJ_DO,qjItems:q=>navQjItems(q),NAV_REC_KEY,ST_KEY}),HID:()=>({HIDN,hidMask,iAmHidden,frontier,mapPanel,warControls}),WG:()=>({wgTakers,wgForField,wgForPick,warGiveHex,warGive,occupiedFrom,attack,offerPeace,declareWar,collectConquests,dedupeConq}),WAKE:()=>({dormFresh,dormQuiet,dormWelcome,moveTo,RSTAT,REGIONS,REG,regDisabled}),LAND:()=>({landWait,capLift,capWrong,capNote,raceKnown,RACE,worldHeardAt:()=>worldHeardAt,landQ:()=>S.landQ,landQueued,fdSites:(n,T)=>fdSites(n,T)}),BG:{gain:bldGain,html:bldGainHtml},IB:()=>({agRoster,agPick,agStatus,heatOf,cvRoll,cvKey,cvBlock,cvOdds,buLv,buGap,buAll,BU,BU_KEYS,ibFile,ibWanted,ibChatter,HEAT_MAX,DD_TASKS,DD_LEG,findNation,allNations,cvProtected}),VL:()=>({VL_SECS,VL_DEF,CLS,CLS_OPS,CLS_READ,vlOrder,clsOf,clsRaw,clsMax,clsSeen,clsHide,clsRead,vlSave,findNation}),IFC:()=>({plan:ifcPlan,works:ifcWorks,line:ifcLine,tab:ifcTab}),XP:()=>({BUILDINGS,XU,XU_KEYS,XU_TOTAL,LOST_KINDS,LOST_ORDER,xuLv,xuWhy,xuHave,xuStart,xuCost,xuGear,xpSeen,expFree,xpTeamOpen,nationBuilt,expBackTeam,SITES,SITE_KINDS,expPlan,expOdds,expRuns,expRange,flRange,flAlive,flPlan,flDebug,flNow,discoveries,sendExpedition,hearReport,xpRoute,xpRivals,xpRivalText,xpFinds,flOdds,territory}),SVC:()=>({SVC,SVC_N,SVC_V,SVC_NEED,svcPlan,svcOpen,svcDig,svcShort,svcRoll,svcAmt,svcDayOf,svcRoom,svcNext}),FLC:()=>({FLC,FLC_RULES,FLC_CAT,flcId,flcTimes,flcPhase,flcPrev,flcView,flcLoad,flcChamp,flcTodo,flcClaims,flcLand,flcStreak,flcAllDone,flcSeen,flcDuty,flcDeskOn,flcDraftPush,FCA}),LK:{lakeMap,isLake,claimLand,lakeShore,fillHeld,LAKE_MAX,LAKE_A,freeCell,claimFrontier,blockPlan,autoPlan,terrCount,placePhrase,claimWhy,swapCheck,inspectPanel,writeClaims,landCredits:n=>landCredits(n)},PST:()=>({PST,PST_LOOKS,PST_SHAPES,pstBar,pstKm,pstView,pstBox,pstPlace,pstKeyOf,pstRender,pstShow,pstHide}),DIG:()=>({DIG_SETS,DIG_FIRST,DIG_POOL,DIG_SITES,DIG_LEN,DIG_EVENTS,DIG_SCH,digSet,digHeld,digDone,digRew,digCredits,digOrder,digActive,digRetired,digOpenedAt,digPlan,digSend,digOpen,digChoose,digMod,digEvent,digPity,digGround,digInvites,digJoin,digJointOn,digGiftsIn,digTake,digGiveSpare,digSellSpare,digHire,digRegionFinds,digFirsts,landEarned:n=>landEarned(n),REG,REGIONS,COL_BY_ID}),MW:()=>({mwOf,mwPoints,mwVisitors,mwTakings,mwExhibit,mwExhibitItems,mwRanking,mwWorn,mwSlots,mwOnShow,COL_BY_ID,COL_ITEMS,DIG_SETS,MW_FLOORS}),GM:()=>({gamesResults,edOf,b1Now,gevWhy,baseScores,entryOf,medalsIn,gamesRecords,gamesCeremony,unlocksOf,myId,formOf,GAME_EVENTS,clone,commit}),GB:()=>({IRON_DEP,IRON_DEP_YIELD,CELL_RES,MAP_T:MAP.T,mapAt:c=>{centerMain(c,NEAR_Z*1.6);},stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,FOOD_SPOIL,FOOD_EAT,FOOD_TIERS,FOOD_LAND,foodTier,TIMBER_BURN,foodGrowth,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({dspShown,dspRegShown,dspRegs,dspPic,dspLocator,dspHtDefs,pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),ASMX:()=>({ASMX,ASMX_TABS,asmBookAt,asmState,asmArcLoad,REG}),RGNX:()=>({RGN,RGN_PAGE,notifItems,ONL,onlRefresh}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals}),TYX:()=>({TY,TY_RULES,TY_K,tyOf,tyList,tyWarBlock,tyIncoming,affinity,alPactLive,alRelationsHTML}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,achTierCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC,step:rcStepCheck,head:rcHead,sponsoring:rcSponsoring,qr:qrMatrix,card:rcCardDraw,invCap:rcInvCap,free:rcFreeLand,STEPS:RC_STEPS,UNL:RC_UNLOCKS}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend,card:n=>tutCard(n),phase:n=>tutPhase(n),picks:(n,ph)=>tutPicks(n,ph),group:(n,k)=>tutGroup(n,tutL(k)),hid:n=>tutHid(n)},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours},WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR,bell:now=>notifItems(now||Date.now())},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},TIER:()=>({BTIER,bEff,bTier,bTierNext,bTierLine,tierQuote,tierProblem,cxTier,cxTrMap,tierSettle,tierReady,cxGoldNow,cxUpQuote,cxUpList,cxUps}),CX:{upgradable:cxUpgradable,mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState,UG:CX_UG,LV:CX_LV,ups:cxUps,upMap:cxUpMap,extras:cxBldExtras,quote:cxUpQuote},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo,unlockTarget,unlockShow,unlockFresh,unlockQueue,ULK,UNLOCKS,unlocksOf,toast:m=>toast(m)},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{coinBackSVG:cuCoinBackSVG,noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,coinSVG:cuCoinSVG,guide:cuGuideHTML,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,drawMap,sfKey,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ACH_RANKS_V1,ID_BD,achVal,achCtx,achEvalNew,achState,stockRates:n=>stockRates(n),achPoints,achRank,achRankOf,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,flagNorm:(f,n)=>flagNorm(f,n),flagSVG:(f,l)=>flagSVG(f,l),mapTip:id=>{const T=mapTerr('main'),i=T.list.findIndex(x=>x.id===id);if(i<0)return '';const cell=Array.prototype.indexOf.call(T.owner,i);return MAP_TIP.map(h=>{try{return h({kind:'main',cell,cv:null,x:0,y:0});}catch(e){return '';}}).filter(x=>typeof x==='string').join(' | ');},cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
 /* ───────── Letters by post: the player's email address, confirmed by a code, and the letters they choose ─────────
    Settings › Letters by post (src/shim.js mail; functions/mail.js). The address lives only on the server; this card
    asks for it each time Settings opens. Things this nation does to another player's nation (a letter, a war, a deal)
@@ -84990,7 +85619,8 @@ function czMapColRow(n){
   for(const x of Object.keys(CTG_MC)){const nm=CTG_MC[x][1];if(ctgMcOk(n,x)){s+=sw(x,nm,'from the Cartographer’s Pack');continue;}
     if(typeof shopSells==='function'&&shopSells('cartopack'))s+=`<button type="button" class="sw sw-lock" style="--sw:${x}" data-act="mlk-shop" data-p="cartopack" data-mc="${x}" aria-label="Map colour: ${esc(nm)}, locked: in the Cartographer’s Pack" title="${esc(nm)}: in the Cartographer’s Pack">${CZ_LOCK}</button>`;}
   if(ctgMcOk(n,M100_MC))s+=sw(M100_MC,M100_MCN,'a gift for 100 nations');
-  const nm=mc?MAP_COLORS[mc]||(tutMapcOf(mc)||{}).mapcN||(CTG_MC[mc]||[])[1]||M100_MCN||'your chosen colour':'';
+  if(ctgMcOk(n,M200_MC))s+=sw(M200_MC,M200_MCN,'a gift for 200 nations');
+  const nm=mc?MAP_COLORS[mc]||(tutMapcOf(mc)||{}).mapcN||(CTG_MC[mc]||[])[1]||mcGiftName(mc)||'your chosen colour':'';
   return `<h3 class="sub-h">Colour of your land</h3><div class="mapc-prev"><span class="hexchip" style="--hx:${col}" aria-hidden="true"></span><span class="hint">${mc?`Your land is shaded in ${esc(String(nm).toLowerCase())} on the world map.`:'Your land takes its colour from your flag.'} Saved at once.</span></div><div class="mapc-row cz-mapc" role="group" aria-label="Colour of your land">${s}</div>`;
 }
 function czRearrange(h,n){
@@ -85364,6 +85994,22 @@ achDef('mus','mus-digall','g','Down to Bedrock','Complete both field dig collect
 achDef('odd','odd-move','b','New Horizons','Move your nation to another region.',1,x=>Math.max(aT(x,'log:move'),x.npc?0:num0(x.n.mvN)));
 
 const hot=window.claude&&window.claude.hot;
+/* The questions a pass keeps (see passRun), wrapped here at the very end, after every section and before the game
+   starts, so that each wraps every hook added before it; and the passes themselves: a page drawn (render, round all of
+   its hooks), the map panel drawn on its own (updateMapPanel) and a map drawn (drawMap, plates included). */
+territory=(f=>function(extra){return extra||!PASS.m?f.apply(this,arguments):passGet('terr',TERR_AT==null?'':TERR_AT,()=>f.call(this));})(territory);
+politics=(f=>function(){return PASS.m?passGet('pol','',()=>f.call(this)):f.call(this);})(politics);
+atWar=(f=>function(a,b){return PASS.m?passGet('war',a+'\u0001'+b,()=>f.call(this,a,b)):f.call(this,a,b);})(atWar);
+warWith=(f=>function(id){return PASS.m&&S.nation?passGet('ww',myId()+'\u0001'+id,()=>f.call(this,id)):f.call(this,id);})(warWith);
+protectedNow=(f=>function(id){return PASS.m?passGet('prot',id,()=>f.call(this,id)):f.call(this,id);})(protectedNow);
+frontier=(f=>function(T){return PASS.m?passGet('front',T,()=>f.call(this,T)):f.call(this,T);})(frontier);
+cityState=(f=>function(T){return PASS.m&&T?passGet('city',T,()=>f.call(this,T)):f.apply(this,arguments);})(cityState);
+mpHarbours=(f=>function(T){return PASS.m&&T?passGet('harb',T,()=>f.call(this,T)):f.apply(this,arguments);})(mpHarbours);
+landCredits=(f=>function(n){return PASS.m&&n&&typeof n==='object'?passGet('lcr',n,()=>f.call(this,n)):f.apply(this,arguments);})(landCredits);
+render=(f=>function(){return PASS.m?f.apply(this,arguments):passRun(f,this,arguments);})(render);
+updateMapPanel=(f=>function(){return PASS.m?f.apply(this,arguments):passRun(f,this,arguments);})(updateMapPanel);
+drawMap=(f=>function(cv,P){return PASS.m?f.apply(this,arguments):passRun(f,this,arguments);})(drawMap);
+
 if(hot&&typeof hot.snapshot==='function'){try{hot.snapshot(()=>({view:S.view,openIssue:S.openIssue,result:S.result,visit:S.visit,censusKey:S.censusKey,settings:S.settings,draft:S.draft,mapViews:S.mapViews,mapSel:S.mapSel,mapPick:S.mapPick}));}catch(e){}}
 if(hot&&typeof hot.ready==='function')hot.ready(start);else start((hot&&hot.data)||{});
 })();
