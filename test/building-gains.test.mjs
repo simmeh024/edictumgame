@@ -21,7 +21,7 @@ function load(){
       housing:{n:'Housing Estates',growth:0.08,up:{food:1}},market:{n:'Market Hall',prosper:0.03},recycle:{n:'Recycling Works',up:{goods:0.5}},
       reserve:{n:'Nature Reserve'},court:{n:'Courthouse',up:{goods:1}},palace:{n:'Royal Palace',lead:'mon',res:{goods:[0,2]}},gardens:{n:'Hanging Gardens',w:1,res:{food:[0,4]}},
       rail:{n:'Railway Station',res:{timber:[0.4,0],iron:[0.4,0],oil:[0.4,0],goods:[0,1]}},power:{n:'Power Station',res:{goods:[0,7]},up:{oil:1,iron:1}}},
-    ldrOf:n=>(n&&n.gov)||[],list:a=>a.length<2?a.join(''):a.slice(0,-1).join(', ')+' and '+a[a.length-1],esc:s=>String(s)};
+    ldrOf:n=>(n&&n.gov)||[],ldrWork:n=>(n&&n.gov)||[],list:a=>a.length<2?a.join(''):a.slice(0,-1).join(', ')+' and '+a[a.length-1],esc:s=>String(s)};
   vm.createContext(ctx);
   vm.runInContext([
     line('const resName='),line('const fmtAmt='),
