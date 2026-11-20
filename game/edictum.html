@@ -21095,6 +21095,12 @@ const TERRAIN_IN=['','','in the lowlands of','in the hills of','in the mountains
 const STEP=[0,2.5,1,1.35,2.1];
 const LAND_NAMES=['Great Meridia','Vellorn','Austerra','Kessandry','the Thornmarch','Saltreach','Orrin’s Rest','Lowmere','Wrenholm','Hollin','Caskey','Marrable','Dunmarrow','the Sallow Coast','Ivenhal','Tessaly Minor','the Gannet Isles','the Cinder Isles','the Isle of Tarn','the Shoals of Ebb','Little Fennick','the Pellow Rocks','Skerrow','Brisk Island','the Lantern Keys','Holm of Aire','Gull Rock','Mossbank','the Widow’s Teeth','Calder Isle','Pennick','the Outer Lees'];
 const MAP_FONT='"Bodoni Moda","Bodoni 72",Georgia,serif';
+/* label widths, remembered (2026-11-20): every picture of the map measured each nation's, city's, river's, site's and
+   province's name again. Kept by font, letter spacing and text, and forgotten when a typeface finishes loading (the
+   widths change from the fallback's) */
+const MAP_TW=new Map();
+function mapTW(g,t){const k=g.font+'\u0001'+(g.letterSpacing||'')+'\u0001'+t;let w=MAP_TW.get(k);if(w===undefined){if(MAP_TW.size>5000)MAP_TW.clear();w=g.measureText(t).width;MAP_TW.set(k,w);}return w;}
+try{document.fonts.addEventListener('loadingdone',()=>MAP_TW.clear());}catch(e){}
 function legacyMap(){return (function(){
   const COLS=160,ROWS=100,N=COLS*ROWS;
   const W=HEX_W*COLS+HEX_W/2,H=1.5*HEX_R*(ROWS-1)+2*HEX_R;
@@ -21500,6 +21506,28 @@ function hidDoc(id){return (typeof id==='string'&&HIDN.w[id])||null;}
 /* this player's own nation is hidden: it plays on, but goes to war with nobody until it is shown again */
 function iAmHidden(){return !OBS&&!!S.uid&&!!(S.mod&&S.mod[S.uid]&&S.mod[S.uid].hidden);}
 const HID_WAR='Your nation is hidden while the moderators look into a report, so its army stays at home until it is shown again.';
+/* ── facts worked out once per pass (2026-11-20) ──
+   Drawing a page (render), a map (drawMap) or the map's panel asks the same questions many times over: who is at war
+   with whom (once for each nation, from several layers), who is protected, which land can be claimed, who holds which
+   city, how the land is shared out. Each answer had a memo already, but checking it meant building its key from every
+   nation's record again, hundreds of times for one picture: with 60 nations in a region that was 4-7 ms of every map
+   drawn on a laptop, 40-55 ms on a phone, and much of the World map page's first draw. Inside a pass (passRun, round
+   the outermost of those calls) each answer is kept the first time it is asked (passGet), and dropped when the pass
+   ends. A save (commit) during a pass forgets what was kept, and so does a new record: S.nation, S.world or the hidden
+   nations swapped for other objects. Outside a pass everything is worked out as before. */
+const PASS={d:0,m:null,n:null,w:null,h:null};
+function passHid(){try{return HIDN.w;}catch(e){return null;}}
+function passRun(f,self,args){
+  if(!PASS.d){PASS.m=new Map();PASS.n=S.nation;PASS.w=S.world;PASS.h=passHid();}
+  PASS.d++;try{return f.apply(self,args);}finally{if(!--PASS.d)PASS.m=null;}
+}
+/* the answer to question q about k (a string, or an object such as a territory) in this pass; make works it out */
+function passGet(q,k,make){
+  const m=PASS.m;if(!m)return make();
+  if(PASS.n!==S.nation||PASS.w!==S.world||PASS.h!==passHid()){m.clear();PASS.n=S.nation;PASS.w=S.world;PASS.h=passHid();}
+  let a=m.get(q);if(!a)m.set(q,a=new Map());if(a.has(k))return a.get(k);const v=make();a.set(k,v);return v;
+}
+function passForget(){if(PASS.m)PASS.m.clear();}
 const terrCache=new Map();
 function territory(extra){
   syncReclaims();
@@ -23075,7 +23103,7 @@ function drawCities(g,T,scr,off,col,s,boxes){
     mfxCity(g,px,py,col);
     if(ct.done.some(k=>BUILDINGS[k].w)){g.beginPath();g.arc(px,py,7,0,Math.PI*2);g.lineWidth=1.4;g.strokeStyle=col.ink;g.stroke();}
     if(s*HEX_W<9)continue;
-    const tw=g.measureText(ct.nm).width,b={x:px-tw/2-2,y:py+6,w:tw+4,h:fs+3};
+    const tw=mapTW(g,ct.nm),b={x:px-tw/2-2,y:py+6,w:tw+4,h:fs+3};
     if(boxes.some(q=>q.x<b.x+b.w&&b.x<q.x+q.w&&q.y<b.y+b.h&&b.y<q.y+q.h))continue;
     boxes.push(b);mfxLabel(g,ct.nm,px,py+fs+5,col,3);
   }
@@ -23635,6 +23663,9 @@ function claimFrontier(T){
   landMemo={T,me,hk,fr,bs};return fr;
 }
 function claimableBlocks(T){claimFrontier(T);return landMemo.bs;}
+/* every free hex the player could claim now, block by block in claim order (blockPlan), as a list and a set: the map
+   draws them twice (shaded with a dashed edge, and the overlay's pulse), so a pass works them out once */
+function claimCells(T){return passGet('claimCells',T,()=>{const set=new Set(),list=[];for(const b of claimableBlocks(T))for(const c of blockPlan(T,b))if(freeCell(T,c)&&!set.has(c)){set.add(c);list.push(c);}return {set,list};});}
 /* the free hexes of a block that join up with your land, nearest first. from, a hex of the block the player chose,
    comes first, after the hexes that lead to it from your land: a claim of fewer hexes than the block holds (fewer
    credits) takes the chosen one, not the block's first hexes by number, which once took other land than the one
@@ -25772,7 +25803,7 @@ function drawSites(g,scr,off,col,s,boxes,kind,known){
     if(!found&&at!=null)return;
     if(!found&&st.lost){if(!known&&xpSeen(si))xpDiamond(g,px,py,z>=11?9:6.5,col,st.k,z>=11);return;}
     if(found){g.beginPath();for(let k=0;k<10;k++){const a=-Math.PI/2+k*Math.PI/5,r=k%2?2.6:6;g.lineTo(px+Math.cos(a)*r,py+Math.sin(a)*r);}g.closePath();g.fillStyle=col.stamp;g.fill();g.lineWidth=1.4;g.strokeStyle=col.sheet;g.stroke();
-      if(z>=11){const nm=siteName(si);g.font='600 11px '+MAP_FONT;const tw=g.measureText(nm).width,b={x:px-tw/2-3,y:py+7,w:tw+6,h:14};if(!boxes.some(q=>q.x<b.x+b.w&&b.x<q.x+q.w&&q.y<b.y+b.h&&b.y<q.y+q.h)){boxes.push(b);mfxLabel(g,nm,px,py+14,col,3);}}}
+      if(z>=11){const nm=siteName(si);g.font='600 11px '+MAP_FONT;const tw=mapTW(g,nm),b={x:px-tw/2-3,y:py+7,w:tw+6,h:14};if(!boxes.some(q=>q.x<b.x+b.w&&b.x<q.x+q.w&&q.y<b.y+b.h&&b.y<q.y+q.h)){boxes.push(b);mfxLabel(g,nm,px,py+14,col,3);}}}
     else if(!known){const big=z>=11;g.beginPath();g.arc(px,py,big?9:6.6,0,Math.PI*2);g.fillStyle=col.sheet;g.fill();g.lineWidth=1.4;g.strokeStyle=col.ink;g.stroke();
       /* close up, the rumour shows its kind (a waterfall, a wreck…); further out a question mark */
       if(big){g.save();g.translate(px,py);g.scale(0.5,0.5);g.translate(-12,-12);g.lineWidth=2.8;g.lineCap='round';g.lineJoin='round';g.strokeStyle=col.ink;g.stroke(xpPath(st.k));g.restore();}
@@ -30188,8 +30219,8 @@ function mfxCaps(g,T,scr,off,col){
 
 /* The overlay. A canvas over each large map draws what moves: glints on the open sea, surf on the
    coasts, migrants, newly claimed and conquered land, the night and the hover. The map beneath is only
-   redrawn when the view changes. One loop serves every overlay at about 30 frames a second (fewer once
-   nobody has touched the page for a while, see mfxStep), and runs only while a map is on screen, the tab
+   redrawn when the view changes. One loop serves every overlay, 15 frames a second for the sea and 30 for
+   claims and hover fades (none once nobody has touched the page for a while, see mfxTick), and runs only while a map is on screen, the tab
    is visible and motion is allowed; it holds still while the map moves (mfxHold). Reduced motion leaves still
    frames and simple fades. The night follows game time: a year is two real days, so a day is
    YEAR_MS/365, about 7.9 minutes. */
@@ -30252,16 +30283,35 @@ function mfxObserve(f){
 function mfxDrop(f){MFX.delete(f);const wrap=f.cv.parentElement;if(mfxIO&&wrap)mfxIO.unobserve(wrap);f.cv._mfx=null;}
 function mfxBusy(f,rm){return MFX_LAYERS.some(L=>{try{return !!(L.busy&&L.busy(f,rm));}catch(e){return false;}})||(f.kind==='main'&&mfxEv.length>0)||(f.hov>=0&&f.hovA<1)||f.prevA>0||(!rm&&(f.gl.length>0||!!f.sf||!!(f.mig&&f.mig.length)));}
 function mfxKick(){if(!mfxRaf&&!document.hidden&&MFX.size)mfxRaf=requestAnimationFrame(mfxTick);}
-/* 30 frames a second while someone is using the page; 12 after 20 seconds without a touch, key or pointer
-   movement, and 4 after two minutes, until the next input */
-function mfxStep(){let last=0;try{last=QUIET.last;}catch(e){}const idle=Date.now()-last;return idle>120000?250:idle>20000?1000/12:MFX_STEP;}
+/* The sea at rest (2026-11-20). It moved at 30 frames a second while the page was in use, 12 after 20 seconds without
+   a touch and 4 after two minutes, for as long as the map stayed open: about a fourteenth of a laptop's main thread
+   and half of a phone's, with nobody looking. Now the glints, the surf and the pulse of claimable land move at 15
+   frames a second (MFX_AMB), slow enough to read the same, and stop 30 seconds after the last touch, key, wheel or
+   scroll (MFX_PARK), or when the window loses focus: the last frame stays on screen, and every 10 seconds
+   (MFX_NIGHT_EVERY) a frame is drawn with the sea held still, so the night shade still follows the game's day. Any
+   input or the window's focus sets it going again (mfxWake). Claims, conquests and hover fades keep 30 frames a
+   second and are never held. */
+/* EDICTUM_MFX_PARK and EDICTUM_MFX_NIGHT: the tests' shorter waits */
+const MFX_AMB=1000/15,MFX_PARK=Math.max(500,Number(window.EDICTUM_MFX_PARK)||30000),MFX_NIGHT_EVERY=Math.max(500,Number(window.EDICTUM_MFX_NIGHT)||10000);
+let mfxBlur=false,mfxParkT=0,mfxParkOn=false,mfxFocusAt=0;
+/* coming back to the window counts as a touch */
+function mfxParked(){let last=0;try{last=QUIET.last;}catch(e){}return mfxBlur||Date.now()-Math.max(last,mfxFocusAt)>MFX_PARK;}
 function mfxTick(ts){
-  mfxRaf=0;if(document.hidden||mfxFreeze)return;const rm=mfxRM(),step=mfxStep();let again=false;
-  for(const f of MFX){if(!f.cv.isConnected){mfxDrop(f);continue;}if(!f.vis||f.held||!mfxBusy(f,rm))continue;again=true;
-    /* claims, conquests and hover fades keep the full rate */
-    const st=(f.kind==='main'&&mfxEv.length)||f.prevA>0||(f.hov>=0&&f.hovA<1)?MFX_STEP:step;if(ts-f.last>=st-4){f.last=ts;mfxFrame(f,ts);}}
+  mfxRaf=0;if(mfxParkT){clearTimeout(mfxParkT);mfxParkT=0;}if(document.hidden||mfxFreeze)return;
+  const rm=mfxRM(),park=mfxParked();let again=false,held=false;
+  for(const f of MFX){if(!f.cv.isConnected){mfxDrop(f);continue;}if(!f.vis||f.held||!mfxBusy(f,rm))continue;
+    /* claims, conquests and hover fades keep the full rate, and keep going while the rest holds still */
+    const fast=(f.kind==='main'&&mfxEv.length)||f.prevA>0||(f.hov>=0&&f.hovA<1);
+    if(park&&!fast){held=true;if(mfxNightOn&&ts-f.last>=MFX_NIGHT_EVERY-4){f.last=ts;mfxFrame(f,f.lt||ts);}continue;}
+    again=true;if(ts-f.last>=(fast?MFX_STEP:MFX_AMB)-4){f.last=ts;mfxFrame(f,ts);}}
+  mfxParkOn=held&&!again;
   if(again)mfxRaf=requestAnimationFrame(mfxTick);
+  else if(held&&mfxNightOn)mfxParkT=setTimeout(()=>{mfxParkT=0;mfxKick();},MFX_NIGHT_EVERY);
 }
+function mfxWake(){if(!mfxParkOn)return;mfxParkOn=false;mfxKick();}
+for(const t of ['pointerdown','pointermove','keydown','wheel','touchstart','scroll'])window.addEventListener(t,mfxWake,{capture:true,passive:true});
+window.addEventListener('blur',()=>{mfxBlur=true;});
+window.addEventListener('focus',()=>{mfxBlur=false;mfxFocusAt=Date.now();mfxWake();});
 /* hover moves to the overlay: a quick fade in and out instead of a full redraw */
 function mfxHover(cv){const f=cv&&cv._mfx;if(!f||!f.ov.isConnected)return false;if(f.held)return true;if(mfxRM()||!f.vis)mfxFrame(f,performance.now());mfxKick();return true;}
 /* while the map moves the overlay's sea, coasts, migrants and hover pause and leave it; only the night
@@ -35760,14 +35810,14 @@ function rvNames(M){
           g.setTransform(M.dpr,0,0,M.dpr,0,0);boxes.push(...bx);placed.push({r:pk,m:mid});count++;}}
       /* a stretch too short for its name to follow it (one a player named) has the name written level above its middle */
       if(!count&&pt.by&&pt.b>pt.a){const half=(cs[pt.a]+cs[pt.b])/2;let k=pt.a;while(k<pt.b-1&&cs[k+1]<half)k++;const t=(half-cs[k])/((cs[k+1]-cs[k])||1),mx=X[k]+(X[k+1]-X[k])*t,my=Y[k]+(Y[k+1]-Y[k])*t;
-        const tw=g.measureText(pt.nm).width,y=my-fs*0.75,b={x:mx-tw/2-3,y:y-fs,w:tw+6,h:fs+5};
+        const tw=mapTW(g,pt.nm),y=my-fs*0.75,b={x:mx-tw/2-3,y:y-fs,w:tw+6,h:fs+5};
         if(mx-tw/2>4&&mx+tw/2<w-4&&y-fs>4&&my<h-8&&!rvHit(boxes,b)&&!rvHit(avoid,b)){g.setTransform(M.dpr,0,0,M.dpr,0,0);g.textAlign='center';
           g.globalAlpha=0.85;g.lineWidth=3.4;g.strokeStyle=col.sheet;g.strokeText(pt.nm,mx,y);g.globalAlpha=1;g.fillStyle=C.i;g.fillText(pt.nm,mx,y);g.textAlign='left';boxes.push(b);placed.push({r:pk,m:half});}}
     }
   }
   /* lake names, close up */
   if(hx<20)return;g.font='italic 600 '+(fs-1)+'px '+MAP_FONT;g.textAlign='center';
-  for(const L of RV.lakes){const x=L.x*s+ox,y=L.y*s+oy+HEX_R*1.15*s+fs;if(x<-80||x>w+80||y<0||y>h+20)continue;const tw=g.measureText(L.name).width,b={x:x-tw/2-3,y:y-fs,w:tw+6,h:fs+5};
+  for(const L of RV.lakes){const x=L.x*s+ox,y=L.y*s+oy+HEX_R*1.15*s+fs;if(x<-80||x>w+80||y<0||y>h+20)continue;const tw=mapTW(g,L.name),b={x:x-tw/2-3,y:y-fs,w:tw+6,h:fs+5};
     if(rvHit(boxes,b))continue;boxes.push(b);g.globalAlpha=0.85;g.lineWidth=3.4;g.strokeStyle=col.sheet;g.strokeText(L.name,x,y);g.globalAlpha=1;g.fillStyle=C.i;g.fillText(L.name,x,y);}
 }
 
@@ -37561,7 +37611,7 @@ function dcCities(g,T,scr,off,col,s,boxes){
     if(!pl){mfxCity(g,px,py,col);if(ct.done.some(k=>BUILDINGS[k]&&BUILDINGS[k].w)){g.beginPath();g.arc(px,py,7,0,Math.PI*2);g.lineWidth=1.4;g.strokeStyle=col.ink;g.stroke();}}
     if(s*HEX_W<9||mini)continue;
     g.font='italic 600 '+fs+'px '+MAP_FONT;g.textAlign='center';g.textBaseline='alphabetic';
-    const ly=pl?pl.b.y+pl.b.h-1:py+6,tw=g.measureText(ct.nm).width,b={x:px-tw/2-2,y:ly,w:tw+4,h:fs+3};
+    const ly=pl?pl.b.y+pl.b.h-1:py+6,tw=mapTW(g,ct.nm),b={x:px-tw/2-2,y:ly,w:tw+4,h:fs+3};
     if(dcHit(b,boxes))continue;
     boxes.push(b);mfxLabel(g,ct.nm,px,ly+fs-1,col,3);cpLine(g,ct,T,px,ly+fs+3,Rp,boxes,col);
     if(band>0&&ct.rec&&ct.fn&&ccHas(ct.rec)){const im=ccImg(ct),ch=fs+4,cw=ch*106/126,cb={x:b.x-cw-1,y:ly-1,w:cw,h:ch};if(im&&!dcHit(cb,boxes)){g.drawImage(im,cb.x,cb.y,cw,ch);boxes.push(cb);}}
@@ -40894,7 +40944,7 @@ function flDraw(M){
     if(!flSeen.has(s.key))flSeen.set(s.key,fresh?now:0);
     flMarker(g,x,y,R,s,st,col,dk,t,lod,S.flSel===s.key,fresh);items.push({x,y,key:s.key,st:flSeen.get(s.key)});
     if(lod===2){const left=s.e-t,nm=flLabel(s)+(z>=26?` · ${st.taken}/5 · ${left>=FL_H?Math.floor(left/FL_H)+' h':Math.max(1,Math.ceil(left/60000))+' min'}`:'');
-      g.font='600 11px '+MAP_FONT;const tw=g.measureText(nm).width,ly=y+R+16,b={x:x-tw/2-3,y:ly-8,w:tw+6,h:15};
+      g.font='600 11px '+MAP_FONT;const tw=mapTW(g,nm),ly=y+R+16,b={x:x-tw/2-3,y:ly-8,w:tw+6,h:15};
       if(!boxes.some(q=>q.x<b.x+b.w&&b.x<q.x+q.w&&q.y<b.y+b.h&&b.y<q.y+q.h)){boxes.push(b);mfxLabel(g,nm,x,ly,col,3);}}}
   g.textBaseline='alphabetic';M.cv._fl={items,R};flDrawMs+=performance.now()-t0;flDrawN++;
 }
@@ -41512,7 +41562,7 @@ const cpRec=(g,b,t,boxes)=>{const r=g.canvas&&g.canvas._cp;if(r){r.lines.push(Ob
 function cpLine(g,ct,T,px,y,Rp,boxes,col){
   if(Rp<7.5)return;const pop=cpPop(ct,T);if(!(pop>0))return;
   const fs=Rp<12?9:10,t=cpFmt(pop);g.save();g.font='500 '+fs+'px '+MAP_FONT;g.textAlign='center';g.textBaseline='alphabetic';
-  const tw=g.measureText(t).width,b={x:px-tw/2-2,y:y,w:tw+4,h:fs+2};
+  const tw=mapTW(g,t),b={x:px-tw/2-2,y:y,w:tw+4,h:fs+2};
   if(!dcHit(b,boxes)){boxes.push(b);cpRec(g,b,t,boxes);g.globalAlpha*=0.8;mfxLabel(g,t,px,y+fs-1,col,2.4);}
   g.restore();
 }
@@ -41523,7 +41573,7 @@ function cpCapLines(g,T,q,Rp,boxes,col,mini){
   for(const [ct,pl,px] of q){
     const pop=cpPop(ct,T);if(!(pop>0))continue;
     const t=(ct.nm?ct.nm+' · ':'')+cpFmt(pop);g.font='italic 500 '+fs+'px '+MAP_FONT;
-    const tw=g.measureText(t).width,y=pl.b.y+pl.b.h-1,b={x:px-tw/2-2,y,w:tw+4,h:fs+3};
+    const tw=mapTW(g,t),y=pl.b.y+pl.b.h-1,b={x:px-tw/2-2,y,w:tw+4,h:fs+3};
     if(dcHit(b,boxes))continue;boxes.push(b);cpRec(g,b,t,boxes);g.globalAlpha=0.85;mfxLabel(g,t,px,y+fs,col,2.6);g.globalAlpha=1;
   }
   g.restore();
@@ -45266,7 +45316,7 @@ MAP_LAYERS.push({stage:'top',kinds:['main','visit','prov'],draw:M=>{
   const list=[];for(const [i,N] of st.nats){if(mine&&!M.T.list[i].me)continue;for(const p of N.prov)if(!p.dorm&&p.label>=0&&p.cells.length>=(mine?1:3))list.push(p);}
   list.sort((a,b)=>b.cells.length-a.cells.length);
   for(const p of list){
-    const [px,py0]=M.scr(p.label);if(M.off(px,py0))continue;const t=p.nm.toUpperCase(),tw=g.measureText(t).width;let b=null,py=0;
+    const [px,py0]=M.scr(p.label);if(M.off(px,py0))continue;const t=p.nm.toUpperCase(),tw=mapTW(g,t);let b=null,py=0;
     for(const dy of [0.36,1.9,-1.3]){py=py0+fs*dy;const c={x:px-tw/2-2,y:py-fs,w:tw+4,h:fs+4};if(c.x<0||c.x+c.w>M.w||c.y<0||c.y+c.h>M.h||boxes.some(q=>q.x<c.x+c.w&&c.x<q.x+q.w&&q.y<c.y+c.h&&c.y<q.y+q.h))continue;b=c;break;}
     if(!b)continue;boxes.push(b);g.globalAlpha=mine&&p.id!==PRV.ui.sel?0.8:0.92;mfxLabel(g,t,px,py,M.col,2.6);g.globalAlpha=1;
   }
@@ -46921,6 +46971,50 @@ function terrainTiles(g,col,s,ox,oy,dpr,x0,x1,y0,y1,cv){
   if(lowRes&&cv)setTimeout(()=>schedule(cv),0);
   return true;
 }
+/* ── the land, ready drawn (2026-11-20) ──
+   Zoomed out on the World map (where the terrain is one picture, terrainBitmap), every held hex was filled in its
+   nation's colour and every border drawn edge by edge for each picture: with 60 nations in a region, some 12,000 hexes,
+   30 ms of a laptop's 55 ms frame and 280 ms on a phone, with the loop that sorted all of the region's 129,000 hexes on
+   screen by terrain, paint and holder besides. Now the colours and the borders are drawn once into two pictures of the
+   whole region at the view's scale (device pixels per map unit), transparent layers laid where the fills and the border
+   lines went, under and over the same layers as before, and kept while the land, its colours, the shade (--terr-a) and
+   the scale stay the same: the same view drawn again (the clock's minute, a page drawn, a snapshot) or a drag at the
+   same zoom lays two pictures. At the pixel phase of the view they were made for they match the hex-by-hex picture; at
+   another phase they are laid at the nearest whole pixel. The nations go in the same order as before (by their first
+   hex on the map), which decides the colour of a border two nations share. Only when the whole region at that scale is
+   not much bigger than the canvas (MTP_MIN, MTP_MAX); a plate draws with them only when they are already made for its
+   scale; and they are let go when the map is zoomed in further or leaves the page. */
+const MTP_MIN=1.5e6,MTP_MAX=6e6,MTP_PAD=3;
+const MTP={T:null,key:'',fill:null,edge:null,fx:0,fy:0};
+/* every held hex by holder, in map order, worked out once for each share-out of the land */
+function mtpCells(T){if(T._mtpC)return T._mtpC;const C=T.list.map(()=>[]);for(let i=0;i<MAP.N;i++){const o=T.owner[i];if(o>=0&&C[o])C[o].push(i);}return T._mtpC=C;}
+/* the held hexes in the view by holder, in the order the hex-by-hex loop met them */
+function mtpByO(T,x0,x1,y0,y1){
+  const C=mtpCells(T),out=[];
+  for(let o=0;o<C.length;o++){let a=null;for(const i of C[o]){const x=MAP.cx[i],y=MAP.cy[i];if(x<x0||x>x1||y<y0||y>y1)continue;if(!a)a=[];a.push(i);}if(a)out.push(a);}
+  out.sort((p,q)=>p[0]-q[0]);return new Map(out.map(a=>[T.owner[a[0]],a]));
+}
+function mtpDrop(){for(const c of [MTP.fill,MTP.edge])if(c){c.width=0;c.height=0;}MTP.T=null;MTP.key='';MTP.fill=MTP.edge=null;}
+function mtpTidy(){if(MTP.fill&&!document.querySelector('canvas.map-cv[data-map="main"]'))mtpDrop();}
+/* the two pictures for this view, made now when build allows; null when the region at this scale is too big for them */
+function mtpGet(T,kind,s,dpr,ox,oy,alpha,build,cvPx){
+  const q=s*dpr,W=Math.ceil(MAP.W*q)+2*MTP_PAD,H=Math.ceil(MAP.H*q)+2*MTP_PAD;
+  if(W*H>Math.min(MTP_MAX,Math.max(MTP_MIN,1.25*cvPx))){if(build)mtpDrop();return null;}
+  const fill=[],edge=[];for(let o=0;o<T.list.length;o++){const on=T.count[o]>0;fill.push(on?mapTerrCol(T,o,kind):'');edge.push(on?lensEdge(T,o,kind):'');}
+  const key=[q,s,alpha,W,H,fill.join(','),edge.join(',')].join('|');
+  if(MTP.T===T&&MTP.key===key)return MTP;
+  if(!build)return null;
+  mtpDrop();
+  const mk=()=>{const c=document.createElement('canvas');c.width=W;c.height=H;return c;},F=mk(),E=mk(),gf=F.getContext('2d'),ge=E.getContext('2d');if(!gf||!ge)return null;
+  const fx=dpr*ox-Math.floor(dpr*ox),fy=dpr*oy-Math.floor(dpr*oy);
+  for(const q2 of [gf,ge]){q2.setTransform(q,0,0,q,MTP_PAD+fx,MTP_PAD+fy);q2.lineJoin='round';q2.lineCap='round';}
+  const C=mtpCells(T),order=[];for(let o=0;o<C.length;o++)if(fill[o]&&C[o].length)order.push(o);order.sort((a,b)=>C[a][0]-C[b][0]);
+  gf.globalAlpha=alpha;for(const o of order)fillHeld(gf,C[o],fill[o],HEX_R+0.5);
+  ge.lineWidth=1.4/s;for(const o of order){ge.beginPath();edgeList(ge,C[o],(i,j)=>j<0||T.owner[j]!==o);ge.strokeStyle=edge[o];ge.stroke();}
+  Object.assign(MTP,{T,key,fill:F,edge:E,fx,fy});return MTP;
+}
+/* one of them laid on the map at the view's offset (ox, oy in CSS pixels), at whole device pixels */
+function mtpDraw(g,c,dpr,ox,oy){g.save();g.setTransform(1,0,0,1,0,0);g.globalAlpha=1;g.drawImage(c,Math.round(dpr*ox-MTP.fx)-MTP_PAD,Math.round(dpr*oy-MTP.fy)-MTP_PAD);g.restore();}
 /* Draft detail, for the frames drawn while the map moves (see map motion below): no mountain facets, glyphs,
    river banks and highlights, tree crowns or shadows, and the relief only as its baked picture (one image,
    where close up it is drawn as bevels): left out, its light and shade would show the plate's edge against
@@ -46929,7 +47023,7 @@ let mapDraftOn=false;
 /* The whole picture, onto the canvas; or, given a plate {c, m, dpr}, onto that canvas with a margin of m CSS
    pixels round the view, at that pixel density (the frames while the map moves are cut from it). */
 function drawMap(cv,P){
-  const cw=cv.clientWidth,ch=cv.clientHeight;if(!cw||!ch)return;
+  const cw=cv.clientWidth,ch=cv.clientHeight;if(!cw||!ch)return;if(!P)cv._sz=cw+'x'+ch;
   const m=P?P.m:0,w=cw+2*m,h=ch+2*m,tc=P?P.c:cv;
   const dpr=P?P.dpr:mfxDpr(cv),PW=Math.round(w*dpr),PH=Math.round(h*dpr);
   if(tc.width!==PW||tc.height!==PH){tc.width=PW;tc.height=PH;}
@@ -46946,32 +47040,41 @@ function drawMap(cv,P){
   for(const ox of mapTurns(OX,s,w,HEX_W*s)){
   g.setTransform(dpr*s,0,0,dpr*s,dpr*ox,dpr*oy);
   const x0=-ox/s-HEX_W,x1=(w-ox)/s+HEX_W,y0=-oy/s-2*HEX_R,y1=(h-oy)/s+2*HEX_R;
-  const T=mapTerr(kind),byT=[[],[],[],[],[]],byP=PAINT_COL.map(()=>[]),byO=new Map();
-  /* only the rows and columns on screen, not all of the region's hexes */
+  const T=mapTerr(kind),byT=[[],[],[],[],[]],byP=PAINT_COL.map(()=>[]),TA=parseFloat(C('--terr-a'))||0.5,useBmp=s*dpr<=TBMP_SCALE*1.05;
+  /* zoomed out on the World map, the land's colours and borders come ready drawn (see the land, ready drawn) */
+  const tp=useBmp&&kind==='main'?mtpGet(T,kind,s,dpr,ox,oy,TA,!P,PW*PH):null;
+  if(!tp&&!useBmp&&!P&&kind==='main'&&MTP.fill)mtpDrop();
+  let byO=tp?mtpByO(T,x0,x1,y0,y1):new Map(),cellsDone=false;
+  /* only the rows and columns on screen, not all of the region's hexes; and, with the land ready drawn, only when
+     something asks for the hexes by terrain or paint (byT, byP: close up, or a layer that wants them) */
   const c0=Math.max(0,Math.floor(x0/HEX_W)-1),c1=Math.min(MAP.COLS-1,Math.ceil(x1/HEX_W)),r0=Math.max(0,Math.floor((y0-HEX_R)/(1.5*HEX_R))),r1=Math.min(MAP.ROWS-1,Math.ceil((y1-HEX_R)/(1.5*HEX_R)));
-  for(let r=r0;r<=r1;r++)for(let c=c0,i=r*MAP.COLS+c0;c<=c1;c++,i++){
-    const x=MAP.cx[i],y=MAP.cy[i];if(x<x0||x>x1||y<y0||y>y1)continue;
-    byT[MAP.T[i]].push(i);byP[kind==='atlas'&&RECL.time.size&&(RECL.time.get(i)||0)>atlasCut()?1:paintOf(i)].push(i);
-    const o=T.owner[i];if(o>=0){let a=byO.get(o);if(!a)byO.set(o,a=[]);a.push(i);}
-  }
+  const needCells=()=>{if(cellsDone)return;cellsDone=true;
+    for(let r=r0;r<=r1;r++)for(let c=c0,i=r*MAP.COLS+c0;c<=c1;c++,i++){
+      const x=MAP.cx[i],y=MAP.cy[i];if(x<x0||x>x1||y<y0||y>y1)continue;
+      byT[MAP.T[i]].push(i);byP[kind==='atlas'&&RECL.time.size&&(RECL.time.get(i)||0)>atlasCut()?1:paintOf(i)].push(i);
+      if(tp)continue;const o=T.owner[i];if(o>=0){let a=byO.get(o);if(!a)byO.set(o,a=[]);a.push(i);}
+    }};
+  if(!tp)needCells();
   const fillCells=(cells,style)=>{if(!cells.length)return;g.beginPath();for(const i of cells)hexFill(g,i,HEX_R+0.5);g.fillStyle=style;g.fill();};
-  const useBmp=s*dpr<=TBMP_SCALE*1.05,useTiles=!useBmp&&s*dpr<=TT_MAX&&terrainTiles(g,col,s,ox,oy,dpr,x0,x1,y0,y1,P?null:cv),baked=useBmp||useTiles;
+  const useTiles=!useBmp&&s*dpr<=TT_MAX&&terrainTiles(g,col,s,ox,oy,dpr,x0,x1,y0,y1,P?null:cv),baked=useBmp||useTiles;
   if(useBmp){g.setTransform(dpr,0,0,dpr,0,0);g.imageSmoothingEnabled=true;g.drawImage(terrainBitmap(col),ox,oy,MAP.W*s,MAP.H*s);g.setTransform(dpr*s,0,0,dpr*s,dpr*ox,dpr*oy);}
   else if(!useTiles){sfUnder(g,col);byP.forEach((cells,p)=>{if(p===2)sfOver(g,col,1/s,x0,y0,x1,y1);if(p)fillCells(cells,col[PAINT_COL[p]]);});if(!draft)rlfFacets(g,byP[4],col);}
-  if(baked&&kind==='atlas'&&RECL.time.size){const fr=byP[1].filter(i=>(RECL.time.get(i)||0)>atlasCut());if(fr.length)fillCells(fr,col.sea2);}
+  if(baked&&kind==='atlas'&&RECL.time.size){needCells();const fr=byP[1].filter(i=>(RECL.time.get(i)||0)>atlasCut());if(fr.length)fillCells(fr,col.sea2);}
   /* layers marked fixed sit at one place on the screen (the season badge): never on a plate, which moves */
-  const M={cv,g,kind,s,ox,oy,w,h,dpr,col,T,x0,x1,y0,y1,byT,byP,byO,useBmp:baked,draft,fixed:[],first},ML=st=>{for(const L of MAP_LAYERS){if(L.stage!==st||(L.kinds&&!L.kinds.includes(kind))||((P||!first)&&L.fixed))continue;g.save();try{L.draw(M);}catch(e){}g.restore();}};
+  const M={cv,g,kind,s,ox,oy,w,h,dpr,col,T,x0,x1,y0,y1,get byT(){needCells();return byT;},get byP(){needCells();return byP;},byO,useBmp:baked,draft,fixed:[],first},ML=st=>{for(const L of MAP_LAYERS){if(L.stage!==st||(L.kinds&&!L.kinds.includes(kind))||((P||!first)&&L.fixed))continue;g.save();try{L.draw(M);}catch(e){}g.restore();}};
   ML('terrain');
-  g.globalAlpha=parseFloat(C('--terr-a'))||0.5;
-  for(const [o,cells] of byO)fillHeld(g,cells,mapTerrCol(T,o,kind),HEX_R+0.5);
+  if(tp)mtpDraw(g,tp.fill,dpr,ox,oy);
+  else{g.globalAlpha=TA;for(const [o,cells] of byO)fillHeld(g,cells,mapTerrCol(T,o,kind),HEX_R+0.5);}
+  if(!draft&&s*HEX_W>=RLF_VEC)needCells();
   g.globalAlpha=1;g.lineJoin='round';g.lineCap='round';rlfShade(g,col,s,draft?null:byP);
-  if(s*HEX_W>=13&&!draft){g.beginPath();for(const t of [2,3])for(const i of byT[t]){if(!CELL_RES.oil[i])continue;const x=MAP.cx[i]+3.2,y=MAP.cy[i]+2.6;g.moveTo(x,y-4.4);g.quadraticCurveTo(x+3.4,y+0.4,x,y+3.2);g.quadraticCurveTo(x-3.4,y+0.4,x,y-4.4);}g.globalAlpha=0.6;g.fillStyle=col.ink;g.fill();g.globalAlpha=1;
+  if(s*HEX_W>=13&&!draft){needCells();g.beginPath();for(const t of [2,3])for(const i of byT[t]){if(!CELL_RES.oil[i])continue;const x=MAP.cx[i]+3.2,y=MAP.cy[i]+2.6;g.moveTo(x,y-4.4);g.quadraticCurveTo(x+3.4,y+0.4,x,y+3.2);g.quadraticCurveTo(x-3.4,y+0.4,x,y-4.4);}g.globalAlpha=0.6;g.fillStyle=col.ink;g.fill();g.globalAlpha=1;
     /* iron deposits: a small faceted nugget */
     g.beginPath();for(const t of [2,3,4])for(const i of byT[t]){if(!IRON_DEP[i])continue;const x=MAP.cx[i]-3.4,y=MAP.cy[i]+2.4,k=1.35;g.moveTo(x-3*k,y+1.2*k);g.lineTo(x-1.4*k,y-2.6*k);g.lineTo(x+2.2*k,y-2.2*k);g.lineTo(x+3.2*k,y+k);g.lineTo(x,y+3*k);g.closePath();}g.fillStyle='#8a4a26';g.fill();g.strokeStyle='rgba(255,236,210,.85)';g.lineWidth=0.9/s;g.stroke();}
-  if(s*HEX_W>=13&&!draft){g.beginPath();for(const i of byT[4]){const x=MAP.cx[i],y=MAP.cy[i];g.moveTo(x-4.2,y+2.6);g.lineTo(x,y-3.2);g.lineTo(x+4.2,y+2.6);}g.strokeStyle=col.coast;g.lineWidth=1.1/s;g.stroke();biomeGlyphs(g,byP,col,s,T,kind);hillGlyphs(g,byP[3],col,s);}
-  if(!baked){g.beginPath();edgeList(g,byT[2].concat(byT[3],byT[4]),(i,j)=>j<0||MAP.T[j]<2);g.strokeStyle=col.coast;g.lineWidth=1/s;g.stroke();}
+  if(s*HEX_W>=13&&!draft){needCells();g.beginPath();for(const i of byT[4]){const x=MAP.cx[i],y=MAP.cy[i];g.moveTo(x-4.2,y+2.6);g.lineTo(x,y-3.2);g.lineTo(x+4.2,y+2.6);}g.strokeStyle=col.coast;g.lineWidth=1.1/s;g.stroke();biomeGlyphs(g,byP,col,s,T,kind);hillGlyphs(g,byP[3],col,s);}
+  if(!baked){needCells();g.beginPath();edgeList(g,byT[2].concat(byT[3],byT[4]),(i,j)=>j<0||MAP.T[j]<2);g.strokeStyle=col.coast;g.lineWidth=1/s;g.stroke();}
   ML('land');
-  for(const [o,cells] of byO){g.beginPath();edgeList(g,cells,(i,j)=>j<0||T.owner[j]!==o);g.strokeStyle=lensEdge(T,o,kind);g.lineWidth=1.4/s;g.stroke();}
+  if(tp)mtpDraw(g,tp.edge,dpr,ox,oy);
+  else for(const [o,cells] of byO){g.beginPath();edgeList(g,cells,(i,j)=>j<0||T.owner[j]!==o);g.strokeStyle=lensEdge(T,o,kind);g.lineWidth=1.4/s;g.stroke();}
   const outline=(o,style,lw)=>{const cells=byO.get(o);if(!cells)return;g.beginPath();edgeList(g,cells,(i,j)=>j<0||T.owner[j]!==o);g.strokeStyle=style;g.lineWidth=lw/s;g.stroke();};
   const meIdx=T.list.findIndex(x=>x.me),selIdx=kind==='main'&&S.mapSel!=null?T.byId[S.mapSel]:undefined;
   if(S.nation&&kind!=='found'&&kind!=='atlas')for(const id of alliesOf(myId())){const j=T.byId[id];if(j!==undefined&&j!==meIdx)outline(j,col.accent,2.2);}
@@ -46984,7 +47087,7 @@ function drawMap(cv,P){
     if(fr.size){g.beginPath();for(const c of fr.keys()){const x=MAP.cx[c],y=MAP.cy[c];if(x<x0||x>x1||y<y0||y>y1)continue;hexPath(g,c,HEX_R-1.3);}g.setLineDash([3.5/s,2.5/s]);g.strokeStyle=col.down;g.lineWidth=1.6/s;g.stroke();g.setLineDash([]);}
     if(S.mapTarget!=null){g.beginPath();hexPath(g,S.mapTarget,HEX_R-1);g.strokeStyle=col.down;g.lineWidth=3.2/s;g.stroke();}
     const lcr=landCredits(S.nation);
-    if(lcr>0){const set=new Set(),cells=[];for(const b of claimableBlocks(T))for(const c of blockPlan(T,b))if(freeCell(T,c)){set.add(c);const x=MAP.cx[c],y=MAP.cy[c];if(x>=x0&&x<=x1&&y>=y0&&y<=y1)cells.push(c);}
+    if(lcr>0){const CC=claimCells(T),set=CC.set,cells=CC.list.filter(c=>{const x=MAP.cx[c],y=MAP.cy[c];return x>=x0&&x<=x1&&y>=y0&&y<=y1;});
       g.globalAlpha=0.16;fillCells(cells,col.accent);g.globalAlpha=1;
       g.beginPath();edgeList(g,cells,(i,j)=>j<0||!set.has(j)||BLOCKS.of[j]!==BLOCKS.of[i]);g.setLineDash([3/s,2.2/s]);g.strokeStyle=col.accent;g.lineWidth=1.3/s;g.stroke();g.setLineDash([]);
       if(S.mapClaim){const plan=blockPlan(T,S.mapClaim.b,S.mapClaim.c).slice(0,lcr),ps=new Set(plan);g.globalAlpha=0.5;fillCells(plan,col.accent);g.globalAlpha=1;g.beginPath();edgeList(g,plan,(i,j)=>j<0||!ps.has(j));g.strokeStyle=col.accent;g.lineWidth=2.4/s;g.stroke();
@@ -47012,7 +47115,7 @@ function drawMap(cv,P){
     const name=String((sheet?x.n.capital:x.n.name)||''),lc=sheet?x.cap:dcLabelAt(T,i,s,kind,scr),[px,py0]=scr(lc),py=py0-(lc===x.cap?dcLift(T,i,s,kind):7);
     const fs=sheet?Math.round(13.5*zf):Math.round(clamp(10.5+Math.sqrt(T.count[i])*0.55,11,19)*zf);
     g.font=(x.me?700:600)+' '+fs+'px '+MAP_FONT;
-    const tw=g.measureText(name).width,b={x:px-tw/2-3,y:py-fs,w:tw+6,h:fs+5};
+    const tw=mapTW(g,name),b={x:px-tw/2-3,y:py-fs,w:tw+6,h:fs+5};
     if(b.x+b.w<0||b.x>w||b.y+b.h<0||b.y>h)continue;
     if(boxes.some(q=>q.x<b.x+b.w&&b.x<q.x+q.w&&q.y<b.y+b.h&&b.y<q.y+q.h))continue;
     boxes.push(b);
@@ -47114,12 +47217,19 @@ function mapMotionFrame(cv){
   mapDraftOn=true;try{drawMap(cv);}finally{mapDraftOn=false;}
 }
 function redrawMaps(){document.querySelectorAll('canvas.map-cv').forEach(schedule);}
-let mapRO=null;
+/* One picture per map per page drawn (2026-11-20). Each page drawn (render) used to draw every map on it at once and
+   then observe it afresh, and the observer's first report drew it a second time: opening the World map drew it three
+   times (the land office's offer asks for one more), and every page drawn while the map was open drew it twice. A page
+   drawn now asks for one picture in the next frame (schedule: before the browser paints, so a new canvas never shows
+   empty, and once however often it is asked). The observer stays, watches each canvas once, lets go of canvases that
+   have left the page, and asks for a picture only when a canvas is not the size its last picture was drawn at (cv._sz,
+   set by drawMap). */
+let mapRO=null;const mapObs=new Set();
 function initMaps(){
-  if(mapRO){mapRO.disconnect();mapRO=null;}
-  const cvs=document.querySelectorAll('canvas.map-cv');if(!cvs.length)return;
-  if(window.ResizeObserver)mapRO=new ResizeObserver(es=>es.forEach(e=>schedule(e.target)));
-  cvs.forEach(cv=>{bindMap(cv);if(mapRO)mapRO.observe(cv);drawMap(cv);});
+  for(const cv of mapObs)if(!cv.isConnected){mapObs.delete(cv);if(mapRO)mapRO.unobserve(cv);}
+  const cvs=document.querySelectorAll('canvas.map-cv');mtpTidy();if(!cvs.length)return;
+  if(!mapRO&&window.ResizeObserver)mapRO=new ResizeObserver(es=>es.forEach(e=>{const cv=e.target;if(cv.isConnected&&cv._sz!==cv.clientWidth+'x'+cv.clientHeight)schedule(cv);}));
+  cvs.forEach(cv=>{bindMap(cv);if(mapRO&&!mapObs.has(cv)){mapObs.add(cv);mapRO.observe(cv);}schedule(cv);});
 }
 function zoomAt(cv,sx,sy,f){
   mapGlideStop(cv.dataset.map);
@@ -47616,7 +47726,7 @@ async function ownGone(){
   render();publishSync();
   toast(`${n.name} is no longer saved: it was dissolved on another device. You can found a new nation.${kept?' A copy of the old one is in your account menu.':''}`);
 }
-function commit(n){if(OBS||PV||tabPassive||regBlocked())return;const act=actRecord(n),now=Date.now();migAccrue(n,now);n.pop=popNow(n,now);n.popAt=now;
+function commit(n){passForget();if(OBS||PV||tabPassive||regBlocked())return;const act=actRecord(n),now=Date.now();migAccrue(n,now);n.pop=popNow(n,now);n.popAt=now;
   if(n.name&&!n.npc&&Array.isArray(n.log)){driftTick(n,now);const tk=[...retireTick(n,now),...npcWarTick(n,now)];allyTick(n,now);if(tk.length)setTimeout(()=>toast(tk.join(' ')),0);}
   if(n._stockSet)delete n._stockSet;else if(S.nation&&cellOf(S.nation.loc)>=0){n.stock=roundStock(stockNow(S.nation,now));n.stockAt=now;}else n.stockAt=now;
   ensureCities(n);syncBuildings(n,now);const warehouseNotes=whSync(n,now);if(warehouseNotes.length)setTimeout(()=>warehouseNotes.forEach(t=>toast(t)),0);
@@ -51552,7 +51662,11 @@ function allNations(){
   if(S.nation&&!OBS)out.push({id:S.uid||'me',n:S.nation,me:true});
   return out;
 }
-function findNation(id){return allNations().find(x=>x.id===id);}
+function findNation(id){
+  /* in a pass (see passRun) every nation by its id once, not the whole list built and searched for each question */
+  if(PASS.m)return passGet('nat','',()=>{const m=new Map();for(const x of allNations())if(!m.has(x.id))m.set(x.id,x);return m;}).get(id);
+  return allNations().find(x=>x.id===id);
+}
 
 /* ───────── views ───────── */
 const NAV=[['nation','Nation'],['issues','Edicts'],['map','Map'],['cities','Cities'],PRV_NAV,['diplomacy','Diplomacy'],['intel','Intelligence'],['trade','Trade'],['government','Government'],['games','Games'],['museum','Museum'],['achievements','Achievements'],['passport','Passport'],['census','Census'],['stats','Statistics'],['region','Region'],['dispatch','Dispatch'],['assembly','Assembly'],['world','World'],['space','Space'],['messages','Messages'],['flock','Flock'],['settings','Settings'],['customise','Customise'],['help','Help']];
@@ -58092,7 +58206,7 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-act]');if
 });
 /* the claimable hexes breathe while the card is up */
 MAP_LAYERS.push({stage:'over',kinds:['main'],draw:M=>{M.cv._lcP=null;if(!LC.on||S.view!=='map'||typeof Path2D!=='function')return;
-  const P=new Path2D();let any=false;for(const b of claimableBlocks(M.T))for(const c of blockPlan(M.T,b))if(freeCell(M.T,c)){hexPath(P,c,HEX_R-0.6);any=true;}
+  const P=new Path2D();let any=false;for(const c of claimCells(M.T).list){hexPath(P,c,HEX_R-0.6);any=true;}
   if(any)M.cv._lcP=P;}});
 MFX_LAYERS.push({
   busy:(f,rm)=>!rm&&f.kind==='main'&&LC.on&&S.view==='map'&&!!f.cv._lcP,
@@ -76750,7 +76864,7 @@ mapBox=(f=>function(kind){const h=f.apply(this,arguments),n=S.nation;if(kind!=='
 
 /* the browser tests' window into the game: test/lib.mjs sets EDICTUM_PROBE before the page loads (a
    player's own browser can reach all of this anyway) */
-if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({RPATCH,SC:()=>scProbe(),SCR:()=>({scrOf,scrClean,scrDef,scrFamOf,scrEdParse,scrGlyphs,scrLay,scrChars,scrSVG,scrLine,scrCard,scrCharterSVG,scrFmt,scrFor,dmRich,dmPlain,scrDmWith,SCR_FAM,SCR_ABC,SCS}),BDX:()=>bdProbe(),FLY:()=>({flagSVG,fgSplit,fgFused}),RD:()=>rdProbe(),JV:()=>jvProbe(),M100P:()=>({M100,M100_N,M100_MC,M100_MCN,m100Bits,m100Got,m100In,m100Due,m100Count,m100Show,m100Open,ctgMcOk,nationColor,czShOk,czShieldPath,unlocksOf,czPatSVG,xsMax}),RVN:()=>({RV,rvData,rvSync,rvKey,rvHeld,rvStretch,rvMost,rvEdgeHolder,rvAt,rvNameAt,rvLabelAt,rvParts,rvRename,rvReset,rvNameProblem,rvTidy,rvLabel,rvnPanel,logLine,RVN_MAX,RVN_LEN,updateMapPanel,hexDist,HEX_W,REG}),CP2:()=>({BLD_ICO,bldIco,bldLead,cxDefTotal,cxOrder,qjBuilding,BUILDINGS}),PRVC:()=>({cxPrvOf,cxPrvSeatTrial,cxOvwCols,prvSeat,prvMine,prvOfCell,prvSetAut,prvAppoint,PRV}),NPX:()=>({fbTrend,fbYesterday,heroLead,heroOpen,opOf,OPEN_TO,hnOf,hnFill,hnLine,nbSection,ppWho,ppWhoHTML,ppHash,ppCarried,economy,territory,bordersOf,fillDeal,findNation,clsHide,MAP,hexDist,STAT_KEYS,popNow,myId}),PT:()=>ptProbe(),LTH:()=>lthProbe(),DAM:()=>damProbe(),CHAT:()=>({RGC,RGW,tab:rgcTab(),count:rgcCount(),region:rgcUnread(),world:rgwUnread(),named:rgwNamedUnread(),hidden:document.hidden}),UXP2:()=>({edictDesk,edictStep,edictOpen,fill,ISSUE_BY_ID,ACH,keysOpen,dmOthers,dmPickList,stGroups,stTabLast,navRecent,vhData,VH_KEY,VH_AFTER,QJ_DO,qjItems:q=>navQjItems(q),NAV_REC_KEY,ST_KEY}),HID:()=>({HIDN,hidMask,iAmHidden,frontier,mapPanel,warControls}),WG:()=>({wgTakers,wgForField,wgForPick,warGiveHex,warGive,occupiedFrom,attack,offerPeace,declareWar,collectConquests,dedupeConq}),WAKE:()=>({dormFresh,dormQuiet,dormWelcome,moveTo,RSTAT,REGIONS,REG,regDisabled}),LAND:()=>({landWait,capLift,capWrong,capNote,raceKnown,RACE,worldHeardAt:()=>worldHeardAt,landQ:()=>S.landQ,landQueued,fdSites:(n,T)=>fdSites(n,T)}),BG:{gain:bldGain,html:bldGainHtml},IB:()=>({agRoster,agPick,agStatus,heatOf,cvRoll,cvKey,cvBlock,cvOdds,buLv,buGap,buAll,BU,BU_KEYS,ibFile,ibWanted,ibChatter,HEAT_MAX,DD_TASKS,DD_LEG,findNation,allNations,cvProtected}),VL:()=>({VL_SECS,VL_DEF,CLS,CLS_OPS,CLS_READ,vlOrder,clsOf,clsRaw,clsMax,clsSeen,clsHide,clsRead,vlSave,findNation}),IFC:()=>({plan:ifcPlan,works:ifcWorks,line:ifcLine,tab:ifcTab}),XP:()=>({BUILDINGS,XU,XU_KEYS,XU_TOTAL,LOST_KINDS,LOST_ORDER,xuLv,xuWhy,xuHave,xuStart,xuCost,xuGear,xpSeen,expFree,xpTeamOpen,nationBuilt,expBackTeam,SITES,SITE_KINDS,expPlan,expOdds,expRuns,expRange,flRange,flAlive,flPlan,flDebug,flNow,discoveries,sendExpedition,hearReport,xpRoute,xpRivals,xpRivalText,xpFinds,flOdds,territory}),SVC:()=>({SVC,SVC_N,SVC_V,SVC_NEED,svcPlan,svcOpen,svcDig,svcShort,svcRoll,svcAmt,svcDayOf,svcRoom,svcNext}),FLC:()=>({FLC,FLC_RULES,FLC_CAT,flcId,flcTimes,flcPhase,flcPrev,flcView,flcLoad,flcChamp,flcTodo,flcClaims,flcLand,flcStreak,flcAllDone,flcSeen,flcDuty,flcDeskOn,flcDraftPush,FCA}),LK:{lakeMap,isLake,claimLand,lakeShore,fillHeld,LAKE_MAX,LAKE_A,freeCell,claimFrontier,blockPlan,autoPlan,terrCount,placePhrase,claimWhy,swapCheck,inspectPanel,writeClaims,landCredits:n=>landCredits(n)},PST:()=>({PST,PST_LOOKS,PST_SHAPES,pstBar,pstKm,pstView,pstBox,pstPlace,pstKeyOf,pstRender,pstShow,pstHide}),DIG:()=>({DIG_SETS,DIG_FIRST,DIG_POOL,DIG_SITES,DIG_LEN,DIG_EVENTS,DIG_SCH,digSet,digHeld,digDone,digRew,digCredits,digOrder,digActive,digRetired,digOpenedAt,digPlan,digSend,digOpen,digChoose,digMod,digEvent,digPity,digGround,digInvites,digJoin,digJointOn,digGiftsIn,digTake,digGiveSpare,digSellSpare,digHire,digRegionFinds,digFirsts,landEarned:n=>landEarned(n),REG,REGIONS,COL_BY_ID}),MW:()=>({mwOf,mwPoints,mwVisitors,mwTakings,mwExhibit,mwExhibitItems,mwRanking,mwWorn,mwSlots,mwOnShow,COL_BY_ID,COL_ITEMS,DIG_SETS,MW_FLOORS}),GM:()=>({gamesResults,edOf,b1Now,gevWhy,baseScores,entryOf,medalsIn,gamesRecords,gamesCeremony,unlocksOf,myId,formOf,GAME_EVENTS,clone,commit}),GB:()=>({IRON_DEP,IRON_DEP_YIELD,CELL_RES,MAP_T:MAP.T,mapAt:c=>{centerMain(c,NEAR_Z*1.6);},stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,FOOD_SPOIL,FOOD_EAT,FOOD_TIERS,FOOD_LAND,foodTier,TIMBER_BURN,foodGrowth,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({dspShown,dspRegShown,dspRegs,dspPic,dspLocator,dspHtDefs,pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),ASMX:()=>({ASMX,ASMX_TABS,asmBookAt,asmState,asmArcLoad,REG}),RGNX:()=>({RGN,RGN_PAGE,notifItems,ONL,onlRefresh}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals}),TYX:()=>({TY,TY_RULES,TY_K,tyOf,tyList,tyWarBlock,tyIncoming,affinity,alPactLive,alRelationsHTML}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,achTierCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC,step:rcStepCheck,head:rcHead,sponsoring:rcSponsoring,qr:qrMatrix,card:rcCardDraw,invCap:rcInvCap,free:rcFreeLand,STEPS:RC_STEPS,UNL:RC_UNLOCKS}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend,card:n=>tutCard(n),phase:n=>tutPhase(n),picks:(n,ph)=>tutPicks(n,ph),group:(n,k)=>tutGroup(n,tutL(k)),hid:n=>tutHid(n)},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours},WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR,bell:now=>notifItems(now||Date.now())},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},TIER:()=>({BTIER,bEff,bTier,bTierNext,bTierLine,tierQuote,tierProblem,cxTier,cxTrMap,tierSettle,tierReady,cxGoldNow,cxUpQuote,cxUpList,cxUps}),CX:{upgradable:cxUpgradable,mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState,UG:CX_UG,LV:CX_LV,ups:cxUps,upMap:cxUpMap,extras:cxBldExtras,quote:cxUpQuote},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo,unlockTarget,unlockShow,unlockFresh,unlockQueue,ULK,UNLOCKS,unlocksOf,toast:m=>toast(m)},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{coinBackSVG:cuCoinBackSVG,noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,coinSVG:cuCoinSVG,guide:cuGuideHTML,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,drawMap,sfKey,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ACH_RANKS_V1,ID_BD,achVal,achCtx,achEvalNew,achState,stockRates:n=>stockRates(n),achPoints,achRank,achRankOf,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,flagNorm:(f,n)=>flagNorm(f,n),flagSVG:(f,l)=>flagSVG(f,l),mapTip:id=>{const T=mapTerr('main'),i=T.list.findIndex(x=>x.id===id);if(i<0)return '';const cell=Array.prototype.indexOf.call(T.owner,i);return MAP_TIP.map(h=>{try{return h({kind:'main',cell,cv:null,x:0,y:0});}catch(e){return '';}}).filter(x=>typeof x==='string').join(' | ');},cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
+if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({RPATCH,SC:()=>scProbe(),MTP:()=>({MTP,MTP_PAD,TBMP_SCALE,redrawMaps,mapScale,viewOf}),SCR:()=>({scrOf,scrClean,scrDef,scrFamOf,scrEdParse,scrGlyphs,scrLay,scrChars,scrSVG,scrLine,scrCard,scrCharterSVG,scrFmt,scrFor,dmRich,dmPlain,scrDmWith,SCR_FAM,SCR_ABC,SCS}),BDX:()=>bdProbe(),FLY:()=>({flagSVG,fgSplit,fgFused}),RD:()=>rdProbe(),JV:()=>jvProbe(),M100P:()=>({M100,M100_N,M100_MC,M100_MCN,m100Bits,m100Got,m100In,m100Due,m100Count,m100Show,m100Open,ctgMcOk,nationColor,czShOk,czShieldPath,unlocksOf,czPatSVG,xsMax}),RVN:()=>({RV,rvData,rvSync,rvKey,rvHeld,rvStretch,rvMost,rvEdgeHolder,rvAt,rvNameAt,rvLabelAt,rvParts,rvRename,rvReset,rvNameProblem,rvTidy,rvLabel,rvnPanel,logLine,RVN_MAX,RVN_LEN,updateMapPanel,hexDist,HEX_W,REG}),CP2:()=>({BLD_ICO,bldIco,bldLead,cxDefTotal,cxOrder,qjBuilding,BUILDINGS}),PRVC:()=>({cxPrvOf,cxPrvSeatTrial,cxOvwCols,prvSeat,prvMine,prvOfCell,prvSetAut,prvAppoint,PRV}),NPX:()=>({fbTrend,fbYesterday,heroLead,heroOpen,opOf,OPEN_TO,hnOf,hnFill,hnLine,nbSection,ppWho,ppWhoHTML,ppHash,ppCarried,economy,territory,bordersOf,fillDeal,findNation,clsHide,MAP,hexDist,STAT_KEYS,popNow,myId}),PT:()=>ptProbe(),LTH:()=>lthProbe(),DAM:()=>damProbe(),CHAT:()=>({RGC,RGW,tab:rgcTab(),count:rgcCount(),region:rgcUnread(),world:rgwUnread(),named:rgwNamedUnread(),hidden:document.hidden}),UXP2:()=>({edictDesk,edictStep,edictOpen,fill,ISSUE_BY_ID,ACH,keysOpen,dmOthers,dmPickList,stGroups,stTabLast,navRecent,vhData,VH_KEY,VH_AFTER,QJ_DO,qjItems:q=>navQjItems(q),NAV_REC_KEY,ST_KEY}),HID:()=>({HIDN,hidMask,iAmHidden,frontier,mapPanel,warControls}),WG:()=>({wgTakers,wgForField,wgForPick,warGiveHex,warGive,occupiedFrom,attack,offerPeace,declareWar,collectConquests,dedupeConq}),WAKE:()=>({dormFresh,dormQuiet,dormWelcome,moveTo,RSTAT,REGIONS,REG,regDisabled}),LAND:()=>({landWait,capLift,capWrong,capNote,raceKnown,RACE,worldHeardAt:()=>worldHeardAt,landQ:()=>S.landQ,landQueued,fdSites:(n,T)=>fdSites(n,T)}),BG:{gain:bldGain,html:bldGainHtml},IB:()=>({agRoster,agPick,agStatus,heatOf,cvRoll,cvKey,cvBlock,cvOdds,buLv,buGap,buAll,BU,BU_KEYS,ibFile,ibWanted,ibChatter,HEAT_MAX,DD_TASKS,DD_LEG,findNation,allNations,cvProtected}),VL:()=>({VL_SECS,VL_DEF,CLS,CLS_OPS,CLS_READ,vlOrder,clsOf,clsRaw,clsMax,clsSeen,clsHide,clsRead,vlSave,findNation}),IFC:()=>({plan:ifcPlan,works:ifcWorks,line:ifcLine,tab:ifcTab}),XP:()=>({BUILDINGS,XU,XU_KEYS,XU_TOTAL,LOST_KINDS,LOST_ORDER,xuLv,xuWhy,xuHave,xuStart,xuCost,xuGear,xpSeen,expFree,xpTeamOpen,nationBuilt,expBackTeam,SITES,SITE_KINDS,expPlan,expOdds,expRuns,expRange,flRange,flAlive,flPlan,flDebug,flNow,discoveries,sendExpedition,hearReport,xpRoute,xpRivals,xpRivalText,xpFinds,flOdds,territory}),SVC:()=>({SVC,SVC_N,SVC_V,SVC_NEED,svcPlan,svcOpen,svcDig,svcShort,svcRoll,svcAmt,svcDayOf,svcRoom,svcNext}),FLC:()=>({FLC,FLC_RULES,FLC_CAT,flcId,flcTimes,flcPhase,flcPrev,flcView,flcLoad,flcChamp,flcTodo,flcClaims,flcLand,flcStreak,flcAllDone,flcSeen,flcDuty,flcDeskOn,flcDraftPush,FCA}),LK:{lakeMap,isLake,claimLand,lakeShore,fillHeld,LAKE_MAX,LAKE_A,freeCell,claimFrontier,blockPlan,autoPlan,terrCount,placePhrase,claimWhy,swapCheck,inspectPanel,writeClaims,landCredits:n=>landCredits(n)},PST:()=>({PST,PST_LOOKS,PST_SHAPES,pstBar,pstKm,pstView,pstBox,pstPlace,pstKeyOf,pstRender,pstShow,pstHide}),DIG:()=>({DIG_SETS,DIG_FIRST,DIG_POOL,DIG_SITES,DIG_LEN,DIG_EVENTS,DIG_SCH,digSet,digHeld,digDone,digRew,digCredits,digOrder,digActive,digRetired,digOpenedAt,digPlan,digSend,digOpen,digChoose,digMod,digEvent,digPity,digGround,digInvites,digJoin,digJointOn,digGiftsIn,digTake,digGiveSpare,digSellSpare,digHire,digRegionFinds,digFirsts,landEarned:n=>landEarned(n),REG,REGIONS,COL_BY_ID}),MW:()=>({mwOf,mwPoints,mwVisitors,mwTakings,mwExhibit,mwExhibitItems,mwRanking,mwWorn,mwSlots,mwOnShow,COL_BY_ID,COL_ITEMS,DIG_SETS,MW_FLOORS}),GM:()=>({gamesResults,edOf,b1Now,gevWhy,baseScores,entryOf,medalsIn,gamesRecords,gamesCeremony,unlocksOf,myId,formOf,GAME_EVENTS,clone,commit}),GB:()=>({IRON_DEP,IRON_DEP_YIELD,CELL_RES,MAP_T:MAP.T,mapAt:c=>{centerMain(c,NEAR_Z*1.6);},stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,FOOD_SPOIL,FOOD_EAT,FOOD_TIERS,FOOD_LAND,foodTier,TIMBER_BURN,foodGrowth,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({dspShown,dspRegShown,dspRegs,dspPic,dspLocator,dspHtDefs,pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),ASMX:()=>({ASMX,ASMX_TABS,asmBookAt,asmState,asmArcLoad,REG}),RGNX:()=>({RGN,RGN_PAGE,notifItems,ONL,onlRefresh}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals}),TYX:()=>({TY,TY_RULES,TY_K,tyOf,tyList,tyWarBlock,tyIncoming,affinity,alPactLive,alRelationsHTML}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,achTierCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC,step:rcStepCheck,head:rcHead,sponsoring:rcSponsoring,qr:qrMatrix,card:rcCardDraw,invCap:rcInvCap,free:rcFreeLand,STEPS:RC_STEPS,UNL:RC_UNLOCKS}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend,card:n=>tutCard(n),phase:n=>tutPhase(n),picks:(n,ph)=>tutPicks(n,ph),group:(n,k)=>tutGroup(n,tutL(k)),hid:n=>tutHid(n)},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours},WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR,bell:now=>notifItems(now||Date.now())},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},TIER:()=>({BTIER,bEff,bTier,bTierNext,bTierLine,tierQuote,tierProblem,cxTier,cxTrMap,tierSettle,tierReady,cxGoldNow,cxUpQuote,cxUpList,cxUps}),CX:{upgradable:cxUpgradable,mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState,UG:CX_UG,LV:CX_LV,ups:cxUps,upMap:cxUpMap,extras:cxBldExtras,quote:cxUpQuote},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo,unlockTarget,unlockShow,unlockFresh,unlockQueue,ULK,UNLOCKS,unlocksOf,toast:m=>toast(m)},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{coinBackSVG:cuCoinBackSVG,noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,coinSVG:cuCoinSVG,guide:cuGuideHTML,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,drawMap,sfKey,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ACH_RANKS_V1,ID_BD,achVal,achCtx,achEvalNew,achState,stockRates:n=>stockRates(n),achPoints,achRank,achRankOf,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,flagNorm:(f,n)=>flagNorm(f,n),flagSVG:(f,l)=>flagSVG(f,l),mapTip:id=>{const T=mapTerr('main'),i=T.list.findIndex(x=>x.id===id);if(i<0)return '';const cell=Array.prototype.indexOf.call(T.owner,i);return MAP_TIP.map(h=>{try{return h({kind:'main',cell,cv:null,x:0,y:0});}catch(e){return '';}}).filter(x=>typeof x==='string').join(' | ');},cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
 /* ───────── Letters by post: the player's email address, confirmed by a code, and the letters they choose ─────────
    Settings › Letters by post (src/shim.js mail; functions/mail.js). The address lives only on the server; this card
    asks for it each time Settings opens. Things this nation does to another player's nation (a letter, a war, a deal)
@@ -85319,6 +85433,22 @@ achDef('mus','mus-digall','g','Down to Bedrock','Complete both field dig collect
 achDef('odd','odd-move','b','New Horizons','Move your nation to another region.',1,x=>Math.max(aT(x,'log:move'),x.npc?0:num0(x.n.mvN)));
 
 const hot=window.claude&&window.claude.hot;
+/* The questions a pass keeps (see passRun), wrapped here at the very end, after every section and before the game
+   starts, so that each wraps every hook added before it; and the passes themselves: a page drawn (render, round all of
+   its hooks), the map panel drawn on its own (updateMapPanel) and a map drawn (drawMap, plates included). */
+territory=(f=>function(extra){return extra||!PASS.m?f.apply(this,arguments):passGet('terr',TERR_AT==null?'':TERR_AT,()=>f.call(this));})(territory);
+politics=(f=>function(){return PASS.m?passGet('pol','',()=>f.call(this)):f.call(this);})(politics);
+atWar=(f=>function(a,b){return PASS.m?passGet('war',a+'\u0001'+b,()=>f.call(this,a,b)):f.call(this,a,b);})(atWar);
+warWith=(f=>function(id){return PASS.m&&S.nation?passGet('ww',myId()+'\u0001'+id,()=>f.call(this,id)):f.call(this,id);})(warWith);
+protectedNow=(f=>function(id){return PASS.m?passGet('prot',id,()=>f.call(this,id)):f.call(this,id);})(protectedNow);
+frontier=(f=>function(T){return PASS.m?passGet('front',T,()=>f.call(this,T)):f.call(this,T);})(frontier);
+cityState=(f=>function(T){return PASS.m&&T?passGet('city',T,()=>f.call(this,T)):f.apply(this,arguments);})(cityState);
+mpHarbours=(f=>function(T){return PASS.m&&T?passGet('harb',T,()=>f.call(this,T)):f.apply(this,arguments);})(mpHarbours);
+landCredits=(f=>function(n){return PASS.m&&n&&typeof n==='object'?passGet('lcr',n,()=>f.call(this,n)):f.apply(this,arguments);})(landCredits);
+render=(f=>function(){return PASS.m?f.apply(this,arguments):passRun(f,this,arguments);})(render);
+updateMapPanel=(f=>function(){return PASS.m?f.apply(this,arguments):passRun(f,this,arguments);})(updateMapPanel);
+drawMap=(f=>function(cv,P){return PASS.m?f.apply(this,arguments):passRun(f,this,arguments);})(drawMap);
+
 if(hot&&typeof hot.snapshot==='function'){try{hot.snapshot(()=>({view:S.view,openIssue:S.openIssue,result:S.result,visit:S.visit,censusKey:S.censusKey,settings:S.settings,draft:S.draft,mapViews:S.mapViews,mapSel:S.mapSel,mapPick:S.mapPick}));}catch(e){}}
 if(hot&&typeof hot.ready==='function')hot.ready(start);else start((hot&&hot.data)||{});
 })();
