@@ -113,7 +113,9 @@ test('a quick-command card keeps only its own fields, in range', async () => {
   assert.deepEqual(rcCardIn({ k: 'stock', v: [1, 2.26, 3, 4, 2e9], r: [1, -2, 0, 0, 0], x: 1 }), { k: 'stock', v: [1, 2.3, 3, 4, 1e9], r: [1, -2, 0, 0, 0] });
   assert.deepEqual(rcCardIn({ k: 'rank', i: 3, p: 120, n: 9, evil: '<b>' }), { k: 'rank', i: 3, p: 120, n: 9 });
   assert.deepEqual(rcCardIn({ k: 'nation', id: 'abc', pop: 12.34, ci: 3, hx: 400, i: 5, al: '  The   Pact ', nm: 'ignored' }), { k: 'nation', id: 'abc', pop: 12.3, ci: 3, hx: 400, i: 5, al: 'The Pact' });
+  assert.deepEqual(rcCardIn({ k: 'help', s: 'trade-routes', t: '<b>x</b>' }), { k: 'help', s: 'trade-routes' });
   const refused = c => assert.throws(() => rcCardIn(c), e => e.code === 'invalid-argument' && e.details?.code === 'rc_card', JSON.stringify(c));
   for (const c of [null, [], { k: 'gold' }, { k: 'stock', v: [1, 2, 3], r: [1, 2, 3] }, { k: 'stock', v: [1, 2, 3, 4, 'x'], r: [0, 0, 0, 0, 0] },
-    { k: 'rank', i: -1, p: 0, n: 0 }, { k: 'rank', i: 1.5, p: 0, n: 0 }, { k: 'nation', id: 'a/b', pop: 1, ci: 1, hx: 1, i: 0 }, { k: 'nation', id: 'abc', pop: 1, ci: 1, hx: 1 }]) refused(c);
+    { k: 'rank', i: -1, p: 0, n: 0 }, { k: 'rank', i: 1.5, p: 0, n: 0 }, { k: 'nation', id: 'a/b', pop: 1, ci: 1, hx: 1, i: 0 }, { k: 'nation', id: 'abc', pop: 1, ci: 1, hx: 1 },
+    { k: 'help' }, { k: 'help', s: 'War' }, { k: 'help', s: 'a/b' }, { k: 'help', s: 'x'.repeat(41) }]) refused(c);
 });

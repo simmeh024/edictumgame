@@ -569,7 +569,7 @@
     var closedBy = st === 'closed' ? (rby && rby === by ? 'player' : 'team') : '', news = 0;
     m.forEach(function (x) { if (x.a === 's') news = Math.max(news, x.t); });
     if (closedBy === 'team') news = Math.max(news, ct);
-    return { id: s.id, by: by, topic: str(d.topic, 20), x: first, t: t, st: st, name: str(d.name, 160), reg: str(d.reg, 40), email: str(d.email, 200),
+    return { id: s.id, by: by, topic: str(d.topic, 20), x: first, t: t, st: st, name: str(d.name, 160), reg: str(d.reg, 40), email: str(d.email, 200), hs: str(d.hs, 40),
       ct: ct, closedBy: closedBy, msgs: [{ a: 'p', x: first, t: t }].concat(m), replies: m.length, w: st === 'open' ? (d.w === 'p' ? 'p' : 's') : '',
       pc: num(d.pc), lt: millis(d.lt) || (m.length ? m[m.length - 1].t : t), news: news, reopen: st === 'closed' && ct > 0 && Date.now() - ct < SUP_REOPEN };
   }
@@ -1928,11 +1928,14 @@
         '<p class="ed-fine">Reports go to the game\'s moderators, not to the player' + (r.kind === 'letter' ? ', with the letter, so they can read it' : r.kind === 'chat' ? ', with the message, so they can read it' : '') + '. You can send one every 30 seconds.</p>' +
         row('<button type="button" class="btn" data-ed="report-yes">Send report</button><button type="button" class="btn ghost" data-ed="close">Cancel</button>');
     } else if (ui.view === 'support' && ui.support) {
+      /* opened from a section of How to play (hs: its key, hsT: its title): the ticket says so, and asks about playing */
+      var hs = supHs(ui.support), pre = hs ? 'play' : 'bug';
       h = '<p class="eyebrow">Support</p><h2 class="ed-h" id="ed-dlg-h">Create a support ticket</h2>' +
-        '<fieldset class="ed-reasons"><legend>What is it about?</legend>' + TOPICS.map(function (x, i) {
-          return '<label><input type="radio" name="ed-topic" value="' + x[0] + '"' + (i ? '' : ' checked data-autofocus') + '> ' + esc(x[1]) + '</label>';
+        (hs ? '<p class="ed-fine">About <b>' + esc(str(ui.support.hsT, 80) || hs) + '</b>, in How to play. The team will see which section you read.</p>' : '') +
+        '<fieldset class="ed-reasons"><legend>What is it about?</legend>' + TOPICS.map(function (x) {
+          return '<label><input type="radio" name="ed-topic" value="' + x[0] + '"' + (x[0] === pre ? ' checked' + (hs ? '' : ' data-autofocus') : '') + '> ' + esc(x[1]) + '</label>';
         }).join('') + '</fieldset>' +
-        '<label class="ed-lbl2" for="ed-sup-x">What happened, or what would you like to know?</label><textarea class="input" id="ed-sup-x" rows="6" maxlength="2000"></textarea>' +
+        '<label class="ed-lbl2" for="ed-sup-x">What happened, or what would you like to know?</label><textarea class="input" id="ed-sup-x" rows="6" maxlength="2000"' + (hs ? ' data-autofocus' : '') + '></textarea>' +
         '<label class="ed-lbl2" for="ed-sup-mail">Email address (optional, if you would like the answer by email too)</label><input class="input" id="ed-sup-mail" type="email" maxlength="200" autocomplete="email">' +
         '<p class="ed-fine">The team replies on the Help page, and you can write back there until your question is settled. The ticket includes your player ID and your nation\'s name, and only you and the game\'s team can read it. You can send one ticket a minute. <a href="/privacy" target="_blank" rel="noopener">Privacy</a></p>' +
         row('<button type="button" class="btn" data-ed="support-yes">Send ticket</button><button type="button" class="btn ghost" data-ed="close">Cancel</button>');
@@ -2174,6 +2177,8 @@
   }
 
   var TOPICS = [['bug', 'Something is broken'], ['account', 'My account or signing in'], ['play', 'A question about playing'], ['other', 'Something else']];
+  /* the key of the How to play section a ticket was opened from, if it looks like one */
+  function supHs(s) { var k = s && typeof s.hs === 'string' ? s.hs : ''; return /^[a-z0-9-]{1,40}$/.test(k) ? k : ''; }
   function sendTicket() {
     var s = ui.support, u = A.auth && A.auth.currentUser;
     if (!s || !u || ui.busy) return;
@@ -2186,6 +2191,7 @@
     if (name) doc.name = name;
     if (s.reg) doc.reg = str(s.reg, 40);
     if (mail) doc.email = mail.slice(0, 200);
+    if (supHs(s)) doc.hs = supHs(s);
     setBusy('Sending…');
     var b = A.fs.batch();
     b.set(A.fs.collection('support').doc(), doc);

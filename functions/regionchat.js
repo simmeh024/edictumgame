@@ -120,8 +120,9 @@ export function rcWait(p, now, hour = RC_HOUR) {
      {k: 'stock', v: [5 amounts], r: [5 a day]}   food, timber, iron, oil, goods
      {k: 'rank', i: rank, p: points, n: achievements}
      {k: 'nation', id, nm, pop, ci: cities, hx: hexes, i: rank, al?: alliance name}
-     {k: 'border', id: a border agreement of this region (functions/borders.js), drawn by each reader's game}  */
-export const RC_CARDS = ['stock', 'rank', 'nation', 'border'];
+     {k: 'border', id: a border agreement of this region (functions/borders.js), drawn by each reader's game}
+     {k: 'help', s: the key of a section of How to play (/help <topic>), drawn by each reader's game}  */
+export const RC_CARDS = ['stock', 'rank', 'nation', 'border', 'help'];
 const num = (v, lo, hi) => { const x = Number(v); return Number.isFinite(x) ? Math.min(hi, Math.max(lo, Math.round(x * 10) / 10)) : null; };
 const int = (v, lo, hi) => { const x = Number(v); return Number.isInteger(x) && x >= lo && x <= hi ? x : null; };
 export function rcCardIn(c) {
@@ -142,6 +143,11 @@ export function rcCardIn(c) {
     const id = typeof c.id === 'string' && /^[a-z0-9]{12}$/.test(c.id) ? c.id : '';
     if (!id) bad();
     return { k: 'border', id };
+  }
+  if (c.k === 'help') {
+    const s = typeof c.s === 'string' && /^[a-z0-9-]{1,40}$/.test(c.s) ? c.s : '';
+    if (!s) bad();
+    return { k: 'help', s };
   }
   const id = typeof c.id === 'string' && /^[\w-]{1,128}$/.test(c.id) ? c.id : '', pop = num(c.pop, 0, 1e9), ci = int(c.ci, 0, 1e4), hx = int(c.hx, 0, 1e6), i = int(c.i, 0, RC_RANKS);
   if (!id || pop == null || ci == null || hx == null || i == null) bad();

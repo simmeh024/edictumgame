@@ -100,6 +100,7 @@ try {
 
     /* Make the nation your own: Customise your leader, with its reward, opening Portraits on the head of government */
     await go('help');
+    await page.evaluate(() => { const b = document.querySelector('[data-act="help-tg"][data-k="tut"]'); if (b && b.getAttribute('aria-expanded') !== 'true') b.click(); }); // How to play folds its sections (2026-11-20)
     const row = await page.evaluate(() => { const li = document.querySelector('#help-tut li[data-k="portrait"]'); return li ? { tag: ((li.querySelector('.tut-rw') || {}).textContent || '').replace(/\s+/g, ' '), btn: !!li.querySelector('[data-act="tut-go"][data-to="cz-sec-r"]') } : null; });
     check('Make the nation your own asks to customise the leader, for 10 land credits, 50 goods, 50 food and 100 timber', !!row && /\+10 land ?50 goods ?50 food ?100 timber/.test(row.tag) && row.btn, row);
     await page.evaluate(() => { const l = document.querySelector('#help-tut li[data-k="portrait"]'); if (l) l.scrollIntoView(); });

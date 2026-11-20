@@ -445,13 +445,17 @@ test('a player sends support tickets, at most one a minute, and reads only their
   await assertFails(ticket(db, 'dave', { m: [{ a: 's', x: 'Fixed', t: 1 }] }));         // nor start a conversation
   await assertFails(ticket(db, 'dave', { email: 'x'.repeat(201) }));
   await assertFails(ticket(db, 'dave', { reg: 'atlantis' }));
+  await assertFails(ticket(db, 'dave', { hs: 'War and peace' }));                      // a section key, nothing else
+  await assertFails(ticket(db, 'dave', { hs: 'x'.repeat(41) }));
   await assertFails(ticket(anon(), 'dave'));
   await assertSucceeds(ticket(db, 'dave', { email: 'dave@example.com' }));
   await assertFails(ticket(db, 'dave'));                                                   // too soon
   await env.withSecurityRulesDisabled(ctx => ctx.firestore().doc('slimits/dave').set({ s: AGO(61000) }));
   await assertSucceeds(ticket(db, 'dave', { topic: 'account' }));
+  await env.withSecurityRulesDisabled(ctx => ctx.firestore().doc('slimits/dave').set({ s: AGO(61000) }));
+  await assertSucceeds(ticket(db, 'dave', { topic: 'play', hs: 'trade-routes' }));     // sent from a section of How to play
   const mine = await assertSucceeds(db.collection('support').where('by', '==', 'dave').get());
-  if (mine.size !== 2) throw new Error('expected Dave’s two tickets, found ' + mine.size);
+  if (mine.size !== 3) throw new Error('expected Dave’s three tickets, found ' + mine.size);
   await assertFails(as('alice').collection('support').where('by', '==', 'dave').get());   // nobody else reads them
   await assertFails(as('alice').collection('support').get());
   await assertFails(anon().doc(mine.docs[0].ref.path).get());
