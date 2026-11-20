@@ -5990,6 +5990,10 @@ a.adm-pill:focus-visible{outline:2px solid var(--stamp);outline-offset:2px}
 .adm-brand{display:flex;align-items:center;gap:10px;margin:0 4px 28px}
 .adm-brand .adm-pill{margin:0}
 .adm-return{width:100%;margin-top:28px;white-space:normal;text-align:left}
+.adm-tz{display:grid;gap:5px;margin:24px 12px 0}
+.adm-tz label{color:var(--ink-2);font:600 10px/1.4 var(--f-mono);letter-spacing:.13em;text-transform:uppercase}
+.adm-tz select{width:100%}
+.adm-tz .hint{margin:0}
 .adm-menu-toggle,.adm-menu-close{display:none}
 .adm-kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin:18px 0 8px}
 .adm-kpi{padding:14px 16px;border:1px solid var(--rule-2);border-radius:4px;background:var(--sheet)}
@@ -51902,6 +51906,7 @@ async function connect(){
     else if(!S.isOwner&&!S.isMod&&st.has(uid))db.doc('staff/'+uid).delete().catch(()=>{});
     if(['nation','visit','region','messages'].includes(S.view))quietRender();
   },()=>{});
+  if((S.isOwner||S.isMod)&&!PV)admTzListen(db,uid);
   render();
 }
 /* The region's listener is how this page hears of a save from another device, and on a phone it can go quiet
@@ -54822,6 +54827,79 @@ document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closes
   if(a==='adme-go'){e.preventDefault();const is=ISSUE_BY_ID[el.dataset.id];if(!is)return;
     if(ADME.cat!=='all')ADME.cat=is.c;ADME.raw=ADME.q='';ADME.open.add(is.id);render();
     const row=document.querySelector(`.adme-row[data-id="${CSS.escape(is.id)}"]`);if(row){row.scrollIntoView({block:'start'});row.querySelector('summary').focus({preventScroll:true});}}});
+/* ───────── the portal's clock ─────────
+   Staff read the portal in a time zone of their own, whatever their device's clock says: the owner in Mexico City on a
+   computer set to Dutch time, a team member in the Netherlands. The choice is kept in staffPrefs/<uid> {tz, t}, which only
+   staff read (an admin may set another staff member's from their Player page), so it follows them to every device; a copy
+   in this browser paints the first page before it arrives. While a portal page shows, every toLocaleString,
+   toLocaleDateString and toLocaleTimeString that names no time zone of its own uses it, so all the portal's times follow
+   without each page passing the zone along; times pinned to UTC (the statistics' days) keep theirs, and the game's own
+   pages keep the device's clock. No choice ('') is the device's own time. */
+const ADM_TZS=[['America/Mexico_City','Mexico City'],['Europe/Amsterdam','The Netherlands'],['Europe/London','London'],['America/New_York','New York'],['UTC','UTC']];
+const ADM_TZ_LS='edictum.admtz';
+function admTzOk(z){if(!z)return true;if(typeof z!=='string'||z.length>64)return false;try{new Intl.DateTimeFormat('en-GB',{timeZone:z});return true;}catch(e){return false;}}
+const ADMTZ={z:(()=>{try{const z=localStorage.getItem(ADM_TZ_LS)||'';return admTzOk(z)?z:'';}catch(e){return '';}})(),busy:false,msg:'',other:null};
+const admTzOn=()=>!!ADMTZ.z&&!!(S.isOwner||S.isMod)&&typeof S.view==='string'&&S.view.slice(0,5)==='admin';
+(()=>{const P=Date.prototype;for(const k of ['toLocaleString','toLocaleDateString','toLocaleTimeString']){const f=P[k];
+  P[k]=function(loc,o){return admTzOn()&&!(o&&o.timeZone)?f.call(this,loc,Object.assign({},o,{timeZone:ADMTZ.z})):f.call(this,loc,o);};}})();
+const admTzDevice=()=>{try{return Intl.DateTimeFormat().resolvedOptions().timeZone||'';}catch(e){return '';}};
+/* "Mexico City (GMT−6)": a zone's name in the list, or its own, with its offset from UTC today */
+function admTzName(z){
+  const k=ADM_TZS.find(x=>x[0]===z),nm=k?k[1]:String(z||'').replace(/^.*\//,'').replace(/_/g,' ');
+  let off='';try{const pt=new Intl.DateTimeFormat('en-GB',{timeZone:z||undefined,timeZoneName:'shortOffset'}).formatToParts(Date.now()).find(x=>x.type==='timeZoneName');off=pt?pt.value.replace('-','−'):'';}catch(e){}
+  return off&&off!==nm?`${nm} (${off})`:nm;
+}
+function admTzOptions(cur){
+  const dev=admTzDevice(),list=ADM_TZS.slice();if(cur&&!list.some(x=>x[0]===cur))list.push([cur,cur]);
+  return `<option value=""${cur?'':' selected'}>This device’s clock${dev?' · '+esc(admTzName(dev)):''}</option>${list.map(([z])=>`<option value="${esc(z)}"${z===cur?' selected':''}>${esc(admTzName(z))}</option>`).join('')}`;
+}
+function admTzPicker(){
+  return `<div class="adm-tz"><label for="adm-tz">Times shown in</label><select class="input" id="adm-tz"${ADMTZ.busy?' disabled':''}>${admTzOptions(ADMTZ.z)}</select>${ADMTZ.msg?`<p class="hint" aria-live="polite">${esc(ADMTZ.msg)}</p>`:''}</div>`;
+}
+function admTzUse(z){
+  z=admTzOk(z)?String(z||''):'';const o=ADMTZ.other;if(o&&o.uid===S.uid&&!o.busy&&o.z!==null)o.z=z;
+  if(z===ADMTZ.z)return false;ADMTZ.z=z;
+  try{if(z)localStorage.setItem(ADM_TZ_LS,z);else localStorage.removeItem(ADM_TZ_LS);}catch(e){}
+  return true;
+}
+/* one's own choice, as the server has it: on signing in, and live, so a change made on another device or by an admin lands */
+function admTzListen(db,uid){
+  quietListen(db.doc('staffPrefs/'+uid),d=>{const v=d&&d.exists?d.data()||{}:{};if(admTzUse(v.tz)&&typeof S.view==='string'&&S.view.slice(0,5)==='admin')render();},()=>{});
+}
+/* a staff member's choice, written by themself or by an admin; '' clears it (back to the device's clock) */
+async function admTzSave(uid,z){
+  if(!admTzOk(z))throw new Error('That time zone is unknown.');
+  const ref=S.db.doc('staffPrefs/'+uid);
+  if(z)await ref.set({tz:z,t:Date.now()});else await ref.delete();
+}
+async function admTzPick(z){
+  if(ADMTZ.busy)return;const was=ADMTZ.z;admTzUse(z);ADMTZ.busy=true;ADMTZ.msg='';render();
+  try{await admTzSave(S.uid,ADMTZ.z);}
+  catch(e){admTzUse(was);ADMTZ.msg='Not saved: '+(e.message||e.code||'unknown error');}
+  ADMTZ.busy=false;render();
+}
+/* the Player page of a staff member: their portal's clock, which an admin may set for them */
+function adminClock(p){
+  const o=ADMTZ.other;
+  if(!o||o.uid!==p.uid){ADMTZ.other={uid:p.uid,z:null,busy:true,msg:''};admTzOtherLoad(p.uid);return '<p class="hint">Reading their choice…</p>';}
+  if(o.z===null)return `<p class="hint">${o.msg?esc(o.msg):'Reading their choice…'}</p>`;
+  return `<div class="row"><select class="input" id="admin-tz" data-id="${esc(p.uid)}" aria-label="Their portal's times"${o.busy?' disabled':''}>${admTzOptions(o.z)}</select></div>
+    <p class="hint">The time zone their admin portal shows its times in, on every device. “This device’s clock” follows the clock of whatever they play on.${p.uid===S.uid?' This is your own: the same choice as at the foot of the admin menu.':''}</p>${o.msg?`<p class="hint" aria-live="polite">${esc(o.msg)}</p>`:''}`;
+}
+async function admTzOtherLoad(uid){
+  let z=null,msg='';try{const d=await S.db.doc('staffPrefs/'+uid).get();z=d.exists?String((d.data()||{}).tz||''):'';if(!admTzOk(z))z='';}catch(e){msg='Could not read it: '+(e.message||e.code||'unknown error');}
+  const o=ADMTZ.other;if(!o||o.uid!==uid)return;Object.assign(o,{z,busy:false,msg});if(S.view==='admin-players')render();
+}
+async function admTzOtherSet(uid,z){
+  const o=ADMTZ.other;if(!o||o.uid!==uid||o.busy)return;const was=o.z;Object.assign(o,{z:admTzOk(z)?z:'',busy:true,msg:''});render();
+  try{await admTzSave(uid,o.z);o.msg=`Saved: their portal now shows ${o.z?admTzName(o.z):'their device’s clock'}.`;if(uid===S.uid)admTzUse(o.z);}
+  catch(e){o.z=was;o.msg='Not saved: '+(e.message||e.code||'unknown error');}
+  o.busy=false;render();
+}
+document.addEventListener('change',e=>{const t=e.target;if(!t||!(S.isOwner||S.isMod))return;
+  if(t.id==='adm-tz'){admTzPick(t.value);return;}
+  if(t.id==='admin-tz'&&S.isOwner&&t.dataset.id){admTzOtherSet(t.dataset.id,t.value);}
+});
 const ADM_MOBILE=window.matchMedia('(max-width:900px)');
 let admMenuOpen=false;
 function admHideMenu(){
@@ -54878,6 +54956,7 @@ function admShell(v,body){
         ${group('Game content',tab('admin-edicts','All edicts')+tab('admin-news','Development news')+tab('admin-board','Community boards')+tab('admin-flagc','Flag competition',window.fcaRep||0)+tab('admin-notes','Banknote design guide')+tab('admin-balance','Balance'))}
         ${group('Operations',tab('admin-health','Save health')+tab('admin-audit','Admin audit log'))}`}
       </nav>
+      ${admTzPicker()}
       <button type="button" class="btn ghost adm-return" data-act="admin-close">← Back to the game</button>
     </dialog>
     <main class="adm-main" id="adm-main" tabindex="-1"><button type="button" id="adm-menu-toggle" class="btn ghost adm-menu-toggle" data-act="adm-menu-open" aria-haspopup="dialog" aria-controls="adm-menu">☰ Admin menu</button>${admFresh(v)}${body}</main>
@@ -54992,6 +55071,7 @@ ${adminCards(p)}
     <h3 class="help-h3">Timeline</h3>${adminTimeline(p)}
     <div class="row"><button class="btn ghost small" data-act="admin-history" data-id="${esc(p.uid)}">View admin history</button>${p.exists?pvBtn(p.reg,p.uid):''}${p.exists&&p.reg===REG.id?`<button class="btn ghost small" data-act="visit" data-id="${esc(p.uid)}">View nation</button>`:p.exists?obsVisitBtn(p.reg,p.uid):''}</div>
     <h3 class="help-h3">Moderator</h3>${adminModRole(p)}
+    ${isStaff(p.uid)||isModId(p.uid)?`<h3 class="help-h3">Portal clock</h3>${adminClock(p)}`:''}
     <h3 class="help-h3">The Chancery Club</h3>${adminClub(p)}
     <h3 class="help-h3">Shop packs</h3>${adminPacks(p)}
     <h3 class="help-h3">Staff notes</h3>${adminNotes(p)}
@@ -55337,7 +55417,7 @@ document.addEventListener('click',async e=>{
   if(a==='admin-modrole'){adminModRoleSet(id,el.dataset.v==='on');return;}
   if(a==='admin-pack'){adminPackSet(id,el.dataset.v==='on'?ADMX.packP:el.dataset.p,el.dataset.v==='on');return;}
   if(a==='admin-inspect'){
-    ADMX.err='';ADMX.mod=null;ADMX.modReason='';ADMX.modMsg='';ADMX.note='';ADMX.noteFor='';ADMX.noteMsg='';ADMX.clubWhy='';ADMX.clubMsg='';ADMX.modRoleMsg='';ADMX.packWhy='';ADMX.packMsg='';ADMX.packP='';ADMX.watchWhy='';ADMX.watchFor='';ADMX.watchMsg='';ADMX.onceFor='';ADMX.onceAsk='';ADMX.onceMsg='';ADMX.onceLink='';
+    ADMTZ.other=null;ADMX.err='';ADMX.mod=null;ADMX.modReason='';ADMX.modMsg='';ADMX.note='';ADMX.noteFor='';ADMX.noteMsg='';ADMX.clubWhy='';ADMX.clubMsg='';ADMX.modRoleMsg='';ADMX.packWhy='';ADMX.packMsg='';ADMX.packP='';ADMX.watchWhy='';ADMX.watchFor='';ADMX.watchMsg='';ADMX.onceFor='';ADMX.onceAsk='';ADMX.onceMsg='';ADMX.onceLink='';
     try{ADMX.player=await adminRequest({op:'player',uid:id});if(S.view!=='admin-players')go('admin-players');else render();}
     catch(err){ADMX.err=err.message;render();}
   }
