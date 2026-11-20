@@ -2060,9 +2060,10 @@ mark.hq-cur{outline:2px solid var(--accent);outline-offset:1px}
 .help-you-g{margin:0}
 .help-you-g div{display:grid;grid-template-columns:minmax(100px,13em) minmax(0,1fr);gap:12px;padding:3px 0;font-size:14px;line-height:1.45}
 .help-you-g dt{color:var(--ink-2)}.help-you-g dd{margin:0;font-weight:600}
-.hlp-q{position:relative;display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;margin-left:10px;vertical-align:middle;border:1px solid var(--rule-2);border-radius:50%;background:var(--sheet);color:var(--ink-2);font:700 13px/1 var(--f-mono);cursor:pointer;padding:0}
-.hlp-q::after{content:"";position:absolute;inset:-9px}
-.hlp-q:hover,.hlp-q:focus-visible{color:var(--accent);border-color:var(--accent)}
+.vh>.hlp-q{position:absolute;top:-3px;right:0;display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border:1px solid var(--rule-2);border-radius:50%;background:var(--sheet);color:var(--ink-2);font:700 13px/1 var(--f-mono);cursor:pointer;padding:0}
+.vh>.hlp-q::after{content:"";position:absolute;inset:-9px}
+.vh:has(>.hlp-q)>.eyebrow,.vh:has(>.hlp-q)>h1{padding-right:36px}
+.vh>.hlp-q:hover,.vh>.hlp-q:focus-visible{color:var(--accent);border-color:var(--accent)}
 .gl{text-decoration:underline dotted;text-decoration-color:var(--ink-3);text-underline-offset:3px;text-decoration-thickness:1.5px;cursor:help}
 .gl:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:2px}
 .gl-pop{position:absolute;z-index:9000;padding:10px 12px;background:var(--sheet);color:var(--ink);border:1px solid var(--rule-2);border-radius:6px;box-shadow:0 8px 24px rgba(0,0,0,.18);font-size:14px;line-height:1.45}
@@ -91475,13 +91476,15 @@ document.addEventListener('keydown',e=>{
   if(e.key==='Escape'&&GLP.anchor){const a=GLP.anchor;glossHide(true);if(document.activeElement&&GLP.el&&GLP.el.contains(document.activeElement))try{a.focus();}catch(err){}}
   else if((e.key==='Enter'||e.key===' ')&&e.target.classList&&e.target.classList.contains('gl')){e.preventDefault();GLP.anchor===e.target?glossHide(true):glossShow(e.target);}
 });
-/* ── the "?" beside a page's title ── */
+/* ── the "?" in the corner of a page's header ──
+   It sits beside the title, never inside it, so the title's own text (and its name for a screen reader) stays as it
+   is. Only the usual page header (header.vh) gets one; a page with a masthead of its own (the Dispatch) does not. */
 function helpQBtn(){
   const k=S.nation&&S.view!=='help'?HELP_FOR[S.view]:null;if(!k)return;
-  const h=document.querySelector('#main .vh h1')||document.querySelector('#main header h1');if(!h||h.querySelector('.hlp-q'))return;
+  const hd=document.querySelector('#main header.vh');if(!hd||!hd.querySelector(':scope>h1')||hd.querySelector(':scope>.hlp-q'))return;
   const t=helpTxt(helpTitle(k));if(!t)return;
   const b=document.createElement('button');b.type='button';b.className='hlp-q';b.dataset.act='help-for';b.dataset.k=k;b.title='How to play: '+t;b.setAttribute('aria-label','How to play: '+t);b.textContent='?';
-  h.appendChild(b);
+  hd.appendChild(b);
 }
 /* after every drawing of the page (render) */
 function helpAfter(){

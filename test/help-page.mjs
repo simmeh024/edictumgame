@@ -140,7 +140,7 @@ try {
     // the "?" beside a page's title
     await page.evaluate(() => { location.hash = '#trade'; });
     await until(() => page.evaluate(() => window.__game.S.view === 'trade'));
-    check('a page has a ? beside its title', await until(() => page.evaluate(() => !!document.querySelector('#main .vh h1 .hlp-q[data-k="trade"]'))));
+    check('a page has a ? beside its title, outside the title itself', await until(() => page.evaluate(() => !!document.querySelector('#main header.vh > .hlp-q[data-k="trade"]') && !document.querySelector('#main h1 .hlp-q') && !/\?/.test(document.querySelector('#main header.vh > h1').textContent))));
     await page.evaluate(() => window.__game.render());
     check('only one, after the page is drawn again', await page.evaluate(() => document.querySelectorAll('.hlp-q').length === 1 && window.__game.RPATCH.err === 0));
     await page.click('.hlp-q');
