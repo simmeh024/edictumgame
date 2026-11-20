@@ -12,14 +12,13 @@ permissions:
 
 jobs:
   hunt:
-    name: Hunt ${{ matrix.shard }} (fix ${{ matrix.first == '0' && 'off first' || 'on first' }})
+    name: Hunt ${{ matrix.shard }} (fix on)
     runs-on: ubuntu-latest
     timeout-minutes: 35
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3]
-        first: ['0', '1']
+        shard: [1, 2, 3, 4, 5, 6]
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -41,23 +40,17 @@ jobs:
         timeout-minutes: 12
         uses: ./.github/actions/playwright-chromium
       - run: python3 build.py
-      # MODE=wait: the recovery dialog is closed just before the edict card is clicked, the order the flake needs;
-      # FIX=0 turns off the game's modalEra, FIX=1 leaves it on
-      - name: Founding click 25 times, FIX=${{ matrix.first }}
+      # MODE=wait: the recovery dialog is closed just before the edict card is clicked, the order the flake needs
+      - name: Founding click 50 times, with the game's modalEra
         continue-on-error: true
-        timeout-minutes: 12
-        env: { RUNS: '25', MODE: wait, FIX: '${{ matrix.first }}' }
-        run: PATH="$PWD/node_modules/.bin:$PATH" firebase emulators:exec --project demo-edictum --only auth,firestore,functions,hosting "node test/founding-click-repro.mjs"
-      - name: Founding click 25 times, FIX=${{ matrix.first == '0' && '1' || '0' }}
-        continue-on-error: true
-        timeout-minutes: 12
-        env: { RUNS: '25', MODE: wait, FIX: "${{ matrix.first == '0' && '1' || '0' }}" }
+        timeout-minutes: 15
+        env: { RUNS: '50', MODE: wait, FIX: '1' }
         run: PATH="$PWD/node_modules/.bin:$PATH" firebase emulators:exec --project demo-edictum --only auth,firestore,functions,hosting "node test/founding-click-repro.mjs"
       - name: Keep the screenshots
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: hunt-${{ matrix.shard }}-${{ matrix.first }}
+          name: hunt-${{ matrix.shard }}
           path: test/out/**/*.png
           if-no-files-found: ignore
           retention-days: 3
