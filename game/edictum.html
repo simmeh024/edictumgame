@@ -5151,6 +5151,8 @@ button.fk-rp:hover,button.fk-qb:hover{color:var(--accent)}
 .skip-link{position:fixed;z-index:80;top:calc(10px + env(safe-area-inset-top,0px));left:10px;padding:10px 14px;border:1px solid var(--accent);border-radius:3px;background:var(--sheet);color:var(--ink);font-weight:600;cursor:pointer;box-shadow:var(--shadow);translate:0 -200%}
 .skip-link:focus{translate:0 0}
 .main:focus{outline:none}
+/* while anything is modal, every element carries one more declaration (see modalEra) */
+html.ed-modal *{--ed-modal:1}
 .side{gap:20px;scrollbar-width:thin;scrollbar-color:var(--rule-2) transparent;overscroll-behavior:contain}
 .nav{gap:0}
 .nav-grp{display:flex;flex-direction:column;min-width:0}
@@ -54197,6 +54199,26 @@ function renderPatch(app,html){
   RPATCH.n++;if(want!==null)try{RPATCH.check(want,app.innerHTML);}catch(e){}
   return true;
 }
+/* ── nothing stays inert after a dialog (2026-11-20) ──
+   While a modal dialog is open (showModal: the guest recovery code, the account panel, a guide's sheet…) or #app is
+   inert (a tutorial guide), the browser treats the page behind it as inert: no clicks, no focus. In Chrome 156 part of
+   the page could stay inert after the dialog had closed. When the founding edict opened 40 ms after the recovery code
+   was saved, the page column (.wrap, restyled as the edict was drawn into it) came out inert with everything inside it,
+   while looking just as usual, so the edict's answers ignored every click until something else restyled the column
+   (caught in the Core game test on CI, about one run in fifteen; test/hit-diag.mjs). The browser seems to reuse a
+   style worked out while the dialog was open. So while anything is modal the root carries a class (ed-modal) whose
+   rule gives every element one more declaration: a style worked out then never matches one worked out afterwards,
+   and the class going away has every element's style worked out afresh. */
+const MODAL_ERA={on:false};
+function modalEra(){
+  if(window.EDICTUM_NO_MODAL_ERA)return;
+  let m=null;try{m=document.querySelector('dialog:modal');}catch(e){m=document.querySelector('dialog[open]');}
+  const app=document.getElementById('app'),on=!!(m||(app&&app.inert));
+  if(on!==MODAL_ERA.on){MODAL_ERA.on=on;document.documentElement.classList.toggle('ed-modal',on);}
+}
+try{const mo=new MutationObserver(modalEra);mo.observe(document.documentElement,{subtree:true,attributes:true,attributeFilter:['open','inert']});
+  /* a dialog taken off the page while open changes no attribute */
+  const kids=()=>{if(document.body)mo.observe(document.body,{childList:true});};if(document.body)kids();else document.addEventListener('DOMContentLoaded',kids);}catch(e){}
 /* ── chats that keep to their newest line ──
    Every chat (the drawer's Region, World and Alliance tabs, an alliance's channel, a letters thread, the admin's region
    chats) opens on its newest line and follows each new one while the reader is at the bottom. Scrolling up (a wheel,
