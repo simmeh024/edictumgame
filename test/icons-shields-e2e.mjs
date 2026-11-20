@@ -1,6 +1,7 @@
 // Ten new icons, free: charges for the coat of arms and the same ten as flag emblems; five new shields, the Mural
 // shield opening with five cities (emulators). Five more free icons came on 2026-11-14: portcullis, escallop,
-// cornucopia, windmill and elephant.
+// cornucopia, windmill and elephant. On 2026-11-20 a motorbike and a volcano, which come with honouring the result
+// of the edict “Designed by a Nine-Year-Old”.
 import { OUT, check, finish, until, player, open, found, czSection, flagStudio, closeFlagStudio } from './lib.mjs';
 const KS = ['acorn', 'torch', 'scales', 'hourglass', 'quill', 'helm', 'grapes', 'lighthouse', 'dove', 'pine', 'portcullis', 'escallop', 'cornucopia', 'windmill', 'elephant'];
 const SH = ['kite', 'round', 'polish', 'tudor', 'mural'];
@@ -29,6 +30,35 @@ await openCz();
 check('with five cities the Mural shield can be chosen', !!await A.$('button#cz-a-s-mural'));
 await A.evaluate(() => document.querySelector('button#cz-a-s-mural').click());
 check('and it is used', await until(() => A.evaluate(() => G.S.nation.cz.a.s === 'mural')));
+// the motorbike and the volcano (20 Nov 2026) come with honouring the result of “Designed by a Nine-Year-Old”
+const ED = ['motorbike', 'volcano'];
+const edict = o => A.evaluate(o => { const n = G.clone(G.S.nation); n.inbox.push({ id: 'prv-flag-contest', at: Date.now() }); G.commit(n); G.answer('prv-flag-contest', o); }, o);
+const lockedNamingEdict = () => A.evaluate(ks => ks.every(k => { const t = document.querySelector('[data-id="c-' + k + '"].locked'); return t && !document.querySelector('button#cz-a-c-c-' + k) && /one answer to the edict “Designed by a Nine-Year-Old”/.test(t.getAttribute('title')); }), ED);
+await openCz();
+check('before the edict, the motorbike and volcano charges are locked, naming the edict', await lockedNamingEdict());
+await edict(2);
+check('lowering every province flag instead gives nothing', await until(() => A.evaluate(() => G.S.nation.answered.some(a => a.id === 'prv-flag-contest' && a.o === 2) && !(G.S.nation.ppx || []).some(id => /motorbike|volcano/.test(id)))));
+await A.evaluate(() => { G.S.result = null; G.render(); });
+await openCz();
+check('so the charges stay locked', await lockedNamingEdict());
+await edict(0);
+check('honouring the result gives both, as charges and emblems', await until(() => A.evaluate(() => ['c-motorbike', 'e-motorbike', 'c-volcano', 'e-volcano'].every(id => (G.S.nation.ppx || []).includes(id)))));
+await A.evaluate(() => { G.S.view = 'issues'; G.render(); });
+check('the result names them', await until(() => A.evaluate(() => [...document.querySelectorAll('.polchg span')].some(s => /^Flag makers · New for your flag and arms: the Motorbike and the Volcano, each a charge for the arms and an emblem for the flag\./.test(s.textContent)))));
+await A.evaluate(() => { const b = document.querySelector('[data-ed="recovery-saved"]'); if (b) b.click(); });
+await A.evaluate(() => { const p = document.querySelector('.polchg'); if (p) p.scrollIntoView({ block: 'center' }); });
+await A.screenshot({ path: OUT + '/flag-contest-result.png' });
+await A.evaluate(() => { G.S.result = null; G.render(); });
+await openCz();
+check('the two charges can now be chosen', await A.evaluate(ks => ks.every(k => { const b = document.querySelector('button#cz-a-c-c-' + k); return b && b.querySelector('svg path'); }), ED));
+await A.evaluate(() => document.querySelector('button#cz-a-c-c-volcano').click());
+check('the volcano is blazoned in eruption', await until(() => A.evaluate(() => G.S.nation.cz.a.c === 'c-volcano' && /a volcano in eruption/.test(document.querySelector('.cz-blazon').textContent))));
+await flagStudio(A, 'charges');
+check('and the two flag emblems', await A.evaluate(ks => ks.every(k => { const b = document.querySelector('button#c-e-e-' + k); return b && b.querySelector('svg path'); }), ED));
+emblemSvgs.push(...await A.evaluate(ks => ks.map(k => (document.querySelector('#c-e-e-' + k + ' svg') || {}).outerHTML || ''), ED));
+KS.push(...ED);
+await closeFlagStudio(A);
+await openCz();
 // a sheet of everything new, for the pull request, drawn on a page of its own
 const html = await A.evaluate(([ks, sh, em]) => {
   const svg = sel => (document.querySelector(sel + ' svg') || {}).outerHTML || '';

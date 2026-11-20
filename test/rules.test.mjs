@@ -602,6 +602,27 @@ test('only an admin marks themself as staff; everyone reads it, and anyone clear
   await assertSucceeds(as('bob').doc('staff/bob').delete());                               // rights taken away: the page clears it
 });
 
+test("a staff member's portal clock: their own, or an admin's to set; players never read it", async () => {
+  const adm = as('adm', { admin: true }), mo = as('mo', { mod: true }), tz = z => ({ tz: z, t: Date.now() });
+  await assertSucceeds(adm.doc('staffPrefs/adm').set(tz('America/Mexico_City')));          // an admin keeps their own
+  await assertSucceeds(adm.doc('staffPrefs/yal').set(tz('Europe/Amsterdam')));             // and may set a team member's
+  await assertSucceeds(mo.doc('staffPrefs/mo').set(tz('Europe/Amsterdam')));               // a moderator keeps their own
+  await assertFails(mo.doc('staffPrefs/adm').set(tz('UTC')));                              // but nobody else's
+  await assertFails(mo.doc('staffPrefs/adm').get());
+  await assertSucceeds(mo.doc('staffPrefs/mo').get());
+  await assertSucceeds(adm.doc('staffPrefs/mo').get());
+  await assertFails(as('bob').doc('staffPrefs/bob').set(tz('UTC')));                       // a player has no portal
+  await assertFails(as('bob').doc('staffPrefs/adm').get());                                // nor sees where staff live
+  await assertFails(anon().doc('staffPrefs/adm').get());
+  await assertFails(adm.doc('staffPrefs/adm').set({ tz: 'UTC', t: Date.now(), name: 'x' }));// only the zone and its time
+  await assertFails(adm.doc('staffPrefs/adm').set({ tz: '', t: Date.now() }));
+  await assertFails(adm.doc('staffPrefs/adm').set({ tz: 'x'.repeat(65), t: Date.now() }));
+  await assertFails(adm.doc('staffPrefs/adm').set({ tz: 'UTC', t: 'now' }));
+  await assertSucceeds(as('bob').doc('staffPrefs/bob').delete());                          // anyone clears their own
+  await assertFails(as('bob').doc('staffPrefs/adm').delete());
+  await assertSucceeds(adm.doc('staffPrefs/mo').delete());
+});
+
 test('a summary may count a holiday after the save (e), up to 32 days past it and never before', async () => {
   const day = 864e5, tryE = (uid, e) => { const n = nation('Holiday ' + uid); return save(as(uid), uid, n, { summary: summaryOf(n, { e: typeof e === 'function' ? e(n.updatedAt) : e }) }); };
   await assertSucceeds(tryE('h1', t => t + 20 * day));
