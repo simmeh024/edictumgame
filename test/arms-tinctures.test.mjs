@@ -46,9 +46,13 @@ test('four new tinctures, each with an unlock of its own and a free neighbour', 
     assert.equal(X.czTnKey(u), t);
     assert.ok(X.CZ_TINCT[X.CZ_TN_FB[t]] && !X.CZ_TN_U[X.CZ_TN_FB[t]], 'falls back to a free tincture: ' + t);
   }
-  assert.deepEqual(Object.keys(X.CZ_TINCT).slice(-4), TN, 'the earned ones sit at the end of the row');
-  assert.equal(Object.keys(X.CZ_TINCT).length, 18);
+  /* after them Platinum, the 200-nation gift's (test/milestone-200.test.mjs), held the same way and falling back to Argent */
+  assert.deepEqual(Object.keys(X.CZ_TINCT).slice(-5), [...TN, 'plat'], 'the earned ones sit at the end of the row');
+  assert.equal(Object.keys(X.CZ_TINCT).length, 19);
+  assert.equal(X.CZ_TN_U.plat, 'tn-plat');
+  assert.equal(X.CZ_TN_FB.plat, 'argent');
   assert.equal(X.CZ_METAL.gilt, 1, 'Shining gold is a metal');
+  assert.equal(X.CZ_METAL.plat, 1, 'Platinum is a metal');
   assert.ok(!X.CZ_METAL.lime && !X.CZ_METAL.turq && !X.CZ_METAL.nuit);
   /* every colour stays distinct from the others */
   const hex = Object.values(X.CZ_TINCT).map(v => v[1].toUpperCase());
