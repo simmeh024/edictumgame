@@ -118,6 +118,21 @@ check('the fifth flag scored earns a land credit, and says so', await toasted(A,
 ran.push(await judge(A, uids[0]));
 check('the skipped flag came back last, and was scored', await until(async () => { const v = await admin(`flagc/${M}/votes/${uids[0]}`); return !!v.v.mapValue.fields[skippedId] && !(v.k && v.k.mapValue.fields && v.k.mapValue.fields[skippedId]); }), JSON.stringify(await admin(`flagc/${M}/votes/${uids[0]}`)));
 check('three flags scored complete the desk’s judging task', await until(async () => A.evaluate(() => { const f = G.S.nation.dd && G.S.nation.dd.f; return !!f && f.p === 1 && f.c === 3; })), JSON.stringify(await A.evaluate(() => G.S.nation.dd)));
+/* with every flag scored there is nothing left to ask: no judging task on later days (no flag comes in while judging
+   runs), none drawn that day is left standing, and the menu asks for none */
+check('every flag scored is kept on the nation, though fewer than five (which earns no achievement)', await until(async () => A.evaluate(m => G.S.nation.fca === m && !(G.S.nation.tly || {}).fcall, M)), JSON.stringify(await A.evaluate(() => [G.S.nation.fca, G.S.nation.tly])));
+const desk = (p, f) => p.evaluate(f => { const m = G.clone(G.S.nation); if (f) m.dd.f = f; else delete m.dd.f; G.commit(m); G.render(); }, f);
+const deskNow = p => p.evaluate(() => { const n = G.S.nation; return { f: (n.dd && n.dd.f) || null, on: G.FLC().flcDeskOn(n) }; });
+await desk(A, null);
+check('so a new day’s desk draws no judging task', await until(async () => { const d = await deskNow(A); return !d.f && !d.on; }), JSON.stringify(await deskNow(A)));
+await nav(A, 'issues');
+check('and shows the day’s three tasks alone', await until(async () => await A.locator('.dd .dd-t:not(.dd-rare):not(.dd-fc)').count() === 3) && await A.locator('.dd-fc').count() === 0, await text(A, '.dd'));
+await desk(A, { g: 3, c: 0, p: 0 });
+check('a judging task drawn before the last flag was scored, and given none of the scores, is let go', await until(async () => { const d = await deskNow(A); return !d.f && !d.on; }) && await until(async () => await A.locator('.dd-fc').count() === 0), JSON.stringify(await deskNow(A)));
+await desk(A, { g: 3, c: 1, p: 0 });
+check('one that had some of the last scores is paid: they were every flag left', await until(async () => { const d = await deskNow(A); return !!d.f && d.f.p === 1 && d.f.c === 1; }) && await toasted(A, /Desk task done: every flag in the flag competition is scored\. \+5 goods and \+5 iron\./), JSON.stringify(await deskNow(A)) + ' ' + await text(A, '#toast'));
+check('and the menu asks for no flags, whatever the counts say', await A.evaluate(() => { const F = G.FLC().FLC, st = F.st; F.st = Object.assign({}, st, { judged: 0 }); try { return G.FLC().flcTodo(); } finally { F.st = st; } }) === '');
+await page(A);
 await A.evaluate(() => { window.EDICTUM_NO_DESK = true; });
 /* a judge may report a flag to the staff */
 await B.waitForSelector('.flc-judge', { timeout: 15000 });
