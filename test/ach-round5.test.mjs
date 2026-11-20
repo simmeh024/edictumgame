@@ -19,7 +19,7 @@ const TIER = { b: 10, s: 25, g: 50, p: 100, x: 200, o: 500 };
 const DAY = 86400000, NOW = Date.UTC(2026, 10, 14, 12);
 
 const REAL = [
-  /const TY_RULES=\{[\s\S]*?fx:\{[^}]*\}\};/, /function tyLive\(T,now\)\{.*\}/, /function alRelLiveG\(r,now\)\{.*\}/,
+  /const TY_RULES=\{[\s\S]*?\};(?=\n)/, /function tyLive\(T,now\)\{.*\}/, /function alRelLiveG\(r,now\)\{.*\}/,
   /const AL_RULES=\{[\s\S]*?pactBreak:\d+\}\};/, /const AL_PJ=\{[\s\S]*?chronicle:\[[^\]]*\]\};/,
   /const GF_KINDS=\{.*\};/, /const GW_MAX=\d+;/, /const TALLY_MAX=\d+/, /function gbBump\(n,k,by,now\)\{.*\}/, /const PORTFOLIOS=\[.*\];/, /const PF_KEYS=PORTFOLIOS\.map\(p=>p\[0\]\)/,
   /const BLK_TI=\[.*\];/, /const blkTi=rec=>.*;/, /const CX_WALL=\[.*\];/, /const PT_LOCK=\{[\s\S]*?\]\};/,

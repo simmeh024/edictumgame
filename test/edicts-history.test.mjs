@@ -23,7 +23,9 @@ function load() {
 
 test('a hundred history edicts, the last section before the browser tab, all drawn at random', () => {
   assert.ok(A > code.indexOf('for(const is of NBR_ISSUES){') && A < B);
-  assert.equal(code.indexOf('ISSUES.push(', code.indexOf('for(const is of HX_ISSUES){') + 30), -1, 'nothing is added after them');
+  /* nothing is added after them but the joint military training edicts, beside the treaties after boot (joint-training.test) */
+  assert.equal(code.indexOf('ISSUES.push(', code.indexOf('for(const is of HX_ISSUES){') + 30), code.indexOf('for(const is of DRL_ISSUES){ISSUES.push(') + 28, 'nothing is added after them but the training edicts');
+  assert.ok(code.indexOf('const DRL_ISSUES=[') > B, 'which sit after the browser tab’s section');
   const { ctx } = load(), L = ctx.L;
   assert.equal(L.length, 100);
   assert.deepEqual(J(L.map(x => x.no)), Array.from({ length: 100 }, (_, i) => 10 + i));

@@ -22009,17 +22009,24 @@ function territory(extra){
 
 /* armies and military policies */
 function armyMult(n){const p=pol(n);let m=1;if(p.conscription)m*=1.15;if(p.militaryAcademy)m*=1.1;if(p.militaryCorruption)m*=0.85;if(p.obsoleteEquipment)m*=0.85;return m;}
-function attackMult(n){const p=pol(n);let m=1;if(p.drones)m*=1.1;if(p.mercenaries)m*=1.1;if(p.lowMorale)m*=0.9;return m;}
+function attackMult(n){const p=pol(n);let m=1;if(p.drones)m*=1.1;if(p.mercenaries)m*=1.1;if(p.lowMorale)m*=0.9;const d=drillOf(n);if(d)m*=(1+d/2)/(1+d);return m;}
 function isCoastal(c){for(let d=0;d<6;d++){const nb=MAP.nbr[c*6+d];if(nb<0||MAP.T[nb]<2)return true;}return false;}
 function defenceMult(n,cell){const p=pol(n);let m=1;if(p.fortifications)m*=1.15;if(p.borderWall)m*=1.1;if(p.nuclearArsenal)m*=1.2;if(p.pacifistConstitution)m*=1.1;if(p.coastalBatteries&&isCoastal(cell))m*=1.25;return m;}
-function armyPower(n){
+/* an army before joint military training (e: the nation's economy, econOf), and with it: training adds e.drill
+   ("treaties between nations", near the end), and only half of it counts in an attack (attackMult) */
+function armyRaw(n,e){
   const tot=BUDGET.reduce((a,[k])=>a+(n.budget[k]||0),0)||1,def=(n.budget.defence||0)/tot*100;
-  return Math.sqrt(Math.max(0.1,popNow(n)))*(0.4+1.2*n.s.mil/100)*(0.6+def/15)*(0.85+n.s.sci/300)*armyMult(n)*((econOf(n)||{army:1}).army);
+  return Math.sqrt(Math.max(0.1,popNow(n)))*(0.4+1.2*n.s.mil/100)*(0.6+def/15)*(0.85+n.s.sci/300)*armyMult(n)*((e||{army:1}).army);
 }
+function armyPower(n){const e=econOf(n);return armyRaw(n,e)*(1+((e&&e.drill)||0));}
+function drillOf(n){const e=econMine(n);return (e&&e.drill)||0;}
+/* a nation's economy; for a copy of the player's own record (commit's, an attack's), which the economy does not hold,
+   the player's own */
+function econMine(n){return econOf(n)||(n&&!n.npc&&S.nation&&n!==S.nation&&n.founded===S.nation.founded&&n.name===S.nation.name?econOf(S.nation):null);}
 const brigades=n=>Math.max(1,Math.round(armyPower(n)*10));
 const brig=n=>{const b=brigades(n);return b.toLocaleString('en-US')+(b===1?' brigade':' brigades');};
 function maxReady(n){return READY_BASE+(pol(n).reservists?2:0);}
-function readyMs(n){return (pol(n).rapidMobilisation?10:15)*60000;}
+function readyMs(n){const ms=(pol(n).rapidMobilisation?10:15)*60000,e=econMine(n),k=(e&&e.drillN)||0;return k?drReadyMs(ms,k):ms;}
 function readiness(n,now){
   const max=maxReady(n),ms=readyMs(n);
   if(!Number.isInteger(n.ready))return {r:max,max,next:0};
@@ -22047,8 +22054,9 @@ const AL={docs:new Map(),rev:0,reg:'',unsub:null,ready:false,err:'',busy:'',msg:
 /* treaties between two nations: the server's rules (functions/treaty-rules.js; test/treaties.test.mjs checks that they
    match), and the region's treaties as the server keeps them (treaties/, functions/treaties.js), kept up to date by
    tyConnect ("treaties between nations", near the end). rev counts snapshots, so politics() and the economy look again */
-const TY_RULES={kinds:['nap','trade','research'],max:{nap:8,trade:3,research:3},notice:3*86400000,record:30*86400000,reoffer:7*86400000,
-  npcMin:{nap:35,trade:50,research:60},breakGw:{other:15,all:5},fx:{flow:0.1,research:0.01,researchMax:3}};
+const TY_RULES={kinds:['nap','trade','research','drill'],max:{nap:8,trade:3,research:3,drill:3},notice:3*86400000,record:30*86400000,reoffer:7*86400000,
+  npcMin:{nap:35,trade:50,research:60,drill:55},breakGw:{other:15,all:5},fx:{flow:0.1,research:0.01,researchMax:3,
+  drill:{base:0.02,more:0.04,host:0.01,max:3,up:{food:1,iron:0.5},ready:0.05,edge:0.1}}};
 const TY={docs:new Map(),rev:0,reg:'',unsub:null,ready:false,err:'',busy:'',msg:'',to:'',k:'nap',brk:''};
 /* joint ventures between two neighbours: the server's rules (functions/venture-rules.js; test/ventures.test.mjs checks that
    they match), and the region's ventures as the server keeps them (ventures/, functions/ventures.js), kept up to date by
@@ -22307,7 +22315,7 @@ function pips(r,max){max=max||READY_BASE;return `<span class="pips" role="img" a
 function armyBlock(T,mi){
   const rd=readiness(S.nation,Date.now()),en=enemies(),lost=T.lost[mi]||0;
   const enLinks=en.map(e=>{const w=warWith(e.id);return `<button class="linkish" data-act="map-select" data-id="${esc(e.id)}">${esc(e.n.name)}</button>${w.direct&&w.theyOffered&&!w.iOffered?' (offers peace)':''}`;});
-  return `<div class="army"><p class="eyebrow">Army</p><dl class="mp-dl"><div><dt>Strength</dt><dd>${brig(S.nation)}</dd></div><div><dt>Readiness</dt><dd>${pips(rd.r,rd.max)}</dd></div><div><dt>Alliance</dt><dd>${esc(allianceName(myId()))}</dd></div>${lost?`<div><dt>Occupied by enemies</dt><dd>${lost} ${lost===1?'hex':'hexes'}</dd></div>`:''}</dl>
+  return `<div class="army"><p class="eyebrow">Army</p><dl class="mp-dl"><div><dt>Strength</dt><dd>${brig(S.nation)}</dd></div><div><dt>Readiness</dt><dd>${pips(rd.r,rd.max)}</dd></div>${(()=>{const w=drWords(econOf(S.nation));return w?`<div><dt><span aria-hidden="true">⚔️</span> Joint training</dt><dd>${esc(w)}</dd></div>`:'';})()}<div><dt>Alliance</dt><dd>${esc(allianceName(myId()))}</dd></div>${lost?`<div><dt>Occupied by enemies</dt><dd>${lost} ${lost===1?'hex':'hexes'}</dd></div>`:''}</dl>
     <p class="mp-note">${rd.r<rd.max?`The next readiness point arrives in ${fmtDur(rd.next)}. `:''}${en.length?`At war with ${list(enLinks)}. `+(frontier(T).size?'Hexes you can attack are outlined in red.':OUT_OF_REACH):'You are at peace. Select a nation on the map to declare war on it.'}</p></div>`;
 }
 function warControls(x){
@@ -22702,6 +22710,8 @@ function economy(){
   for(let c=0;c<MAP.N;c++){const o=T.owner[c];if(o<0)continue;if(MAP.T[c]>=2)held[o]++;prod.food[o]+=CELL_RES.food[c];prod.timber[o]+=CELL_RES.timber[c];prod.iron[o]+=CELL_RES.iron[c];prod.oil[o]+=CELL_RES.oil[c];}
   T.list.forEach((x,i)=>{const s=x.n.s||{},z=econSize(x);prod.goods[i]=z*(0.7+(s.econ==null?50:s.econ)/150+(s.sci==null?40:s.sci)/150);for(const r of RES)dem[r][i]=z*DEMAND[r];eat[i]=foodEaten(held[i],z,x.pop);dem.food[i]+=eat[i];burn[i]=timberBurnt(held[i],z);dem.timber[i]+=burn[i];const pol=x.n.policies||{};for(const k in RES_POL)if(pol[k])for(const r in RES_POL[k])prod[r][i]*=RES_POL[k][r];});
   const CSt=cityState(T);T.list.forEach((x,i)=>{const a=CSt.agg[i];for(const r of RES){prod[r][i]+=a.add[r];dem[r][i]+=a.up[r];}});
+  /* joint military training at work, and the food and iron it uses ("treaties between nations", near the end) */
+  let dr=null,drUp=null;try{dr=drPairs(T,CSt);if(dr.length)drUp=drUpkeep(dr,dem,L);}catch(e){dr=null;}
   const tariff=T.list.map(x=>!!(x.n.policies||{}).importTariffs),reserve=T.list.map(x=>!!(x.n.policies||{}).strategicReserves);
   const dl=collectDeals(),active=dl.active.filter(d=>T.byId[d.a]!==undefined&&T.byId[d.b]!==undefined&&RES.includes(d.ag[0])&&RES.includes(d.bg[0]));
   for(const d of active){d.sus=!!atWar(d.a,d.b);if(!d.sus&&c3Frozen(d,T))d.sus=d.frz=true;if(d.sus)continue;req[d.ag[0]][T.byId[d.a]]+=d.ag[1];req[d.bg[0]][T.byId[d.b]]+=d.bg[1];}
@@ -22728,7 +22738,7 @@ function economy(){
     prosper:(0.82+0.1*q('goods',i)+0.04*q('timber',i)+0.04*q('oil',i))*(1+a.prosper)*(1+cf.prosper),
     growth:clamp(foodGrowth(q0(i),q('food',i))*(1+a.growth)*(1+cf.growth),0.5,1.6)};});}
   finally{BFX_HAND=null;}
-  const v={T,prod,dem,exp,imp,sup,ratio,price,eff,held,eat,burn,active,pending:dl.pending,byDoc:new Map(T.list.map((x,i)=>[x.n,i]))};
+  const v={T,prod,dem,exp,imp,sup,ratio,price,eff,held,eat,burn,active,pending:dl.pending,byDoc:new Map(T.list.map((x,i)=>[x.n,i])),dr,drUp};
   econMemo={T,k,at:now,ref:S.nation,w:S.world,v};
   return v;
 }
@@ -25141,6 +25151,7 @@ function statRows(A){
       ['Defence share of the budget',pctS(bpOf(n,'defence')),'defshare'],['Defence spending',spendText(A,'defence','None, the army is unpaid')],
       ['Tanks',fmt0(A.brig*14*(p.obsoleteEquipment?1.3:1))],['Combat aircraft',fmt0(A.brig*4*(s.sci/50))],['Combat drones',p.drones?fmt0(A.brig*12):'None'],
       ['Warships',warships(A)],['Nuclear warheads',p.nuclearArsenal?fmt0(20+s.mil*2):'None'],
+      ['Joint military training',esc(drWords(econOf(n))||'None')],
       ['Conscription',p.conscription?'Yes':'No'],['At war with',esc(list(allNations().filter(y=>y.id!==A.x.id&&pairWarOf(A.x.id,y.id)).map(y=>y.n.name))||'Nobody')]
     ],
     culture:[
@@ -26723,7 +26734,7 @@ function npcWarTick(n,now){
   for(let k=Math.max(n.wck+1,cur-7);k<=cur;k++){
     const ts=k*WAR_SLOT+hash(n.seed+':slot:'+k)%WAR_SLOT;if(ts>now)break;n.wck=k;
     for(const x of NPC_NATIONS){
-      const id=x.id,ni=T.byId[id];if(ni===undefined||sameAlliance(myId(),id)||tyOf(myId(),id,'nap'))continue;
+      const id=x.id,ni=T.byId[id];if(ni===undefined||sameAlliance(myId(),id)||tyPeace(myId(),id))continue;
       const roll=rng(hash(n.seed+':'+id+':'+k))();
       if(warIn(n,id)){
         const ct=npcCounter(T,ni);if(!ct||taken.has(ct.cell))continue;
@@ -26851,7 +26862,11 @@ function relationCard(x){
   {const B=allianceOf(x.id);rows.push(['Alliance',B?(B.srv?`<button type="button" class="linkish" data-act="al-page" data-id="${esc(B.id)}">${esc(B.name)}</button>`:esc(B.name)):'None']);}
   {const tl=TY_RULES.kinds.filter(k=>tyOf(me,x.id,k)).map(k=>TY_K[k][0]);rows.push(['Treaties with you',tl.length?esc(list(tl)):'None']);
     const bk=tyList(x.id).filter(T=>T.st==='broken'&&T.by===x.id&&now-T.bt<TY_RULES.record);
-    if(bk.length)rows.push(['Treaties broken',esc(list(bk.map(T=>`a ${TY_K[T.k][0].toLowerCase()} with ${nameOf(T.p[0]===x.id?T.p[1]:T.p[0])} on ${fmtDate(T.bt)}`)))]);}
+    if(bk.length)rows.push(['Treaties broken',esc(list(bk.map(T=>`${tyA(T.k)} with ${nameOf(T.p[0]===x.id?T.p[1]:T.p[0])} on ${fmtDate(T.bt)}`)))]);}
+  /* a training partner knows the other's army as a spy's dossier would: strength, readiness, spending, war policies */
+  if(tyOf(me,x.id,'drill')){const d=dossierOf(x);rows.push(['<span aria-hidden="true">⚔️</span> Their army, from joint training',esc(`${brig(x.n)} · readiness ${d.rd==null?'full':d.rd+' of '+d.mx} · defence ${d.dp}% of the budget${d.wp.length?' · '+list(d.wp):''}`)]);}
+  {const D=drBroken(me,x.id,now);if(D){const pc=Math.round(TY_RULES.fx.drill.edge*100),u=fmtDate(D.bt+TY_RULES.record);
+    rows.push(['Joint training broken',esc(D.by===x.id?`They broke it on ${fmtDate(D.bt)}: your armies fight theirs ${pc}% the stronger until ${u}.`:`You broke it on ${fmtDate(D.bt)}: their armies fight yours ${pc}% the stronger until ${u}.`)]);}}
   let deals=0,held=0;try{for(const d of economy().active)if((d.a===me&&d.b===x.id)||(d.b===me&&d.a===x.id)){if(d.sus)held++;else deals++;}}catch(e){}
   rows.push(['Trade deals with you',deals||held?`${deals} active${held?`, ${held} on hold`:''}`:'None']);
   const past=(n.wh||[]).filter(w=>w.w===x.id).length+(ws.war&&ws.direct?1:0)+(!ws.war&&ws.peaceAt?1:0);
@@ -27543,7 +27558,7 @@ function helpBody(n){
       <p>Computer nations count goodwill (up to 20 points either way) in their affinity with you, and a hawkish computer neighbour that dislikes you may go to war.</p>`,
     war:`<p>Declaring war unlocks at ${fp('war')} people. Player nations below that size are protected: nobody can declare war on them, computer nations leave them alone, and they are not drawn into their allies’ wars. A Pacifist Constitution forbids declaring war, though an edict may let you change it.</p>
       <h3 class="help-h3">Your army</h3>
-      <p>Strength, in brigades, comes from your population, military score, defence spending, science, policies and supplies of iron and oil. Your army has ${READY_BASE} readiness points (${READY_BASE+2} with an Army Reserve), and one returns every 15 minutes (10 with Rapid Mobilisation). Each attack uses one point and costs a little wealth and happiness.</p>
+      <p>Strength, in brigades, comes from your population, military score, defence spending, science, policies and supplies of iron and oil. Your army has ${READY_BASE} readiness points (${READY_BASE+2} with an Army Reserve), and one returns every 15 minutes (10 with Rapid Mobilisation, and 5% sooner for each joint military training pact at work). Each attack uses one point and costs a little wealth and happiness.</p>
       <h3 class="help-h3">Attacking</h3>
       <p>Select an enemy hex outlined in red on the map. You can strike hexes next to your land or your allies’ land, or up to 3 hexes beyond across unclaimed land or shallow sea, losing 15% of your strength for each hex crossed and 25% more by sea unless you have a Blue-Water Navy. Capitals cannot be taken. The panel shows your chance, between 5% and 95%: hills and mountains, fortresses, walls, defence policies and the hexes around the target all count, and spies can tip it. A computer nation may strike back at once.</p>
       <h3 class="help-h3">Handing over land</h3>
@@ -28688,7 +28703,7 @@ function aHexes(x){return achM(x,'hex',()=>{try{const T=territory(),i=T.byId[x.i
 function aComps(x){return achM(x,'comps',()=>{try{const T=territory(),i=T.byId[x.id];if(i===undefined)return 0;const s=new Set();for(let c=0;c<MAP.N;c++)if(T.owner[c]===i&&MAP.comp[c]>=0)s.add(MAP.comp[c]);return s.size;}catch(e){return 0;}});}
 function aStanding(x){return achM(x,'bld',()=>{const o={};for(const c of x.n.cities||[])for(const b of c.b||[])if(b.d<=x.now)o[b.k]=(o[b.k]||0)+1;return o;});}
 const aBuilt=(x,k)=>Math.max(aT(x,'build:'+k),aStanding(x)[k]||0);
-function aArmy(x){return achM(x,'army',()=>{if(x.npc)return 0;try{let p=armyPower(x.n);if(x.me&&!econOf(x.n)){const e=econOf(S.nation);if(e&&e.army)p*=e.army;}return Math.max(1,Math.round(p*10));}catch(e){return 0;}});}
+function aArmy(x){return achM(x,'army',()=>{if(x.npc)return 0;try{let p=armyPower(x.n);if(x.me&&!econOf(x.n)){const e=econOf(S.nation);if(e&&e.army)p*=e.army*(1+(e.drill||0));}return Math.max(1,Math.round(p*10));}catch(e){return 0;}});}
 function aGdp(x){return achM(x,'gdp',()=>{if(x.npc)return 0;try{return gdp(x.n,x.now,x.id)||0;}catch(e){return 0;}});}
 function aIncome(x){return achM(x,'inc',()=>{if(x.npc)return 0;try{return avgIncome(x.n,x.id)||0;}catch(e){return 0;}});}
 function aDeals(x){return achM(x,'deals',()=>{try{return dealsOf(x.id).filter(d=>!d.sus).length;}catch(e){return 0;}});}
@@ -38934,7 +38949,7 @@ function lensRankText(I,id){const r=I.rank.get(id);if(!r)return '';return (r.tie
 /* "Happiness 72, 3rd of 11" */
 function lensLine(T,id){
   const lk=lensKey();if(lk==='pol')return '';const I=lensInfo(T,lk),L=LENS_INFO[lk],v=I.v.get(id),x=T.list[T.byId[id]];
-  if(lk==='rel')return x&&x.me?'Relations: this is you':v==null?'':`Relations: ${relWord(v).toLowerCase()}, ${v} of 100`;
+  if(lk==='rel')return x&&x.me?'Relations: this is you':v==null?'':`Relations: ${relWord(v).toLowerCase()}, ${v} of 100${x&&tyOf(myId(),x.id,'drill')?' · ⚔️ trains with you':''}`;
   if(lk==='endo'&&v==null)return x&&x.npc?'Endorsements: none, computer nations back a player instead':'Endorsements: not an Assembly member';
   if(v==null)return '';
   return `${L.n} ${L.f(v)}, ${lensRankText(I,id)}${lk==='endo'&&I.del===id?' · the Delegate':''}`;
@@ -48548,7 +48563,7 @@ function commit(n){passForget();if(OBS||PV||tabPassive||regBlocked())return;cons
   recordHistory(n,now);
   const fresh=ackMilestones(n,now);if(fresh.length)setTimeout(()=>toast(fresh.length===1?`Milestone: ${fmtPopShort(fresh[0].p)} people${fresh[0].t?', '+fresh[0].t:''}. Unlocked: ${list(mileUnlocks(fresh[0],n))}.`:`${fresh.length} milestones reached, up to ${fmtPopShort(fresh[fresh.length-1].p)} people. Open the bell to see what they unlocked.`),gn.length?5400:0);
   if(n.name&&!n.npc){tallyScan(n,S.nation,now);const hk=runHooks(COMMIT_HOOKS,n,S.nation,now).map(t=>lcPauseMsg(n,t));unlockQueue(unlockFresh(n,S.nation));if(hk.length)setTimeout(()=>hk.forEach(t=>toast(t)),0);}
-  const e=econOf(S.nation);n.gm=e?Math.round(e.growth*1000)/1000:1;try{n.apw=Math.round(armyPower(n)*1000)/1000;}catch(err){}n.updatedAt=now;n._dirty=true;S.nation=n;geoSnap(n);migSnap(n);growthSnap(n);saveLocal(n);commitNo++;recRev++;queueRemote(act&&performance.now()-lastInput<5000);}
+  const e=econOf(S.nation);n.gm=e?Math.round(e.growth*1000)/1000:1;try{n.apw=Math.round(armyPower(n)*(econOf(n)?1:1+((e&&e.drill)||0))*1000)/1000;}catch(err){}n.updatedAt=now;n._dirty=true;S.nation=n;geoSnap(n);migSnap(n);growthSnap(n);saveLocal(n);commitNo++;recRev++;queueRemote(act&&performance.now()-lastInput<5000);}
 function queueRemote(player){
   if(OBS||PV||tabPassive)return;
   if(regBlocked()||S.db&&!RCTRL.ready){remoteDirty=true;publishSync();return;}
@@ -70323,6 +70338,7 @@ function rbdParts(n,r){
   if(r==='food'&&E.eat&&E.eat[i]>=0.05){const z=econSize(x),k=Math.max(0,E.held[i]-z),t=foodTier(x.pop);used.push([`People out on your land (${fmt0(k)} hex${k===1?'':'es'} beyond your core of ${fmt0(z)}, ${fmtAmt(FOOD_EAT*t)} each${t>1?`: ${fmtAmt(FOOD_EAT)} and ${Math.round((t-1)*100)}% more for ${fmt0(FOOD_TIERS[Math.round((t-1)/FOOD_TIER_K)-1])}M+ people`:''})`,-E.eat[i]]);}
   if(r==='timber'&&E.burn&&E.burn[i]>=0.05){const k=Math.round(E.burn[i]/TIMBER_BURN);used.push([`Firewood for the people out on your land (${fmt0(k)} hex${k===1?'':'es'} beyond your core of ${fmt0(econSize(x))}, ${fmtAmt(TIMBER_BURN)} each)`,-E.burn[i]]);}
   if(a&&a.up[r]>=0.05)used.push(['Building upkeep',-a.up[r]]);
+  if(E.drUp&&E.drUp[r]&&E.drUp[r][i]>=0.05)used.push(['Joint military training',-E.drUp[r][i]]);
   const left=E.sup[r][i]-E.dem[r][i];let got=Math.max(0,left);
   stock.push([left>=0?'What is left over':'Nothing left over (your people use more than you have)',got]);
   const add=(l,v)=>{if(Math.abs(v)>=0.05){stock.push([l,v]);got+=v;}};
@@ -78831,7 +78847,7 @@ mapBox=(f=>function(kind){const h=f.apply(this,arguments),n=S.nation;if(kind!=='
 
 /* the browser tests' window into the game: test/lib.mjs sets EDICTUM_PROBE before the page loads (a
    player's own browser can reach all of this anyway) */
-if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({RPATCH,SC:()=>scProbe(),MTP:()=>({MTP,MTP_PAD,TBMP_SCALE,redrawMaps,mapScale,viewOf}),SCR:()=>({scrOf,scrClean,scrDef,scrFamOf,scrEdParse,scrGlyphs,scrLay,scrChars,scrSVG,scrLine,scrCard,scrCharterSVG,scrFmt,scrFor,dmRich,dmPlain,scrDmWith,SCR_FAM,SCR_ABC,SCS}),BDX:()=>bdProbe(),FLY:()=>({flagSVG,fgSplit,fgFused}),RD:()=>rdProbe(),JV:()=>jvProbe(),M100P:()=>({M100,M100_N,M100_MC,M100_MCN,m100Bits,m100Got,m100In,m100Due,m100Count,m100Show,m100Open,ctgMcOk,nationColor,czShOk,czShieldPath,unlocksOf,czPatSVG,xsMax}),M200P:()=>({M200,M200_N,M200_MC,M200_MCN,M200_U,m200Bits,m200Got,m200In,m200Due,m200Count,m200Show,m200Open,ctgMcOk,nationColor,czShOk,czShieldPath,unlocksOf,czPatSVG,czStampArt,czFrameArt,czCharge,czFramed,flagSVG,xsMax,ACH_BY_ID,achEarnedIds}),WTN:()=>({WN,wbMap,wnKind,wnWaters,wnSync,wnAt,wnRename,wnReset,wnNameProblem,wnTaken,wnPanel,wnLabels,lakeMap,isLake,cellAt,WN_REACH,WTN_MAX,REG,RV,rvData,hexDist,territory,MAP,HEX_W,updateMapPanel,logLine}),RVN:()=>({RV,rvData,rvSync,rvKey,rvHeld,rvStretch,rvMost,rvEdgeHolder,rvAt,rvNameAt,rvLabelAt,rvParts,rvRename,rvReset,rvNameProblem,rvTidy,rvLabel,rvnPanel,logLine,RVN_MAX,RVN_LEN,updateMapPanel,hexDist,HEX_W,REG}),CP2:()=>({BLD_ICO,bldIco,bldLead,cxDefTotal,cxOrder,qjBuilding,BUILDINGS}),PRVC:()=>({cxPrvOf,cxPrvSeatTrial,cxOvwCols,prvSeat,prvMine,prvOfCell,prvSetAut,prvAppoint,PRV}),NPX:()=>({fbTrend,fbYesterday,heroLead,heroOpen,opOf,OPEN_TO,hnOf,hnFill,hnLine,nbSection,ppWho,ppWhoHTML,ppHash,ppCarried,economy,territory,bordersOf,fillDeal,findNation,clsHide,MAP,hexDist,STAT_KEYS,popNow,myId}),PT:()=>ptProbe(),LTH:()=>lthProbe(),DAM:()=>damProbe(),CHAT:()=>({RGC,RGW,tab:rgcTab(),count:rgcCount(),region:rgcUnread(),world:rgwUnread(),named:rgwNamedUnread(),hidden:document.hidden}),UXP2:()=>({edictDesk,edictStep,edictOpen,fill,ISSUE_BY_ID,ACH,keysOpen,dmOthers,dmPickList,stGroups,stTabLast,navRecent,vhData,VH_KEY,VH_AFTER,QJ_DO,qjItems:q=>navQjItems(q),NAV_REC_KEY,ST_KEY}),HID:()=>({HIDN,hidMask,iAmHidden,frontier,mapPanel,warControls}),WG:()=>({wgTakers,wgForField,wgForPick,warGiveHex,warGive,occupiedFrom,attack,offerPeace,declareWar,collectConquests,dedupeConq}),WAKE:()=>({dormFresh,dormQuiet,dormWelcome,moveTo,RSTAT,REGIONS,REG,regDisabled}),HMB:()=>({RCTRL,hmBake,hmAutoFlag,fxDraw,capHolder,FX_DEF,DEF_FLAG,hmRle,hmLiveNorm,hmMapNorm,hmSel,hmRegions,hmBlocked,hmEngaged:()=>hmEngaged,HM,REG,MAP}),LAND:()=>({landWait,capLift,capWrong,capNote,raceKnown,RACE,worldHeardAt:()=>worldHeardAt,landQ:()=>S.landQ,landQueued,fdSites:(n,T)=>fdSites(n,T)}),BG:{gain:bldGain,html:bldGainHtml},IB:()=>({agRoster,agPick,agStatus,heatOf,cvRoll,cvKey,cvBlock,cvOdds,buLv,buGap,buAll,BU,BU_KEYS,ibFile,ibWanted,ibChatter,HEAT_MAX,DD_TASKS,DD_LEG,findNation,allNations,cvProtected}),VL:()=>({VL_SECS,VL_DEF,CLS,CLS_OPS,CLS_READ,vlOrder,clsOf,clsRaw,clsMax,clsSeen,clsHide,clsRead,vlSave,findNation}),IFC:()=>({plan:ifcPlan,works:ifcWorks,line:ifcLine,tab:ifcTab}),XP:()=>({BUILDINGS,XU,XU_KEYS,XU_TOTAL,LOST_KINDS,LOST_ORDER,xuLv,xuWhy,xuHave,xuStart,xuCost,xuGear,xpSeen,expFree,xpTeamOpen,nationBuilt,expBackTeam,SITES,SITE_KINDS,expPlan,expOdds,expRuns,expRange,flRange,flAlive,flPlan,flDebug,flNow,discoveries,sendExpedition,hearReport,xpRoute,xpRivals,xpRivalText,xpFinds,flOdds,territory}),SVC:()=>({SVC,SVC_N,SVC_V,SVC_NEED,svcPlan,svcOpen,svcDig,svcShort,svcRoll,svcAmt,svcDayOf,svcRoom,svcNext}),FLC:()=>({FLC,FLC_RULES,FLC_CAT,flcId,flcTimes,flcPhase,flcPrev,flcView,flcLoad,flcChamp,flcTodo,flcClaims,flcLand,flcStreak,flcAllDone,flcSeen,flcDuty,flcDeskOn,flcDraftPush,FCA}),LK:{lakeMap,isLake,claimLand,lakeShore,fillHeld,LAKE_MAX,LAKE_A,freeCell,claimFrontier,blockPlan,autoPlan,terrCount,placePhrase,claimWhy,swapCheck,inspectPanel,writeClaims,landCredits:n=>landCredits(n)},PST:()=>({PST,PST_LOOKS,PST_SHAPES,pstBar,pstKm,pstView,pstBox,pstPlace,pstKeyOf,pstRender,pstShow,pstHide}),DIG:()=>({DIG_SETS,DIG_FIRST,DIG_POOL,DIG_SITES,DIG_LEN,DIG_EVENTS,DIG_SCH,digSet,digHeld,digDone,digRew,digCredits,digOrder,digActive,digRetired,digOpenedAt,digPlan,digSend,digOpen,digChoose,digMod,digEvent,digPity,digGround,digInvites,digJoin,digJointOn,digGiftsIn,digTake,digGiveSpare,digSellSpare,digHire,digRegionFinds,digFirsts,landEarned:n=>landEarned(n),REG,REGIONS,COL_BY_ID}),MW:()=>({mwOf,mwPoints,mwVisitors,mwTakings,mwExhibit,mwExhibitItems,mwRanking,mwWorn,mwSlots,mwOnShow,COL_BY_ID,COL_ITEMS,DIG_SETS,MW_FLOORS}),GM:()=>({gamesResults,edOf,b1Now,gevWhy,baseScores,entryOf,medalsIn,gamesRecords,gamesCeremony,unlocksOf,myId,formOf,GAME_EVENTS,clone,commit}),GB:()=>({IRON_DEP,IRON_DEP_YIELD,CELL_RES,MAP_T:MAP.T,mapAt:c=>{centerMain(c,NEAR_Z*1.6);},stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,FOOD_SPOIL,FOOD_EAT,FOOD_TIERS,FOOD_LAND,foodTier,TIMBER_BURN,foodGrowth,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({dspShown,dspRegShown,dspRegs,dspPic,dspLocator,dspHtDefs,pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),ASMX:()=>({ASMX,ASMX_TABS,asmBookAt,asmState,asmArcLoad,REG}),RGNX:()=>({RGN,RGN_PAGE,notifItems,ONL,onlRefresh}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals}),TYX:()=>({TY,TY_RULES,TY_K,tyOf,tyList,tyWarBlock,tyIncoming,affinity,alPactLive,alRelationsHTML}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,achTierCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC,step:rcStepCheck,head:rcHead,sponsoring:rcSponsoring,qr:qrMatrix,card:rcCardDraw,invCap:rcInvCap,free:rcFreeLand,STEPS:RC_STEPS,UNL:RC_UNLOCKS}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend,card:n=>tutCard(n),phase:n=>tutPhase(n),picks:(n,ph)=>tutPicks(n,ph),group:(n,k)=>tutGroup(n,tutL(k)),hid:n=>tutHid(n)},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours},WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR,bell:now=>notifItems(now||Date.now())},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},TIER:()=>({BTIER,bEff,bTier,bTierNext,bTierLine,tierQuote,tierProblem,cxTier,cxTrMap,tierSettle,tierReady,cxGoldNow,cxUpQuote,cxUpList,cxUps}),CX:{upgradable:cxUpgradable,mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState,UG:CX_UG,LV:CX_LV,ups:cxUps,upMap:cxUpMap,extras:cxBldExtras,quote:cxUpQuote},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo,unlockTarget,unlockShow,unlockFresh,unlockQueue,ULK,UNLOCKS,unlocksOf,toast:m=>toast(m)},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{coinBackSVG:cuCoinBackSVG,noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,coinSVG:cuCoinSVG,guide:cuGuideHTML,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,drawMap,sfKey,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ACH_RANKS_V1,ID_BD,achVal,achCtx,achEvalNew,achState,stockRates:n=>stockRates(n),achPoints,achRank,achRankOf,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,flagNorm:(f,n)=>flagNorm(f,n),flagSVG:(f,l)=>flagSVG(f,l),mapTip:id=>{const T=mapTerr('main'),i=T.list.findIndex(x=>x.id===id);if(i<0)return '';const cell=Array.prototype.indexOf.call(T.owner,i);return MAP_TIP.map(h=>{try{return h({kind:'main',cell,cv:null,x:0,y:0});}catch(e){return '';}}).filter(x=>typeof x==='string').join(' | ');},cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
+if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({RPATCH,SC:()=>scProbe(),MTP:()=>({MTP,MTP_PAD,TBMP_SCALE,redrawMaps,mapScale,viewOf}),SCR:()=>({scrOf,scrClean,scrDef,scrFamOf,scrEdParse,scrGlyphs,scrLay,scrChars,scrSVG,scrLine,scrCard,scrCharterSVG,scrFmt,scrFor,dmRich,dmPlain,scrDmWith,SCR_FAM,SCR_ABC,SCS}),BDX:()=>bdProbe(),FLY:()=>({flagSVG,fgSplit,fgFused}),RD:()=>rdProbe(),JV:()=>jvProbe(),M100P:()=>({M100,M100_N,M100_MC,M100_MCN,m100Bits,m100Got,m100In,m100Due,m100Count,m100Show,m100Open,ctgMcOk,nationColor,czShOk,czShieldPath,unlocksOf,czPatSVG,xsMax}),M200P:()=>({M200,M200_N,M200_MC,M200_MCN,M200_U,m200Bits,m200Got,m200In,m200Due,m200Count,m200Show,m200Open,ctgMcOk,nationColor,czShOk,czShieldPath,unlocksOf,czPatSVG,czStampArt,czFrameArt,czCharge,czFramed,flagSVG,xsMax,ACH_BY_ID,achEarnedIds}),WTN:()=>({WN,wbMap,wnKind,wnWaters,wnSync,wnAt,wnRename,wnReset,wnNameProblem,wnTaken,wnPanel,wnLabels,lakeMap,isLake,cellAt,WN_REACH,WTN_MAX,REG,RV,rvData,hexDist,territory,MAP,HEX_W,updateMapPanel,logLine}),RVN:()=>({RV,rvData,rvSync,rvKey,rvHeld,rvStretch,rvMost,rvEdgeHolder,rvAt,rvNameAt,rvLabelAt,rvParts,rvRename,rvReset,rvNameProblem,rvTidy,rvLabel,rvnPanel,logLine,RVN_MAX,RVN_LEN,updateMapPanel,hexDist,HEX_W,REG}),CP2:()=>({BLD_ICO,bldIco,bldLead,cxDefTotal,cxOrder,qjBuilding,BUILDINGS}),PRVC:()=>({cxPrvOf,cxPrvSeatTrial,cxOvwCols,prvSeat,prvMine,prvOfCell,prvSetAut,prvAppoint,PRV}),NPX:()=>({fbTrend,fbYesterday,heroLead,heroOpen,opOf,OPEN_TO,hnOf,hnFill,hnLine,nbSection,ppWho,ppWhoHTML,ppHash,ppCarried,economy,territory,bordersOf,fillDeal,findNation,clsHide,MAP,hexDist,STAT_KEYS,popNow,myId}),PT:()=>ptProbe(),LTH:()=>lthProbe(),DAM:()=>damProbe(),CHAT:()=>({RGC,RGW,tab:rgcTab(),count:rgcCount(),region:rgcUnread(),world:rgwUnread(),named:rgwNamedUnread(),hidden:document.hidden}),UXP2:()=>({edictDesk,edictStep,edictOpen,fill,ISSUE_BY_ID,ACH,keysOpen,dmOthers,dmPickList,stGroups,stTabLast,navRecent,vhData,VH_KEY,VH_AFTER,QJ_DO,qjItems:q=>navQjItems(q),NAV_REC_KEY,ST_KEY}),HID:()=>({HIDN,hidMask,iAmHidden,frontier,mapPanel,warControls}),WG:()=>({wgTakers,wgForField,wgForPick,warGiveHex,warGive,occupiedFrom,attack,offerPeace,declareWar,collectConquests,dedupeConq}),WAKE:()=>({dormFresh,dormQuiet,dormWelcome,moveTo,RSTAT,REGIONS,REG,regDisabled}),HMB:()=>({RCTRL,hmBake,hmAutoFlag,fxDraw,capHolder,FX_DEF,DEF_FLAG,hmRle,hmLiveNorm,hmMapNorm,hmSel,hmRegions,hmBlocked,hmEngaged:()=>hmEngaged,HM,REG,MAP}),LAND:()=>({landWait,capLift,capWrong,capNote,raceKnown,RACE,worldHeardAt:()=>worldHeardAt,landQ:()=>S.landQ,landQueued,fdSites:(n,T)=>fdSites(n,T)}),BG:{gain:bldGain,html:bldGainHtml},IB:()=>({agRoster,agPick,agStatus,heatOf,cvRoll,cvKey,cvBlock,cvOdds,buLv,buGap,buAll,BU,BU_KEYS,ibFile,ibWanted,ibChatter,HEAT_MAX,DD_TASKS,DD_LEG,findNation,allNations,cvProtected}),VL:()=>({VL_SECS,VL_DEF,CLS,CLS_OPS,CLS_READ,vlOrder,clsOf,clsRaw,clsMax,clsSeen,clsHide,clsRead,vlSave,findNation}),IFC:()=>({plan:ifcPlan,works:ifcWorks,line:ifcLine,tab:ifcTab}),XP:()=>({BUILDINGS,XU,XU_KEYS,XU_TOTAL,LOST_KINDS,LOST_ORDER,xuLv,xuWhy,xuHave,xuStart,xuCost,xuGear,xpSeen,expFree,xpTeamOpen,nationBuilt,expBackTeam,SITES,SITE_KINDS,expPlan,expOdds,expRuns,expRange,flRange,flAlive,flPlan,flDebug,flNow,discoveries,sendExpedition,hearReport,xpRoute,xpRivals,xpRivalText,xpFinds,flOdds,territory}),SVC:()=>({SVC,SVC_N,SVC_V,SVC_NEED,svcPlan,svcOpen,svcDig,svcShort,svcRoll,svcAmt,svcDayOf,svcRoom,svcNext}),FLC:()=>({FLC,FLC_RULES,FLC_CAT,flcId,flcTimes,flcPhase,flcPrev,flcView,flcLoad,flcChamp,flcTodo,flcClaims,flcLand,flcStreak,flcAllDone,flcSeen,flcDuty,flcDeskOn,flcDraftPush,FCA}),LK:{lakeMap,isLake,claimLand,lakeShore,fillHeld,LAKE_MAX,LAKE_A,freeCell,claimFrontier,blockPlan,autoPlan,terrCount,placePhrase,claimWhy,swapCheck,inspectPanel,writeClaims,landCredits:n=>landCredits(n)},PST:()=>({PST,PST_LOOKS,PST_SHAPES,pstBar,pstKm,pstView,pstBox,pstPlace,pstKeyOf,pstRender,pstShow,pstHide}),DIG:()=>({DIG_SETS,DIG_FIRST,DIG_POOL,DIG_SITES,DIG_LEN,DIG_EVENTS,DIG_SCH,digSet,digHeld,digDone,digRew,digCredits,digOrder,digActive,digRetired,digOpenedAt,digPlan,digSend,digOpen,digChoose,digMod,digEvent,digPity,digGround,digInvites,digJoin,digJointOn,digGiftsIn,digTake,digGiveSpare,digSellSpare,digHire,digRegionFinds,digFirsts,landEarned:n=>landEarned(n),REG,REGIONS,COL_BY_ID}),MW:()=>({mwOf,mwPoints,mwVisitors,mwTakings,mwExhibit,mwExhibitItems,mwRanking,mwWorn,mwSlots,mwOnShow,COL_BY_ID,COL_ITEMS,DIG_SETS,MW_FLOORS}),GM:()=>({gamesResults,edOf,b1Now,gevWhy,baseScores,entryOf,medalsIn,gamesRecords,gamesCeremony,unlocksOf,myId,formOf,GAME_EVENTS,clone,commit}),GB:()=>({IRON_DEP,IRON_DEP_YIELD,CELL_RES,MAP_T:MAP.T,mapAt:c=>{centerMain(c,NEAR_Z*1.6);},stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,FOOD_SPOIL,FOOD_EAT,FOOD_TIERS,FOOD_LAND,foodTier,TIMBER_BURN,foodGrowth,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({dspShown,dspRegShown,dspRegs,dspPic,dspLocator,dspHtDefs,pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),ASMX:()=>({ASMX,ASMX_TABS,asmBookAt,asmState,asmArcLoad,REG}),RGNX:()=>({RGN,RGN_PAGE,notifItems,ONL,onlRefresh}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals}),TYX:()=>({TY,TY_RULES,TY_K,tyOf,tyList,tyWarBlock,tyIncoming,affinity,alPactLive,alRelationsHTML,econOf,armyPower,armyRaw,attackMult,readyMs,drWords,drNote,drBroken,relationCard}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,achTierCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC,step:rcStepCheck,head:rcHead,sponsoring:rcSponsoring,qr:qrMatrix,card:rcCardDraw,invCap:rcInvCap,free:rcFreeLand,STEPS:RC_STEPS,UNL:RC_UNLOCKS}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend,card:n=>tutCard(n),phase:n=>tutPhase(n),picks:(n,ph)=>tutPicks(n,ph),group:(n,k)=>tutGroup(n,tutL(k)),hid:n=>tutHid(n)},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours},WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR,bell:now=>notifItems(now||Date.now())},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},TIER:()=>({BTIER,bEff,bTier,bTierNext,bTierLine,tierQuote,tierProblem,cxTier,cxTrMap,tierSettle,tierReady,cxGoldNow,cxUpQuote,cxUpList,cxUps}),CX:{upgradable:cxUpgradable,mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState,UG:CX_UG,LV:CX_LV,ups:cxUps,upMap:cxUpMap,extras:cxBldExtras,quote:cxUpQuote},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo,unlockTarget,unlockShow,unlockFresh,unlockQueue,ULK,UNLOCKS,unlocksOf,toast:m=>toast(m)},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{coinBackSVG:cuCoinBackSVG,noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,coinSVG:cuCoinSVG,guide:cuGuideHTML,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,drawMap,sfKey,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ACH_RANKS_V1,ID_BD,achVal,achCtx,achEvalNew,achState,stockRates:n=>stockRates(n),achPoints,achRank,achRankOf,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,flagNorm:(f,n)=>flagNorm(f,n),flagSVG:(f,l)=>flagSVG(f,l),mapTip:id=>{const T=mapTerr('main'),i=T.list.findIndex(x=>x.id===id);if(i<0)return '';const cell=Array.prototype.indexOf.call(T.owner,i);return MAP_TIP.map(h=>{try{return h({kind:'main',cell,cv:null,x:0,y:0});}catch(e){return '';}}).filter(x=>typeof x==='string').join(' | ');},cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
 /* ───────── Letters by post: the player's email address, confirmed by a code, and the letters they choose ─────────
    Settings › Letters by post (src/shim.js mail; functions/mail.js). The address lives only on the server; this card
    asks for it each time Settings opens. Things this nation does to another player's nation (a letter, a war, a deal)
@@ -80300,7 +80316,7 @@ function dpWaiting(now){
     items.push({k:'cta',h:`${alFlag(e)}<span><b>Call to arms.</b> ${esc(e.n.name)} attacked your ally ${esc(a.n.name)} ${relDays(c.since).replace(/^ ?\(|\)$/g,'')||'recently'}.</span>`,b:`<button type="button" class="btn danger sm" data-act="dp-cta" data-w="${esc(c.w)}" data-e="${esc(c.e)}">Answer the call</button><button type="button" class="btn ghost sm" data-act="dp-tab" data-v="wars">War room</button>`});}
   const gifts=gfIncoming().filter(g=>!g.reply);
   if(gifts.length)items.push({k:'gift',h:`<span class="al-wi-g" aria-hidden="true">✉</span><span>${gifts.length===1?`<b>${esc(gifts[0].from.n.name)}</b> sent you ${esc(fill(GF_KINDS[gifts[0].k][1],gifts[0].from.n))}.`:`${gifts.length} gifts are waiting for your thanks.`}</span>`,b:`<button type="button" class="btn sm" data-act="dp-tab" data-v="gifts">Answer</button>`});
-  for(const T of tyIncoming())items.push({k:'treaty',h:`<span class="al-wi-g" aria-hidden="true">§</span><span><b>${esc(nameOf(T.a))}</b> offers you a ${esc(TY_K[T.k][0].toLowerCase())}.</span>`,b:`<button type="button" class="btn sm" data-act="dp-ty-yes" data-id="${esc(T.id)}">Accept</button><button type="button" class="btn ghost sm" data-act="dp-ty-no" data-id="${esc(T.id)}">Decline</button>`});
+  for(const T of tyIncoming())items.push({k:'treaty',h:`<span class="al-wi-g" aria-hidden="true">§</span><span><b>${esc(nameOf(T.a))}</b> offers you ${esc(tyA(T.k))}.</span>`,b:`<button type="button" class="btn sm" data-act="dp-ty-yes" data-id="${esc(T.id)}">Accept</button><button type="button" class="btn ghost sm" data-act="dp-ty-no" data-id="${esc(T.id)}">Decline</button>`});
   for(const V of jvIncoming(now)){const x=findNation(V.a);items.push({k:'venture',h:`${x?alFlag(x):'<span class="al-wi-g" aria-hidden="true">⇄</span>'}<span><b>${esc(nameOf(V.a))}</b> proposes ${esc(jvName(V))}, built together.</span>`,b:`<button type="button" class="btn sm" data-act="dp-tab" data-v="ventures">See the offer</button>`});}
   if(A&&A.srv&&alPactAsks(A)){const P=politics();for(const [bid,r] of Object.entries(A.doc.rel)){const B=P.al.get(bid);if(r.k!=='pact'||r.st!=='asked'||!B||!B.srv)continue;
     items.push({k:'pact',h:`${alBanner(B.doc,'sm')}<span><b>${esc(B.name)}</b> offers ${esc(A.name)} a pact.</span>`,b:`<button type="button" class="btn sm" data-act="dp-ar-yes" data-id="${esc(bid)}">Accept</button><button type="button" class="btn ghost sm" data-act="dp-ar-no" data-id="${esc(bid)}">Decline</button>`});}}
@@ -80814,7 +80830,7 @@ document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closes
 
 /* ───────── treaties between nations, and relations between alliances (13 November 2026) ─────────
    Treaties are the server's (treaties/{k}_{lo}_{hi}, functions/treaties.js; TY_RULES beside AL is its rules' copy): a
-   non-aggression pact, a trade agreement or a research pact between two nations. tyConnect keeps the region's in
+   non-aggression pact, a trade agreement, a research pact or joint military training between two nations. tyConnect keeps the region's in
    TY.docs. A non-aggression pact stops either side declaring war on the other or on the other's alliance (tyWarBlock;
    the referee refuses the battle too), and no computer nation under one attacks; a trade agreement's deals flow more
    and pay no import tariffs (economy()); a research pact adds prosperity (below). Relations between alliances are in
@@ -80823,8 +80839,11 @@ document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closes
    economy calls them before this part of the script has run. */
 const TY_K={nap:['Non-aggression pact','Neither side may declare war on the other, or on an alliance the other belongs to; a computer nation under one never attacks.','non-aggression pacts','Non-aggression'],
   trade:['Trade agreement','Deals between the two flow 10% more and pay no import tariffs.','trade agreements','Trade agreement'],
-  research:['Research pact','Prosperity +1% for each side, for each pact (three count at most).','research pacts','Research pact']};
+  research:['Research pact','Prosperity +1% for each side, for each pact (three count at most).','research pacts','Research pact'],
+  drill:['Joint military training','Army strength +2% for each side, up to +6% for the side whose partner has the stronger army, and +1% more for a side with a Barracks; one of the two needs a Barracks for it to work. Attacks get half of it. Each side’s training uses 1 food and 0.5 iron a day and readies its army 5% sooner (three pacts count at most). It binds like a non-aggression pact, and whoever breaks it fights the other side 10% the weaker for 30 days.','joint training pacts','Joint training']};
 function tyId(k,a,b){return k+'_'+(a<b?a+'_'+b:b+'_'+a);}
+/* a treaty of a kind, with its article: “a research pact”, “a joint military training pact” */
+function tyA(k,up){const s=k==='drill'?'a joint military training pact':'a '+TY_K[k][0].toLowerCase();return up?'A'+s.slice(1):s;}
 function tyLive(T,now){return !!T&&(T.st==='active'||(T.st==='ending'&&now<T.end));}
 /* a nation founded again since it signed is not bound (the server's trVoid): f holds each player's nation as it signed */
 function tyVoid(T){for(const id of Object.keys(T.f||{})){const f=T.f[id],d=f?docOf(id):null,b=d?Number(d.founded):0;if(b>0&&b!==f)return true;}return false;}
@@ -80859,10 +80878,12 @@ async function tyAct(op,d,done){
   finally{TY.busy='';render();}
 }
 /* why declaring war on id is barred by a pact, or '' */
+/* the treaties under which neither side may fight the other: a non-aggression pact, and joint military training */
+function tyPeace(a,b){return tyOf(a,b,'nap')||tyOf(a,b,'drill');}
 function tyWarBlock(id){
-  const me=myId(),x=findNation(id);if(!x)return '';const nm=x.n.name;
-  if(tyOf(me,id,'nap'))return `You have a non-aggression pact with ${nm}. End it with notice, or break it, on the Diplomacy page’s Treaties tab before you declare war.`;
-  for(const y of alliesOf(id))if(tyOf(me,y,'nap'))return `${nameOf(y)}, an ally of ${nm}, has a non-aggression pact with you, and war on ${nm} is war on its allies. End or break that pact first.`;
+  const me=myId(),x=findNation(id);if(!x)return '';const nm=x.n.name,P=tyPeace(me,id);
+  if(P)return P.k==='drill'?`You train with ${nm} under a joint military training pact, which binds like a non-aggression pact. End it with notice, or break it, on the Diplomacy page’s Treaties tab before you declare war.`:`You have a non-aggression pact with ${nm}. End it with notice, or break it, on the Diplomacy page’s Treaties tab before you declare war.`;
+  for(const y of alliesOf(id)){const Q=tyPeace(me,y);if(Q)return `${nameOf(y)}, an ally of ${nm}, has ${Q.k==='drill'?'a joint military training pact':'a non-aggression pact'} with you, and war on ${nm} is war on its allies. End or break that pact first.`;}
   const A=alMine(me),B=allianceOf(id);if(alPactLive(A,B))return `${A.name} has a pact with ${B.name}, so no member of either may attack the other’s. Only your alliance’s leader can end it.`;
   return '';
 }
@@ -80877,7 +80898,138 @@ COMMIT_HOOKS.push(n=>{if(n)delete n._trb;});
 economy=(f=>function(){const v=f.apply(this,arguments);if(v&&!v._ty){v._ty=true;try{if(TY.docs.size){const now=Date.now(),c=new Map();
   for(const T of TY.docs.values())if(T.k==='research'&&tyLive(T,now)&&!tyVoid(T))for(const id of T.p)c.set(id,(c.get(id)||0)+1);
   v.T.list.forEach((x,i)=>{const k=c.get(x.id),e=v.eff[i];if(k&&e)e.prosper*=1+TY_RULES.fx.research*Math.min(k,TY_RULES.fx.researchMax);});}}catch(e){}}return v;})(economy);
-function tyChips(id){const me=myId();return TY_RULES.kinds.filter(k=>tyOf(me,id,k)).map(k=>`<span class="chip ok">${esc(TY_K[k][3])}</span>`).join('');}
+function tyChips(id){const me=myId();return TY_RULES.kinds.filter(k=>tyOf(me,id,k)).map(k=>`<span class="chip ok">${tyIco(k)}${esc(TY_K[k][3])}</span>`).join('');}
+/* joint military training shows crossed swords wherever a treaty is named */
+function tyIco(k){return k==='drill'?'<span class="ty-ico" aria-hidden="true">⚔️</span> ':'';}
+
+/* ── joint military training (20 November 2026) ──
+   A pact works while one of the two holds a finished Barracks in a city it holds (drPairs, the hosts); each side's
+   training then uses food and iron a day (drUpkeep, part of the economy's demand) and adds army strength (drApply):
+   fx.drill.base, up to .more again when the partner's army (before training) is the stronger, all of it at twice as
+   strong, and .host for a side with a Barracks. The best .max pacts count, and the boost shrinks with a shortage of
+   food or iron (the lower of the two supplies, drillS). Each nation's economy (econOf) gets drill (the boost), drillN
+   (pacts at work: readiness comes 5% sooner for each, readyMs), drillL (each pact's part) and drillX (an edict's
+   nudge for a week, n.drx). armyPower adds drill, attackMult takes half of it back, and the save declares it (apw), so
+   other games and the referee count it; a training pact binds like a non-aggression pact (tyPeace), and whoever
+   breaks one fights the other side 10% the weaker while it is on the record (the battle hook below, and the referee). */
+function drHosts(CSt){const h=new Set();for(const ct of CSt.all)if(ct.active&&ct.done.includes('barracks'))h.add(ct.hi);return h;}
+function drPairs(T,CSt){
+  const out=[];if(!TY.docs.size)return out;const now=Date.now();let hosts=null;
+  for(const D of TY.docs.values()){
+    if(D.k!=='drill'||!tyLive(D,now)||tyVoid(D))continue;
+    const i=T.byId[D.p[0]],j=T.byId[D.p[1]];if(i===undefined||j===undefined)continue;
+    if(!hosts)hosts=drHosts(CSt);const hi=hosts.has(i),hj=hosts.has(j);if(hi||hj)out.push({D,i,j,hi,hj});
+  }
+  return out;
+}
+function drUpkeep(dr,dem,L){
+  const U=TY_RULES.fx.drill.up,up={};for(const r in U)up[r]=new Float64Array(L);
+  for(const q of dr)for(const k of [q.i,q.j])for(const r in U){up[r][k]+=U[r];dem[r][k]+=U[r];}
+  return up;
+}
+function drReadyMs(ms,k){const F=TY_RULES.fx.drill;return k>0?Math.round(ms*(1-F.ready*Math.min(k,F.max))):ms;}
+/* an edict's nudge to the training, for a week: n.drx {v, u (until)} */
+const DRX_MAX=0.03,DRX_MS=7*86400000;
+function drNudge(n,now){const x=n&&n.drx;return x&&typeof x.v==='number'&&x.u>now?clamp(x.v,-DRX_MAX,DRX_MAX):0;}
+function drApply(v){
+  const F=TY_RULES.fx.drill,now=Date.now(),per=new Map(),L=v.T.list;
+  const base=i=>Math.max(1e-6,armyRaw(L[i].n,v.eff[i]));
+  for(const q of v.dr||[]){
+    const bi=base(q.i),bj=base(q.j);
+    for(const [a,o,host,ba,bo] of [[q.i,q.j,q.hi,bi,bj],[q.j,q.i,q.hj,bj,bi]]){
+      const more=F.more*clamp(bo/ba-1,0,1),val=F.base+more+(host?F.host:0);
+      if(!per.has(a))per.set(a,[]);per.get(a).push({id:L[o].id,v:val,more,host:!!host});
+    }
+  }
+  for(const [i,P] of per){
+    const e=v.eff[i];if(!e)continue;
+    P.sort((a,b)=>b.v-a.v);const use=P.slice(0,F.max),s=clamp(Math.min(v.ratio.food[i],v.ratio.iron[i]),0,1),nd=drNudge(L[i].n,now);
+    e.drill=Math.max(0,use.reduce((a,b)=>a+b.v,0)+nd)*s;e.drillN=use.length;e.drillL=use;e.drillS=s;e.drillX=nd;
+  }
+}
+economy=(f=>function(){const v=f.apply(this,arguments);if(v&&!v._dr){v._dr=true;try{drApply(v);}catch(e){}}return v;})(economy);
+/* the training a nation has at work, in words: "+5.2% (Zatra +3%, Lévice +2.2%)" */
+function drPct(v){return '+'+(Math.round(v*1000)/10).toLocaleString('en-US')+'%';}
+function drWords(e){
+  if(!e||!e.drillN)return '';
+  const parts=e.drillL.map(q=>`${nameOf(q.id)} ${drPct(q.v)}`);if(e.drillX)parts.push(`an edict ${e.drillX>0?'+':'−'}${Math.round(Math.abs(e.drillX)*1000)/10}%`);
+  return `${drPct(e.drill)} (${list(parts)})${e.drillS<0.999?`, cut to ${Math.round(e.drillS*100)}% by a shortage of food or iron`:''}; half of it counts in an attack`;
+}
+/* a pact's part for this nation, or why it does nothing */
+function drNote(T){
+  const me=myId(),o=T.p[0]===me?T.p[1]:T.p[0],e=econOf(S.nation),q=e&&e.drillL&&e.drillL.find(x=>x.id===o);
+  if(q)return `${drPct(q.v*(e.drillS||0))} to your army${q.host?', with your Barracks':''}`;
+  if(e&&e.drillN>=TY_RULES.fx.drill.max)return `only your best ${TY_RULES.fx.drill.max} count`;
+  return 'idle until one of you has a Barracks';
+}
+/* does this nation hold a finished Barracks in a city of its own (a host)? */
+function drHostOf(id){try{const T=territory(),i=T.byId[id];return i!==undefined&&drHosts(cityState(T)).has(i);}catch(e){return false;}}
+/* whoever broke joint training fights the other side 10% the weaker while it is on the record */
+function drBroken(a,b,now){const D=TY.docs.get(tyId('drill',a,b));return D&&D.st==='broken'&&now-D.bt<TY_RULES.record&&!tyVoid(D)?D:null;}
+BATTLE_MODS.push((T,cell,ai,bi)=>{
+  const A=T.list[ai],B=T.list[bi],D=drBroken(A.id,B.id,Date.now());if(!D)return null;
+  const m=1+TY_RULES.fx.drill.edge,pc=Math.round(TY_RULES.fx.drill.edge*100);
+  if(D.by===B.id)return {att:m,note:`${B.n.name} broke joint military training with ${A.n.name}: the attack is ${pc}% stronger`};
+  if(D.by===A.id)return {def:m,note:`${A.n.name} broke joint military training with ${B.n.name}: the defence is ${pc}% stronger`};
+  return null;
+});
+/* the week an edict nudged the training (n.drx, shared: every game counts it in the army) */
+NORM_HOOKS.push((n,d)=>{
+  delete n.drx;const x=d&&d.drx;if(!x||typeof x!=='object')return;
+  const v=Number(x.v),u=Number(x.u);if(isFinite(v)&&isFinite(u)&&u>Date.now()&&u<=Date.now()+DRX_MS+60000)n.drx={v:clamp(v,-DRX_MAX,DRX_MAX),u};
+});
+/* edicts about joint military training: eight for a nation with a training pact at work (drAtWork). The partner is the
+   edict's neighbour ({NB}, and nb is goodwill with it; nextEntry below), and an option's dx nudges the training for a
+   week (n.drx, drNudge). */
+function drPartners(){try{const e=econOf(S.nation);return e&&e.drillL?e.drillL.map(q=>q.id):[];}catch(e){return [];}}
+function drAtWork(){return drPartners().length>0;}
+const DRL_ISSUES=[
+{id:'drl-wrong-anthem',c:'world',dr:1,w:3,req:n=>drAtWork(),t:'The Wrong Anthem',q:'At the closing parade of this year’s joint exercise with {NB}, the {D} military band played the {NBD} anthem as our own troops marched past, and then played it again for theirs. Our soldiers saluted it twice. The {NBD} press calls it “the warmest moment in our shared history.” The {D} papers want the bandmaster’s baton.',o:[
+ {t:'“Learn their anthem properly and play both, in turn, at every parade,” says Bandmaster Leopold Ffrench-Asante. “A band that knows two anthems is twice as useful.”',e:{culture:2,nb:4,mil:-1},dx:0.01,fx:'the {D} military band plays both anthems at every joint parade, and has started to prefer the {NBD} one'},
+ {t:'“Apologise to the troops and retire the bandmaster with full honours,” says Colonel Barnabas Penhallow-Ikeda. “A soldier should know which song is his.”',e:{mil:2,culture:-1,happy:-1},fx:'the {D} bandmaster has retired with full honours and a recording of the wrong anthem'},
+ {t:'“Write a third tune for the joint brigade, one that belongs to both,” says Foreign Minister {FOR}. “Nobody can play that one wrong.”',e:{culture:3,tax:1,nb:3,weird:1},dx:0.01,fx:'the joint brigade of {N} and {NB} marches to a tune of its own, which neither army can hum'}]},
+{id:'drl-instructors',c:'world',dr:1,w:3,req:n=>drAtWork(),t:'Shouted at in a Foreign Tongue',q:'Under the training pact with {NB}, {NBD} drill instructors now take the morning parade at the {D} barracks. Recruits say they are shouted at in a language they do not speak, and do press-ups for reasons nobody explains. Their families have written to parliament. The instructors call the recruits “the fittest confused people in the region.”',o:[
+ {t:'“Keep them, and teach the recruits a hundred words of {NBD},” says Sergeant-Major Fergal Quarrington-Abebe. “Fit and bilingual. Nobody will know what hit them.”',e:{edu:2,mil:2,happy:-1},dx:0.02,fx:'{D} recruits learn a hundred words of {NBD}, eighty of them about press-ups'},
+ {t:'“Send our own instructors over in exchange, so they learn how it feels,” says Captain Dorian Haverstock-Ansah. “Fair is fair.”',e:{mil:1,nb:3,tax:1},dx:0.01,fx:'{D} drill instructors now shout at {NBD} recruits, who say it sounds like singing'},
+ {t:'“Our recruits, our instructors, our language,” says Defence Minister {DEF}. “The pact covers exercises, not breakfast parade.”',e:{happy:2,mil:-1,nb:-3},dx:-0.01,fx:'the {NBD} drill instructors have gone home, leaving behind a whistle and a list of press-ups'}]},
+{id:'drl-lost-platoon',c:'world',dr:1,w:3,req:n=>drAtWork(),t:'The Lost Platoon',q:'During night manoeuvres with {NB}, a {D} platoon read its map upside down, marched eleven kilometres the wrong way and took a {NBD} cheese dairy without firing a shot. The dairy workers made them breakfast. The {NBD} defence ministry calls it “a breach of the exercise boundary.” The dairy has asked whether the platoon can come back for the harvest.',o:[
+ {t:'“Send a formal apology and a wheel of our best cheese,” says Foreign Minister {FOR}. “Then buy the platoon a compass each.”',e:{nb:4,wealth:-1,mil:-1},fx:'{N} has apologised to {NB} with a wheel of cheese, and every {D} soldier now carries two compasses'},
+ {t:'“Give them a medal. They took an objective without a casualty,” says Major Cosmo Fairweather-Oyelaran. “Most armies would call that a triumph.”',e:{mil:3,weird:2,nb:-3},dx:0.01,fx:'the Order of the Dairy hangs on the chests of thirty {D} soldiers, to the lasting annoyance of {NB}'},
+ {t:'“Make it part of the exercise: next year they defend the dairy and we try again,” says Lieutenant Philippa Gorringe-Mensah. “Every army needs something worth guarding.”',e:{mil:1,tour:2,weird:2,nb:2},dx:0.02,fx:'the joint exercise of {N} and {NB} now ends each year with the Battle of the Dairy, which sells tickets'}]},
+{id:'drl-war-games',c:'world',dr:1,w:3,req:n=>drAtWork(),t:'Who Won the War Games?',q:'The umpires say the joint war games with {NB} ended in a draw. The {NBD} newspapers say {NB} won. The {D} generals say the umpires were asleep for the decisive flanking move on the second day, which was ours. The trophy, a silver {A}, sits in a cupboard because neither side will let the other take it home.',o:[
+ {t:'“Concede it gracefully and let them have the trophy this year,” says diplomat Hyacinth Ormerod-Fofanah. “A partner who wins at games is a partner who comes back.”',e:{nb:5,mil:-2,happy:-1},dx:0.01,fx:'the silver {A} spends this year in {NBCAP}, where it is polished daily and photographed often'},
+ {t:'“Demand a replay, with umpires who drink coffee,” says General Ottoline Brackenbury-Nwosu. “That flanking move was the finest in our history.”',e:{mil:2,nb:-2},dx:0.02,fx:'the war games of {N} and {NB} will be fought again in spring, with three umpires and a coffee machine'},
+ {t:'“Cut the trophy in half,” says retired judge Solomon Kittredge-Amankwah. “Each side keeps the half it says it won.”',e:{weird:3,culture:1,nb:1},fx:'half a silver {A} stands on a plinth in {CAP}, and the other half on a plinth in {NBCAP}'}]},
+{id:'drl-night-flares',c:'society',dr:1,w:3,req:n=>drAtWork(),t:'Flares at Two in the Morning',q:'Joint training with {NB} now includes night exercises on the heath above the {D} town of Fenwick Abbas. Flares light up bedrooms at two in the morning, tanks rumble past the primary school, and a {NBD} helicopter has landed on the bowling green. The mayor says the town supports the army, “just not between midnight and six.”',o:[
+ {t:'“Move the night exercises to the empty moor in the north,” says Mayor Imelda Truscott-Baptiste. “Let the sheep lose sleep instead.”',e:{happy:2,env:-2,tax:1},fx:'the night exercises of {N} and {NB} have moved to the northern moor, where the sheep have grown used to flares'},
+ {t:'“Keep them, and pay for double glazing on every house in town,” says Quartermaster Tamsin Ollerenshaw-Diallo. “A soldier who trains at night can fight at night.”',e:{wealth:-2,mil:2,happy:-1},dx:0.01,fx:'every house in Fenwick Abbas has double glazing paid for by the army, and the town still hears the tanks'},
+ {t:'“Day exercises only,” says Defence Minister {DEF}. “Our partners will understand that our people need their sleep.”',e:{happy:3,mil:-1},dx:-0.01,fx:'{D} soldiers no longer train at night, and {NBD} officers joke about an army with a bedtime'}]},
+{id:'drl-rations',c:'society',dr:1,w:3,req:n=>drAtWork(),t:'Better Rations Across the Fence',q:'After a fortnight of exercises with {NB}, {D} troops have found that the {NBD} field ration holds a hot stew, a chocolate bar and a small bottle of hot sauce. Ours is a dry biscuit and an apple. Our soldiers now trade socks, cigarettes and, on one occasion, a regimental flag for {NBD} rations.',o:[
+ {t:'“Copy their ration, hot sauce and all,” says Cook Sergeant Agnes Pumphrey-Lungu. “An army marches on its stomach, and ours has been marching on a biscuit.”',e:{mil:2,happy:2,wealth:-2},dx:0.01,fx:'{D} soldiers eat a hot stew in the field, and the biscuit survives only in the regimental museum'},
+ {t:'“Ban the trading, and bring the regimental flag home,” says Colonel Barnabas Penhallow-Ikeda. “A soldier who sells his flag for chocolate has sold too cheaply.”',e:{mil:1,cons:2,nb:-2},fx:'the regimental flag of the {D} Third Foot has been bought back from {NB} for forty chocolate bars'},
+ {t:'“Swap rations for good: they eat our apples, we eat their stew,” says Private Wilfred Chiltern-Osei. “The apples are excellent. Nobody has ever said so.”',e:{nb:3,env:1,weird:1},dx:0.01,fx:'{D} apples are part of the {NBD} field ration, and {NBD} soldiers have written a song about them'}]},
+{id:'drl-secret-move',c:'world',dr:1,w:3,req:n=>drAtWork(),t:'The Corkscrew',q:'General Ottoline Brackenbury-Nwosu has asked to leave our best tactic, the Corkscrew, out of this year’s joint exercises with {NB}. Partners today, she says, are not always partners tomorrow. The {NBD} officers have noticed that {D} units leave the field whenever an exercise reaches the part where the Corkscrew would help.',o:[
+ {t:'“Keep the Corkscrew to ourselves,” says General Ottoline Brackenbury-Nwosu. “Train with them, by all means. Teach them everything, never.”',e:{mil:2,nb:-3},dx:-0.01,fx:'the Corkscrew remains a {D} secret, and {NBD} officers now leave the field whenever {D} units do'},
+ {t:'“Teach it to them. A shared tactic works twice as well,” says Major Cosmo Fairweather-Oyelaran. “And they will teach us theirs.”',e:{mil:1,nb:4,sci:1},dx:0.02,fx:'{N} and {NB} both practise the Corkscrew, and {NB} has taught {N} the Double Pretzel in return'},
+ {t:'“Teach them a decoy, the Reverse Corkscrew,” says intelligence analyst Ines Valcourt-Bamidele. “It looks impressive and achieves nothing.”',e:{weird:3,mil:1,corrupt:1,nb:-1},fx:'{NB} has mastered the Reverse Corkscrew, a manoeuvre that delights spectators and goes nowhere'}]},
+{id:'drl-mascot',c:'culture',dr:1,w:3,req:n=>drAtWork(),t:'A Mascot for Two Armies',q:'The joint brigade of {N} and {NB} wants a mascot. {D} soldiers have put forward a {A}. The {NBD} soldiers have put forward a donkey called Major Bramble, who already holds a rank in their army and outranks most of ours. The vote in the mess was tied, and a fight broke out over the pudding.',o:[
+ {t:'“The {A}. It is our national animal, and it does not eat uniforms,” says Sergeant-Major Fergal Quarrington-Abebe.',e:{culture:2,nb:-2,happy:1},fx:'a {D} {A} leads the joint brigade on parade, while Major Bramble sulks at the back'},
+ {t:'“Take the donkey, and give him a rank in our army too,” says Private Wilfred Chiltern-Osei. “Then at least we know who is in charge.”',e:{weird:3,nb:4,mil:-1},dx:0.01,fx:'Major Bramble the donkey holds a commission in two armies, and has eaten a map from each'},
+ {t:'“Both animals, one either side of the colour party,” says Lieutenant Philippa Gorringe-Mensah. “If they fight, at least it will not be us.”',e:{culture:1,nb:2,weird:2},dx:0.01,fx:'the joint brigade of {N} and {NB} parades behind a {A} and a donkey, who are not on speaking terms'}]}
+];
+for(const is of DRL_ISSUES){ISSUES.push(is);is.no=ISSUES.length;ISSUE_BY_ID[is.id]=is;is.nbx=true;ISSUES_RANDOM.push(is);}
+/* the training partner is the neighbour of a training edict (one at random, if there are several) */
+nextEntry=(f=>function(m){
+  const e=f.apply(this,arguments),is=e&&ISSUE_BY_ID[e.id];
+  if(is&&is.dr&&!e.ch){const P=drPartners();if(P.length){const id=P[hash(m.seed+':dr:'+m.issueSeq)%P.length],x=findNation(id);if(x){e.nb=id;e.nbn=x.n.name;}}}
+  return e;
+})(nextEntry);
+/* an option's dx: the training nudged for a week */
+geoAfter=(f=>function(n,opt,ent,now,prior){
+  const notes=f(n,opt,ent,now,prior);
+  if(opt&&typeof opt.dx==='number'&&opt.dx&&!n.npc){n.drx={v:clamp(opt.dx,-DRX_MAX,DRX_MAX),u:now+DRX_MS};notes.push(['Joint training',`${opt.dx>0?'+':'−'}${Math.round(Math.abs(opt.dx)*1000)/10}% to your joint military training for a week`]);}
+  return notes;
+})(geoAfter);
 
 /* the Treaties tab: what is in force, offers either way, a new one to propose, and the player's own record */
 function dpTreaties(now){
@@ -80887,11 +81039,11 @@ function dpTreaties(now){
   const who=id=>{const x=findNation(id);return x?`${alFlag(x)}${nationLink(id,x.n.name,false)}${x.npc?'<span class="chip">Computer</span>':''}`:esc(nameOf(id));};
   const inc=L.filter(T=>T.st==='offered'&&T.b===me),out=L.filter(T=>T.st==='offered'&&T.a===me),live=L.filter(T=>tyLive(T,now));
   const bro=L.filter(T=>T.st==='broken'&&T.by===me&&now-T.bt<TY_RULES.record);
-  const row=(T,acts,extra)=>`<li class="dpt-i"><span class="dpt-n">${who(oth(T))}</span><span class="dpt-k"><b>${esc(kn(T.k))}</b>${extra?` <span class="hint">${extra}</span>`:''}</span><span class="dpt-a">${acts}</span></li>`;
+  const row=(T,acts,extra)=>`<li class="dpt-i"><span class="dpt-n">${who(oth(T))}</span><span class="dpt-k"><b>${tyIco(T.k)}${esc(kn(T.k))}</b>${extra?` <span class="hint">${extra}</span>`:''}</span><span class="dpt-a">${acts}</span></li>`;
   const offers=inc.length||out.length?`<section class="section"><h2 class="h2">Offers</h2><ul class="dpt-l">${inc.map(T=>row(T,`<button type="button" class="btn sm" data-act="dp-ty-yes" data-id="${esc(T.id)}"${busy}>Accept</button><button type="button" class="btn ghost sm" data-act="dp-ty-no" data-id="${esc(T.id)}"${busy}>Decline</button>`,'offered to you '+esc(fmtDate(T.t)))).join('')}${out.map(T=>row(T,`<button type="button" class="btn ghost sm" data-act="dp-ty-cancel" data-id="${esc(T.id)}"${busy}>Withdraw</button>`,'offered by you '+esc(fmtDate(T.t)))).join('')}</ul></section>`:'';
   const force=`<section class="section"><h2 class="h2">In force</h2>${live.length?`<ul class="dpt-l">${live.map(T=>{const o=esc(nameOf(oth(T)));
       if(TY.brk===T.id)return `<li class="dpt-i dpt-brk"><p><b>Break your ${esc(kn(T.k).toLowerCase())} with ${o} now?</b> It ends at once. You lose ${TY_RULES.breakGw.other} goodwill with ${o} and ${TY_RULES.breakGw.all} with every computer nation and every nation you have a record with, it stays on your record for ${TY_RULES.record/DAY} days, and no computer nation signs a treaty with you until then.</p><div class="row"><button type="button" class="btn danger sm" data-act="dp-ty-brk" data-id="${esc(T.id)}"${busy}>Break the treaty</button><button type="button" class="btn ghost sm" data-act="dp-ty-brk-no">Keep it</button></div></li>`;
-      const extra=T.st==='ending'?'ends '+esc(fmtDate(T.end)):'since '+esc(fmtDate(T.at||T.t));
+      const extra=(T.st==='ending'?'ends '+esc(fmtDate(T.end)):'since '+esc(fmtDate(T.at||T.t)))+(T.k==='drill'?' · '+esc(drNote(T)):'');
       const acts=(T.st==='ending'?'':`<button type="button" class="btn ghost sm" data-act="dp-ty-end" data-id="${esc(T.id)}"${busy}>End with ${TY_RULES.notice/DAY} days’ notice</button>`)+`<button type="button" class="btn ghost sm" data-act="dp-ty-brk-ask" data-id="${esc(T.id)}">${T.st==='ending'?'Break now…':'Break…'}</button>`;
       return row(T,acts,extra);}).join('')}</ul>`:'<p class="muted">No treaty is in force yet.</p>'}</section>`;
   const pick=allNations().filter(x=>!x.me&&!warWith(x.id).war).sort((a,b)=>a.n.name.localeCompare(b.n.name));
@@ -80899,18 +81051,19 @@ function dpTreaties(now){
   const held=L.filter(T=>T.k===k&&(tyLive(T,now)||(T.st==='offered'&&T.a===me))).length;
   let note='',stop=false;
   if(to){const x=findNation(to),nm=esc(x.n.name),T=TY.docs.get(tyId(k,me,to)),ok=T&&!tyVoid(T);
-    if(ok&&tyLive(T,now)){note=`A ${esc(kn(k).toLowerCase())} with ${nm} is already in force.`;stop=true;}
+    if(ok&&tyLive(T,now)){note=`${esc(tyA(k,true))} with ${nm} is already in force.`;stop=true;}
     else if(ok&&T.st==='offered'){note=T.a===me?'You have offered it. It waits for their answer.':`${nm} has offered you this. Proposing it accepts theirs.`;stop=T.a===me;}
-    else if(x.npc){const af=affinity(x.n,S.nation),need=TY_RULES.npcMin[k];note=bro.length?`${nm} signs nothing with a nation that broke a treaty in the last ${TY_RULES.record/DAY} days.`:`${nm} ${af>=need?'would sign':'would decline'}: its affinity with you is ${af}, and a ${esc(kn(k).toLowerCase())} needs ${need}.`;}
-    else note=`${nm} decides whether to accept.`;}
+    else if(x.npc){const af=affinity(x.n,S.nation),need=TY_RULES.npcMin[k];note=bro.length?`${nm} signs nothing with a nation that broke a treaty in the last ${TY_RULES.record/DAY} days.`:`${nm} ${af>=need?'would sign':'would decline'}: its affinity with you is ${af}, and ${esc(tyA(k))} needs ${need}.`;}
+    else note=`${nm} decides whether to accept.`;
+    if(k==='drill'&&!stop&&!drHostOf(me)&&!drHostOf(to))note+=` Neither of you has a Barracks yet: the training starts once one of you finishes one.`;}
   const form=`<section class="section dpt-new"><h2 class="h2">Propose a treaty</h2><div class="dpt-form">
     <label class="field"><span class="cz-flab">With</span><select class="input" id="dpt-to"><option value="">Choose a nation…</option>${pick.map(x=>`<option value="${esc(x.id)}"${x.id===to?' selected':''}>${esc(x.n.name)}${x.npc?' (computer)':''}</option>`).join('')}</select></label>
-    <fieldset class="dpt-kinds"><legend class="cz-flab">Kind</legend>${TY_RULES.kinds.map(q=>`<label class="dpt-kind${q===k?' on':''}"><input type="radio" name="dpt-k" value="${q}"${q===k?' checked':''}><b>${esc(TY_K[q][0])}</b><span class="hint">${esc(TY_K[q][1])}</span></label>`).join('')}</fieldset>
+    <fieldset class="dpt-kinds"><legend class="cz-flab">Kind</legend>${TY_RULES.kinds.map(q=>`<label class="dpt-kind${q===k?' on':''}"><input type="radio" name="dpt-k" value="${q}"${q===k?' checked':''}><b>${tyIco(q)}${esc(TY_K[q][0])}</b><span class="hint">${esc(TY_K[q][1])}</span></label>`).join('')}</fieldset>
     ${note?`<p class="hint dpt-note">${note}</p>`:''}
     <div class="row"><button type="button" class="btn" data-act="dp-ty-offer"${!to||stop||!civicRegistered()||TY.busy?' disabled':''}>Propose</button><span class="hint">You hold ${held} of ${TY_RULES.max[k]} ${esc(TY_K[k][2])}.</span></div>
     ${civicRegistered()?'':'<p class="hint">Treaties need a Registered Nation. Link a sign-in account in your account menu.</p>'}</div></section>`;
   const rec=bro.length?`<section class="section"><h2 class="h2">Your record</h2><ul class="dpt-l">${bro.map(T=>`<li class="dpt-i"><span>You broke your ${esc(kn(T.k).toLowerCase())} with ${esc(nameOf(oth(T)))} on ${esc(fmtDate(T.bt))}. It stays on your record until ${esc(fmtDate(T.bt+TY_RULES.record))}.</span></li>`).join('')}</ul></section>`:'';
-  const how=`<section class="section"><h3 class="lbl-h">How treaties work</h3><ul class="dpt-how">${TY_RULES.kinds.map(q=>`<li><b>${esc(TY_K[q][0])}.</b> ${esc(TY_K[q][1])} A nation holds at most ${TY_RULES.max[q]}.</li>`).join('')}</ul>
+  const how=`<section class="section"><h3 class="lbl-h">How treaties work</h3><ul class="dpt-how">${TY_RULES.kinds.map(q=>`<li><b>${tyIco(q)}${esc(TY_K[q][0])}.</b> ${esc(TY_K[q][1])} A nation holds at most ${TY_RULES.max[q]}.</li>`).join('')}</ul>
     <p class="hint">A player accepts or declines your offer; a computer nation answers at once, by its affinity with you. Either side may end a treaty with ${TY_RULES.notice/DAY} days’ notice, or break it at once, which costs goodwill and stays on the breaker’s record for ${TY_RULES.record/DAY} days.</p></section>`;
   return `${msg}${offers}${force}${form}${rec}${how}`;
 }
@@ -84490,7 +84643,7 @@ function nbSection(x,now){
     else if(sameAlliance(own?me:x.id,id))chips.push('<span class="chip ok">Allies</span>');
     else if(w.truceUntil&&w.truceUntil>now)chips.push('<span class="chip">Truce</span>');
     else chips.push('<span class="chip">At peace</span>');
-    try{for(const k of TY_RULES.kinds)if(tyOf(own?me:x.id,id,k))chips.push(`<span class="chip">${esc(TY_K[k][0])}</span>`);}catch(e){}
+    try{for(const k of TY_RULES.kinds)if(tyOf(own?me:x.id,id,k))chips.push(`<span class="chip">${tyIco(k)}${esc(TY_K[k][0])}</span>`);}catch(e){}
     const g=gwOf(x.n,id);
     return `<li class="nb-row"><span class="mflag">${flagSVG(y.n.flag,'Flag of '+y.n.name)}</span><span class="nb-n"><span>${nationLink(id,y.n.name,!!y.me)}${you?' <span class="chip you">You</span>':''}</span><span class="hint">${l} ${l===1?'hex':'hexes'} on the border${y.npc?' · computer-run':''}</span></span><span class="nb-c">${chips.join('')}${g?`<span class="nb-gw" title="${own?'Your':esc(cap1(theName(x.n)))+'’s'} record with ${esc(y.n.name)}">${esc(gwWord(g))} (${g>0?'+':''}${g})</span>`:''}</span></li>`;
   };
@@ -88247,13 +88400,14 @@ COMMIT_HOOKS.unshift((n,old,now)=>{
 /* treaties between nations: those in force now (an ending one counts until its notice runs out) */
 const aTyLive=x=>achM(x,'ty',()=>{try{const id=x.me?myId():x.id;return tyList(id).filter(T=>tyLive(T,x.now));}catch(e){return [];}});
 const aTyK=(x,k)=>aTyLive(x).filter(T=>T.k===k).length;
-const TY_ALL=TY_RULES.kinds.reduce((s,k)=>s+TY_RULES.max[k],0);
-achDef('dip','dip-ty1','b','Signed and Sealed','Have a treaty in force with another nation: a non-aggression pact, a trade agreement or a research pact.',1,x=>aTyLive(x).length);
-achDef('dip','dip-tyall','s','Belt and Braces','Have a non-aggression pact, a trade agreement and a research pact in force at once.',TY_RULES.kinds.length,x=>new Set(aTyLive(x).map(T=>T.k)).size);
+/* Belt and Braces and Every Seal Affixed name the first three kinds; joint military training (later) is not asked of them */
+const TY_ACH=['nap','trade','research'],TY_ALL=TY_ACH.reduce((s,k)=>s+TY_RULES.max[k],0);
+achDef('dip','dip-ty1','b','Signed and Sealed','Have a treaty in force with another nation: a non-aggression pact, a trade agreement, a research pact or joint military training.',1,x=>aTyLive(x).length);
+achDef('dip','dip-tyall','s','Belt and Braces','Have a non-aggression pact, a trade agreement and a research pact in force at once.',TY_ACH.length,x=>new Set(aTyLive(x).map(T=>T.k).filter(k=>TY_ACH.includes(k))).size);
 achDef('dip','dip-tynap4','s','Live and Let Live','Have 4 non-aggression pacts in force at once.',4,x=>aTyK(x,'nap'));
 achDef('dip','dip-tytr3','s','Most Favoured Nation',`Have ${TY_RULES.max.trade} trade agreements in force at once, as many as a nation may.`,TY_RULES.max.trade,x=>aTyK(x,'trade'));
 achDef('dip','dip-tyrs3','s','Republic of Letters',`Have ${TY_RULES.max.research} research pacts in force at once, as many as a nation may.`,TY_RULES.max.research,x=>aTyK(x,'research'));
-achDef('dip','dip-tyfull','g','Every Seal Affixed',`Fill every place for treaties at once: ${TY_RULES.max.nap} non-aggression pacts, ${TY_RULES.max.trade} trade agreements and ${TY_RULES.max.research} research pacts.`,TY_ALL,x=>TY_RULES.kinds.reduce((s,k)=>s+Math.min(aTyK(x,k),TY_RULES.max[k]),0));
+achDef('dip','dip-tyfull','g','Every Seal Affixed',`Fill every place for treaties at once: ${TY_RULES.max.nap} non-aggression pacts, ${TY_RULES.max.trade} trade agreements and ${TY_RULES.max.research} research pacts.`,TY_ALL,x=>TY_ACH.reduce((s,k)=>s+Math.min(aTyK(x,k),TY_RULES.max[k]),0));
 achDef('dip','dip-tyold','s','Pacta Sunt Servanda','Keep a treaty in force for 30 days.',30,x=>Math.floor(aTyLive(x).reduce((m,T)=>Math.max(m,T.at>0?(x.now-T.at)/DAY:0),0)));
 achDef('dip','dip-tybrk','b','A Scrap of Paper','Break a treaty at once, without giving notice.',1,x=>aT(x,'tybrk'),{sec:'Some promises are written in pencil.'});
 /* alliances: their pacts and rivalries with other alliances, and their projects */
