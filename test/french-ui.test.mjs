@@ -37,6 +37,18 @@ test('French interface: patterns for texts with numbers and names',()=>{
   f.frText(node);f.frText(node);f.frText(node);assert.equal(sets,1);assert.equal(node.v,'Couleur 1 : Rouge');
   node.v='Colour 3: Red';f.frText(node);assert.equal(node.v,'Couleur 3 : Rouge','a new English text is swapped again');
 });
+test('French interface: a translated option keeps its English value',()=>{
+  const f=load({d:{'Kingdom':'Royaume'},p:[]});
+  const attrs={},opt={tagName:'OPTION',closest:()=>null,hasAttribute:a=>a in attrs,setAttribute:(a,v)=>{attrs[a]=v}};
+  const n={nodeValue:'Kingdom',parentNode:opt};f.frText(n);
+  assert.equal(n.nodeValue,'Royaume');assert.equal(attrs.value,'Kingdom','the choice saved stays Kingdom, not Royaume (which became "The Royaume of …")');
+  const set={value:'k1'},opt2={tagName:'OPTION',closest:()=>null,hasAttribute:a=>a in set,setAttribute:(a,v)=>{set[a]=v}};
+  f.frText({nodeValue:'Kingdom',parentNode:opt2});assert.equal(set.value,'k1','an option with a value of its own keeps it');
+  // the two state-type lists carry their values in the markup too
+  assert.match(src,/<option value="\$\{esc\(p\)\}"\$\{p===val\?' selected':''\}>/);
+  assert.match(src,/PRETITLES\.map\(p=>`<option value="\$\{esc\(p\)\}"/);
+  assert.equal((src.match(/<option(?![^>]*value=)[^>]*>\$\{/g)||[]).length,0,'no option is written without a value');
+});
 test('French interface: money in the nation’s own currency',()=>{
   globalThis.plural=w=>/s$/.test(w)?w:w+'s';globalThis.S={nation:{currency:'crown'}};
   try{
