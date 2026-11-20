@@ -84,8 +84,9 @@ DESCRIPTION = ('Edictum is a free multiplayer nation simulator. Found a nation, 
                'claim land on a shared map, and trade, ally or go to war with other players.')
 OG_ALT = 'The Edictum seal beside the words: Edictum, a nation simulator.'
 # What #app holds until the game draws itself, which takes as long as its script takes to download. A
-# newcomer sees the top of the front page (the founding page) as the game will draw it, with its heading
-# copy read from the game's HOME_LEDE, HOME_FEATS and HOME_FREE; a returning player (src/stub.js marks
+# newcomer sees the top of the front page as the game will draw it (hmView): its headline and counters, then what
+# Edictum is, with the copy read from the game's HOME_H1, HOME_SUB, HOME_LEDE, HOME_FEATS and HOME_FREE; the live
+# figures fill in once the game has loaded. A returning player (src/stub.js marks
 # them) sees the plain loading screen instead. Anything that does not run the game's script (search
 # engines, link previews, Google's review of the sign-in branding) gets what Edictum is and where its
 # privacy notice and terms are.
@@ -94,10 +95,18 @@ LEGAL = ('<p class="boot-legal"><a href="/privacy">Privacy notice</a> · <a href
          '<a href="/privacidad" lang="es">Aviso de privacidad</a> · <a href="/terminos" lang="es">Términos de uso</a></p>')
 LOADING = ('<p class="boot-load" role="status">Loading the game…</p>'
            '<noscript><p class="boot-load">Edictum needs JavaScript to run.</p></noscript>')
-BOOT = ('<div id="app"><div class="found home-static">'
-        '<header class="found-head"><span class="wordmark">Edictum</span><span class="brand-sub">A nation simulator</span></header>'
-        '<div class="hm-top"><div class="found-intro"><p class="eyebrow">Charter of foundation</p><h1 class="display">Found a nation</h1>'
-        '<p class="lede">%(lede)s</p><ul class="hm-feats">%(feats)s</ul><p class="hm-free">%(free)s</p>' + LOADING + '</div></div>'
+STAT = '<div class="hm-stat"><dt class="hm-stat-l">%s</dt><dd class="hm-stat-v">—</dd></div>'
+BOOT = ('<div id="app"><div class="found hm home-static">'
+        '<header class="found-head hm-head"><span class="wordmark">Edictum</span><span class="brand-sub">A nation simulator</span></header>'
+        '<section class="hm-live" aria-label="Live activity"><p class="hm-live-l"><span class="hm-dot" aria-hidden="true"></span>Live activity</p>'
+        '<p class="hm-live-t"><span class="hm-live-e hm-dim">Gathering the latest news…</span></p></section>'
+        '<div class="hm-main"><div class="hm-col hm-col-a"><div class="hm-hero"><p class="eyebrow">A free multiplayer nation simulator</p>'
+        '<h1 class="display hm-h1">%(h1)s</h1><p class="lede hm-sub">%(sub)s</p></div>'
+        '<dl class="hm-stats" aria-busy="true">' + ''.join(STAT % l for l in ('Player nations founded', 'Nations active in the past 24 hours',
+                                                                          'Edicts decided in the past 24 hours')) + '</dl>'
+        + LOADING + '</div>'
+        '<section class="hm-more"><h2 class="hm-more-h">What you do in Edictum</h2><p class="lede">%(lede)s</p><ul class="hm-feats">%(feats)s</ul>'
+        '<p class="hm-free">%(free)s</p></section></div>'
         + LEGAL + '</div>'
         '<main class="boot"><p class="boot-mark">Edictum</p><p class="boot-sub">%(desc)s</p>' + LOADING + LEGAL + '</main></div>')
 
@@ -241,6 +250,8 @@ def home_copy(script):
         'feats': ''.join('<li><span class="hm-ic ai-%s" aria-hidden="true"></span>%s</li>' % (k, e(re.sub(r'\\(.)', r'\1', t)))
                          for k, t in feats),
         'free': e(js_text(script, 'HOME_FREE')),
+        'h1': e(js_text(script, 'HOME_H1')),
+        'sub': e(js_text(script, 'HOME_SUB')),
     }
 
 
@@ -399,6 +410,13 @@ def main():
             write(os.path.join(out, f), with_csp(read(os.path.join(SRC, f))))
         else:
             shutil.copyfile(os.path.join(SRC, f), os.path.join(out, f))
+
+    # the front page's pictures of the game (the showcase, hmShowcase), served as /home/<name>.webp
+    # and their larger copies for the enlarged view, /home/zoom/<name>.webp, which a visitor downloads only on opening one
+    for sub in ('', 'zoom'):
+        for f in sorted(os.listdir(os.path.join(SRC, 'home', sub))):
+            if f.endswith('.webp'):
+                write(os.path.join(out, 'home', sub, f), read(os.path.join(SRC, 'home', sub, f), 'rb'))
 
     # the game's styles (with the shim's and the fonts') and its script become long-cached files
     styles = re.findall(r'<style[^>]*>(.*?)</style>', game_head, re.S | re.I)
