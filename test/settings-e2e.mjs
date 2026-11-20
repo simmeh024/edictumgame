@@ -22,7 +22,8 @@ check('nor is the flag a section of its own', !await A.$('#settings-form .flag-p
 
 // Your nation: a draft, previewed as it is typed, and counted on the tab
 await A.fill('#s-motto', 'Order in Every Column'); await A.fill('#s-ruler', 'Ada Brook');
-check('the preview follows the draft', /Order in Every Column/.test(await text(A, '#sg-pv-in')) && /Led by President Ada Brook/.test(await text(A, '#sg-pv-in')));
+const leaderA = await A.evaluate(() => G.S.nation.leader);
+check('the preview follows the draft', /Order in Every Column/.test(await text(A, '#sg-pv-in')) && new RegExp('Led by ' + leaderA + ' Ada Brook').test(await text(A, '#sg-pv-in')), leaderA);
 check('the tab counts the changes not yet saved', /2 changes not saved/.test(await text(A, '[data-sg-sub="nation"]')));
 check('and the save bar stays in view', await A.$eval('#sg-save', e => e.classList.contains('is-dirty') && getComputedStyle(e).position === 'sticky'));
 check('nothing is saved yet', (await localNation(A)).motto !== 'Order in Every Column');

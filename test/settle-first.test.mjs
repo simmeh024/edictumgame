@@ -10,7 +10,7 @@ function section(store={}){
   const start=source.indexOf('/* ───────── settling first'),end=source.indexOf('/* ───────── seven more buildings',start);
   assert.ok(start>0&&end>start);
   const sent=[],hooks=[];
-  const ctx=vm.createContext({S:{nation:null},OBS:'',DAY,FD_ID:'fd-settle',FD_KIND:['By the sea','On farmland','In the hills'],COMMIT_HOOKS:hooks,
+  const ctx=vm.createContext({S:{nation:null},OBS:'',DAY,hmPathOf:()=>'',capHolder:n=>!!n&&(!n.capital||n.capital==='Port Alder'||!!n.capA&&n.capital===n.capA),FD_ID:'fd-settle',FD_KIND:['By the sea','On farmland','In the hills'],COMMIT_HOOKS:hooks,
     localStorage:{getItem:k=>store[k]??null,setItem:(k,v)=>{store[k]=String(v);}},
     window:{edictumStat:(name,p)=>sent.push([name,p])},document:{addEventListener(){}},
     esc:s=>String(s),cellOf:l=>l?l.c:-1,territory:()=>({}),fdSites:()=>[11,-1,33],landName:c=>'Isle '+c,

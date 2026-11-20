@@ -454,17 +454,18 @@ catch (e) {
   throw e;
 }
 await KG.waitForSelector('.result');
-check('and comes back a royal decree under a REX or REGINA seal', /^By royal decree of the \S+ of Kingsmoor, /.test(await text(KG, '.result-fx')) && /REX|REGINA/.test(await text(KG, '.result .stamp')), await text(KG, '.result-fx'));
-check('signed by the nation’s own leader, by title while the leader has no name', /^By royal decree of the President of Kingsmoor, /.test(await text(KG, '.result-fx')), await text(KG, '.result-fx'));
+const kgLead = await KG.evaluate(() => G.S.nation.leader);
+check('and comes back a royal decree under a REX or REGINA seal', /^By royal decree of the .+? of Kingsmoor, /.test(await text(KG, '.result-fx')) && /REX|REGINA/.test(await text(KG, '.result .stamp')), await text(KG, '.result-fx'));
+check('signed by the nation’s own leader, by title while the leader has no name', (await text(KG, '.result-fx')).startsWith('By royal decree of the ' + kgLead + ' of Kingsmoor, '), await text(KG, '.result-fx'));
 // who signs decrees is a choice on the Customise page
 await nav(KG, 'settings'); await KG.click('#sg-tab-nation'); await KG.fill('#s-ruler', 'Ada Brook'); await KG.click('#settings-form button[type="submit"]');
 await until(async () => ((await localNation(KG)) || {}).ruler === 'Ada Brook');
 await nav(KG, 'customise'); await czSection(KG, 's');
-check('once the leader has a name, decrees give it', await until(async () => /By royal decree of President Ada Brook of Kingsmoor, …/.test(await text(KG, '.cz-ds-ex'))), await text(KG, '.cz-ds-ex'));
+check('once the leader has a name, decrees give it', await until(async () => (await text(KG, '.cz-ds-ex')).includes('By royal decree of ' + kgLead + ' Ada Brook of Kingsmoor, …')), await text(KG, '.cz-ds-ex'));
 await KG.click('#cz-l-ds-s');
 check('signed by the type of state, they read as they used to', await until(async () => /By royal decree of the Crown of Kingsmoor/.test(await text(KG, '.cz-ds-ex')) && ((await localNation(KG)).cz || {}).ds === 's'));
 await KG.click('#cz-l-ds-t');
-check('and by the leader’s title, without the name', await until(async () => /By royal decree of the President of Kingsmoor/.test(await text(KG, '.cz-ds-ex')) && ((await localNation(KG)).cz || {}).ds === 't'));
+check('and by the leader’s title, without the name', await until(async () => (await text(KG, '.cz-ds-ex')).includes('By royal decree of the ' + kgLead + ' of Kingsmoor') && ((await localNation(KG)).cz || {}).ds === 't'));
 await KG.click('#cz-l-ds-l');
 await until(async () => (await KG.getAttribute('#cz-l-ds-l', 'aria-pressed')) === 'true');
 await KG.locator('#cz-sec-s').screenshot({ path: path.join(OUT, 'customise-decrees.png') }); // a locator: choosing redraws the page
@@ -865,20 +866,22 @@ check('the account’s nation is still in the region', ((await nationDoc(uidA)) 
 // are full: a newcomer who has not chosen goes to the fullest region with room, here the next in the list
 const Z = await player('Z', { cap: 1 });
 await open(Z);
-const zRegion = await until(async () => { const t = await text(Z, '.fr-now'); return t && !/Meridian Reach/.test(t) ? t : ''; }, 15000);
+const zRegion = await until(async () => { const t = await text(Z, '.hm-qf-reg'); return t && !/Meridian Reach/.test(t) ? t : ''; }, 15000);
 check('a newcomer facing a full region is moved to one with room', !!zRegion && !/Frostmarch/.test(zRegion), zRegion);
 await ready(Z);
-check('the full regions are marked in the region list', await until(async () => /Frostmarch Full/.test(await text(Z, '.fr-list'))));
+await Z.click('[data-act="hm-browse"][data-v="card"]');
+check('the full regions are marked in the region list', await until(async () => /Frostmarch Full/.test(await text(Z, '.hm-br'))));
 await Z.evaluate(() => localStorage.setItem('statehood.region', 'meridian'));
 await Z.reload(); await ready(Z);
-await until(async () => /is full/.test(await text(Z, '.fr-box')));
-await Z.fill('#d-name', 'Latecomer'); await Z.click('#found-btn');
+await until(async () => /is full/.test(await text(Z, '.hm-qf .hm-warn')));
+await Z.fill('#d-name', 'Latecomer'); await Z.click('#found-btn', { force: true }); // marked aria-disabled: a click still says why
 check('founding in a full region is refused, with the reason', await until(async () => /Meridian Reach is full/.test(await text(Z, 'form .err'))) && !(await Z.$('.layout')));
 await Z.ctx.close();
 
 /* ── 10. switching region while founding keeps what was filled in ─────── */
 const K = await player('K');
 const uidK = await open(K);
+await K.click('[data-act="hm-custom"]'); await K.waitForSelector('#found-form');
 await K.fill('#d-name', 'Keepsake');
 await K.fill('#d-motto', 'Nothing Lost');
 await K.click('#q0-2');
@@ -887,13 +890,15 @@ await K.waitForSelector('.fr-grid [data-act="found-region"][data-id="driftlands"
 check('the region box has a map browser with every region', (await K.$$('.fr-grid .wr-card')).length === 27);
 await Promise.all([K.waitForNavigation(), K.click('.fr-grid [data-act="found-region"][data-id="driftlands"]')]);
 await ready(K);
-check('choosing a region in the browser switches to it', (await K.evaluate(() => localStorage.getItem('statehood.region'))) === 'driftlands' && !/Meridian Reach/.test(await text(K, '.fr-now')));
+await K.waitForSelector('#found-form');
+check('choosing a region in the browser switches to it, and the charter opens again', (await K.evaluate(() => localStorage.getItem('statehood.region'))) === 'driftlands' && !/Meridian Reach/.test(await text(K, '.fr-now')));
 check('the name, motto and answers come along', (await K.inputValue('#d-name')) === 'Keepsake' && (await K.inputValue('#d-motto')) === 'Nothing Lost' && (await K.getAttribute('#q0-2', 'aria-checked')) === 'true');
 await K.reload(); await ready(K);
 check('a reload keeps the draft too', (await K.inputValue('#d-name')) === 'Keepsake');
+await K.click('[data-act="hm-custom"]'); await K.waitForSelector('#found-form');
 await K.click('.fr-more summary');
 await Promise.all([K.waitForNavigation(), K.click('.fr-list [data-act="found-region"][data-id="frostmarch"]')]);
-await ready(K);
+await ready(K); await K.waitForSelector('#found-form');
 check('the region list at the top keeps it as well', (await K.inputValue('#d-name')) === 'Keepsake' && (await K.evaluate(() => localStorage.getItem('statehood.region'))) === 'frostmarch');
 await found(K, 'Keepsake');
 check('the nation is founded in the chosen region, with its motto', await until(async () => { const d = await nationDoc(uidK); return d && d.reg === 'frostmarch' && d.rec.motto === 'Nothing Lost'; }));
@@ -936,44 +941,41 @@ check('Close leaves full screen, on the map page', await until(async () => !(awa
 await FS.ctx.close();
 
 /* ── 10c. the front page ────────────────────────────────────────────────── */
-// The page itself (build.py) opens with the front page's heading copy, the same as the game then draws.
+// The page itself (build.py) opens with the front page's headline, as the game then draws it (front-page-e2e.mjs has the rest).
 const raw = await (await fetch(BASE + '/')).text();
 const plain = s => s.replace(/<[^>]+>/g, '').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
 const rawOf = re => { const m = raw.match(re); return m ? plain(m[1]) : null; };
 const HP = await player('HP');
 await open(HP);
 await HP.waitForSelector('#hm-try');
-const drawn = await HP.evaluate(() => ({
-  title: document.title, h1: document.querySelector('.found-intro h1').textContent, lede: document.querySelector('.found-intro .lede').textContent,
-  feats: [...document.querySelectorAll('.hm-feats li')].map(li => li.textContent), free: document.querySelector('.hm-free').textContent
-}));
-check('before the game’s script runs, the page shows the front page’s title, heading, lede and features as the game draws them',
-  rawOf(/<title>([^<]*)<\/title>/) === drawn.title && rawOf(/class="found home-static">[\s\S]*?<h1 class="display">([^<]*)<\/h1>/) === drawn.h1
-  && rawOf(/class="found home-static">[\s\S]*?<p class="lede">([^<]*)<\/p>/) === drawn.lede && rawOf(/<p class="hm-free">([^<]*)<\/p>/) === drawn.free
-  && JSON.stringify([...raw.matchAll(/<li><span class="hm-ic[^>]*><\/span>([^<]*)<\/li>/g)].map(m => plain(m[1]))) === JSON.stringify(drawn.feats) && drawn.feats.length >= 4,
+const drawn = await HP.evaluate(() => ({ title: document.title, h1: document.querySelector('.hm-h1').textContent, sub: document.querySelector('.hm-sub').textContent, free: document.querySelector('.hm-show .hm-free').textContent }));
+check('before the game’s script runs, the page shows the front page’s title, headline and words as the game draws them',
+  rawOf(/<title>([^<]*)<\/title>/) === drawn.title && rawOf(/class="found hm home-static">[\s\S]*?<h1 class="display hm-h1">([^<]*)<\/h1>/) === drawn.h1
+  && rawOf(/<p class="lede hm-sub">([^<]*)<\/p>/) === drawn.sub && rawOf(/<p class="hm-free">([^<]*)<\/p>/) === drawn.free && drawn.h1 === 'Every nation begins with a decision.',
   JSON.stringify(drawn).slice(0, 200));
 check('it tells search engines what the game is', /"@type": "VideoGame"/.test(raw));
 // a sample edict, worded for the nation being drafted, that changes nothing
-await HP.fill('#d-name', 'Quillon'); await HP.fill('#d-currency', 'florin');
-check('the sample edict is worded for the nation being drafted', await until(async () => /Quillon/.test(await text(HP, '#hm-try .form-code')) && /counterfeit florin notes/.test(await text(HP, '#hm-try'))));
+await HP.fill('#d-name', 'Quillon');
+const cur = await HP.evaluate(() => G.S.draft.currency);
+check('the sample edict is worded for the nation being drafted, in its currency', await until(async () => /Quillon/.test(await text(HP, '#hm-try .form-code')) && new RegExp('counterfeit ' + cur + ' notes').test(await text(HP, '#hm-try'))), cur);
 await HP.click('#hm-try [data-act="hm-try"][data-o="2"]');
-check('answering it shows the decree and what it would change', await until(async () => /By decree of the President, with the Senate and People of Quillon, notes featuring a cat are accepted as legal tender/.test(await text(HP, '.hm-fx')) && /Weirdness/.test(await text(HP, '.hm-chg'))));
+check('answering it shows the decree and what it would change', await until(async () => /of Quillon, notes featuring a cat are accepted as legal tender/.test(await text(HP, '.hm-fx')) && /Weirdness/.test(await text(HP, '.hm-chg'))));
 const try1 = await text(HP, '.hm-try-t');
 await HP.click('[data-act="hm-next"]');
 check('Try another edict brings a different one, unanswered', await until(async () => (await text(HP, '.hm-try-t')) !== try1 && !!(await HP.$('#hm-try [data-act="hm-try"]'))));
 check('nothing chosen there founds or changes a nation', !(await localNation(HP)));
-check('the region box counts the player nations here and shows their flags', await until(async () => /\d+ player nations? and \d+ computer-run nations live here/.test(await text(HP, '#found-life')) && (await HP.$$('#found-life .fr-flags li')).length === 9));
-// the Found button beside the preview
-await HP.click('#found-now');
-check('the Found button beside the preview founds the nation', await until(async () => !!(await HP.$('.layout')) && ((await localNation(HP)) || {}).name === 'Quillon'));
+check('the founding card says where it founds', /Founding in Meridian Reach/.test(await text(HP, '.hm-qf-reg')));
+await HP.click('#found-btn');
+check('Quick Found founds the nation', await until(async () => !!(await HP.$('.layout')) && ((await localNation(HP)) || {}).name === 'Quillon'));
 check('the title follows the game’s pages again', await until(async () => / · Edictum$/.test(await HP.title()) && (await HP.title()) !== drawn.title));
 await HP.route(/\/assets\/game\./, r => r.abort());
 await HP.reload();
 check('a returning player gets a loading screen for a failed download, not the front page', await HP.evaluate(() => document.documentElement.classList.contains('ed-back')) && await until(() => HP.isVisible('.boot')) && !(await HP.isVisible('.home-static')));
 await HP.ctx.close();
-// on a phone: the preview makes way, and a bar at the foot keeps the Found button in reach
+// on a phone, in the charter: the preview makes way, and a bar at the foot keeps the Found button in reach
 const HQ = await player('HQ', { vp: { width: 390, height: 844 } });
 await open(HQ);
+await HQ.click('[data-act="hm-custom"]'); await HQ.waitForSelector('#found-form');
 await HQ.fill('#d-name', 'Barnstow'); await HQ.evaluate(() => document.activeElement.blur());
 check('on a phone a bar at the foot shows the nation and its Found button', await until(async () => /Barnstow/.test(await text(HQ, '#found-bar')) && await HQ.isVisible('#found-now-bar')));
 check('the preview card makes way for the form', !(await HQ.isVisible('.found-side')));
@@ -1123,7 +1125,7 @@ for (const [vp, dark] of [[{ width: 1280, height: 900 }, false], [{ width: 390, 
   const S = await player('S' + vp.width, { vp, dark });
   await open(S);
   await S.screenshot({ path: path.join(OUT, `found-${vp.width}.png`) });
-  await found(S, 'Shotland');
+  await found(S, vp.width > 600 ? 'Shotland' : 'Phoneland');  // names are unique per region
   const box = await S.$('.ed-acct');
   await box.scrollIntoViewIfNeeded();
   await S.screenshot({ path: path.join(OUT, `control-${vp.width}.png`) });

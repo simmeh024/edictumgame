@@ -20,7 +20,7 @@ const plain = v => JSON.parse(JSON.stringify(v));
 /* three rivers. The Ostra: five edges, edge j between hexes j and 10+j (bank hexes 0-4 and 10-14). An unnamed
    tributary: two edges, between 20/30 and 21/31. The Kest: two edges, between 40/50 and 41/51. Lake Morrow. */
 function world(me = 'a') {
-  const ctx = vm.createContext({ S: { nation: null, world: {} }, REG: { id: 'meridian' }, REG_BY_ID: { meridian: {}, frostmarch: {} }, HIDN: { w: {} }, NORM_HOOKS: [], REGION: 'the Meridian Reach', myId: () => me });
+  const ctx = vm.createContext({ S: { nation: null, world: {} }, REG: { id: 'meridian' }, REG_BY_ID: { meridian: {}, frostmarch: {} }, HIDN: { w: {} }, NORM_HOOKS: [], REGION: 'the Meridian Reach', FRONT_AT: Date.UTC(2026, 10, 19, 19, 41, 53), myId: () => me });
   vm.runInContext(vars(HELP) + '\n' + vars(NAMES), ctx);
   const riv = (id, name, cls, banks, key) => ({ id, name, name0: name, by: null, cls, len: banks.length, bk: banks.flat(), cells: [...new Set(banks.map(b => b[0]).concat(banks.map(b => b[1])))], verts: [900 + id, key, 1000 + id] });
   ctx.RV = { list: [riv(0, 'the Ostra', 3, [0, 1, 2, 3, 4].map(j => [j, 10 + j]), 101), riv(1, '', 2, [[20, 30], [21, 31]], 102), riv(2, 'the Kest', 1, [[40, 50], [41, 51]], 103)], lakes: [{ id: 0, name: 'Lake Morrow' }] };
@@ -199,4 +199,52 @@ test('saved names are checked on load: region, key, name, one per river, at most
   const many = norm({ rvn: Array.from({ length: 60 }, (_, i) => entry(i, 'River ' + i)) });
   assert.equal(many.rvn.length, W.RVN_MAX);
   assert.equal(many.rvn[0].v, 60 - W.RVN_MAX, 'the newest are kept');
+});
+
+/* The frontier (19 Nov 2026) made the charted map's rivers afresh on the wider grid, in other places, and for a day
+   players named those; the charted map's own rivers are back (rvJoin), and a key of the wider grid's leads to the river
+   running most nearly where that one ran (RV.byKey, from rvJoin's fz). Here key 555 led to the Ostra, 556 to the Kest. */
+const FRONT = Date.UTC(2026, 10, 19, 19, 41, 53), DAY = 864e5, at = (v, n, t) => ({ r: 'meridian', v, n, t });
+function frontierWorld(me) { const W = world(me); W.RV.byKey.set(555, 0); W.RV.byKey.set(556, 2); return W; }
+
+test('a name given on a river of the wider grid shows on the river running where it ran', () => {
+  const W = frontierWorld(), r = W.RV.list[0];
+  W.rvSync(land([nation('a', [at(555, 'the Newflow', FRONT + 36e5)])], [[0, OSTRA]]));
+  assert.equal(r.name, 'the Newflow');
+  assert.equal(r.by, 'a');
+});
+
+test('a name a nation gave the river itself beats one that reaches it from the wider grid, older or not', () => {
+  const W = frontierWorld(), r = W.RV.list[0];
+  W.rvSync(land([nation('a', [at(101, 'the Silverflow', FRONT - DAY), at(555, 'the Newflow', FRONT + 36e5)])], [[0, OSTRA]]));
+  assert.equal(r.name, 'the Silverflow');
+  /* and a name given to the river itself since stays the river's */
+  W.rvSync(land([nation('a', [at(555, 'the Newflow', FRONT + 36e5), at(101, 'the Goldflow', FRONT + 72e5)])], [[0, OSTRA]]));
+  assert.equal(r.name, 'the Goldflow');
+});
+
+test('a name given since the frontier that the nation had given another river stays with the first', () => {
+  const W = frontierWorld(), [O, , Kest] = W.RV.list, T = [[0, OSTRA.concat([40, 41, 50, 51])]];
+  /* the Silverflow was the Kest's; while it was not shown, the player gave the Ostra the same name */
+  W.rvSync(land([nation('a', [at(103, 'the Silverflow', FRONT - DAY), at(101, 'the Silverflow', FRONT + 36e5)])], T));
+  assert.equal(Kest.name, 'the Silverflow');
+  assert.equal(O.name, 'the Ostra');
+  /* through the wider grid's key, the same */
+  W.rvSync(land([nation('a', [at(103, 'the Silverflow', FRONT - DAY), at(555, 'the Silverflow', FRONT + 36e5)])], T));
+  assert.equal(O.name, 'the Ostra');
+  /* once the charted rivers were back, a name is shown where it is given, as ever */
+  W.rvSync(land([nation('a', [at(103, 'the Silverflow', FRONT - DAY), at(101, 'the Silverflow', Date.UTC(2026, 10, 23))])], T));
+  assert.deepEqual([O.name, Kest.name], ['the Silverflow', 'the Silverflow']);
+  /* a new name since the frontier shows */
+  W.rvSync(land([nation('a', [at(103, 'the Silverflow', FRONT - DAY), at(101, 'the Brightrun', FRONT + 36e5)])], T));
+  assert.deepEqual([O.name, Kest.name], ['the Brightrun', 'the Silverflow']);
+});
+
+test('renaming a river takes away a name that reached it from the wider grid', () => {
+  const W = frontierWorld(), r = W.RV.list[0];
+  vm.runInContext(vars(line('function rvSame(')), W);
+  assert.ok(W.rvSame(at(555, 'the Newflow', FRONT + 1), 101, r), 'the wider grid\'s key of the same river');
+  assert.ok(W.rvSame(at(101, 'the Silverflow', 1), 101, r));
+  assert.ok(!W.rvSame(at(556, 'the Newflow', FRONT + 1), 101, r), 'another river');
+  assert.ok(!W.rvSame({ r: 'frostmarch', v: 101, n: 'x', t: 1 }, 101, r), 'another region');
 });

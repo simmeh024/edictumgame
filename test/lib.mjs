@@ -103,7 +103,10 @@ export async function settle(p){
   await nav(p,'map');
   const settled=()=>p.evaluate(()=>!G.S.nation.inbox.some(x=>x.id==='fd-settle'));
   for(let i=0;i<4&&!(await settled());i++){
-    await p.click('[data-act="map-suggest"]');await p.click('[data-act="settle"]');
+    /* a redraw just then (a feed's first news) can swallow the click on Suggest: pick again until Settle is offered */
+    await p.click('[data-act="map-suggest"]');
+    if(!(await p.waitForSelector('[data-act="settle"]',{timeout:6000}).catch(()=>null))){console.log('settle: no Settle button after Suggest',JSON.stringify(await p.evaluate(()=>({pick:G.S.mapPick,msg:G.S.mapMsg,view:G.S.view,wait:G.LAND().landWait()})).catch(()=>null)));continue;}
+    await p.click('[data-act="settle"]');
     await p.waitForFunction(()=>!G.S.nation.inbox.some(x=>x.id==='fd-settle'),undefined,{timeout:8000}).catch(()=>{});
   }
   if(!(await settled()))throw new Error('Settling did not take: '+JSON.stringify(await p.evaluate(()=>({pick:G.S.mapPick,msg:G.S.mapMsg,loc:G.S.nation.loc,view:G.S.view}))));

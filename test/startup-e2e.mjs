@@ -75,7 +75,9 @@ check('a failed content download preserves the local nation',(await localNation(
 const noJS=await browser.newContext({javaScriptEnabled:false});const page=await noJS.newPage();await page.goto(BASE);
 check('without JavaScript, the game keeps a visible explanation and legal links',await page.isVisible('noscript .boot-load')&&!!(await page.$('a[href="/privacy"]')));
 await noJS.close();// A visitor who has not touched the front page reads the region once and is not sent its live changes; the first tap starts them.
-{const V=await player('startup-visitor');await open(V);await V.waitForFunction(()=>!!G.S.worldAll);
+// Since the front page has figures of its own (home/live), such a visitor reads none of the region until then.
+{const V=await player('startup-visitor');await open(V);await new Promise(r=>setTimeout(r,3000));
+ check('an untouched visitor reads none of the region and opens no live feed',await V.evaluate(()=>!G.S.worldAll&&!G.HMB().hmEngaged()));
  const W=await player('startup-founder');await open(W);await found(W,'Latecomer');const uidW=await ready(W);
  await until(async()=>!(await localNation(W))?._dirty,15000);await new Promise(r=>setTimeout(r,4000));
  check('an untouched visitor is not sent the region’s live changes',await V.evaluate(id=>!(G.S.worldAll||{})[id],uidW));

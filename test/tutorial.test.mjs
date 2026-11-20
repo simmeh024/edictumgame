@@ -17,7 +17,7 @@ const LISTS=between('/* ── tutorial: the lists ── */','/* ── tutoria
 const REWARDS=between('/* ── tutorial: rewards ── */','/* ── tutorial: end of rewards ── */');
 const CARD=between('/* ── the card on the Nation page: one card, at most three next steps ──','/* ── What’s new: once, for a nation that played an earlier version ── */');
 function baseCtx(extra){
-  const ctx=vm.createContext({S:{google:true},COMMIT_HOOKS:[],NORM_HOOKS:[],UNLOCKS:{},UNLOCK_SOURCES:[],DAY:864e5,CV_NEW:3*864e5,REGION:'Testland',REGIONS:[1,2],
+  const ctx=vm.createContext({capHolder:n=>!!n&&(!n.capital||n.capital==='Port Alder'||!!n.capA&&n.capital===n.capA),S:{google:true},COMMIT_HOOKS:[],NORM_HOOKS:[],UNLOCKS:{},UNLOCK_SOURCES:[],DAY:864e5,CV_NEW:3*864e5,REGION:'Testland',REGIONS:[1,2],
     landEarned:n=>10,earnedAt:n=>10,decisions:n=>n.dec||0,cellOf:v=>Number.isInteger(v)?v:-1,tallyOf:(n,k)=>(n.tly&&n.tly[k])||0,
     pgAvailable:(n,k)=>!n.onb||n.onb.u.includes(k),pgNew:n=>!!n.onb,tutSoc:()=>null,tutDevGet:()=>ctx.DEVK||'',tutBlocks:()=>false,civicRegistered:()=>false,
     cityList:n=>n.cities||[],ppCount:n=>n.pp||0,ppStats:n=>({ds:0}),cuRenamed:()=>false,mapOpt:(k,d)=>d,LENS_INFO:{},canFeature:()=>false,featureAt:()=>7,fmtPopShort:p=>p+' million',
