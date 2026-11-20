@@ -337,7 +337,7 @@ test('earned designs: kept when held, the suggestion when not', () => {
   const o = C.cuOf(n);
   assert.equal(o.coin.met, 'platinum', 'a held design stays');
   assert.equal(o.note.pat, 'guilloche'); assert.equal(o.note.strip, 1); assert.equal(o.coin.shape, 'round');
-  for (const [k, m] of Object.entries(C.CU_LOCK)) for (const id of Object.values(m)) assert.match(id, /^c[nmsx]-/, k);
+  for (const [k, m] of Object.entries(C.CU_LOCK)) for (const id of Object.values(m)) assert.match(id, /^c[nmsxv]-/, k); // v: the vignette (cv-cat)
   C.setHolds(null);
 });
 test('the Central Bank Pack: its designs are kept by a nation that holds them, and only then', () => {
