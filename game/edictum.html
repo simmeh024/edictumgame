@@ -1918,9 +1918,9 @@ button.stk-i:hover,button.cx-stk:hover{background:var(--sheet-2)}button.stk-i:fo
 .pst-h{font-family:var(--f-display);font-size:26px;margin:2px 0 4px;padding-right:64px;overflow-wrap:anywhere}
 .pst-sum{margin:0 0 14px;color:var(--ink-2)}
 .pst-ctl{display:flex;flex-wrap:wrap;gap:10px 22px;margin:0 0 14px}
-.pst-grp{display:flex;align-items:center;gap:8px}
+.pst-grp{display:flex;align-items:center;flex-wrap:wrap;gap:6px 8px;min-width:0}
 .pst-lab{font-size:12.5px;color:var(--ink-3)}
-.pst-seg{display:inline-flex;border:1px solid var(--rule-2);border-radius:6px;overflow:hidden}
+.pst-seg{display:inline-flex;flex-wrap:wrap;max-width:100%;border:1px solid var(--rule-2);border-radius:6px;overflow:hidden}
 .pst-opt{font:inherit;font-size:14px;min-height:36px;padding:6px 14px;border:0;background:var(--sheet);color:var(--ink);cursor:pointer}
 .pst-opt+.pst-opt{border-left:1px solid var(--rule-2)}
 .pst-opt[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
@@ -8055,6 +8055,8 @@ span.nw-tag{cursor:default}
 .ctg-try .ctg-try-b{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:6px}
 .pst-opt .cz-lock{width:9px;height:11px;margin-left:5px;vertical-align:-1px}
 .pst-lockn{margin:0;flex:1 1 260px;font-size:13px}.pst-lockn .cz-lock{width:9px;height:11px;vertical-align:-1px}
+.pst-opt[aria-pressed="true"] .cz-lock{color:currentColor}
+.pst-sizen{margin:0;flex:1 1 240px;font-size:12.5px;color:var(--ink-2)}
 /* the map page's "Your map look" card (under Your territory), and the Shop's drawer over the map page */
 .mlk{margin-top:14px;padding-top:6px;border-top:1px solid var(--rule)}
 .mlk-h{font-size:15px;font-weight:650;margin:0}
@@ -27611,7 +27613,7 @@ function helpBody(n){
     npc:`<p>${Num(NPC_NATIONS.length)} computer-run nations share ${REGION}. Each passes one law a day, choosing what suits its founding character, then drifts 12% of the way back to that character, so its values stay recognisable.</p>
       <p>They have half the people their founding papers promised and hold half the land those people would give a player, so most of the map is left free for players. They grow slowly, trade when the terms suit them and answer your letters within a minute or two. A hawkish one may declare war on a hostile neighbour every ${hrs(WAR_SLOT)}, offers peace after a day or two of fighting, and leaves your alliance if your values drift apart.</p>`,
     track:`<p>The bell lists what happened while you were away: wars, peace offers, trade, messages, finished buildings, milestones and changes in your cabinet. Standing items, such as land credits to spend, stay at the top until they are dealt with, but count as new only until you have seen them.</p>
-      <p>The World map can make a poster of your nation: your land with its cities, roads and rivers, under your name, flag and arms, in three looks and three shapes (a fourth look, Blueprint, comes with the Cartographer’s Pack in the Shop, and can be tried here first). It shows your land as others see it, with any finish or border line you wear. Use the Poster button in the map’s tools, or the picture button among the map’s controls. The picture is made in your browser and saved to your device, to keep or to share.</p>
+      <p>The World map can make a poster of your nation: your land with its cities, roads and rivers, under your name, flag and arms, in three looks and three shapes (a fourth look, Blueprint, comes with the Cartographer’s Pack in the Shop, and three more, Chancery, Engraved and Watercolour, with the Chancery Club; any of them can be tried here first). Members of the Club can also save a picture at print size, six times the sheet at 300 dots to the inch. It shows your land as others see it, with any finish or border line you wear. Use the Poster button in the map’s tools, or the picture button among the map’s controls. The picture is made in your browser and saved to your device, to keep or to share.</p>
       <p>The Region page has five tabs: an overview of ${REGION} (its Assembly, its Great Statue, its leading nations, its wars and the nations new this week, each with a welcome letter to send), every nation in it with a quick look at each, its happenings, its message board, where you can reply to a message or react to it, and its alliances, with the way to join one. A reply to one of your messages rings the bell. Statistics keeps your nation’s history, its factbook and hundreds of figures.</p>`
   };
   const SECS=HELP_EXT.filter(h=>h.top).map(h=>[h.k,h.t]).concat(HELP_SECS,HELP_EXT.filter(h=>!h.top).map(h=>[h.k,h.t]));for(const h of HELP_EXT){try{body[h.k]=h.body(n);}catch(e){body[h.k]='';}}
@@ -71604,6 +71606,7 @@ function clubCompare(){
     ['The Club’s collection','Try it on in Customise','One piece a month, kept for good'],['A Chancery seal beside your name',no,'Wax, then brass, silver, gold and Grand'],
     ['Design presets',no,'5'],['Bureau of Statistics','Region trends, budget and flows','Also your own dashboard, records and weekly report'],
     ['National Chronicle',no,'12 months, to read, export or print'],['Club stationery for letters',no,'Crest paper and a gold seal'],
+    ['Posters of your nation','Atlas, Antique and Night, screen size','Also Chancery, Engraved and Watercolour, and a print size'],
     ['Prestige, rank, resources, strength','Earned in play','The same: nothing here adds any']];
   return `<div class="shop-cmp-w"><table class="shop-cmp"><caption class="sr">Playing free, and as a member of the Chancery Club</caption><thead><tr><th scope="col"><span class="sr">What</span></th><th scope="col">Free</th><th scope="col">Chancery Club</th></tr></thead><tbody>${rows.map(([a,b,c])=>`<tr><th scope="row">${esc(a)}</th><td>${b===no?b:esc(b)}</td><td>${c===no?c:esc(c)}</td></tr>`).join('')}</tbody></table></div>`;
 }
@@ -71647,7 +71650,8 @@ function shopVipSec(n,t){
       <li><b>Five design presets</b> in Customise: save whole looks and switch between them. Presets only hold cosmetics you own.</li>
       <li><b>The Bureau of Statistics:</b> a dashboard of your own, charts over a year, records and streaks, a weekly report card, where you stand in the region, projections and an export of every figure. Its three honours bring the epithet “the Well-Informed”.</li>
       <li><b>The Expanded National Chronicle:</b> twelve months of your decisions and a daily snapshot of your nation, private to you, to read, export or print.</li>
-      <li><b>Club stationery for your letters:</b> Chancery crest paper and a gold seal.</li></ul></details>
+      <li><b>Club stationery for your letters:</b> Chancery crest paper and a gold seal.</li>
+      <li><b>Three Club looks for the poster of your nation</b> (World map › Poster): Chancery, in claret and gold leaf with your Chancery seal; Engraved, like a banknote; and Watercolour. And a print size: a picture six times the sheet, at 300 dots to the inch, about 30 × 41 cm for a portrait. Anyone may try them in the poster first.</li></ul></details>
     ${clubSealHTML(n,t)}
     <h3 class="sub-h">The Club’s collection</h3><p class="hint">${pickNote}</p><ul class="shop-picks">${pickHTML}</ul>
     <div class="row shop-row"><button type="button" class="linkish" data-act="go" data-v="customise">Try the collection on in Customise</button><button type="button" class="linkish" data-act="go" data-v="chronicle">The National Chronicle</button></div>
@@ -80960,8 +80964,9 @@ function start(data){
    fit the nation, with the land of others paled so the nation stands out. Round it: the name with the arms and the
    flag, a compass, a scale bar, where the nation lies in its region, six facts and a key. Three looks (Atlas: the
    game's own light map colours whatever the player's theme; Antique; Night), a fourth sold in the Shop (Blueprint,
-   the Cartographer's Pack's: tried by anyone, saved only with the piece), and three shapes. Nothing is stored
-   or sent: the picture is made in the browser, and saved or shared from there. */
+   the Cartographer's Pack's: tried by anyone, saved only with the piece), three of the Chancery Club's (Chancery,
+   Engraved, Watercolour: tried by anyone, saved by members) and three shapes; members may also save a picture at
+   print size. Nothing is stored or sent: the picture is made in the browser, and saved or shared from there. */
 const PST_LOOKS={
   atlas:{n:'Atlas',paper:'#f8fbf9',ink:'#12292a',ink2:'#45605c',accent:'#1d6a5c',veil:0.5,ol:'#262626',
     pal:{'--sea':'#b3cfd8','--sea-2':'#d6eaee','--land':'#f3efd5','--hill':'#e2d2c4','--mount':'#bfb3a6','--forest':'#bfd9a7','--marsh':'#b6d8cb','--arid':'#efd9a4','--polder':'#ebf0b2','--coast':'#86a39d','--terr-a':'.5','--ink':'#12292a','--sheet':'#f8fbf9','--stamp':'#6a3db3','--down':'#b3302a','--accent':'#1d6a5c'}},
@@ -80971,26 +80976,52 @@ const PST_LOOKS={
     pal:{'--sea':'#0a1b1f','--sea-2':'#142e36','--land':'#2b3324','--hill':'#3b3430','--mount':'#55504a','--forest':'#183d24','--marsh':'#173f37','--arid':'#46391c','--polder':'#3a4a1d','--coast':'#416660','--terr-a':'.55','--ink':'#ece2c6','--sheet':'#0f1c22','--stamp':'#b59cf5','--down':'#ff8577','--accent':'#d9b765'}},
   /* the Cartographer's Pack's (lock: the piece that opens it): white lines on blueprint blue, over a surveyor's grid */
   blueprint:{n:'Blueprint',lock:'pl-blueprint',paper:'#1c3d63',ink:'#eef4fb',ink2:'#a9c3e0',accent:'#ffd479',veil:0.5,ol:'#eef4fb',grid:true,
-    pal:{'--sea':'#17375a','--sea-2':'#1f4672','--land':'#2b5a88','--hill':'#30608f','--mount':'#3a6c9c','--forest':'#2b5d82','--marsh':'#295c80','--arid':'#336390','--polder':'#2e5e8b','--coast':'#d6e6f6','--terr-a':'.42','--ink':'#eef4fb','--sheet':'#1c3d63','--stamp':'#ffd479','--down':'#ff9b8a','--accent':'#ffd479'}}
+    pal:{'--sea':'#17375a','--sea-2':'#1f4672','--land':'#2b5a88','--hill':'#30608f','--mount':'#3a6c9c','--forest':'#2b5d82','--marsh':'#295c80','--arid':'#336390','--polder':'#2e5e8b','--coast':'#d6e6f6','--terr-a':'.42','--ink':'#eef4fb','--sheet':'#1c3d63','--stamp':'#ffd479','--down':'#ff9b8a','--accent':'#ffd479'}},
+  /* the Chancery Club's three (club: saved while a member). Chancery: claret ink on ivory, a gilt frame with claret
+     corner blocks, and the member's own Chancery seal pressed beside the foot */
+  chancery:{n:'Chancery',club:true,paper:'#f6f0e1',ink:'#4a1621',ink2:'#7a4a4f',accent:'#b08a2e',veil:0.5,ol:'#4a1621',frame:'gilt',seal:true,
+    pal:{'--sea':'#cfd9d0','--sea-2':'#e0e7dd','--land':'#f1e8cf','--hill':'#e4d5b5','--mount':'#cdbb98','--forest':'#d2dab2','--marsh':'#cbd9c6','--arid':'#eedcaa','--polder':'#e8e6b6','--coast':'#8a6b5a','--terr-a':'.45','--ink':'#4a1621','--sheet':'#f6f0e1','--stamp':'#6b2d5c','--down':'#9c2a2a','--accent':'#b08a2e'}},
+  /* Engraved: a banknote's intaglio in one green ink, the sea in wavy lines, the land hatched and the nation's own
+     cross-hatched, inside a guilloché band */
+  engraved:{n:'Engraved',club:true,paper:'#f3f1e7',ink:'#1f4a3a',ink2:'#4f6f62',accent:'#2f6e55',veil:0.5,ol:'#1f4a3a',frame:'guilloche',engrave:true,
+    pal:{'--sea':'#e3ebe3','--sea-2':'#edf1e9','--land':'#f3f1e7','--hill':'#e6e6d6','--mount':'#d5d8c4','--forest':'#dde7d4','--marsh':'#dbe7de','--arid':'#efebd5','--polder':'#ebeed6','--coast':'#3f6b5a','--terr-a':'.38','--ink':'#1f4a3a','--sheet':'#f3f1e7','--stamp':'#5a3f73','--down':'#9c3b2a','--accent':'#2f6e55'}},
+  /* Watercolour: soft washes on cold-pressed paper, colour pooling along the coasts and the nation's border */
+  watercolour:{n:'Watercolour',club:true,paper:'#fbf7ef',ink:'#2f3a45',ink2:'#6a7480',accent:'#c0603f',veil:0.5,ol:'#2f3a45',frame:'pencil',wash:true,grain:true,
+    pal:{'--sea':'#c9e0e8','--sea-2':'#e0edf1','--land':'#f6efdc','--hill':'#ecdcc4','--mount':'#d9c6ae','--forest':'#d1e3bd','--marsh':'#cde3d6','--arid':'#f4e0b4','--polder':'#eef0c6','--coast':'#8fb0b9','--terr-a':'.4','--ink':'#2f3a45','--sheet':'#fbf7ef','--stamp':'#8a5aa8','--down':'#b5483a','--accent':'#c0603f'}}
 };
-/* a look sold in the Shop: anyone may try it in the dialog, and saving it needs the piece; offered while held or on sale */
-function pstLocked(k){const L=PST_LOOKS[k];if(!L||!L.lock)return false;try{return !(S.nation&&czHolds(S.nation,L.lock,S.nation.cz));}catch(e){return true;}}
-function pstOffered(k){const L=PST_LOOKS[k];return !!L&&(!L.lock||!pstLocked(k)||shopSells('cartopack'));}
+/* a look sold in the Shop: anyone may try it in the dialog, and saving it needs the piece; offered while held or on
+   sale. A Club look: saved while a member, offered to members and while the Club is on sale */
+function pstClubSold(){try{return shopSells('vip')||shopSells('vipyear');}catch(e){return false;}}
+function pstMember(){try{return shopMember();}catch(e){return false;}}
+function pstLocked(k){const L=PST_LOOKS[k];if(!L)return false;if(L.club)return !pstMember();if(!L.lock)return false;try{return !(S.nation&&czHolds(S.nation,L.lock,S.nation.cz));}catch(e){return true;}}
+function pstOffered(k){const L=PST_LOOKS[k];return !!L&&(L.club?pstMember()||pstClubSold():!L.lock||!pstLocked(k)||shopSells('cartopack'));}
+/* print size (the Chancery Club): six times the sheet's units, five on a phone, where a canvas may hold no more than
+   about 16.7 million pixels; the file says 300 dots to the inch, so it prints at its full size */
+const PST_DPI=300;
+function pstPrintK(){return window.matchMedia&&matchMedia('(pointer: coarse)').matches?5:6;}
+function pstSizeOffered(){return pstMember()||pstClubSold();}
+function pstSizeLocked(){return PST.size==='print'&&!pstMember();}
+/* how big a print the picture makes: pixels, and centimetres and inches at 300 dots to the inch */
+function pstPrintTxt(sh,k){const S2=PST_SHAPES[sh]||PST_SHAPES.portrait,w=S2.W*k,h=S2.H*k,cm=v=>Math.round(v/PST_DPI*2.54),inch=v=>Math.round(v/PST_DPI);
+  return `${w.toLocaleString('en-US')} × ${h.toLocaleString('en-US')} pixels, about ${cm(w)} × ${cm(h)} cm (${inch(w)} × ${inch(h)} in)`;}
 /* a look being tried carries a band across it, so a picture of it is not taken for the real thing */
-function pstMark(g,W,H){g.save();g.translate(W/2,H/2);g.rotate(-Math.atan2(H,W)*0.8);const w=Math.hypot(W,H);g.fillStyle='rgba(255,212,121,.92)';g.fillRect(-w/2,-16,w,32);
-  g.fillStyle='#1c3d63';g.font='600 13px '+PST_BODY;g.textAlign='center';g.textBaseline='middle';g.fillText('PREVIEW  ·  THE BLUEPRINT LOOK COMES WITH THE CARTOGRAPHER’S PACK',0,1);g.restore();}
+function pstMark(g,W,H,L){g.save();g.translate(W/2,H/2);g.rotate(-Math.atan2(H,W)*0.8);const w=Math.hypot(W,H);g.fillStyle='rgba(255,212,121,.92)';g.fillRect(-w/2,-16,w,32);
+  const t=L&&L.club?'PREVIEW  ·  THE '+L.n.toUpperCase()+' LOOK COMES WITH THE CHANCERY CLUB':'PREVIEW  ·  THE BLUEPRINT LOOK COMES WITH THE CARTOGRAPHER’S PACK';
+  g.fillStyle='#1c3d63';g.font='600 13px '+PST_BODY;g.textAlign='center';g.textBaseline='middle';g.fillText(t,0,1);g.restore();}
 /* the sheets, in their own units (a picture is k times as many pixels): the map's frame, the name block (tw: the
-   room the name may take), the rule under it, the facts, the rule over the key, the key and the foot */
+   room the name may take), the rule under it, the facts, the rule over the key, the key and the foot; seal: the
+   centre of the Chancery look's seal, clear of the key and the foot */
 const PST_SHAPES={
-  portrait:{n:'Portrait',W:600,H:800,map:[36,168,528,430],head:{cx:300,top:36,size:56,tw:320,arms:[48,40],flag:[474,50]},rule:[36,564,154],facts:{x:40,y:622,cols:3,cw:176},frule:694,key:{x:40,y:716,cols:3,cw:176},foot:{x:300,y:766,a:'center'}},
-  wide:{n:'Wide',W:900,H:560,map:[304,36,560,488],head:{cx:161,top:120,size:46,tw:244,arms:[86,40],flag:[162,50]},rule:[36,286,236],facts:{x:40,y:262,cols:2,cw:126},frule:376,key:{x:40,y:400,cols:2,cw:126},foot:{x:40,y:516,a:'left',two:true}},
-  square:{n:'Square',W:740,H:740,map:[36,152,668,392],head:{cx:370,top:30,size:54,tw:440,arms:[48,36],flag:[614,46]},rule:[36,704,140],facts:{x:40,y:568,cols:3,cw:222},frule:640,key:{x:40,y:662,cols:3,cw:222},foot:{x:370,y:708,a:'center'}}
+  portrait:{n:'Portrait',W:600,H:800,map:[36,168,528,430],head:{cx:300,top:36,size:56,tw:320,arms:[48,40],flag:[474,50]},rule:[36,564,154],facts:{x:40,y:622,cols:3,cw:176},frule:694,key:{x:40,y:716,cols:3,cw:176},foot:{x:300,y:766,a:'center'},seal:[536,746]},
+  wide:{n:'Wide',W:900,H:560,map:[304,36,560,488],head:{cx:161,top:120,size:46,tw:244,arms:[86,40],flag:[162,50]},rule:[36,286,236],facts:{x:40,y:262,cols:2,cw:126},frule:376,key:{x:40,y:400,cols:2,cw:126},foot:{x:40,y:516,a:'left',two:true},seal:[258,512]},
+  square:{n:'Square',W:740,H:740,map:[36,152,668,392],head:{cx:370,top:30,size:54,tw:440,arms:[48,36],flag:[614,46]},rule:[36,704,140],facts:{x:40,y:568,cols:3,cw:222},frule:640,key:{x:40,y:662,cols:3,cw:222},foot:{x:370,y:708,a:'center'},seal:[672,684]}
 };
+const PST_SIZES={screen:{n:'Screen'},print:{n:'Print'}};
 const PST_KEY=[['border','Your border'],['prov','Province'],['river','River'],['road','Road'],['rail','Railway'],['sea','Sea route']];
 const PST_BODY='"Public Sans",system-ui,-apple-system,"Segoe UI",sans-serif',PST_PAD=40,PST_SMAX=2.6;
 const PST_ICON='<svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><rect x="2" y="2.5" width="12" height="11" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M4 11l3-3.4 2 2 1.4-1.4L13 11" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>';
-const PST={look:'atlas',shape:'portrait',open:false,seq:0,cv:null,blob:null,back:null,run:null,noImg:false};
-try{const m=/^([a-z]+)\/([a-z]+)$/.exec(localStorage.getItem('statehood.poster')||'');if(m&&PST_LOOKS[m[1]]&&PST_SHAPES[m[2]]){PST.look=m[1];PST.shape=m[2];}}catch(e){}
+const PST={look:'atlas',shape:'portrait',size:'screen',open:false,seq:0,cv:null,blob:null,back:null,run:null,noImg:false,big:false};
+try{const m=/^([a-z]+)\/([a-z]+)(?:\/([a-z]+))?$/.exec(localStorage.getItem('statehood.poster')||'');if(m&&PST_LOOKS[m[1]]&&PST_SHAPES[m[2]]){PST.look=m[1];PST.shape=m[2];if(m[3]&&PST_SIZES[m[3]])PST.size=m[3];}}catch(e){}
 
 /* kilometres across one pixel of a map drawn at scale s (a hex is AREA_PER_HEX square kilometres) */
 function pstKm(s){return Math.sqrt(AREA_PER_HEX/(1.5*SQ3*HEX_R*HEX_R))/s;}
@@ -81026,15 +81057,38 @@ MAP_LAYERS.push({stage:'terrain',kinds:['visit'],draw:M=>{
   const R=PST.run;if(!R||!R.L.grid||!M.first)return;const g=M.g;g.setTransform(M.dpr,0,0,M.dpr,0,0);g.strokeStyle=M.col.coast;
   for(const [st,a,lw] of [[12,0.14,0.5],[60,0.28,0.9]]){g.beginPath();for(let x=0.5;x<M.w;x+=st){g.moveTo(x,0);g.lineTo(x,M.h);}for(let y=0.5;y<M.h;y+=st){g.moveTo(0,y);g.lineTo(M.w,y);}g.globalAlpha=a;g.lineWidth=lw;g.stroke();}
 }});
+/* the Engraved look (the Chancery Club): a banknote's engraving under the land's colours: the sea in fine wavy lines,
+   the land hatched one way, and the nation's own land hatched the other way too */
+MAP_LAYERS.push({stage:'terrain',kinds:['visit'],draw:M=>{
+  const R=PST.run;if(!R||!R.L.engrave)return;const g=M.g,sea=M.byT[0].concat(M.byT[1]),land=[],own=M.byO.get(R.mi)||[];
+  for(const t of [2,3,4])for(const i of M.byT[t]||[])land.push(i);
+  const lines=(cells,a,lw,path)=>{if(!cells.length)return;g.save();g.beginPath();for(const i of cells)hexFill(g,i,HEX_R+0.6);g.clip();
+    g.setTransform(M.dpr,0,0,M.dpr,0,0);g.beginPath();path();g.globalAlpha=a;g.strokeStyle=M.col.ink;g.lineWidth=lw;g.stroke();g.restore();};
+  lines(sea,0.3,0.45,()=>{for(let y=1.5;y<M.h+2;y+=2.8){g.moveTo(0,y);for(let x=3;x<=M.w+3;x+=3)g.lineTo(x,y+0.6*Math.sin(x*0.3+y*0.7));}});
+  lines(land,0.2,0.4,()=>{for(let x=-M.h;x<M.w;x+=3.2){g.moveTo(x,0);g.lineTo(x+M.h,M.h);}});
+  lines(own,0.24,0.4,()=>{for(let x=0;x<M.w+M.h;x+=3.2){g.moveTo(x,0);g.lineTo(x-M.h,M.h);}});
+}});
+/* the Watercolour look (the Chancery Club): the sea's colour pooled along every coast, as a wash dries darker at its edge */
+MAP_LAYERS.push({stage:'terrain',kinds:['visit'],draw:M=>{
+  const R=PST.run;if(!R||!R.L.wash)return;const g=M.g,sea=M.byT[0].concat(M.byT[1]);if(!sea.length)return;
+  g.beginPath();for(const i of sea)hexFill(g,i,HEX_R+0.4);g.clip();
+  g.beginPath();edgeList(g,sea,(i,j)=>j>=0&&MAP.T[j]>=2);g.lineJoin='round';g.lineCap='round';g.strokeStyle=M.col.coast;
+  for(const [w,a] of [[14,0.06],[8,0.08],[4,0.11],[1.4,0.28]]){g.globalAlpha=a;g.lineWidth=w/M.s;g.stroke();}
+}});
 MAP_LAYERS.push({stage:'over',kinds:['visit'],draw:M=>{
   const R=PST.run;if(!R)return;const g=M.g,T=M.T,mi=R.mi,rest=[];
   for(const t of [2,3,4])for(const i of M.byT[t])if(T.owner[i]!==mi)rest.push(i);
   if(rest.length){g.beginPath();for(const i of rest)hexFill(g,i,HEX_R+0.5);g.globalAlpha=R.L.veil;g.fillStyle=M.col.sheet;g.fill();g.globalAlpha=1;}
   const own=M.byO.get(mi);if(!own)return;
-  g.lineJoin='round';g.lineCap='round';g.beginPath();edgeList(g,own,(i,j)=>j<0||T.owner[j]!==mi);
-  g.globalAlpha=0.3;g.strokeStyle=R.band;g.lineWidth=7/M.s;g.stroke();g.globalAlpha=1;
+  const edge=()=>{g.beginPath();edgeList(g,own,(i,j)=>j<0||T.owner[j]!==mi);};
+  g.lineJoin='round';g.lineCap='round';
+  /* Watercolour: the nation's colour washed in from its border, darkest at the edge, inside the land only */
+  if(R.L.wash){g.save();g.beginPath();for(const i of own)hexFill(g,i,HEX_R+0.5);g.clip();edge();g.strokeStyle=R.band;
+    for(const [w,a] of [[24,0.07],[15,0.09],[9,0.12],[4,0.17]]){g.globalAlpha=a;g.lineWidth=w/M.s;g.stroke();}g.restore();g.globalAlpha=1;edge();}
+  else{edge();g.globalAlpha=0.3;g.strokeStyle=R.band;g.lineWidth=7/M.s;g.stroke();g.globalAlpha=1;}
   /* the Cartographer's Pack's border line, when the nation wears one, in place of the plain line */
   const tb=ctgLook(T.list[mi]).tb;if(tb){g.save();try{ctgBorder(g,M,mi,own,tb,T.list[mi].col,true);}finally{g.restore();}return;}
+  if(R.L.wash){g.globalAlpha=0.85;g.strokeStyle=M.col.ink;g.lineWidth=1.6/M.s;g.stroke();g.globalAlpha=1;return;}
   g.strokeStyle=M.col.ink;g.lineWidth=2.3/M.s;g.stroke();
 }});
 /* the map itself: drawMap onto a canvas of its own, through a hidden canvas that only lends its size, with the
@@ -81147,12 +81201,16 @@ function pstImg(svg,w,h){
   return new Promise(res=>{const im=new Image();im.onload=()=>res(im);im.onerror=()=>res(null);
     im.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(String(svg).replace(/^<svg\b/,`<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}"`));});
 }
-async function pstArt(n,L){
+/* the seal the Chancery look presses beside its foot: the member's own, as shown beside the name, else the wax one */
+function pstSealId(){let x=null;try{x=clubSealOf(S.nation);}catch(e){x=null;}return x&&SEAL_INFO[x.id]?x.id:'csl-member';}
+/* k: the picture's pixels to a sheet unit; a print size asks for the drawings at twice the size, so they stay sharp */
+async function pstArt(n,L,k){
   if(PST.noImg)return {};
   try{
-    const a=czArmsOn(n)?cz(n).a:null,out={};
-    if(a)out.arms=await pstImg(czArmsSVG(a).replace('class="cz-ol"',`stroke="${L.ol}"`),318,378);
-    out.flag=await pstImg(flagSVG(n.flag,'Flag'),468,312);
+    const a=czArmsOn(n)?cz(n).a:null,out={},z=Math.max(1,(k||3)/3);
+    if(a)out.arms=await pstImg(czArmsSVG(a).replace('class="cz-ol"',`stroke="${L.ol}"`),Math.round(318*z),Math.round(378*z));
+    out.flag=await pstImg(flagSVG(n.flag,'Flag'),Math.round(468*z),Math.round(312*z));
+    if(L.seal)out.seal=await pstImg(clubSealSVG(pstSealId()),Math.round(150*z),Math.round(150*z));
     /* a browser that will not let a canvas be read back after such a picture gets the poster without them */
     const im=out.flag||out.arms;
     if(im){const t=document.createElement('canvas');t.width=t.height=2;const q=t.getContext('2d');q.drawImage(im,0,0,2,2);q.getImageData(0,0,1,1);}
@@ -81188,20 +81246,82 @@ function pstFonts(){
   const want=['600 40px '+MAP_FONT,'italic 400 15px '+MAP_FONT,'500 16px '+MAP_FONT,'400 13px '+PST_BODY,'500 13px '+PST_BODY];
   return Promise.race([Promise.all(want.map(f=>document.fonts.load(f).catch(()=>{}))),new Promise(r=>setTimeout(r,1500))]);
 }
-/* the whole sheet, as a canvas; null when the nation is not on the map */
-async function pstRender(lookKey,shapeKey){
+/* the sheet's frame: two ruled lines in the ink. The Chancery look's: a gilt band between gold rules, claret corner
+   blocks with a gold lozenge, and a gold bracket in each inner corner. The Engraved look's: a guilloché, four
+   interlaced waves between two rules, with a rosette in each corner */
+function pstFrame(g,W,H,L){
+  if(L.frame==='gilt'){
+    const o=12,i=19.5,b=i-o;
+    g.globalAlpha=0.18;g.fillStyle=L.accent;g.fillRect(o,o,W-2*o,b);g.fillRect(o,H-i,W-2*o,b);g.fillRect(o,i,b,H-2*i);g.fillRect(W-i,i,b,H-2*i);g.globalAlpha=1;
+    g.strokeStyle=L.accent;g.lineWidth=2.2;g.strokeRect(o,o,W-2*o,H-2*o);g.lineWidth=0.8;g.strokeRect(i,i,W-2*i,H-2*i);
+    for(const [x,y,dx,dy] of [[o,o,1,1],[W-i,o,-1,1],[o,H-i,1,-1],[W-i,H-i,-1,-1]]){
+      g.fillStyle=L.ink;g.fillRect(x,y,b,b);g.fillStyle=L.accent;const cx=x+b/2,cy=y+b/2;
+      g.beginPath();g.moveTo(cx,cy-2.6);g.lineTo(cx+2.6,cy);g.lineTo(cx,cy+2.6);g.lineTo(cx-2.6,cy);g.closePath();g.fill();
+      const ix=dx>0?i:W-i,iy=dy>0?i:H-i;g.strokeStyle=L.accent;g.lineWidth=1;g.beginPath();
+      g.moveTo(ix+dx*3.5,iy+dy*15);g.quadraticCurveTo(ix+dx*3.5,iy+dy*3.5,ix+dx*15,iy+dy*3.5);g.stroke();
+      g.beginPath();g.arc(ix+dx*8,iy+dy*8,1.4,0,Math.PI*2);g.fill();
+    }
+    return;
+  }
+  if(L.frame==='guilloche'){
+    const o=5,i=19.5,c=(o+i)/2,A=4.4;
+    g.strokeStyle=L.ink;g.lineWidth=1.1;g.strokeRect(o,o,W-2*o,H-2*o);g.lineWidth=0.7;g.strokeRect(i,i,W-2*i,H-2*i);
+    g.lineWidth=0.45;g.globalAlpha=0.85;
+    /* one side: the waves die away into its corners, and a whole number of them fit along it */
+    const side=(x0,y0,x1,y1)=>{const len=Math.hypot(x1-x0,y1-y0),ux=(x1-x0)/len,uy=(y1-y0)/len,wl=len/Math.max(1,Math.round(len/15));
+      for(const ph of [0,0.5,1,1.5]){g.beginPath();for(let s=0;s<=len+0.01;s+=1.25){const f=Math.min(1,s/9,(len-s)/9),off=A*f*Math.sin(2*Math.PI*s/wl+ph*Math.PI),x=x0+ux*s-uy*off,y=y0+uy*s+ux*off;if(s)g.lineTo(x,y);else g.moveTo(x,y);}g.stroke();}};
+    side(i,c,W-i,c);side(i,H-c,W-i,H-c);side(c,i,c,H-i);side(W-c,i,W-c,H-i);
+    for(const [x,y] of [[c,c],[W-c,c],[c,H-c],[W-c,H-c]]){
+      for(const ph of [0,Math.PI/6]){g.beginPath();for(let a=0;a<=Math.PI*2+0.01;a+=Math.PI/48){const r=6*(0.45+0.55*Math.abs(Math.cos(3*(a+ph)))),px=x+r*Math.cos(a),py=y+r*Math.sin(a);if(a)g.lineTo(px,py);else g.moveTo(px,py);}g.closePath();g.stroke();}
+      g.beginPath();g.arc(x,y,1.6,0,Math.PI*2);g.stroke();
+    }
+    g.globalAlpha=1;return;
+  }
+  /* the Watercolour look's: two lines ruled by hand in pencil, a little unsteady, running past the corners */
+  if(L.frame==='pencil'){
+    let r=811;const rnd=()=>(r=r*16807%2147483647)/2147483647;g.strokeStyle=L.ink2;g.lineCap='round';
+    for(const [n,lw,a] of [[14,1.1,0.75],[19,0.5,0.55]]){g.lineWidth=lw;g.globalAlpha=a;
+      for(const [x0,y0,x1,y1] of [[n-5,n,W-n+5,n],[n-5,H-n,W-n+5,H-n],[n,n-5,n,H-n+5],[W-n,n-5,W-n,H-n+5]]){
+        const len=Math.hypot(x1-x0,y1-y0),ux=(x1-x0)/len,uy=(y1-y0)/len;g.beginPath();g.moveTo(x0,y0);
+        for(let s=12;s<len;s+=12){const d=(rnd()-0.5)*0.9;g.lineTo(x0+ux*s-uy*d,y0+uy*s+ux*d);}g.lineTo(x1,y1);g.stroke();}}
+    g.globalAlpha=1;g.lineCap='butt';return;
+  }
+  g.strokeStyle=L.ink;g.lineWidth=1.6;g.strokeRect(13,13,W-26,H-26);g.lineWidth=0.6;g.strokeRect(18.5,18.5,W-37,H-37);
+}
+/* the Watercolour look's map: soft blooms of colour laid over it, and its edges fading unevenly into the paper, as a
+   wash runs out (no ruled line round it). c is the map's own picture, k its pixels to a sheet unit; the same every time */
+function pstWash(c,k,L){
+  const t=document.createElement('canvas');t.width=c.width;t.height=c.height;const q=t.getContext('2d');if(!q)return c;
+  let r=2027;const rnd=()=>(r=r*16807%2147483647)/2147483647,w=t.width,h=t.height,cols=[L.pal['--sea'],L.pal['--forest'],L.pal['--arid'],L.accent];
+  q.drawImage(c,0,0);q.globalCompositeOperation='multiply';
+  for(let j=0;j<40;j++){const x=rnd()*w,y=rnd()*h,R=(26+rnd()*80)*k,gr=q.createRadialGradient(x,y,R*0.15,x,y,R);gr.addColorStop(0,cols[Math.floor(rnd()*cols.length)]);gr.addColorStop(1,'rgba(255,255,255,0)');q.globalAlpha=0.07+rnd()*0.07;q.fillStyle=gr;q.fillRect(x-R,y-R,2*R,2*R);}
+  q.globalAlpha=1;q.globalCompositeOperation='destination-in';
+  const f=20*k;for(const [x0,y0,x1,y1] of [[0,0,f,0],[w,0,w-f,0],[0,0,0,f],[0,h,0,h-f]]){const gr=q.createLinearGradient(x0,y0,x1,y1);gr.addColorStop(0,'rgba(0,0,0,0)');gr.addColorStop(1,'#000');q.fillStyle=gr;q.fillRect(0,0,w,h);}
+  /* the edge eaten away here and there */
+  q.globalCompositeOperation='destination-out';
+  for(let j=0;j<44;j++){const side=j%4,u=rnd(),x=side===0?0:side===1?w:u*w,y=side===2?0:side===3?h:u*h,R=(8+rnd()*20)*k,gr=q.createRadialGradient(x,y,0,x,y,R);gr.addColorStop(0,'rgba(0,0,0,'+(0.5+rnd()*0.4).toFixed(2)+')');gr.addColorStop(1,'rgba(0,0,0,0)');q.fillStyle=gr;q.fillRect(x-R,y-R,2*R,2*R);}
+  q.globalCompositeOperation='source-over';return t;
+}
+/* the Watercolour look's paper: a fine grain over the whole sheet, the same on every picture */
+function pstGrain(g,W,H,L){
+  let r=48271;const rnd=()=>(r=r*16807%2147483647)/2147483647;
+  for(let j=0,n=Math.round(W*H/26);j<n;j++){g.globalAlpha=0.04+rnd()*0.06;g.fillStyle=rnd()<0.55?L.ink2:'#ffffff';const s=0.5+rnd()*0.9;g.fillRect(rnd()*W,rnd()*H,s,s);}
+  g.globalAlpha=1;
+}
+/* the whole sheet, as a canvas; null when the nation is not on the map. big: at print size */
+async function pstRender(lookKey,shapeKey,big){
   const n=S.nation,L=PST_LOOKS[lookKey]||PST_LOOKS.atlas,Sh=PST_SHAPES[shapeKey]||PST_SHAPES.portrait;
   if(!n||cellOf(n.loc)<0)return null;
-  const k=pstDensity(),[mx,my,mw,mh]=Sh.map,W=Sh.W,H=Sh.H;
-  await pstFonts();const art=await pstArt(n,L);
+  const k=big?pstPrintK():pstDensity(),[mx,my,mw,mh]=Sh.map,W=Sh.W,H=Sh.H;
+  await pstFonts();const art=await pstArt(n,L,k);
   const M=pstMap(L,mw,mh,k);if(!M)return null;
-  const cv=document.createElement('canvas');cv.width=W*k;cv.height=H*k;cv.className='pst-cv';cv.dataset.look=PST_LOOKS[lookKey]?lookKey:'atlas';cv.dataset.shape=PST_SHAPES[shapeKey]?shapeKey:'portrait';
+  const cv=document.createElement('canvas');cv.width=W*k;cv.height=H*k;cv.className='pst-cv';cv.dataset.look=PST_LOOKS[lookKey]?lookKey:'atlas';cv.dataset.shape=PST_SHAPES[shapeKey]?shapeKey:'portrait';cv.dataset.size=big?'print':'screen';
   cv.setAttribute('role','img');cv.setAttribute('aria-label','Poster of '+n.name+': its land on the map of '+REG.name+', with its name, flag, facts and a key');
   const g=cv.getContext('2d');if(!g)return null;g.scale(k,k);
   g.fillStyle=L.paper;g.fillRect(0,0,W,H);
-  g.strokeStyle=L.ink;g.lineWidth=1.6;g.strokeRect(13,13,W-26,H-26);g.lineWidth=0.6;g.strokeRect(18.5,18.5,W-37,H-37);
+  pstFrame(g,W,H,L);
   /* the map, and what lies on it */
-  g.drawImage(M.c,mx,my,mw,mh);
+  g.drawImage(L.wash?pstWash(M.c,k,L):M.c,mx,my,mw,mh);
   g.save();g.beginPath();g.rect(mx,my,mw,mh);g.clip();
   const pts=[],vcx=(mw/2-M.ox)/M.s,fx=c=>wrapNear(MAP.cx[c],vcx)*M.s+M.ox,fy=c=>MAP.cy[c]*M.s+M.oy,mine=M.T.list[M.mi].id;
   for(let i=0;i<MAP.N;i++)if(M.T.owner[i]===M.mi)pts.push(fx(i),fy(i));
@@ -81211,7 +81331,7 @@ async function pstRender(lookKey,shapeKey){
   pstCompass(g,lf(at.compass)?mx+48:mx+mw-48,tp(at.compass)?my+50:my+mh-42,24,L);
   pstScaleBar(g,at.bar[1]==='l'?mx+6:at.bar[1]==='r'?mx+mw-6:mx+mw/2,tp(at.bar)?my+6:my+mh-30,M.s,L,at.bar[1]);
   pstInset(g,lf(at.inset)?mx+10:mx+mw-122,tp(at.inset)?my+10:my+mh-94,112,84,L,M.T,M.mi,k);
-  g.restore();g.strokeStyle=L.ink;g.lineWidth=1.1;g.strokeRect(mx,my,mw,mh);
+  g.restore();if(!L.wash){g.strokeStyle=L.ink;g.lineWidth=1.1;g.strokeRect(mx,my,mw,mh);}
   /* the name, between the arms and the flag */
   const hd=Sh.head,ty=hd.top+22,pre=String(n.pretitle||'').trim();
   if(art.arms){g.drawImage(art.arms,hd.arms[0],hd.arms[1],60,60*378/318);pstFlag(g,art.flag,n,hd.flag[0],hd.flag[1],L);}
@@ -81236,47 +81356,77 @@ async function pstRender(lookKey,shapeKey){
   const ft=Sh.foot,day='Surveyed '+fmtDate(Date.now());
   if(ft.two){pstText(g,day,ft.x,ft.y,{size:13,fam:PST_BODY,fill:L.ink2});pstText(g,'edictumgame.com',ft.x,ft.y+18,{size:13,w:500,fam:PST_BODY,fill:L.accent});}
   else pstText(g,day+'  ·  edictumgame.com',ft.x,ft.y,{size:13,fam:PST_BODY,fill:L.ink2,a:ft.a});
-  if(pstLocked(lookKey))pstMark(g,W,H);
+  if(L.grain)pstGrain(g,W,H,L);
+  /* the Chancery look's seal, pressed beside the foot, with a soft shadow under the wax */
+  if(L.seal&&art.seal&&Sh.seal){const [sx,sy]=Sh.seal,r=24;g.save();g.shadowColor='rgba(40,10,15,.35)';g.shadowBlur=4*k;g.shadowOffsetY=1.2*k;g.drawImage(art.seal,sx-r,sy-r,2*r,2*r);g.restore();}
+  if(pstLocked(lookKey))pstMark(g,W,H,L);
   return cv;
 }
+/* the picture's file says how many dots to the inch it is meant to print at (a PNG's pHYs chunk, in dots per metre),
+   put after the header or in place of one the browser wrote; any trouble and the picture goes as it was */
+let PST_CRC=null;
+function pstCrc(d){
+  if(!PST_CRC){PST_CRC=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let j=0;j<8;j++)c=c&1?0xedb88320^(c>>>1):c>>>1;PST_CRC[n]=c>>>0;}}
+  let c=0xffffffff;for(let i=0;i<d.length;i++)c=PST_CRC[(c^d[i])&255]^(c>>>8);return (c^0xffffffff)>>>0;
+}
+function pstPhys(a,dpi){
+  const tag=(o,t)=>a[o+4]===t.charCodeAt(0)&&a[o+5]===t.charCodeAt(1)&&a[o+6]===t.charCodeAt(2)&&a[o+7]===t.charCodeAt(3);
+  if(a.length<45||a[0]!==0x89||!tag(8,'IHDR'))return a;
+  const ppm=Math.round(dpi/0.0254),c=new Uint8Array(21),v=new DataView(c.buffer);
+  v.setUint32(0,9);c.set([112,72,89,115],4);v.setUint32(8,ppm);v.setUint32(12,ppm);c[16]=1;v.setUint32(17,pstCrc(c.subarray(4,17)));
+  const dv=new DataView(a.buffer,a.byteOffset,a.byteLength);let o=8,at=-1;
+  while(o+12<=a.length){const len=dv.getUint32(o);if(tag(o,'pHYs')){at=o;break;}if(tag(o,'IDAT')||tag(o,'IEND'))break;o+=12+len;}
+  const out=at>=0?new Uint8Array(a.length):new Uint8Array(a.length+21),cut=at>=0?at:33;
+  out.set(a.subarray(0,cut),0);out.set(c,cut);out.set(a.subarray(at>=0?at+21:33),cut+21);
+  return out;
+}
+async function pstDpi(b,dpi){try{return new Blob([pstPhys(new Uint8Array(await b.arrayBuffer()),dpi)],{type:'image/png'});}catch(e){return b;}}
 
 /* the dialog: the look and the shape, the picture, and Save (and Share, where the browser can share a file) */
 function pstCanShare(){try{return !!(navigator.share&&navigator.canShare&&typeof File==='function'&&navigator.canShare({files:[new File([new Uint8Array(1)],'p.png',{type:'image/png'})]}));}catch(e){return false;}}
-function pstFile(n){return shopSlug(n.name)+'-poster-'+PST.look+'-'+PST.shape+'.png';}
+function pstFile(n){return shopSlug(n.name)+'-poster-'+PST.look+'-'+PST.shape+(PST.big?'-print':'')+'.png';}
 function pstHTML(n){
-  const seg=(act,cur,list,lab)=>`<div class="pst-grp"><span class="pst-lab" id="pst-l-${act}">${lab}</span><div class="pst-seg" role="group" aria-labelledby="pst-l-${act}">${Object.keys(list).filter(k=>act!=='look'||pstOffered(k)).map(k=>`<button type="button" class="pst-opt" data-act="pst-${act}" data-v="${k}" aria-pressed="${k===cur}">${list[k].n}${act==='look'&&pstLocked(k)?CZ_LOCK:''}</button>`).join('')}</div></div>`;
+  const seg=(act,id,keys,cur,list,lab,lock)=>keys.length?`<div class="pst-grp"><span class="pst-lab" id="pst-l-${id}">${lab}</span><div class="pst-seg" role="group" aria-labelledby="pst-l-${id}">${keys.map(k=>`<button type="button" class="pst-opt" data-act="pst-${act}" data-v="${k}" aria-pressed="${k===cur}">${list[k].n}${lock&&lock(k)?CZ_LOCK:''}</button>`).join('')}</div></div>`:'';
+  /* the free looks (and the pack's) with the shapes; the Chancery Club's looks and the size after them */
+  const looks=Object.keys(PST_LOOKS).filter(pstOffered),free=looks.filter(k=>!PST_LOOKS[k].club),club=looks.filter(k=>PST_LOOKS[k].club);
   return `<div class="pst-modal" role="dialog" aria-modal="true" aria-labelledby="pst-h"><button type="button" class="pst-scrim" data-act="pst-close" aria-label="Close" tabindex="-1"></button>
     <div class="pst-sheet"><button type="button" class="pst-x linkish small" data-act="pst-close" id="pst-x">Close</button>
     <p class="eyebrow">World map</p><h2 class="pst-h" id="pst-h">Poster of ${esc(n.name)}</h2>
     <p class="pst-sum">Your nation as a map to keep or to share. The picture is made here in your browser.</p>
-    <div class="pst-ctl">${seg('look',PST.look,PST_LOOKS,'Look')}${seg('shape',PST.shape,PST_SHAPES,'Shape')}</div>
+    <div class="pst-ctl">${seg('look','look',free,PST.look,PST_LOOKS,'Look',pstLocked)}${seg('shape','shape',Object.keys(PST_SHAPES),PST.shape,PST_SHAPES,'Shape')}${seg('look','club',club,PST.look,PST_LOOKS,'Chancery Club',pstLocked)}${pstSizeOffered()?seg('size','size',Object.keys(PST_SIZES),PST.size,PST_SIZES,'Size',k=>k==='print'&&!pstMember()):''}</div>
     <div class="pst-stage" id="pst-stage" aria-live="polite"></div>
     <div class="row pst-acts" id="pst-acts">${pstActs()}</div>
     <p class="pst-note" id="pst-note" role="status"></p></div></div>`;
 }
-/* Save and Share; for a look being tried, the way to the pack instead */
+/* Save and Share; for a look or a size being tried, the way to the pack or the Club instead */
 function pstActs(){
-  if(pstLocked(PST.look))return `<p class="pst-lockn">${CZ_LOCK} The ${esc(PST_LOOKS[PST.look].n)} look is part of the Cartographer’s Pack. Try it here as often as you like; saving it needs the pack.</p><button type="button" class="btn" data-act="ctg-shop">See the Cartographer’s Pack</button>`;
-  return `<button type="button" class="btn" data-act="pst-save" id="pst-save"${PST.blob?'':' disabled'}>Save picture</button>${pstCanShare()?`<button type="button" class="btn ghost" data-act="pst-share" id="pst-share"${PST.blob?'':' disabled'}>Share</button>`:''}`;
+  const L=PST_LOOKS[PST.look],club=`<button type="button" class="btn" data-act="pst-club">See the Chancery Club</button>`;
+  if(L&&L.club&&pstLocked(PST.look))return `<p class="pst-lockn">${CZ_LOCK} The ${esc(L.n)} look comes with the Chancery Club. Try it here as often as you like; saving it needs a membership.</p>${club}`;
+  if(pstLocked(PST.look))return `<p class="pst-lockn">${CZ_LOCK} The ${esc(L.n)} look is part of the Cartographer’s Pack. Try it here as often as you like; saving it needs the pack.</p><button type="button" class="btn" data-act="ctg-shop">See the Cartographer’s Pack</button>`;
+  if(pstSizeLocked())return `<p class="pst-lockn">${CZ_LOCK} Print size comes with the Chancery Club: ${esc(pstPrintTxt(PST.shape,pstPrintK()))} at ${PST_DPI} dots to the inch. The picture here is the screen size.</p>${club}`;
+  return `<button type="button" class="btn" data-act="pst-save" id="pst-save"${PST.blob?'':' disabled'}>Save picture</button>${pstCanShare()?`<button type="button" class="btn ghost" data-act="pst-share" id="pst-share"${PST.blob?'':' disabled'}>Share</button>`:''}${PST.size==='print'?`<p class="pst-sizen">Print size: ${esc(pstPrintTxt(PST.shape,pstPrintK()))} at ${PST_DPI} dots to the inch.</p>`:''}`;
 }
 function pstNote(t){const e=document.getElementById('pst-note');if(e)e.textContent=t||'';}
 function pstReady(on){for(const id of ['pst-save','pst-share']){const b=document.getElementById(id);if(b)b.disabled=!on;}}
-function pstStat(name){try{if(typeof window.edictumStat==='function')window.edictumStat(name,{look:Object.keys(PST_LOOKS).indexOf(PST.look),shape:Object.keys(PST_SHAPES).indexOf(PST.shape)});}catch(e){}}
+function pstStat(name){try{if(typeof window.edictumStat==='function')window.edictumStat(name,{look:Object.keys(PST_LOOKS).indexOf(PST.look),shape:Object.keys(PST_SHAPES).indexOf(PST.shape),print:PST.big?1:0});}catch(e){}}
 function pstDraw(){
-  const id=++PST.seq,stage=document.getElementById('pst-stage');PST.cv=null;PST.blob=null;pstReady(false);pstNote('');
-  if(stage)stage.innerHTML='<p class="pst-wait">Drawing the poster…</p>';
+  const id=++PST.seq,stage=document.getElementById('pst-stage'),big=PST.size==='print'&&!pstSizeLocked()&&!pstLocked(PST.look);
+  PST.cv=null;PST.blob=null;PST.big=big;pstReady(false);pstNote('');
+  if(stage)stage.innerHTML=`<p class="pst-wait">${big?'Drawing the poster at print size. This takes a few seconds…':'Drawing the poster…'}</p>`;
   requestAnimationFrame(()=>setTimeout(async()=>{
-    let cv=null;try{cv=await pstRender(PST.look,PST.shape);}catch(e){cv=null;}
+    let cv=null;try{cv=await pstRender(PST.look,PST.shape,big);}catch(e){cv=null;}
     if(id!==PST.seq||!PST.open)return;
     const st=document.getElementById('pst-stage');if(!st)return;
-    if(!cv){st.innerHTML='<p class="pst-wait">The poster could not be drawn here. Try another look or shape.</p>';return;}
+    if(!cv){st.innerHTML=`<p class="pst-wait">${big?'This browser could not draw a picture that large. Try the screen size.':'The poster could not be drawn here. Try another look or shape.'}</p>`;return;}
     PST.cv=cv;st.innerHTML='';st.appendChild(cv);
-    try{cv.toBlob(b=>{if(id!==PST.seq||!b)return;PST.blob=b;pstReady(true);},'image/png');}
+    try{cv.toBlob(b=>{if(id!==PST.seq)return;
+      if(!b){pstNote(big?'This browser could not make a picture that large. Try the screen size.':'Your browser would not make the picture.');return;}
+      (big?pstDpi(b,PST_DPI):Promise.resolve(b)).then(b2=>{if(id!==PST.seq)return;PST.blob=b2;pstReady(true);});},'image/png');}
     catch(e){if(!PST.noImg){PST.noImg=true;pstDraw();}else pstNote('Your browser would not make the picture.');}
   },20));
 }
 function pstShow(){
-  const n=S.nation;if(!n||cellOf(n.loc)<0)return;if(!pstOffered(PST.look))PST.look='atlas';
+  const n=S.nation;if(!n||cellOf(n.loc)<0)return;if(!pstOffered(PST.look))PST.look='atlas';if(!pstSizeOffered())PST.size='screen';
   let el=document.getElementById('pst-root');if(!el){el=document.createElement('div');el.id='pst-root';document.body.appendChild(el);}
   PST.open=true;el.innerHTML=pstHTML(n);const x=document.getElementById('pst-x');if(x)x.focus();pstDraw();
 }
@@ -81285,12 +81435,12 @@ function pstHide(){
   const b=PST.back;PST.back=null;const to=b&&b.isConnected?b:document.querySelector('[data-act="poster-open"]');if(to)to.focus();
 }
 function pstSave(){
-  const n=S.nation,b=PST.blob;if(!n||!b||pstLocked(PST.look))return;const name=pstFile(n),a=document.createElement('a');
+  const n=S.nation,b=PST.blob;if(!n||!b||pstLocked(PST.look)||PST.big&&!pstMember())return;const name=pstFile(n),a=document.createElement('a');
   a.href=URL.createObjectURL(b);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},500);
   pstNote('Saved as '+name+'.');pstStat('poster_saved');achPend('pst');
 }
 function pstShare(){
-  const n=S.nation,b=PST.blob;if(!n||!b||pstLocked(PST.look))return;
+  const n=S.nation,b=PST.blob;if(!n||!b||pstLocked(PST.look)||PST.big&&!pstMember())return;
   try{navigator.share({files:[new File([b],pstFile(n),{type:'image/png'})],title:'Map of '+n.name,text:n.name+' on Edictum · edictumgame.com'}).then(()=>{pstStat('poster_shared');achPend('pst');},e=>{if(!e||e.name!=='AbortError')pstNote('Sharing did not work here. Save the picture instead.');});}
   catch(e){pstNote('Sharing did not work here. Save the picture instead.');}
 }
@@ -81299,10 +81449,12 @@ document.addEventListener('click',e=>{
   if(a==='poster-open'){e.preventDefault();PST.back=el;pstShow();return;}
   if(!PST.open||!el.closest('#pst-root'))return;
   if(a==='pst-close')pstHide();
-  else if(a==='pst-look'||a==='pst-shape'){
-    const v=el.dataset.v;if(a==='pst-look'&&PST_LOOKS[v])PST.look=v;if(a==='pst-shape'&&PST_SHAPES[v])PST.shape=v;
-    document.querySelectorAll('#pst-root .pst-opt').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.v===(b.dataset.act==='pst-look'?PST.look:PST.shape))));
-    try{localStorage.setItem('statehood.poster',PST.look+'/'+PST.shape);}catch(err){}
+  else if(a==='pst-club'){e.preventDefault();pstHide();SHOP.dr='vip';SHOP.drNew=true;go('shop');}
+  else if(a==='pst-look'||a==='pst-shape'||a==='pst-size'){
+    const v=el.dataset.v;if(a==='pst-look'&&PST_LOOKS[v])PST.look=v;if(a==='pst-shape'&&PST_SHAPES[v])PST.shape=v;if(a==='pst-size'&&PST_SIZES[v])PST.size=v;
+    const cur={'pst-look':PST.look,'pst-shape':PST.shape,'pst-size':PST.size};
+    document.querySelectorAll('#pst-root .pst-opt').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.v===cur[b.dataset.act])));
+    try{localStorage.setItem('statehood.poster',PST.look+'/'+PST.shape+'/'+PST.size);}catch(err){}
     {const ac=document.getElementById('pst-acts');if(ac)ac.innerHTML=pstActs();}
     pstDraw();
   }
@@ -81326,7 +81478,7 @@ mapBox=(f=>function(kind){const h=f.apply(this,arguments),n=S.nation;if(kind!=='
 
 /* the browser tests' window into the game: test/lib.mjs sets EDICTUM_PROBE before the page loads (a
    player's own browser can reach all of this anyway) */
-if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({RPATCH,SC:()=>scProbe(),MTP:()=>({MTP,MTP_PAD,TBMP_SCALE,redrawMaps,mapScale,viewOf}),SCR:()=>({scrOf,scrClean,scrDef,scrFamOf,scrEdParse,scrGlyphs,scrLay,scrChars,scrSVG,scrLine,scrCard,scrCharterSVG,scrFmt,scrFor,dmRich,dmPlain,scrDmWith,SCR_FAM,SCR_ABC,SCS}),BDX:()=>bdProbe(),FLY:()=>({flagSVG,fgSplit,fgFused}),RD:()=>rdProbe(),JV:()=>jvProbe(),M100P:()=>({M100,M100_N,M100_MC,M100_MCN,m100Bits,m100Got,m100In,m100Due,m100Count,m100Show,m100Open,ctgMcOk,nationColor,czShOk,czShieldPath,unlocksOf,czPatSVG,xsMax}),M200P:()=>({M200,M200_N,M200_MC,M200_MCN,M200_U,m200Bits,m200Got,m200In,m200Due,m200Count,m200Show,m200Open,ctgMcOk,nationColor,czShOk,czShieldPath,unlocksOf,czPatSVG,czStampArt,czFrameArt,czCharge,czFramed,flagSVG,xsMax,ACH_BY_ID,achEarnedIds}),WTN:()=>({WN,wbMap,wnKind,wnWaters,wnSync,wnAt,wnRename,wnReset,wnNameProblem,wnTaken,wnPanel,wnLabels,lakeMap,isLake,cellAt,WN_REACH,WTN_MAX,REG,RV,rvData,hexDist,territory,MAP,HEX_W,updateMapPanel,logLine}),RVN:()=>({RV,rvData,rvSync,rvKey,rvHeld,rvStretch,rvMost,rvEdgeHolder,rvAt,rvNameAt,rvLabelAt,rvParts,rvRename,rvReset,rvNameProblem,rvTidy,rvLabel,rvnPanel,logLine,RVN_MAX,RVN_LEN,updateMapPanel,hexDist,HEX_W,REG}),CP2:()=>({BLD_ICO,bldIco,bldLead,cxDefTotal,cxOrder,qjBuilding,BUILDINGS}),PRVC:()=>({cxPrvOf,cxPrvSeatTrial,cxOvwCols,prvSeat,prvMine,prvOfCell,prvSetAut,prvAppoint,PRV}),NPX:()=>({fbTrend,fbYesterday,heroLead,heroOpen,opOf,OPEN_TO,hnOf,hnFill,hnLine,nbSection,ppWho,ppWhoHTML,ppHash,ppCarried,economy,territory,bordersOf,fillDeal,findNation,clsHide,MAP,hexDist,STAT_KEYS,popNow,myId}),PT:()=>ptProbe(),LTH:()=>lthProbe(),DAM:()=>damProbe(),CHAT:()=>({RGC,RGW,RGF,tab:rgcTab(),count:rgcCount(),region:rgcUnread(),world:rgwUnread(),named:rgwNamedUnread(),fr:rgwUnread(RGF),frNamed:rgwNamedUnread(RGF),frOn:rgfOn(),hidden:document.hidden}),UXP2:()=>({edictDesk,edictStep,edictOpen,fill,ISSUE_BY_ID,ACH,keysOpen,dmOthers,dmPickList,stGroups,stTabLast,navRecent,vhData,VH_KEY,VH_AFTER,QJ_DO,qjItems:q=>navQjItems(q),NAV_REC_KEY,ST_KEY}),HID:()=>({HIDN,hidMask,iAmHidden,frontier,mapPanel,warControls}),WG:()=>({wgTakers,wgForField,wgForPick,warGiveHex,warGive,occupiedFrom,attack,offerPeace,declareWar,collectConquests,dedupeConq}),WAKE:()=>({dormFresh,dormQuiet,dormWelcome,moveTo,RSTAT,REGIONS,REG,regDisabled}),HMB:()=>({RCTRL,hmBake,hmAutoFlag,fxDraw,capHolder,FX_DEF,DEF_FLAG,hmRle,hmLiveNorm,hmMapNorm,hmSel,hmRegions,hmBlocked,hmEngaged:()=>hmEngaged,HM,REG,MAP}),LAND:()=>({landWait,capLift,capWrong,capNote,raceKnown,RACE,worldHeardAt:()=>worldHeardAt,landQ:()=>S.landQ,landQueued,fdSites:(n,T)=>fdSites(n,T)}),BG:{gain:bldGain,html:bldGainHtml},IB:()=>({agRoster,agPick,agStatus,heatOf,cvRoll,cvKey,cvBlock,cvOdds,buLv,buGap,buAll,BU,BU_KEYS,ibFile,ibWanted,ibChatter,HEAT_MAX,DD_TASKS,DD_LEG,findNation,allNations,cvProtected}),VL:()=>({VL_SECS,VL_DEF,CLS,CLS_OPS,CLS_READ,vlOrder,clsOf,clsRaw,clsMax,clsSeen,clsHide,clsRead,vlSave,findNation}),IFC:()=>({plan:ifcPlan,works:ifcWorks,line:ifcLine,tab:ifcTab}),XP:()=>({BUILDINGS,XU,XU_KEYS,XU_TOTAL,LOST_KINDS,LOST_ORDER,xuLv,xuWhy,xuHave,xuStart,xuCost,xuGear,xpSeen,expFree,xpTeamOpen,nationBuilt,expBackTeam,SITES,SITE_KINDS,expPlan,expOdds,expRuns,expRange,flRange,flAlive,flPlan,flDebug,flNow,discoveries,sendExpedition,hearReport,xpRoute,xpRivals,xpRivalText,xpFinds,flOdds,territory}),SVC:()=>({SVC,SVC_N,SVC_V,SVC_NEED,svcPlan,svcOpen,svcDig,svcShort,svcRoll,svcAmt,svcDayOf,svcRoom,svcNext}),FLC:()=>({FLC,FLC_RULES,FLC_CAT,flcId,flcTimes,flcPhase,flcPrev,flcView,flcLoad,flcChamp,flcTodo,flcClaims,flcLand,flcStreak,flcAllDone,flcSeen,flcDuty,flcDeskOn,flcDraftPush,FCA}),LK:{lakeMap,isLake,claimLand,lakeShore,fillHeld,LAKE_MAX,LAKE_A,freeCell,claimFrontier,blockPlan,autoPlan,terrCount,placePhrase,claimWhy,swapCheck,inspectPanel,writeClaims,landCredits:n=>landCredits(n)},PST:()=>({PST,PST_LOOKS,PST_SHAPES,pstBar,pstKm,pstView,pstBox,pstPlace,pstKeyOf,pstRender,pstShow,pstHide}),DIG:()=>({DIG_SETS,DIG_FIRST,DIG_POOL,DIG_SITES,DIG_LEN,DIG_EVENTS,DIG_SCH,digSet,digHeld,digDone,digRew,digCredits,digOrder,digActive,digRetired,digOpenedAt,digPlan,digSend,digOpen,digChoose,digMod,digEvent,digPity,digGround,digInvites,digJoin,digJointOn,digGiftsIn,digTake,digGiveSpare,digSellSpare,digHire,digRegionFinds,digFirsts,landEarned:n=>landEarned(n),REG,REGIONS,COL_BY_ID}),MW:()=>({mwOf,mwPoints,mwVisitors,mwTakings,mwExhibit,mwExhibitItems,mwRanking,mwWorn,mwSlots,mwOnShow,COL_BY_ID,COL_ITEMS,DIG_SETS,MW_FLOORS}),GM:()=>({gamesResults,edOf,b1Now,gevWhy,baseScores,entryOf,medalsIn,gamesRecords,gamesCeremony,unlocksOf,myId,formOf,GAME_EVENTS,clone,commit}),GB:()=>({IRON_DEP,IRON_DEP_YIELD,CELL_RES,MAP_T:MAP.T,mapAt:c=>{centerMain(c,NEAR_Z*1.6);},stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,FOOD_SPOIL,FOOD_EAT,FOOD_TIERS,FOOD_LAND,foodTier,TIMBER_BURN,foodGrowth,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({dspShown,dspRegShown,dspRegs,dspPic,dspLocator,dspHtDefs,pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),ASMX:()=>({ASMX,ASMX_TABS,asmBookAt,asmState,asmArcLoad,REG}),RGNX:()=>({RGN,RGN_PAGE,notifItems,ONL,onlRefresh}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals}),TYX:()=>({TY,TY_RULES,TY_K,tyOf,tyList,tyWarBlock,tyIncoming,affinity,alPactLive,alRelationsHTML,econOf,armyPower,armyRaw,attackMult,readyMs,drWords,drNote,drBroken,relationCard}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,achTierCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC,step:rcStepCheck,head:rcHead,sponsoring:rcSponsoring,qr:qrMatrix,card:rcCardDraw,invCap:rcInvCap,free:rcFreeLand,STEPS:RC_STEPS,UNL:RC_UNLOCKS}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend,card:n=>tutCard(n),phase:n=>tutPhase(n),picks:(n,ph)=>tutPicks(n,ph),group:(n,k)=>tutGroup(n,tutL(k)),hid:n=>tutHid(n)},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours},WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR,bell:now=>notifItems(now||Date.now())},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},TIER:()=>({BTIER,bEff,bTier,bTierNext,bTierLine,tierQuote,tierProblem,cxTier,cxTrMap,tierSettle,tierReady,cxGoldNow,cxUpQuote,cxUpList,cxUps}),CX:{upgradable:cxUpgradable,mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState,UG:CX_UG,LV:CX_LV,ups:cxUps,upMap:cxUpMap,extras:cxBldExtras,quote:cxUpQuote},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo,unlockTarget,unlockShow,unlockFresh,unlockQueue,ULK,UNLOCKS,unlocksOf,toast:m=>toast(m)},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{coinBackSVG:cuCoinBackSVG,noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,coinSVG:cuCoinSVG,guide:cuGuideHTML,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,drawMap,sfKey,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ACH_RANKS_V1,ID_BD,achVal,achCtx,achEvalNew,achState,stockRates:n=>stockRates(n),achPoints,achRank,achRankOf,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,flagNorm:(f,n)=>flagNorm(f,n),flagSVG:(f,l)=>flagSVG(f,l),mapTip:id=>{const T=mapTerr('main'),i=T.list.findIndex(x=>x.id===id);if(i<0)return '';const cell=Array.prototype.indexOf.call(T.owner,i);return MAP_TIP.map(h=>{try{return h({kind:'main',cell,cv:null,x:0,y:0});}catch(e){return '';}}).filter(x=>typeof x==='string').join(' | ');},cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
+if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({RPATCH,SC:()=>scProbe(),MTP:()=>({MTP,MTP_PAD,TBMP_SCALE,redrawMaps,mapScale,viewOf}),SCR:()=>({scrOf,scrClean,scrDef,scrFamOf,scrEdParse,scrGlyphs,scrLay,scrChars,scrSVG,scrLine,scrCard,scrCharterSVG,scrFmt,scrFor,dmRich,dmPlain,scrDmWith,SCR_FAM,SCR_ABC,SCS}),BDX:()=>bdProbe(),FLY:()=>({flagSVG,fgSplit,fgFused}),RD:()=>rdProbe(),JV:()=>jvProbe(),M100P:()=>({M100,M100_N,M100_MC,M100_MCN,m100Bits,m100Got,m100In,m100Due,m100Count,m100Show,m100Open,ctgMcOk,nationColor,czShOk,czShieldPath,unlocksOf,czPatSVG,xsMax}),M200P:()=>({M200,M200_N,M200_MC,M200_MCN,M200_U,m200Bits,m200Got,m200In,m200Due,m200Count,m200Show,m200Open,ctgMcOk,nationColor,czShOk,czShieldPath,unlocksOf,czPatSVG,czStampArt,czFrameArt,czCharge,czFramed,flagSVG,xsMax,ACH_BY_ID,achEarnedIds}),WTN:()=>({WN,wbMap,wnKind,wnWaters,wnSync,wnAt,wnRename,wnReset,wnNameProblem,wnTaken,wnPanel,wnLabels,lakeMap,isLake,cellAt,WN_REACH,WTN_MAX,REG,RV,rvData,hexDist,territory,MAP,HEX_W,updateMapPanel,logLine}),RVN:()=>({RV,rvData,rvSync,rvKey,rvHeld,rvStretch,rvMost,rvEdgeHolder,rvAt,rvNameAt,rvLabelAt,rvParts,rvRename,rvReset,rvNameProblem,rvTidy,rvLabel,rvnPanel,logLine,RVN_MAX,RVN_LEN,updateMapPanel,hexDist,HEX_W,REG}),CP2:()=>({BLD_ICO,bldIco,bldLead,cxDefTotal,cxOrder,qjBuilding,BUILDINGS}),PRVC:()=>({cxPrvOf,cxPrvSeatTrial,cxOvwCols,prvSeat,prvMine,prvOfCell,prvSetAut,prvAppoint,PRV}),NPX:()=>({fbTrend,fbYesterday,heroLead,heroOpen,opOf,OPEN_TO,hnOf,hnFill,hnLine,nbSection,ppWho,ppWhoHTML,ppHash,ppCarried,economy,territory,bordersOf,fillDeal,findNation,clsHide,MAP,hexDist,STAT_KEYS,popNow,myId}),PT:()=>ptProbe(),LTH:()=>lthProbe(),DAM:()=>damProbe(),CHAT:()=>({RGC,RGW,RGF,tab:rgcTab(),count:rgcCount(),region:rgcUnread(),world:rgwUnread(),named:rgwNamedUnread(),fr:rgwUnread(RGF),frNamed:rgwNamedUnread(RGF),frOn:rgfOn(),hidden:document.hidden}),UXP2:()=>({edictDesk,edictStep,edictOpen,fill,ISSUE_BY_ID,ACH,keysOpen,dmOthers,dmPickList,stGroups,stTabLast,navRecent,vhData,VH_KEY,VH_AFTER,QJ_DO,qjItems:q=>navQjItems(q),NAV_REC_KEY,ST_KEY}),HID:()=>({HIDN,hidMask,iAmHidden,frontier,mapPanel,warControls}),WG:()=>({wgTakers,wgForField,wgForPick,warGiveHex,warGive,occupiedFrom,attack,offerPeace,declareWar,collectConquests,dedupeConq}),WAKE:()=>({dormFresh,dormQuiet,dormWelcome,moveTo,RSTAT,REGIONS,REG,regDisabled}),HMB:()=>({RCTRL,hmBake,hmAutoFlag,fxDraw,capHolder,FX_DEF,DEF_FLAG,hmRle,hmLiveNorm,hmMapNorm,hmSel,hmRegions,hmBlocked,hmEngaged:()=>hmEngaged,HM,REG,MAP}),LAND:()=>({landWait,capLift,capWrong,capNote,raceKnown,RACE,worldHeardAt:()=>worldHeardAt,landQ:()=>S.landQ,landQueued,fdSites:(n,T)=>fdSites(n,T)}),BG:{gain:bldGain,html:bldGainHtml},IB:()=>({agRoster,agPick,agStatus,heatOf,cvRoll,cvKey,cvBlock,cvOdds,buLv,buGap,buAll,BU,BU_KEYS,ibFile,ibWanted,ibChatter,HEAT_MAX,DD_TASKS,DD_LEG,findNation,allNations,cvProtected}),VL:()=>({VL_SECS,VL_DEF,CLS,CLS_OPS,CLS_READ,vlOrder,clsOf,clsRaw,clsMax,clsSeen,clsHide,clsRead,vlSave,findNation}),IFC:()=>({plan:ifcPlan,works:ifcWorks,line:ifcLine,tab:ifcTab}),XP:()=>({BUILDINGS,XU,XU_KEYS,XU_TOTAL,LOST_KINDS,LOST_ORDER,xuLv,xuWhy,xuHave,xuStart,xuCost,xuGear,xpSeen,expFree,xpTeamOpen,nationBuilt,expBackTeam,SITES,SITE_KINDS,expPlan,expOdds,expRuns,expRange,flRange,flAlive,flPlan,flDebug,flNow,discoveries,sendExpedition,hearReport,xpRoute,xpRivals,xpRivalText,xpFinds,flOdds,territory}),SVC:()=>({SVC,SVC_N,SVC_V,SVC_NEED,svcPlan,svcOpen,svcDig,svcShort,svcRoll,svcAmt,svcDayOf,svcRoom,svcNext}),FLC:()=>({FLC,FLC_RULES,FLC_CAT,flcId,flcTimes,flcPhase,flcPrev,flcView,flcLoad,flcChamp,flcTodo,flcClaims,flcLand,flcStreak,flcAllDone,flcSeen,flcDuty,flcDeskOn,flcDraftPush,FCA}),LK:{lakeMap,isLake,claimLand,lakeShore,fillHeld,LAKE_MAX,LAKE_A,freeCell,claimFrontier,blockPlan,autoPlan,terrCount,placePhrase,claimWhy,swapCheck,inspectPanel,writeClaims,landCredits:n=>landCredits(n)},PST:()=>({PST,PST_LOOKS,PST_SHAPES,PST_SIZES,pstBar,pstKm,pstView,pstBox,pstPlace,pstKeyOf,pstRender,pstShow,pstHide,pstLocked,pstOffered,pstSizeOffered,pstPrintK,pstSealId,pstPhys,pstCrc}),DIG:()=>({DIG_SETS,DIG_FIRST,DIG_POOL,DIG_SITES,DIG_LEN,DIG_EVENTS,DIG_SCH,digSet,digHeld,digDone,digRew,digCredits,digOrder,digActive,digRetired,digOpenedAt,digPlan,digSend,digOpen,digChoose,digMod,digEvent,digPity,digGround,digInvites,digJoin,digJointOn,digGiftsIn,digTake,digGiveSpare,digSellSpare,digHire,digRegionFinds,digFirsts,landEarned:n=>landEarned(n),REG,REGIONS,COL_BY_ID}),MW:()=>({mwOf,mwPoints,mwVisitors,mwTakings,mwExhibit,mwExhibitItems,mwRanking,mwWorn,mwSlots,mwOnShow,COL_BY_ID,COL_ITEMS,DIG_SETS,MW_FLOORS}),GM:()=>({gamesResults,edOf,b1Now,gevWhy,baseScores,entryOf,medalsIn,gamesRecords,gamesCeremony,unlocksOf,myId,formOf,GAME_EVENTS,clone,commit}),GB:()=>({IRON_DEP,IRON_DEP_YIELD,CELL_RES,MAP_T:MAP.T,mapAt:c=>{centerMain(c,NEAR_Z*1.6);},stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,FOOD_SPOIL,FOOD_EAT,FOOD_TIERS,FOOD_LAND,foodTier,TIMBER_BURN,foodGrowth,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({dspShown,dspRegShown,dspRegs,dspPic,dspLocator,dspHtDefs,pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),ASMX:()=>({ASMX,ASMX_TABS,asmBookAt,asmState,asmArcLoad,REG}),RGNX:()=>({RGN,RGN_PAGE,notifItems,ONL,onlRefresh}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals}),TYX:()=>({TY,TY_RULES,TY_K,tyOf,tyList,tyWarBlock,tyIncoming,affinity,alPactLive,alRelationsHTML,econOf,armyPower,armyRaw,attackMult,readyMs,drWords,drNote,drBroken,relationCard}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,achTierCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC,step:rcStepCheck,head:rcHead,sponsoring:rcSponsoring,qr:qrMatrix,card:rcCardDraw,invCap:rcInvCap,free:rcFreeLand,STEPS:RC_STEPS,UNL:RC_UNLOCKS}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend,card:n=>tutCard(n),phase:n=>tutPhase(n),picks:(n,ph)=>tutPicks(n,ph),group:(n,k)=>tutGroup(n,tutL(k)),hid:n=>tutHid(n)},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours},WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR,bell:now=>notifItems(now||Date.now())},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},TIER:()=>({BTIER,bEff,bTier,bTierNext,bTierLine,tierQuote,tierProblem,cxTier,cxTrMap,tierSettle,tierReady,cxGoldNow,cxUpQuote,cxUpList,cxUps}),CX:{upgradable:cxUpgradable,mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState,UG:CX_UG,LV:CX_LV,ups:cxUps,upMap:cxUpMap,extras:cxBldExtras,quote:cxUpQuote},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo,unlockTarget,unlockShow,unlockFresh,unlockQueue,ULK,UNLOCKS,unlocksOf,toast:m=>toast(m)},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{coinBackSVG:cuCoinBackSVG,noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,coinSVG:cuCoinSVG,guide:cuGuideHTML,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,drawMap,sfKey,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ACH_RANKS_V1,ID_BD,achVal,achCtx,achEvalNew,achState,stockRates:n=>stockRates(n),achPoints,achRank,achRankOf,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,flagNorm:(f,n)=>flagNorm(f,n),flagSVG:(f,l)=>flagSVG(f,l),mapTip:id=>{const T=mapTerr('main'),i=T.list.findIndex(x=>x.id===id);if(i<0)return '';const cell=Array.prototype.indexOf.call(T.owner,i);return MAP_TIP.map(h=>{try{return h({kind:'main',cell,cv:null,x:0,y:0});}catch(e){return '';}}).filter(x=>typeof x==='string').join(' | ');},cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
 /* ───────── Letters by post: the player's email address, confirmed by a code, and the letters they choose ─────────
    Settings › Letters by post (src/shim.js mail; functions/mail.js). The address lives only on the server; this card
    asks for it each time Settings opens. Things this nation does to another player's nation (a letter, a war, a deal)

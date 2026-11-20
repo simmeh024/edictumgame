@@ -7,7 +7,8 @@ import fs from 'node:fs';
 
 const html = fs.readFileSync(new URL('../game/edictum.html', import.meta.url), 'utf8');
 function fn(name) {
-  const at = html.indexOf('\nfunction ' + name + '(');
+  let at = html.indexOf('\nfunction ' + name + '(');
+  if (at < 0) at = html.indexOf('\nasync function ' + name + '(');
   assert.ok(at >= 0, name + ' is found');
   let i = html.indexOf('{', at), depth = 0;
   for (; i < html.length; i++) { const ch = html[i]; if (ch === '{') depth++; else if (ch === '}' && --depth === 0) break; }
@@ -17,9 +18,10 @@ const consts = html.slice(html.indexOf('const PST_LOOKS={'), html.indexOf('const
 assert.ok(consts.includes('PST_SHAPES') && consts.includes('PST_SMAX'), 'the poster’s tables are found');
 const P = new Function(`
   const HEX_R=10,SQ3=Math.sqrt(3),HEX_W=SQ3*HEX_R,AREA_PER_HEX=12500,MAP_PW=HEX_W*120,MAP_FONT='serif';
+  let PST_CRC=null;
   ${consts}
-  ${['pstKm', 'pstBar', 'pstView', 'pstPlace', 'pstText', 'pstTitle'].map(fn).join('\n')}
-  return {PST_LOOKS,PST_SHAPES,PST_KEY,PST_PAD,PST_SMAX,HEX_R,HEX_W,MAP_PW,AREA_PER_HEX,pstKm,pstBar,pstView,pstPlace,pstText,pstTitle};`)();
+  ${['pstKm', 'pstBar', 'pstView', 'pstPlace', 'pstText', 'pstTitle', 'pstCrc', 'pstPhys'].map(fn).join('\n')}
+  return {PST_LOOKS,PST_SHAPES,PST_SIZES,PST_KEY,PST_PAD,PST_SMAX,PST_DPI,HEX_R,HEX_W,MAP_PW,AREA_PER_HEX,pstKm,pstBar,pstView,pstPlace,pstText,pstTitle,pstPrintTxt,pstCrc,pstPhys};`)();
 /* a canvas that only measures: every letter half as wide as the type is tall, and what was written where */
 function paper() {
   const out = [], g = { font: '', letterSpacing: '0px', textAlign: '', textBaseline: '', fillStyle: '', measureText: s => ({ width: String(s).length * parseFloat(/([\d.]+)px/.exec(g.font)[1]) * 0.5 }), fillText: (t, x, y) => out.push({ t, x, y, size: parseFloat(/([\d.]+)px/.exec(g.font)[1]) }) };
@@ -38,9 +40,85 @@ test('every look brings every colour the map reads, so no poster borrows from th
     assert.equal(L.pal['--sheet'], L.paper, `${id}: names on the map sit on the sheet’s own paper`);
     assert.ok(L.veil > 0.3 && L.veil < 0.8, `${id}: other land is paled, not hidden`);
   }
-  assert.deepEqual(Object.keys(P.PST_LOOKS), ['atlas', 'antique', 'night', 'blueprint']);
-  /* the Cartographer's Pack's look: tried by anyone, saved only with the piece; the three others are free */
+  assert.deepEqual(Object.keys(P.PST_LOOKS), ['atlas', 'antique', 'night', 'blueprint', 'chancery', 'engraved', 'watercolour']);
+  /* the Cartographer's Pack's look: tried by anyone, saved only with the piece; the Chancery Club's three: tried by
+     anyone, saved by members; the three others are free */
   assert.deepEqual(Object.entries(P.PST_LOOKS).filter(([, L]) => L.lock).map(([k, L]) => k + ':' + L.lock), ['blueprint:pl-blueprint']);
+  assert.deepEqual(Object.entries(P.PST_LOOKS).filter(([, L]) => L.club).map(([k]) => k), ['chancery', 'engraved', 'watercolour']);
+  assert.ok(Object.values(P.PST_LOOKS).every(L => !(L.lock && L.club)), 'no look is both the pack’s and the Club’s');
+  /* what makes each of the Club's its own */
+  const { chancery: C, engraved: E, watercolour: W } = P.PST_LOOKS;
+  assert.ok(C.frame === 'gilt' && C.seal && E.frame === 'guilloche' && E.engrave && W.frame === 'pencil' && W.wash && W.grain, 'gilt and a seal; a guilloché and an engraving; washes on grained paper in a pencilled frame');
+  for (const L of Object.values(P.PST_LOOKS)) if (!L.club) assert.ok(!L.frame && !L.seal && !L.engrave && !L.wash && !L.grain, L.n + ' is as it was');
+});
+
+test('the Chancery look’s seal sits on each sheet inside the frame, clear of the key and the foot', () => {
+  const r = 24, inner = 19.5, w = (t, z) => String(t).length * z * 0.56;
+  for (const [id, S] of Object.entries(P.PST_SHAPES)) {
+    assert.ok(Array.isArray(S.seal) && S.seal.length === 2, id + ' has a place for the seal');
+    const [x, y] = S.seal, box = [x - r - 3, y - r - 3, x + r + 3, y + r + 3], hit = b => b[0] < box[2] && box[0] < b[2] && b[1] < box[3] && box[1] < b[3];
+    assert.ok(box[0] > inner && box[1] > S.frule && box[2] < S.W - inner && box[3] < S.H - inner, `${id}: inside the frame and under the rule over the key`);
+    const K = S.key;
+    P.PST_KEY.forEach(([, name], i) => { const kx = K.x + (i % K.cols) * K.cw, ky = K.y + Math.floor(i / K.cols) * 22; assert.ok(!hit([kx, ky - 12, kx + 34 + w(name, 13), ky + 4]), `${id}: clear of “${name}” in the key`); });
+    const F = S.foot, longest = 'Surveyed 30 September 2026', line = F.two ? [[longest, F.y], ['edictumgame.com', F.y + 18]] : [[longest + '  ·  edictumgame.com', F.y]];
+    for (const [t, fy] of line) { const tw = w(t, 13), fx = F.a === 'center' ? F.x - tw / 2 : F.x; assert.ok(!hit([fx, fy - 12, fx + tw, fy + 4]), `${id}: clear of the foot`); }
+    if (id === 'wide') assert.ok(box[2] < S.map[0], 'wide: in the left column, beside the map');
+  }
+});
+
+test('print size: six times the sheet (five on a phone, under a phone’s canvas limit), said in pixels and centimetres', () => {
+  assert.deepEqual(Object.keys(P.PST_SIZES), ['screen', 'print']);
+  assert.equal(P.PST_DPI, 300);
+  assert.match(fn('pstPrintK'), /\(pointer: coarse\)'\)\.matches\?5:6;/);
+  for (const [id, S] of Object.entries(P.PST_SHAPES)) {
+    assert.ok(S.W * 5 * S.H * 5 <= 16777216, `${id} at five times fits a phone’s canvas: ${S.W * 5 * S.H * 5}`);
+    assert.ok(S.W * 6 >= 3600 || S.H * 6 >= 3600, `${id}: at least 3600 pixels along one side`);
+  }
+  assert.equal(P.pstPrintTxt('portrait', 6), '3,600 × 4,800 pixels, about 30 × 41 cm (12 × 16 in)');
+  assert.equal(P.pstPrintTxt('wide', 6), '5,400 × 3,360 pixels, about 46 × 28 cm (18 × 11 in)');
+  assert.equal(P.pstPrintTxt('square', 5), '3,700 × 3,700 pixels, about 31 × 31 cm (12 × 12 in)');
+});
+
+test('a print-size picture says it prints at 300 dots to the inch: one pHYs chunk, after the header, true to its checksum', () => {
+  const be = v => [v >>> 24 & 255, v >>> 16 & 255, v >>> 8 & 255, v & 255];
+  const chunk = (type, data) => { const td = [...Buffer.from(type, 'latin1'), ...data]; return [...be(data.length), ...td, ...be(P.pstCrc(Uint8Array.from(td)))]; };
+  const sig = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a], ihdr = chunk('IHDR', [0, 0, 0, 2, 0, 0, 0, 2, 8, 6, 0, 0, 0]), idat = chunk('IDAT', [120, 156, 99, 0, 0, 0, 1, 0, 1]), iend = chunk('IEND', []);
+  /* the checksum is the PNG one: IEND's is well known */
+  assert.deepEqual(iend.slice(-4), [0xae, 0x42, 0x60, 0x82]);
+  const chunks = a => { const out = []; for (let o = 8; o + 12 <= a.length;) { const len = (a[o] << 24 | a[o + 1] << 16 | a[o + 2] << 8 | a[o + 3]) >>> 0, type = String.fromCharCode(...a.slice(o + 4, o + 8)), data = [...a.slice(o + 8, o + 8 + len)], crc = [...a.slice(o + 8 + len, o + 12 + len)]; out.push({ type, data, ok: JSON.stringify(crc) === JSON.stringify(be(P.pstCrc(Uint8Array.from([...Buffer.from(type, 'latin1'), ...data])))) }); o += 12 + len; } return out; };
+  const ppm = Math.round(300 / 0.0254);
+  /* a picture with none: one is put after the header */
+  const png = Uint8Array.from([...sig, ...ihdr, ...idat, ...iend]), out = P.pstPhys(png, 300), c = chunks(out);
+  assert.deepEqual(c.map(x => x.type), ['IHDR', 'pHYs', 'IDAT', 'IEND']);
+  assert.ok(c.every(x => x.ok), 'every checksum holds');
+  assert.deepEqual(c[1].data, [...be(ppm), ...be(ppm), 1], '11,811 dots a metre each way, in metres');
+  assert.equal(out.length, png.length + 21);
+  assert.deepEqual([...out.slice(0, 33)], [...png.slice(0, 33)], 'the header is untouched');
+  /* a picture with one already (a browser's 72 dots to the inch): it is replaced, not doubled */
+  const old = Uint8Array.from([...sig, ...ihdr, ...chunk('pHYs', [...be(2835), ...be(2835), 1]), ...idat, ...iend]), again = chunks(P.pstPhys(old, 300));
+  assert.deepEqual(again.map(x => x.type), ['IHDR', 'pHYs', 'IDAT', 'IEND']);
+  assert.deepEqual(again[1].data, [...be(ppm), ...be(ppm), 1]);
+  assert.ok(again.every(x => x.ok));
+  /* anything that is not a PNG goes back as it came */
+  const junk = Uint8Array.from([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46]);
+  assert.equal(P.pstPhys(junk, 300), junk);
+});
+
+test('the Club’s looks and the print size are tried by anyone and saved only by members', () => {
+  /* a Club look is locked unless a member, and offered to members and while the Club is on sale */
+  assert.match(fn('pstLocked'), /if\(L\.club\)return !pstMember\(\);/);
+  assert.match(fn('pstOffered'), /L\.club\?pstMember\(\)\|\|pstClubSold\(\)/);
+  assert.match(fn('pstClubSold'), /shopSells\('vip'\)\|\|shopSells\('vipyear'\)/);
+  assert.match(fn('pstSizeLocked'), /PST\.size==='print'&&!pstMember\(\)/);
+  /* a locked look carries the preview band and offers the Club in place of Save; a locked size draws the screen size */
+  assert.match(fn('pstRender'), /if\(pstLocked\(lookKey\)\)pstMark\(g,W,H,L\);/);
+  assert.match(fn('pstMark'), /COMES WITH THE CHANCERY CLUB/);
+  assert.match(fn('pstActs'), /data-act="pst-club"/);
+  assert.match(fn('pstDraw'), /big=PST\.size==='print'&&!pstSizeLocked\(\)&&!pstLocked\(PST\.look\)/);
+  for (const f of ['pstSave', 'pstShare']) assert.match(fn(f), /pstLocked\(PST\.look\)\|\|PST\.big&&!pstMember\(\)\)return/, f + ' refuses what is only being tried');
+  /* the Shop's comparison and the perk list name them */
+  assert.match(fn('clubCompare'), /'Posters of your nation'/);
+  assert.match(html, /<li><b>Three Club looks for the poster of your nation<\/b>/);
 });
 
 test('each sheet holds its parts inside its frame, clear of one another', () => {
