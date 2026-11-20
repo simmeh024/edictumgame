@@ -298,7 +298,7 @@ test('a record of another region is left on the charted map for its own page', (
 test("normalize keeps another region's record on the charted map, and moves its own", () => {
   const gk = mapKit(src, 'greywater'), mk = mapKit(src, 'meridian');
   const i = src.indexOf('const FWD_MAX='), j = src.indexOf('\n', src.indexOf('const MAP_KEEP=')) + 1;
-  const ctx = vm.createContext({ remapLegacy: d => d, remapFront: remapper('greywater'), JSON, Proxy, Reflect, Set, REG: gk.REG, REG_BY_ID: REGS,
+  const ctx = vm.createContext({ MAP_VER: 5, window: {}, remapLegacy: d => d, remapFront: remapper('greywater'), JSON, Proxy, Reflect, Set, REG: gk.REG, REG_BY_ID: REGS,
     // the real normalizeR2 marks every record version 5 and keeps land only from a record already on it
     normalizeR2: d => ({ name: d.name, reg: d.reg, cv: 5, claims: d.cv === 5 ? d.claims : [], conq: d.cv === 5 ? d.conq : [] }) });
   vm.runInContext(src.slice(i, j).replace(/\bconst (FWD_MAX|MAP_KEEP)/g, 'var $1'), ctx);

@@ -114,8 +114,10 @@ service cloud.firestore {
     // v 1 holds it in j (text); v 2 deflated in z (bytes, functions/nationtext.js), a fifth of the size or less.
     function validNation(d) {
       return d.keys().hasAll(['v', 'reg', 'name', 'updatedAt', 'ts'])
-        && d.keys().hasOnly(['v', 'j', 'z', 'reg', 'name', 'updatedAt', 'ts', 'pop', 'army', 'cl', 'rev', 'storageV', 'permit', 'iq'])
+        && d.keys().hasOnly(['v', 'j', 'z', 'reg', 'name', 'updatedAt', 'ts', 'pop', 'army', 'cl', 'rev', 'storageV', 'permit', 'iq', 'mv'])
         && (!('storageV' in d) || (d.storageV is int && d.storageV == 1))
+        // mv: the map version the saving page numbers hexes on (the game's MAP_VER; src/shim.js, encode)
+        && (!('mv' in d) || (d.mv is int && d.mv >= 1 && d.mv <= 999))
         && (!('iq' in d) || (d.iq is int && d.iq == 1))
         && (!('rev' in d) || (d.rev is int && d.rev > 0))
         && ((d.v == 1 && !('z' in d) && d.j is string && d.j.size() > 2 && d.j.size() <= 750000)
@@ -204,6 +206,10 @@ service cloud.firestore {
         // iq: the nation has held more than five waiting edicts (the Chancery Club's desk); from then on a build that
         // would cut the queue back to five may not save it
         && (!('iq' in resource.data) || request.resource.data.get('iq', 0) == resource.data.iq)
+        // mv: no page of an older map saves over a record a newer map's page saved: its hex numbers are another grid's,
+        // and the older page reads the nation's capital, cities and land as lost (Lévice, 19 Nov 2026). A save without mv
+        // comes from a build before it was written, which is map version 5 (the frontier) or older.
+        && request.resource.data.get('mv', 5) >= resource.data.get('mv', 0)
         && nextRevision(request.resource.data)
         && summarised(uid, request.resource.data) && paced(1) && !banned(uid);
       allow delete: if isSelf(uid) || isAdmin();
