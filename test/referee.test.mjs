@@ -214,3 +214,35 @@ test('a non-aggression pact, or a pact between the two alliances, stops the batt
   assert.equal((await battle(a, { d: b.uid, p: 0.5 })).ok, true, 'rivals fight');
   for (const p of ['treaties/' + tid, 'allyOf/' + a.uid, 'allyOf/' + b.uid, 'alliances/al-n']) await del(p);
 });
+
+test('joint military training stops the battle like a pact; whoever broke it fights 10% the weaker; it readies an army sooner', async () => {
+  const a = await guest(), b = await guest(), c = await guest();
+  await nation(a.uid, {}, 1); await nation(b.uid, { wars: { [a.uid]: { t: 1 } } }, 1000); await nation(c.uid);
+  const tid = 'drill_' + [a.uid, b.uid].sort().join('_'), put = (path, fields) => doc(path, { method: 'PATCH', body: JSON.stringify({ fields }) });
+  const v = x => typeof x === 'string' ? { stringValue: x } : typeof x === 'boolean' ? { booleanValue: x } : Number.isInteger(x) ? { integerValue: String(x) } : Array.isArray(x) ? { arrayValue: { values: x.map(v) } } : { mapValue: { fields: Object.fromEntries(Object.entries(x).map(([k, y]) => [k, v(y)])) } };
+  const fields = o => Object.fromEntries(Object.entries(o).map(([k, x]) => [k, v(x)]));
+  const base = { k: 'drill', reg: 'meridian', p: [a.uid, b.uid].sort(), a: a.uid, b: b.uid, t: 1, at: 1 };
+  await put('treaties/' + tid, fields({ ...base, st: 'active' }));
+  const r1 = await battle(a, { d: b.uid, p: 0.5 });
+  assert.equal(r1.ok, false); assert.equal(r1.why, 'pact');
+  /* the defender broke it: the attacker's army counts 10% more in the bound */
+  await put('treaties/' + tid, fields({ ...base, st: 'broken', bt: Date.now(), by: b.uid }));
+  const r2 = await battle(a, { d: b.uid, p: 0.9 });
+  assert.ok(r2.ok && Math.abs(r2.p - 22 / 1022) < 1e-3, 'the breaker defends 10% the weaker: ' + r2.p);
+  /* the attacker broke it: the defender's army counts 10% more */
+  await put('treaties/' + tid, fields({ ...base, st: 'broken', bt: Date.now(), by: a.uid }));
+  const r3 = await battle(a, { d: b.uid, p: 0.9 });
+  assert.ok(r3.ok && Math.abs(r3.p - 20 / 1120) < 1e-3, 'the breaker attacks 10% the weaker: ' + r3.p);
+  /* off the record after 30 days */
+  await put('treaties/' + tid, fields({ ...base, st: 'broken', bt: Date.now() - 31 * 86400000, by: a.uid }));
+  const r4 = await battle(a, { d: b.uid, p: 0.9 });
+  assert.ok(r4.ok && Math.abs(r4.p - 20 / 1020) < 1e-3, 'a month on, no edge: ' + r4.p);
+  /* readiness: a point 14.4 minutes after the last is not back yet, unless a training pact readies it 5% sooner */
+  const tc = 'drill_' + [a.uid, c.uid].sort().join('_'), spent = () => put('armies/' + a.uid, fields({ r: 0, at: Date.now() - 14.4 * 60000, n: 1, w: 0 }));
+  await spent();
+  assert.equal((await battle(a)).why, 'ready');
+  await put('treaties/' + tc, fields({ k: 'drill', reg: 'meridian', p: [a.uid, c.uid].sort(), a: a.uid, b: c.uid, st: 'active', t: 1, at: 1 }));
+  await spent();
+  assert.equal((await battle(a)).ok, true, 'a training pact readies the army sooner');
+  for (const p of ['treaties/' + tid, 'treaties/' + tc]) await del(p);
+});
