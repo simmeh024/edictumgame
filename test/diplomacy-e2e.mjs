@@ -159,7 +159,11 @@ await A.evaluate(() => G.commit(structuredClone(G.S.nation)));
 check('the save declares the trained army', await until(() => A.evaluate(() => { const T = G.TYX(), n = G.S.nation, d = (T.econOf(n) || {}).drill || 0, want = T.armyRaw(n, null) * (1 + d); return d > 0 && Math.abs(n.apw - want) <= 0.01 * want + 0.002; }), 8000));
 check('the Treaties tab says what it adds', await until(async () => { await A.click('#dp-tab-treaties'); return /to your army, with your Barracks/.test(await text(A, '#dp-p-treaties')) && /⚔️/.test(await text(A, '#dp-p-treaties')); }, 8000));
 check('war on a training partner is refused, and says why', /joint military training pact/.test(await A.evaluate(id => G.TYX().tyWarBlock(id), ub)) || /non-aggression pact with/.test(await A.evaluate(id => G.TYX().tyWarBlock(id), ub)));
-check('B’s page on A shows A’s army, from the training', await until(() => B.evaluate(id => { try { return /Their army, from joint training/.test(G.TYX().relationCard(G.findNation(id))); } catch (e) { return false; } }, ua), 10000));
+let lastSeen = null;
+const seen = await until(async () => { const r = await B.evaluate(id => { try { const x = G.allNations().find(y => y.id === id), h = G.TYX().relationCard(x); return { ok: /Their army, from joint training/.test(h), ty: !!G.TYX().tyOf(G.myId(), id, 'drill'), x: !!x, len: h.length }; } catch (e) { return { ok: false, err: String(e && e.message) }; } }, ua); return r.ok ? r : (lastSeen = r, null); }, 10000);
+check('B’s page on A shows A’s army, from the training', !!seen, JSON.stringify(seen || lastSeen));
+/* the form goes back to a non-aggression pact for the computer nation below */
+await A.click('#dp-tab-treaties'); await A.check('input[name="dpt-k"][value="nap"]');
 /* a computer nation with values close to ours (not the one that will attack later): signed at once */
 const tnpc = await A.evaluate(() => { const P = G.ALX().politics(), skip = G.allNations().find(x => x.npc && !P.of.get(x.id))?.id;
   return G.allNations().filter(x => x.npc && x.id !== skip).map(x => ({ id: x.id, nm: x.n.name, af: G.TYX().affinity(x.n, G.S.nation) })).sort((a, b) => b.af - a.af)[0]; });
