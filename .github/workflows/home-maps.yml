@@ -1,0 +1,90 @@
+# Once a night, the front page's region maps (jobs/stats/home-maps.mjs): for every region with player nations, who holds
+# each hex and where each capital stands, worked out by the game itself (its own territory(), in a headless browser, on
+# the site built from main) and written to home/map-<region>, which the front page draws on the region's terrain. The
+# land changes slowly; the counters and the live bar are the five-minute Front page figures workflow's (home.yml).
+# GitHub runs scheduled workflows from the default branch only.
+#
+# Needs, under Settings > Secrets and variables > Actions (the same as Deploy and Statistics):
+#   secret   FIREBASE_SERVICE_ACCOUNT  the service account key JSON; it needs to read and write Firestore
+#   variable FIREBASE_PROJECT_ID       the Firebase project id
+# Run by hand (Actions > Front page maps > Run workflow), with target staging to use FIREBASE_SERVICE_ACCOUNT_STAGING
+# and FIREBASE_STAGING_PROJECT_ID instead. Without them the workflow says so and does nothing.
+name: Front page maps
+
+on:
+  schedule:
+    - cron: '37 2 * * *'
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'Which project: live or staging'
+        type: choice
+        options: [live, staging]
+        default: live
+
+permissions:
+  contents: read
+
+concurrency:
+  group: home-maps-${{ inputs.target || 'live' }}
+  cancel-in-progress: false
+
+jobs:
+  bake:
+    name: Draw the front page's region maps
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      PROJECT_ID: ${{ inputs.target == 'staging' && vars.FIREBASE_STAGING_PROJECT_ID || vars.FIREBASE_PROJECT_ID }}
+      HAS_SERVICE_ACCOUNT: ${{ (inputs.target == 'staging' && secrets.FIREBASE_SERVICE_ACCOUNT_STAGING || secrets.FIREBASE_SERVICE_ACCOUNT) != '' }}
+    steps:
+      - name: Check the repository settings
+        id: settings
+        run: |
+          if [ "$HAS_SERVICE_ACCOUNT" != "true" ] || [ -z "$PROJECT_ID" ]; then
+            msg="The front page maps job did not run: the repository is missing the service account secret or the project id variable for this target (README.md, Owner setup)."
+            echo "::warning title=Front page maps skipped::$msg"
+            { echo "### Front page maps skipped"; echo; echo "$msg"; } >> "$GITHUB_STEP_SUMMARY"
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check out
+        if: steps.settings.outputs.ready == 'true'
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        if: steps.settings.outputs.ready == 'true'
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            jobs/stats/package-lock.json
+
+      - name: Install the site's and the job's pinned packages
+        if: steps.settings.outputs.ready == 'true'
+        run: |
+          npm ci
+          npm ci --prefix jobs/stats
+
+      - name: Install Chromium for Playwright
+        if: steps.settings.outputs.ready == 'true'
+        uses: ./.github/actions/playwright-chromium
+
+      - name: Build the site
+        if: steps.settings.outputs.ready == 'true'
+        run: python3 build.py
+
+      - name: Draw the maps
+        if: steps.settings.outputs.ready == 'true'
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ inputs.target == 'staging' && secrets.FIREBASE_SERVICE_ACCOUNT_STAGING || secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          key="$RUNNER_TEMP/service-account.json"
+          trap 'rm -f "$key"' EXIT
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$key"
+          GOOGLE_APPLICATION_CREDENTIALS="$key" node jobs/stats/home-maps.mjs --project "$PROJECT_ID" | tee "$RUNNER_TEMP/report.json"
+          { echo "### Front page maps"; echo; echo '```json'; cat "$RUNNER_TEMP/report.json"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"

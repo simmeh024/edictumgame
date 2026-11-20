@@ -1,0 +1,77 @@
+# Every five minutes, the front page's live figures (jobs/stats/home.mjs, functions/home.js): the counters, each region's
+# counts and the latest public events, written to home/live, which every visitor of the front page reads once. GitHub
+# runs scheduled workflows from the default branch only, and may start them a few minutes late; the page shows the last
+# figures meanwhile. The region maps are the nightly Front page maps workflow's (home-maps.yml).
+#
+# Needs, under Settings > Secrets and variables > Actions (the same as Deploy and Statistics):
+#   secret   FIREBASE_SERVICE_ACCOUNT  the service account key JSON; it needs to read and write Firestore
+#   variable FIREBASE_PROJECT_ID       the Firebase project id
+# Run by hand (Actions > Front page figures > Run workflow) with target staging to use FIREBASE_SERVICE_ACCOUNT_STAGING
+# and FIREBASE_STAGING_PROJECT_ID instead. Without them the workflow says so and does nothing.
+name: Front page figures
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'Which project: live or staging'
+        type: choice
+        options: [live, staging]
+        default: live
+
+permissions:
+  contents: read
+
+concurrency:
+  group: home-${{ inputs.target || 'live' }}
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: Gather the front page's figures
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    env:
+      PROJECT_ID: ${{ inputs.target == 'staging' && vars.FIREBASE_STAGING_PROJECT_ID || vars.FIREBASE_PROJECT_ID }}
+      HAS_SERVICE_ACCOUNT: ${{ (inputs.target == 'staging' && secrets.FIREBASE_SERVICE_ACCOUNT_STAGING || secrets.FIREBASE_SERVICE_ACCOUNT) != '' }}
+    steps:
+      - name: Check the repository settings
+        id: settings
+        run: |
+          if [ "$HAS_SERVICE_ACCOUNT" != "true" ] || [ -z "$PROJECT_ID" ]; then
+            msg="The front page figures job did not run: the repository is missing the service account secret or the project id variable for this target (README.md, Owner setup)."
+            echo "::warning title=Front page figures skipped::$msg"
+            { echo "### Front page figures skipped"; echo; echo "$msg"; } >> "$GITHUB_STEP_SUMMARY"
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check out
+        if: steps.settings.outputs.ready == 'true'
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        if: steps.settings.outputs.ready == 'true'
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: jobs/stats/package-lock.json
+
+      - name: Install the job's pinned packages
+        if: steps.settings.outputs.ready == 'true'
+        run: npm ci --prefix jobs/stats
+
+      - name: Write the figures
+        if: steps.settings.outputs.ready == 'true'
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ inputs.target == 'staging' && secrets.FIREBASE_SERVICE_ACCOUNT_STAGING || secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          key="$RUNNER_TEMP/service-account.json"
+          trap 'rm -f "$key"' EXIT
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$key"
+          GOOGLE_APPLICATION_CREDENTIALS="$key" node jobs/stats/home.mjs --project "$PROJECT_ID" | tee "$RUNNER_TEMP/report.json"
+          { echo "### Front page figures"; echo; echo '```json'; cat "$RUNNER_TEMP/report.json"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"

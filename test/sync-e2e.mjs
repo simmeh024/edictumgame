@@ -240,6 +240,9 @@ const countRevision = route => { revisionAsks++; return route.continue(); };
 await B.ctx.route(/\/Listen\/channel/, stall);
 await B.ctx.route(/mask\.fieldPaths=rev/, countRevision);
 await B.reload(); await B.waitForSelector('.layout'); await saved(B);
+// saved() reads this browser's own copy, settled from storage the moment the page loads; Synced waits for the page's
+// first read of the account's save from the server. A save made before that read would simply be loaded by it.
+await until(async () => await status(B) === 'Synced', 15000);
 await edit(A, 'Heard without a listener'); await saved(A);
 check('a phone whose listener is down still loads a save from the desktop', await until(async () => (await localNation(B)).motto === 'Heard without a listener', 20000));
 check('it asked the server for its revision alone', revisionAsks > 0, String(revisionAsks));

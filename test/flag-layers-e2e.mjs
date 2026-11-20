@@ -12,6 +12,7 @@ const near=(a,b)=>Math.abs(a-b)<=.6;
 const flagBox=p=>p.locator('#fg-st .fs-flag > svg').first().boundingBox();
 /* the guest recovery dialog takes focus when it opens, so it is acknowledged before any focus is checked */
 const A=await player('flag layers desktop',{recovery:true}),uid=await open(A);await A.waitForSelector('#d-name');
+await A.click('[data-act="hm-custom"]');await A.waitForSelector('#found-form');
 check('founding keeps the base flag designer and defers layers',await A.locator('#d-fgd').isVisible()&&await A.locator('[data-fgg="d:layers"]').count()===0);
 await A.fill('#d-name','Layerland');await A.click('#found-btn');await A.waitForSelector('.layout');
 await A.waitForSelector('#ed-recovery-code',{timeout:25000});await A.click('[data-ed="recovery-saved"]');await nav(A,'nation');
