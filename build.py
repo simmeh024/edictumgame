@@ -161,8 +161,10 @@ def game_loader(scripts):
     adds them, in order (async=false). Compiling the game blocks the page for seconds on a phone, so the front
     page's own text must be on screen first. A tab in the background (no frames) adds them at once, and so
     does the load event, at the latest. A failed download of one marked True shows the loader's retry message
-    (window.__edictum.bootError)."""
-    return ('(function(){var L=%s,d=document;function pre(){if(pre.d)return;pre.d=1;L.forEach(function(x){var l=d.createElement("link");'
+    (window.__edictum.bootError). One with a third entry 'fr' loads only when the game is set to French (the
+    game's LANG_KEY, statehood.lang.v1, in this browser)."""
+    return ('(function(){var L=%s.filter(function(x){if(!x[2])return 1;try{return localStorage.getItem("statehood.lang.v1")===x[2]}'
+            'catch(e){return 0}}),d=document;function pre(){if(pre.d)return;pre.d=1;L.forEach(function(x){var l=d.createElement("link");'
             'l.rel="preload";l.as="script";l.href=x[0];d.head.appendChild(l)})}'
             'function go(){if(go.d)return;go.d=1;pre();window.__edictum.loading=1;L.forEach(function(x){var s=d.createElement("script");'
             's.src=x[0];s.async=false;if(x[1])s.onerror=function(){window.__edictum.bootError()};d.body.appendChild(s)})}'
@@ -170,7 +172,7 @@ def game_loader(scripts):
             'if(d.hidden||!window.requestAnimationFrame)go();else{frame(pre);'
             'var f=d.fonts&&d.fonts.ready?Promise.race([d.fonts.ready,new Promise(function(r){setTimeout(r,1500)})]):Promise.resolve();'
             'f.then(function(){frame(go)});setTimeout(go,3000);window.addEventListener("load",go)}})();'
-            % json.dumps([[u, bool(f)] for u, f in scripts]))
+            % json.dumps([[x[0], bool(x[1])] + list(x[2:]) for x in scripts]))
 
 
 def font_preloader(urls):
@@ -413,6 +415,16 @@ def main():
         fail('the game no longer marks where the shop catalogue goes (/*SHOP_CATALOGUE*/null)')
     catalogue = json.loads(read(os.path.join(ROOT, 'functions', 'shop-catalogue.json')))
     script = script.replace('/*SHOP_CATALOGUE*/null', json.dumps(catalogue, ensure_ascii=False, separators=(',', ':')))
+    # the French for the everyday screens (FR_MORE): a file of its own, which only a page in French downloads
+    # (game_loader), so the rest of the world does not fetch it with the game
+    fr_url = None
+    m = re.search(r'/\*FR_MORE\*/const FR_MORE=(.*?);/\*FR_MORE_END\*/', script, re.S)
+    if not m:
+        fail('the game no longer marks its French dictionary (/*FR_MORE*/const FR_MORE=…;/*FR_MORE_END*/)')
+    if minify:
+        fr_url = hashed(out, 'fr', 'js', esbuild('window.__edictum.fr=%s;' % m.group(1), 'js', True))
+        script = (script[:m.start()] + "const FR_MORE=typeof window!=='undefined'&&window.__edictum&&window.__edictum.fr||{d:{},p:[]};" +
+                  script[m.end():])
     content_url = None
     if minify:
         parts = split_content(script)
@@ -491,6 +503,7 @@ def main():
         # download) the shim plays offline, as it always has.
         '<script>\n%s\n</script>' % game_loader([(vendor + n, False) for n in SDK] + [(maps_url, False)] +
                                                 ([(content_url, True)] if content_url else []) +
+                                                ([(fr_url, False, 'fr')] if fr_url else []) +
                                                 [(js_url, True), (shim_url, False)]),
         '</body>',
         '</html>',
@@ -512,6 +525,8 @@ def main():
         '' if site else '; no --site-url, so Open Graph links are relative'))
     if content_url:
         print('build.py: independently cached story text: %s (%s); code-only updates reuse it' % (content_url, kb(content_url)))
+    if fr_url:
+        print('build.py: French for the everyday screens, loaded only in French: %s (%s)' % (fr_url, kb(fr_url)))
     print('build.py: baked maps of every region: %s (%s)' % (maps_url, kb(maps_url)))
 
 
