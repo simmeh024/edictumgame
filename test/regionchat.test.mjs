@@ -53,6 +53,7 @@ test('the chat’s operations are its own: writing, deleting, silencing and lift
 test('a silence runs until its end; one that has ended, or has no end, is none', () => {
   assert.deepEqual(rcSilence({ until: NOW + 1000, why: 'Spam' }, NOW), { until: NOW + 1000, perm: false, why: 'Spam' });
   assert.deepEqual(rcSilence({ until: NOW + 1000, perm: true }, NOW), { until: NOW + 1000, perm: true, why: '' });
+  assert.deepEqual(rcSilence({ until: NOW + 1000, why: 'Spam', amb: true }, NOW), { until: NOW + 1000, perm: false, why: 'Spam', amb: true }, 'an ambassador’s silence says so');
   assert.equal(rcSilence({ until: NOW, why: 'Spam' }, NOW), null);
   assert.equal(rcSilence({ until: 'soon' }, NOW), null);
   assert.equal(rcSilence(null, NOW), null);

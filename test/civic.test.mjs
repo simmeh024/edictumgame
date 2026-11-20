@@ -19,7 +19,7 @@ async function player(linked=false,old=false,reg='meridian'){
   return p;
 }
 async function age(p,ms){const s=await db.doc('nations/'+p.uid).get();await db.doc('accountIdentity/'+p.uid).set({nationAt:Date.now()-ms,nationGeneration:s.createTime.toMillis()},{merge:true});}
-async function call(p,service,data){const r=await fetch(`http://${FN}/${PROJECT}/europe-west1/${service}`,{method:'POST',headers:{'content-type':'application/json',authorization:'Bearer '+p.token},body:JSON.stringify({data})});const b=await r.json();if(b.error)throw Object.assign(new Error(b.error.message),{code:b.error.details?.code,status:b.error.status});return b.result;}
+async function call(p,service,data){const r=await fetch(`http://${FN}/${PROJECT}/europe-west1/${service}`,{method:'POST',headers:{'content-type':'application/json',authorization:'Bearer '+p.token},body:JSON.stringify({data})});const b=await r.json();if(b.error)throw Object.assign(new Error(b.error.message),{code:b.error.details?.code,status:b.error.status,details:b.error.details});return b.result;}
 const civic=(p,d)=>call(p,'civic',d), account=(p,d)=>call(p,'accounts',d);
 const code=()=> 'EDC-'+Array.from(crypto.getRandomValues(new Uint8Array(20))).map(n=>n.toString(16).padStart(2,'0')).join('');
 const rejects=(p,code)=>assert.rejects(p,e=>e.code===code);
@@ -1203,6 +1203,43 @@ test('Region chat staff: the team writes in any region, staff silence a player e
   const sil=au.find(a=>a.action==='chat_silence'),un=au.find(a=>a.action==='chat_unsilence');
   assert.ok(sil&&sil.actor===staff.uid&&sil.hours===24&&sil.removed===1&&sil.reason==='Spam, spam'&&sil.reg==='meridian');
   assert.ok(un&&un.actor===staff.uid);
+});
+
+test('An Edictum Ambassador silences a player in the chats, and nothing more: no lines taken, no lifting, no team lines, no deleting, never staff or another ambassador',async()=>{
+  const r=await player(true),amb=await player(true),amb2=await player(true),mod=await player(true),far=await player(true,false,'frostmarch');
+  await auth.setCustomUserClaims(amb.uid,{amb:true});await auth.setCustomUserClaims(amb2.uid,{amb:true});await auth.setCustomUserClaims(mod.uid,{mod:true});
+  const l1=await civic(r,{op:'rcPost',x:'Rude words here'});
+  // what stays with staff
+  await assert.rejects(civic(amb,{op:'rcPost',team:true,reg:'meridian',x:'As the team'}),e=>e.status==='PERMISSION_DENIED');
+  await assert.rejects(civic(amb,{op:'rcDelete',reg:'meridian',id:l1.id}),e=>e.status==='PERMISSION_DENIED');
+  assert.equal((await db.doc('rchat/meridian/chat/'+l1.id).get()).exists,true,'the line stays');
+  await assert.rejects(civic(amb,{op:'rcMute',uid:r.uid,hours:24,wipe:true}),e=>e.status==='PERMISSION_DENIED');
+  assert.equal((await db.doc('rcMute/'+r.uid).get()).exists,false,'a silence asked with its lines is not half done');
+  // never staff, nor another ambassador, nor themself
+  await rejects(civic(amb,{op:'rcMute',uid:mod.uid,hours:24}),'rc_staff');
+  await rejects(civic(amb,{op:'rcMute',uid:amb2.uid,hours:24}),'rc_amb');
+  await assert.rejects(civic(amb,{op:'rcMute',uid:amb.uid,hours:24}),e=>e.status==='FAILED_PRECONDITION');
+  // a player: the silence holds everywhere, and the player is told an ambassador set it
+  const mu=await civic(amb,{op:'rcMute',uid:r.uid,hours:24,why:'Rudeness'});
+  assert.equal(mu.removed,0);assert.equal(mu.perm,false);
+  assert.equal((await db.doc('rchat/meridian/chat/'+l1.id).get()).exists,true,'the lines stay');
+  const m=(await db.doc('rcMute/'+r.uid).get()).data();
+  assert.equal(m.by,amb.uid);assert.equal(m.amb,true);assert.equal(m.why,'Rudeness');
+  await new Promise(res=>setTimeout(res,1600));
+  await assert.rejects(civic(r,{op:'rcPost',x:'Let me speak',reg:'world'}),e=>e.code==='rc_silenced'&&e.details&&e.details.amb===true);
+  // in another region's chat too, until lifted
+  assert.equal((await civic(amb,{op:'rcMute',uid:far.uid,hours:0,why:'Threats'})).perm,true);
+  // lifting stays with staff
+  await assert.rejects(civic(amb,{op:'rcUnmute',uid:r.uid}),e=>e.status==='PERMISSION_DENIED');
+  await civic(mod,{op:'rcUnmute',uid:r.uid});
+  // staff may silence an ambassador; a moderator's silence is not marked
+  const ms=await civic(mod,{op:'rcMute',uid:amb2.uid,hours:1,why:'Overreach'});assert.equal(ms.perm,false);
+  assert.equal((await db.doc('rcMute/'+amb2.uid).get()).get('amb'),undefined);
+  const sil=(await db.collection('adminAudit').where('target','==',r.uid).get()).docs.map(d=>d.data()).find(a=>a.action==='chat_silence');
+  assert.ok(sil&&sil.actor===amb.uid&&sil.role==='amb'&&sil.reason==='Rudeness',JSON.stringify(sil));
+  // stood down (the claim gone), the next silence is refused at once, whatever the old token says
+  await auth.setCustomUserClaims(amb.uid,{});
+  await assert.rejects(civic(amb,{op:'rcMute',uid:r.uid,hours:1}),e=>e.status==='PERMISSION_DENIED');
 });
 
 test('Region chat to every region: only an admin sends one line to every region at once, under one id; the same words again are refused; removing it takes every copy and nothing else, all audited',async()=>{

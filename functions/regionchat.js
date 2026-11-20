@@ -21,10 +21,13 @@ import DATA from './civic-data.json' with { type: 'json' };
    Staff (an admin or mod claim) also, from the admin portal's Region chats page or a line's menu:
      - write in any region's chat as the Edictum team (rcPost team: a line {tm: true, nm 'Edictum team', a: the staff
        member's uid}), which needs no nation there;
-     - silence a player (rcMute: rcMute/{uid} {until, perm?, why, by, t, nm, reg}), for an hour, a day, a week, 30 days
+     - silence a player (rcMute: rcMute/{uid} {until, perm?, amb?, why, by, t, nm, reg}), for an hour, a day, a week, 30 days
        or until lifted, optionally removing their lines of the last 24 hours in that region; rcPost refuses a silenced
        player, who reads their own silence (firestore.rules) and sees it in place of the writing box; admins read every
        one. rcUnmute lifts it. Both are in the audit log; staff cannot be silenced.
+   An Edictum Ambassador (claim amb, functions/admin.js setAmb) may silence a player too (marked amb, so the player is
+   told an ambassador did it), the same way, but takes no lines
+   with it (no wipe), cannot silence another ambassador, and lifts nothing: rcUnmute stays with staff.
    A line may answer another line of the same chat (re: it keeps r {id, a, nm, x} with a few of its words) and @mention
    up to RC_MN nations of the region (mn: the ids the writer's game picked; the server keeps those whose saved name
    follows an @ in the words, who have not blocked the writer, as mn {uid: name}). Each one mentioned, and the author of
@@ -64,10 +67,10 @@ export const isRegionChatOp = op => RC_OPS.includes(op);
 export const RC_MUTE_HOURS = [1, 24, 168, 720, 0], RC_FOREVER = Date.UTC(2100, 0, 1), RC_WIPE = 86400000;
 const uidOf = v => typeof v === 'string' && /^[\w-]{1,128}$/.test(v) && !v.startsWith('npc-') ? v : '';
 const staffOnly = who => { if (!who.admin && !who.mod) throw new HttpsError('permission-denied', 'Only Edictum staff can do that.'); };
-/* a silence still running at `now`, or null */
+/* a silence still running at `now`, or null; amb: an ambassador set it */
 export function rcSilence(data, now) {
   if (!data || !Number.isFinite(data.until) || data.until <= now) return null;
-  return { until: data.until, perm: data.perm === true, why: typeof data.why === 'string' ? data.why : '' };
+  return { until: data.until, perm: data.perm === true, why: typeof data.why === 'string' ? data.why : '', ...(data.amb === true ? { amb: true } : {}) };
 }
 const whenText = ms => new Date(ms).toISOString().slice(0, 16).replace('T', ' ') + ' UTC';
 
@@ -174,7 +177,7 @@ async function rcPost(db, who, d, regions) {
     const extra = world && !team ? [db.doc('shop/' + who.uid), db.doc('allyOf/' + who.uid)] : [];
     const pace = db.doc('rcPace/' + who.uid), [ps, ms, shop, ally] = await tx.getAll(pace, db.doc('rcMute/' + who.uid), ...extra), now = Date.now();
     const sil = rcSilence(ms.exists ? ms.data() : null, now);
-    if (sil) throw new HttpsError('failed-precondition', `You are silenced in the ${world ? 'chats' : 'region chat'}${sil.perm ? '' : ' until ' + whenText(sil.until)}${sil.why ? ': ' + sil.why : ''}.`, { code: 'rc_silenced', until: sil.until, perm: sil.perm, why: sil.why });
+    if (sil) throw new HttpsError('failed-precondition', `You are silenced in the ${world ? 'chats' : 'region chat'}${sil.perm ? '' : ' until ' + whenText(sil.until)}${sil.why ? ': ' + sil.why : ''}.`, { code: 'rc_silenced', until: sil.until, perm: sil.perm, why: sil.why, ...(sil.amb ? { amb: true } : {}) });
     /* a guest writes RC_GUEST_HOUR lines in any hour; a sign-in lifts it to RC_HOUR */
     const guest = !team && e.kind === 'guest';
     const { wait, recent } = rcWait(ps.exists ? ps.get('p') : [], now, guest ? RC_GUEST_HOUR : RC_HOUR);
@@ -296,7 +299,9 @@ export async function rcDelete(db, who, d, regions) {
 /* staff silence a player in every region's chat and the world chat; with wipe, their lines of the last 24 hours in `reg`
    (a region or the world chat; their own region if not given) go too. The audit log keeps who, why, until when and how many lines went */
 async function rcMute(db, who, d, regions) {
-  staffOnly(who);
+  const staff = who.admin || who.mod;
+  if (!staff && !who.amb) throw new HttpsError('permission-denied', 'Only Edictum staff and ambassadors can do that.');
+  if (!staff && d.wipe === true) throw new HttpsError('permission-denied', 'Removing lines stays with the moderators.');
   const uid = uidOf(d.uid), hours = Number(d.hours), why = line(d.why, 200);
   if (!uid) throw new HttpsError('invalid-argument', 'Choose a player.');
   if (uid === who.uid) throw new HttpsError('failed-precondition', 'You cannot silence yourself.');
@@ -304,6 +309,7 @@ async function rcMute(db, who, d, regions) {
   let target = null;
   try { target = await getAuth().getUser(uid); } catch { /* an account Firebase no longer has: silenced all the same */ }
   if (target && (target.customClaims?.admin === true || target.customClaims?.mod === true)) refuse('rc_staff', 'Edictum staff cannot be silenced.');
+  if (!staff && target && target.customClaims?.amb === true) refuse('rc_amb', 'An ambassador cannot silence another ambassador.');
   const nation = await db.doc('nations/' + uid).get(), now = Date.now();
   const nm = line(nation.get('name'), 80), home = line(nation.get('reg'), 40);
   const reg = chatOf(d, regions) || (regions.has(home) ? home : '');
@@ -320,9 +326,9 @@ async function rcMute(db, who, d, regions) {
     if (old.length) { const b = db.batch(); old.forEach(s => { b.delete(s.ref); if (s.get('im')) b.delete(db.doc('rcimg/' + reg + '/chat/' + s.id)); }); await b.commit(); removed = old.length; }
   }
   const b = db.batch();
-  b.set(db.doc('rcMute/' + uid), { until, ...(hours ? {} : { perm: true }), why, by: who.uid, t: now, nm, reg: home });
+  b.set(db.doc('rcMute/' + uid), { until, ...(hours ? {} : { perm: true }), ...(staff ? {} : { amb: true }), why, by: who.uid, t: now, nm, reg: home });
   b.create(db.collection('adminAudit').doc(), { actor: who.uid, action: 'chat_silence', outcome: 'completed', at: FieldValue.serverTimestamp(),
-    target: uid, name: nm, reg: reg || home, until, hours, removed, reason: why || 'Silenced in the region chat' });
+    target: uid, name: nm, reg: reg || home, until, hours, removed, ...(staff ? {} : { role: 'amb' }), reason: why || 'Silenced in the region chat' });
   await b.commit();
   return { ok: true, until, perm: !hours, removed };
 }

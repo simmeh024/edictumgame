@@ -760,6 +760,12 @@
       var u = A.auth && A.auth.currentUser;
       return Promise.resolve(!!(u && A.claimsUid === u.uid && A.claims && A.claims.mod === true));
     },
+    /* an Edictum Ambassador (custom claim amb, appointed in the admin portal): silences players in the chats, nothing
+       more; read from the token isOwner() fetched */
+    isAmb: function () {
+      var u = A.auth && A.auth.currentUser;
+      return Promise.resolve(!!(u && A.claimsUid === u.uid && A.claims && A.claims.amb === true));
+    },
     can: function (what) { return Promise.resolve(what === 'data.write' ? !!(A.auth && A.auth.currentUser) : false); }
   });
   /* the game opens the report dialog: open({kind:'post'|'letter'|'chat'|'nation', target:<uid>, post, reg, name, x}); a region

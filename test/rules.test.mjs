@@ -602,6 +602,18 @@ test('only an admin marks themself as staff; everyone reads it, and anyone clear
   await assertSucceeds(as('bob').doc('staff/bob').delete());                               // rights taken away: the page clears it
 });
 
+test('the ambassadors list: everyone reads it, only the server writes it', async () => {
+  await env.withSecurityRulesDisabled(ctx => ctx.firestore().doc('ambassadors/bob').set({ t: 1 }));
+  await assertSucceeds(anon().doc('ambassadors/bob').get());
+  await assertSucceeds(as('alice').collection('ambassadors').get());
+  await assertFails(as('alice').doc('ambassadors/alice').set({ t: Date.now() }));                 // a player cannot claim it
+  await assertFails(as('alice', { amb: true }).doc('ambassadors/alice').set({ t: Date.now() }));   // nor an ambassador mark themself
+  await assertFails(as('admin', { admin: true }).doc('ambassadors/alice').set({ t: Date.now() })); // the console does it
+  await assertFails(as('bob', { amb: true }).doc('ambassadors/bob').delete());
+  await assertFails(as('bob', { amb: true }).doc('rcMute/carol').get());                           // an ambassador reads no silences
+  await assertFails(as('bob', { amb: true }).collection('reports').limit(5).get());                // nor the reports
+});
+
 test("a staff member's portal clock: their own, or an admin's to set; players never read it", async () => {
   const adm = as('adm', { admin: true }), mo = as('mo', { mod: true }), tz = z => ({ tz: z, t: Date.now() });
   await assertSucceeds(adm.doc('staffPrefs/adm').set(tz('America/Mexico_City')));          // an admin keeps their own
