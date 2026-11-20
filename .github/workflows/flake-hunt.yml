@@ -18,7 +18,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -40,17 +40,18 @@ jobs:
         timeout-minutes: 12
         uses: ./.github/actions/playwright-chromium
       - run: python3 build.py
-      - name: Core game suite
+      - name: Core game suite, with the page's timeline
         continue-on-error: true
         timeout-minutes: 15
-        run: PATH="$PWD/node_modules/.bin:$PATH" firebase emulators:exec --project demo-edictum --only auth,firestore,functions,hosting "node test/e2e.mjs"
-      - name: Founding click, 20 times
-        continue-on-error: true
-        timeout-minutes: 10
         env:
-          RUNS: '20'
-          MODE: rand
-        run: PATH="$PWD/node_modules/.bin:$PATH" firebase emulators:exec --project demo-edictum --only auth,firestore,functions,hosting "node test/founding-click-repro.mjs"
+          HIT_TRACE_PRINT: '1'
+        run: PATH="$PWD/node_modules/.bin:$PATH" firebase emulators:exec --project demo-edictum --only auth,firestore,functions,hosting "node test/e2e.mjs"
+      - name: Core game suite, without it
+        continue-on-error: true
+        timeout-minutes: 15
+        env:
+          HIT_TRACE: '0'
+        run: PATH="$PWD/node_modules/.bin:$PATH" firebase emulators:exec --project demo-edictum --only auth,firestore,functions,hosting "node test/e2e.mjs"
       - name: Keep the screenshots
         if: always()
         uses: actions/upload-artifact@v7

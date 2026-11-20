@@ -436,7 +436,7 @@ await A.waitForSelector('.edict .opt');
 check('in a republic an edict goes before the Senate, its motions in Roman numerals', /Curia of Aldoria · Anno I/.test(await text(A, '.edict .form-code')) && /Speeches before the Senate/.test(await text(A, '.edict')) && /^Vote for motion I$/.test(await text(A, '.edict [data-act="answer"]')) && /^Veto$/.test(await text(A, '.edict [data-act="dismiss"]')));
 await A.click('[data-act="close-issue"]');
 const KG = await player('KG');
-await KG.ctx.addInitScript(traceInit); // a timeline for the diagnosis below
+if (process.env.HIT_TRACE !== '0') await KG.ctx.addInitScript(traceInit); // a timeline for the diagnosis below
 await open(KG);
 await KG.waitForSelector('#d-name');
 await KG.fill('#d-name', 'Kingsmoor');
@@ -447,7 +447,7 @@ await until(() => KG.$('.issue-card')); await KG.click('.issue-card'); await KG.
 check('in a kingdom it goes before the Privy Council', /Privy Council of Kingsmoor/.test(await text(KG, '.edict .form-code')) && /^Assent to motion I$/.test(await text(KG, '.edict [data-act="answer"]')));
 /* when the answer cannot be clicked, say why (test/hit-diag.mjs: which ancestors the browser treats as inert, where the
    button can be hit, what makes it hittable again, and what the page did before) and keep a picture in test/out */
-try { await KG.click('.edict [data-act="answer"]', { timeout: 20000 }); }
+try { await KG.click('.edict [data-act="answer"]', { timeout: 20000 }); if (process.env.HIT_TRACE_PRINT) console.log('KG timeline:', JSON.stringify(await KG.evaluate(() => (window.__tl || []).slice(-70)))); }
 catch (e) {
   console.log('the founding edict’s answer could not be clicked:', JSON.stringify(await hitDiag(KG, '.edict [data-act="answer"]').catch(err => ({ evaluate: String(err) })), null, 1));
   await KG.screenshot({ path: path.join(OUT, 'core-founding-answer-blocked.png') }).catch(() => {});
