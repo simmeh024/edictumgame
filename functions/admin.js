@@ -10,7 +10,7 @@ import { feed, SPANS, GROUP } from './feed.js';
 import { alertConfig, ALERT_DEFAULTS } from './alerts.js';
 import { setComp, setGrant, packState } from './shop.js';
 import { cbDelete, rmbForget, cbForget } from './board.js';
-import { rcForget, RC_WORLD } from './regionchat.js';
+import { rcForget, rcShared } from './regionchat.js';
 import { alDrop } from './alliances.js';
 import { trDrop } from './treaties.js';
 import { bdDrop } from './borders.js';
@@ -468,11 +468,11 @@ async function mutate(db, actor, data) {
     // and a Community Board post is cb:<region>:<topic>[:<reply>] (functions/board.js keeps the counts right)
     const cb = action === 'delete_post' && /^cb:([a-z]{2,40}):([A-Za-z0-9]{20})(?::([A-Za-z0-9]{20}))?$/.exec(target);
     if (cb) await cbDelete(db, { uid: actor, admin: true }, { reg: cb[1], topic: cb[2], ...(cb[3] ? { reply: cb[3] } : {}), reason }, new Set([cb[1]]));
-    // a line of a region chat is rc:<region>:<line> (functions/regionchat.js), of the world chat rc:world:<line>, with the
-    // picture it may carry; the audit entry below keeps who removed it
+    // a line of a region chat is rc:<region>:<line> (functions/regionchat.js), of a shared chat rc:world:<line> or
+    // rc:fr:<line>, with the picture it may carry; the audit entry below keeps who removed it
     const rc = action === 'delete_post' && /^rc:([a-z]{2,40}):([A-Za-z0-9]{20})$/.exec(target);
     if (rc) {
-      if (!REGIONS.has(rc[1]) && rc[1] !== RC_WORLD) throw new HttpsError('invalid-argument', 'Choose a region.');
+      if (!REGIONS.has(rc[1]) && !rcShared(rc[1])) throw new HttpsError('invalid-argument', 'Choose a region.');
       const b = db.batch();
       b.delete(db.doc('rchat/' + rc[1] + '/chat/' + rc[2])); b.delete(db.doc('rcimg/' + rc[1] + '/chat/' + rc[2]));
       await b.commit();
