@@ -92,6 +92,26 @@ test('expanded storage version rejects invalid or downgraded values', async () =
   for (const storageV of [0, 2, '1', null]) await assertFails(save(as('alice'), 'alice', nation('Aliceland', { storageV })));
 });
 
+// mv (src/shim.js, encode): the map version the saving page numbers hexes on. A page of an older map never saves over a
+// record a newer map's page saved (Lévice, 19 Nov 2026: a tab on map 4 read its own map-5 record as lost land and saved that)
+test('a save from an older map cannot go over a record a newer map saved', async () => {
+  await assertSucceeds(save(as('bob'), 'bob', nation('Bobland', { mv: 5 })));
+  await sleep(1100);
+  await assertSucceeds(save(as('bob'), 'bob', nation('Bobland'))); // a build from before mv counts as map 5
+  await env.withSecurityRulesDisabled(async ctx => {
+    const n = nation('Bobland', { mv: 6, rev: 9, ts: AGO(60000) });
+    await ctx.firestore().doc('nations/bob').set(n);
+    await ctx.firestore().doc('summaries/bob').set(summaryOf(n));
+  });
+  await assertFails(save(as('bob'), 'bob', nation('Bobland', { mv: 5 })));
+  await assertFails(save(as('bob'), 'bob', nation('Bobland')));
+  await assertSucceeds(save(as('bob'), 'bob', nation('Bobland', { mv: 6 })));
+  await sleep(1100);
+  await assertSucceeds(save(as('bob'), 'bob', nation('Bobland', { mv: 7 }))); // and a newer map still may
+  await assertSucceeds(save(as('alice'), 'alice', nation('Aliceland', { mv: 5 }))); // a new record names its map
+  for (const mv of [0, 1000, '5', 5.5, null]) await assertFails(save(as('dana'), 'dana', nation('Danaland', { mv })));
+});
+
 test('disabled regions reject founding, saves, moves out and posts without deleting existing records', async () => {
   await env.withSecurityRulesDisabled(ctx => ctx.firestore().doc('regionStatus/meridian').set({ enabled: false }));
   await assertFails(save(as('alice'), 'alice', nation('Aliceland')));
