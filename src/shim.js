@@ -97,7 +97,7 @@
      board message (boards/, which the rules let only its author or an admin delete, and nobody create), and sending a
      newspaper edition back to be filed again from the records (papers/, which only an admin may delete; the game files
      none while observing, and the rules want a nation of that region). */
-  var SS_OBSERVE = 'edictum.observe', OBS_WRITE = ['staff', 'devnews', 'devnewsImg', 'devnewsMeta', 'boards', 'papers'];
+  var SS_OBSERVE = 'edictum.observe', OBS_WRITE = ['staff', 'staffPrefs', 'devnews', 'devnewsImg', 'devnewsMeta', 'boards', 'papers'];
   /* An admin viewing the game as a player (game/edictum.html, PV: sessionStorage edictum.pview = "<uid>|<region>") sees
      that player's nation, pages and settings and may do nothing at all: every write, board post, callable and letter is
      refused, the admin's own team posts included; only the Assembly's read-only state (civic state with obs) is asked. */
