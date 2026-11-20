@@ -21484,6 +21484,19 @@ function grow(list,over){
   }
   return {owner,grown,held};
 }
+/* The land after war and hand-overs: each hex they moved goes to its new holder, and every other hex stays where the
+   layout before them (base) has it. Until 20 Nov 2026 every nation was grown again from its capital instead, its budget
+   cut by the hexes it had lost. A hex taken that cut a nation's land in two left the land behind it out of reach of its
+   capital: those hexes fell back to unclaimed (claims further out stayed, being held), and the core grew the same number
+   somewhere else instead. A hex given back did the same, a claimed core having no way through land it holds by an event.
+   So a nation lost every hex a conquest cut off, and land an army could have marched on went blank (bug report, The
+   Wandering Isles against Tocantins). The checks of each event already read the hex's holder from base, so they agree. */
+function landMoved(base,over,L){
+  const owner=base.owner.slice(),held=new Int32Array(L);
+  for(const [c,i] of over)owner[c]=i;
+  for(let c=0;c<owner.length;c++){const o=owner[c];if(o>=0)held[o]++;}
+  return {owner,grown:base.grown,held};
+}
 /* when a nation's capital took its place: its founding, or its settling since (n.capAt), which since the founding
    edict can come hours later. A claim made before then stays, even within 2 hexes of the capital; the later of the
    two counts, so a record cannot date its capital back before its founding. */
@@ -21563,7 +21576,7 @@ function territory(extra){
     if(!inReach(list[oi],e.c)||list.some((y,j)=>j!==oi&&hexDist(e.c,y.cap)<=2&&e.t>capSince(y.n)))continue;
     cityOver.set(e.c,oi);how.set(e.c,1);nat.set(e.c,oi);used[oi]++;
   }
-  const base=grow(list,cityOver.size?cityOver:null),over=new Map(cityOver),lostPre=new Int32Array(L),rate=new Map();let moved=false;
+  const base=grow(list,cityOver.size?cityOver:null),over=new Map(cityOver),rate=new Map();let moved=false;
   for(const e of ev.list){
     if(e.claim)continue;
     if(!(e.c>=0&&e.c<N)||isCap[e.c]||MAP.T[e.c]<2)continue;
@@ -21580,10 +21593,9 @@ function territory(extra){
       const q=rate.get(e.src)||[];while(q.length&&q[0]<e.t-DAY)q.shift();if(q.length>=16)continue;q.push(e.t);rate.set(e.src,q);
     }
     if(cur===oi&&!over.has(e.c))continue;
-    if(!over.has(e.c)&&cur>=0&&cur!==oi&&base.owner[e.c]===cur)lostPre[cur]++;
     over.set(e.c,oi);how.set(e.c,2);moved=true;
   }
-  const fin=moved?grow(lostPre.some(v=>v)?list.map((x,i)=>({...x,budget:Math.max(1,x.budget-lostPre[i])})):list,over):base,owner=fin.owner,count=fin.held;
+  const fin=moved?landMoved(base,over,L):base,owner=fin.owner,count=fin.held;
   const occ=new Uint8Array(N),lost=new Int32Array(L),orig=new Int16Array(N).fill(-1);
   for(const [c,i] of over){if(how.get(c)!==2)continue;const b=nat.has(c)?nat.get(c):base.owner[c];if(owner[c]===i&&b!==i){occ[c]=1;orig[c]=b;if(b>=0)lost[b]++;}}
   const sx=new Float64Array(L),sy=new Float64Array(L);
