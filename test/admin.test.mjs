@@ -237,6 +237,37 @@ test('a moderator may look up the player behind a report, and sees nothing of th
   assert.equal(wrote.entries[0].by, m.uid);
   await assert.rejects(call(mod, { op: 'note', action: 'drop', uid: p.uid, id: wrote.entries[0].id }), e => e.status === 'PERMISSION_DENIED');
 });
+test('an admin appoints an ambassador and stands one down: the claim, the public mark and the audit; no console for them, and staff are not appointed', async () => {
+  const a = await user(true), m = await user(), p = await user(); await seed(p.uid, 'Envoyland');
+  const fresh = async u => { const r = await fetch(auth + '/securetoken.googleapis.com/v1/token?key=fake', { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: u.refreshToken }) });
+    const token = (await r.json()).id_token; return { uid: u.uid, token, refreshToken: u.refreshToken, claims: JSON.parse(Buffer.from(token.split('.')[1], 'base64url')) }; };
+  await assert.rejects(call(p, { op: 'setAmb', uid: p.uid, on: true }), e => e.status === 'PERMISSION_DENIED', 'a player does not appoint themself');
+  await call(a, { op: 'setMod', uid: m.uid, on: true });
+  const mod = await modUser(m);
+  await assert.rejects(call(mod, { op: 'setAmb', uid: p.uid, on: true }), e => e.status === 'PERMISSION_DENIED', 'appointing is the admins’');
+  await assert.rejects(call(a, { op: 'setAmb', uid: m.uid, on: true }), e => e.status === 'FAILED_PRECONDITION', 'a moderator is staff already');
+  await assert.rejects(call(a, { op: 'setAmb', uid: a.uid, on: true }), e => e.status === 'FAILED_PRECONDITION', 'so is an admin');
+  assert.deepEqual(await call(a, { op: 'setAmb', uid: p.uid, on: true }), { uid: p.uid, amb: true });
+  const amb = await fresh(p);
+  assert.equal(amb.claims.amb, true, 'the fresh token carries the ambassador claim');
+  assert.equal(amb.claims.mod, undefined);
+  assert.ok(await get('ambassadors/' + p.uid), 'every player sees the mark at once');
+  /* an ambassador has no console: not the reports, not a player's page, not the case file */
+  await assert.rejects(call(amb, { op: 'player', uid: m.uid }), e => e.status === 'PERMISSION_DENIED');
+  await assert.rejects(call(amb, { op: 'moderate', action: 'close_report', target: m.uid, reason: 'x' }), e => e.status === 'PERMISSION_DENIED');
+  await assert.rejects(call(amb, { op: 'note', uid: m.uid, text: 'x' }), e => e.status === 'PERMISSION_DENIED');
+  assert.ok((await call(a, { op: 'audit', target: p.uid })).events.some(e => e.action === 'amb_appointed' && e.actor === a.uid && e.name === 'Envoyland'));
+  assert.deepEqual(await call(a, { op: 'setAmb', uid: p.uid, on: false }), { uid: p.uid, amb: false });
+  assert.equal(await get('ambassadors/' + p.uid), null);
+  assert.equal((await fresh(p)).claims.amb, undefined);
+  assert.ok((await call(a, { op: 'audit', target: p.uid })).events.some(e => e.action === 'amb_removed'));
+  /* made a moderator, an ambassador is one no longer */
+  await call(a, { op: 'setAmb', uid: p.uid, on: true });
+  await call(a, { op: 'setMod', uid: p.uid, on: true });
+  const now = await fresh(p);
+  assert.equal(now.claims.mod, true); assert.equal(now.claims.amb, undefined);
+  assert.equal(await get('ambassadors/' + p.uid), null);
+});
 test('a ban can have a term: it lifts itself when it runs out, and not a moment early', async () => {
   const a = await user(true), p = await user(); await seed(p.uid, 'Termland');
   await call(a, { op: 'moderate', action: 'ban', target: p.uid, reason: 'Spam', name: 'Termland', days: 7 });

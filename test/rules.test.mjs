@@ -606,6 +606,18 @@ test('only an admin marks themself as staff; everyone reads it, and anyone clear
   await assertSucceeds(as('bob').doc('staff/bob').delete());                               // rights taken away: the page clears it
 });
 
+test('the ambassadors list: everyone reads it, only the server writes it', async () => {
+  await env.withSecurityRulesDisabled(ctx => ctx.firestore().doc('ambassadors/bob').set({ t: 1 }));
+  await assertSucceeds(anon().doc('ambassadors/bob').get());
+  await assertSucceeds(as('alice').collection('ambassadors').get());
+  await assertFails(as('alice').doc('ambassadors/alice').set({ t: Date.now() }));                 // a player cannot claim it
+  await assertFails(as('alice', { amb: true }).doc('ambassadors/alice').set({ t: Date.now() }));   // nor an ambassador mark themself
+  await assertFails(as('admin', { admin: true }).doc('ambassadors/alice').set({ t: Date.now() })); // the console does it
+  await assertFails(as('bob', { amb: true }).doc('ambassadors/bob').delete());
+  await assertFails(as('bob', { amb: true }).doc('rcMute/carol').get());                           // an ambassador reads no silences
+  await assertFails(as('bob', { amb: true }).collection('reports').limit(5).get());                // nor the reports
+});
+
 test("a staff member's portal clock: their own, or an admin's to set; players never read it", async () => {
   const adm = as('adm', { admin: true }), mo = as('mo', { mod: true }), tz = z => ({ tz: z, t: Date.now() });
   await assertSucceeds(adm.doc('staffPrefs/adm').set(tz('America/Mexico_City')));          // an admin keeps their own
@@ -1342,6 +1354,25 @@ test('the world chat is read by every player with a nation, of any region, and b
   await assertFails(as('bob').doc('rchat/world/chat/w1').delete());
   await assertFails(as('admin', { admin: true }).doc('rchat/world/chat/w1').delete());
   await assertFails(as('bob').doc('rcimg/world/chat/w3').set({ a: 'bob', d: 'x', k: 'png', t: 3 }));
+});
+
+test('the French chat is read as the world chat is: by every player with a nation, of any region, and by staff, and written only by the server', async () => {
+  await env.withSecurityRulesDisabled(async ctx => {
+    await ctx.firestore().doc('rchat/fr/chat/f1').set({ a: 'bob', nm: 'Bobland', x: 'Bonjour à toutes les régions', t: 1, rg: 'meridian' });
+    await ctx.firestore().doc('rcimg/fr/chat/f1').set({ a: 'admin', d: 'data:image/png;base64,iVBORw0KGgo=', k: 'png', t: 1 });
+  });
+  await assertSucceeds(as('bob').collection('rchat/fr/chat').orderBy('t', 'desc').limit(60).get());
+  await assertSucceeds(as('carol').collection('rchat/fr/chat').orderBy('t', 'desc').limit(60).get());
+  await assertSucceeds(as('carol').doc('rcimg/fr/chat/f1').get());
+  await assertFails(as('nobody').collection('rchat/fr/chat').limit(1).get());
+  await assertFails(anon().collection('rchat/fr/chat').limit(1).get());
+  await assertSucceeds(as('admin', { admin: true }).collection('rchat/fr/chat').orderBy('t', 'desc').limit(60).get());
+  await assertSucceeds(as('moddy', { mod: true }).collection('rchat/fr/chat').orderBy('t', 'desc').limit(60).get());
+  // only these two chats are shared: any other name that is not a region is read by staff alone
+  await assertFails(as('bob').collection('rchat/es/chat').limit(1).get());
+  await assertFails(as('bob').doc('rchat/fr/chat/f2').set({ a: 'bob', nm: 'Bobland', x: 'Forged', t: 2 }));
+  await assertFails(as('carol').doc('rchat/fr/chat/f1').update({ rv: { carol: 'hear' } }));
+  await assertFails(as('bob').doc('rchat/fr/chat/f1').delete());
 });
 
 test('the picture an admin’s chat line carries is read as the line is, and written only by the server', async () => {
