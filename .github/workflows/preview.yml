@@ -187,7 +187,9 @@ jobs:
 
       # the service account needs Cloud Functions Admin, Service Account User and Artifact Registry Reader
       # besides the roles above (README.md, Owner setup, step 5). --force: a function taken out of functions/
-      # is deleted, and without the image clean-up policy (Owner setup, step 5.4) the deploy warns, not fails
+      # is deleted, and without the image clean-up policy (Owner setup, step 5.4) the deploy warns, not fails.
+      # scripts/schedule-ready.mjs first: a project without the Cloud Scheduler API or roles (step 5.2) gets the
+      # functions without the schedule (homeLive) and a warning, instead of a failed deploy
       - name: Deploy the referee to staging
         if: steps.settings.outputs.ready == 'true'
         env:
@@ -196,6 +198,7 @@ jobs:
           key="$RUNNER_TEMP/service-account.json"
           trap 'rm -f "$key"' EXIT
           printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$key"
+          GOOGLE_APPLICATION_CREDENTIALS="$key" node scripts/schedule-ready.mjs --project "$PROJECT_ID"
           GOOGLE_APPLICATION_CREDENTIALS="$key" npx firebase deploy --only functions --project "$PROJECT_ID" --non-interactive --force
 
       - name: Deploy the Firestore rules and indexes to staging

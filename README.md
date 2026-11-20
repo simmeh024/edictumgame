@@ -904,9 +904,10 @@ the commands it shows; GitHub does the deploying. Your site's first address is
    referee **Cloud Functions Admin**, **Service Account User** and **Artifact Registry
    Reader**, and for the front page's five-minute figures (`homeLive`, 9c2d) **Cloud Scheduler Admin** and
    **Cloud Run Admin**. Save. Also switch on the Cloud Scheduler API once:
-   <https://console.cloud.google.com/apis/library/cloudscheduler.googleapis.com> → **Enable**. Without
-   these the functions deploy stops at `homeLive` ("Failed to set the IAM Policy on the Service" or
-   "upsert schedule") and the site is not deployed.
+   <https://console.cloud.google.com/apis/library/cloudscheduler.googleapis.com> → **Enable**. Until
+   both are there, Deploy (and Preview, on staging) leaves `homeLive` out with a yellow warning that
+   says what is missing (`scripts/schedule-ready.mjs`), and deploys everything else; the next deploy
+   after you have set them up adds it.
 4. The referee runs on Cloud Functions, which needs the **Blaze** plan (**Usage and billing** →
    **Modify plan**) and, once, a deploy from your own computer, which switches on the Google Cloud
    services it uses and keeps only the latest build of it:
@@ -1288,7 +1289,8 @@ writes, which every visitor reads once (never listens to) and keeps in the brows
 
 GitHub Actions wrote `home/live` at first (`.github/workflows/home.yml`, a five-minute cron), but GitHub starts this
 repository's scheduled workflows only every five to nine hours whatever the cron says, so the figures were always late;
-the function needs the Cloud Scheduler roles of Owner setup, step 5.2. Both workflows use the same service account
+the function needs the Cloud Scheduler API and roles of Owner setup, step 5.2: without them, Deploy and Preview check
+first (`scripts/schedule-ready.mjs`) and deploy the other functions without it, with a warning. Both workflows use the same service account
 secret and project variable as Deploy, and can be run by hand (Actions › Front page figures / Front page maps), for
 staging too. Until the figures have been written once, the front page counts the regions as it always did. A failed
 run shows in the function's logs (Firebase console › Functions › homeLive); Cloud Scheduler's job
