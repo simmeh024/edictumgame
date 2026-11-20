@@ -44472,7 +44472,8 @@ function tutDue(n,now){
 /* never in the middle of something: typing, an issue or its result, an animation, another dialog */
 function tutBusy(){
   if(document.hidden||!S.nation||TUT.g)return true;
-  try{if(FX.busy||FX.seq||document.documentElement.classList.contains('fx-vt'))return true;}catch(e){}
+  /* an answer's animation counts while its paper is on screen: one left behind by a page change ends at the next frame */
+  try{if(FX.busy||(FX.seq&&FX.seq.paper&&FX.seq.paper.isConnected)||document.documentElement.classList.contains('fx-vt'))return true;}catch(e){}
   const a=document.activeElement;
   if(a&&a!==document.body){const t=a.tagName;if(t==='TEXTAREA'||t==='SELECT'||a.isContentEditable)return true;if(t==='INPUT'&&!/^(checkbox|radio|button|submit|reset|range|color|file|image)$/i.test(a.type||''))return true;}
   if(S.openIssue||S.result||S.notifOpen)return true;
@@ -44482,7 +44483,10 @@ function tutBusy(){
 /* if several are due at once (a player arriving with all of space open), only the furthest shows; the others
    count as shown and wait under “?” */
 function tutCheck(){
-  TUT.chk=0;const n=S.nation;if(!n||n.npc||tutBusy())return;
+  TUT.chk=0;const n=S.nation;if(!n||n.npc)return;
+  /* busy for the moment (an animation ending, a dialog, a field being typed in): with a guide due, look again shortly rather
+     than wait for the next render, which may not come (Space page tour on a slow phone, 20 Nov 2026) */
+  if(tutBusy()){if(!TUT.g&&tutDue(n).length)TUT.chk=setTimeout(tutCheck,400);return;}
   const due=tutDue(n);if(!due.length)return;const g=due[due.length-1],seed=String(n.seed);
   due.forEach(x=>TUT.shown.add(seed+':'+x));tutGuideOpen(g,true);
   setTimeout(()=>{const m=S.nation;if(!m||String(m.seed)!==seed)return;const c=clone(m),t=Object.assign({},c.tut||{});t.g=[...TUT_GS].filter(x=>(t.g||'').includes(x)||due.includes(x)).join('');const v=tutNorm(t);if(v)c.tut=v;commit(c);},0);
