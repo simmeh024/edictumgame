@@ -754,6 +754,7 @@ check('the unlinked fixture returns to Guest eligibility',await until(()=>B.eval
 // the ledger of ambitions offers it, with what it pays; the button opens the account dialog
 await nav(B, 'help');
 check('a guest’s ledger of ambitions offers linking to Google, for 10 land credits', /Keep your nation on every device[\s\S]*\+10 land/.test(await text(B, '#help-tut [data-k="google"]')),JSON.stringify(await B.evaluate(()=>({name:G.S.nation?.name,onb:G.S.nation?.onb,glk:G.S.nation?.glk,google:G.S.google,account:G.S.civic?.account,view:G.S.view,steps:[...document.querySelectorAll('.stp')].map(e=>e.textContent.trim().slice(0,160))}))));
+await B.evaluate(() => { const b = document.querySelector('[data-act="help-tg"][data-k="tut"]'); if (b && b.getAttribute('aria-expanded') !== 'true') b.click(); }); // How to play folds its sections (2026-11-20)
 await B.click('#help-tut [data-k="google"] [data-act="acct-open"]');
 check('its button opens the account dialog', !!(await until(() => B.$('dialog.ed-dlg[open] [data-ed="google"]'))));
 await B.keyboard.press('Escape');

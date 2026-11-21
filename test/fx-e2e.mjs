@@ -163,6 +163,7 @@ check('and earns Bureau de Change and the Bureau’s First Ledger', await until(
 await nav(T, 'exchange'); await nav(T, 'help');
 check('a second visit pays nothing more', (await credits()) === c0 + 6 && Math.abs((await oil()) - o0 - 10) < 0.01);
 check('the ledger stamps the task', /Paid/.test(await text(T, '#help-tut [data-k="fxv"]')) && !!(await T.$('#help-tut [data-k="fxv"] .tut-stamp')));
+await T.evaluate(() => { const b = document.querySelector('[data-act="help-tg"][data-k="tut"]'); if (b && b.getAttribute('aria-expanded') !== 'true') b.click(); }); // How to play folds its sections (2026-11-20)
 await T.click('#help-tut [data-k="fxd"] [data-act="go"]'); await sleep(300);
 check('its other step opens the currency designer', /#customise(\/currency)?$/.test(T.url()) && !!(await T.$('#cz-sec-c')));
 await T.fill('#cu-f-cd', 'T1'); await T.click('#cu-form button[type="submit"]');
