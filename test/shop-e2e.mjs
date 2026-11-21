@@ -329,11 +329,16 @@ check('the Edicts page counts to ten', /10 of 10 on your desk/.test(await txt(A,
 await go(A, 'shop');await openDr(A, 'vip');await click(A, '[data-act="shop-pick"][data-id="p-moire"]');
 check('the monthly pick is kept on the public list', !!(await until(async () => { const r = await restGet('finery/' + aUid); return r.status === 200 && JSON.stringify(r.body).includes('p-moire'); }, 8000)));
 await shot(A, '.shop-vip', 'shop-vip-member.png');
-/* the Chancery seal: chosen in the Shop, then beside the name for the player and for the neighbour */
-check('a member of a month may show the wax seal, not yet the brass', !!(await A.$('[data-act="shop-seal"][data-id="csl-member"]')) && !(await A.$('[data-act="shop-seal"][data-id="csl-brass"]')));
-await click(A, '[data-act="shop-seal"][data-id="csl-member"]');
-check('the seal is published for every game', !!(await until(async () => { const r = await restGet('finery/' + aUid); return r.status === 200 && JSON.stringify(r.body).includes('csl-member'); }, 8000)));
-check('and shown as chosen', !!(await until(async () => /Shown/.test(await txt(A, '.club-sl.on')), 6000)));
+/* the Chancery seal: the best held shown from the start, hidden and shown again in the Shop, then beside the name for
+   the player and for the neighbour */
+const sealPub = async () => { const r = await restGet('finery/' + aUid); return r.status === 200 && JSON.stringify(r.body).includes('csl-member'); };
+check('a member of a month shows the wax seal without choosing it, and cannot show the brass yet', !!(await until(async () => /Shown/.test(await txt(A, '.club-sl.on')) && /the best seal you hold/.test(await txt(A, '.shop-vip')), 6000)) && /Chancery seal/.test(await txt(A, '.club-sl.on')) && !(await A.$('[data-act="shop-seal"][data-id="csl-brass"]')));
+check('it is published for every game', !!(await until(sealPub, 8000)));
+await click(A, '[data-act="shop-seal"][data-id=""]');
+check('Show no seal takes it down', !!(await until(async () => !(await sealPub()) && !(await A.$('.club-sl.on')) && /as you chose/.test(await txt(A, '.shop-vip')), 8000)));
+await sleep(2100);
+await click(A, '[data-act="shop-seal"][data-id="auto"]');
+check('and showing the best held puts it back', !!(await until(async () => await sealPub() && /Shown/.test(await txt(A, '.club-sl.on')) && /the best seal you hold/.test(await txt(A, '.shop-vip')), 8000)));
 await go(A, 'nation');await A.evaluate(() => scrollTo(0, 0));
 check('beside the name on the player’s own nation card', !!(await until(() => A.evaluate(() => !!document.querySelector('.hero .club-seal[data-seal="member"]')), 6000)));
 await shot(A, '.hero.id-sec', 'shop-hero-seal.png');

@@ -343,3 +343,11 @@ export function sealHeld(id, vip, now) {
   if (!Object.hasOwn(SEALS, id) || !vip) return false;
   return SEALS[id] ? tenure(vip, now) >= SEALS[id] : now < vip.until;
 }
+/* the seal shown by one who has chosen none of its own (shop.seal never set): the best it holds now, or none ('' chosen
+   is none at all). SEAL_V: the version of that rule, so records worked out before it (shop sv) are worked out again */
+export const SEAL_V = 2;
+export function sealBest(vip, now) {
+  let best = '', most = -1;
+  for (const [id, m] of Object.entries(SEALS)) if (m > most && sealHeld(id, vip, now)) { best = id; most = m; }
+  return best;
+}
