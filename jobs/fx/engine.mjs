@@ -204,7 +204,9 @@ export function indicators(id, rec, now, ctx) {
   if (npc) pop = npcPopAt(rec, now, ctx);
   else {
     const P0 = Math.max(0.1, num(rec.pop, 5)), dt = Math.max(0, now - num(rec.popAt, now)) / DAY, K = num(rec.pk, 0) || Math.max(50, P0 * 1.5), r = num(rec.pr, 0) || rateOf({ s, gm: num(rec.gm, 1), pop: P0 });
-    pop = Math.max(0.1, logistic(P0, K, r, Math.min(dt, 3650)));
+    /* pwl: the share a nation at war loses a day (the game's warLoss, war round two), for 30 days at most */
+    const wl = clamp(num(rec.pwl, 0), 0, 0.2);
+    pop = Math.max(0.1, logistic(P0, K, r, Math.min(dt, 3650)) * (wl > 0 ? Math.exp(-wl * Math.min(dt, 30)) : 1));
   }
   const wb = npc ? 0 : clamp(num(rec.wb, 0), 0, 1e4), prod = prodAt(rec, s, now, npc), gpc = incomeW(s.wealth + wb) * prosper * prod, out = gpc * pop * 1e6;
   /* growth: output now against output about a week ago (at least a day back), per day, in percent */

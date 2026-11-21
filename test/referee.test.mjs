@@ -270,3 +270,45 @@ test('joint military training stops the battle like a pact; whoever broke it fig
   assert.equal((await battle(a)).ok, true, 'a training pact readies the army sooner');
   for (const p of ['treaties/' + tid, 'treaties/' + tc]) await del(p);
 });
+
+/* war, round two: a siege of a player's capital, and its fall (functions/index.js, functions/war-rules.js) */
+const siege = (who, d) => call(who, { op: 'siege', ...d });
+test('a siege needs a war of conquest; the final assault waits a day, and a victory marks the fall', async () => {
+  const g = await guest(), foe = await guest(), now = Date.now(), founded = now - 30 * 86400000;
+  await nation(g.uid, {}, 1000);
+  /* the other side declared a war of conquest on g: g may besiege its capital in turn (a guest fights back freely) */
+  await nation(foe.uid, { founded, name: 'Vesad', capital: 'Adler', wars: { [g.uid]: { t: now - 30 * 3600000, g: 'c' } } }, 1);
+  await assert.rejects(siege(g, { d: NPC, c: 5 }), e => e.status === 'INVALID_ARGUMENT', 'never a computer nation');
+  const s = await siege(g, { d: foe.uid, c: 50 });
+  assert.equal(s.ok, true);assert.equal(s.doc.st, 'on');assert.equal(s.doc.c, 50);assert.equal(s.doc.df, founded);assert.equal(s.doc.cn, 'Adler');
+  const again = await siege(g, { d: foe.uid, c: 50 });
+  assert.equal(again.id, s.id, 'asked again: the same siege');assert.equal(again.again, true);
+  assert.deepEqual(await battle(g, { d: foe.uid, c: 50, cap: 1 }), { ok: false, why: 'siege' }, 'the final assault waits a day');
+  /* a day and an hour later */
+  await doc('sieges/' + s.id + '?updateMask.fieldPaths=t', { method: 'PATCH', body: JSON.stringify({ fields: { t: { integerValue: String(now - 25 * 3600000) } } }) });
+  assert.deepEqual(await battle(g, { d: foe.uid, c: 51, cap: 1 }), { ok: false, why: 'siege' }, 'only on the capital besieged');
+  let r;for (let i = 0; i < 6 && !(r && r.win); i++) r = await battle(g, { d: foe.uid, c: 50, cap: 1 });
+  assert.equal(r.win, true, 'won at 95%: ' + JSON.stringify(r));assert.equal(r.fell, true);assert.equal(r.id, s.id);assert.equal(r.doc.st, 'fell');
+  assert.ok(typeof r.s2 === 'string', 'sealed like any conquest');
+  const f = (await read('sieges/' + s.id)).fields;
+  assert.equal(f.st.stringValue, 'fell');assert.ok(Number(f.ft.integerValue) > 0);
+  assert.ok(f.foes.arrayValue.values.some(v => v.stringValue === g.uid), 'the besieger is among the fallen nation\'s enemies');
+  assert.deepEqual(await siege(g, { d: foe.uid, c: 50 }), { ok: false, why: 'gone' }, 'a fallen nation cannot be besieged again');
+});
+test('no siege in a border war or a raid, against a nation risen again or in its grace, or after a surrender', async () => {
+  const g = await guest(), now = Date.now(), mk = async rec => { const f = await guest(); await nation(f.uid, rec, 1); return f; };
+  await nation(g.uid, {}, 1000);
+  const border = await mk({ wars: { [g.uid]: { t: now - 3600000, g: 'b' } } });
+  assert.deepEqual(await siege(g, { d: border.uid, c: 1 }), { ok: false, why: 'war' }, 'a border war');
+  const raid = await mk({ wars: { [g.uid]: { t: now - 3600000, g: 'r' } } });
+  assert.deepEqual(await siege(g, { d: raid.uid, c: 1 }), { ok: false, why: 'war' }, 'a raid');
+  const none = await mk({});
+  await assert.rejects(siege(g, { d: none.uid, c: 1 }), e => /Registered Nation/.test(e.message), 'no war: a guest may not start one');
+  const risen = await mk({ founded: now - 86400000, shd: now + 6 * 86400000, wars: { [g.uid]: { t: now - 3600000, g: 'c' } } });
+  assert.deepEqual(await siege(g, { d: risen.uid, c: 1 }), { ok: false, why: 'grace' }, 'risen again');
+  const grace = await mk({ grc: { t: now - 3600000, u: now + 86400000 }, wars: { [g.uid]: { t: now - 7200000, g: 'c' } } });
+  assert.deepEqual(await siege(g, { d: grace.uid, c: 1 }), { ok: false, why: 'grace' }, 'in its grace');
+  const gave = await mk({ wars: { [g.uid]: { t: now - 7200000, g: 'c' } }, surr: { [g.uid]: now - 3600000 } });
+  assert.deepEqual(await siege(g, { d: gave.uid, c: 1 }), { ok: false, why: 'war' }, 'surrendered');
+  assert.deepEqual(await battle(g, { d: gave.uid, c: 1, cap: 1 }), { ok: false, why: 'surr' }, 'and no final assault on it');
+});

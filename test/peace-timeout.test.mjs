@@ -14,7 +14,7 @@ function pairWarWith(recs, now) {
   const a = GAME.indexOf('function pairWar(a,b){'), b = GAME.indexOf('\n}\n', a);
   assert.ok(a > 0 && b > a, 'the game has pairWar');
   const ctx = vm.createContext({
-    TRUCE_MS, PEACE_AUTO_MS, NPC_SET: new Set(['npc-1']), DAY: 24 * H,
+    TRUCE_MS, PEACE_AUTO_MS, NPC_SET: new Set(['npc-1']), DAY: 24 * H, SURR_TRUCE: 14 * 24 * H, WAR_GOALS: { b: {}, c: {}, r: {} },
     docOf: id => recs[id], wakeFence: () => 0, npcPeaceWait: () => 24 * H,
     Date: { now: () => now }
   });

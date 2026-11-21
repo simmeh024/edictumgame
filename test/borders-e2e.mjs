@@ -83,8 +83,11 @@ const reg = await A.evaluate(() => G.S.nation.reg);
 const cards = async () => (await restListAdmin('rchat/' + reg + '/chat')).filter(d => d.fields?.cd?.mapValue?.fields?.k?.stringValue === 'border').length;
 check('posted in the region chat as a card', await until(async () => await cards() > 0, 15000));
 
-// a swap: a hex of each
-const giveA = (await A.evaluate(ua => G.BDX().held(ua), ua))[0], takeB = (await A.evaluate(ub => G.BDX().held(ub), ub))[0];
+// a swap: a hex of each. A gives one that does not border the hex it claims across the line below (frontA[0]): the
+// lowest of its hexes often does, and given away it could take that hex out of A's reach, so the claim was refused and
+// never broke the agreement (CI, 21 Nov 2026, when no other hex of A's bordered it)
+const giveA = await A.evaluate(([ua, c]) => { const M = G.MAP, h = G.BDX().held(ua), nb = x => { const o = []; for (let d = 0; d < 6; d++) { const j = M.nbr[x * 6 + d]; if (j >= 0) o.push(j); } return o; }; return h.find(x => !nb(x).includes(c)) ?? h[0]; }, [ua, frontA[0]]);
+const takeB = (await A.evaluate(ub => G.BDX().held(ub), ub))[0];
 if (giveA != null && takeB != null) {
   await nav(A, 'map');
   await A.evaluate(({ giveA, takeB, ub }) => { const X = G.BDX(); X.BD.sw = { give: giveA, take: takeB, to: ub }; X.ui(); }, { giveA, takeB, ub });
@@ -99,8 +102,8 @@ if (giveA != null && takeB != null) {
 } else check('both nations hold a hex to swap', false, JSON.stringify({ giveA, takeB }));
 
 // a claim past the line: asked first, then breaking it
-const cross = theirsAll.find(c => frontA.includes(c));
-if (cross != null && await A.evaluate(() => G.BDX().credits()) > 0) {
+const cross = theirsAll.find(c => frontA.includes(c)), onFront = cross != null && (await A.evaluate(() => G.BDX().frontier())).includes(cross);
+if (cross != null && onFront && await A.evaluate(() => G.BDX().credits()) > 0) {
   await nav(A, 'map');
   await A.evaluate(c => G.BDX().claim([c]), cross);
   check('a claim on their side asks first', await until(async () => /crosses an agreed border/.test(await text(A, '.bd-ask')), 8000));
@@ -108,8 +111,8 @@ if (cross != null && await A.evaluate(() => G.BDX().credits()) > 0) {
   const gw0 = await A.evaluate(ub => (G.S.nation.gw || {})[ub] || 0, ub);
   /* by the element: the panel can lay itself out again under the pointer, onto the button beside it */
   await A.evaluate(() => document.querySelector('[data-act="bd-claim-anyway"]').click());
-  check('claimed anyway, the agreement is broken by it', await until(async () => await stOf() === 'broken' && field(await one(), 'by')?.stringValue === ua, 15000));
+  check('claimed anyway, the agreement is broken by it', await until(async () => await stOf() === 'broken' && field(await one(), 'by')?.stringValue === ua, 15000), await A.evaluate(() => G.S.mapMsg || ''));
   check('and goodwill with the other side is lost', await until(async () => await A.evaluate(ub => (G.S.nation.gw || {})[ub] || 0, ub) <= gw0 - 10, 8000));
-} else check('a frontier hex on their side, and a credit to claim it', false, JSON.stringify({ cross, credits: await A.evaluate(() => G.BDX().credits()) }));
+} else check('a frontier hex on their side, and a credit to claim it', false, JSON.stringify({ cross, onFront, credits: await A.evaluate(() => G.BDX().credits()) }));
 check('no page errors', !errors.length, errors.slice(0, 5).join(' | '));
 await finish();
