@@ -1,18 +1,18 @@
-# Every five minutes, the front page's live figures (jobs/stats/home.mjs, functions/home.js): the counters, each region's
-# counts and the latest public events, written to home/live, which every visitor of the front page reads once. GitHub
-# runs scheduled workflows from the default branch only, and may start them a few minutes late; the page shows the last
-# figures meanwhile. The region maps are the nightly Front page maps workflow's (home-maps.yml).
+# By hand only: the front page's live figures (jobs/stats/home.mjs, functions/home.js): the counters, each region's
+# counts and the latest public events, written to home/live, which every visitor of the front page reads once. The
+# five-minute run is the homeLive Cloud Function's (functions/home-live.js, Cloud Scheduler): this workflow had a
+# five-minute cron at first, but GitHub starts this repository's scheduled workflows only every five to nine hours
+# whatever the cron says, so the figures were always late. The region maps are the nightly Front page maps workflow's
+# (home-maps.yml).
 #
 # Needs, under Settings > Secrets and variables > Actions (the same as Deploy and Statistics):
 #   secret   FIREBASE_SERVICE_ACCOUNT  the service account key JSON; it needs to read and write Firestore
 #   variable FIREBASE_PROJECT_ID       the Firebase project id
-# Run by hand (Actions > Front page figures > Run workflow) with target staging to use FIREBASE_SERVICE_ACCOUNT_STAGING
+# Run it (Actions > Front page figures > Run workflow) with target staging to use FIREBASE_SERVICE_ACCOUNT_STAGING
 # and FIREBASE_STAGING_PROJECT_ID instead. Without them the workflow says so and does nothing.
 name: Front page figures
 
 on:
-  schedule:
-    - cron: '*/5 * * * *'
   workflow_dispatch:
     inputs:
       target:

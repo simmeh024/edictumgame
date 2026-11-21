@@ -1,4 +1,4 @@
-// The front page's live figures (game/edictum.html, "the front page"): what jobs/stats/home.mjs gathers every five minutes
+// The front page's live figures (game/edictum.html, "the front page"): what homeLive (home-live.js) gathers every five minutes
 // into home/live, one public document that every visitor reads once (never listens to), so a visitor's cost is a read
 // however many players there are. Only what the server already keeps, nothing new is tracked:
 //   - the public summaries (summaries/<uid>: one for every player nation, none for the computer's): how many nations,

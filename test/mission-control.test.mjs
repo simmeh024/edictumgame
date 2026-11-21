@@ -71,6 +71,7 @@ function game(){
     this.G={S,ISSUES,ISSUE_BY_ID,ISSUES_RANDOM,NORM_HOOKS,COMMIT_HOOKS,toasts,syncInbox,answer,dismiss,commit,fill,
       MC_STORY,MC_IDS,MC_TITLES,MC_FACTS,MC_MS,MC_CHAIN,MC_AT,MC_GATE,mcGate,MC_ODDS,MC_GUAR,MC_SEC,MC_MD,MD_COST,MC_TEAM_KEYS,WS_FAMS,
       mcOf,mcNorm,mcBlank,mcCtx,mcCtxNorm,mcLetter,mcOutcome,mcVariant,mcReveal,mcReady,mcNext,mcRoll,mcDone,mcDoneAt,mcHas,mcSlots,mcActive,mcStartProblem,mcHours,mcCost,mcManifest,mcCond,mcDsl,mcCr,mcMdState,mcSpend,mcSiteSecs,mcCrew,
+      MC_SV,MC_XS,MC_QUEUE,MC_FINDS,MC_SX,MC_SY,MC_NEAR,mcRepSecs,mcRepKind,mcDef,mcFold,mcLane,mcDish,mcDesk,mcFinds,mcFindAt,mcBitsSet,mcBitsList,mcCharted,mcWfKey,mcOsKey,
       mdCost,mdNow,wsOf,fdFam,SPX_AT,SPX_AGAIN,SPX_ID,SPX_TEAM,spOpen,spPreDue,spPre,spPreAt,mcVet,mcPrepFlown,MC_FX,landBonus:(n,b,t)=>spLandBonus(n,b,t),setRuns:r=>{VIP_RUNS=r;}};`,ctx);
   return ctx.G;
 }
@@ -439,4 +440,94 @@ test('the prelude’s text and record: known placeholders, a bounded record, and
   assert.deepEqual(J(normalize(G,{...n,mc:{v:1,c:[],ms:{},p:{o:-1,t:5,e:31}}}).mc.p),{o:-1,t:5,e:31});
   const open=normalize(G,{...n,mc:{v:1,c:[],ms:{},p:{o:2,t:5,e:9}},inbox:[{id:G.SPX_ID,at:1}]});
   assert.deepEqual(J(open.mc.p),{o:2,t:5},'a count is kept only with a veto');assert.equal(open.inbox.length,0,'a copy left on the desk after the page opened goes');
+});
+
+/* ── more ways to chart the Moon (2026-11-20) ── */
+test('more surveys: each kind charts its own sectors, and odd keys are refused',()=>{
+  const G=game(),now=Date.now();
+  assert.deepEqual(J(G.mcRepSecs('sc37')),[37]);assert.deepEqual(J(G.mcRepSecs('sc160')),[]);
+  assert.deepEqual(J(G.mcRepSecs('wf20')),[20,21,36,37],'a 2×2 block of the near side');
+  assert.deepEqual(J(G.mcRepSecs('wf16')),[],'not on the far side');assert.deepEqual(J(G.mcRepSecs('wf11')),[],'nor across the limb');assert.deepEqual(J(G.mcRepSecs('wf148')),[],'nor off the bottom');
+  assert.deepEqual(J(G.mcRepSecs('os3')),[3,19,35,51,67],'the northern half of a meridian');assert.deepEqual(J(G.mcRepSecs('os19')),[83,99,115,131,147],'the southern half');assert.deepEqual(J(G.mcRepSecs('os32')),[]);
+  assert.deepEqual(J(G.mcRepSecs('tv40e')),[41,42,43]);assert.deepEqual(J(G.mcRepSecs('tv15e')),[],'nothing east of the edge');assert.deepEqual(J(G.mcRepSecs('tv17n')),[1]);assert.deepEqual(J(G.mcRepSecs('tv40')),[]);
+  for(const k of ['sc5','wf20','os3','tv40e','fs1','pn2','orb'])assert.ok(G.mcDef(k),k);
+  for(const k of ['sc999','wf16','os40','tv40','xx1','fs5'])assert.equal(G.mcDef(k),null,k);
+  assert.equal(G.mcWfKey(16*3+11),'wf'+(16*3+10),'the last near-side column joins the block to its left');
+  assert.equal(G.mcWfKey(16*9+5),'wf'+(16*8+5),'the bottom row joins the block above');assert.equal(G.mcWfKey(16*2+2),'','far side: none');
+  assert.equal(G.mcOsKey(16*7+4),'os20');
+  /* the record keeps them, the dish and the bitmasks, and nothing else */
+  const n=J(nation(G));
+  const back=normalize(G,{...n,mc:{v:1,c:[],ms:{wf20:{s:now-9,d:now-1},os19:{s:1,d:2},tv40e:{s:1,d:2},wf16:{s:1,d:2},tv40:{s:1,d:2},fs1:{s:1,d:2},fs9:{s:1,d:2},sc7:{s:now,d:now+5,v:'dish'}},sv:'f'.repeat(40),fc:'nope',dh:{s:1,d:2}}}).mc;
+  assert.deepEqual(J(Object.keys(back.ms).sort()),['fs1','os19','sc7','tv40e','wf20']);assert.equal(back.ms.sc7.v,'dish');
+  assert.equal(back.sv,'f'.repeat(40));assert.equal(back.fc,undefined);assert.deepEqual(J(back.dh),{s:1,d:2});
+});
+
+test('no limit: all 160 sectors can be charted, and finished surveys fold into a small record',()=>{
+  const G=game(),now=Date.now(),n=ready(G,10);agency(n,'sci');bld(n,'dsts');
+  for(let s=0;s<G.MC_SEC;s++)n.mc.ms['sc'+s]={s:now-3*DAY,d:now-2*DAY};
+  assert.equal(G.mcCharted(n,now),G.MC_SEC,'the whole Moon');
+  const w=G.mcFold(J(n.mc),now);assert.equal(Object.keys(w.ms).filter(k=>/^sc/.test(k)).length,0,'folded');assert.equal(w.sv,'f'.repeat(40));
+  const m=J(n);m.mc=w;assert.equal(G.mcCharted(m,now),G.MC_SEC,'still the whole Moon');
+  assert.ok(JSON.stringify(w).length<400,'small: '+JSON.stringify(w).length);
+  /* a survey that finished within the day stays as it is (for the bell); the story's missions never fold */
+  const k=J(n.mc);k.ms={sc3:{s:now-3*3600e3,d:now-3600e3},wf20:{s:now-3*DAY,d:now-2*DAY},orb:{s:1,d:2}};const f=G.mcFold(k,now);
+  assert.deepEqual(J(Object.keys(f.ms).sort()),['orb','sc3']);assert.deepEqual(J(G.mcBitsList(f.sv)),[20,21,36,37]);
+  /* a sector already charted cannot be surveyed again, folded or not */
+  const p=J(n);p.mc=f;assert.match(G.mcStartProblem(p,'sc20',now),/already charted/);assert.match(G.mcStartProblem(p,'sc3',now),/Already flown/);
+});
+
+test('the second dish: sector surveys get a lane of their own and a queue of five',()=>{
+  const G=game(),now=Date.now(),n=ready(G,10);agency(n,'sci');bld(n,'dsts');bld(n,'mctrl');
+  n.mc.ms.wf20={s:now-60e3,d:now+3600e3};n.mc.ms.os3={s:now-60e3,d:now+3600e3};
+  assert.match(G.mcStartProblem(n,'sc100',now),/Science & Survey team is busy/,'without the dish, the team does it');
+  n.mc.dh={s:now-9*3600e3,d:now-3600e3};assert.equal(G.mcDish(n,now),true);
+  assert.equal(G.mcStartProblem(n,'sc100',now),'','the dish: no team, no slot');
+  let end=now;for(let s=100;s<105;s++){const a=Math.max(now,end);n.mc.ms['sc'+s]={s:a,d:a+2*3600e3,v:'dish'};end=a+2*3600e3;}
+  assert.deepEqual(J(G.mcLane(n,now).map(x=>x.k)),['sc100','sc101','sc102','sc103','sc104'],'five, in order');
+  assert.match(G.mcStartProblem(n,'sc110',now),/queue is full/);assert.match(G.mcStartProblem(n,'sc101',now),/Already in the queue/);
+  assert.equal(G.mcDesk(n,now).length,2,'the desk holds the block and the strip, not the lane');
+  assert.equal(G.mcActive(n,now).length,3,'one survey running in the lane, four waiting');
+  /* the queue runs while nobody looks: ten hours on, all five are charted */
+  const later=now+10*3600e3+1;assert.equal(G.mcLane(n,later).length,0);for(let s=100;s<105;s++)assert.equal(G.mcReveal(n,later)[s],2);
+  n.mc.dh={s:now,d:now+3600e3};assert.equal(G.mcDish(n,now),false,'a dish still being built does not count');
+});
+
+test('campaigns: four over the far side after the relay, two over the poles after the polar survey, never credited',()=>{
+  const G=game(),now=Date.now(),n=ready(G,10);agency(n,'flt',{orb:5*DAY});bld(n,'mctrl');bld(n,'dsts');
+  n.mc.c=Array.from({length:5},()=>({o:0,f:'rep',b:'111',t:1,x:''}));
+  assert.match(G.mcStartProblem(n,'fs1',now),/relay/);
+  n.mc.ms.relay={s:now-5*DAY,d:now-4*DAY,v:'dom'};assert.equal(G.mcStartProblem(n,'fs1',now),'');assert.match(G.mcStartProblem(n,'fs2',now),/first far-side campaign/);
+  n.mc.ms.fs1={s:now-2*DAY,d:now-DAY};const L=G.mcReveal(n,now);
+  for(const i of [12,13])for(let j=0;j<10;j++)assert.ok(L[j*16+i]>=(j>=3&&j<=6?2:1),'far side '+(j*16+i));
+  assert.equal(G.mcStartProblem(n,'fs2',now),'');
+  assert.match(G.mcStartProblem(n,'pn1',now),/polar survey/);n.mc.ms.polar={s:now-3*DAY,d:now-2*DAY};assert.equal(G.mcStartProblem(n,'pn1',now),'');
+  assert.match(G.mcStartProblem(n,'pn2',now),/northern polar night/);
+  n.mc.ms.pn1={s:now-2*DAY,d:now-DAY};const P=G.mcReveal(n,now);for(let i=0;i<16;i++)assert.ok(P[i]>=(i>=4&&i<=11?2:1),'pole row '+i);
+  /* the Lunar Colony credits the story's missions, not the campaigns */
+  bld(n,'lunar');const m=J(n);delete m.mc.ms.fs1;assert.equal(G.mcDone(m,'hab',now),true);assert.equal(G.mcDone(m,'fs1',now),false);
+});
+
+test('a traverse sets out from charted ground, a wide-field survey needs an Observatory, charted ground is refused',()=>{
+  const G=game(),now=Date.now(),n=ready(G,10);agency(n,'eng',{rover:2*DAY});bld(n,'mctrl');bld(n,'dsts');bld(n,'robo');
+  const s=5*16+9;assert.match(G.mcStartProblem(n,'tv'+s+'e',now),/sector you have charted/);
+  n.mc.ms['sc'+s]={s:now-3*3600e3,d:now-3600e3};assert.equal(G.mcStartProblem(n,'tv'+s+'e',now),'');
+  for(const q of [1,2,3])n.mc.ms['sc'+(s+q)]={s:now-3*3600e3,d:now-3600e3};
+  assert.match(G.mcStartProblem(n,'tv'+s+'e',now),/already charted/);
+  assert.match(G.mcStartProblem(n,'wf20',now),/Observatory/);bld(n,'observ');assert.equal(G.mcStartProblem(n,'wf20',now),'');
+  n.mc.ms.sc20={s:now-3*3600e3,d:now-3600e3};assert.equal(G.mcStartProblem(n,'wf20',now),'','a block partly charted may still be flown');
+  /* nothing twice: a sector that a running block covers is not surveyed again */
+  n.mc.ms.wf20={s:now-60e3,d:now+3600e3};assert.match(G.mcStartProblem(n,'sc21',now),/being charted already/);
+});
+
+test('finds: about one charted sector in four, from the seed, the poles with their own kinds',()=>{
+  const G=game();let hits=0,tot=0;const pole=new Set(),rest=new Set();
+  for(let i=0;i<40;i++){const n={seed:'f'+i};for(let s=0;s<160;s++){tot++;const k=G.mcFindAt(n,s);if(!k)continue;hits++;assert.ok(G.MC_FINDS[k],k);(Math.floor(s/16)%9===0?pole:rest).add(k);}}
+  assert.ok(hits/tot>0.2&&hits/tot<0.3,'about a quarter: '+hits/tot);
+  assert.deepEqual(J([...pole].sort()),['ice','met','peak']);assert.ok(!rest.has('peak')&&!rest.has('ice'),'peaks and ice only at the poles');
+  assert.equal(G.mcFindAt({seed:'x'},40),G.mcFindAt({seed:'x'},40),'the same every time');
+  const now=Date.now(),n=ready(G,10);agency(n,'sci');
+  assert.equal(G.mcFinds(n,now).length,0,'nothing charted, nothing found');
+  for(let s=0;s<160;s++)n.mc.ms['sc'+s]={s:now-3*3600e3,d:now-3600e3};
+  const F=G.mcFinds(n,now);assert.ok(F.length>20&&F.every(f=>!f.got),'finds: '+F.length);
+  n.mc.fc=G.mcBitsSet(undefined,[F[0].s]);assert.equal(G.mcFinds(n,now).filter(f=>f.got).length,1,'one brought home');
 });

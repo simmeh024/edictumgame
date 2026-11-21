@@ -27,12 +27,17 @@ await A.click(`input[name="bd-pick"][value="${ub}"]`);
 await until(async () => !!await A.$('[data-act="bd-draw"]:not([disabled])'), 5000);
 await A.click('[data-act="bd-draw"]');
 check('the map opens with the painter', await until(async () => /Draw the border with Easterlund/.test(await text(A, '.bd-ed')), 10000));
-/* whether there is free land both can reach depends on where the two were placed: the button gives what the split finds */
+/* whether there is free land both can reach depends on where the two were placed: the button gives what the split finds.
+   The split can also find land on one side only, each free hex going to the nation nearer it (on CI, 21 Nov 2026, it did
+   and the test, expecting "no free land", failed): that land is shared out to that side, with no message. */
 const canShare = await until(async () => await A.evaluate(ub => { const F = G.BDX().bdFair([G.S.uid, ub]); return !!F && Object.values(F.s).every(x => x.length > 0); }, ub), 15000);
+const split = await A.evaluate(() => { const D = G.BDX().draft(), F = G.BDX().bdFair(D.p); return F ? D.p.map(id => F.s[id].length).concat(F.buf.length) : null; });
 await A.evaluate(() => document.querySelector('[data-act="bd-fair"]').click()); await sleep(300);
 const fair = await A.evaluate(() => { const D = G.BDX().draft(); return D.p.map(id => D.s[id].size).concat(D.buf.size); });
+const said = await text(A, '.bd-ed');
 if (canShare) check('a fair split shares out the land between the two', fair[0] > 0 && fair[1] > 0, JSON.stringify(fair));
-else check('with no free land between them, the fair split says so', /No free land lies between you/.test(await text(A, '.bd-ed')));
+else if (split && split.some(x => x > 0)) check('with free land near one of them only, the fair split shares out what it finds', fair.some(x => x > 0) && split.every((x, k) => x > 0 || fair[k] === 0), JSON.stringify({ split, fair }));
+else check('with no free land between them, the fair split says so', /No free land lies between you/.test(said), JSON.stringify({ split, fair, said: said.slice(0, 200) }));
 await A.screenshot({ path: OUT + '/borders-fair.png' });
 await A.evaluate(() => document.querySelector('[data-act="bd-clear"]').click());
 const frontA = await A.evaluate(() => G.BDX().frontier().slice(0, 1));

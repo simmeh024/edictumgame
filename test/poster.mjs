@@ -97,7 +97,8 @@ try {
   await page.click('[data-act="pst-shape"][data-v="square"]');
   check('Square: 2220 by 2220', !!(await drawn(page)) && JSON.stringify((await size(page)).slice(0, 2)) === '[2220,2220]', await size(page));
   check('the pressed buttons say what is shown', await page.evaluate(() => [...document.querySelectorAll('.pst-opt[aria-pressed="true"]')].map(b => b.dataset.v).join() === 'night,square'));
-  check('the choice is remembered', await page.evaluate(() => localStorage.getItem('statehood.poster') === 'night/square'));
+  check('the choice is remembered', await page.evaluate(() => localStorage.getItem('statehood.poster') === 'night/square/screen'), await page.evaluate(() => localStorage.getItem('statehood.poster')));
+  check('with the Club not on sale and no membership, no Club looks and no size are offered', await page.evaluate(() => !document.querySelector('[data-act="pst-look"][data-v="chancery"]') && !document.querySelector('[data-act="pst-size"]')));
 
   /* saved as a file */
   await page.click('[data-act="pst-shape"][data-v="wide"]'); await drawn(page);
@@ -155,6 +156,61 @@ try {
   check('dark theme: no page errors', !d.errors.length, d.errors);
   await d.ctx.close();
 
+  /* ── the Chancery Club's three looks and the print size: tried by anyone while the Club is on sale, saved by members ── */
+  const c = await start('light', { width: 1280, height: 900 }), cp = c.page;
+  await cp.evaluate(() => localStorage.removeItem('statehood.poster'));
+  const sale = on => cp.evaluate(on => { const G = window.__game; G.SHOP.SHOP.localAsked = true; G.SHOP.SHOP.cfg = on ? { on: true, env: 'live', token: '', prices: { vip: 'pri_v', vipyear: 'pri_y' }, now: Date.now(), until: Date.UTC(2027, 1, 2) } : null; }, on);
+  /* seven months a member, with the silver seal chosen */
+  const member = () => cp.evaluate(() => { const G = window.__game, S0 = G.SHOP.SHOP, t = Date.now(); S0.doc = Object.assign({}, S0.doc || {}, { seal: 'csl-silver', vip: { until: t + 30 * 864e5, from: t - 200 * 864e5, runs: [{ s: t - 200 * 864e5, e: t + 30 * 864e5 }], per: [], status: 'active', plan: 'month', m: 7, f: [] } }); });
+  const open = async () => { await cp.click('.map-ctrl [data-act="poster-open"]'); return drawn(cp); };
+  const drawnAny = () => until(() => cp.evaluate(() => !!document.querySelector('#pst-stage canvas') && !/Drawing/.test(document.getElementById('pst-stage').textContent)), 40000);
+  const savePng = async () => { const [dl] = await Promise.all([cp.waitForEvent('download'), cp.click('#pst-save')]); const f = path.join(OUT, dl.suggestedFilename()); await dl.saveAs(f); return { name: dl.suggestedFilename(), buf: fs.readFileSync(f) }; };
+  const pngChunks = buf => { const out = []; for (let o = 8; o + 12 <= buf.length;) { const len = buf.readUInt32BE(o), type = buf.toString('latin1', o + 4, o + 8); out.push({ type, data: buf.subarray(o + 8, o + 8 + len) }); if (type === 'IDAT') break; o += 12 + len; } return out; };
+  await sale(true);
+  await open();
+  const clubBtns = await cp.evaluate(() => [...document.querySelectorAll('[aria-labelledby="pst-l-club"] .pst-opt')].map(b => b.dataset.v + (b.querySelector('.cz-lock') ? ':locked' : '')));
+  check('with the Club on sale: its three looks in a group of their own, each to be tried', JSON.stringify(clubBtns) === '["chancery:locked","engraved:locked","watercolour:locked"]', clubBtns);
+  check('and a Size choice, its Print marked as the Club’s', await cp.evaluate(() => [...document.querySelectorAll('[data-act="pst-size"]')].map(b => b.dataset.v + (b.querySelector('.cz-lock') ? ':locked' : '')).join() === 'screen,print:locked'));
+  /* trying each look: its own paper, the preview band across it, and the Club offered in place of Save */
+  const BAND = [255, 212, 121];
+  for (const [look, paper, at] of [['chancery', [246, 240, 225], [8, 8]], ['engraved', [243, 241, 231], [2, 2]], ['watercolour', [251, 247, 239], [8, 8]]]) {
+    await cp.click(`[data-act="pst-look"][data-v="${look}"]`);
+    check(`${look} (tried): drawn in its own paper`, !!(await drawnAny()) && (await size(cp))[2] === look && near(await pixel(cp, ...at), paper, look === 'watercolour' ? 22 : 8), await pixel(cp, ...at));
+    check(`${look} (tried): the preview band crosses it`, near(await pixel(cp, 543, 177), BAND, 30), await pixel(cp, 543, 177));
+    check(`${look} (tried): no Save, the Club instead`, await cp.evaluate(() => !document.getElementById('pst-save') && !!document.querySelector('#pst-acts [data-act="pst-club"]') && /comes with the Chancery Club/.test(document.querySelector('.pst-lockn').textContent)));
+    await cp.evaluate(() => { const c = document.querySelector('#pst-stage canvas'); c.style.maxHeight = 'none'; c.style.maxWidth = 'none'; c.style.width = '600px'; });
+    await cp.locator('#pst-stage canvas').screenshot({ path: path.join(OUT, `poster-${look}-tried.png`) });
+  }
+  /* print size, not a member: the picture stays the screen size and the note says what a member gets */
+  await cp.click('[data-act="pst-look"][data-v="atlas"]'); await drawn(cp);
+  await cp.click('[data-act="pst-size"][data-v="print"]');
+  check('print size (tried): the screen-size picture, and what print size would be', !!(await drawnAny()) && JSON.stringify((await size(cp)).slice(0, 2)) === '[1800,2400]' && await cp.evaluate(() => !document.getElementById('pst-save') && /Print size comes with the Chancery Club: 3,600 × 4,800 pixels, about 30 × 41 cm/.test(document.querySelector('.pst-lockn').textContent)), await size(cp));
+  await cp.click('#pst-acts [data-act="pst-club"]');
+  check('“See the Chancery Club” closes the poster and opens the Club in the Shop', !!(await until(() => cp.evaluate(() => window.__game.S.view === 'shop' && !document.querySelector('.pst-modal') && window.__game.SHOP.SHOP.dr === 'vip'))));
+  await c.go('map');
+  /* a member: the looks open, print size is drawn and saved at 300 dots to the inch */
+  await member();
+  await open().catch(() => {});
+  check('a member: the Club’s looks and Print without locks', await cp.evaluate(() => !!document.querySelector('[data-act="pst-look"][data-v="chancery"]') && !document.querySelector('.pst-ctl .cz-lock[data-x], [aria-labelledby="pst-l-club"] .cz-lock, [data-act="pst-size"] .cz-lock')));
+  check('a member, print size remembered: drawn six times the sheet (3600 by 4800)', !!(await until(() => cp.evaluate(() => { const s = document.getElementById('pst-save'); return s && !s.disabled; }), 60000)) && JSON.stringify(await size(cp)) === '[3600,4800,"atlas","portrait"]', await size(cp));
+  check('the note under it gives the print’s size', /Print size: 3,600 × 4,800 pixels, about 30 × 41 cm \(12 × 16 in\) at 300 dots to the inch/.test(await cp.textContent('#pst-acts')));
+  const big = await savePng(), bc = pngChunks(big.buf), phys = bc.find(x => x.type === 'pHYs');
+  check('saved as a print: its name says so, and the file says 300 dots to the inch', big.name === 'lampwick-poster-atlas-portrait-print.png' && bc[0].type === 'IHDR' && bc[1].type === 'pHYs' && bc.filter(x => x.type === 'pHYs').length === 1 && phys.data.readUInt32BE(0) === 11811 && phys.data.readUInt32BE(4) === 11811 && phys.data[8] === 1 && big.buf.readUInt32BE(16) === 3600 && big.buf.readUInt32BE(20) === 4800, [big.name, bc.map(x => x.type), phys && [...phys.data]]);
+  await cp.click('[data-act="pst-size"][data-v="screen"]');
+  check('back to the screen size', !!(await drawn(cp)) && JSON.stringify((await size(cp)).slice(0, 2)) === '[1800,2400]');
+  for (const [look, shape] of [['chancery', 'portrait'], ['engraved', 'portrait'], ['watercolour', 'portrait'], ['chancery', 'wide'], ['engraved', 'square'], ['watercolour', 'wide']]) {
+    await cp.click(`[data-act="pst-look"][data-v="${look}"]`); await cp.click(`[data-act="pst-shape"][data-v="${shape}"]`);
+    check(`a member, ${look} ${shape}: drawn without the band, and saved`, !!(await drawn(cp)) && (await size(cp)).slice(2).join() === look + ',' + shape && (shape !== 'portrait' || !near(await pixel(cp, 543, 177), BAND, 30)) && (await savePng()).name === `lampwick-poster-${look}-${shape}.png`, [await size(cp), await pixel(cp, 543, 177)]);
+    if (look === 'chancery' && shape === 'portrait') {
+      check('chancery: a gilt frame', near(await pixel(cp, 12, 300), [176, 138, 46], 45), await pixel(cp, 12, 300));
+      check('chancery: the member’s seal pressed beside the foot', await colours(cp, 516, 726, 40, 40) > 10 && !near(await pixel(cp, 536, 746), [246, 240, 225], 20), [await colours(cp, 516, 726, 40, 40), await pixel(cp, 536, 746)]);
+      check('chancery: the seal is the silver one the member chose', await cp.evaluate(() => window.__game.PST().pstSealId() === 'csl-silver'));
+    }
+    if (look === 'engraved') check('engraved: the land and sea are lined, many tones in the map', await colours(cp, 40, 160, 300, 200) > 40);
+  }
+  check('Club: no page errors', !c.errors.length, c.errors);
+  await c.ctx.close();
+
   /* ── a phone: a lighter picture, the dialog as a sheet inside the screen ── */
   const p = await start('light', { width: 375, height: 812 }, { phone: true });
   await p.page.evaluate(() => localStorage.removeItem('statehood.poster'));
@@ -164,6 +220,13 @@ try {
   await p.page.screenshot({ path: path.join(OUT, 'poster-phone.png') });
   await p.page.evaluate(() => document.querySelector('[data-act="pst-close"]#pst-x').click());
   check('phone: Close closes it', await p.page.evaluate(() => !document.querySelector('.pst-modal')));
+  /* with the Club on sale: four groups of choices still fit across the screen */
+  await p.page.evaluate(() => { const G = window.__game; G.SHOP.SHOP.localAsked = true; G.SHOP.SHOP.cfg = { on: true, env: 'live', token: '', prices: { vip: 'pri_v' }, now: Date.now(), until: Date.UTC(2027, 1, 2) }; });
+  await p.page.evaluate(() => document.querySelector('.map-ctrl [data-act="poster-open"]').click());
+  await drawn(p.page);
+  check('phone, Club on sale: every choice fits the screen’s width', await p.page.evaluate(() => { const s = document.querySelector('.pst-sheet').getBoundingClientRect(); return document.querySelectorAll('.pst-grp').length === 4 && [...document.querySelectorAll('.pst-opt')].every(b => { const r = b.getBoundingClientRect(); return r.left >= s.left && r.right <= s.right + 0.5; }) && document.documentElement.scrollWidth <= innerWidth; }));
+  await p.page.screenshot({ path: path.join(OUT, 'poster-phone-club.png') });
+  await p.page.evaluate(() => document.querySelector('[data-act="pst-close"]#pst-x').click());
   check('phone: no page errors', !p.errors.length, p.errors);
   await p.ctx.close();
 } catch (e) { console.log('FAIL', e.stack || e); failed++; }

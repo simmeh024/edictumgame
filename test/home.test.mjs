@@ -103,3 +103,31 @@ test('the capital the game drew is a placeholder until the player names one, as 
   assert.ok(!capHolder({ capital: 'Myown Haven', capA: 'Holtwell' }), 'renamed: the tutorial’s task is done');
   assert.ok(!capHolder({ capital: 'Hand Written' }), 'typed in the charter: the player’s own from the start');
 });
+
+test('the figures are written every five minutes by a Cloud Function, not a GitHub cron that GitHub starts hours late', async () => {
+  const { homeLive, homeRegions, HOME_SCHEDULE } = await import('../functions/home-live.js');
+  const ep = homeLive.__endpoint;
+  assert.equal(HOME_SCHEDULE, '*/5 * * * *');
+  assert.equal(ep.scheduleTrigger.schedule, HOME_SCHEDULE);
+  assert.equal(ep.scheduleTrigger.retryConfig.retryCount, 0, 'a failed run waits for the next one, five minutes on');
+  assert.deepEqual(ep.region, ['europe-west1'], 'beside the other functions');
+  assert.equal(ep.maxInstances, 1, 'never two runs at once over homeState/main');
+  const index = readFileSync(new URL('../functions/index.js', import.meta.url), 'utf8');
+  assert.match(index, /^export \{ homeLive \} from '\.\/home-live\.js';$/m, 'functions/index.js deploys it');
+  /* the workflow stays for a run by hand only: two writers would race over homeState/main */
+  const wf = readFileSync(new URL('../.github/workflows/home.yml', import.meta.url), 'utf8');
+  assert.ok(!/^\s*schedule:/m.test(wf) && !/cron:/.test(wf), 'home.yml has no schedule');
+  assert.match(wf, /^\s*workflow_dispatch:/m);
+  /* the regions and their computer nations' names: the function's (civic-data.json) are the job's (the game's) */
+  const { loadWorld } = await import('../jobs/fx/world.mjs');
+  /* (the game's slices are evaluated in a sandbox, whose arrays are another realm's: compare plain copies) */
+  const want = JSON.parse(JSON.stringify(loadWorld().regions.map(R => ({ id: R.id, npcs: R.npcs.map(x => ({ id: x.id, name: x.name })) }))));
+  assert.deepEqual(homeRegions(), want, 'regenerate functions/civic-data.json: node tools/build-civic.mjs');
+});
+
+test('the admin portal’s warning points at the function', () => {
+  const at = src.indexOf('function admFrontPage(');
+  const body = src.slice(at, src.indexOf('\n}', at));
+  assert.match(body, /They are late: check the homeLive function/);
+  assert.ok(!/Actions › Front page figures/.test(body), 'no longer the workflow');
+});
