@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 import { verifySignature, signature, txFacts, subFacts, adjFacts, entitlement, pickPeriod, refundState, voided, addMonth, addMonths, months,
-  CATALOGUE, FOUNDER_CUTOFF, FOUNDER_GRACE, FOUNDER_GIFT, GRANTABLE, VIP_COLLECTION, SIG_TOLERANCE, CLUB_IDS, CLUB_DROPS, clubReleased, PICK_GRACE, SEALS, tenure, sealHeld } from '../functions/shop-core.js';
+  CATALOGUE, FOUNDER_CUTOFF, FOUNDER_GRACE, FOUNDER_GIFT, GRANTABLE, VIP_COLLECTION, SIG_TOLERANCE, CLUB_IDS, CLUB_DROPS, clubReleased, PICK_GRACE, SEALS, tenure, sealHeld, sealBest, SEAL_V } from '../functions/shop-core.js';
 
 const DAY = 864e5, H = 36e5, src = fs.readFileSync(new URL('../game/edictum.html', import.meta.url), 'utf8');
 const tx = (id, product, o = {}) => ({ id, product, ok: true, ck: true, status: 'completed', created: Date.UTC(2026, 10, 1), paid: Date.UTC(2026, 10, 1, 1), period: null, sub: '', ...o });
@@ -249,6 +249,22 @@ test('months of membership and the Chancery seals', () => {
   /* a free month an admin grants alongside a paid one adds none */
   const both = entitlement({ txs: [months[0]], subs: { sub_m: { status: 'active', firstTxn: 'txn_1' } }, comp: { at: t0 + DAY, until: t0 + 20 * DAY }, now: t0 + 2 * DAY });
   assert.equal(both.vip.m, 1);
+});
+
+test('the seal a member shows before choosing one: the best it holds, moving up with the months, and kept ones after', () => {
+  const t0 = Date.UTC(2026, 10, 3), y1 = Array.from({ length: 12 }).reduce(addMonth, t0), at = k => Array.from({ length: k }).reduce(addMonth, t0);
+  const subs = { sub_y: { status: 'active', next: y1, period: { s: t0, e: y1 }, firstTxn: 'txn_y' } };
+  const v = entitlement({ txs: [tx('txn_y', 'vipyear', { sub: 'sub_y', paid: t0, period: { s: t0, e: y1 } })], subs, now: t0 + DAY }).vip;
+  assert.equal(sealBest(v, t0 + DAY), 'csl-member', 'a new member: the wax seal');
+  assert.equal(sealBest(v, at(2) + DAY), 'csl-brass', 'the third month begun: brass');
+  assert.equal(sealBest(v, at(5) + DAY), 'csl-silver');
+  assert.equal(sealBest(v, y1 - 1), 'csl-gold', 'twelve months begun: gold');
+  assert.equal(sealBest(v, y1 + 400 * DAY), 'csl-gold', 'after the membership, the best seal kept');
+  const short = { until: t0 + 40 * DAY, m: 2, f: [] };
+  assert.equal(sealBest(short, t0 + DAY), 'csl-member');
+  assert.equal(sealBest(short, t0 + 41 * DAY), '', 'two months and over: the wax seal ends, and none was earned to keep');
+  assert.equal(sealBest(null, t0), ''); assert.equal(sealBest({}, t0), '');
+  assert.ok(Number.isInteger(SEAL_V) && SEAL_V >= 2, 'records worked out before the default are worked out again');
 });
 
 test('the game sells what the server sells: every cosmetic in the catalogue is in the game, from the right source', () => {

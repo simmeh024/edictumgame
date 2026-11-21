@@ -76,5 +76,5 @@ test('a treaty’s and a border agreement’s other side carries its badge; a co
 
 test('the Shop says where the seal shows', () => {
   assert.match(html, /Members may show a seal beside their nation’s name: on its page, in chat, on the region board, in the Assembly \(its proposals, votes, endorsements and the Delegate’s chair\) and on its treaties\./);
-  assert.match(html, /<li><b>A Chancery seal beside your nation’s name<\/b> in chat, on the board, in the Assembly and on your treaties, if you want one:/);
+  assert.match(html, /<li><b>A Chancery seal beside your nation’s name<\/b> in chat, on the board, in the Assembly and on your treaties, unless you choose to hide it:/);
 });
