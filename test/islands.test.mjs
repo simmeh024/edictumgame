@@ -41,7 +41,10 @@ test('three edicts, after the 50th, 150th and 500th decision, never drawn at ran
   /* every older edict keeps its number (n.iseen keeps numbers): nothing is pushed after these */
   const at = code.indexOf('for(const is of ISL_ISSUES){');
   assert.ok(at > code.indexOf('for(const is of DRL_ISSUES){ISSUES.push('), 'after the training edicts');
-  assert.equal(code.indexOf('ISSUES.push(', at + 40), -1, 'nothing is added after them');
+  /* but the three that build on the islands (island-dev.test.mjs), which keep the same rule */
+  const next = code.indexOf('ISSUES.push(', at + 40);
+  assert.ok(next > 0 && code.lastIndexOf('for(const is of ', next) === code.indexOf('for(const is of ISD_ISSUES){'), 'only the island towns, bridges and new land after them');
+  assert.equal(code.indexOf('ISSUES.push(', next + 20), -1, 'and nothing after those');
   assert.match(fs.readFileSync(new URL('../scripts/split-content.mjs', import.meta.url), 'utf8'), /'ISL_ISSUES'/);
   for (const is of L) {
     assert.match(is.id, /^isl-[a-z-]+$/);
@@ -211,9 +214,9 @@ test('an answer raises the island at once: its hexes in the record with i, its n
 test('the record keeps the islands apart from the reclaimed land, and the names, here and on another region’s page', () => {
   assert.match(code, /const REC_MAX=24,RECW_MAX=\d+,REC_KEEP=REC_MAX\+RECW_MAX;/, 'the edicts’ and engineers’ limits are untouched');
   assert.match(code, /const MAP_KEEP=\[[^\]]*'rec','isl'[^\]]*\];/, 'a record read on another region’s page keeps its islands as they were');
-  assert.ok(cut('function remapFront(d){', '\nfunction remapLate(').includes("for(const k of ['claims','conq','bx','rec','isl'])if(Array.isArray(d[k]))o[k]=d[k].map(e=>e&&typeof e==='object'?{...e,c:m(e.c)}:e);"),
+  assert.ok(cut('function remapFront(d){', '\nfunction remapLate(').includes("for(const k of ['claims','conq','bx','rec','isl','isx'])if(Array.isArray(d[k]))o[k]=d[k].map(e=>e&&typeof e==='object'?{...e,c:m(e.c)}:e);"),
     'the frontier moves them with the rest of the land');
-  assert.equal(code.split('n.bx=[];n.rec=[];n.isl=[];n.cv=MAP_VER;').length, 4, 'moving, settling again and waking clear them with the reclaimed land');
+  assert.equal(code.split('n.bx=[];n.rec=[];n.isl=[];n.isx=[];delete n.isw;n.cv=MAP_VER;').length, 4, 'moving, settling again and waking clear them with the reclaimed land');
   const hooks = [], ctx = vm.createContext({ NORM_HOOKS: hooks, MAP: { N: 100 }, MAP_T0: Uint8Array.from({ length: 100 }, (_, i) => i < 60 ? (i % 2) : 2), MAP_VER: 5 });
   const tail = '\n  if(o.length)n.isl=o;});';
   vm.runInContext(functions.get('islClean') + '\n' + cut('NORM_HOOKS.push((n,d)=>{const s=d&&d.isn;', '\n') + '\n' + cut('NORM_HOOKS.push((n,d)=>{const a=d&&d.isl;', tail) + tail, ctx);
