@@ -88,7 +88,7 @@ try {
   await edit((n, now) => { n.cities[0].b = [...(n.cities[0].b || []), { k: 'lunar', s: now - 9e6, d: now - 5000, a: 1 }]; });
   check('a Lunar Colony ready to land shows as 1 on Space', String((await badges()).space) === '1' && /landing site/.test(await words('space')), JSON.stringify(await badges()));
   await go('space');
-  check('and on the Space page, on the Moon’s tab', /^1\|.*landing site to choose on the Moon/.test(await mark('.sp-tabs [data-b="moon"]') || ''), await mark('.sp-tabs [data-b="moon"]'));
+  check('and on the Space page, on the Moon’s Map tab', /^1\|.*landing site to choose on the Moon/.test(await mark('.sp-sub [data-s="map"]') || ''), await mark('.sp-sub [data-s="map"]'));
   await page.evaluate(() => { location.hash = '#nation'; }); await until(() => page.evaluate(() => window.__game.S.view === 'nation'));
 
   /* survey caches: today's caches still to dig up count on the Map; dug up (here: none left today), they are gone, so
