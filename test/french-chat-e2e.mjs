@@ -108,6 +108,12 @@ await F.click('#rgc-dock .rgc-tarr[data-v="1"]'); await F.click('#rgc-dock .rgc-
 check('at the end, the right arrow is dimmed', await until(async () => { const s = await arrows(F); return s.x >= s.max - 1 && s.off[1]; }), JSON.stringify(await arrows(F)));
 await F.click('#rgc-dock .rgc-tarr[data-v="-1"]'); await F.click('#rgc-dock .rgc-tarr[data-v="-1"]'); await F.click('#rgc-dock .rgc-tarr[data-v="-1"]');
 check('the left arrow steps back to the start', await until(async () => { const s = await arrows(F); return s.x <= 1 && s.off[0]; }), JSON.stringify(await arrows(F)));
+/* clicks quicker than the smooth scroll: each still counts a whole step */
+const burst = v => F.evaluate(v => { const b = document.querySelector(`#rgc-dock .rgc-tarr[data-v="${v}"]`); for (let i = 0; i < 3; i++) { b.disabled = false; b.click(); } }, v);
+await sleep(800); await burst('1');
+check('three quick clicks on the right arrow reach the end', await until(async () => { const s = await arrows(F); return s.x >= s.max - 1 && s.off[1]; }), JSON.stringify(await arrows(F)));
+await sleep(800); await burst('-1');
+check('and three quick clicks back reach the start', await until(async () => { const s = await arrows(F); return s.x <= 1 && s.off[0]; }), JSON.stringify(await arrows(F)));
 await F.focus('#rgc-tab-region'); await F.keyboard.press('End');
 check('the keyboard’s End picks the last tab and brings it into view', await until(async () => {
   if (await F.getAttribute('#rgc-tab-haps', 'aria-selected') !== 'true') return false;

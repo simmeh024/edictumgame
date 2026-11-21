@@ -51,6 +51,16 @@ check('the card shows its flag, people, cities, land and rank', await until(asyn
 check('the card links to the nation for another reader', !!(await A.$(`#rgc-list .rgc-l[data-id="${na?.id}"] .rgc-cd [data-act="visit"][data-id="${uidB}"]`)));
 await sleep(1600); await say(A, '/nation Nowhereland');
 check('an unknown nation is refused in the game', await until(async () => /No nation called “Nowhereland” in your region/.test(await text(A, '#rgc-dock'))));
+
+/* ── 4b. /help <topic>: a card that opens that section of How to play (2026-11-20) ── */
+await sleep(1600); await say(A, '/help war');
+const hp = await until(async () => (await lines(reg)).find(l => /^\/help war/.test(l.x || '') && l.cd), 15000);
+check('/help war keeps a help card naming the War section', hp?.cd?.k?.stringValue === 'help' && hp.cd.s.stringValue === 'war', JSON.stringify(hp));
+check('another reader sees a link to the section', await until(async () => /How to play/.test(await card(B, hp?.id)) && !!(await B.$(`#rgc-list .rgc-l[data-id="${hp?.id}"] .rgc-cd [data-act="help-open"][data-k="war"]`)), 15000), await card(B, hp?.id));
+await B.click(`#rgc-list .rgc-l[data-id="${hp?.id}"] .rgc-cd [data-act="help-open"]`);
+check('the link opens How to play at War, unfolded', await until(() => B.evaluate(() => G.S.view === 'help' && !!document.getElementById('hb-war') && !document.getElementById('hb-war').hidden), 10000));
+await sleep(1600); await say(A, '/help zqxwv');
+check('a topic the guide does not have is refused in the game', await until(async () => /No part of How to play matches/.test(await text(A, '#rgc-dock'))));
 await A.fill('#rgc-x', '');
 
 /* ── 5. the server checks the card ── */
