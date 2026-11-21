@@ -46,7 +46,10 @@ test('three edicts, after the 550th, 750th and 900th decision: a town, a land br
   /* every older edict keeps its number: nothing is added after them but the eight early Moon edicts (moon-edicts.test.mjs) */
   const mn = code.indexOf('ISSUES.push(', at + 40);
   assert.equal(mn, code.indexOf('for(const is of MN_ISSUES){') + 'for(const is of MN_ISSUES){is.req=mnReq;'.length, 'only the Moon edicts after them');
-  assert.equal(code.indexOf('ISSUES.push(', mn + 20), -1, 'and nothing after those');
+  /* then the war edicts (war-round-two.test.mjs), and nothing after those */
+  const war = code.indexOf('ISSUES.push(', mn + 20);
+  assert.ok(war > 0 && code.lastIndexOf('for(const is of ', war) === code.indexOf('for(const is of WAR2_ISSUES){'), 'then only the war edicts');
+  assert.equal(code.indexOf('ISSUES.push(', war + 20), -1, 'and nothing after those');
   assert.match(fs.readFileSync(new URL('../scripts/split-content.mjs', import.meta.url), 'utf8'), /'ISL_ISSUES','ISD_ISSUES'/);
   for (const is of L) {
     assert.match(is.id, /^isl-[a-z-]+$/);

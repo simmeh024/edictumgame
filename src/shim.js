@@ -650,7 +650,9 @@
   }
   /* battles are rolled by the referee: battle({d, c, p, w, h}) → {ok, win, t, s?, p, r} or {ok: false, why, next?} */
   var refereeApi = Object.freeze({
-    battle: function (d) { return A.frozen ? hang() : call('referee', Object.assign({}, isObj(d) ? d : {}, { op: 'battle' })); }
+    battle: function (d) { return A.frozen ? hang() : call('referee', Object.assign({}, isObj(d) ? d : {}, { op: 'battle' })); },
+    /* war, round two: siege({d, c}) lays siege to player d's capital (functions/index.js) */
+    siege: function (d) { return A.frozen ? hang() : call('referee', Object.assign({}, isObj(d) ? d : {}, { op: 'siege' })); }
   });
   var civicApi = Object.freeze({ request: function(data) { return call('civic', data); } });
   /* the shop (functions/shop.js, through the accounts callable): request({step, …}); checkout({txn, env, token, theme,

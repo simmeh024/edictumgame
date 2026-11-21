@@ -47,7 +47,10 @@ test('three edicts, after the 50th, 150th and 500th decision, never drawn at ran
   /* and after those only the eight early Moon edicts (moon-edicts.test.mjs), which keep the same rule */
   const mn = code.indexOf('ISSUES.push(', next + 20);
   assert.ok(mn > 0 && code.lastIndexOf('for(const is of ', mn) === code.indexOf('for(const is of MN_ISSUES){'), 'only the Moon edicts after those');
-  assert.equal(code.indexOf('ISSUES.push(', mn + 20), -1, 'and nothing after them');
+  /* then the war edicts (war-round-two.test.mjs), and nothing after those */
+  const war = code.indexOf('ISSUES.push(', mn + 20);
+  assert.ok(war > 0 && code.lastIndexOf('for(const is of ', war) === code.indexOf('for(const is of WAR2_ISSUES){'), 'then only the war edicts');
+  assert.equal(code.indexOf('ISSUES.push(', war + 20), -1, 'and nothing after those');
   assert.match(fs.readFileSync(new URL('../scripts/split-content.mjs', import.meta.url), 'utf8'), /'ISL_ISSUES'/);
   for (const is of L) {
     assert.match(is.id, /^isl-[a-z-]+$/);

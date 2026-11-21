@@ -32,7 +32,7 @@ let failed = 0;
 const check = (name, ok, info) => { console.log(`${ok ? 'ok  ' : 'FAIL'} ${name}${ok || info === undefined ? '' : ' :: ' + JSON.stringify(info)}`); if (!ok) failed++; };
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 async function until(f, ms = 8000) { const t = Date.now(); for (;;) { let v; try { v = await f(); } catch (e) { v = false; } if (v || Date.now() - t > ms) return v; await sleep(150); } }
-const STEPS = ['Your space programme', 'Found the agency', 'Missions take time', 'What to do now', 'The survey chart', 'Buildings for the agency', 'Letters from Mission Control', 'The road to the Moon'];
+const STEPS = ['Your space programme', 'At a glance', 'Three tabs', 'Found the agency', 'Under way', 'What to do now', 'The map', 'Letters, and folded sections'];
 
 /* a founded nation with its capital settled and the charter behind it, the Space page not yet open */
 async function start(theme, viewport) {
@@ -107,22 +107,24 @@ try {
     await page.click('.spx-out [data-act="go"][data-v="space"]');
     check('the first visit starts the tour', await until(async () => { const g = await tour(page); return g && g.h === STEPS[0]; }));
     let g = await settled(page);
-    check('“Guide to the Space page”, step 1 of 8, pointing at the agency', g.k === 'Guide to the Space page' && g.n === '1 of 8' && !!g.spot && await around(page, g.spot, '#mc-agency .eyebrow'), g);
+    check('“Guide to the Space page”, step 1 of 8, pointing at the road at the top', g.k === 'Guide to the Space page' && g.n === '1 of 8' && !!g.spot && await around(page, g.spot, '.sp-road'), g);
     check('it says it appears once and can be brought back', /appears once/.test(g.body));
-    check('the sheet sits clear of the agency’s title', clear(g) && (g.sheet.t >= g.spot.b - 1 || g.sheet.b <= g.spot.t + 1), g);
+    check('the sheet sits clear of the road', clear(g) && (g.sheet.t >= g.spot.b - 1 || g.sheet.b <= g.spot.t + 1), g);
     await page.screenshot({ path: OUT + '/space-gate-tour-1-1280.png' });
     const seen = [g.h];
     for (let i = 1; i < STEPS.length; i++) {
       await page.click('#tut-g [data-act="tut-g-next"]'); g = await settled(page); seen.push(g && g.h);
-      if (i === 1) {
-        check('step 2 points at the team choice', !!g.spot && await around(page, g.spot, '#mc-agency .mc-teams'), g.spot);
+      if (i === 1) check('before the agency there are no tiles yet: “At a glance” says so, at the tabs', /Once the agency is working/.test(g.body) && !!g.spot && await around(page, g.spot, '.sp-sub'), g);
+      if (i === 2) check('“Three tabs” points at Mission Control, Map and Others', !!g.spot && await around(page, g.spot, '.sp-sub') && /Others/.test(g.body), g);
+      if (i === 3) {
+        check('step 4 points at the team choice', !!g.spot && await around(page, g.spot, '#mc-agency .mc-teams'), g.spot);
         check('and says the backed team is chosen already', /backed Science & Survey/.test(g.body));
         check('the sheet sits clear of the team cards', clear(g) && (g.sheet.t >= g.spot.b - 1 || g.sheet.b <= g.spot.t + 1), g);
         await page.screenshot({ path: OUT + '/space-gate-tour-2-1280.png' });
       }
-      if (i === 3) check('“What to do now”: found the agency', /Found the agency/.test(g.body) && !!g.spot);
-      if (i === 4) check('the chart step points at the black chart', !!g.spot && await around(page, g.spot, '.mc-chart .sp-wrap'), g.spot);
-      if (i === 7) check('the last step points at the road to the Moon, and its button says Done', !!g.spot && await around(page, g.spot, '.sp-teaser .sp-steps') && g.next === 'Done', g);
+      if (i === 5) check('“What to do now”: found the agency', /Found the agency/.test(g.body) && !!g.spot);
+      if (i === 6) check('the map step opens the Map tab and points at the black chart', !!g.spot && await around(page, g.spot, '.mc-chart .sp-wrap') && await page.evaluate(() => !!document.querySelector('#sp-sub-map.on') && !!document.querySelector('#sp-ly-survey.on')), g.spot);
+      if (i === 7) check('the last step goes back to Mission Control (the founding form, before the agency), and its button says Done', !!g.spot && await around(page, g.spot, '#mc-agency') && await page.evaluate(() => !!document.querySelector('#sp-sub-mc.on')) && g.next === 'Done', g);
     }
     check('eight steps, in order', JSON.stringify(seen) === JSON.stringify(STEPS), seen);
     await page.click('#tut-g [data-act="tut-g-next"]');
@@ -142,7 +144,9 @@ try {
     check('the agency is founded with the backed team', await page.evaluate(() => window.__game.S.nation.mc.a.f === 'sci'));
     await page.click('.spx-tour [data-act="tut-guide"][data-g="s"]');
     await page.click('#tut-g [data-act="tut-g-next"]'); g = await settled(page);
-    check('step 2 is now “Your teams”, at the team chips', g.h === 'Your teams' && !!g.spot && await around(page, g.spot, '#mc-agency .mc-tm'), g);
+    check('with the agency at work, “At a glance” points at the tiles', g.h === 'At a glance' && !!g.spot && await around(page, g.spot, '.sp-stat') && /Select one/.test(g.body), g);
+    await page.click('#tut-g [data-act="tut-g-next"]'); await page.click('#tut-g [data-act="tut-g-next"]'); g = await settled(page);
+    check('step 4 is now “Your teams”, at the team line', g.h === 'Your teams' && !!g.spot && await around(page, g.spot, '#mc-agency .mc-tm'), g);
     await page.click('#tut-g [data-act="tut-g-next"]'); await page.click('#tut-g [data-act="tut-g-next"]'); g = await settled(page);
     check('“What to do now” names the first assignment, at the next-step box', g.h === 'What to do now' && /Borrowed telescope time/.test(g.body) && !!g.spot && await around(page, g.spot, '#mc-agency .mc-next'), g);
     await page.screenshot({ path: OUT + '/space-gate-tour-next-1280.png' });
@@ -154,7 +158,7 @@ try {
     g = await tour(page);
     check('“Take the tour” opens it off the page, with a picture and Show me', !!g && g.fig && !g.spot && /Show me/.test(g.body), g);
     await page.click('#tut-g [data-act="tut-g-there"]');
-    check('Show me goes to the Space page and lights the agency', await until(async () => { const x = await tour(page); return x && x.spot && await page.evaluate(() => window.__game.S.view === 'space'); }));
+    check('Show me goes to the Space page and lights the road', await until(async () => { const x = await tour(page); return x && x.spot && await page.evaluate(() => window.__game.S.view === 'space'); }));
     await page.keyboard.press('Escape');
     check('desktop: no page errors', t.errors.length === 0, t.errors);
     await t.ctx.close();
@@ -201,11 +205,12 @@ try {
     check(P + 'the sheet leaves what it points at in view', clear(g), g);
     check(P + 'step 1 fits whole above the sheet', g.sheet.t >= g.spot.b - 1, g);
     await page.screenshot({ path: OUT + `/space-gate-tour-1-375-${theme}.png` });
-    await page.click('#tut-g [data-act="tut-g-next"]'); g = await settled(page);
-    check(P + 'step 2 lights the team choice, Flight Operations chosen', g.h === 'Found the agency' && !!g.spot && /backed Flight Operations/.test(g.body) && await page.evaluate(() => document.querySelector('input[name="mc-team"][value="flt"]').checked));
+    for (let i = 1; i < 4; i++) { await page.click('#tut-g [data-act="tut-g-next"]'); await sleep(300); }
+    g = await settled(page);
+    check(P + 'step 4 lights the team choice, Flight Operations chosen', g.h === 'Found the agency' && !!g.spot && /backed Flight Operations/.test(g.body) && await page.evaluate(() => document.querySelector('input[name="mc-team"][value="flt"]').checked));
     check(P + 'and leaves it in view', clear(g), g);
     await page.screenshot({ path: OUT + `/space-gate-tour-2-375-${theme}.png` });
-    for (let i = 2; i < STEPS.length; i++) { await page.click('#tut-g [data-act="tut-g-next"]'); await sleep(300); }
+    for (let i = 4; i < STEPS.length; i++) { await page.click('#tut-g [data-act="tut-g-next"]'); await sleep(300); }
     g = await tour(page);
     check(P + 'all eight steps', g.h === STEPS[7] && g.n === '8 of 8');
     await page.click('#tut-g [data-act="tut-g-next"]');
