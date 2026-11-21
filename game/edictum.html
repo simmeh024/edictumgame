@@ -84835,10 +84835,10 @@ achDef('dip','dip-bdbrk','b','Moving the Goalposts','Claim land past an agreed b
    kept in LD.docs by ldConnect. A Registered Nation selects hexes on the main map (its own to give, another player's to
    receive), says what each side pays (stock now, and instalments from the side that receives the land) and offers it
    to that player, lists its land on the region's land market at a price, or puts it up for auction.
-   A payer's game sets its payment aside in its own record first (n.lde [{id, r, t}], read by the server before it takes
+   A payer's game sets its payment aside in its own record first (n.lne [{id, r, t}], read by the server before it takes
    the offer, the purchase or the bid). Once agreed, each game hands over its own hexes (n.bx, as border swaps do: only a
    hex's holder can give it away) and tells the server (ldCede); once every side has, the deal is done and each payee's
-   game takes in what was set aside for it, less the stamp duty (n.ldr keeps what it took). Called off, the payments go
+   game takes in what was set aside for it, less the stamp duty (n.lnr keeps what it took). Called off, the payments go
    back and land already handed over is handed back. Instalments are set aside one a day by the receiving side's game;
    more than LD_RULES.grace behind, the payee's game calls the deal in and the land goes back. The land must touch the
    side that receives it, never holds a capital, a city of the giver's or a region wonder's site, and never cuts the
@@ -84893,9 +84893,9 @@ function ldConnect(){if(hmQuiet())return;
   },e=>{LD.err=(e&&e.message)||'unavailable';LD.ready=true;});}catch(e){LD.ready=true;}
 }
 connect=(f=>async function(){const r=await f.apply(this,arguments);try{ldConnect();}catch(e){}return r;})(connect);
-const ldEscOf=n=>Array.isArray(n&&n.lde)?n.lde:[];
-const ldGot=n=>Array.isArray(n&&n.ldr)?n.ldr:[];
-const ldSeen=n=>Array.isArray(n&&n.ldl)?n.ldl:[];
+const ldEscOf=n=>Array.isArray(n&&n.lne)?n.lne:[];
+const ldGot=n=>Array.isArray(n&&n.lnr)?n.lnr:[];
+const ldSeen=n=>Array.isArray(n&&n.lnl)?n.lnl:[];
 function ldCan(){return !!S.nation&&!OBS&&!PV&&!tabPassive&&S.mode==='world'&&!!S.db;}
 async function ldAct(op,d,done,quiet){
   if(OBS){toast('Observing: nothing can be changed.');return null;}
@@ -84908,8 +84908,8 @@ async function ldAct(op,d,done,quiet){
 
 /* ── payments set aside, taken back, let go and taken in: inside a commit, where the stock is reckoned (n._ld) ──
    pk [{id, r}] sets entry id to r (taking the difference from the stock, or giving it back); rel [ids] gives entries
-   back; drop [ids] lets entries go (paid); col [{key, r}] takes in a payment once (n.ldr); log [{D, side}] writes a
-   finished deal into the history and the tallies once (n.ldl) */
+   back; drop [ids] lets entries go (paid); col [{key, r}] takes in a payment once (n.lnr); log [{D, side}] writes a
+   finished deal into the history and the tallies once (n.lnl) */
 COMMIT_HOOKS.push((n,old,now)=>{
   if(!n||n.npc||!n.name)return [];const J=n._ld;delete n._ld;if(!J||typeof J!=='object')return [];now=now||Date.now();
   let st=null;const S0=()=>st||(st=stockNow(n,now)),L=()=>ldEscOf(n);
@@ -84918,21 +84918,21 @@ COMMIT_HOOKS.push((n,old,now)=>{
     const cur=L().find(e=>e.id===p.id),had=cur?cur.r:{},s=S0();
     if(RES.some(k=>(r[k]||0)-(had[k]||0)>0&&num0(s[k])+1e-6<(r[k]||0)-(had[k]||0)))continue;
     for(const k of RES){const d=(r[k]||0)-(had[k]||0);if(d>0)s[k]=num0(s[k])-d;else if(d<0)s[k]=stockLimit(n,k,num0(s[k])-d,s[k]);}
-    n.lde=L().filter(e=>e.id!==p.id).concat(ldTotal(r)?[{id:p.id,r,t:now}]:[]).slice(-40);
+    n.lne=L().filter(e=>e.id!==p.id).concat(ldTotal(r)?[{id:p.id,r,t:now}]:[]).slice(-40);
   }
-  for(const id of J.rel||[]){const e=L().find(x=>x.id===id);if(!e)continue;const s=S0();for(const [k,v] of Object.entries(e.r))s[k]=stockLimit(n,k,num0(s[k])+v,s[k]);n.lde=L().filter(x=>x.id!==id);}
-  for(const id of J.drop||[])n.lde=L().filter(x=>x.id!==id);
+  for(const id of J.rel||[]){const e=L().find(x=>x.id===id);if(!e)continue;const s=S0();for(const [k,v] of Object.entries(e.r))s[k]=stockLimit(n,k,num0(s[k])+v,s[k]);n.lne=L().filter(x=>x.id!==id);}
+  for(const id of J.drop||[])n.lne=L().filter(x=>x.id!==id);
   for(const c of J.col||[]){if(!c||typeof c.key!=='string'||ldGot(n).includes(c.key))continue;const r=ldPayClean(c.r,LD_RULES.max)||{},s=S0();
-    for(const [k,v] of Object.entries(r))s[k]=stockLimit(n,k,num0(s[k])+v,s[k]);n.ldr=ldGot(n).concat(c.key).slice(-300);gbBump(n,'ldin',ldTotal(r),now);}
+    for(const [k,v] of Object.entries(r))s[k]=stockLimit(n,k,num0(s[k])+v,s[k]);n.lnr=ldGot(n).concat(c.key).slice(-300);gbBump(n,'ldin',ldTotal(r),now);}
   for(const x of J.log||[])ldLogIt(n,x.D,x.side,x.key,now);
   if(st){n.stock=roundStock(st);n.stockAt=now;}
-  if(Array.isArray(n.lde)&&!n.lde.length)delete n.lde;
+  if(Array.isArray(n.lne)&&!n.lne.length)delete n.lne;
   return [];
 });
 NORM_HOOKS.push((n,d)=>{
   const tm=v=>typeof v==='number'&&isFinite(v)&&v>0;
-  if(d&&Array.isArray(d.lde)){const a=d.lde.filter(e=>e&&typeof e.id==='string'&&LD_KEY.test(e.id)&&tm(e.t)&&ldPayClean(e.r,LD_RULES.max)).slice(-40).map(e=>({id:e.id,r:ldPayClean(e.r,LD_RULES.max),t:e.t}));if(a.length)n.lde=a;else delete n.lde;}else delete n.lde;
-  for(const k of ['ldr','ldl']){if(d&&Array.isArray(d[k])){const a=[...new Set(d[k].filter(v=>typeof v==='string'&&v.length<=160))].slice(-300);if(a.length)n[k]=a;else delete n[k];}else delete n[k];}
+  if(d&&Array.isArray(d.lne)){const a=d.lne.filter(e=>e&&typeof e.id==='string'&&LD_KEY.test(e.id)&&tm(e.t)&&ldPayClean(e.r,LD_RULES.max)).slice(-40).map(e=>({id:e.id,r:ldPayClean(e.r,LD_RULES.max),t:e.t}));if(a.length)n.lne=a;else delete n.lne;}else delete n.lne;
+  for(const k of ['lnr','lnl']){if(d&&Array.isArray(d[k])){const a=[...new Set(d[k].filter(v=>typeof v==='string'&&v.length<=160))].slice(-300);if(a.length)n[k]=a;else delete n[k];}else delete n[k];}
 });
 /* set a payment aside now, and wait for the save that holds it: true once the server can read it there */
 async function ldSetAside(id,r){
@@ -85234,9 +85234,9 @@ async function ldStepIn(){
   for(const D of docs){if(ldSt(D,now)!=='ended'||!(D.a===me||D.bids.some(b=>b.by===me))||!ldReady('close:'+D.id))continue;await ldCall('close:'+D.id,'ldClose',{id:D.id});return;}
 }
 setInterval(()=>{try{ldStep();}catch(e){}},15000);
-/* a finished deal into the history and the tallies, once (n.ldl) */
+/* a finished deal into the history and the tallies, once (n.lnl) */
 function ldLogIt(n,D,side,key,now){
-  if(ldSeen(n).includes(key))return;n.ldl=ldSeen(n).concat(key).slice(-300);if(!Array.isArray(n.log))n.log=[];
+  if(ldSeen(n).includes(key))return;n.lnl=ldSeen(n).concat(key).slice(-300);if(!Array.isArray(n.log))n.log=[];
   const os=side==='a'?'b':'a',other=ldOther(D,side),on=ldNm(D,os),gave=ldGives(D,side),gotL=ldGets(D,side),paid=ldPays(D,side),got=ldPays(D,os),insPay=D.ins&&D.ins.by===side,insGet=D.ins&&D.ins.by===os;
   const line=fx=>{n.log.unshift({t:now,k:'land',a:other||'',b:on.slice(0,60),fx:fx.slice(0,240)});n.log=n.log.slice(0,60);};
   if(key.endsWith('~x')){line(insPay?`stopped paying for ${ldHexWords(gotL.length)} ${ldWhere(gotL).replace(/<[^>]+>/g,'')} and handed the land back to ${on}.`:`called in ${on}’s instalments: ${ldHexWords(gave.length)} came back.`);return;}

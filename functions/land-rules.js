@@ -3,7 +3,7 @@
 
    A land deal is land/{uid}_{x}: hexes that change hands between two players of one region, for stock or for other
    hexes, or for nothing (a gift). The server keeps no land: each game hands over its own hexes (n.bx), and the server
-   only records who agreed to what, holds the payments the payer's own save has set aside (n.lde, as Supply Caches do)
+   only records who agreed to what, holds the payments the payer's own save has set aside (n.lne, as Supply Caches do)
    and says when each side has handed its land over.
      {reg, cv (the map's version the hexes are numbered on), k 'deal'|'list'|'auction', a (who offered it), an, b (the
       other side: '' for a listing or an auction until bought or won), bn, ga [hexes a gives], gb [hexes b gives],
@@ -40,7 +40,7 @@ export const LD_RULES = {
   keep: 30 * DAY
 };
 export const LD_HOUR = HOUR;
-/* a deal's id in its offerer's record (lde, for the payment set aside) and its document's (land/{uid}_{x}) */
+/* a deal's id in its offerer's record (lne, for the payment set aside) and its document's (land/{uid}_{x}) */
 export const LD_X = /^[a-z0-9]{8,16}$/;
 export const LD_DOC = /^[\w-]{1,128}_[a-z0-9]{8,16}$/;
 /* the payment set aside for an instalment k of deal id: its key in the payer's record */

@@ -8,7 +8,7 @@ import { LD_RULES, LD_X, LD_DOC, LD_OPEN, ldKey, ldShape, ldPay, ldCovers, ldMin
 
    A Registered Nation offers a deal to another player of its region (hexes each side gives, stock each side pays,
    instalments), lists its own hexes on the region's land market at a price, or puts them up for auction. The server
-   keeps no land and no stock. A payer's game sets its payment aside in its own record first (n.lde [{id, r, t}], the
+   keeps no land and no stock. A payer's game sets its payment aside in its own record first (n.lne [{id, r, t}], the
    shared half, as Supply Caches do: functions/supply.js), and the server reads the saved record to see it there before
    it takes the offer, the answer or the bid. Once agreed, each game hands over its own hexes (n.bx) and says so
    (ldCede); the server reads them in the saved record, and the deal is done when every side has. Then each payee's
@@ -33,7 +33,7 @@ async function load(tx, db, d) {
 }
 /* the payment set aside in a nation's saved record under key, if it covers want */
 function setAside(n, key, want) {
-  const e = (Array.isArray(n && n.lde) ? n.lde : []).find(x => x && x.id === key);
+  const e = (Array.isArray(n && n.lne) ? n.lne : []).find(x => x && x.id === key);
   return !!e && ldCovers(ldPay(e.r) || {}, want);
 }
 /* every deal a nation is party to: as the offerer and as the other side */
