@@ -86484,8 +86484,11 @@ document.addEventListener('click',e=>{
   const t=e.target,el=t.closest&&t.closest('[data-rgc]');if(!el||el.tagName==='INPUT')return;
   const a=el.dataset.rgc,id=el.dataset.id||'',m=rgcCh().list.find(x=>x.id===id);
   if(a==='tab')rgcSetTab(el.dataset.v,true);
+  /* each step goes on from where the last one was heading: a smooth scroll still under way would otherwise swallow the
+     clicks that came before it finished (three quick clicks back from the end stopped short of the start, 2026-11-21) */
   else if(a==='tabs-go'){const r=RGC.dock&&RGC.dock.querySelector('#rgc-tabs');if(r){const step=Math.max(90,Math.round(r.clientWidth*.6))*(el.dataset.v==='-1'?-1:1);
-    try{r.scrollBy({left:step,behavior:'smooth'});}catch(err){r.scrollLeft+=step;}}}
+    const now=performance.now(),max=Math.max(0,r.scrollWidth-r.clientWidth),from=r._tgt!=null&&now-r._tgtAt<700?r._tgt:r.scrollLeft,to=Math.max(0,Math.min(max,from+step));
+    r._tgt=to;r._tgtAt=now;try{r.scrollTo({left:to,behavior:'smooth'});}catch(err){r.scrollLeft=to;}}}
   else if(a==='dock'){RGC.docked=!RGC.docked;rgcLS('edictum.rgc.dock',RGC.docked?'1':'0');rgcDockApply();}
   else if(a==='reply'&&m){RGC.menu='';rgcCh().re={id:m.id,nm:rgcName(m),x:(m.im?(m.x?'📷 '+m.x:'📷 A picture'):m.x).slice(0,90)};rgcPaint();const f=document.getElementById('rgc-x');if(f)f.focus({preventScroll:true});}
   else if(a==='re-no'){rgcCh().re=null;rgcFoot();const f=document.getElementById('rgc-x');if(f)f.focus({preventScroll:true});}
