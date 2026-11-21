@@ -6,7 +6,8 @@
 //   node home.mjs --project demo-edictum             # the emulators, with FIRESTORE_EMULATOR_HOST set
 //   node home.mjs --project <id> --dry               # works it all out and prints it, writes nothing
 //
-// .github/workflows/home.yml runs it every five minutes. It prints a JSON report.
+// The homeLive Cloud Function (functions/home-live.js) does the same run every five minutes; .github/workflows/home.yml
+// runs this by hand. It prints a JSON report.
 import { initializeApp, applicationDefault } from 'firebase-admin/app';
 import { getFirestore, Timestamp } from 'firebase-admin/firestore';
 import { runHome } from '../../functions/home.js';

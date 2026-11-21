@@ -123,7 +123,7 @@ try {
   /* ── a veteran: the Lunar Colony complete, the landing at the preferred site, the first night ── */
   await t.edit((n, now) => { const c = n.cities[0]; c.b = (c.b || []).filter(b => b.k !== 'lunar').concat({ k: 'lunar', s: now - 5 * 864e5, d: now - 864e5 }); n.stock = { food: 400, timber: 400, iron: 400, oil: 400, goods: 400 }; n.stockAt = now; n._stockSet = true; n.mc.xn = 'Lamplight One'; n.mc.ms.prep = { s: now - 4 * 864e5, d: now - 3 * 864e5 }; });
   await t.go('space');
-  check('with the wonder complete, the full settlement map replaces the chart', await page.evaluate(() => !!document.querySelector('canvas.sp-cv:not([data-mode])') && !document.querySelector('canvas.sp-cv[data-mode="chart"]')));
+  check('with the wonder complete, the full settlement map comes first and the survey chart follows it', await page.evaluate(() => { const m = document.querySelector('canvas.sp-cv:not([data-mode])'), c = document.querySelector('canvas.sp-cv[data-mode="chart"]'); return !!m && !!c && !!(m.compareDocumentPosition(c) & Node.DOCUMENT_POSITION_FOLLOWING); }));
   const land = await page.evaluate(() => (document.querySelector('.mc-land') || {}).innerText || '');
   check('the landing panel offers the preferred surveyed site', /Preferred site/.test(land), land);
   const pick = await page.$('.mc-land [data-act="mc-sel"]');
@@ -223,6 +223,108 @@ try {
     check('outpost: the panel is the colony’s own now', await p.evaluate(() => /Your colony on/.test(document.querySelector('#sp-panel').textContent)));
     await p.screenshot({ path: path.join(OUT, 'mission-control-outpost-colony.png') });
     check('outpost: no page errors', !o.errors.length, o.errors);
+    await o.ctx.close();
+  }
+
+  /* ── charting the Moon: the second dish and its queue, a block, a strip, a traverse, a campaign, the finds, the rewards,
+     a landing site chosen from the chart, and the chart kept after the Lunar Colony ── */
+  {
+    const o = await start('light', { width: 1280, height: 900 }), p = o.page;
+    await o.edit((n, now) => { const D = 864e5, T = now - 30 * D, c = n.cities[0];
+      n.mc.a = { nm: 'Lampwick Survey', t: T, f: 'sci', tm: { sci: T, flt: T, eng: T } };
+      for (const [k, d] of [['scope', 20], ['cam', 19], ['orb', 18], ['relay', 17], ['polar', 16], ['rover', 15]]) n.mc.ms[k] = { s: now - d * D - 3600e3, d: now - d * D };
+      n.mc.ms.relay.v = 'dom'; n.mc.c = [0, 1, 2, 3, 4].map(() => ({ o: 0, f: 'rep', b: '111', t: T, x: '' }));
+      c.b = (c.b || []).concat(['mctrl', 'dsts', 'robo', 'observ'].map(k => ({ k, s: T, d: T + 3600e3 })));
+      n.stock = { food: 900, timber: 900, iron: 900, oil: 900, goods: 900 }; n.stockAt = now; n._stockSet = true; });
+    await o.go('space');
+    const sel = s => p.evaluate(s => { const G = window.__game; G.S.mcSec = s; G.render(); }, s);
+    const finish = () => o.edit((n, now) => { for (const k of Object.keys(n.mc.ms)) { const m = n.mc.ms[k]; if (m.d > now && m.v !== 'dish') { m.s = now - 2 * 864e5; m.d = now - 864e5 - 60e3; } } });
+    const free = (kind, need) => p.evaluate(([kind, need]) => { const G = window.__game, n = G.S.nation, now = Date.now(), L = G.MC.reveal(n, now);
+      for (let s = 0; s < 160; s++) { if (need === 2 && L[s] < 2) continue; for (const k of kind === 'tv' ? ['n', 'e', 's', 'w'].map(d => 'tv' + s + d) : [kind === 'wf' ? G.MC.wfKey(s) : kind === 'os' ? G.MC.osKey(s) : 'sc' + s]) if (k && !G.MC.startProblem(n, k, now)) return { s, k }; }
+      return null; }, [kind, need]);
+    const ag = () => p.evaluate(() => (document.querySelector('.mc-agency') || {}).textContent || '');
+    const a0 = await ag();
+    check('charting: the agency counts the charted sectors and names the next reward', /of 160 sectors charted in detail/.test(a0) && /At 40: the Selenographia card pattern/.test(a0), a0.slice(0, 400));
+    /* the second dish */
+    const g0 = await p.evaluate(() => window.__game.S.nation.stock.goods);
+    await p.click('[data-act="mc-dish"]');
+    await until(() => p.evaluate(() => !!window.__game.S.nation.mc.dh));
+    check('charting: the second dish is ordered and paid for', await p.evaluate(g0 => { const n = window.__game.S.nation; return !!n.mc.dh && n.mc.dh.d - n.mc.dh.s === 8 * 3600e3 && n.stock.goods <= g0 - 29.5; }, g0));
+    await o.edit((n, now) => { n.mc.dh = { s: now - 9 * 3600e3, d: now - 3600e3 }; });
+    /* a wide-field block keeps Science & Survey busy */
+    const wf = await free('wf');
+    await sel(wf.s);
+    const info = await p.evaluate(() => (document.getElementById('mc-sec') || {}).textContent || '');
+    check('charting: a sector offers a survey, a wide-field block and an orbiter strip', /Survey this sector/.test(info) && /Wide-field survey/.test(info) && /Mapping orbiter/.test(info), info);
+    await p.click(`#mc-sec [data-act="mc-start"][data-k="${wf.k}"]`);
+    await until(() => p.evaluate(k => !!window.__game.S.nation.mc.ms[k], wf.k));
+    check('charting: the wide-field survey is under way with Science & Survey', await p.evaluate(() => /Wide-field survey/.test((document.querySelector('.mc-jobs') || {}).textContent || '')),
+      await p.evaluate(() => ({ msg: window.__game.S.mcMsg, ms: Object.keys(window.__game.S.nation.mc.ms), agency: !!document.querySelector('.mc-agency') })));
+    /* so three sector surveys go to the second dish's queue, back to back */
+    for (let i = 0; i < 3; i++) { const sc = await free('sc'); await sel(sc.s); await p.click(`#mc-sec [data-act="mc-start"][data-k="${sc.k}"]`); await until(() => p.evaluate(k => !!window.__game.S.nation.mc.ms[k], sc.k)); }
+    const lane = await p.evaluate(() => { const G = window.__game; return G.MC.lane(G.S.nation, Date.now()).map(x => ({ k: x.k, s: x.s, d: x.d, v: x.v })); });
+    check('charting: with Science & Survey busy, three sectors queue at the second dish, back to back', lane.length === 3 && lane.every(x => x.v === 'dish') && lane[1].s === lane[0].d && lane[2].s === lane[1].d, lane);
+    check('charting: the queue is listed, with Remove beside the two not started', await p.evaluate(() => document.querySelectorAll('.mc-q li').length === 3 && document.querySelectorAll('.mc-q [data-act="mc-unq"]').length === 2));
+    await (await p.$('.mc-agency')).screenshot({ path: path.join(OUT, 'mission-control-survey-agency.png') });
+    const gq = await p.evaluate(() => window.__game.S.nation.stock.goods);
+    await p.click(`.mc-q [data-act="mc-unq"][data-k="${lane[1].k}"]`);
+    await until(() => p.evaluate(k => !window.__game.S.nation.mc.ms[k], lane[1].k));
+    const lane2 = await p.evaluate(() => { const G = window.__game; return G.MC.lane(G.S.nation, Date.now()).map(x => ({ k: x.k, s: x.s, d: x.d })); });
+    check('charting: a queued survey comes out, its cost back, and the next moves up', lane2.length === 2 && lane2[1].s === lane2[0].d && await p.evaluate(g => Math.abs(window.__game.S.nation.stock.goods - (g + 5)) < 0.6, gq), lane2);
+    await finish();
+    /* a far-side campaign, a mapping orbiter, a rover traverse */
+    await o.go('nation'); await o.go('space');
+    check('charting: the next campaign of each chain is listed, the first far-side one ready to start', await p.evaluate(() => { const t = document.querySelector('.mc-camp').textContent; return !!document.querySelector('.mc-camp [data-act="mc-start"][data-k="fs1"]') && /polar night survey: north/.test(t) && !/campaign II/.test(t) && !/survey: south/.test(t); }));
+    await p.click('.mc-camp [data-act="mc-start"][data-k="fs1"]');
+    await until(() => p.evaluate(() => !!window.__game.S.nation.mc.ms.fs1));
+    check('charting: the far-side campaign is under way', await p.evaluate(() => /Far-side campaign I/.test(document.querySelector('.mc-jobs').textContent)));
+    await finish();
+    const os = await free('os');
+    await sel(os.s); await p.click(`#mc-sec [data-act="mc-start"][data-k="${os.k}"]`);
+    await until(() => p.evaluate(k => !!window.__game.S.nation.mc.ms[k], os.k));
+    check('charting: a mapping orbiter flies with Flight Operations', await p.evaluate(() => /Mapping orbiter/.test(document.querySelector('.mc-jobs').textContent) && /Flight Operations/.test(document.querySelector('.mc-jobs').textContent)));
+    await finish();
+    const tv = await free('tv', 2);
+    await sel(tv.s);
+    check('charting: a charted sector offers a rover traverse', await p.evaluate(() => /Rover traverse from here/.test(document.getElementById('mc-sec').textContent)));
+    await p.click(`#mc-sec [data-act="mc-start"][data-k="${tv.k}"]`);
+    await until(() => p.evaluate(k => !!window.__game.S.nation.mc.ms[k], tv.k));
+    const fold = await p.evaluate(([wk, ok]) => { const n = window.__game.S.nation; return { sv: n.mc.sv || '', wf: !!n.mc.ms[wk], os: !!n.mc.ms[ok], fs1: !!n.mc.ms.fs1 }; }, [wf.k, os.k]);
+    check('charting: the traverse is under way, and finished surveys folded into the chart’s record', /^[0-9a-f]{40}$/.test(fold.sv) && !fold.wf && !fold.os && fold.fs1, fold);
+    await finish();
+    /* every sector charted: finds, rewards, Every Sector */
+    await o.edit(n => { n.mc.sv = 'f'.repeat(40); });
+    await o.go('nation'); await o.go('space');
+    const fd = await p.evaluate(() => { const G = window.__game; return G.MC.finds(G.S.nation, Date.now()).length; });
+    check('charting: the whole Moon charted holds its finds, listed to bring home', fd > 20 && await p.evaluate(() => !!document.querySelector('.mc-finds [data-act="mc-home"][data-s="all"]')), fd);
+    await sel(await p.evaluate(() => { const G = window.__game; return G.MC.finds(G.S.nation, Date.now())[3].s; }));
+    await p.evaluate(() => document.querySelector('.mc-chart').scrollIntoView()); await sleep(1200);
+    await p.screenshot({ path: path.join(OUT, 'mission-control-survey-finds.png') });
+    const s0 = await p.evaluate(() => ({ ...window.__game.S.nation.stock }));
+    await p.click('.mc-finds [data-act="mc-home"][data-s="all"]');
+    await until(() => p.evaluate(() => !!window.__game.S.nation.mc.fc));
+    const home = await p.evaluate(s0 => { const G = window.__game, n = G.S.nation, F = G.MC.finds(n, Date.now()); return { all: F.every(f => f.got), gain: ['food', 'iron', 'oil', 'goods'].reduce((a, r) => a + n.stock[r] - s0[r], 0) }; }, s0);
+    check('charting: the finds come home, their resources in the stockpile', home.all && home.gain > 300, home);
+    await o.edit(() => {});
+    const rw = await p.evaluate(() => { const G = window.__game, n = G.S.nation, u = G.UX.unlocksOf(n), m = G.clone(n); m.mc.sv = undefined; m.mc.ms = {};
+      return { u: ['p-selene', 'c-moonchart', 'e-moonchart', 'pn-dish'].filter(id => u.has(id)), land: G.RK.landEarned(n) - G.RK.landEarned(m), ach: !!(n.ach && n.ach['mc-chart-all']) }; });
+    check('charting: the rewards at 40, 80 and 120 sectors, their land credits, and Every Sector at 160', rw.u.length === 4 && rw.land >= 6 && rw.ach, rw);
+    /* a landing site chosen from the chart */
+    const ps = await p.evaluate(() => { const G = window.__game, n = G.S.nation, now = Date.now(), cand = G.MC.sites(n);
+      for (let s = 0; s < 160; s++) { const c = G.MC.secSite(s); if (c >= 0 && !cand.includes(c) && c !== G.MC.prefTile(n) && G.MC.prefOk(n, c, now)) return { s, c }; } return null; });
+    await sel(ps.s);
+    await p.click(`#mc-sec [data-act="mc-pref"][data-c="${ps.c}"]`);
+    await until(() => p.evaluate(c => window.__game.S.nation.mc.pf === c, ps.c));
+    check('charting: any charted sector’s best ground can be the preferred landing site', await p.evaluate(c => window.__game.S.nation.mc.pf === c && /chosen from the chart/.test(document.querySelector('.mc-sites').textContent), ps.c));
+    await p.evaluate(() => document.querySelector('.mc-chart').scrollIntoView()); await sleep(1200);
+    await p.screenshot({ path: path.join(OUT, 'mission-control-survey-chart.png') });
+    /* the Lunar Colony complete: the chart follows the shared map, and still charts */
+    await o.edit((n, now) => { const c = n.cities[0]; c.b = c.b.concat({ k: 'lunar', s: now - 5 * 864e5, d: now - 864e5 }); n.mc.sv = undefined; });
+    await o.go('nation'); await o.go('space');
+    const sc = await free('sc');
+    await sel(sc.s);
+    check('charting: after the Lunar Colony the survey chart stays, below the shared map, and still surveys', await p.evaluate(k => { const m = document.querySelector('canvas.sp-cv:not([data-mode])'), c = document.querySelector('canvas.sp-cv[data-mode="chart"]'); return !!m && !!c && !!(m.compareDocumentPosition(c) & Node.DOCUMENT_POSITION_FOLLOWING) && !!document.querySelector(`#mc-sec [data-act="mc-start"][data-k="${k}"]`); }, sc.k));
+    check('charting: no page errors', !o.errors.length, o.errors);
     await o.ctx.close();
   }
 } catch (e) { console.log('FAIL', e.stack || e); failed++; }
