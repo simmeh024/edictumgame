@@ -3584,6 +3584,14 @@ html[lang="fr"] .id-tilt{font-size:9px;letter-spacing:0}
 .paper.edict:has(.edict-dam){border-top:5px solid var(--dam-blue)}
 .paper.edict:has(.edict-dam) .h1{color:var(--dam-blue)}
 .wd-ph-r.dam-ed{color:var(--dam-blue)}
+:root{--isl-sand:#a87a2e}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--isl-sand:#e0b46a}}
+:root[data-theme="dark"]{--isl-sand:#e0b46a}
+.edict-isl{font:600 10.5px/1.4 var(--f-mono);padding:3px 6px;border-radius:3px;background:var(--isl-sand);color:var(--sheet);letter-spacing:.06em;text-transform:uppercase;margin-left:6px}
+.issue-item:has(.edict-isl) .issue-card{border-color:var(--isl-sand);box-shadow:inset 4px 0 0 var(--isl-sand);background:color-mix(in srgb,var(--isl-sand) 7%,var(--sheet))}
+.paper.edict:has(.edict-isl){border-top:5px solid var(--isl-sand)}
+.opt-isl{margin:6px 0 10px;font-size:13px;line-height:1.45;color:var(--ink-2);border-left:3px solid var(--isl-sand);padding-left:9px}
+.opt-isl b{color:var(--ink)}
 .crs-clock b{color:var(--down);font-weight:650}
 .crs-bar{display:flex;gap:12px;align-items:flex-start;margin:6px 0 18px;padding:12px 14px;border:1px solid var(--down);border-left-width:4px;border-radius:4px;background:color-mix(in srgb,var(--down) 7%,var(--sheet))}
 .crs-bar p{margin:0;max-width:68ch}
@@ -12548,7 +12556,7 @@ function remapFront(d){
   if(!((d.loc&&d.loc.m===4)||d.cv===4))return d.cv===MAP_VER&&d.fz!==1?remapLate(d):d;
   const o={...d},m=frontCell,here=e=>e&&typeof e==='object'&&e.r===REG.id;
   if(d.loc&&d.loc.m===4)o.loc={...d.loc,m:MAP_VER};
-  for(const k of ['claims','conq','bx','rec'])if(Array.isArray(d[k]))o[k]=d[k].map(e=>e&&typeof e==='object'?{...e,c:m(e.c)}:e);
+  for(const k of ['claims','conq','bx','rec','isl'])if(Array.isArray(d[k]))o[k]=d[k].map(e=>e&&typeof e==='object'?{...e,c:m(e.c)}:e);
   if(Array.isArray(d.cities))o.cities=d.cities.map(c=>c&&typeof c==='object'?{...c,c:m(c.c)}:c);
   if(Array.isArray(d.intel))o.intel=d.intel.map(r=>r&&typeof r==='object'&&Number.isInteger(r.c)&&r.c>=0?{...r,c:m(r.c)}:r);
   if(Array.isArray(d.dorm))o.dorm=d.dorm.map(e=>e&&typeof e==='object'&&Number.isInteger(e.c)?{...e,c:m(e.c)}:e);
@@ -25395,9 +25403,10 @@ function biomeGlyphs(g,byP,col,s,T,kind){
   g.beginPath();for(const i of byP[8]){const x=MAP.cx[i],y=MAP.cy[i];for(const dy of [-2.4,0,2.4]){g.moveTo(x-4,y+dy);g.lineTo(x+4,y+dy);}}g.strokeStyle=col.ink;g.globalAlpha=0.32;g.lineWidth=1.2/s;g.stroke();g.globalAlpha=1;
 }
 
-/* Land from the sea: each nation lists the shallow-sea hexes it reclaimed (n.rec). Replayed in
-   time order, the first claim on a hex wins; the hex becomes lowland held by that nation. */
-let RECL={sig:'',owner:new Map(),time:new Map()};
+/* Land from the sea: each nation lists the shallow-sea hexes it reclaimed (n.rec), and the hexes of its artificial
+   islands, shallow or deep (n.isl, with i the island's edict: "artificial islands", near the end). Replayed in time
+   order, the first claim on a hex wins; the hex becomes lowland held by that nation. RECL.isl: an island's hexes. */
+let RECL={sig:'',owner:new Map(),time:new Map(),isl:new Map()};
 function reclaimCell(c){MAP.T[c]=2;BIOME[c]=7;CELL_RES.food[c]=3.4*FOOD_LAND;CELL_RES.timber[c]=0.6;MAP.coast[c]=0;let k=-1;for(let d=0;d<6&&k<0;d++){const j=MAP.nbr[c*6+d];if(j>=0&&MAP.comp[j]>=0)k=MAP.comp[j];}MAP.comp[c]=k;}
 function unreclaimCell(c){MAP.T[c]=MAP_T0[c];BIOME[c]=0;CELL_RES.food[c]=0;CELL_RES.timber[c]=0;MAP.coast[c]=-1;MAP.comp[c]=-1;}
 let reclSt=null;
@@ -25406,17 +25415,18 @@ function syncReclaims(){
   const r=readReclaims();reclSt=recStamp(r);return r;
 }
 function readReclaims(){
-  const ev=[],add=(id,n)=>{if(n&&Array.isArray(n.rec))for(const e of n.rec)ev.push({c:e.c,t:e.t,id});};
+  const ev=[],add=(id,n)=>{if(!n)return;if(Array.isArray(n.rec))for(const e of n.rec)ev.push({c:e.c,t:e.t,id,i:0});
+    if(Array.isArray(n.isl))for(const e of n.isl)if(e&&[1,2,3].includes(e.i))ev.push({c:e.c,t:e.t,id,i:e.i});};
   if(S.nation)add(myId(),S.nation);
   if(S.mode!=='local')for(const id of Object.keys(S.world||{}))if(id!==S.uid)add(id,S.world[id]);
   ev.sort((a,b)=>a.t-b.t||(a.id<b.id?-1:a.id>b.id?1:0)||a.c-b.c);
-  const sig=ev.map(e=>e.id+':'+e.c).join(',');
+  const sig=ev.map(e=>e.id+':'+e.c+(e.i?'i'+e.i:'')).join(',');
   if(sig===RECL.sig)return RECL;
-  const own=new Map(),tm=new Map();
-  for(const e of ev){if(!(e.c>=0&&e.c<MAP.N)||MAP_T0[e.c]!==1||own.has(e.c))continue;own.set(e.c,e.id);tm.set(e.c,e.t);}
+  const own=new Map(),tm=new Map(),isl=new Map();
+  for(const e of ev){if(!(e.c>=0&&e.c<MAP.N)||(e.i?MAP_T0[e.c]>=2||(LAKE||lakeMap())[e.c]:MAP_T0[e.c]!==1)||own.has(e.c))continue;own.set(e.c,e.id);tm.set(e.c,e.t);if(e.i)isl.set(e.c,e.i);}
   for(const c of RECL.owner.keys())if(!own.has(c))unreclaimCell(c);
   for(const c of own.keys())if(!RECL.owner.has(c))reclaimCell(c);
-  RECL={sig,owner:own,time:tm};terrCache.clear();if(atlasCache)atlasCache.clear();
+  RECL={sig,owner:own,time:tm,isl};terrCache.clear();if(atlasCache)atlasCache.clear();
   return RECL;
 }
 /* REC_MAX: the most an edict's dykes and polders reclaim in all. RECW_MAX: what the nation's own engineers may add on
@@ -26334,6 +26344,8 @@ function atlasData(){
     for(const e of d.bx||[]){key.add(e.t);ev.push({t:e.t,txt:e.fr===id?(e.wr===1?`${N} handed ${nm(e.to)} a hex on ${landName(e.c)} taken in war.`:`${N} ceded a hex on ${landName(e.c)} to ${nm(e.to)}.`):`${N} annexed a hex on ${landName(e.c)} from ${nm(e.fr)}.`});}
     const rc=new Map();for(const e of d.rec||[]){key.add(e.t);const b=Math.floor(e.t/60000);const o=rc.get(b)||{t:e.t,k:0,c:e.c};o.k++;rc.set(b,o);}
     for(const o of rc.values())ev.push({t:o.t,txt:`${N} reclaimed ${o.k===1?'a hex':o.k+' hexes'} from the sea off ${shoreName(o.c)}.`});
+    const ir=new Map();for(const e of Array.isArray(d.isl)?d.isl:[]){if(!e||ir.has(e.i))continue;key.add(e.t);ir.set(e.i,e.t);}
+    for(const [k,t] of ir)ev.push({t,txt:`${N} raised ${typeof islClean==='function'&&islClean(d.isn&&d.isn[k])||'an artificial island'} from the sea.`});
     for(const c of d.cities||[])if(c.t&&c.c!==cellOf(d.loc)){key.add(c.t);ev.push({t:c.t,txt:`${N} founded the city of ${c.nm||'a new city'}.`});}
     for(const e of d.disc||[])if(e.f)ev.push({t:e.t,txt:`${N} discovered ${e.nm||siteDefault(e.s)}.`});
   }
@@ -27547,6 +27559,7 @@ function helpBody(n){
       <p>“Spend them for me” picks the free hexes closest to your capital, and “Spend new credits automatically” does that whenever a credit arrives. Automatic claims show in the bell.</p>
       <h3 class="help-h3">Land from the sea</h3>
       <p>Some edicts for coastal and island nations offer to build a dyke, fill in a bay or raise an artificial island${rec.length?`, such as ${list(rec)}`:''}. Choose to build and shallow sea that touches only your own land becomes reclaimed land, the richest farmland there is, up to ${REC_MAX} hexes from edicts.</p>
+      ${typeof ISL_AT==='object'?`<p>Three edicts raise an island of your own, the first after your ${ISL_AT[0]}th decision, the second after your ${ISL_AT[1]}th and the third after your ${ISL_AT[2]}th. Four or five hexes of free sea, a hex of water clear of every coast and no more than ${ISL_REACH} hexes out from your land, become reclaimed land, yours at once without a land credit. With no such sea near your land, the edict waits until there is.</p>`:''}
       <p>When the land runs out (fewer than ${RECW_NEAR} free hexes on your border, or less than ${Math.round(RECW_FREE*100)}% of the region unclaimed), your own engineers can reclaim more from the Territory section of the Nation page: one hex at a time, for ${costText(RECW_COST)} and a tenth more for every hex they have already won, up to ${RECW_MAX} hexes.</p>${G(go('map','Open the map'))}`,
     cities:`<p>Your capital is your first city. Your first building opens a second, and your first gold upgrade (a building’s fifth) opens one more. More cities unlock at population milestones and as your land grows (one at every million km² up to 9 million, then one at every 10 million up to 100 million), up to ${MAX_CITIES}. Founding one costs ${cost(CITY_COST)} from your stockpile, and it must stand on land you hold, at least ${CITY_MIN_DIST} hexes from any other city.</p>
       <p>Cities work the land within two hexes, expanding to three at two million city residents. Overlapping production areas count each hex once. ${blkHelp()} Each city builds one thing at a time${typeof C3_QMAX==='number'?`, with up to ${num(C3_QMAX)} more waiting in its queue`:''}; buildings are paid for from your stockpile and take hours to finish, wonders a day. Cancelling a project returns half the materials.</p>
@@ -31372,7 +31385,7 @@ function fpEvents(x,start,end){
   const n=x.n,ev=[],add=(t,k,txt)=>{if(t>0&&txt&&t>=start-60000&&t<=end+1000)ev.push({t:Math.max(t,start),k,txt});};
   const near=(k,t)=>ev.some(e=>e.k===k&&Math.abs(e.t-t)<120000);
   add(n.founded,'found',`${n.name} was founded.`);
-  const KIND={war:'war',npcwar:'war',peace:'war',conq:'war',lost:'war',city:'city',wonder:'city',cityab:'city',mile:'mile',settle:'other',cat:'other',alfound:'other',aljoin:'other',leader:'other',games:'other',hostwin:'other',disc:'other',rec:'other'};
+  const KIND={war:'war',npcwar:'war',peace:'war',conq:'war',lost:'war',city:'city',wonder:'city',cityab:'city',mile:'mile',settle:'other',cat:'other',alfound:'other',aljoin:'other',leader:'other',games:'other',hostwin:'other',disc:'other',rec:'other',isl:'other'};
   for(const l of n.log||[]){const k=KIND[l.k];if(!k)continue;let txt='';try{txt=l.k==='npcwar'?`${l.b||nameOf(l.a)} declared war on ${n.name}.`:logLine(l,n,x.id);}catch(e){}add(l.t,k,txt);}
   for(let i=1;i<MILESTONES.length;i++){const t=tallyFirst(n,'mile:'+i),m=MILESTONES[i];if(t&&!near('mile',t))add(t,'mile',`The population passed ${fmtPopShort(m.p)}${m.t?`, and ${n.name} became a ${m.t}`:''}.`);}
   for(const k of Object.keys(n.tlf||{})){const m=/^(war|npcwar|peace):(.+)$/.exec(k);if(!m)continue;const t=n.tlf[k];if(near('war',t))continue;const who=nameOf(m[2]);add(t,'war',m[1]==='war'?`War was declared on ${who}.`:m[1]==='npcwar'?`${who} declared war on ${n.name}.`:`Peace was made with ${who}.`);}
@@ -31680,7 +31693,7 @@ function normalize(d){
     if(!(k in r))continue;let s;try{s=JSON.stringify(r[k]);}catch(e){continue;}if(s!==undefined)n[k]=JSON.parse(s);}
   return n;
 }
-const MAP_KEEP=['loc','cv','cities','infra','dep','mapPlan','claims','conq','bx','rec','mvCap'];
+const MAP_KEEP=['loc','cv','cities','infra','dep','mapPlan','claims','conq','bx','rec','isl','mvCap'];
 
 /* ───────── moving ───────── */
 /* A move keeps the nation: people, laws, cabinet, treasury, history, honours and museum. The land starts
@@ -31708,7 +31721,7 @@ async function moveTo(rid,wake){
   moveBusy=true;const P=movePlan(n0),n=clone(n0);if(wake)P.lose=0;
   const st=stockNow(n0,now);for(const r of RES)st[r]=stockLimit(n0,r,(st[r]||0)+(P.back[r]||0),st[r]);n.stock=roundStock(st);n.stockAt=now;n._stockSet=true;
   if(P.cap){const o=clone(P.cap);delete o.c;n.mvCap=o;}else if(!wake)delete n.mvCap;
-  n.cities=[];n.loc=null;n.claims=[];n.conq=[];n.bx=[];n.rec=[];n.cv=MAP_VER;
+  n.cities=[];n.loc=null;n.claims=[];n.conq=[];n.bx=[];n.rec=[];n.isl=[];n.cv=MAP_VER;
   for(const id of Object.keys(n.wars||{}))if(n.wars[id]&&n.wars[id].t)n.wh=(n.wh||[]).concat({w:id,a:n.wars[id].t,b:now}).slice(-40);
   n.wars={};n.peace={};delete n.pterm;
   if(n.alli){n.log.unshift({t:now,k:'aldisband',a:myId(),b:n.alli.name});delete n.alli;}
@@ -32089,7 +32102,7 @@ function dormWake(){
   n.lt=Math.min(now,(typeof n0.lt==='number'?n0.lt:(n0.founded||last))+gap);n.rsk=Math.floor(now/RESIGN_SLOT);
   /* the land, as in moveTo: no land credits lost (n.mvl) and no move wait (n.mvAt) */
   if(P.cap){const o=clone(P.cap);delete o.c;n.mvCap=o;}else delete n.mvCap;
-  n.cities=[];n.loc=null;n.claims=[];n.conq=[];n.bx=[];n.rec=[];n.cv=MAP_VER;
+  n.cities=[];n.loc=null;n.claims=[];n.conq=[];n.bx=[];n.rec=[];n.isl=[];n.cv=MAP_VER;
   for(const id of Object.keys(n.wars||{}))if(n.wars[id]&&n.wars[id].t)n.wh=(n.wh||[]).concat({w:id,a:n.wars[id].t,b:(n.peace&&n.peace[id]>n.wars[id].t)?n.peace[id]:last}).slice(-40);
   n.wars={};n.peace={};delete n.pterm;
   if(n.alli){n.log.unshift({t:now,k:'aldisband',a:myId(),b:n.alli.name});delete n.alli;}
@@ -50061,8 +50074,12 @@ function sfStart(){
    nation's first saves and sign-in were being settled. A page never idle still gets a 6 ms slice a second. Paths, the
    kept copy and the redraw that bakes the sea into the terrain picture each wait for an idle moment of their own. */
 const sfLater=f=>window.requestIdleCallback?requestIdleCallback(f,{timeout:1000}):setTimeout(f,60);
+/* A job started while an older one ran (the land from the sea changed: sfStart from sfField) is driven by two chains of
+   sfRun, the old job's and its own, both reading sfJob. They share its y, so no slice is done twice, but the one that
+   comes after the other has finished the last stage found st past SF_STAGES and threw "SF_STAGES[J.st] is not a
+   function" (seen 20 Nov 2026, when three artificial islands rose one after another): a finished job waits for sfFinish. */
 function sfRun(d){
-  const J=sfJob;if(!J)return;if(J.sig!==RECL.sig){sfJob=null;sfStart();return;}
+  const J=sfJob;if(!J||J.st>=SF_STAGES.length)return;if(J.sig!==RECL.sig){sfJob=null;sfStart();return;}
   const t0=performance.now(),more=d&&typeof d.timeRemaining==='function'&&!d.didTimeout?()=>d.timeRemaining()>2:()=>performance.now()-t0<6;J.slices++;
   do{const y1=Math.min(J.ny,J.y+16),t1=performance.now();SF_STAGES[J.st](J,J.y,y1);J.sm[J.st]=(J.sm[J.st]||0)+performance.now()-t1;J.y=y1;
     if(J.y>=J.ny){J.st++;J.y=0;if(J.st===SF_CONTOUR)J.hx=J.fx=J.fy=J.d2=J.H=null;
@@ -54869,7 +54886,7 @@ function capLift(){
   n.stock=roundStock(st);n.stockAt=now;n._stockSet=true;
   if(P.cap){const o=clone(P.cap);delete o.c;n.mvCap=o;}
   const cap=cellOf(n0.loc);
-  n.cities=[];n.loc=null;n.claims=[];n.conq=[];n.bx=[];n.rec=[];n.cv=MAP_VER;delete n.mapPlan;
+  n.cities=[];n.loc=null;n.claims=[];n.conq=[];n.bx=[];n.rec=[];n.isl=[];n.cv=MAP_VER;delete n.mapPlan;
   n.rsx={t:now,c:cap,by:String(y.n.name||'').slice(0,40)};
   commit(n);
   S.mapPick=null;S.mapSel=null;S.landQ=null;S.mapMsg='';
@@ -90918,6 +90935,160 @@ shopFineryHTML=(f=>function(n){
 COMMIT_HOOKS.push((n,prev)=>{try{if(n&&prev&&xmUnlocks(n).length!==xmUnlocks(prev).length)czVer++;}catch(e){}});
 /* the browser tests' window into the calendar (test/xmas.mjs sets EDICTUM_PROBE before the page loads) */
 if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE.xm={XMS,XMC,XMP,XM_EV,xmNow,xmRec,xmCount,xmUnlocks,xmLand,xmPhase,xmArrived,landCredits:n=>landCredits(n),czMine:()=>czMine()};}catch(e){}
+
+/* ───────── artificial islands: three edicts that raise an island from the sea (20 November 2026) ─────────
+   The owner asked for three edicts that sprout an artificial island of 4 to 5 hexes and claim it automatically, no more
+   than 8 hexes out from the nation's land: the first after 50 edicts, the second after 150, the third after 500.
+   - ISL_ISSUES are never drawn at random (fo). syncInbox (wrapped below) puts the next one on the desk, outside the
+     edict clock, once decisions(n) reaches its isa: one at a time, lowest first, so a nation already past 500 meets
+     them in order. It waits while no site is free (islSite), and while the desk is full.
+   - A site is free sea, shallow or deep (still sea, no lake, nobody's), a hex of water clear of every coast (no land
+     beside it, so the island stands apart), within ISL_REACH hexes of the nation's land, and no nearer another nation's
+     land than its own: a compact group of the size the answer asks (4 or 5), round rather than near (islSite). The
+     shallows alone are a band two or three hexes wide along most coasts, which left only lines of sand.
+   - The island is land from the sea like any other: its hexes go into n.isl [{c,t,i}] (i 1-3, the island's edict),
+     which every viewer replays with n.rec (readReclaims), and territory() holds them for the nation without a land
+     credit. They are kept apart from n.rec, which an older build reads and would cut to shallow hexes: one that does
+     not know n.isl keeps it untouched (n._fk). Its name, from the answer (isn), is kept in n.isn {1-3: name};
+     landName and placePhrase use it for the island's hexes (they have no landmass of their own). Moving or settling
+     again clears n.isl with n.rec.
+   - With no site left when the answer is given, the land office pays a bonus land credit for each hex instead. */
+const ISL_AT=[50,150,500],ISL_REACH=8,ISL_MIN=4,ISL_FALLBACK='an artificial island';
+const ISL_ISSUES=[
+{id:'isl-dredger',c:'nature',isle:1,isa:50,t:'An Island From the Dredger',q:'The harbour board of {CAP} has spent a month dredging the shipping lane and has nowhere to put the sand: four million tonnes of it, waiting in barges in the bay. Its chief engineer, Halvard Moerdijk-Sato, proposes pouring the lot onto a shoal in the {D} shallows and calling the result an island. The board needs only to know what the island is for, and the barge crews would like to know by Thursday.',o:[
+ {t:'“Make it big and make it earn its keep,” says harbour master Ingeborg Quaresma. “Pour every barge, build five berths and a container yard, and let every ship that calls pay for a little more of the island.”',e:{econ:3,wealth:2,env:-3,tax:2,isl:5},isn:'{CAP} Port Island',fx:'a port island of dredged sand has risen off the coast of {N}, and its first container ship docked before the paint was dry'},
+ {t:'“Give it to the terns,” says ornithologist Dr. Ottilie Zwanenburg. “Plant marram grass, keep the people off, and in five years it will be the finest seabird colony on the coast.”',e:{env:4,tour:1,happy:1,isl:4},isn:'{D} Tern Island',fx:'a new island of dredged sand off {N} belongs to the terns, and the only visitors allowed are the ones counting them'},
+ {t:'“A beach for the people,” says the mayor of {CAP}, Bartholomew Strandlund. “Golden sand, a lido and a ferry every twenty minutes. Nobody has ever voted against a day at the seaside.”',e:{happy:3,tour:2,econ:-1,isl:4},isn:'{CAP} Lido Island',fx:'{N} has a new island of golden sand with a lido on it, and the ferry from {CAP} sells out every sunny weekend'}]},
+{id:'isl-runway',c:'econ',isle:2,isa:150,t:'A Runway in the Sea',q:'The airport of {CAP} is full. Planes circle for an hour before they land, the neighbours have stopped sleeping, and there is no land left for a second runway that would not flatten a suburb. The engineers who poured {N}’s first island of sand say they could pour another, bigger and further out, if the government will tell them what to put on it.',o:[
+ {t:'“Two runways and a terminal, joined to {CAP} by a bridge,” says Minister of Public Works {WRK}. “Planes over the water instead of over the bedrooms, and a duty-free shop the size of a cathedral.”',e:{econ:3,tour:3,happy:1,env:-4,isl:5},isn:'{CAP} Airport Island',fx:'the new airport of {N} stands on an island of its own, and the neighbours of the old one are sleeping again'},
+ {t:'“Make it a free port,” says shipping magnate Leocadia Varga-Thorsby. “No customs, no duties, no questions. Trade will come from all over the region, and some of it will even be legal.”',e:{econ:4,wealth:2,corrupt:2,equal:-2,isl:5},isn:'{CAP} Free Port',fx:'{N} has built a free port on an island of its own, where the warehouses never close and nobody asks what is in the crates'},
+ {t:'“Put the scientists on it,” says marine biologist Dr. Tomasz Willoughby-Akande. “A research station, a seawater laboratory and a pier for the survey ships. The airport can wait. The ocean has been waiting much longer.”',e:{sci:4,edu:2,env:1,econ:-1,isl:4},isn:'{D} Research Island',fx:'a marine research station stands on a new island off {N}, and its scientists have already named three new kinds of shrimp'}]},
+{id:'isl-last-barge',c:'society',isle:3,isa:500,t:'The Last Barge of Sand',q:'The {D} dredging fleet has become the best in the region, and other nations now queue to hire it. Before the fleet sails off to work for them, its commander, Commodore Wilhelmus Duinkerk, offers {N} one last island, the biggest yet, as far out as the shallows go. He has brought a model of it to {CAP}, and it takes up most of the cabinet table.',o:[
+ {t:'“A new town, with a harbour, a cathedral and twenty thousand homes,” says architect Saskia van Brederode. “Call it New {CAP}. In a hundred years nobody will remember that it was ever sea.”',e:{happy:2,wealth:2,equal:1,env:-3,tax:2,isl:5},isn:'New {CAP}',fx:'New {CAP} has risen from the sea, and its first twenty thousand residents argue about whether it counts as the mainland'},
+ {t:'“A sea fort,” says Defence Minister {DEF}. “Granite walls, a gun on every corner and a harbour for the whole navy. Anyone who wants our coast can come and look at that first.”',e:{mil:4,safety:3,happy:-1,env:-2,isl:5},isn:'Fort {CAP}',fx:'a granite sea fort guards the approaches to {N} from an island of its own, and its guns fire once a day, at noon, to tell the time'},
+ {t:'“Build it, then leave it alone,” says marine ecologist Dr. Imogen Strathallan. “Reef stones under the water, dunes above it and a lighthouse on top. In a generation the sea will make it look as if it was always there.”',e:{env:4,tour:2,culture:1,isl:4},isn:'{D} Lighthouse Isle',fx:'a lighthouse stands on a wild new island off {N}, and its reef is already crowded with fish that never used to live there'}]}];
+for(const is of ISL_ISSUES){is.fo=1;ISSUES.push(is);is.no=ISSUES.length;ISSUE_BY_ID[is.id]=is;is.nbx=false;}
+/* an island's name as kept and shown: letters, digits, spaces and a few marks, at most 40 characters ('' when none) */
+function islClean(s){return typeof s==='string'?s.replace(/'/g,'’').replace(/[^\p{L}\p{M}\p{N} ’.-]/gu,'').replace(/\s+/g,' ').trim().slice(0,40):'';}
+/* how far each hex is from the nation's land (D) and from any other nation's land (O), up to ISL_REACH hexes (-1
+   beyond), kept for the territory and the land from the sea it was worked out from; s keeps the sites found there */
+let islMemo={T:null,sig:null,i:-1,v:null,s:new Map()};
+function islField(T,i){
+  if(islMemo.T===T&&islMemo.sig===RECL.sig&&islMemo.i===i)return islMemo.v;
+  const N=MAP.N,nb=MAP.nbr,D=new Int8Array(N).fill(-1),O=new Int8Array(N).fill(-1),qa=[],qb=[];
+  for(let c=0;c<N;c++){const o=T.owner[c];if(o===i){D[c]=0;qa.push(c);}else if(o>=0){O[c]=0;qb.push(c);}}
+  const bfs=(A,q)=>{for(let h=0;h<q.length;h++){const a=q[h];if(A[a]>=ISL_REACH)continue;for(let d=0;d<6;d++){const j=nb[a*6+d];if(j>=0&&A[j]<0){A[j]=A[a]+1;q.push(j);}}}};
+  bfs(D,qa);bfs(O,qb);
+  islMemo={T,sig:RECL.sig,i,v:{D,O},s:new Map()};return islMemo.v;
+}
+/* a hex an island may take: free sea, clear of every coast, near this nation's land and no nearer another's */
+function islOk(T,c,F){
+  if(MAP.T[c]>=2||MAP_T0[c]>=2||T.owner[c]!==-1||RECL.owner.has(c)||(LAKE||lakeMap())[c])return false;
+  const d=F.D[c];if(d<2||d>ISL_REACH||(F.O[c]>=0&&F.O[c]<d))return false;
+  for(let k=0;k<6;k++){const j=MAP.nbr[c*6+k];if(j>=0&&MAP.T[j]>=2)return false;}
+  return true;
+}
+/* the hexes of an island of `size` for nation i, or null when there is none. From up to ISL_TRY hexes at each distance
+   out (2 to ISL_REACH; ties broken by salt) a group grows a hex at a time, taking the hex that touches most of it; of the
+   groups that reach the size, the one kept is the roundest for its distance (ISL_EDGE a pair of touching hexes, against
+   a hex further out for each hex), so where the shallows run in a narrow band the island is a blob a hex or two
+   further out rather than a line of sand along the coast */
+const ISL_TRY=60,ISL_EDGE=4;
+function islSite(T,i,size,salt){
+  const F=islField(T,i),key=size+'|'+salt;if(islMemo.s.has(key))return islMemo.s.get(key);
+  const N=MAP.N,nb=MAP.nbr;
+  /* the hexes an island may take, worked out once for the field (F.ok, F.all), and each one's tie-break for this salt */
+  if(!F.ok){F.ok=new Uint8Array(N);F.all=[];for(let c=0;c<N;c++)if(F.D[c]>=2&&islOk(T,c,F)){F.ok[c]=1;F.all.push(c);}}
+  const ok=F.ok,hv=new Map();for(const c of F.all)hv.set(c,hash(salt+':'+c)%997);
+  const all=F.all.slice().sort((a,b)=>F.D[a]-F.D[b]||hv.get(a)-hv.get(b)||a-b);
+  const per=new Int16Array(ISL_REACH+1),seeds=all.filter(c=>per[F.D[c]]++<ISL_TRY);
+  let out=null,top=-Infinity;
+  for(let s=0;s<seeds.length;s++){
+    const cl=[seeds[s]];let edges=0,far=F.D[seeds[s]];
+    while(cl.length<size){
+      let best=-1,bs=-Infinity,bt=0;
+      for(const a of cl)for(let d=0;d<6;d++){const j=nb[a*6+d];if(j<0||!ok[j]||cl.includes(j))continue;
+        let t=0;for(let e=0;e<6;e++)if(cl.includes(nb[j*6+e]))t++;
+        const sc=t*10000-F.D[j]*1000+hv.get(j);if(sc>bs){bs=sc;best=j;bt=t;}}
+      if(best<0)break;cl.push(best);edges+=bt;far+=F.D[best];
+    }
+    if(cl.length<size)continue;
+    const sc=edges*ISL_EDGE-far;if(sc>top){top=sc;out=cl;}
+  }
+  islMemo.s.set(key,out);return out;
+}
+const islSalt=(n,k)=>String((n&&(n.seed||n.name))||'')+':isl:'+k;
+/* the player's own record, or a copy of it (syncInbox and answer hand round clones) */
+function islMine(n){return !!n&&!n.npc&&!!S.nation&&(n===S.nation||(n.founded===S.nation.founded&&n.name===S.nation.name));}
+/* the island edict this nation has earned and not yet seen, the lowest first (one at a time), or null */
+function islNext(n){
+  if(!n||n.npc||!(n.founded>0))return null;
+  const seen=issLast(n),dec=decisions(n);
+  for(const is of ISL_ISSUES){if(seen.has(is.id))continue;return dec>=is.isa?is:null;}
+  return null;
+}
+/* due: the next island edict, dated at the nation's latest decision, when it is not on the desk and a site is free */
+function islDue(n,now){
+  if(OBS||!islMine(n)||!Array.isArray(n.inbox))return [];
+  const is=islNext(n);if(!is||n.inbox.some(x=>x.id===is.id))return [];
+  const T=territory(),i=T.byId[myId()];if(i===undefined||!islSite(T,i,ISL_MIN,islSalt(n,is.isle)))return [];
+  const last=(n.answered||[]).reduce((m,a)=>Math.max(m,+a.t||0),0);
+  return [{id:is.id,at:Math.min(now,Math.max(n.founded,last))||now}];
+}
+syncInbox=(f=>function(n,now){
+  const m=f.apply(this,arguments);let due=[];try{due=islDue(m,now);}catch(e){console.warn('islands',e);}if(!due.length)return m;
+  const out=m===n?clone(m):m;for(const x of due)if(deskN(out.inbox)<EDICT_KEEP)out.inbox.push(x);return out;
+})(syncInbox);
+/* the nation's land nearest an island: what it lies off */
+function islShore(cells,T,i){
+  const seen=new Set(cells),q=cells.slice();
+  for(let h=0;h<q.length&&h<4000;h++){const a=q[h];for(let d=0;d<6;d++){const j=MAP.nbr[a*6+d];if(j<0||seen.has(j))continue;if(T.owner[j]===i&&MAP.T[j]>=2&&MAP.comp[j]>=0)return landName(j);seen.add(j);q.push(j);}}
+  return 'your coast';
+}
+/* the answer: the island rises (or, with no site left, the land office pays for it) */
+geoAfter=(f=>function(n,opt,ent,now,prior){
+  const notes=f.apply(this,arguments)||[],want=opt&&opt.e&&opt.e.isl,is=ent&&ISSUE_BY_ID[ent.id];
+  if(!want||!is||!is.isle||!n||n.npc)return notes;
+  try{
+    const T=territory(),i=T.byId[myId()],salt=islSalt(n,is.isle);
+    const cells=i===undefined?null:islSite(T,i,want,salt)||(want>ISL_MIN?islSite(T,i,ISL_MIN,salt):null);
+    if(!cells){const add=addBonusCredits(n,want);notes.push(['Land office',add?`No free sea was left within ${ISL_REACH} hexes of your land, so the land office paid ${add===1?'a bonus land credit':add+' bonus land credits'} for the island instead.`:'No free sea was left for the island, and you already hold the most bonus land credits allowed.']);return notes;}
+    n.isl=(Array.isArray(n.isl)?n.isl:[]).filter(x=>x.i!==is.isle);cells.forEach((c,j)=>n.isl.push({c,t:now+j,i:is.isle}));
+    const nm=islClean(fill(opt.isn||'',n,ent))||ISL_FALLBACK;n.isn=Object.assign({},n.isn||{},{[is.isle]:nm});
+    const sh=islShore(cells,T,i);
+    n.log=n.log||[];n.log.unshift({t:now,k:'isl',a:String(cells.length),b:nm,fx:sh});n.log=n.log.slice(0,60);
+    notes.push(['Island',`${nm}, an island of ${cells.length} hexes, has risen from the sea off ${sh}. It is yours already, without a land credit.`]);
+  }catch(err){console.warn('islands',err);}
+  return notes;
+})(geoAfter);
+/* the island's hexes have no landmass of their own: they take the island's name */
+function islAt(c){
+  const k=RECL.isl&&RECL.isl.get(c);if(!k)return '';
+  const id=RECL.owner.get(c),n=id===myId()?S.nation:((findNation(id)||{}).n);
+  return islClean(n&&n.isn&&n.isn[k])||ISL_FALLBACK;
+}
+landName=(f=>function(i){if(i>=0&&MAP.comp[i]<0&&RECL.isl&&RECL.isl.size){const nm=islAt(i);if(nm)return nm;}return f.apply(this,arguments);})(landName);
+placePhrase=(f=>function(i){if(i>=0&&MAP.comp[i]<0&&RECL.isl&&RECL.isl.size){const nm=islAt(i);if(nm)return 'on '+nm;}return f.apply(this,arguments);})(placePhrase);
+NORM_HOOKS.push((n,d)=>{const s=d&&d.isn;if(!s||typeof s!=='object')return;const o={};for(const k of ['1','2','3']){const v=islClean(s[k]);if(v)o[k]=v;}if(Object.keys(o).length)n.isn=o;});
+/* an island's hexes: sea as the map was made, on this map (cv), each once, at most five an island */
+NORM_HOOKS.push((n,d)=>{const a=d&&d.isl;if(!Array.isArray(a)||!(d.cv===undefined||d.cv===MAP_VER))return;const seen=new Set(),per={1:0,2:0,3:0},o=[];
+  for(const e of a){if(!e||!Number.isInteger(e.c)||e.c<0||e.c>=MAP.N||MAP_T0[e.c]>=2||seen.has(e.c)||![1,2,3].includes(e.i)||typeof e.t!=='number'||!isFinite(e.t)||per[e.i]>=5)continue;seen.add(e.c);per[e.i]++;o.push({c:e.c,t:e.t,i:e.i});}
+  if(o.length)n.isl=o;});
+/* on the desk: what each answer raises, under its speech */
+gmbOdds=(f=>function(o,n,x){
+  const h=f.apply(this,arguments);
+  try{const is=x&&ISSUE_BY_ID[x.id],k=o&&o.e&&o.e.isl;if(!is||!is.isle||!k)return h;
+    const T=territory(),i=T.byId[myId()],ok=i!==undefined&&!!islSite(T,i,ISL_MIN,islSalt(n,is.isle));
+    return h+`<p class="opt-isl">${ok?`<b>Raises an island of ${k} hexes</b> in the sea off your coast, yours at once without a land credit.`:`<b>No free sea</b> lies within ${ISL_REACH} hexes of your land just now: the land office would pay ${k} bonus land credits instead.`}</p>`;
+  }catch(e){return h;}
+})(gmbOdds);
+edictTopicBadge=(f=>function(is){return f.apply(this,arguments)+(is&&is.isle?'<span class="edict-isl">Artificial island</span>':'');})(edictTopicBadge);
+logLine=(f=>function(l,n,id){
+  if(l&&l.k==='isl')return `${islClean(l.b)||'An artificial island'}, an island of ${l.a==='4'?'four':l.a==='5'?'five':l.a} hexes, was raised from the sea off ${l.fx}.`;
+  return f.apply(this,arguments);})(logLine);
+DSP_LOG.isl={sec:'business',w:5,kick:'Land',go:'map',h:['{N} raises an island from the sea','A new island off {FX}: {B}','{B} rises off the coast of {N}'],b:'Dredgers from {N} have poured {AN} of sand into the shallows off {FX} and named the result {B}. The gulls moved in before the surveyors had left.'};
+/* the browser tests' window into the islands (EDICTUM_PROBE.isl) */
+if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE.isl={ISSUES:ISL_ISSUES,AT:ISL_AT,REACH:ISL_REACH,field:islField,ok:islOk,site:islSite,salt:islSalt,next:islNext,due:islDue,at:islAt,clean:islClean,RECL:()=>RECL,landName:c=>landName(c),placePhrase:c=>placePhrase(c),terrName:c=>terrName(c)};}catch(e){}
 
 /* ───────── achievements, round five (14 November 2026): treaties, alliance pacts and projects, diplomatic gifts,
    letters and goodwill, city titles and walls, war, portraits, Mars and the belt, field digs, and moving region ─────────
