@@ -51233,10 +51233,17 @@ function actRead(n){
   ownActs.push({c:commitNo+1,ops,ds});return true;
 }
 /* another device's save (remote) with this page's unsaved actions replayed onto it, or null when they cannot be:
-   an action that was not read, or resources this page spent that the other save no longer holds */
+   an action that was not read, or resources this page spent that the other save no longer holds.
+   remote can be this page's own save (mine), one that landed though this page never heard so (its answer lost on the
+   way back, or past SAVE_LIMIT), so that the next save was refused as a conflict with it. It carries all this page had
+   then, as an acknowledged save does (landed in writeRemote): the actions before it, and what carried stood for (an
+   earlier visit's changes, or a founding made before connect's first read). Only the actions after it are replayed.
+   Until 21 Nov 2026 carried was left set, so the page gave up and loaded that save instead: on CI (flag-designs2, 19 and
+   21 Nov) a nation founded before the first read, whose first save's answer was lost, lost its capital and was asked
+   to settle again, with "Please repeat your unsaved changes". */
 function rebaseActs(remote){
   const mine=sentLog.find(x=>x.t===remote.updatedAt);
-  if(mine){ownActs=ownActs.filter(a=>a.c>mine.c);if(ownActsBroken&&ownActsBroken<=mine.c)ownActsBroken=0;}
+  if(mine){ownActs=ownActs.filter(a=>a.c>mine.c);if(ownActsBroken&&ownActsBroken<=mine.c)ownActsBroken=0;carried=false;}
   if(ownActsBroken||carried)return null;
   if(!ownActs.length)return {n:remote,acts:0,mine:!!mine};
   const m=clone(remote),now=Date.now();let st=null,clash=0;

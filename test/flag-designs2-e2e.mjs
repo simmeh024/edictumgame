@@ -27,7 +27,9 @@ check('and Three peaks can be chosen, Embattled still locked', !!await A.$('#c-p
 // Embattled: four cities, but one without a mayor, is not enough; a mayor there too earns it.
 // The towns are copies of the capital city, so it must be there first: on CI (PR #466, 19 Nov 2026) the record was once
 // read here with no city at all, and cloning n.cities[0] threw "undefined is not valid JSON". Wait for it, and if it never
-// comes, say what the nation looked like rather than fail inside JSON.parse.
+// comes, say what the nation looked like rather than fail inside JSON.parse. (The cause, seen again on PR #498 on 21 Nov:
+// the first save's answer was lost and the page took its own older save for another device's, losing the settling;
+// fixed in src/shim.js saveNation and game/edictum.html rebaseActs, and kept fixed by test/save-answer-lost-e2e.mjs.)
 const hasCapital = () => A.evaluate(() => !!(G.S.nation && Array.isArray(G.S.nation.cities) && G.S.nation.cities.length));
 const cities = async mayors => {
   if (!await until(hasCapital, 20000)) throw new Error('no capital city to copy: ' + JSON.stringify(await A.evaluate(() => { const n = G.S.nation; return n ? { loc: n.loc, cities: n.cities, view: G.S.view, mode: G.S.mode, inbox: (n.inbox || []).map(x => x.id) } : null; })));

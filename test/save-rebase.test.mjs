@@ -13,7 +13,8 @@ const make = () => new Function('RES', `
   const roundStock=st=>Object.fromEntries(RES.map(r=>[r,Math.round(num0(st[r])*100)/100]));
   const stockNow=n=>({...n.stock});
   ${html.slice(from, to)}
-  return {S,act(n){const r=actRecord(n);S.nation=n;commitNo++;return r;},rebase:rebaseActs,acts:()=>ownActs,carry(v){carried=v;}};`)(RES);
+  return {S,act(n){const r=actRecord(n);S.nation=n;commitNo++;return r;},rebase:rebaseActs,acts:()=>ownActs,carry(v){carried=v;},carried:()=>carried,
+    sent(){sentLog.push({t:S.nation.updatedAt,c:commitNo});return JSON.parse(JSON.stringify(S.nation));}};`)(RES);
 
 const base = () => ({ name: 'Testland', updatedAt: 1, stock: { goods: 100, food: 50 }, cities: [{ id: 'c1', nm: 'Port', b: [] }], mayor: null, motto: 'Old' });
 // one action: a copy of the nation changed by f, with its resources set as an action does (_stockSet)
@@ -84,4 +85,31 @@ test('changes carried over from an earlier visit are never replayed: the copy an
   assert.equal(g.rebase(cloud), null);
   g.carry(false);
   assert.ok(g.rebase(cloud), 'once a save has carried them, the actions of this visit replay again');
+});
+
+/* CI, flag-designs2 (19 and 21 Nov 2026): a nation founded before the page's first read (so connect set carried: the
+   founding is no action, S.nation was null), settled while its first save was on the way. That save landed but its answer
+   was lost, and the next one was refused as a conflict with it. The record was this page's own first save (mine): it holds
+   the founding, so only the settling after it is replayed. carried was left set, and the page loaded the record instead:
+   no capital, the founding edict back on the desk. */
+test('this page\'s own save that landed unheard holds what was carried: what came after it is replayed', () => {
+  const g = make();
+  g.S.nation = { name: 'Peakland', updatedAt: 1, stock: { goods: 100, food: 50 }, loc: null, cities: [], inbox: [{ id: 'fd-settle' }, { id: 'pop-exile' }] };
+  g.carry(true);
+  const first = g.sent();
+  play(g, n => { n.loc = { c: 3, r: 4, m: 5 }; n.cities = [{ id: 'c1', nm: 'Port Alder', b: [] }]; n.inbox = n.inbox.filter(x => x.id !== 'fd-settle'); n.updatedAt = 2; });
+  const r = g.rebase({ ...first, _rev: 1 });
+  assert.ok(r, 'replayed, not given up');
+  assert.equal(r.mine, true, 'known as this page\'s own save: no notice of another device');
+  assert.deepEqual(r.n.loc, { c: 3, r: 4, m: 5 }, 'the capital stays where it was settled');
+  assert.deepEqual(r.n.cities.map(c => c.id), ['c1']);
+  assert.deepEqual(r.n.inbox.map(x => x.id), ['pop-exile'], 'and the founding edict stays answered');
+  assert.equal(g.carried(), false, 'what was carried is in that save, as when a save is acknowledged');
+  /* another device's save is no such thing: the copy and the notice, as before */
+  const h = make();
+  h.S.nation = { name: 'Peakland', updatedAt: 1, stock: { goods: 100, food: 50 }, loc: null, cities: [] };
+  h.carry(true); h.sent();
+  play(h, n => { n.loc = { c: 3, r: 4, m: 5 }; n.updatedAt = 2; });
+  assert.equal(h.rebase({ name: 'Peakland', updatedAt: 7, stock: { goods: 100, food: 50 }, loc: null, cities: [], _rev: 1 }), null);
+  assert.equal(h.carried(), true);
 });
