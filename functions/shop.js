@@ -21,8 +21,9 @@
      resume                takes back a cancellation the caller scheduled, while the paid month still runs
      pick {key}            the Chancery Club's monthly pick: one cosmetic from its collection per paid month, from the
                              pieces released by then; a month's choice stays open until PICK_GRACE after it ends
-     seal {id}             the Chancery seal the player shows beside the nation's name ('' for none): the plain one
-                             while a member, the others after so many months of membership (shop-core.js, SEALS)
+     seal {id}             the Chancery seal the player shows beside the nation's name ('' for none, 'auto' for the
+                             best held, as before any choice): the plain one while a member, the others after so many
+                             months of membership (shop-core.js, SEALS)
      fgift {p}             the founders' thank-you gift: a holder of the Founder's Package chooses one pack, once, free,
                              before the offer ends (the catalogue's founderGift; shop-core.js, FOUNDER_GIFT)
      closing               cancels the caller's subscriptions before the account is deleted
@@ -31,14 +32,16 @@
      authConfig/paddle      {env, apiKey, webhookSecret, clientToken, prices: {founder, idpack, vip}}
                             (tools/admin/set-paddle.mjs). Nobody reads it but this code.
      shop/{uid}             what the player owns, which only they read: {owns: {founder?, idpack?}, vip?: {until,
-                            from, runs, per, status, cancelAt, renews, n, m, f}, picks: {periodStart: id}, seal?, adbox?, fg?, ag?, agl?, pend, notes, reg}
+                            from, runs, per, status, cancelAt, renews, n, m, f}, picks: {periodStart: id}, seal?, sv, adbox?, fg?, ag?, agl?, pend, notes, reg}
+                            (seal: the player's own choice, '' for none, absent until chosen; sv: SEAL_V when worked out)
                             (fg: the pack chosen as the founders' thank-you gift, whether or not it counts now; ag {p: when}:
                             the packs an admin gave that count now, which the Shop calls a gift from the Edictum team;
                             agl [{p, on, t}]: each pack an admin gave (on) or took back, of which the Edictum Team writes
                             the player a letter in the game, oldest first)
      finery/{uid}           {c: [cosmetic ids], reg, cl?, bx?}: the shop cosmetics every other player's game checks before it
-                            shows them (a nation's own record cannot vouch for them); cl {s, u, m, f}, only once the player
-                            has chosen a Chancery seal to show: which, and the membership's end and months that decide it;
+                            shows them (a nation's own record cannot vouch for them); cl {s, u, m, f, d?}: the Chancery seal
+                            shown (the one chosen, or with d the best held, unless none was chosen), and the membership's end
+                            and months that decide it;
                             bx, only once they box their newspaper advertisements (adbox): the membership's end
      shopCheckouts/{txn}    {uid, product, at, env, price}: each checkout this server opened; a basket's: {uid, product:
                             'basket', products, prices, at, env}
@@ -65,7 +68,7 @@ import { onRequest, HttpsError } from 'firebase-functions/v2/https';
 import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { refuse, eligibility, identity, DAY } from './eligibility.js';
 import { nationText } from './nationtext.js';
-import { CATALOGUE, PRODUCTS, CLUB, GIFTABLE, GRANTABLE, REQUIRED, FOUNDER_CUTOFF, FOUNDER_GIFT, CLUB_IDS, SEALS, BASKET, BASKET_MAX, BASKETABLE, clubReleased, sealHeld, saleKey, saleDiscount, verifySignature, txFacts, txUnits, subFacts, adjFacts, entitlement, pickPeriod } from './shop-core.js';
+import { CATALOGUE, PRODUCTS, CLUB, GIFTABLE, GRANTABLE, REQUIRED, FOUNDER_CUTOFF, FOUNDER_GIFT, CLUB_IDS, SEALS, BASKET, BASKET_MAX, BASKETABLE, clubReleased, sealHeld, sealBest, SEAL_V, saleKey, saleDiscount, verifySignature, txFacts, txUnits, subFacts, adjFacts, entitlement, pickPeriod } from './shop-core.js';
 /* the version of what each product grants (the catalogue's grantsV): an account settled under an older one is settled again */
 const P0until = p => { const u = CATALOGUE.products[p] && CATALOGUE.products[p].until; const t = u ? Date.parse(u) : NaN; return isFinite(t) ? t : 0; };
 /* the gifts and takings back of packs that the player's letters keep (shopGrant n, shop agl) */
@@ -258,10 +261,14 @@ async function settle(cfg, uid) {
     const founder = !!e.owns.founder && fno > 0;
     if (e.gifts.length) doc.gifts = e.gifts.map(g => ({ p: g.p, name: names[g.from] || '', at: g.t, txn: g.txn }));
     if (e.vip) doc.vip = e.vip;
-    /* the seal the player chose to show stays chosen; the games show it only while it is held (by cl's figures) */
-    const seal = Object.hasOwn(SEALS, shop.get('seal') || '') ? shop.get('seal') : '';
-    if (seal) doc.seal = seal;
-    const cl = seal && e.vip ? { s: seal, u: e.vip.until, m: e.vip.m, f: e.vip.f } : null;
+    /* the seal the player chose to show stays chosen, and so does none ('') once chosen; the games show it only while it
+       is held (by cl's figures). One who has chosen nothing shows the best seal it holds (cl d: the games work the best
+       out again as its months pass, so the wax seal becomes brass at three months without a notification) */
+    const chosen = shop.get('seal'), picked = chosen === '' || (typeof chosen === 'string' && Object.hasOwn(SEALS, chosen));
+    const seal = picked ? chosen : e.vip ? sealBest(e.vip, now) : '';
+    if (picked) doc.seal = chosen;
+    doc.sv = SEAL_V;
+    const cl = seal && e.vip ? { s: seal, u: e.vip.until, m: e.vip.m, f: e.vip.f, ...(picked ? {} : { d: 1 }) } : null;
     /* boxed classified advertisements in the region's newspaper, a Club perk: once the player chooses them (step adbox),
        finery bx says until when the membership runs, and the games box their advertisements placed before then */
     if (shop.get('adbox') === true) doc.adbox = true;
@@ -504,10 +511,11 @@ async function pick(cfg, uid, d) {
   });
 }
 
-/* the Chancery seal shown beside the nation's name, or none. Choosing one needs it to be held now; the games then show
-   it while it is held, by the figures settle() publishes with it (finery cl). */
+/* the Chancery seal shown beside the nation's name, or none (''), or 'auto': the best held, as before any choice.
+   Choosing one needs it to be held now; the games then show it while it is held, by the figures settle() publishes with
+   it (finery cl). */
 async function seal(cfg, uid, d) {
-  const id = typeof d.id === 'string' ? d.id : '';
+  const auto = d.id === 'auto', id = !auto && typeof d.id === 'string' ? d.id : '';
   if (id && !Object.hasOwn(SEALS, id)) throw new HttpsError('invalid-argument', 'Choose one of the Chancery seals.');
   await pace(uid, 's', 2000);
   const db = getFirestore(), ref = db.doc('shop/' + uid);
@@ -517,9 +525,9 @@ async function seal(cfg, uid, d) {
     if (vip && vip.m == null) vip = (await settle(cfg, uid)).vip;
     if (!sealHeld(id, vip, clock(cfg))) refuse('seal_locked', SEALS[id] ? `That seal comes with ${SEALS[id]} months of membership of the Chancery Club.` : 'The Chancery seal is for members of the Club.');
   }
-  await ref.set({ seal: id }, { merge: true });
+  await ref.set({ seal: auto ? FieldValue.delete() : id }, { merge: true });
   await settle(cfg, uid);
-  return { ok: true, seal: id };
+  return { ok: true, seal: auto ? 'auto' : id };
 }
 
 /* boxed advertisements in the newspaper on or off (see settle, bx): showing them tells other players this one is a
@@ -640,7 +648,9 @@ export async function shopStep(uid, d) {
     const moved = shop.exists && nation.exists && shop.get('reg') !== nation.get('reg'), uncounted = shop.exists && !!shop.get('vip') && shop.get('vip').m == null;
     /* a pack that has grown since this account's finery was worked out (the catalogue's grantsV): its new pieces, now */
     const grown = shop.exists && Object.keys(shop.get('owns') || {}).length > 0 && (shop.get('gv') || 1) < GRANTS_V;
-    if (cfg.on && (moved || uncounted || grown)) await settle(cfg, uid).catch(e => console.error('shop settle', e.message));
+    /* a membership worked out before members showed their best seal by default (SEAL_V): published now, once */
+    const sealOld = shop.exists && !!shop.get('vip') && (Number(shop.get('sv')) || 1) < SEAL_V;
+    if (cfg.on && (moved || uncounted || grown || sealOld)) await settle(cfg, uid).catch(e => console.error('shop settle', e.message));
     /* the prices on sale now (public: the page asks Paddle what they come to in the player's own currency) */
     const prices = cfg.on ? Object.fromEntries(PRODUCTS.filter(p => cfg.prices[p]).map(p => [p, [].concat(cfg.prices[p])[0]])) : {};
     return { on: cfg.on, env: cfg.on ? cfg.env : '', token: cfg.on ? cfg.token : '', prices, now: clock(cfg), until: FOUNDER_CUTOFF, catalogue: CATALOGUE };

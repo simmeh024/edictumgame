@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import http from 'node:http';
 import crypto from 'node:crypto';
 import { createRequire } from 'node:module';
-import { signature, FOUNDER_CUTOFF, FOUNDER_GRACE, FOUNDER_GIFT, CATALOGUE } from '../functions/shop-core.js';
+import { signature, FOUNDER_CUTOFF, FOUNDER_GRACE, FOUNDER_GIFT, CATALOGUE, SEAL_V } from '../functions/shop-core.js';
 const require = createRequire(new URL('../functions/package.json', import.meta.url));
 const { initializeApp } = require('firebase-admin/app');
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
@@ -298,7 +298,7 @@ test('the collection grows on its day, a month’s choice stays open five weeks,
   } finally { await config(); }
 });
 
-test('Chancery seals: chosen by the player, held by months of membership, published for every game and taken down again', async () => {
+test('Chancery seals: the best held shown until the player chooses, held by months of membership, published for every game, none kept, the best again', async () => {
   const later = () => new Promise(r => setTimeout(r, 2100));
   /* a member of one month: the wax seal, not yet brass */
   const p = await player(), t0 = Date.now() - H, sp = rid('sub');
@@ -307,7 +307,9 @@ test('Chancery seals: chosen by the player, held by months of membership, publis
   await assert.rejects(call(p, { step: 'seal', id: 'csl-nope' }), e => e.status === 'INVALID_ARGUMENT');
   await rejects(call(p, { step: 'seal', id: 'csl-brass' }), 'seal_locked');
   await later();
-  assert.equal((await finery(p.uid)), undefined, 'nothing is published before a seal is chosen');
+  /* before any choice: the best seal held, published for every game with d (the games work the best out again) */
+  assert.deepEqual((await finery(p.uid)).cl, { s: 'csl-member', u: t0 + 30 * DAY, m: 1, f: [], d: 1 }, 'a new member shows the wax seal');
+  assert.ok(!('seal' in (await shop(p.uid))), 'no choice is recorded'); assert.equal((await shop(p.uid)).sv, SEAL_V);
   const r = await call(p, { step: 'seal', id: 'csl-member' });
   assert.equal(r.seal, 'csl-member');
   assert.equal((await shop(p.uid)).seal, 'csl-member');
@@ -324,6 +326,21 @@ test('Chancery seals: chosen by the player, held by months of membership, publis
   await call(p, { step: 'seal', id: '' });
   const g = await finery(p.uid);
   assert.ok(!('cl' in g), 'taken down'); assert.deepEqual(g.c, ['p-moire']);
+  /* none stays chosen: a later notification works the record out again and leaves it down */
+  assert.equal((await shop(p.uid)).seal, '');
+  await hook('subscription.updated', P.subs.get(sp));
+  assert.equal((await shop(p.uid)).seal, '', 'none is kept'); assert.ok(!('cl' in (await finery(p.uid))), 'and nothing is published');
+  /* and back to the best held, as before any choice */
+  await later();
+  assert.equal((await call(p, { step: 'seal', id: 'auto' })).seal, 'auto');
+  assert.ok(!('seal' in (await shop(p.uid))), 'the choice is gone');
+  assert.deepEqual((await finery(p.uid)).cl, { s: 'csl-member', u: t0 + 30 * DAY, m: 1, f: [], d: 1 });
+  /* a member worked out before the default (no sv, nothing published): its first status publishes it */
+  await db.doc('shop/' + p.uid).update({ sv: FieldValue.delete() });
+  await db.doc('finery/' + p.uid).update({ cl: FieldValue.delete() });
+  await call(p, { step: 'status' });
+  assert.equal((await shop(p.uid)).sv, SEAL_V, 'worked out again once');
+  assert.deepEqual((await finery(p.uid)).cl, { s: 'csl-member', u: t0 + 30 * DAY, m: 1, f: [], d: 1 }, 'its seal shown for every game');
   /* three months of membership: brass; a record kept before months were counted is counted once on status. The year
      begins on 31 August and the server's clock stands 70 days later, so its months cross the 30ths and February the same
      way whatever day this runs (a year begun on the 29th–31st once came to thirteen months) */

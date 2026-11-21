@@ -70902,6 +70902,10 @@ const SEAL_INFO={'csl-member':{n:'Chancery seal',c:['#b5455f','#6e1f33','#f6dfe6
 function clubSeals(){const v=clubVipCat();return v&&v.seals&&typeof v.seals==='object'?v.seals:{};}
 function clubTenure(v,t){if(!v||typeof v!=='object')return 0;return (+v.m||0)+(Array.isArray(v.f)?v.f.filter(x=>typeof x==='number'&&x<=t).length:0);}
 function clubSealHeld(id,v,t){const sl=clubSeals();if(!v||!SEAL_INFO[id]||!Object.prototype.hasOwnProperty.call(sl,id))return false;return sl[id]?clubTenure(v,t)>=sl[id]:t<v.until;}
+/* the best seal held at t: what a member shows who has chosen none of its own (functions/shop-core.js, sealBest) */
+function clubSealBest(v,t){const sl=clubSeals();let best='',most=-1;for(const id of Object.keys(sl))if(sl[id]>most&&clubSealHeld(id,v,t)){best=id;most=sl[id];}return best;}
+/* the player's own choice: an id, none (''), or not made (the best held) */
+function clubSealAuto(d){const c=d&&d.seal;return !(c===''||typeof c==='string'&&SEAL_INFO[c]);}
 function clubSealSVG(id){
   const i=SEAL_INFO[id]||SEAL_INFO['csl-member'],[hi,lo,ink]=i.c,g='csl'+(++czSeq);let edge='';
   for(let k=0;k<16;k++){const a=k*Math.PI/8;edge+=`<circle cx="${(12+9.4*Math.cos(a)).toFixed(2)}" cy="${(12+9.4*Math.sin(a)).toFixed(2)}" r="2.3"/>`;}
@@ -71058,7 +71062,7 @@ function shopConnect(){if(hmQuiet())return;
   try{SHOP.unsub=S.db.doc('shop/'+S.uid).onSnapshot(s=>shopTake(s.exists?s.data():{},false),()=>{});}catch(e){}
   try{SHOP.finUnsub=S.db.collection('finery').where('reg','==',REG.id).onSnapshot(qs=>{
     const m=new Map(),cm=new Map(),bx=new Map(),fn=new Map();for(const d of qs.docs){const x=d.data()||{},c=x.c;if(Number.isInteger(x.fno)&&x.fno>0)fn.set(d.id,x.fno);if(Array.isArray(c))m.set(d.id,new Set(c.filter(id=>typeof id==='string'&&shopIs(id))));
-      const cl=x.cl;if(cl&&typeof cl==='object'&&typeof cl.s==='string')cm.set(d.id,{s:cl.s,u:+cl.u||0,m:+cl.m||0,f:Array.isArray(cl.f)?cl.f.filter(v=>typeof v==='number'):[]});
+      const cl=x.cl;if(cl&&typeof cl==='object'&&typeof cl.s==='string')cm.set(d.id,{s:cl.s,u:+cl.u||0,m:+cl.m||0,f:Array.isArray(cl.f)?cl.f.filter(v=>typeof v==='number'):[],d:cl.d===1});
       /* boxed newspaper advertisements: until when the server vouches for them (functions/shop.js, adbox) */
       if(typeof x.bx==='number'&&isFinite(x.bx)&&x.bx>0)bx.set(d.id,x.bx);}
     const sig=JSON.stringify([[...m].map(([k,v])=>[k,[...v].sort()]),[...cm],[...bx],[...fn]]);SHOP.fin=m;SHOP.cl=cm;SHOP.bx=bx;SHOP.fno=fn;if(sig===SHOP.finSig)return;SHOP.finSig=sig;shopBump();},()=>{});}catch(e){}
@@ -71154,8 +71158,8 @@ async function shopResume(){
   try{await shopReq({step:'resume'});toast('Your membership carries on. It renews as before.');}catch(e){SHOP.err=shopErr(e);}finally{SHOP.busy='';render();}
 }
 async function shopSeal(id){
-  if(SHOP.busy||id&&!SEAL_INFO[id])return;SHOP.busy='seal';SHOP.err='';render();
-  try{await shopReq({step:'seal',id});toast(id?`The ${SEAL_INFO[id].n} now shows beside your nation’s name.`:'No seal shows beside your nation’s name now.');}catch(e){SHOP.err=shopErr(e);}finally{SHOP.busy='';render();}
+  if(SHOP.busy||id&&id!=='auto'&&!SEAL_INFO[id])return;SHOP.busy='seal';SHOP.err='';render();
+  try{await shopReq({step:'seal',id});toast(id==='auto'?'The best seal you hold shows beside your nation’s name, and moves up as your months add up.':id?`The ${SEAL_INFO[id].n} now shows beside your nation’s name.`:'No seal shows beside your nation’s name now.');}catch(e){SHOP.err=shopErr(e);}finally{SHOP.busy='';render();}
 }
 async function shopPick(id){
   if(SHOP.busy||!SHOP_IDS.vip.includes(id))return;SHOP.busy='pick';SHOP.err='';render();
@@ -71217,9 +71221,10 @@ asmWho=(f=>function(id){const h=f.apply(this,arguments);let x=null;try{x=asmRecs
    else's finery/ cl), and only while held (the plain seal ends with the membership; the others are kept) */
 function clubSealOf(n){
   if(!n||typeof n!=='object'||n.npc)return null;const t=shopNow();
-  if(shopMine(n)){const d=SHOP.doc;return d&&d.seal&&clubSealHeld(d.seal,d.vip,t)?{id:d.seal,m:clubTenure(d.vip,t)}:null;}
-  const uid=flIdOf(n),cl=uid?SHOP.cl.get(uid):null;if(!cl)return null;const v={until:cl.u,m:cl.m,f:cl.f};
-  return clubSealHeld(cl.s,v,t)?{id:cl.s,m:clubTenure(v,t)}:null;
+  if(shopMine(n)){const d=SHOP.doc;if(!d||!d.vip)return null;const id=clubSealAuto(d)?clubSealBest(d.vip,t):d.seal;
+    return id&&clubSealHeld(id,d.vip,t)?{id,m:clubTenure(d.vip,t)}:null;}
+  const uid=flIdOf(n),cl=uid?SHOP.cl.get(uid):null;if(!cl)return null;const v={until:cl.u,m:cl.m,f:cl.f},id=cl.d?clubSealBest(v,t):cl.s;
+  return id&&clubSealHeld(id,v,t)?{id,m:clubTenure(v,t)}:null;
 }
 function clubSealPill(x,sm){
   const i=SEAL_INFO[x.id];if(!i)return '';const need=clubSeals()[x.id]||0;
@@ -72047,12 +72052,13 @@ function shopGiftHTML(p){
 /* the Chancery seals: which are held, which is shown, and how many months have been counted */
 function clubSealHTML(n,t){
   const v=shopVip(),sl=clubSeals(),ids=Object.keys(sl).filter(id=>SEAL_INFO[id]);if(!ids.length)return '';
-  const cur=SHOP.doc&&SHOP.doc.seal||'',m=clubTenure(v,t),on=!!(SHOP.cfg&&SHOP.cfg.on)&&S.mode==='world',shown=!!cur&&clubSealHeld(cur,v,t);
-  const tiles=ids.map(id=>{const h=clubSealHeld(id,v,t),need=sl[id],sel=cur===id&&h;
+  const m=clubTenure(v,t),on=!!(SHOP.cfg&&SHOP.cfg.on)&&S.mode==='world',auto=clubSealAuto(SHOP.doc),none=!!SHOP.doc&&SHOP.doc.seal==='';
+  let cur='';try{const x=clubSealOf(S.nation);cur=x?x.id:'';}catch(e){cur='';}
+  const tiles=ids.map(id=>{const h=clubSealHeld(id,v,t),need=sl[id],sel=cur===id;
     return `<li class="club-sl${h?' held':''}${sel?' on':''}"><span class="club-sl-v">${clubSealSVG(id)}</span><span class="club-sl-n">${esc(SEAL_INFO[id].n)}<span class="hint">${need?(need>=24?'Two years':need+' months')+' of membership, kept':'While you are a member'}</span></span>${sel?'<span class="chip ok">Shown</span>':h&&on?`<button type="button" class="btn ghost sm" data-act="shop-seal" data-id="${id}"${SHOP.busy?' disabled':''}>Show it</button>`:h?'':`<span class="hint">${need?'Not yet':'Members only'}</span>`}</li>`;}).join('');
-  const hint=!v?'Members may show a seal beside their nation’s name: on its page, in chat, on the region board, in the Assembly (its proposals, votes, endorsements and the Delegate’s chair) and on its treaties. The wax seal lasts while you are a member; the brass, silver, gold and Grand seals come with the months and are kept for good. Nothing shows unless you choose it.'
-    :`${shopMember()?'You have been a member for':'You were a member for'} ${m} month${m===1?'':'s'}. ${shown?'Your seal shows beside your nation’s name for every player.':'No seal shows beside your nation’s name: choose one if you would like other players to see it.'}`;
-  return `<h3 class="sub-h">Chancery seals</h3><p class="hint">${esc(hint)}</p><ul class="club-sls">${tiles}</ul>${cur&&v&&on?`<div class="row shop-row"><button type="button" class="linkish small" data-act="shop-seal" data-id=""${SHOP.busy?' disabled':''}>Show no seal</button></div>`:''}`;
+  const hint=!v?'Members may show a seal beside their nation’s name: on its page, in chat, on the region board, in the Assembly (its proposals, votes, endorsements and the Delegate’s chair) and on its treaties. The wax seal lasts while you are a member; the brass, silver, gold and Grand seals come with the months and are kept for good. A member shows the best seal it holds unless it chooses another, or none.'
+    :`${shopMember()?'You have been a member for':'You were a member for'} ${m} month${m===1?'':'s'}. ${cur?(auto?`Your ${SEAL_INFO[cur].n} shows beside your nation’s name for every player: the best seal you hold, moving up as your months add up. Choose another below, or none.`:'Your seal shows beside your nation’s name for every player.'):none?'No seal shows beside your nation’s name, as you chose. Choose one below, or show the best you hold.':'No seal shows beside your nation’s name: choose one if you would like other players to see it.'}`;
+  return `<h3 class="sub-h">Chancery seals</h3><p class="hint">${esc(hint)}</p><ul class="club-sls">${tiles}</ul>${v&&on&&(cur||!auto)?`<div class="row shop-row">${cur?`<button type="button" class="linkish small" data-act="shop-seal" data-id=""${SHOP.busy?' disabled':''}>Show no seal</button>`:''}${!auto&&clubSealBest(v,t)?`<button type="button" class="linkish small" data-act="shop-seal" data-id="auto"${SHOP.busy?' disabled':''}>Show the best I hold, as my months add up</button>`:''}</div>`:''}`;
 }
 /* free play beside the Club, at a glance */
 function clubCompare(){
@@ -72101,7 +72107,7 @@ function shopVipSec(n,t){
     <details class="shop-more"><summary>More about each</summary><ul class="shop-list">
       <li><b>Ten waiting edicts instead of five.</b> The same pace of arrival: your desk just holds more while you are away.</li>
       <li><b>One cosmetic each paid month</b> from the Club’s collection, yours to keep for good. Two new pieces join the collection at the start of every month. A month’s choice stays open until five weeks after the month ends.</li>
-      <li><b>A Chancery seal beside your nation’s name</b> in chat, on the board, in the Assembly and on your treaties, if you want one: wax while you are a member, then brass at three months, silver at six, gold at twelve and the Grand seal at two years, kept for good.</li>
+      <li><b>A Chancery seal beside your nation’s name</b> in chat, on the board, in the Assembly and on your treaties, unless you choose to hide it: wax while you are a member, then brass at three months, silver at six, gold at twelve and the Grand seal at two years, kept for good.</li>
       <li><b>Five design presets</b> in Customise: save whole looks and switch between them. Presets only hold cosmetics you own.</li>
       <li><b>The Bureau of Statistics:</b> a dashboard of your own, charts over a year, records and streaks, a weekly report card, where you stand in the region, projections and an export of every figure. Its three honours bring the epithet “the Well-Informed”.</li>
       <li><b>The Expanded National Chronicle:</b> twelve months of your decisions and a daily snapshot of your nation, private to you, to read, export or print.</li>
