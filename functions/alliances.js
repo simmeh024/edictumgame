@@ -4,7 +4,8 @@ import { eligibility, refuse, nationJSON, DAY } from './eligibility.js';
 const closed = (N, k) => !!(N && N.rch && typeof N.rch === 'object' && N.rch[k] === 'n');
 import { cabinetAffinity } from './affinity.js';
 import DATA from './civic-data.json' with { type: 'json' };
-import { AL_TYPES, AL_ACCESS, AL_RES, AL_PROJECTS, AL_OFFICERS, AL_XP, AL_ALLY_MIN, AL_FOUND_POP, AL_REL_MAX, AL_REL_NOTICE, alLevel, alPlaces, alRelLive } from './alliance-rules.js';
+import { AL_TYPES, AL_ACCESS, AL_RES, AL_PROJECTS, AL_OFFICERS, AL_XP, AL_ALLY_MIN, AL_FOUND_POP, AL_REL_MAX, AL_REL_NOTICE, alLevel, alPlaces, alRelLive,
+  AL_TY_PJ, alSeats, AL_SEAT_POP, AL_CLASH, AL_VOTE, AL_TYPE_WAIT, AL_XP_TY, AL_STUDIES, AL_STUDY_DAYS } from './alliance-rules.js';
 
 /* Alliances, written only here (civic ops al*), so that an alliance outlives the nation that founded it.
      alliances/{aid}        {v, reg, name, tg?, mo, em, col, ty, acc, t, fd, ld, tyAt, mem, npc, iv, rq, xp, tt, tr, dn, pj, log}
@@ -20,7 +21,15 @@ import { AL_TYPES, AL_ACCESS, AL_RES, AL_PROJECTS, AL_OFFICERS, AL_XP, AL_ALLY_M
                             {k:'rival', me (this one named the other), them (the other named this one), t}
      alliances/{aid}/chat/{id}   the members' channel {a, nm, x, t}, which only members read (firestore.rules); not
                             'posts', which every player may read (the rule for deleting one's own posts)
-     allyOf/{id}            {a, reg, t, npc?}: the alliance a nation (or a computer nation) belongs to, for the referee
+                            cl {uid: until} members whose seat of this type another alliance holds (the type changed
+                            under them): each leaves one of the two by then, or leaves this one; tv a vote on a new type
+                            {ty, t, end, by, y {uid: t}, n {uid: t}}; sd a research accord's study {k, t, end, by}; ct a
+                            trade bloc's common tariff (true)
+     allyOf/{id}            {v: 2, reg, t, s {ty: aid}, w {ty: [aid]}, a, npc?}: the alliances a nation (or a computer
+                            nation) belongs to, one of each type (s, its seats; the referee counts the defence pact's
+                            members as allies in war), those waiting for a seat it already holds (w), and the one whose
+                            code it wears in chat and on the board (a). A record from before (no v) names one alliance
+                            (a), whose type is read from the alliance itself.
      alPace/{uid}           {p}: the times of a member's channel posts in the last hour, server-only
    Alliances founded before this kept their founder's id as their own (alMigrate), so a legacy record's allyOf and the
    referee's allyOf/ agree while a region moves over. Every member of an alliance defends the others; its type adds a
@@ -86,31 +95,100 @@ async function load(tx, db, d) {
   for (const k of ['mem', 'npc', 'iv', 'rq', 'tr', 'dn', 'pj', 'rel']) if (!A[k] || typeof A[k] !== 'object') A[k] = {};
   return { aid, ref, A };
 }
-/* whether a nation already belongs to an alliance: its allyOf/ entry, checked against the alliance it names */
-async function belongs(tx, db, id) {
-  const ix = await tx.get(db.doc('allyOf/' + id));
-  if (!ix.exists) return null;
-  const aid = ix.get('a'), s = isAid(aid) ? await tx.get(db.doc('alliances/' + aid)) : null;
-  if (!s || !s.exists) return { stale: true };
-  const A = s.data();
-  return (A.mem && A.mem[id]) || (A.npc && A.npc[id]) ? { aid, A } : { stale: true };
-}
+/* ── seats: the alliances a nation belongs to, one of each type (allyOf/{id}), each checked against the alliance it
+   names. Read for several nations at once (two reads in all: their entries, then every alliance they name), and kept
+   as {id, ref, had, s {ty: aid}, w {ty: [aid]}, a, npc, reg, docs}: docs holds the alliances read, shared by all of them,
+   so that a change to one (a member leaving a clash) is written once with every other. ── */
 const ix = (db, id) => db.doc('allyOf/' + id);
-function join(tx, db, aid, A, id, nm, now, how, g) {
+const seatTy = ty => AL_TYPES.includes(ty) ? ty : 'def';
+const TY_WORD = { def: 'defence pact', trade: 'trade bloc', culture: 'cultural union', research: 'research accord' };
+const held = S => [...AL_TYPES.map(t => S.s[t]).filter(Boolean), ...AL_TYPES.flatMap(t => S.w[t] || [])];
+async function seatsMany(tx, db, ids, docs = new Map()) {
+  ids = [...new Set(ids)];
+  const snaps = ids.length ? await tx.getAll(...ids.map(id => ix(db, id))) : [];
+  const want = snaps.map(s => {
+    const raw = s.exists ? s.data() : null, out = [];
+    if (raw && raw.v === 2) for (const ty of AL_TYPES) {
+      if (raw.s && isAid(raw.s[ty])) out.push([raw.s[ty], 0]);
+      for (const aid of raw.w && Array.isArray(raw.w[ty]) ? raw.w[ty] : []) if (isAid(aid)) out.push([aid, 1]);
+    } else if (raw && isAid(raw.a)) out.push([raw.a, 0]);
+    return { raw, out };
+  });
+  const need = [...new Set(want.flatMap(x => x.out.map(o => o[0])))].filter(aid => !docs.has(aid));
+  if (need.length) (await tx.getAll(...need.map(aid => db.doc('alliances/' + aid)))).forEach((s, i) => docs.set(need[i], s.exists ? s.data() : null));
+  return ids.map((id, i) => {
+    const { raw, out } = want[i], snap = snaps[i];
+    const S = { id, ref: snap.ref, had: snap.exists, s: {}, w: {}, a: '', npc: !!(raw && raw.npc), reg: (raw && raw.reg) || '', docs, old: !!raw && raw.v !== 2 };
+    for (const [aid, wait] of out) {
+      const A = docs.get(aid);
+      if (!A || !((A.mem && A.mem[id]) || (A.npc && A.npc[id]))) { S.old = true; continue; }
+      /* the alliance's type now: an entry from before names one alliance, and a type can move under an entry */
+      const ty = seatTy(A.ty);
+      if (!wait && !S.s[ty]) S.s[ty] = aid;
+      else if (S.s[ty] !== aid && !(S.w[ty] || []).includes(aid)) (S.w[ty] = S.w[ty] || []).push(aid);
+    }
+    /* a seat left free goes to the first alliance waiting for it */
+    for (const ty of AL_TYPES) if (!S.s[ty] && S.w[ty] && S.w[ty].length) { S.s[ty] = S.w[ty].shift(); S.old = true; }
+    const all = held(S);
+    S.a = raw && isAid(raw.a) && all.includes(raw.a) ? raw.a : S.s.def || all[0] || '';
+    return S;
+  });
+}
+async function seats(tx, db, id, docs) { return (await seatsMany(tx, db, [id], docs))[0]; }
+function putSeats(tx, S, reg, now) {
+  const all = held(S);
+  if (!all.length) { if (S.had) tx.delete(S.ref); S.had = false; return; }
+  if (!all.includes(S.a)) S.a = S.s.def || all[0];
+  const s = {}, w = {};
+  for (const t of AL_TYPES) { if (S.s[t]) s[t] = S.s[t]; if (S.w[t] && S.w[t].length) w[t] = S.w[t].slice(); }
+  tx.set(S.ref, { v: 2, reg: reg || S.reg, t: now, s, w, a: S.a, ...(S.npc ? { npc: true } : {}) });
+  S.had = true;
+}
+/* a nation's place in alliance aid given up: its seat, or its place waiting for one; a seat left free goes to the next
+   alliance waiting for it, whose list of clashes forgets the nation */
+function unseat(tx, db, S, aid) {
+  for (const t of AL_TYPES) {
+    if (S.w[t]) S.w[t] = S.w[t].filter(x => x !== aid);
+    if (S.s[t] !== aid) continue;
+    delete S.s[t];
+    if (S.w[t] && S.w[t].length) {
+      const y = S.w[t].shift(), Y = S.docs.get(y);
+      S.s[t] = y;
+      if (Y && Y.cl && Y.cl[S.id]) { delete Y.cl[S.id]; tx.update(db.doc('alliances/' + y), { cl: Y.cl }); }
+    }
+  }
+}
+/* a seat of alliance A's type for nation S: free (or A's own), and within what its people allow (pop, when given) */
+function seatFor(S, A, aid, pop, self) {
+  const ty = seatTy(A.ty), have = S.s[ty];
+  if (have && have !== aid) {
+    const B = S.docs.get(have), nm = B ? line(B.name, AL_NAME) : 'another';
+    refuse('al_member', `${self ? 'You are' : 'That nation is'} already in a ${TY_WORD[ty]}, ${nm}. A nation belongs to one alliance of each type: ${self ? 'leave it first, or join an alliance of another type' : 'it would have to leave that one first'}.`);
+  }
+  if (pop != null && held(S).filter(x => x !== aid).length >= alSeats(pop)) {
+    const next = AL_SEAT_POP[alSeats(pop)];
+    refuse('al_seats', `${self ? 'Your nation is' : 'That nation is'} in as many alliances as ${self ? 'its' : 'its'} people allow. ${next ? `Another opens at ${next} million people.` : ''}`.trim());
+  }
+}
+function join(tx, db, aid, A, S, nm, now, how, g) {
+  const id = S.id;
   A.mem[id] = { t: now, ...(Number.isFinite(g) ? { g } : {}) }; delete A.iv[id]; delete A.rq[id];
   A.xp = (A.xp || 0) + AL_XP.join;
   logged(A, { k: how || 'join', a: id, b: nm });
-  tx.set(ix(db, id), { a: aid, reg: A.reg, t: now });
+  S.s[seatTy(A.ty)] = aid; if (!S.a) S.a = aid;
+  putSeats(tx, S, A.reg, now);
 }
 /* who leads next: the longest-serving officer, then the longest-serving member; given a test, the first who passes it */
 function successor(A, ok) {
   const list = Object.entries(A.mem).filter(([id]) => id !== A.ld).sort((a, b) => (b[1].r === 'o') - (a[1].r === 'o') || a[1].t - b[1].t).map(([id]) => id);
   return (ok ? list.find(ok) : null) || (ok ? null : list[0]) || null;
 }
-/* every member goes; the channel's posts are deleted after the transaction (dropPosts) */
-function dissolve(tx, db, ref, A) {
-  for (const id of Object.keys(A.mem)) tx.delete(ix(db, id));
-  for (const id of Object.keys(A.npc)) tx.delete(ix(db, id));
+/* every member goes, each keeping its seats in other alliances (list: their seats, read before any write); the
+   channel's posts are deleted after the transaction (dropPosts) */
+const everyone = A => [...Object.keys(A.mem || {}), ...Object.keys(A.npc || {})];
+function dissolve(tx, db, ref, A, list) {
+  const aid = ref.id, now = Date.now();
+  for (const S of list) { unseat(tx, db, S, aid); putSeats(tx, S, A.reg, now); }
   tx.delete(ref);
 }
 async function dropPosts(db, aid) {
@@ -131,15 +209,16 @@ async function alFound(db, who, d) {
   await db.runTransaction(async tx => {
     const e = await eligibility(tx, who), reg = regOf(e);
     if ((Number(e.saved.get('pop')) || 0) < AL_FOUND_POP - 1e-6) refuse('al_small', `Founding an alliance unlocks at ${AL_FOUND_POP} million people. You can still join one.`);
-    const [mine, same] = await Promise.all([belongs(tx, db, who.uid), tx.get(db.collection('alliances').where('reg', '==', reg))]);
-    if (mine && !mine.stale) refuse('al_member', 'Leave your current alliance first.');
+    const [S, same] = await Promise.all([seats(tx, db, who.uid), tx.get(db.collection('alliances').where('reg', '==', reg))]);
+    seatFor(S, { ty }, '', Number(e.saved.get('pop')) || 0, true);
     if (same.docs.some(s => fold(s.get('name')) === fold(name))) refuse('al_name', 'Another alliance in this region already has that name.');
     if (tagTaken(same, tg, '')) refuse('al_tag', 'Another alliance in this region already uses that short code.');
     const now = Date.now(), ref = db.collection('alliances').doc(); aid = ref.id;
     const A = { v: 1, reg, name, ...(tg ? { tg } : {}), mo, em, col, ty, acc, t: now, fd: who.uid, ld: who.uid, mem: { [who.uid]: { t: now, g: e.generation } }, npc: {}, iv: {}, rq: {}, xp: 0, tt: now, tr: {}, dn: {}, pj: {}, log: [] };
     logged(A, { k: 'found', a: who.uid, b: nameOf(e.saved), x: name });
     tx.create(ref, A);
-    tx.set(ix(db, who.uid), { a: aid, reg, t: now });
+    S.s[ty] = aid; if (!S.a) S.a = aid;
+    putSeats(tx, S, reg, now);
   });
   return { ok: true, aid };
 }
@@ -169,16 +248,121 @@ async function alEdit(db, who, d) {
     if (d.em !== undefined) { const em = emblem(d.em); if (!em) throw new HttpsError('invalid-argument', 'That banner cannot be used.'); ch.em = em; }
     if (d.col !== undefined) { const c = COL(d.col); if (!c) throw new HttpsError('invalid-argument', 'Choose a colour.'); ch.col = c; }
     if (d.acc !== undefined) { if (!AL_ACCESS.includes(d.acc)) throw new HttpsError('invalid-argument', 'Choose who may join.'); ch.acc = d.acc; }
+    /* a trade bloc's common tariff on goods from outside it */
+    if (d.ct !== undefined) {
+      if (seatTy(A.ty) !== 'trade') refuse('al_not_trade', 'Only a trade bloc sets a common tariff.');
+      ch.ct = !!d.ct;
+    }
+    /* a new type: at once in an alliance of one player, otherwise put to the members' vote */
+    let want = '';
     if (d.ty !== undefined && d.ty !== A.ty) {
       if (!AL_TYPES.includes(d.ty)) throw new HttpsError('invalid-argument', 'Choose a type of alliance.');
-      if (A.tyAt && now - A.tyAt < 7 * DAY) refuse('al_type_wait', 'The alliance changed its type in the last 7 days. It can change again ' + new Date(A.tyAt + 7 * DAY).toISOString().slice(0, 10) + '.');
-      ch.ty = d.ty; ch.tyAt = now;
+      if (A.tyAt && now - A.tyAt < AL_TYPE_WAIT) refuse('al_type_wait', 'The alliance changed its type in the last 7 days. It can change again ' + new Date(A.tyAt + AL_TYPE_WAIT).toISOString().slice(0, 10) + '.');
+      if (A.tv && typeof A.tv === 'object' && now < (Number(A.tv.end) || 0)) refuse('al_vote_open', 'The members are already voting on a new type.');
+      want = d.ty;
     }
-    if (!Object.keys(ch).length) return { ok: true };
+    if (!Object.keys(ch).length && !want) return { ok: true };
+    const list = want && Object.keys(A.mem).length <= 1 ? await seatsMany(tx, db, everyone(A)) : null;
     Object.assign(A, ch);
-    logged(A, { k: ch.ty ? 'type' : 'edit', a: who.uid, x: ch.ty || '' });
+    if (Object.keys(ch).length) logged(A, { k: 'edit', a: who.uid, x: '' });
+    let out = { ok: true };
+    if (list) {
+      const clash = applyType(tx, db, ref.id, A, want, list, who.uid, now);
+      Object.assign(ch, { ty: A.ty, tyAt: A.tyAt, cl: A.cl, npc: A.npc, tv: null });
+      out = { ok: true, ty: A.ty, clash };
+    } else if (want) {
+      ch.tv = A.tv = { ty: want, t: now, end: now + AL_VOTE, by: who.uid, y: { [who.uid]: now }, n: {} };
+      logged(A, { k: 'vote', a: who.uid, x: want });
+      out = { ok: true, vote: true };
+    }
     tx.update(ref, { ...ch, log: A.log });
+    return out;
+  });
+}
+/* the alliance takes type ty (list: every member's seats, read before any write). Each member's seat moves with it; a
+   member that already holds a seat of that type in another alliance keeps it there and waits here (cl) for a week,
+   to leave one of the two; a computer nation in that case leaves this one at once. */
+function applyType(tx, db, aid, A, ty, list, uid, now) {
+  A.cl = A.cl && typeof A.cl === 'object' ? A.cl : {}; A.npc = A.npc || {};
+  let clash = 0;
+  for (const S of list) {
+    unseat(tx, db, S, aid);
+    if (S.s[ty] && S.s[ty] !== aid) {
+      if (A.npc[S.id]) { delete A.npc[S.id]; logged(A, { k: 'npcleft', a: S.id, b: NPC.get(S.id)?.name || S.id, x: 'type' }); }
+      else if (A.mem[S.id]) { (S.w[ty] = S.w[ty] || []).push(aid); A.cl[S.id] = now + AL_CLASH; clash++; }
+    } else if (A.mem[S.id] || A.npc[S.id]) { S.s[ty] = aid; delete A.cl[S.id]; }
+    putSeats(tx, S, A.reg, now);
+  }
+  A.ty = ty; A.tyAt = now; A.tv = null;
+  logged(A, { k: 'type', a: uid, x: ty, ...(clash ? { b: String(clash) } : {}) });
+  return clash;
+}
+/* a vote on a new type: passed once more than half the members say yes, lost once half say no, and otherwise decided
+   when it closes by the votes cast ('' while it runs) */
+function voteOutcome(A, V, now) {
+  const p = Object.keys(A.mem).length, c = o => Object.keys(o && typeof o === 'object' ? o : {}).filter(id => A.mem[id]).length, y = c(V.y), n = c(V.n);
+  if (2 * y > p) return 'pass';
+  if (2 * n >= p) return 'fail';
+  if (now >= (Number(V.end) || 0)) return y > n ? 'pass' : 'fail';
+  return '';
+}
+async function alVote(db, who, d) {
+  return db.runTransaction(async tx => {
+    await eligibility(tx, who, { linked: false });
+    const { aid, ref, A } = await load(tx, db, d); const r = need(A, who.uid, 'm');
+    const now = Date.now(), V = A.tv && typeof A.tv === 'object' ? A.tv : null;
+    if (!V || !AL_TYPES.includes(V.ty)) refuse('al_no_vote', 'The members are not voting on a new type.');
+    if (d.cancel) {
+      if (r !== 'ld') throw new HttpsError('permission-denied', 'Only the alliance’s leader can call off the vote.');
+      logged(A, { k: 'votex', a: who.uid, x: V.ty }); tx.update(ref, { tv: null, log: A.log });
+      return { ok: true, cancelled: true };
+    }
+    V.y = V.y && typeof V.y === 'object' ? V.y : {}; V.n = V.n && typeof V.n === 'object' ? V.n : {};
+    if (typeof d.yes === 'boolean' && now < (Number(V.end) || 0)) { delete V.y[who.uid]; delete V.n[who.uid]; (d.yes ? V.y : V.n)[who.uid] = now; }
+    const out = voteOutcome(A, V, now);
+    if (out === 'pass') {
+      const list = await seatsMany(tx, db, everyone(A));
+      const clash = applyType(tx, db, aid, A, V.ty, list, V.by || who.uid, now);
+      tx.update(ref, { ty: A.ty, tyAt: A.tyAt, cl: A.cl, npc: A.npc, tv: null, log: A.log });
+      return { ok: true, passed: true, ty: A.ty, clash };
+    }
+    if (out === 'fail') { logged(A, { k: 'votefail', a: who.uid, x: V.ty }); tx.update(ref, { tv: null, log: A.log }); return { ok: true, failed: true }; }
+    tx.update(ref, { tv: V });
     return { ok: true };
+  });
+}
+/* the code a member wears beside its name in chat and on the board: one of its alliances, or its first */
+async function alWear(db, who, d) {
+  const aid = isAid(d.aid) ? d.aid : '';
+  return db.runTransaction(async tx => {
+    await eligibility(tx, who, { linked: false });
+    const S = await seats(tx, db, who.uid);
+    if (aid && !held(S).includes(aid)) refuse('al_no_member', 'You are not a member of that alliance.');
+    if (!held(S).length) return { ok: true };
+    S.a = aid || S.s.def || held(S)[0];
+    putSeats(tx, S, S.reg, Date.now());
+    return { ok: true, a: S.a };
+  });
+}
+/* a research accord's joint study: chosen by its leader or an officer, paid from the treasury, one at a time */
+async function alStudy(db, who, d) {
+  const St = AL_STUDIES[d.k];
+  if (!St) throw new HttpsError('invalid-argument', 'Choose a study.');
+  return db.runTransaction(async tx => {
+    await eligibility(tx, who);
+    const { ref, A } = await load(tx, db, d); need(A, who.uid, 'o');
+    if (seatTy(A.ty) !== 'research') refuse('al_not_research', 'Only a research accord runs joint studies.');
+    const now = Date.now();
+    if (A.sd && typeof A.sd === 'object' && now < (Number(A.sd.end) || 0)) refuse('al_study_on', 'A study is already under way. It ends ' + new Date(A.sd.end).toISOString().slice(0, 10) + '.');
+    const short = AL_RES.filter(k => (Number(A.tr[k]) || 0) + 1e-9 < (St.cost[k] || 0));
+    if (short.length) refuse('al_treasury', 'The treasury is short of ' + short.map(k => Math.ceil((St.cost[k] || 0) - (Number(A.tr[k]) || 0)) + ' ' + k).join(', ') + '.');
+    for (const k of AL_RES) if (St.cost[k]) A.tr[k] = Math.round(((Number(A.tr[k]) || 0) - St.cost[k]) * 100) / 100;
+    const days = AL_STUDY_DAYS + 2 * clamp(Number(A.pj.observatory) || 0, 0, AL_PROJECTS.observatory.max);
+    A.sd = { k: d.k, t: now, end: now + days * DAY, by: who.uid };
+    A.xp = (A.xp || 0) + AL_XP.study;
+    logged(A, { k: 'study', a: who.uid, x: d.k });
+    tx.update(ref, { tr: A.tr, sd: A.sd, xp: A.xp, log: A.log });
+    return { ok: true, end: A.sd.end };
   });
 }
 
@@ -193,15 +377,16 @@ async function alInvite(db, who, d) {
       const npc = NPC.get(id);
       if (npc.reg !== A.reg) refuse('al_region', 'That nation is in another region.');
       if (BLOC.has(id)) refuse('al_bloc', 'That computer nation belongs to an alliance of its own.');
-      const [held, leader] = await Promise.all([belongs(tx, db, id), tx.get(db.doc('nations/' + A.ld))]);
-      const L = nationJSON(leader);
-      if (held && !held.stale) {
-        if (held.aid === aid) return { ok: true };
+      const [S, leader] = await Promise.all([seats(tx, db, id), tx.get(db.doc('nations/' + A.ld))]);
+      const L = nationJSON(leader), ty = seatTy(A.ty), have = S.s[ty];
+      if (held(S).includes(aid)) return { ok: true };
+      if (have) {
         /* a computer nation whose values have drifted from its alliance's leader has left it in every game, so it is free */
-        const ol = await tx.get(db.doc('nations/' + held.A.ld));
-        if (npcAffinity(id, nationJSON(ol)) >= AL_ALLY_MIN - 10) refuse('al_taken', 'That computer nation is already in another alliance.');
-        const nn = { ...held.A.npc }; delete nn[id];
-        tx.update(db.doc('alliances/' + held.aid), { npc: nn });
+        const OA = S.docs.get(have), ol = await tx.get(db.doc('nations/' + OA.ld));
+        if (npcAffinity(id, nationJSON(ol)) >= AL_ALLY_MIN - 10) refuse('al_taken', `That computer nation is already in another ${TY_WORD[ty]}.`);
+        const nn = { ...OA.npc }; delete nn[id];
+        tx.update(db.doc('alliances/' + have), { npc: nn });
+        unseat(tx, db, S, have);
       }
       if (warWithNpc(L, id)) refuse('al_war', 'Your leader is at war with that nation. Make peace first.');
       const pz = Number(L.peace?.[id]) || 0;
@@ -212,17 +397,19 @@ async function alInvite(db, who, d) {
       A.npc[id] = now; A.xp = (A.xp || 0) + AL_XP.join;
       logged(A, { k: 'npc', a: id, b: npc.name || id });
       tx.update(ref, { npc: A.npc, xp: A.xp, log: A.log });
-      tx.set(ix(db, id), { a: aid, reg: A.reg, t: now, npc: true });
+      S.npc = true; S.s[ty] = aid; putSeats(tx, S, A.reg, now);
       return { ok: true, joined: true };
     }
     if (!isUid(id) || id === who.uid) throw new HttpsError('invalid-argument', 'Choose a nation to invite.');
-    const [target, held] = await Promise.all([tx.get(db.doc('nations/' + id)), belongs(tx, db, id)]);
+    const [target, S] = await Promise.all([tx.get(db.doc('nations/' + id)), seats(tx, db, id)]);
     if (!target.exists || (target.get('reg') || '') !== A.reg) refuse('al_region', 'That nation is not in this region.');
     if (closed(nationJSON(target), 'a')) refuse('al_closed', 'That nation takes no alliance invitations.');
-    if (held && !held.stale) refuse('al_taken', held.aid === aid ? 'That nation is already a member.' : 'That nation is already in another alliance.');
+    if (held(S).includes(aid)) refuse('al_taken', 'That nation is already a member.');
+    if (S.s[seatTy(A.ty)]) refuse('al_taken', `That nation is already in another ${TY_WORD[seatTy(A.ty)]}.`);
     if (A.rq[id]) {
       roomFor(A);
-      join(tx, db, aid, A, id, nameOf(target), now, 'admit', target.createTime.toMillis());
+      seatFor(S, A, aid, Number(target.get('pop')) || 0, false);
+      join(tx, db, aid, A, S, nameOf(target), now, 'admit', target.createTime.toMillis());
       tx.update(ref, { mem: A.mem, iv: A.iv, rq: A.rq, xp: A.xp, log: A.log });
       return { ok: true, joined: true };
     }
@@ -247,12 +434,13 @@ async function alRequest(db, who, d) {
     const e = await eligibility(tx, who, { linked: false });
     const { aid, ref, A } = await load(tx, db, d);
     if (regOf(e) !== A.reg) refuse('al_region', 'That alliance is in another region.');
-    const held = await belongs(tx, db, who.uid);
-    if (held && !held.stale) refuse('al_member', held.aid === aid ? 'You are already a member.' : 'Leave your current alliance first.');
+    const S = await seats(tx, db, who.uid);
+    if (held(S).includes(aid)) refuse('al_member', 'You are already a member.');
+    seatFor(S, A, aid, Number(e.saved.get('pop')) || 0, true);
     const now = Date.now();
     if (A.iv[who.uid] || A.acc === 'open') {
       roomFor(A);
-      join(tx, db, aid, A, who.uid, nameOf(e.saved), now, '', e.generation);
+      join(tx, db, aid, A, S, nameOf(e.saved), now, '', e.generation);
       tx.update(ref, { mem: A.mem, iv: A.iv, rq: A.rq, xp: A.xp, log: A.log });
       return { ok: true, joined: true };
     }
@@ -280,13 +468,14 @@ async function alAnswer(db, who, d) {
     const { aid, ref, A } = await load(tx, db, d);need(A, who.uid, 'o');
     if (!A.rq[id]) refuse('al_no_request', 'That request is no longer there.');
     if (!d.yes) { delete A.rq[id]; tx.update(ref, { rq: A.rq }); return { ok: true }; }
-    const [target, held] = await Promise.all([tx.get(db.doc('nations/' + id)), belongs(tx, db, id)]);
-    if (!target.exists || (target.get('reg') || '') !== A.reg || (held && !held.stale)) {
+    const [target, S] = await Promise.all([tx.get(db.doc('nations/' + id)), seats(tx, db, id)]);
+    const ty = seatTy(A.ty), full = held(S).filter(x => x !== aid).length >= alSeats(Number(target.get('pop')) || 0);
+    if (!target.exists || (target.get('reg') || '') !== A.reg || (S.s[ty] && S.s[ty] !== aid) || full) {
       delete A.rq[id]; tx.update(ref, { rq: A.rq });
-      return { ok: false, why: 'gone' };
+      return { ok: false, why: target.exists && full && !(S.s[ty] && S.s[ty] !== aid) ? 'seats' : 'gone' };
     }
     roomFor(A);
-    join(tx, db, aid, A, id, nameOf(target), Date.now(), 'admit', target.createTime.toMillis());
+    join(tx, db, aid, A, S, nameOf(target), Date.now(), 'admit', target.createTime.toMillis());
     tx.update(ref, { mem: A.mem, iv: A.iv, rq: A.rq, xp: A.xp, log: A.log });
     return { ok: true, joined: true };
   });
@@ -297,13 +486,18 @@ async function alLeave(db, who, d) {
     const e = await eligibility(tx, who, { linked: false, hidden: true });
     const { aid, ref, A } = await load(tx, db, d);
     if (!A.mem[who.uid]) return { ok: true };
-    const wasLeader = A.ld === who.uid;
-    delete A.mem[who.uid];
-    if (!Object.keys(A.mem).length || d.disband && wasLeader) { tx.delete(ix(db, who.uid)); dissolve(tx, db, ref, A); gone = aid; return { ok: true, dissolved: true }; }
-    tx.delete(ix(db, who.uid));
+    const wasLeader = A.ld === who.uid, now = Date.now();
+    delete A.mem[who.uid]; if (A.cl && typeof A.cl === 'object') delete A.cl[who.uid];
+    const S = await seats(tx, db, who.uid);
+    if (!Object.keys(A.mem).length || d.disband && wasLeader) {
+      const list = await seatsMany(tx, db, everyone(A), S.docs);
+      unseat(tx, db, S, aid); putSeats(tx, S, A.reg, now);
+      dissolve(tx, db, ref, A, list); gone = aid; return { ok: true, dissolved: true };
+    }
+    unseat(tx, db, S, aid); putSeats(tx, S, A.reg, now);
     logged(A, { k: 'leave', a: who.uid, b: nameOf(e.saved) });
     if (wasLeader) { A.ld = successor(A); if (A.mem[A.ld]) delete A.mem[A.ld].r; logged(A, { k: 'leader', a: A.ld, x: 'left' }); }
-    tx.update(ref, { mem: A.mem, ld: A.ld, log: A.log });
+    tx.update(ref, { mem: A.mem, ld: A.ld, log: A.log, ...(A.cl && typeof A.cl === 'object' ? { cl: A.cl } : {}) });
     return { ok: true };
   });
   if (gone) await dropPosts(db, gone);
@@ -313,14 +507,20 @@ async function alRemove(db, who, d) {
   const id = typeof d.id === 'string' ? d.id : '';
   return db.runTransaction(async tx => {
     await eligibility(tx, who, { linked: false });
-    const { ref, A } = await load(tx, db, d);const me = need(A, who.uid, 'o');
-    if (A.npc[id]) { delete A.npc[id]; tx.delete(ix(db, id)); logged(A, { k: 'remove', a: id, b: NPC.get(id)?.name || id, x: who.uid }); tx.update(ref, { npc: A.npc, log: A.log }); return { ok: true }; }
+    const { aid, ref, A } = await load(tx, db, d);const me = need(A, who.uid, 'o');
+    const now = Date.now();
+    if (A.npc[id]) {
+      const S = await seats(tx, db, id);
+      delete A.npc[id]; unseat(tx, db, S, aid); putSeats(tx, S, A.reg, now);
+      logged(A, { k: 'remove', a: id, b: NPC.get(id)?.name || id, x: who.uid }); tx.update(ref, { npc: A.npc, log: A.log }); return { ok: true };
+    }
     if (!A.mem[id] || id === who.uid) refuse('al_no_member', 'That nation is not a member.');
     if (me !== 'ld' && roleOf(A, id) !== 'm') throw new HttpsError('permission-denied', 'Only the leader can remove an officer.');
-    const s = await tx.get(db.doc('nations/' + id));
-    delete A.mem[id]; tx.delete(ix(db, id));
+    const [s, S] = await Promise.all([tx.get(db.doc('nations/' + id)), seats(tx, db, id)]);
+    delete A.mem[id]; if (A.cl && typeof A.cl === 'object') delete A.cl[id];
+    unseat(tx, db, S, aid); putSeats(tx, S, A.reg, now);
     logged(A, { k: 'remove', a: id, b: nameOf(s), x: who.uid });
-    tx.update(ref, { mem: A.mem, log: A.log });
+    tx.update(ref, { mem: A.mem, log: A.log, ...(A.cl && typeof A.cl === 'object' ? { cl: A.cl } : {}) });
     return { ok: true };
   });
 }
@@ -374,6 +574,7 @@ async function alBuild(db, who, d) {
     await eligibility(tx, who);
     const { ref, A } = await load(tx, db, d);need(A, who.uid, 'o');
     const at = Number(A.pj[d.p]) || 0;
+    if (AL_TY_PJ[d.p] && AL_TY_PJ[d.p] !== seatTy(A.ty)) refuse('al_pj_type', `That project belongs to a ${TY_WORD[AL_TY_PJ[d.p]]}.`);
     if (at >= P.max) refuse('al_built', 'That project is complete.');
     if (alLevel(A.xp) < P.lv[at]) refuse('al_level', `That needs an alliance of level ${P.lv[at]}.`);
     const cost = P.cost[at], short = AL_RES.filter(k => (Number(A.tr[k]) || 0) + 1e-9 < (cost[k] || 0));
@@ -437,41 +638,66 @@ async function alTally(db, who, d) {
     const rv = Object.keys(A.rel).filter(id => isAid(id) && A.rel[id] && A.rel[id].k === 'rival' && (A.rel[id].me || A.rel[id].them)).slice(0, 8);
     const foes = new Set();
     if (rv.length) (await tx.getAll(...rv.map(id => db.doc('alliances/' + id)))).forEach(s => { if (s.exists) Object.keys(s.get('mem') || {}).forEach(id => foes.add(id)); });
+    /* every member's seats, read before any write: members who are gone, computer nations that walk out and members
+       still holding the same type elsewhere a week after the type changed give theirs up here */
+    const list = await seatsMany(tx, db, everyone(A)), byId = new Map(list.map(S => [S.id, S]));
+    const out = id => { const S = byId.get(id); if (S) { unseat(tx, db, S, aid); putSeats(tx, S, A.reg, now); byId.delete(id); } };
     const w0 = Math.max(A.tt || A.t || 0, now - TALLY_WINDOW), inWin = t => Number.isFinite(t) && t > w0 && t <= now;
     const mem = new Set(recs.keys()), all = new Set([...mem, ...Object.keys(A.npc)]);
+    /* each type counts its own kind of shared activity this many times over (AL_XP_TY) */
+    const M = AL_XP_TY[seatTy(A.ty)] || {}, m = k => M[k] || 1;
     let xp = 0;
     const parts = { active: 0, deals: 0, gifts: 0, battles: 0, calls: 0 };
     for (const [id, n] of recs) {
-      if (inWin(at.get(id)) || now - at.get(id) < DAY) { xp += AL_XP.active; parts.active++; }
+      if (inWin(at.get(id)) || now - at.get(id) < DAY) { xp += AL_XP.active * m('active'); parts.active++; }
       for (const x of Array.isArray(n.deals) ? n.deals : []) {
         if (!x || x.a || !mem.has(x.w)) continue;
         const pd = recs.get(x.w);
-        if (pd && (pd.deals || []).some(y => y && y.id === x.id && y.a && y.w === id)) { xp += AL_XP.deal; parts.deals++; }
+        if (pd && (pd.deals || []).some(y => y && y.id === x.id && y.a && y.w === id)) { xp += AL_XP.deal * m('deal'); parts.deals++; }
       }
       const g = (Array.isArray(n.gft) ? n.gft : []).filter(x => x && all.has(x.to) && x.to !== id && inWin(x.t)).length;
       const b = (Array.isArray(n.conq) ? n.conq : []).filter(x => x && all.has(x.w) && inWin(x.t)).length;
       const c = (Array.isArray(n.cta) ? n.cta : []).filter(x => x && all.has(x.w) && inWin(x.t)).length;
-      xp += Math.min(g, AL_XP.giftCap) * AL_XP.gift + Math.min(b, AL_XP.battleCap) * AL_XP.battle + Math.min(c, AL_XP.callCap) * AL_XP.call;
+      xp += Math.min(g, AL_XP.giftCap) * AL_XP.gift * m('gift') + Math.min(b, AL_XP.battleCap) * AL_XP.battle * m('battle') + Math.min(c, AL_XP.callCap) * AL_XP.call * m('call');
       parts.gifts += g; parts.battles += b; parts.calls += c;
       const rb = foes.size ? (Array.isArray(n.conq) ? n.conq : []).filter(x => x && foes.has(x.d) && inWin(x.t)).length : 0;
       if (rb) { xp += Math.min(rb, AL_XP.rivalCap) * AL_XP.rival; parts.rival = (parts.rival || 0) + rb; }
     }
-    for (const id of ids) if (!recs.has(id)) { delete A.mem[id]; tx.delete(ix(db, id)); logged(A, { k: 'leave', a: id, x: 'gone' }); }
-    if (!Object.keys(A.mem).length) { dissolve(tx, db, ref, A); return { ok: true, dissolved: true }; }
+    for (const id of ids) if (!recs.has(id)) { delete A.mem[id]; out(id); logged(A, { k: 'leave', a: id, x: 'gone' }); }
+    /* a clash: settled once the member holds this alliance's seat (it left the other one), or ended by the member
+       leaving this one when the week is up */
+    A.cl = A.cl && typeof A.cl === 'object' ? A.cl : {};
+    for (const [id, until] of Object.entries(A.cl)) {
+      const S = byId.get(id);
+      if (!A.mem[id] || !S) { delete A.cl[id]; continue; }
+      if (S.s[seatTy(A.ty)] === aid) { delete A.cl[id]; continue; }
+      if (now >= (Number(until) || 0)) { delete A.mem[id]; delete A.cl[id]; out(id); logged(A, { k: 'clashleft', a: id, b: (snaps[ids.indexOf(id)] && nameOf(snaps[ids.indexOf(id)])) || '' }); }
+    }
+    if (!Object.keys(A.mem).length) { dissolve(tx, db, ref, A, [...byId.values()]); return { ok: true, dissolved: true }; }
     if (!A.mem[A.ld] || now - (at.get(A.ld) || 0) > AWAY) {
       const next = successor(A, id => now - (at.get(id) || 0) <= AWAY);
       if (next) { delete A.mem[next].r; logged(A, { k: 'leader', a: next, x: A.mem[A.ld] ? 'away' : 'gone' }); A.ld = next; }
       else if (!A.mem[A.ld]) { A.ld = successor(A); if (A.ld) delete A.mem[A.ld].r; }
     }
     const L = recs.get(A.ld);
-    if (L) for (const id of Object.keys(A.npc)) if (npcAffinity(id, L) < AL_ALLY_MIN - 10) { delete A.npc[id]; tx.delete(ix(db, id)); logged(A, { k: 'npcleft', a: id, b: NPC.get(id)?.name || id }); }
+    if (L) for (const id of Object.keys(A.npc)) if (npcAffinity(id, L) < AL_ALLY_MIN - 10) { delete A.npc[id]; out(id); logged(A, { k: 'npcleft', a: id, b: NPC.get(id)?.name || id }); }
+    /* a vote on the type that has run its two days */
+    const V = A.tv && typeof A.tv === 'object' ? A.tv : null;
+    let voted = '';
+    if (V && AL_TYPES.includes(V.ty) && now >= (Number(V.end) || 0)) {
+      voted = voteOutcome(A, V, now);
+      if (voted === 'pass') applyType(tx, db, aid, A, V.ty, [...byId.values()], V.by || '', now);
+      else { A.tv = null; logged(A, { k: 'votefail', x: V.ty }); }
+    }
+    /* entries from before: written again in the new shape */
+    for (const S of byId.values()) if (S.old) putSeats(tx, S, A.reg, now);
     /* the Hall of Chronicles: a tenth more a level, rounded */
     const chron = Math.round(xp * AL_XP.chron * clamp(Number(A.pj.chronicle) || 0, 0, AL_PROJECTS.chronicle.max));
     if (chron > 0) { xp += chron; parts.chron = chron; }
     A.xp = (A.xp || 0) + xp; A.tt = now;
     if (xp) logged(A, { k: 'tally', x: String(xp), b: JSON.stringify(parts) });
-    tx.update(ref, { mem: A.mem, npc: A.npc, ld: A.ld, xp: A.xp, tt: A.tt, log: A.log });
-    return { ok: true, xp, parts };
+    tx.update(ref, { mem: A.mem, npc: A.npc, ld: A.ld, xp: A.xp, tt: A.tt, log: A.log, cl: A.cl, ...(voted ? { tv: null, ty: A.ty, tyAt: A.tyAt || 0 } : {}) });
+    return { ok: true, xp, parts, ...(voted ? { voted } : {}) };
   });
 }
 
@@ -626,24 +852,32 @@ export async function alDrop(db, uid) {
   try {
     const s = await db.doc('allyOf/' + uid).get();
     if (!s.exists) return;
-    const aid = s.get('a');
-    let gone = '';
-    await db.runTransaction(async tx => {
-      const ref = db.doc('alliances/' + aid), a = await tx.get(ref);
-      if (!a.exists) { tx.delete(ix(db, uid)); return; }
-      const A = a.data(); A.mem = A.mem || {};
-      if (!A.mem[uid]) { tx.delete(ix(db, uid)); return; }
-      delete A.mem[uid];
-      if (!Object.keys(A.mem).length) { A.npc = A.npc || {}; dissolve(tx, db, ref, A); gone = aid; return; }
-      tx.delete(ix(db, uid));
-      logged(A, { k: 'leave', a: uid, x: 'gone' });
-      if (A.ld === uid) { A.ld = successor(A); if (A.mem[A.ld]) delete A.mem[A.ld].r; }
-      tx.update(ref, { mem: A.mem, ld: A.ld, log: A.log });
-    });
-    if (gone) await dropPosts(db, gone);
+    const raw = s.data() || {};
+    const aids = raw.v === 2 ? [...AL_TYPES.map(t => raw.s && raw.s[t]), ...AL_TYPES.flatMap(t => raw.w && Array.isArray(raw.w[t]) ? raw.w[t] : [])] : [raw.a];
+    for (const aid of [...new Set(aids.filter(isAid))]) {
+      let gone = '';
+      await db.runTransaction(async tx => {
+        const ref = db.doc('alliances/' + aid), a = await tx.get(ref), S = await seats(tx, db, uid), now = Date.now();
+        const A = a.exists ? a.data() : null;
+        if (!A || !A.mem || !A.mem[uid]) { unseat(tx, db, S, aid); putSeats(tx, S, '', now); return; }
+        A.npc = A.npc || {};
+        delete A.mem[uid]; if (A.cl && typeof A.cl === 'object') delete A.cl[uid];
+        if (!Object.keys(A.mem).length) {
+          const list = await seatsMany(tx, db, everyone(A), S.docs);
+          unseat(tx, db, S, aid); putSeats(tx, S, A.reg, now);
+          dissolve(tx, db, ref, A, list); gone = aid; return;
+        }
+        unseat(tx, db, S, aid); putSeats(tx, S, A.reg, now);
+        logged(A, { k: 'leave', a: uid, x: 'gone' });
+        if (A.ld === uid) { A.ld = successor(A); if (A.mem[A.ld]) delete A.mem[A.ld].r; }
+        tx.update(ref, { mem: A.mem, ld: A.ld, log: A.log, ...(A.cl && typeof A.cl === 'object' ? { cl: A.cl } : {}) });
+      });
+      if (gone) await dropPosts(db, gone);
+    }
+    await db.doc('allyOf/' + uid).delete();
   } catch (e) { console.warn('alDrop', uid, e && e.message); }
 }
 
-const OPS = { alFound, alEdit, alInvite, alUninvite, alRequest, alCancel, alAnswer, alLeave, alRemove, alRole, alDonate, alBuild, alPost, alPostDel, alTally, alMigrate, alPact, alPactAnswer, alPactEnd, alRival };
+const OPS = { alFound, alEdit, alInvite, alUninvite, alRequest, alCancel, alAnswer, alLeave, alRemove, alRole, alDonate, alBuild, alPost, alPostDel, alTally, alMigrate, alPact, alPactAnswer, alPactEnd, alRival, alVote, alWear, alStudy };
 export const isAllianceOp = op => Object.prototype.hasOwnProperty.call(OPS, op);
 export function alliance(db, who, d) { return OPS[d.op](db, who, d); }

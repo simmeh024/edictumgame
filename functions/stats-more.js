@@ -57,7 +57,7 @@ export async function gatherMore(db, now = Date.now()) {
     // posts keep their time as a server timestamp (region boards, news comments) or in ms (the Community Board)
     safe(db.collectionGroup('posts').where('t', '>', month).select('t', 'as').get()),
     safe(db.collectionGroup('posts').where('t', '>', now - 30 * DAY).select('t', 'as').get()),
-    safe(db.collection('alliances').select('reg', 'mem', 'npc', 't').get()),
+    safe(db.collection('alliances').select('reg', 'mem', 'npc', 't', 'ty').get()),
   ]);
   const where = path => { const p = path.split('/'); return p[0] === 'boards' ? 'board:' + p[1] : p[0] === 'devnews' ? 'news' : p[0] === 'cboard' || p[0] === 'community' ? 'community' : p[0]; };
   return {
@@ -70,7 +70,7 @@ export async function gatherMore(db, now = Date.now()) {
     }),
     // not the Assembly's debate topics (functions/civic.js, debateTopic): no player wrote them
     posts: postsT.docs.concat(postsN.docs).filter(d => d.get('as') !== true).map(d => ({ t: ms(d.get('t')), where: where(d.ref.path) })).filter(p => p.t),
-    alliances: alliances.docs.map(d => ({ reg: String(d.get('reg') || ''), mem: Object.keys(obj(d.get('mem')) || {}).length, npc: Object.keys(obj(d.get('npc')) || {}).length, t: ms(d.get('t')) || num(d.get('t')) })),
+    alliances: alliances.docs.map(d => ({ reg: String(d.get('reg') || ''), ty: ['def', 'trade', 'culture', 'research'].includes(d.get('ty')) ? d.get('ty') : 'def', mem: Object.keys(obj(d.get('mem')) || {}).length, npc: Object.keys(obj(d.get('npc')) || {}).length, t: ms(d.get('t')) || num(d.get('t')) })),
   };
 }
 
@@ -108,7 +108,9 @@ export function moreSummary(g, m, reg = '', now = g.at) {
 
   /* social: alliance sizes, nations with no contact with any other, board posts by day */
   const sizes = {}, A = m.alliances.filter(a => inReg(a));
-  for (const a of A) { add(sizes, a.mem >= 10 ? '10+' : a.mem >= 5 ? '5-9' : a.mem >= 2 ? '2-4' : '1'); if (regs[a.reg]) regs[a.reg].alliances++; }
+  /* alliance types (21 November 2026): how many of each */
+  const types = {};
+  for (const a of A) { add(sizes, a.mem >= 10 ? '10+' : a.mem >= 5 ? '5-9' : a.mem >= 2 ? '2-4' : '1'); add(types, a.ty || 'def'); if (regs[a.reg]) regs[a.reg].alliances++; }
   let loners = 0, allied = 0, writers = 0, traders = 0;
   for (const x of act30) {
     const s = (x.f || []).filter(k => SOCIAL.includes(k));
@@ -152,7 +154,7 @@ export function moreSummary(g, m, reg = '', now = g.at) {
       desk, deskNations: deskDays.length, deskClear,
     },
     regions: regs,
-    social: { alliances: A.length, sizes, allied, loners, writers, traders, active30: act30.length,
+    social: { alliances: A.length, sizes, types, allied, loners, writers, traders, active30: act30.length,
       posts: D30.map(d => ({ d, n: posts[d] })), postWhere },
     ops: {
       days: D7.map(d => ({ d, tabs: opsDays[d].tabs, players: opsDays[d].players.size, errors: opsDays[d].errors, conflicts: opsDays[d].conflicts, offline: opsDays[d].offline })),

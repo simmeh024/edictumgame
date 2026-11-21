@@ -70,7 +70,8 @@ test('the game works out the same: the same ids, in force, and void', () => {
 test('a pact bars war, the referee refuses its battles, and computer nations under one never attack', () => {
   const src = fs.readFileSync(new URL('../functions/index.js', import.meta.url), 'utf8');
   assert.match(src, /for \(const t of \[nap, drill\]\) if \(t\.exists && trLive\(t\.data\(\), now\) && !trVoid\(t\.data\(\), recs\)\)/);
-  assert.match(src, /alRelLive\(rel\[aD\], now\)\) return \{ ok: false, why: 'pact' \}/);
+  /* a pact between any alliance of the attacker's and any of the defender's (alliance types) */
+  assert.match(src, /theirs\.some\(b => alRelLive\(rel\[b\], now\)\)\) return \{ ok: false, why: 'pact' \}/);
   assert.match(html, /\{const tb=tyWarBlock\(id\);if\(tb\)\{toast\(tb\);return;\}\}/);
   assert.match(html, /sameAlliance\(myId\(\),id\)\|\|tyPeace\(myId\(\),id\)\)continue;/);
   /* the roll waits for the region's treaties, rather than miss a pact */
