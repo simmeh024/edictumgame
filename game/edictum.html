@@ -8171,6 +8171,10 @@ span.nw-tag{cursor:default}
 .club-seal svg{width:18px;height:18px;flex:none}
 .club-seal.sm{padding:0;border:0;background:none;margin-left:5px}
 .club-seal.sm svg{width:15px;height:15px}
+/* in the Assembly's chair the seal is pressed larger, beside the heading's name; where a row already spaces its parts
+   (the endorsements, a treaty's other side) it takes no margin of its own */
+.asm-del-n .club-seal{vertical-align:middle;margin-left:10px}.asm-del-n .club-seal svg{width:24px;height:24px}
+.mem-n .club-seal,.dpt-n .club-seal{margin-left:0}
 .club-sls{list-style:none;margin:8px 0 6px;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
 .club-sl{display:grid;grid-template-columns:40px 1fr;grid-template-rows:auto auto;gap:4px 10px;align-items:center;padding:8px 10px;border:1px solid var(--rule);border-radius:6px;background:var(--sheet)}
 .club-sl:not(.held) .club-sl-v{opacity:.45;filter:grayscale(.6)}
@@ -33044,7 +33048,7 @@ function asmDelBanner(st,now){
   const form=mine?`<form id="asm-msg-form" class="asm-msg-form" novalidate><label class="lbl" for="asm-msg">Your message to the region</label><div class="name-row"><input class="input" id="asm-msg" data-asm="msg" maxlength="${ASM_MSG}" placeholder="A word from the chair…" value="${esc(S.asmMsgDraft!=null?S.asmMsgDraft:msg)}" autocomplete="off"><button class="btn" type="submit">Post</button></div><p class="hint">Up to ${ASM_MSG} characters, shown here and on the Region page. You can change it once an hour.${msg?' <button type="button" class="linkish small" data-act="asm-msg-clear">Take it down</button>':''}</p></form>`:'';
   return `<section class="asm-del${mine?' mine':''}"><span class="asm-seal" aria-hidden="true">Delegate</span>
     <div class="asm-del-flag">${flagSVG(n.flag,'Flag of '+n.name)}</div>
-    <div class="asm-del-b"><p class="eyebrow">Delegate of the ${esc(REG.name)} Assembly</p><h2 class="asm-del-n">${mine?esc(n.name):nationLink(D.id,n.name,false)}${mine?' <span class="chip you">You</span>':''}</h2>
+    <div class="asm-del-b"><p class="eyebrow">Delegate of the ${esc(REG.name)} Assembly</p><h2 class="asm-del-n">${mine?esc(n.name):nationLink(D.id,n.name,false)}${shopBadge(n,1)}${mine?' <span class="chip you">You</span>':''}</h2>
       <p class="muted">${D.k} ${D.k===1?'endorsement':'endorsements'}${D.by.length&&D.np.length?`: ${D.by.length} from ${D.by.length===1?'a player':'players'}, ${D.np.length} from computer nations`:D.np.length?`, all from computer nations`:''}. Votes with the weight of ${asmDW(D.k)}${D.k>ASM_DCAP?` (endorsements beyond ${ASM_DCAP} add no weight)`:''}${since&&since.on?` · in the chair since ${esc(fmtDate(since.t))}`:''}.</p>
       ${msg?`<blockquote class="asm-msg">“${esc(msg)}”</blockquote>`:''}${asmAbsentNote(st)}${form}</div></section>`;
 }
@@ -33121,7 +33125,7 @@ function asmVoteCard(st,now){
       <p class="hint">${tot?(V.ok?'Passing as things stand.':V.y===V.n?'Tied: a tie fails.':mk==='x'&&V.y>V.n?'Short as things stand: a condemnation needs two votes for every one against.':'Failing as things stand.'):'No votes yet.'} The count closes at ${esc(fmtTime(st.t1))} on ${esc(fmtDate(st.t1))}.</p>
       ${asmChamber(st)}</div>
     <div class="asm-my"><span class="lbl">${mem?'Your vote':'Members only'}</span><div class="seg" role="group" aria-label="Your vote">${vb(1,'For')}${vb(-1,'Against')}${vb(0,'Abstain')}</div>${mine&&mine.del?`<span class="hint">As Delegate your vote counts ${asmW(mine.w)} times.</span>`:''}</div>${reason}${accountActionHint('vote',true)}
-    <div class="asm-voters"><div><p class="lbl-h">Players</p><ul class="asm-vl">${pl.map(r=>`<li>${asmFlag(r.n)}<span class="asm-vn">${r.me?'<b>'+esc(r.n.name)+'</b>':nationLink(r.id,r.n.name,false)}${r.del?' <span class="chip">Delegate</span>':''}${away(r.id)?' <span class="chip">Absent</span>':''}${r.x&&(r.t||r.v)?`<q class="asm-vx">${esc(r.x)}</q>`:''}</span>${vw(r)}<span class="asm-vw num">×${asmW(r.w)}</span></li>`).join('')||'<li class="hint">No player members.</li>'}</ul></div>
+    <div class="asm-voters"><div><p class="lbl-h">Players</p><ul class="asm-vl">${pl.map(r=>`<li>${asmFlag(r.n)}<span class="asm-vn">${r.me?'<b>'+esc(r.n.name)+'</b>':nationLink(r.id,r.n.name,false)}${shopBadge(r.n,1)}${r.del?' <span class="chip">Delegate</span>':''}${away(r.id)?' <span class="chip">Absent</span>':''}${r.x&&(r.t||r.v)?`<q class="asm-vx">${esc(r.x)}</q>`:''}</span>${vw(r)}<span class="asm-vw num">×${asmW(r.w)}</span></li>`).join('')||'<li class="hint">No player members.</li>'}</ul></div>
       <div><p class="lbl-h">Computer nations</p><ul class="asm-vl">${np.map(r=>`<li>${asmFlag(r.n)}<span class="asm-vn">${nationLink(r.id,r.n.name,false)}</span>${vw(r)}<span class="asm-vw num">×⅓</span></li>`).join('')}</ul><p class="hint">Each votes by its character at a time of its own during the three days.</p></div></div>
   </section>`;
 }
@@ -33199,7 +33203,7 @@ function asmEndSec(st,now){
   const nm=id=>{if(NPC_BY_ID[id])return NPC_BY_ID[id].name;const r=st.recs.find(x=>x.id===id);return r?r.n.name:'?';};
   const rows=[...info.values()].filter(o=>o.r).sort((x,y)=>(x.ab?1:0)-(y.ab?1:0)||y.k-x.k||x.reach-y.reach||asmCmp(x.r.id,y.r.id)).map(o=>{const x=o.r,isD=st.D&&st.D.id===x.id,on=act.has(x.id);
     const by=[...o.by,...o.np].map(nm);
-    return `<li class="mem${x.me?' me':''}${o.ab?' asm-ab':''}">${asmFlag(x.n)}<span class="mem-n">${nationLink(x.id,x.n.name,x.me)}${x.me?'<span class="chip you">You</span>':''}${isD?'<span class="chip ok">Delegate</span>':''}${o.ab?'<span class="chip">Absent</span>':''}<span class="mem-s">${by.length?'Endorsed by '+esc(list(by)):'No endorsements yet'}${o.ab?` · not seen for ${Math.round(ASM_ABSENT/DAY)} days: its endorsements do not count, and it cannot hold the chair`:''}</span></span><span class="mem-v">${o.k}</span><span class="mem-b">${!x.me&&mem?(on?`<button class="btn small-btn" data-act="asm-unend" data-id="${esc(x.id)}" aria-pressed="true">Endorsed · withdraw</button>`:`<button class="btn ghost small-btn" data-act="asm-end" data-id="${esc(x.id)}" aria-pressed="false">Endorse</button>`):''}</span></li>`;}).join('');
+    return `<li class="mem${x.me?' me':''}${o.ab?' asm-ab':''}">${asmFlag(x.n)}<span class="mem-n">${nationLink(x.id,x.n.name,x.me)}${shopBadge(x.n,1)}${x.me?'<span class="chip you">You</span>':''}${isD?'<span class="chip ok">Delegate</span>':''}${o.ab?'<span class="chip">Absent</span>':''}<span class="mem-s">${by.length?'Endorsed by '+esc(list(by)):'No endorsements yet'}${o.ab?` · not seen for ${Math.round(ASM_ABSENT/DAY)} days: its endorsements do not count, and it cannot hold the chair`:''}</span></span><span class="mem-v">${o.k}</span><span class="mem-b">${!x.me&&mem?(on?`<button class="btn small-btn" data-act="asm-unend" data-id="${esc(x.id)}" aria-pressed="true">Endorsed · withdraw</button>`:`<button class="btn ghost small-btn" data-act="asm-end" data-id="${esc(x.id)}" aria-pressed="false">Endorse</button>`):''}</span></li>`;}).join('');
   const npc=st.DD.npc.map(b=>`<li>${asmFlag(b.x)}<span>${nationLink(b.x.id,b.x.name,false)} ${b.r?`backs <b>${esc(b.r.n.name)}</b> <span class="hint">(affinity ${b.a})</span>`:`<span class="hint">backs nobody${b.best?`: closest is ${esc(b.best.n.name)}, at ${b.a}`:''}</span>`}</span></li>`).join('');
   const out=st.recs.filter(r=>!asmMemberAt(r.n,now)&&now>=asmArr(r.n));
   return `<section class="section asm-es"><h2 class="h2">Endorsements</h2>${accountActionHint('leadership',true)}<p class="muted">Endorse as many members as you like. The player member with the most endorsements is Delegate; a tie goes to whoever reached that count first. The Delegate’s vote counts 1 plus its endorsements, up to ${asmDW(ASM_DCAP)}. A member not seen for ${Math.round(ASM_ABSENT/DAY)} days keeps its seat and its vote, but its endorsements stop counting and it cannot hold the chair.</p>
@@ -33251,10 +33255,10 @@ function asmRecordHTML(id,list,name,own){
 }
 /* who voted how, in one count of the Book */
 function asmVotersHTML(st,h){
-  if(!h.vm)return '';const nm=id=>{const r=st.recs.find(x=>x.id===id);return r?r.n.name:'';};
+  if(!h.vm)return '';const rec=id=>st.recs.find(x=>x.id===id),nm=id=>{const r=rec(id);return r?r.n.name:'';};
   const g=v=>Object.keys(h.vm).filter(id=>h.vm[id]===v),miss=(h.vu||[]).filter(id=>!(id in h.vm));
   const names=ids=>{const known=ids.map(id=>({id,nm:nm(id)})).filter(x=>x.nm),gone=ids.length-known.length;
-    return known.map(x=>`${esc(x.nm)}${h.vx&&h.vx[x.id]?` <q class="asm-vx">${esc(h.vx[x.id])}</q>`:''}`).concat(gone?[`${gone} former ${gone===1?'member':'members'}`]:[]).join(' · ')||'—';};
+    return known.map(x=>`${esc(x.nm)}${shopBadge(rec(x.id).n,1)}${h.vx&&h.vx[x.id]?` <q class="asm-vx">${esc(h.vx[x.id])}</q>`:''}`).concat(gone?[`${gone} former ${gone===1?'member':'members'}`]:[]).join(' · ')||'—';};
   const nv=h.nv||{},nc=v=>Object.keys(nv).filter(id=>nv[id]===v).map(id=>NPC_BY_ID[id]?NPC_BY_ID[id].name:'').filter(Boolean);
   const row=(l,ids)=>ids.length?`<dt>${l} <span class="num">${ids.length}</span></dt><dd>${names(ids)}</dd>`:'';
   const npc=Object.keys(nv).length?`<dt>Computer nations</dt><dd>${[['for',1],['against',-1],['abstaining',0]].map(([l,v])=>{const x=nc(v);return x.length?`${x.length} ${l} (${esc(list(x))})`:'';}).filter(Boolean).join('; ')}</dd>`:'';
@@ -33492,7 +33496,7 @@ function asmRegionBox(now){
   try{
     if(!S.nation)return '';const st=asmState(now),D=st.D,L=st.cur,a=D&&asmA(D.r.n),msg=a&&a.m?a.m.x:'';
     return `<section class="asm-rbox"><div class="asm-rb-h"><p class="eyebrow">The ${esc(REG.name)} Assembly</p><button class="linkish small" data-act="go" data-v="assembly">Open the Assembly</button></div>
-      <p>${D?`${asmFlag(D.r.n)} Delegate: ${nationLink(D.id,D.r.n.name,D.r.me)}, with ${D.k} ${D.k===1?'endorsement':'endorsements'}.`:'No Delegate: the chair stands empty.'}${L?` At the vote: “${esc(L.ti)}”, ${asmW(st.V.y)} for and ${asmW(st.V.n)} against, closing in <span data-live="asmclose" data-t="${st.t1}">${esc(fmtWait(st.t1-now))}</span>.`:''}</p>
+      <p>${D?`${asmFlag(D.r.n)} Delegate: ${nationLink(D.id,D.r.n.name,D.r.me)}${shopBadge(D.r.n,1)}, with ${D.k} ${D.k===1?'endorsement':'endorsements'}.`:'No Delegate: the chair stands empty.'}${L?` At the vote: “${esc(L.ti)}”, ${asmW(st.V.y)} for and ${asmW(st.V.n)} against, closing in <span data-live="asmclose" data-t="${st.t1}">${esc(fmtWait(st.t1-now))}</span>.`:''}</p>
       ${msg?`<blockquote class="asm-msg"><span class="lbl">From the Delegate</span> “${esc(msg)}”</blockquote>`:''}</section>`;
   }catch(e){return '';}
 }
@@ -41660,7 +41664,9 @@ function flFx(id,doc,t){
 }
 /* the record's id: your own, or another player's in this region */
 const flIds=new WeakMap();
-function flIdOf(n){if(!n||n.npc)return null;if(n===S.nation)return myId();let v=flIds.get(n);if(v)return v;for(const id of Object.keys(S.world||{}))if(S.world[id]===n){flIds.set(n,id);return id;}return null;}
+/* a copy the Assembly makes of a nation (asmRecs) carries the id the server gave it, so its finery, founder's number and
+   seal are found like the original's */
+function flIdOf(n){if(!n||n.npc)return null;if(n===S.nation)return myId();if(typeof n._civicId==='string'&&n._civicId)return n._civicId;let v=flIds.get(n);if(v)return v;for(const id of Object.keys(S.world||{}))if(S.world[id]===n){flIds.set(n,id);return id;}return null;}
 function flDocOf(id){return id===myId()?S.nation:(S.world||{})[id]||null;}
 
 /* ── where the bonuses act ──
@@ -71042,6 +71048,8 @@ function clubSealPill(x,sm){
   return `<span class="club-seal${sm?' sm':''}" data-seal="${esc(x.id.slice(4))}" title="${esc(tip)}">${clubSealSVG(x.id)}<span class="${sm?'founder-sr':'club-seal-l'}">${esc(sm?tip:lbl)}</span></span>`;
 }
 shopBadge=(f=>function(n,sm){const b=f.apply(this,arguments);let x=null;try{x=clubSealOf(n);}catch(e){}return x?b+clubSealPill(x,sm):b;})(shopBadge);
+/* the small marks beside a nation known only by its id (a treaty's other side): none for a computer nation */
+function idBadge(id){try{const x=findNation(id);return x&&!x.npc?shopBadge(x.n,1):'';}catch(e){return '';}}
 /* "Whose is that?": a tap on a founder's badge says what it is, and where it comes from */
 function founderPopClose(){const p=document.getElementById('fdr-pop');if(p)p.remove();}
 function founderPop(el){
@@ -71862,7 +71870,7 @@ function clubSealHTML(n,t){
   const cur=SHOP.doc&&SHOP.doc.seal||'',m=clubTenure(v,t),on=!!(SHOP.cfg&&SHOP.cfg.on)&&S.mode==='world',shown=!!cur&&clubSealHeld(cur,v,t);
   const tiles=ids.map(id=>{const h=clubSealHeld(id,v,t),need=sl[id],sel=cur===id&&h;
     return `<li class="club-sl${h?' held':''}${sel?' on':''}"><span class="club-sl-v">${clubSealSVG(id)}</span><span class="club-sl-n">${esc(SEAL_INFO[id].n)}<span class="hint">${need?(need>=24?'Two years':need+' months')+' of membership, kept':'While you are a member'}</span></span>${sel?'<span class="chip ok">Shown</span>':h&&on?`<button type="button" class="btn ghost sm" data-act="shop-seal" data-id="${id}"${SHOP.busy?' disabled':''}>Show it</button>`:h?'':`<span class="hint">${need?'Not yet':'Members only'}</span>`}</li>`;}).join('');
-  const hint=!v?'Members may show a seal beside their nation’s name: on its page, on the region board and in the Assembly. The wax seal lasts while you are a member; the brass, silver, gold and Grand seals come with the months and are kept for good. Nothing shows unless you choose it.'
+  const hint=!v?'Members may show a seal beside their nation’s name: on its page, in chat, on the region board, in the Assembly (its proposals, votes, endorsements and the Delegate’s chair) and on its treaties. The wax seal lasts while you are a member; the brass, silver, gold and Grand seals come with the months and are kept for good. Nothing shows unless you choose it.'
     :`${shopMember()?'You have been a member for':'You were a member for'} ${m} month${m===1?'':'s'}. ${shown?'Your seal shows beside your nation’s name for every player.':'No seal shows beside your nation’s name: choose one if you would like other players to see it.'}`;
   return `<h3 class="sub-h">Chancery seals</h3><p class="hint">${esc(hint)}</p><ul class="club-sls">${tiles}</ul>${cur&&v&&on?`<div class="row shop-row"><button type="button" class="linkish small" data-act="shop-seal" data-id=""${SHOP.busy?' disabled':''}>Show no seal</button></div>`:''}`;
 }
@@ -71913,7 +71921,7 @@ function shopVipSec(n,t){
     <details class="shop-more"><summary>More about each</summary><ul class="shop-list">
       <li><b>Ten waiting edicts instead of five.</b> The same pace of arrival: your desk just holds more while you are away.</li>
       <li><b>One cosmetic each paid month</b> from the Club’s collection, yours to keep for good. Two new pieces join the collection at the start of every month. A month’s choice stays open until five weeks after the month ends.</li>
-      <li><b>A Chancery seal beside your nation’s name</b>, if you want one: wax while you are a member, then brass at three months, silver at six, gold at twelve and the Grand seal at two years, kept for good.</li>
+      <li><b>A Chancery seal beside your nation’s name</b> in chat, on the board, in the Assembly and on your treaties, if you want one: wax while you are a member, then brass at three months, silver at six, gold at twelve and the Grand seal at two years, kept for good.</li>
       <li><b>Five design presets</b> in Customise: save whole looks and switch between them. Presets only hold cosmetics you own.</li>
       <li><b>The Bureau of Statistics:</b> a dashboard of your own, charts over a year, records and streaks, a weekly report card, where you stand in the region, projections and an export of every figure. Its three honours bring the epithet “the Well-Informed”.</li>
       <li><b>The Expanded National Chronicle:</b> twelve months of your decisions and a daily snapshot of your nation, private to you, to read, export or print.</li>
@@ -84195,7 +84203,7 @@ function dpTreaties(now){
   if(S.mode!=='world')return '<p class="muted">Treaties belong to the online game.</p>';
   const me=myId(),L=tyList(me),msg=TY.msg?`<p class="war-msg">${esc(TY.msg)}</p>`:'',busy=TY.busy?' disabled':'';
   const oth=T=>T.p[0]===me?T.p[1]:T.p[0],kn=k=>TY_K[k][0];
-  const who=id=>{const x=findNation(id);return x?`${alFlag(x)}${nationLink(id,x.n.name,false)}${x.npc?'<span class="chip">Computer</span>':''}`:esc(nameOf(id));};
+  const who=id=>{const x=findNation(id);return x?`${alFlag(x)}${nationLink(id,x.n.name,false)}${x.npc?'<span class="chip">Computer</span>':shopBadge(x.n,1)}`:esc(nameOf(id));};
   const inc=L.filter(T=>T.st==='offered'&&T.b===me),out=L.filter(T=>T.st==='offered'&&T.a===me),live=L.filter(T=>tyLive(T,now));
   const bro=L.filter(T=>T.st==='broken'&&T.by===me&&now-T.bt<TY_RULES.record);
   const row=(T,acts,extra)=>`<li class="dpt-i"><span class="dpt-n">${who(oth(T))}</span><span class="dpt-k"><b>${tyIco(T.k)}${esc(kn(T.k))}</b>${extra?` <span class="hint">${extra}</span>`:''}</span><span class="dpt-a">${acts}</span></li>`;
@@ -84529,7 +84537,7 @@ function bdTabHTML(now){
     if(live){if(B.dur&&B.st==='active'&&!B.rn.includes(me))acts.push(b('bd-renew',B,`Renew for ${B.dur} days`));if(B.st==='active')acts.push(b('bd-end',B,`End with ${BD_RULES.notice/DAY} days’ notice`));}
     if(B.st!=='broken')acts.push(b('bd-chat',B,'Post in the region chat'));
     const swaps=B.sw.filter(x=>x.st==='offered'&&(x.to===me||x.by===me)).map(x=>`<li>${x.by===me?`You offered ${esc(nameOf(x.to))}`:`${esc(nameOf(x.by))} offers you`} a hex on ${esc(landName(x.g))} for one on ${esc(landName(x.k))}. ${x.to===me?`<button type="button" class="btn sm" data-act="bd-sw-yes" data-id="${esc(B.id)}" data-s="${esc(x.id)}"${busy}>Accept</button>`:''}<button type="button" class="btn ghost sm" data-act="bd-sw-no" data-id="${esc(B.id)}" data-s="${esc(x.id)}"${busy}>${x.to===me?'Decline':'Withdraw'}</button></li>`).join('');
-    return `<li class="dpt-i bd-card"><div class="bd-card-h"><span class="bd-mini">${bdMiniSVG(B,120,80)}</span><div><b>With ${esc(bdNames(bdOthers(B,me)))}</b>${bdLegend(B)}${bdStatus(B,now)}</div></div>${swaps?`<ul class="bd-ul">${swaps}</ul>`:''}<div class="row">${acts.join('')}</div></li>`;};
+    return `<li class="dpt-i bd-card"><div class="bd-card-h"><span class="bd-mini">${bdMiniSVG(B,120,80)}</span><div><b>With ${list(bdOthers(B,me).map(id=>esc(nameOf(id))+idBadge(id)))}</b>${bdLegend(B)}${bdStatus(B,now)}</div></div>${swaps?`<ul class="bd-ul">${swaps}</ul>`:''}<div class="row">${acts.join('')}</div></li>`;};
   const pick=allNations().filter(x=>!x.me&&!x.npc).sort((a,b)=>a.n.name.localeCompare(b.n.name));
   const sel=BD.pick.filter(id=>pick.some(x=>x.id===id));
   const held=L.filter(B=>B.st==='offered'||bdLive(B,now)).length;
