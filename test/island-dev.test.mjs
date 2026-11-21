@@ -43,7 +43,10 @@ test('three edicts, after the 550th, 750th and 900th decision: a town, a land br
   assert.match(SEC, /for\(const is of ISD_ISSUES\)\{is\.fo=1;ISSUES\.push\(is\);is\.no=ISSUES\.length;ISSUE_BY_ID\[is\.id\]=is;is\.nbx=false;\}/, 'kept out of the random draw (fo)');
   const at = code.indexOf('for(const is of ISD_ISSUES){');
   assert.ok(at > code.indexOf('for(const is of ISL_ISSUES){'), 'after the islands');
-  assert.equal(code.indexOf('ISSUES.push(', at + 40), -1, 'nothing is added after them: every older edict keeps its number');
+  /* every older edict keeps its number: only the war edicts (war-round-two.test.mjs) are added after them */
+  const next = code.indexOf('ISSUES.push(', at + 40);
+  assert.ok(next > 0 && code.lastIndexOf('for(const is of ', next) === code.indexOf('for(const is of WAR2_ISSUES){'), 'only the war edicts after them');
+  assert.equal(code.indexOf('ISSUES.push(', next + 20), -1, 'and nothing after those');
   assert.match(fs.readFileSync(new URL('../scripts/split-content.mjs', import.meta.url), 'utf8'), /'ISL_ISSUES','ISD_ISSUES'/);
   for (const is of L) {
     assert.match(is.id, /^isl-[a-z-]+$/);

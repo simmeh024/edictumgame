@@ -44,7 +44,10 @@ test('three edicts, after the 50th, 150th and 500th decision, never drawn at ran
   /* but the three that build on the islands (island-dev.test.mjs), which keep the same rule */
   const next = code.indexOf('ISSUES.push(', at + 40);
   assert.ok(next > 0 && code.lastIndexOf('for(const is of ', next) === code.indexOf('for(const is of ISD_ISSUES){'), 'only the island towns, bridges and new land after them');
-  assert.equal(code.indexOf('ISSUES.push(', next + 20), -1, 'and nothing after those');
+  /* then the war edicts (war-round-two.test.mjs), and nothing after those */
+  const war = code.indexOf('ISSUES.push(', next + 20);
+  assert.ok(war > 0 && code.lastIndexOf('for(const is of ', war) === code.indexOf('for(const is of WAR2_ISSUES){'), 'then only the war edicts');
+  assert.equal(code.indexOf('ISSUES.push(', war + 20), -1, 'and nothing after those');
   assert.match(fs.readFileSync(new URL('../scripts/split-content.mjs', import.meta.url), 'utf8'), /'ISL_ISSUES'/);
   for (const is of L) {
     assert.match(is.id, /^isl-[a-z-]+$/);
