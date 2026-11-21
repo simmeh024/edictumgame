@@ -16,6 +16,7 @@ import { pace, ipRule } from './pace.js';
 import { regionOnline } from './presence.js';
 import { regionChat, isRegionChatOp } from './regionchat.js';
 import { supply, isSupplyOp } from './supply.js';
+import { land, isLandOp } from './land.js';
 import { venture, isVentureOp } from './ventures.js';
 import { riddle, isRiddleOp } from './riddles.js';
 import { xmSettle, xmNowMs } from './xmas-rules.js';
@@ -661,7 +662,7 @@ const CIVIC_OPS = new Set(['authorizeSave', 'carryKey', 'newsComment', 'newsMode
 export const civic = onCall({ region: 'europe-west1', maxInstances: 10, cpu: 1, memory: '512MiB', concurrency: 80, timeoutSeconds: 60 }, async req => {
   if (!req.auth) throw new HttpsError('unauthenticated', 'Sign in first.');
   const d = req.data && typeof req.data === 'object' ? req.data : {}, uid = req.auth.uid, op = typeof d.op === 'string' ? d.op : '';
-  if (!CIVIC_OPS.has(op) && !isAllianceOp(op) && !isTreatyOp(op) && !isBorderOp(op) && !isFlagOp(op) && !isRegionChatOp(op) && !isSupplyOp(op) && !isVentureOp(op) && !isRiddleOp(op)) throw new HttpsError('invalid-argument', 'Unknown request.');
+  if (!CIVIC_OPS.has(op) && !isAllianceOp(op) && !isTreatyOp(op) && !isBorderOp(op) && !isFlagOp(op) && !isRegionChatOp(op) && !isSupplyOp(op) && !isLandOp(op) && !isVentureOp(op) && !isRiddleOp(op)) throw new HttpsError('invalid-argument', 'Unknown request.');
   // a nation saves at most once a second (firestore.rules), so 30 at once and one a second is more than any game sends
   // a reaction rewrites a message every reader of the region's board listens to: 20 at once, then one every 4 seconds
   pace([['c:' + uid, 30, 1], ...ipRule(req, 'ci', 300, 15), ...(ASSEMBLY_ACTS.has(op) ? [['ca:' + uid, 20, 1 / 3]] : []), ...(op === 'topicReact' || op === 'cbReact' || op === 'newsUpvote' ? [['cr:' + uid, 20, 1 / 4]] : []),
@@ -678,6 +679,9 @@ export const civic = onCall({ region: 'europe-west1', maxInstances: 10, cpu: 1, 
     // a Supply Cache sent or opened (supply.js): three are sent a day, the game asks again for one not yet filed, and a
     // nation may open a pile of them in a row: twenty at once, then one every three seconds
     ...(isSupplyOp(op) ? [['sc:' + uid, 20, 1 / 3]] : []),
+    // a land deal offered, answered, bid on or handed over (land.js): the game asks again for a step not yet taken every
+    // 20 seconds or slower, and a bidding war is quick, so thirty at once, then one every two seconds
+    ...(isLandOp(op) ? [['ld:' + uid, 30, 1 / 2]] : []),
     // a joint venture proposed, answered or ended (ventures.js): a nation takes part in five at most and the game asks
     // again for one not yet filed every 20 seconds or slower, so thirty at once, then one every three seconds
     ...(isVentureOp(op) ? [['jv:' + uid, 30, 1 / 3]] : []),
@@ -723,6 +727,7 @@ export const civic = onCall({ region: 'europe-west1', maxInstances: 10, cpu: 1, 
   if (isFlagOp(d.op)) return flagOp(db, who, d);
   if (isRegionChatOp(d.op)) return regionChat(db, who, d, regions);
   if (isSupplyOp(d.op)) return supply(db, who, d);
+  if (isLandOp(d.op)) return land(db, who, d);
   if (isVentureOp(d.op)) return venture(db, who, d);
   if (isRiddleOp(d.op)) return riddle(db, who, d);
   /* a message on a region's board: a nation on its own region's, or an admin, as the Edictum team (board.js teamMark),
