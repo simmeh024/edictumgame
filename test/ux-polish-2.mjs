@@ -171,7 +171,7 @@ try {
   check('five groups in the first row', (await page.$$eval('.st-groups .stab', b => b.map(x => x.textContent.trim()))).join('|') === 'Summary|People|Economy|State|The Bureau ★');
   check('the second row holds only the open group’s tabs', JSON.stringify(await vis()) === JSON.stringify(['overview', 'factbook', 'timeline', 'trends']), await vis());
   await page.click('[data-act="st-grp"][data-g="eco"]');
-  check('a group opens on its first tab', await until(async () => JSON.stringify(await vis()) === JSON.stringify(['economy', 'budget', 'forecast']) && await t.ev(() => window.__game.S.statsTab === 'economy')));
+  check('a group opens on its first tab', await until(async () => JSON.stringify(await vis()) === JSON.stringify(['economy', 'budget', 'forecast', 'landp']) && await t.ev(() => window.__game.S.statsTab === 'economy')));
   await page.click('[data-act="st-tab"][data-k="budget"]');
   await page.click('[data-act="st-grp"][data-g="bureau"]');
   check('a group of one tab has no second row', await until(() => t.ev(() => window.__game.S.statsTab === 'bureau' && getComputedStyle(document.querySelector('.st-tabs')).display === 'none')));
