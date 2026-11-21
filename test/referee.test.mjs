@@ -192,6 +192,30 @@ test('a player deleting their account clears their army, but only once the natio
   assert.equal((await list(`armies/${g.uid}/log`)).length, 0);
 });
 
+test('only the members of a nation’s defence pact fight beside it; a pact between any alliance of each side stops the battle', async () => {
+  const g = await guest(), foe = await guest(), mate = await guest();
+  await nation(g.uid, {}, 1);
+  await nation(foe.uid, { wars: { [g.uid]: { t: Date.now() } } }, 1000);
+  await nation(mate.uid, {}, 1000);
+  const put = (path, fields) => doc(path, { method: 'PATCH', body: JSON.stringify({ fields }) });
+  const v = x => typeof x === 'string' ? { stringValue: x } : typeof x === 'boolean' ? { booleanValue: x } : Number.isInteger(x) ? { integerValue: String(x) } : Array.isArray(x) ? { arrayValue: { values: x.map(v) } } : { mapValue: { fields: Object.fromEntries(Object.entries(x).map(([k, y]) => [k, v(y)])) } };
+  const fields = o => Object.fromEntries(Object.entries(o).map(([k, x]) => [k, v(x)]));
+  /* the same trade bloc: no help in war */
+  await put('allyOf/' + g.uid, fields({ v: 2, reg: 'meridian', t: 1, s: { def: 'srv-d1', trade: 'srv-t1' }, a: 'srv-d1' }));
+  await put('allyOf/' + mate.uid, fields({ v: 2, reg: 'meridian', t: 1, s: { trade: 'srv-t1' }, a: 'srv-t1' }));
+  const trade = await battle(g, { d: foe.uid, p: 0.9, h: [mate.uid] });
+  assert.ok(Math.abs(trade.p - 20 / 1020) < 1e-3, 'a fellow member of a trade bloc adds nothing: ' + trade.p);
+  /* the same defence pact: half its army */
+  await put('allyOf/' + mate.uid, fields({ v: 2, reg: 'meridian', t: 1, s: { trade: 'srv-t1', def: 'srv-d1' }, a: 'srv-t1' }));
+  assert.equal((await battle(g, { d: foe.uid, p: 0.9, h: [mate.uid] })).p, 0.9, 'a fellow member of a defence pact adds half its army');
+  /* a pact between the attacker's trade bloc and the defender's cultural union */
+  await put('allyOf/' + foe.uid, fields({ v: 2, reg: 'meridian', t: 1, s: { culture: 'srv-c2' }, a: 'srv-c2' }));
+  await put('alliances/srv-t1', fields({ reg: 'meridian', name: 'Bloc', mem: { [g.uid]: { t: 1 } }, rel: { 'srv-c2': { k: 'pact', st: 'active', t: 1, at: 1 } } }));
+  const r = await battle(g, { d: foe.uid, p: 0.5 });
+  assert.equal(r.ok, false); assert.equal(r.why, 'pact');
+  for (const p of ['allyOf/' + g.uid, 'allyOf/' + mate.uid, 'allyOf/' + foe.uid, 'alliances/srv-t1', 'armies/' + g.uid]) await del(p);
+});
+
 test('a non-aggression pact, or a pact between the two alliances, stops the battle until it is ended or broken', async () => {
   const a = await guest(), b = await guest();
   /* a guest may fight a player only in a war that player declared: b declared one on a */

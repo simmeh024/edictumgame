@@ -46,7 +46,8 @@ check('the how-alliances-work box opens and closes', await (async () => { await 
 await A.click('#dp-tab-alliance');
 check('the Alliance tab shows its pane and the address says so', await tab(A) === 'alliance' && await A.evaluate(() => location.hash) === '#diplomacy/alliance');
 await A.fill('#al-f-name', 'The Test Concord'); await A.fill('#al-f-mo', 'Strength in numbers');
-await A.click('[data-act="dp-ty"][data-pre="f"][data-v="trade"]');
+/* alliance types: a trade bloc is founded from its own type tab */
+await A.click('.al-tyt [data-act="dp-alty"][data-v="trade"]'); await A.fill('#al-f-name', 'The Test Concord'); await A.fill('#al-f-mo', 'Strength in numbers');
 await A.click('[data-act="dp-acc"][data-pre="f"][data-v="apply"]');
 await A.selectOption('#al-f-p', 'tri-h'); await A.click('[data-act="dp-col"][data-pre="al-f"]:nth-of-type(3)');
 check('the banner preview is drawn', await shown(A, '.al-ban-pv svg'));
@@ -61,7 +62,7 @@ check('the leader’s record marks the alliance, and its log the founding', awai
 check('the head shows the level, the renown and the places', /Level 1/.test(await text(A, '.al-head')) && /of 15 places/.test(await text(A, '.al-head')));
 
 // a request with a note, from the other nation's Alliance tab
-await nav(B, 'diplomacy'); await B.click('#dp-tab-alliance');
+await nav(B, 'diplomacy'); await B.click('#dp-tab-alliance'); await B.click('.al-tyt [data-act="dp-alty"][data-v="trade"]');
 check('the other player sees the alliance in the list', await until(async () => /The Test Concord/.test(await text(B, '.al-cards2'))));
 await B.click(`[data-act="dp-ask"][data-id="${aid}"]`); await B.fill(`#al-note-${aid}`, 'We share a river.');
 await B.click(`.al-ask [data-act="dp-join"][data-id="${aid}"]`);
@@ -72,13 +73,13 @@ check('the menu counts it on Diplomacy', await until(async () => (await text(A, 
 await shot(A, 'waiting');
 await A.click(`.dp-wait [data-act="dp-approve"][data-id="${ub}"]`);
 check('approved, the nation is a member', await until(async () => (await alDoc(aid))?.mem?.mapValue?.fields?.[ub] !== undefined, 10000));
-check('the new member sees its alliance', await until(() => shown(B, '.al-head .al-name'), 10000) && /Your alliance · Member/.test(await text(B, '.al-head')));
+check('the new member sees its alliance', await until(() => shown(B, '.al-head .al-name'), 10000) && /Your trade bloc · Member/.test(await text(B, '.al-head')));
 
 // roles: an officer
 await A.click('[data-act="dp-sub"][data-v="members"]');
 await A.click(`[data-act="dp-role"][data-id="${ub}"][data-r="o"]`);
 check('the leader makes the member an officer', await until(async () => (await alDoc(aid))?.mem?.mapValue?.fields?.[ub]?.mapValue?.fields?.r?.stringValue === 'o', 10000));
-check('the member list says so', await until(async () => /Officer/.test(await text(A, '.al-mems'))));
+check('the member list says so, in a trade bloc’s words', await until(async () => /Factor/.test(await text(A, '.al-mems'))));
 
 // the channel: only members read it
 await A.click('[data-act="dp-sub"][data-v="channel"]');
@@ -103,8 +104,8 @@ await until(() => shown(A, '[data-act="dp-build"][data-v="hall"]:not([disabled])
 await A.click('[data-act="dp-build"][data-v="hall"]');
 await shot(A, 'treasury');
 check('the Alliance Hall is built, and adds two places', await until(async () => /of 17 places/.test(await text(A, '.al-head')), 10000) && Number((await alDoc(aid))?.pj?.mapValue?.fields?.hall?.integerValue) === 1);
-check('the later buildings are listed, each waiting for its alliance level', await until(async () => { const t = await text(A, '.al-pjs'); return /Beacon Towers[\s\S]*needs alliance level 2/.test(t) && /Alliance Academy[\s\S]*needs alliance level 3/.test(t) && /Hall of Chronicles[\s\S]*needs alliance level 2/.test(t); }, 10000)
-  && await A.evaluate(() => ['beacon', 'academy', 'chronicle'].every(k => document.querySelector(`[data-act="dp-build"][data-v="${k}"]`)?.disabled)));
+check('a trade bloc lists its own projects and every alliance’s, each waiting for its level', await until(async () => { const t = await text(A, '.al-pjs'); return /Bloc Exchange[\s\S]*needs alliance level 3/.test(t) && /Hall of Chronicles[\s\S]*needs alliance level 2/.test(t) && !/Beacon Towers|Alliance Academy/.test(t); }, 10000)
+  && await A.evaluate(() => ['exchange', 'chronicle'].every(k => document.querySelector(`[data-act="dp-build"][data-v="${k}"]`)?.disabled)));
 
 // relations: the ally, with the reasons goodwill moved; a gift from the Relations tab
 await A.click('#dp-tab-relations');
@@ -193,7 +194,12 @@ check('a short code keeps to capitals and digits as it is typed, and its badge f
 await A.fill('#al-ed-mo', 'One for all'); await A.click('[data-act="dp-ty"][data-pre="ed"][data-v="def"]');
 await A.click('#al-charter button[type="submit"]');
 await shot(A, 'charter');
-check('the charter is saved and shown', await until(async () => /One for all/.test(await text(A, '.al-head')) && /Defence pact/.test(await text(A, '.al-head')), 10000));
+/* with two members, a new type goes to their vote: the other member's yes carries it */
+check('the new type is put to the members’ vote', await until(async () => (await alDoc(aid))?.tv?.mapValue?.fields?.ty?.stringValue === 'def', 10000));
+await nav(B, 'diplomacy');
+await until(async () => /votes on becoming a defence pact/.test(await text(B, '.dp-wait')), 10000);
+await B.click(`.dp-wait [data-act="dp-vote"][data-aid="${aid}"][data-v="yes"]`);
+check('the charter is saved and shown', await until(async () => /One for all/.test(await text(A, '.al-head')) && /Defence pact/.test(await text(A, '.al-head')), 15000));
 check('the short code is saved, and stands in the alliance’s head', (await alDoc(aid))?.tg?.stringValue === 'OD1' && (await text(A, '.al-head .al-tg')).trim() === 'OD1');
 check('a defence pact makes members’ land harder to take', await A.evaluate(ub => G.ALX().alFx(ub).def === 0.1, ub));
 /* relations with other alliances: none here yet, so the list says so */
@@ -235,8 +241,8 @@ await A.click('[data-act="al-leave-ask"]');
 check('leaving names who takes over', /Bramblemoor takes over/.test(await text(A, '.war-box')));
 await A.click('[data-act="al-leave"]');
 check('the officer becomes the leader', await until(async () => (await alDoc(aid))?.ld?.stringValue === ub, 10000));
-check('the old leader is no longer a member, on the page or in the index', await until(async () => /Found an alliance/.test(await text(A, '#dp-p-alliance'))) && !(await adminGet('allyOf/' + ua)));
-check('the new leader sees the role', await until(async () => { await nav(B, 'diplomacy'); await B.click('#dp-tab-alliance'); return /Your alliance · Leader/.test(await text(B, '.al-head')); }, 10000));
+check('the old leader is no longer a member, on the page or in the index', await until(async () => /Found a defence pact/.test(await text(A, '#dp-p-alliance'))) && !(await adminGet('allyOf/' + ua)));
+check('the new leader sees the role', await until(async () => { await nav(B, 'diplomacy'); await B.click('#dp-tab-alliance'); return /Your defence pact · Marshal/.test(await text(B, '.al-head')); }, 10000));
 
 // the address opens a tab after a reload
 await A.evaluate(() => { location.hash = '#diplomacy/relations'; }); await A.reload(); await ready(A); await A.waitForSelector('#dp');

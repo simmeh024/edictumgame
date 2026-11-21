@@ -586,7 +586,8 @@ test('Alliances: founded by a Registered Nation of 10 million, joined on request
   assert.equal(A.ld, f.uid); assert.equal(A.ty, 'trade'); assert.equal(A.col, '#2A9D8F'); assert.ok(A.mem[f.uid]);
   assert.equal((await db.doc('allyOf/' + f.uid).get()).get('a'), aid);
   await rejects(civic(g, { op: 'alFound', name: name.toUpperCase() }), 'al_name');
-  await rejects(civic(f, { op: 'alFound', name: name + ' II' }), 'al_member');
+  /* one alliance of each type: a second trade bloc is refused */
+  await rejects(civic(f, { op: 'alFound', name: name + ' II', ty: 'trade' }), 'al_member');
   /* the short code: 2 to 4 letters or numbers, kept in capitals, one per region; only the leader sets it */
   for (const tg of ['X', 'ABCDE', 'A-B', 'É1', 'A B']) await assert.rejects(civic(f, { op: 'alEdit', aid, tg }), e => e.status === 'INVALID_ARGUMENT' && /2 to 4 letters/.test(e.message), tg);
   assert.equal((await allianceOf(aid)).tg, undefined, 'a refused code leaves none');
@@ -628,8 +629,13 @@ test('Alliances: founded by a Registered Nation of 10 million, joined on request
   assert.equal((await allianceOf(aid)).tg, 'P7');
   await civic(b, { op: 'alEdit', aid, tg: '' });
   assert.equal((await allianceOf(aid)).tg, '');
-  /* the type changes once a week */
-  await civic(b, { op: 'alEdit', aid, ty: 'def' });
+  /* a new type goes to the members' vote, passed once more than half say yes; then it waits a week */
+  assert.equal((await civic(b, { op: 'alEdit', aid, ty: 'def' })).vote, true);
+  assert.equal((await allianceOf(aid)).ty, 'trade', 'not until the vote passes');
+  await rejects(civic(b, { op: 'alEdit', aid, ty: 'culture' }), 'al_vote_open');
+  assert.equal((await civic(c, { op: 'alVote', aid, yes: true })).passed, true);
+  assert.equal((await allianceOf(aid)).ty, 'def');
+  assert.equal((await db.doc('allyOf/' + c.uid).get()).get('s').def, aid, 'the seat moves with the type');
   await rejects(civic(b, { op: 'alEdit', aid, ty: 'research' }), 'al_type_wait');
   /* the leader dissolves it */
   await civic(b, { op: 'alLeave', aid, disband: true });
@@ -639,7 +645,7 @@ test('Alliances: founded by a Registered Nation of 10 million, joined on request
 
 test('Alliances: pledges are credited once, projects need the level and the treasury, and the daily tally earns renown and replaces an absent leader', async () => {
   const f = await player(true, true), b = await player(true, true), now = Date.now();
-  const { aid } = await civic(f, { op: 'alFound', name: 'Treasury ' + crypto.randomUUID().slice(0, 8), acc: 'open' });
+  const { aid } = await civic(f, { op: 'alFound', name: 'Treasury ' + crypto.randomUUID().slice(0, 8), ty: 'trade', acc: 'open' });
   await civic(b, { op: 'alRequest', aid });
   await record(f, { alp: [{ t: now - 2000, k: 'goods', q: 50, a: aid }, { t: now - 1000, k: 'timber', q: 45, a: aid }, { t: now - 900, k: 'iron', q: 9, a: 'elsewhere' }] });
   const d1 = await civic(f, { op: 'alDonate', aid });
@@ -657,7 +663,8 @@ test('Alliances: pledges are credited once, projects need the level and the trea
   await db.doc('alliances/' + aid).update({ tt: now - 21 * 3600e3 });
   const t1 = await civic(b, { op: 'alTally', aid });
   assert.deepEqual(t1.parts, { active: 2, deals: 1, gifts: 1, battles: 1, calls: 0 });
-  assert.equal(t1.xp, 2 * 3 + 2 + 2 + 5);
+  /* a trade bloc counts a deal between its members twice */
+  assert.equal(t1.xp, 2 * 3 + 2 * 2 + 2 + 5);
   assert.equal((await civic(b, { op: 'alTally', aid })).skipped, true);
   /* a leader away for a week hands over to a member who still plays */
   await db.doc('nations/' + f.uid).update({ updatedAt: now - 8 * 86400000 });
@@ -697,6 +704,82 @@ test('Alliances: computer nations join by affinity with the leader, and an allia
   assert.equal((await db.doc('allyOf/' + m.uid).get()).get('a'), L.uid);
   assert.equal((await civic(L, { op: 'alMigrate', f: L.uid })).aid, L.uid, 'asked again, it is already there');
   await civic(L, { op: 'alLeave', aid: L.uid, disband: true });
+});
+
+test('Alliance types: one alliance of each type, as many as the people allow; a type voted in moves every seat, and a member holding it twice chooses within a week', async () => {
+  const f = await player(true, true), g = await player(true, true), b = await player(true, true), id = () => crypto.randomUUID().slice(0, 8);
+  const ix = async p => (await db.doc('allyOf/' + p.uid).get()).data();
+  await db.doc('nations/' + f.uid).update({ pop: 50 });
+  const D = (await civic(f, { op: 'alFound', name: 'Shield ' + id(), ty: 'def', acc: 'open' })).aid;
+  const T = (await civic(g, { op: 'alFound', name: 'Ledger ' + id(), ty: 'trade', acc: 'open' })).aid;
+  /* b joins both: a defence pact and a trade bloc (10 million people allow two) */
+  assert.equal((await civic(b, { op: 'alRequest', aid: D })).joined, true);
+  assert.equal((await civic(b, { op: 'alRequest', aid: T })).joined, true);
+  let X = await ix(b); assert.equal(X.v, 2); assert.equal(X.s.def, D); assert.equal(X.s.trade, T); assert.equal(X.a, D, 'the first alliance is the one worn');
+  /* a third needs 25 million people */
+  const C = (await civic(f, { op: 'alFound', name: 'Muse ' + id(), ty: 'culture', acc: 'open' })).aid;
+  await rejects(civic(b, { op: 'alRequest', aid: C }), 'al_seats');
+  await db.doc('nations/' + b.uid).update({ pop: 25 });
+  assert.equal((await civic(b, { op: 'alRequest', aid: C })).joined, true);
+  /* the code worn in chat: one of its alliances, never another's */
+  assert.equal((await civic(b, { op: 'alWear', aid: T })).a, T);
+  assert.equal((await ix(b)).a, T);
+  await rejects(civic(g, { op: 'alWear', aid: D }), 'al_no_member');
+  /* projects belong to a type: a defence pact builds no Common Market */
+  await db.doc('alliances/' + D).update({ xp: 600, tr: { goods: 500, food: 500, iron: 500, oil: 500, timber: 500 } });
+  await rejects(civic(f, { op: 'alBuild', aid: D, p: 'market' }), 'al_pj_type');
+  await civic(f, { op: 'alBuild', aid: D, p: 'arsenal' });
+  /* a common tariff is a trade bloc's; a study a research accord's */
+  await rejects(civic(f, { op: 'alEdit', aid: D, ct: true }), 'al_not_trade');
+  await civic(g, { op: 'alEdit', aid: T, ct: true });
+  assert.equal((await allianceOf(T)).ct, true);
+  await rejects(civic(f, { op: 'alStudy', aid: D, k: 'agri' }), 'al_not_research');
+  /* the trade bloc votes to become a defence pact: b, holding one already, will have to choose */
+  assert.equal((await civic(g, { op: 'alEdit', aid: T, ty: 'def' })).vote, true);
+  await assert.rejects(civic(f, { op: 'alVote', aid: T, yes: true }), e => e.status === 'PERMISSION_DENIED');
+  const v = await civic(b, { op: 'alVote', aid: T, yes: true });
+  assert.equal(v.passed, true); assert.equal(v.clash, 1, 'b already holds a defence pact');
+  let A = await allianceOf(T); assert.equal(A.ty, 'def'); assert.ok(A.cl[b.uid] > Date.now() + 6 * 86400000, 'a week to choose');
+  X = await ix(b); assert.equal(X.s.def, D, 'the seat stays with the first'); assert.deepEqual(X.w.def, [T]); assert.equal(X.s.trade, undefined);
+  assert.equal((await ix(g)).s.def, T, 'the leader, in no other defence pact, moves at once');
+  /* b chooses: it leaves the first, and the second takes the seat */
+  await civic(b, { op: 'alLeave', aid: D });
+  X = await ix(b); assert.equal(X.s.def, T); assert.equal(X.w.def, undefined);
+  assert.equal((await allianceOf(T)).cl[b.uid], undefined, 'the clash is settled');
+  /* a clash left a week: the daily tally takes the member out of the alliance that changed */
+  const D2 = (await civic(f, { op: 'alFound', name: 'Bastion ' + id(), ty: 'research', acc: 'open' })).aid;
+  await civic(b, { op: 'alLeave', aid: C });
+  assert.equal((await civic(b, { op: 'alRequest', aid: D2 })).joined, true);
+  assert.equal((await civic(f, { op: 'alEdit', aid: D2, ty: 'def' })).vote, true);
+  await civic(b, { op: 'alVote', aid: D2, yes: true });
+  assert.ok((await allianceOf(D2)).cl[b.uid]);
+  await db.doc('alliances/' + D2).update({ ['cl.' + b.uid]: Date.now() - 1000, tt: Date.now() - 21 * 3600e3 });
+  await civic(f, { op: 'alTally', aid: D2 });
+  A = await allianceOf(D2); assert.equal(A.mem[b.uid], undefined); assert.ok(A.log.some(e => e.k === 'clashleft' && e.a === b.uid));
+  X = await ix(b); assert.equal(X.s.def, T); assert.equal(X.w.def, undefined);
+  /* a vote lost: half say no */
+  await db.doc('alliances/' + T).update({ tyAt: 0 });
+  assert.equal((await civic(g, { op: 'alEdit', aid: T, ty: 'research' })).vote, true);
+  assert.equal((await civic(b, { op: 'alVote', aid: T, yes: false })).failed, true);
+  assert.equal((await allianceOf(T)).tv, null);
+  /* dissolving keeps the members' other seats */
+  await civic(f, { op: 'alLeave', aid: D2, disband: true });
+  await civic(f, { op: 'alLeave', aid: C, disband: true });
+  await civic(g, { op: 'alLeave', aid: T, disband: true });
+  assert.equal((await db.doc('allyOf/' + b.uid).get()).exists, false);
+  assert.equal((await ix(f)).s.def, D, 'f still leads its defence pact');
+  /* one player alone changes the type at once */
+  const solo = (await civic(f, { op: 'alFound', name: 'Lone ' + id(), ty: 'culture' })).aid;
+  assert.equal((await civic(f, { op: 'alEdit', aid: solo, ty: 'research' })).ty, 'research');
+  assert.equal((await ix(f)).s.research, solo);
+  /* a research accord's study: paid from the treasury, one at a time */
+  await db.doc('alliances/' + solo).update({ tr: { food: 200, goods: 200 } });
+  assert.ok((await civic(f, { op: 'alStudy', aid: solo, k: 'agri' })).end > Date.now() + 6 * 86400000);
+  await rejects(civic(f, { op: 'alStudy', aid: solo, k: 'eng' }), 'al_study_on');
+  A = await allianceOf(solo); assert.equal(A.tr.food, 80); assert.equal(A.sd.k, 'agri'); assert.equal(A.xp, 20);
+  await civic(f, { op: 'alLeave', aid: D, disband: true });
+  await civic(f, { op: 'alLeave', aid: solo, disband: true });
+  assert.equal((await db.doc('allyOf/' + f.uid).get()).exists, false);
 });
 
 test('Treaties: offered and accepted, limited, ended with notice or broken; a computer nation answers by affinity and shuns a breaker', async () => {

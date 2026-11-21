@@ -28,6 +28,24 @@ test('the game and the server share the levels, officers, projects and renown ru
   assert.deepEqual(Object.keys(constOf('AL_ACCESS')), R.AL_ACCESS);
 });
 
+test('alliance types: the game and the server share the projects of each type, the seats, the clash, the vote, each type’s renown and the studies', () => {
+  assert.deepEqual(G.tyPj, R.AL_TY_PJ);
+  assert.deepEqual(Object.keys(R.AL_TY_PJ).sort(), Object.keys(R.AL_PROJECTS).sort(), 'every project has a type');
+  assert.deepEqual(G.seatPop, R.AL_SEAT_POP);
+  assert.equal(G.clash, R.AL_CLASH); assert.equal(G.vote, R.AL_VOTE); assert.equal(G.typeWait, R.AL_TYPE_WAIT);
+  assert.deepEqual(G.xpTy, R.AL_XP_TY);
+  assert.deepEqual(G.studies, R.AL_STUDIES); assert.equal(G.studyDays, R.AL_STUDY_DAYS);
+  /* seats: one at any size, the fourth at 50 million */
+  assert.deepEqual([0, 9.9, 10, 24, 25, 49, 50, 900].map(R.alSeats), [1, 1, 2, 2, 3, 3, 4, 4]);
+  /* every study the game describes is one the server runs, and the other way round */
+  const ui = vm.runInNewContext('(' + html.match(/const AL_STUDY_UI=(\{[\s\S]*?\});/)[1] + ')');
+  assert.deepEqual(Object.keys(ui).sort(), Object.keys(R.AL_STUDIES).sort());
+  /* a defence pact alone gives allies in war: the referee reads its seat, and the game's allianceOf is that seat */
+  assert.match(html, /if\(ty==='def'\)of\.set\(e\.uid,e\.A\);/);
+  const ref = fs.readFileSync(new URL('../functions/index.js', import.meta.url), 'utf8');
+  assert.match(ref, /alliances = ixs\.map\(ixDef\)/);
+});
+
 test('founding an alliance opens at 7.5 million people, in the game and on the server', () => {
   assert.equal(R.AL_FOUND_POP, 7.5);
   const fa = vm.runInNewContext('(' + html.match(/const FEATURE_AT=(\{[^}]*\})/)[1] + ')');
@@ -71,16 +89,18 @@ test('the three later buildings: Beacon Towers, the Alliance Academy and the Hal
   const at = html.indexOf('let alFxMemo='), end = html.indexOf('\n}\n', html.indexOf('function alFx(')) + 3;
   assert.ok(at > 0 && end > at, 'alFx is found');
   const fxOf = (ty, pj) => {
-    const D = { ty, pj }, A = { srv: true, members: ['me'], doc: D };
-    const ctx = vm.createContext({ AL_RULES: G, AL: { rev: 0 }, polMemo: { k: Math.random() }, allianceOf: () => A, num0: v => Number(v) || 0, clamp: (v, a, b) => Math.max(a, Math.min(b, v)) });
+    const D = { ty, pj }, A = { srv: true, ty, members: ['me'], doc: D };
+    const ctx = vm.createContext({ AL_RULES: G, AL: { rev: 0 }, polMemo: { k: Math.random() }, alliancesOf: () => [A], alFest: () => ({ on: false }), AL_FEST: {}, AL_STUDY_FX: {}, Date, num0: v => Number(v) || 0, clamp: (v, a, b) => Math.max(a, Math.min(b, v)) });
     vm.runInContext(html.slice(at, end).replace(/^(const|let) /gm, 'var '), ctx);
     return ctx.alFx('me');
   };
   const near = (a, b) => Math.abs(a - b) < 1e-9;
-  const none = fxOf('culture', {}), b2 = fxOf('culture', { beacon: 2 }), a3 = fxOf('culture', { academy: 3 }), over = fxOf('culture', { beacon: 9, academy: 9 });
+  /* each building works in an alliance of its type (alliance types): the Beacon in a defence pact, the Academy in a research accord */
+  const none = fxOf('def', {}), b2 = fxOf('def', { beacon: 2 }), r0 = fxOf('research', {}), a3 = fxOf('research', { academy: 3 });
   assert.ok(near(b2.def - none.def, 0.08) && near(b2.defHelp - none.defHelp, 0.4), 'Beacon Towers: 4% and a fifth a level');
-  assert.ok(near(a3.prosper - none.prosper, 0.045), 'the Academy: 1.5% prosperity a level');
-  assert.ok(near(over.def - none.def, 0.12) && near(over.prosper - none.prosper, 0.045), 'never past the last level');
+  assert.ok(near(a3.prosper - r0.prosper, 0.045), 'the Academy: 1.5% prosperity a level');
+  assert.ok(near(fxOf('def', { beacon: 9 }).def - none.def, 0.12) && near(fxOf('research', { academy: 9 }).prosper - r0.prosper, 0.045), 'never past the last level');
+  assert.equal(fxOf('culture', { beacon: 2, academy: 3 }).def, 0, 'a building of another type, built before the type changed, gives nothing');
   assert.ok(near(fxOf('def', { beacon: 1 }).def, 0.14), 'on top of a defence pact');
 });
 

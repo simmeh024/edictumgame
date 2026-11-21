@@ -75,6 +75,12 @@ const record = s => { try { const j = s && s.exists ? nationText(s) : null; retu
 const army = s => s && s.exists && typeof s.get('army') === 'number' ? s.get('army') : 0;
 /* the alliance a record belongs to: its founder's id */
 const allianceOf = (id, n) => n.alli && n.alli.name ? id : typeof n.allyOf === 'string' ? n.allyOf : '';
+/* a nation's entry in allyOf/ (functions/alliances.js): its defence pact, whose members fight beside it (an entry from
+   before names one alliance, of any type, in a); and every alliance it belongs to, for a pact between alliances */
+const ixDef = s => { if (!s || !s.exists) return ''; const v = s.data() || {}; if (v.v !== 2) return typeof v.a === 'string' ? v.a : '';
+  const a = (v.s && v.s.def) || (v.w && Array.isArray(v.w.def) && v.w.def[0]) || ''; return typeof a === 'string' ? a : ''; };
+const ixAll = s => { if (!s || !s.exists) return []; const v = s.data() || {}; if (v.v !== 2) return typeof v.a === 'string' && v.a ? [v.a] : [];
+  return [...new Set(Object.values(v.s || {}).filter(a => typeof a === 'string' && a))].slice(0, 4); };
 const isId = v => typeof v === 'string' && /^[\w-]{1,128}$/.test(v);
 
 /* the game's readiness (readiness() and spendReady() in game/edictum.html): a point returns every 15
@@ -101,7 +107,7 @@ async function battle(uid, data) {
     if (!npc) refs.push(db.doc('nations/' + d));
     help.forEach(id => refs.push(db.doc('nations/' + id)));
     const [me, st, ban, ...rest] = await tx.getAll(...refs);
-    const alliances = (await tx.getAll(...[uid, ...help].map(id => db.doc('allyOf/' + id)))).map(s => s.exists && typeof s.get('a') === 'string' ? s.get('a') : '');
+    const ixs = await tx.getAll(...[uid, ...help].map(id => db.doc('allyOf/' + id))), alliances = ixs.map(ixDef);
     /* a non-aggression pact or joint military training between the two (functions/treaties.js), and the defender's
        alliance (for a pact between the two alliances, functions/alliances.js) */
     const [nap, drill, dIx] = await tx.getAll(db.doc('treaties/' + trId('nap', uid, d)), db.doc('treaties/' + trId('drill', uid, d)), db.doc('allyOf/' + d));
@@ -136,10 +142,13 @@ async function battle(uid, data) {
        ends it with notice or breaks it first (a nation founded again since it signed is not bound) */
     const recs = { [uid]: mine, ...(npc ? {} : { [d]: record(foe) }) };
     for (const t of [nap, drill]) if (t.exists && trLive(t.data(), now) && !trVoid(t.data(), recs)) return { ok: false, why: 'pact' };
-    const aD = dIx.exists && typeof dIx.get('a') === 'string' ? dIx.get('a') : '';
-    if (al && aD && al !== aD) {
-      const as = await tx.get(db.doc('alliances/' + al)), rel = as.exists ? as.get('rel') : null;
-      if (rel && typeof rel === 'object' && alRelLive(rel[aD], now)) return { ok: false, why: 'pact' };
+    /* a pact between any alliance of the attacker's and any of the defender's */
+    const mineAl = ixAll(ixs[0]).length ? ixAll(ixs[0]) : al ? [al] : [], theirs = ixAll(dIx).filter(a => !mineAl.includes(a));
+    if (mineAl.length && theirs.length) {
+      for (const as of await tx.getAll(...mineAl.map(a => db.doc('alliances/' + a)))) {
+        const rel = as.exists ? as.get('rel') : null;
+        if (rel && typeof rel === 'object' && theirs.some(b => alRelLive(rel[b], now))) return { ok: false, why: 'pact' };
+      }
     }
     let att = army(me);
     rest.forEach((s, i) => { if (al && (alliances[i + 1] || allianceOf(help[i], record(s))) === al) att += 0.5 * army(s); });

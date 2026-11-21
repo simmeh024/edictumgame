@@ -81,7 +81,8 @@ test('lines, posts and reactions are counted at once, and written to the tally w
 test('every place a player speaks counts: chat, alliance chat, topics, replies, reactions, follows, signature, poster', () => {
   const has = (re, what) => assert.match(html, re, what);
   has(/op:'rcPost',reg,x:p\.x[^\n]*\n\s*p\.id=typeof r\.id==='string'\?r\.id:'';achPend\('rch'\);if\(re\)achPend\('rchr'\);if\(mn\.length\)achPend\('mnt'\);/, 'region chat line, reply, mention');
-  assert.equal([...html.matchAll(/op:'alPost'|'alPost',\{aid/g)].length, 2); assert.equal([...html.matchAll(/alPost[^\n]{0,60}achPend\('rch'\)/g)].length, 2, 'both alliance chat boxes');
+  /* the two alliance chat boxes, and a spy's report shared with a research accord */
+  assert.equal([...html.matchAll(/op:'alPost'|'alPost',\{aid/g)].length, 3); assert.equal([...html.matchAll(/alPost[^\n]{0,60}achPend\('rch'\)/g)].length, 3, 'both alliance chat boxes and the Bureau');
   has(/op:'cbTopic'[^\n]*\),reg=f\.reg;achPend\('cbt'\);achPend\('cbp'\);if\(mn0\.length\)achPend\('mnt'\);/, 'a new topic');
   has(/op:'cbReply'[^\n]*\}\);achPend\('cbp'\);if\(cbMnIds\(x\)\.length\)achPend\('mnt'\);/, 'a reply');
   has(/op:'cbFollow',reg,topic:t,on\}\);if\(on\)achPend\('cbf'\);/, 'following, not unfollowing');

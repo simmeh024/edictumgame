@@ -109,8 +109,10 @@ async function author(tx, db, who, e) {
     ...(flag && flag.length <= 4000 ? { fl: flag } : {}), ...(shop.exists && shop.get('owns.founder') ? { fd: true } : {}), ...(who.admin ? { st: 'admin' } : who.mod ? { st: 'mod' } : {}) };
   const col = al && al.exists && /^#[0-9a-fA-F]{6}$/.test(al.get('col') || '') ? al.get('col').toUpperCase() : '';
   const tg = al && al.exists && /^[A-Z0-9]{2,4}$/.test(al.get('tg') || '') ? al.get('tg') : '';
+  /* its type (functions/alliance-rules.js), for the mark beside the code: the alliance the author wears (allyOf a) */
+  const ty = al && al.exists && ['def', 'trade', 'culture', 'research'].includes(al.get('ty')) ? al.get('ty') : '';
   Object.defineProperty(me, 'pf', { enumerable: false, value: {
-    al: mem[who.uid] && line(al.get('name'), 40) ? { n: line(al.get('name'), 40), ...(col ? { c: col } : {}), ...(tg ? { t: tg } : {}) } : null,
+    al: mem[who.uid] && line(al.get('name'), 40) ? { n: line(al.get('name'), 40), ...(col ? { c: col } : {}), ...(tg ? { t: tg } : {}), ...(ty ? { y: ty } : {}) } : null,
     cl: !!(shop.exists && (shop.get('vip.until') || 0) > Date.now()) } });
   return me;
 }

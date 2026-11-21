@@ -20,7 +20,7 @@ const DAY = 86400000, NOW = Date.UTC(2026, 10, 14, 12);
 
 const REAL = [
   /const TY_RULES=\{[\s\S]*?\};(?=\n)/, /function tyLive\(T,now\)\{.*\}/, /function alRelLiveG\(r,now\)\{.*\}/,
-  /const AL_RULES=\{[\s\S]*?pactBreak:\d+\}\};/, /const AL_PJ=\{[\s\S]*?chronicle:\[[^\]]*\]\};/,
+  /const AL_RULES=\{[\s\S]*?studyDays:\d+\};/, /const AL_PJ=\{[\s\S]*?cipher:\[[^\]]*\]\};/,
   /const GF_KINDS=\{.*\};/, /const GW_MAX=\d+;/, /const TALLY_MAX=\d+/, /function gbBump\(n,k,by,now\)\{.*\}/, /const PORTFOLIOS=\[.*\];/, /const PF_KEYS=PORTFOLIOS\.map\(p=>p\[0\]\)/,
   /const BLK_TI=\[.*\];/, /const blkTi=rec=>.*;/, /const CX_WALL=\[.*\];/, /const PT_LOCK=\{[\s\S]*?\]\};/,
   /const SP_BLDS=\{[\s\S]*?\n\};/, /const spMileHit=.*;/, /const DIG_SETS=\[.*\];/
