@@ -200,7 +200,7 @@
     'bellSeen', 'mileAck', 'tut', 'autoLand', 'rpAt', 'rsk', 'mlk', 'lcb', 'whLc', 'lcgT', 'lcfx', 'mvl', 'regs', 'mvN', 'mvFrom',
     'mvCap', 'discArc', 'wck', 'drAt', 'alNpc', 'spy', 'intel', 'cvIn', 'cvEx', 'cvJ', 'mh', 'ifl', 'cuJournal', 'exp', 'exp2', 'mgc', 'mgAt', 'cabSeq', 'cabAt',
     'la', 'lt', 'peak', 'tly', 'tlf', 'tlx', 'colPin', 'colNm', 'lore', 'geo', 'flS', 'ppx', 'nws', 'cuS', 'ws', 'svc', 'atl',
-    'mdt', 'pso', 'rpl', 'brf', 'aph', 'ldr', 'crt', 'crz', 'crl', 'crd', 'gmb', 'gwl', 'mc'].forEach(function (k) { NX_KEYS[k] = 1; });
+    'mdt', 'pso', 'rpl', 'brf', 'aph', 'ldr', 'txd', 'crt', 'crz', 'crl', 'crd', 'gmb', 'gwl', 'mc'].forEach(function (k) { NX_KEYS[k] = 1; });
   /* The own half: what nobody but the player may read, not even on opening the nation's pages: the letters (dm),
      which reach the nations they are written to as letters/ documents (lettersApi) */
   /* … and what only the player needs to know about them: which conversations they have read (seenDm) and their
@@ -358,6 +358,12 @@
        transaction against the new document; it must still match the state this action was based on. */
     return A.fs.runTransaction(async function (b) {
       var current = await b.get(ref), saved = current.exists ? current.data() : null;
+      /* this very save is there already: its commit landed, but the answer was lost on the way back (a connection that
+         dropped; seen on CI, 19 and 21 Nov 2026), and Firestore ran the transaction again. The permit is this save's
+         alone (functions/civic.js, one per authorizeSave), so it is not another device's: nothing more is written, and
+         the save has landed. Taken for a conflict, the page loaded the record this save left (game/edictum.html,
+         syncOwnNation), and a nation founded and settled meanwhile was asked to settle again. */
+      if (saved && typeof enc.permit === 'string' && enc.permit && saved.permit === enc.permit && num(saved.rev) === enc.rev) return;
       for (var region of new Set([enc.reg, saved && saved.reg].filter(Boolean))) {
         var availability = await b.get(A.fs.doc('regionStatus/' + region));
         if (!A.admin && availability.exists && availability.data().enabled === false) {
