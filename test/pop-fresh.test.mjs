@@ -18,7 +18,7 @@ const piece = (from, to) => { const i = src.indexOf(from), j = src.indexOf(to, i
 
 /* the growth curve and popFresh, as the game has them */
 const G = vm.createContext({ Math, DAY, npcPop: () => { throw new Error('a computer nation'); }, npcMig: () => 0, rateOf: () => 0.18 });
-vm.runInContext([piece('function logistic(', '\n'), piece('function popNow(', '\n}\n') + '\n}', piece('function migNet(', '\n'),
+vm.runInContext([piece('function logistic(', '\n'), piece('function popNow(', '\n}\n') + '\n}', piece('function warLoss(', '\n'), piece('function migNet(', '\n'),
   piece('const POP_FRESH=', 'async function writeRemote(').replace('const POP_FRESH', 'var POP_FRESH')].join('\n'), G);
 /* what firestore.rules (grows) lets a save's headline be, at time t, after a last save of pop at server time at */
 const rules = (pop, at, t) => { const d = (t - at) / DAY; return pop * Math.pow(1.35, d) + 3 * d + 0.0001; };

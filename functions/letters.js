@@ -24,7 +24,7 @@
 import { HttpsError } from 'firebase-functions/v2/https';
 import { getFirestore } from 'firebase-admin/firestore';
 import webpush from 'web-push';
-import { mailConfig, send, nowLetter } from './mail-core.js';
+import { mailConfig, send, nowLetter, warLetter } from './mail-core.js';
 import { identity } from './eligibility.js';
 
 const NOTE_GAP = 10 * 60000, FRESH = 15 * 60000, ONLINE = 3 * 60000, SUBS_MAX = 5, NOW_DAY = 40, DAY = 86400000;
@@ -94,6 +94,21 @@ async function pushTo(db, uid, payload) {
   return sent;
 }
 
+/* war, round two (functions/index.js, the referee): a player's capital besieged ('siege') or fallen ('fell'): a
+   notification, and a letter by post right away for a player who takes war letters (mailAccounts p.war) */
+export async function warWord(db, to, kind, { by, nation, capital, at }) {
+  const fell = kind === 'fell', cap = capital || 'your capital';
+  let pushed = 0, mailed = 0;
+  try { pushed = await pushTo(db, to, { title: fell ? `${cap} has fallen` : `${by} has laid siege to ${cap}`, body: fell ? `${nation} has fallen to ${by}. Rise again, or start anew elsewhere.` : 'The final assault can come in a day. Surrender, or hold out and fight.', tag: 'siege-' + to, url: fell ? '/' : '/#map' }); } catch (e) { pushed = 0; }
+  try {
+    const acc = await db.doc('mailAccounts/' + to).get();
+    if (acc.exists && acc.get('ok') && acc.get('e') && acc.get('p') && acc.get('p').war) {
+      const cfg = await mailConfig(db);
+      mailed = await send(db, [warLetter(cfg, { to: acc.get('e'), kind, by, nation, capital, at, tok: acc.get('tok') })], cfg);
+    }
+  } catch (e) { mailed = 0; }
+  return { pushed, mailed };
+}
 /* an important development news post, told by notification (see the top of this file) */
 const NEWS_SUBS = 3000, NEWS_AT_ONCE = 12;
 async function newsPush(db, uid, d, now) {
