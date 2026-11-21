@@ -56,6 +56,10 @@ async function letterOnDesk(t) {
   await t.go('issues');
   return until(() => t.page.$('.issue-card.mc-card'));
 }
+/* the Space page's tabs (Mission Control · Map · Others) and the Moon map's switch (Colonies · My survey) */
+const shut = page => page.evaluate(() => { const x = document.querySelector('#tut-g .tut-x'); if (x) x.click(); });
+const tab = async (page, k) => { await shut(page); if (!(await page.$(`#sp-sub-${k}.on`))) { await page.click(`[data-act="sp-sub"][data-s="${k}"]`); await sleep(200); } };
+const layer = async (page, l) => { await shut(page); if (!(await page.$(`#sp-ly-${l}.on`))) { await page.click(`[data-act="sp-layer"][data-l="${l}"]`); await sleep(200); } };
 const goldOf = (page, sel) => page.evaluate(sel => { const e = document.querySelector(sel); if (!e) return null; const s = getComputedStyle(e), g = getComputedStyle(document.documentElement).getPropertyValue('--mc-gold').trim();
   const rgb = h => { const m = /^#([0-9a-f]{6})$/i.exec(h); if (!m) return h; const v = parseInt(m[1], 16); return `rgb(${v >> 16}, ${(v >> 8) & 255}, ${v & 255})`; };
   return { w: [s.borderTopWidth, s.borderRightWidth, s.borderBottomWidth, s.borderLeftWidth], c: [s.borderTopColor, s.borderRightColor, s.borderBottomColor, s.borderLeftColor], gold: rgb(g) }; }, sel);
@@ -65,7 +69,12 @@ try {
   /* ── the agency, the first mission, the chart and the mandate (desktop, light) ── */
   const t = await start('light', { width: 1280, height: 900 }), { page } = t;
   await t.go('space');
-  check('before the agency: the founding form and a black survey chart', await page.evaluate(() => !!document.querySelector('form.mc-found') && !!document.querySelector('canvas.sp-cv[data-mode="chart"]')));
+  check('the page in parts: the road at its first step, three tabs, Mission Control open, no Mars or Belt tab yet', await page.evaluate(() => /Agency/.test((document.querySelector('.sp-road li.cur') || {}).textContent || '') && document.querySelectorAll('.sp-sub [data-act="sp-sub"]').length === 3 && !!document.querySelector('#sp-sub-mc.on') && !document.querySelector('.sp-bodies')));
+  check('the long introduction on the first visit, remembered as seen', await page.evaluate(() => /Outer Space Treaty/.test(document.querySelector('.vh').textContent) && Object.keys(localStorage).some(k => /^edictum\.spui\./.test(k) && JSON.parse(localStorage.getItem(k)).i === 1)));
+  const formOnMc = await page.evaluate(() => !!document.querySelector('form.mc-found') && !document.querySelector('canvas.sp-cv[data-mode="chart"]'));
+  await tab(page, 'map');
+  check('before the agency: the founding form on Mission Control, and a black survey chart on Map', formOnMc && await page.evaluate(() => !!document.querySelector('canvas.sp-cv[data-mode="chart"]') && !!document.querySelector('#sp-ly-survey.on')));
+  await tab(page, 'mc');
   check('three teams to choose from, each with a first assignment under an hour', await page.evaluate(() => [...document.querySelectorAll('.mc-team')].map(l => l.querySelector('.mc-first').textContent).every(x => /about (\d+) minutes/.test(x) && +/about (\d+) minutes/.exec(x)[1] < 60) && document.querySelectorAll('.mc-team').length === 3));
   const dark = await page.evaluate(() => { const L = window.__game.MC.reveal(window.__game.S.nation, Date.now()); return [...L].every(v => v === 0); });
   check('the chart starts completely black', dark);
@@ -82,6 +91,7 @@ try {
   const job = await page.evaluate(() => (document.querySelector('.mc-jobs li') || {}).innerText || '');
   check('the job under way: its name, time remaining and what it will reveal', /Borrowed telescope time/.test(job) && /Ready in/.test(job) && /crescent/.test(job), job);
   check('its cost came from the stockpile', await page.evaluate(g0 => window.__game.S.nation.stock.goods <= g0 - 2.5, goods0));
+  check('the road moves on, and the tiles count the slots and the sectors', await page.evaluate(() => /First picture/.test(document.querySelector('.sp-road li.cur').textContent) && /mission slots in use/.test(document.querySelector('.sp-stat').textContent) && /sectors charted/.test(document.querySelector('.sp-stat').textContent)));
   await t.edit((n, now) => { n.mc.ms.scope.s = now - 3600e3; n.mc.ms.scope.d = now - 1000; });
   await sleep(500);
   const lit = await page.evaluate(() => [...window.__game.MC.reveal(window.__game.S.nation, Date.now())].filter(v => v > 0).length);
@@ -91,15 +101,17 @@ try {
   await page.click('.mc-next [data-act="mc-fund"]');
   await until(() => page.evaluate(() => !!window.__game.S.nation.mc.a.tm.flt));
   check('Flight Operations joins the agency', await page.evaluate(() => !!window.__game.S.nation.mc.a.tm.flt));
+  check('the teams are plain words, with no fund buttons of their own', await page.evaluate(() => /^Teams: Science & Survey and Flight Operations\./.test(document.querySelector('.mc-tm').textContent) && !document.querySelector('.mc-tm button')));
   /* the mandate: second staff, its cost after the laws, and the schedules side by side */
   const md0 = await page.evaluate(() => window.__game.GV().md(window.__game.S.nation, Date.now()));
-  await page.click('#mc-md-mcStaff [data-act="mc-md-ask"]');
+  check('the mandate is a small link beside the slots, its card shown only when asked', await page.evaluate(() => !document.getElementById('mc-md-mcStaff') && !!document.querySelector('.mc-status [data-act="mc-md-ask"][data-k="mcStaff"]')));
+  await page.click('.mc-status [data-act="mc-md-ask"][data-k="mcStaff"]');
   const card = await page.evaluate(() => document.getElementById('mc-md-mcStaff').innerText);
   check('the spend shows its cost, the balance, the ordinary and the faster schedule', /Ordinary schedule/.test(card) && /With the mandate/.test(card) && /costs 2/.test(card), card);
   await page.click('[data-act="mc-md-yes"][data-k="mcStaff"]');
   await until(() => page.evaluate(() => !!window.__game.S.nation.mc.md.c1));
   check('second staff: two slots now, two mandate spent, one decree on the leader’s record', await page.evaluate(md0 => { const G = window.__game, n = G.S.nation; return G.MC.slots(n, Date.now()) === 2 && Math.abs(G.GV().md(n, Date.now()) - (md0 - 2)) < 0.05 && n.ldr.d >= 1; }, md0));
-  check('and not twice', await page.evaluate(() => !document.querySelector('#mc-md-mcStaff [data-act="mc-md-ask"]')));
+  check('and not twice: the link is gone, the spend folded under Done so far', await page.evaluate(() => !document.querySelector('[data-act="mc-md-ask"][data-k="mcStaff"]') && /Second staff for the space agency/.test((document.getElementById('mc-done') || {}).textContent || '') && !document.getElementById('mc-done').open));
   await page.screenshot({ path: path.join(OUT, 'mission-control-space.png') });
   /* the Government page's mandate links to the agency's spends */
   await t.go('government');
@@ -113,6 +125,8 @@ try {
   check('the missing building has a direct build button', !!b);
   if (b) { await b.click(); await until(() => page.evaluate(() => (window.__game.S.nation.cities || []).some(c => (c.b || []).some(x => x.k === 'mctrl')))); }
   check('Mission Control is under construction', await page.evaluate(() => (window.__game.S.nation.cities || []).some(c => (c.b || []).some(x => x.k === 'mctrl'))));
+  check('Under way lists the building beside the missions', await page.evaluate(() => [...document.querySelectorAll('.mc-jobs li')].some(li => /Mission Control/.test(li.textContent) && /Building/.test(li.textContent))));
+  await tab(page, 'map');
   await page.evaluate(() => document.querySelector('.mc-chart').scrollIntoView()); await sleep(1500);
   await page.screenshot({ path: path.join(OUT, 'mission-control-chart.png') });
   const z0 = await page.evaluate(() => window.__game.S.spV && window.__game.S.spV.moonchart ? window.__game.S.spV.moonchart.z : 1);
@@ -123,7 +137,11 @@ try {
   /* ── a veteran: the Lunar Colony complete, the landing at the preferred site, the first night ── */
   await t.edit((n, now) => { const c = n.cities[0]; c.b = (c.b || []).filter(b => b.k !== 'lunar').concat({ k: 'lunar', s: now - 5 * 864e5, d: now - 864e5 }); n.stock = { food: 400, timber: 400, iron: 400, oil: 400, goods: 400 }; n.stockAt = now; n._stockSet = true; n.mc.xn = 'Lamplight One'; n.mc.ms.prep = { s: now - 4 * 864e5, d: now - 3 * 864e5 }; });
   await t.go('space');
-  check('with the wonder complete, the full settlement map comes first and the survey chart follows it', await page.evaluate(() => { const m = document.querySelector('canvas.sp-cv:not([data-mode])'), c = document.querySelector('canvas.sp-cv[data-mode="chart"]'); return !!m && !!c && !!(m.compareDocumentPosition(c) & Node.DOCUMENT_POSITION_FOLLOWING); }));
+  await tab(page, 'map');
+  check('with the wonder complete, the map opens on the colonies, one map at a time', await page.evaluate(() => !!document.querySelector('canvas.sp-cv:not([data-mode])') && !document.querySelector('canvas.sp-cv[data-mode="chart"]') && !!document.querySelector('#sp-ly-cols.on')));
+  await layer(page, 'survey');
+  check('and the switch shows the survey chart in its place', await page.evaluate(() => !document.querySelector('canvas.sp-cv:not([data-mode])') && !!document.querySelector('canvas.sp-cv[data-mode="chart"]')));
+  await layer(page, 'cols');
   const land = await page.evaluate(() => (document.querySelector('.mc-land') || {}).innerText || '');
   check('the landing panel offers the preferred surveyed site', /Preferred site/.test(land), land);
   const pick = await page.$('.mc-land [data-act="mc-sel"]');
@@ -141,6 +159,9 @@ try {
   check('the landing earns Ground Control, Holiday Snaps, Well Prepared, One Small Step and First on the Moon', want.every(id => ach.includes(id)), want.filter(id => !ach.includes(id)));
   check('and none of the colony’s later ones yet', not.every(id => !ach.includes(id)), not.filter(id => ach.includes(id)));
   await t.go('nation'); await t.go('space');
+  check('landed: the page opens on the map of the colony', await page.evaluate(() => !!document.querySelector('#sp-sub-map.on') && !!document.querySelector('#sp-panel .sp-stats')));
+  await tab(page, 'mc');
+  await page.click('#mc-done > summary'); await sleep(200);
   check('the first night: the lit habitat, the log and the Gazette', await page.evaluate(() => !!document.querySelector('.mc-night .mc-hab') && /Lunar Gazette/.test(document.querySelector('.mc-night').textContent)));
   await page.evaluate(() => document.querySelector('.mc-night').scrollIntoView({ block: 'center' })); await sleep(300);
   await page.screenshot({ path: path.join(OUT, 'mission-control-first-night.png') });
@@ -204,6 +225,7 @@ try {
     const d = { iron: Math.round((rate1.iron - rate0.iron) * 100) / 100, oil: Math.round((rate1.oil - rate0.oil) * 100) / 100 };
     check('outpost: it sends 40% of its output home (1.6 iron or 2 oil a day)', k === 'rs' ? d.iron === 1.6 && d.oil === 0 : d.oil === 2 && d.iron === 0, { k, d });
     await o.go('nation'); await o.go('space');
+    await tab(p, 'oth');
     check('outpost: the space race lists it', await p.evaluate(() => /Outpost on the Moon/.test((document.querySelector('.sp-race') || {}).textContent || '')));
     await o.edit(() => {});
     let ach = await p.evaluate(() => Object.keys(window.__game.S.nation.ach || {}));
@@ -211,6 +233,7 @@ try {
     /* the Lunar Colony complete: the colony opens at the outpost */
     await o.edit((n, now) => { const c = n.cities[0];c.b = c.b.concat({ k: 'lunar', s: now - 5 * 864e5, d: now - 864e5 });n.stock = { food: 400, timber: 400, iron: 400, oil: 400, goods: 400 };n.stockAt = now;n._stockSet = true; });
     await o.go('space');
+    await tab(p, 'map');
     check('outpost: with the wonder complete, the Space page offers to open the colony there', await p.evaluate(() => !!document.querySelector('#sp-panel [data-act="sp-land-op"]') && /outpost/i.test(document.querySelector('#sp-panel').textContent)));
     await p.evaluate(() => document.querySelector('#sp-panel [data-act="sp-land-op"]').click());
     await until(() => p.evaluate(() => !!(window.__game.S.nation.sp && window.__game.S.nation.sp.moon)));
@@ -222,6 +245,16 @@ try {
     await o.go('nation'); await o.go('space');
     check('outpost: the panel is the colony’s own now', await p.evaluate(() => /Your colony on/.test(document.querySelector('#sp-panel').textContent)));
     await p.screenshot({ path: path.join(OUT, 'mission-control-outpost-colony.png') });
+    /* on a phone, a tile selected on the map: a bar at the foot of the screen says what it is and what to do */
+    await p.setViewportSize({ width: 375, height: 812 }); await sleep(300);
+    await p.evaluate(() => { const G = window.__game, c = G.S.nation.sp.moon.c; G.S.spSel = { b: 'moon', c }; G.render(); });
+    const bar = await p.evaluate(() => { const b = document.querySelector('.sp-selbar'); if (!b) return null; const s = getComputedStyle(b), r = b.getBoundingClientRect(), tb = document.querySelector('.tabbar'); return { pos: s.position, vis: s.display !== 'none', t: b.textContent, above: !tb || r.bottom <= tb.getBoundingClientRect().top + 1 }; });
+    check('outpost: on a phone the selected tile has a bar at the foot, above the tab bar', !!bar && bar.pos === 'fixed' && bar.vis && /Details/.test(bar.t) && bar.above, bar);
+    await p.screenshot({ path: path.join(OUT, 'mission-control-selbar-phone.png') });
+    await p.click('[data-act="sp-sb-x"]'); await sleep(200);
+    check('outpost: and the cross clears the selection', await p.evaluate(() => !window.__game.S.spSel && !document.querySelector('.sp-selbar')));
+    check('outpost: no sideways scrolling on a phone', await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
+    await p.setViewportSize({ width: 1280, height: 900 });
     check('outpost: no page errors', !o.errors.length, o.errors);
     await o.ctx.close();
   }
@@ -237,7 +270,8 @@ try {
       c.b = (c.b || []).concat(['mctrl', 'dsts', 'robo', 'observ'].map(k => ({ k, s: T, d: T + 3600e3 })));
       n.stock = { food: 900, timber: 900, iron: 900, oil: 900, goods: 900 }; n.stockAt = now; n._stockSet = true; });
     await o.go('space');
-    const sel = s => p.evaluate(s => { const G = window.__game; G.S.mcSec = s; G.render(); }, s);
+    const sel = async s => { await tab(p, 'map'); await p.evaluate(s => { const G = window.__game; G.S.mcSec = s; G.render(); }, s); };
+    const mc = () => tab(p, 'mc');
     const finish = () => o.edit((n, now) => { for (const k of Object.keys(n.mc.ms)) { const m = n.mc.ms[k]; if (m.d > now && m.v !== 'dish') { m.s = now - 2 * 864e5; m.d = now - 864e5 - 60e3; } } });
     const free = (kind, need) => p.evaluate(([kind, need]) => { const G = window.__game, n = G.S.nation, now = Date.now(), L = G.MC.reveal(n, now);
       for (let s = 0; s < 160; s++) { if (need === 2 && L[s] < 2) continue; for (const k of kind === 'tv' ? ['n', 'e', 's', 'w'].map(d => 'tv' + s + d) : [kind === 'wf' ? G.MC.wfKey(s) : kind === 'os' ? G.MC.osKey(s) : 'sc' + s]) if (k && !G.MC.startProblem(n, k, now)) return { s, k }; }
@@ -258,22 +292,25 @@ try {
     check('charting: a sector offers a survey, a wide-field block and an orbiter strip', /Survey this sector/.test(info) && /Wide-field survey/.test(info) && /Mapping orbiter/.test(info), info);
     await p.click(`#mc-sec [data-act="mc-start"][data-k="${wf.k}"]`);
     await until(() => p.evaluate(k => !!window.__game.S.nation.mc.ms[k], wf.k));
+    await mc();
     check('charting: the wide-field survey is under way with Science & Survey', await p.evaluate(() => /Wide-field survey/.test((document.querySelector('.mc-jobs') || {}).textContent || '')),
       await p.evaluate(() => ({ msg: window.__game.S.mcMsg, ms: Object.keys(window.__game.S.nation.mc.ms), agency: !!document.querySelector('.mc-agency') })));
     /* so three sector surveys go to the second dish's queue, back to back */
     for (let i = 0; i < 3; i++) { const sc = await free('sc'); await sel(sc.s); await p.click(`#mc-sec [data-act="mc-start"][data-k="${sc.k}"]`); await until(() => p.evaluate(k => !!window.__game.S.nation.mc.ms[k], sc.k)); }
     const lane = await p.evaluate(() => { const G = window.__game; return G.MC.lane(G.S.nation, Date.now()).map(x => ({ k: x.k, s: x.s, d: x.d, v: x.v })); });
     check('charting: with Science & Survey busy, three sectors queue at the second dish, back to back', lane.length === 3 && lane.every(x => x.v === 'dish') && lane[1].s === lane[0].d && lane[2].s === lane[1].d, lane);
-    check('charting: the queue is listed, with Remove beside the two not started', await p.evaluate(() => document.querySelectorAll('.mc-q li').length === 3 && document.querySelectorAll('.mc-q [data-act="mc-unq"]').length === 2));
+    await mc();
+    check('charting: the queue is listed under Under way, with Remove beside the two not started', await p.evaluate(() => document.querySelectorAll('.mc-jobs .mc-qi').length === 3 && document.querySelectorAll('.mc-jobs .mc-qi [data-act="mc-unq"]').length === 2));
+    check('charting: the tiles count the queue', await p.evaluate(() => /3 of 5\s*in the survey queue/.test(document.querySelector('.sp-stat').textContent)));
     await (await p.$('.mc-agency')).screenshot({ path: path.join(OUT, 'mission-control-survey-agency.png') });
     const gq = await p.evaluate(() => window.__game.S.nation.stock.goods);
-    await p.click(`.mc-q [data-act="mc-unq"][data-k="${lane[1].k}"]`);
+    await p.click(`.mc-jobs [data-act="mc-unq"][data-k="${lane[1].k}"]`);
     await until(() => p.evaluate(k => !window.__game.S.nation.mc.ms[k], lane[1].k));
     const lane2 = await p.evaluate(() => { const G = window.__game; return G.MC.lane(G.S.nation, Date.now()).map(x => ({ k: x.k, s: x.s, d: x.d })); });
     check('charting: a queued survey comes out, its cost back, and the next moves up', lane2.length === 2 && lane2[1].s === lane2[0].d && await p.evaluate(g => Math.abs(window.__game.S.nation.stock.goods - (g + 5)) < 0.6, gq), lane2);
     await finish();
     /* a far-side campaign, a mapping orbiter, a rover traverse */
-    await o.go('nation'); await o.go('space');
+    await o.go('nation'); await o.go('space'); await mc();
     check('charting: the next campaign of each chain is listed, the first far-side one ready to start', await p.evaluate(() => { const t = document.querySelector('.mc-camp').textContent; return !!document.querySelector('.mc-camp [data-act="mc-start"][data-k="fs1"]') && /polar night survey: north/.test(t) && !/campaign II/.test(t) && !/survey: south/.test(t); }));
     await p.click('.mc-camp [data-act="mc-start"][data-k="fs1"]');
     await until(() => p.evaluate(() => !!window.__game.S.nation.mc.ms.fs1));
@@ -282,6 +319,7 @@ try {
     const os = await free('os');
     await sel(os.s); await p.click(`#mc-sec [data-act="mc-start"][data-k="${os.k}"]`);
     await until(() => p.evaluate(k => !!window.__game.S.nation.mc.ms[k], os.k));
+    await mc();
     check('charting: a mapping orbiter flies with Flight Operations', await p.evaluate(() => /Mapping orbiter/.test(document.querySelector('.mc-jobs').textContent) && /Flight Operations/.test(document.querySelector('.mc-jobs').textContent)));
     await finish();
     const tv = await free('tv', 2);
@@ -296,10 +334,14 @@ try {
     await o.edit(n => { n.mc.sv = 'f'.repeat(40); });
     await o.go('nation'); await o.go('space');
     const fd = await p.evaluate(() => { const G = window.__game; return G.MC.finds(G.S.nation, Date.now()).length; });
+    await mc();
+    check('charting: the finds count in the tiles and in the section’s line', await p.evaluate(() => /finds to bring home/.test(document.querySelector('.sp-stat').textContent) && /finds to bring home/.test(document.querySelector('#mc-survey > summary').textContent)));
+    check('charting: the campaigns charted are folded under Done so far', await p.evaluate(() => /Far-side campaign I/.test((document.getElementById('mc-done') || {}).textContent || '')));
     check('charting: the whole Moon charted holds its finds, listed to bring home', fd > 20 && await p.evaluate(() => !!document.querySelector('.mc-finds [data-act="mc-home"][data-s="all"]')), fd);
     await sel(await p.evaluate(() => { const G = window.__game; return G.MC.finds(G.S.nation, Date.now())[3].s; }));
     await p.evaluate(() => document.querySelector('.mc-chart').scrollIntoView()); await sleep(1200);
     await p.screenshot({ path: path.join(OUT, 'mission-control-survey-finds.png') });
+    await mc();
     const s0 = await p.evaluate(() => ({ ...window.__game.S.nation.stock }));
     await p.click('.mc-finds [data-act="mc-home"][data-s="all"]');
     await until(() => p.evaluate(() => !!window.__game.S.nation.mc.fc));
@@ -315,15 +357,20 @@ try {
     await sel(ps.s);
     await p.click(`#mc-sec [data-act="mc-pref"][data-c="${ps.c}"]`);
     await until(() => p.evaluate(c => window.__game.S.nation.mc.pf === c, ps.c));
+    await mc();
     check('charting: any charted sector’s best ground can be the preferred landing site', await p.evaluate(c => window.__game.S.nation.mc.pf === c && /chosen from the chart/.test(document.querySelector('.mc-sites').textContent), ps.c));
+    await tab(p, 'map');
     await p.evaluate(() => document.querySelector('.mc-chart').scrollIntoView()); await sleep(1200);
     await p.screenshot({ path: path.join(OUT, 'mission-control-survey-chart.png') });
     /* the Lunar Colony complete: the chart follows the shared map, and still charts */
     await o.edit((n, now) => { const c = n.cities[0]; c.b = c.b.concat({ k: 'lunar', s: now - 5 * 864e5, d: now - 864e5 }); n.mc.sv = undefined; });
     await o.go('nation'); await o.go('space');
     const sc = await free('sc');
+    await tab(p, 'map');
+    const colsFirst = await p.evaluate(() => !!document.querySelector('#sp-ly-cols.on') && !!document.querySelector('canvas.sp-cv:not([data-mode])'));
+    await layer(p, 'survey');
     await sel(sc.s);
-    check('charting: after the Lunar Colony the survey chart stays, below the shared map, and still surveys', await p.evaluate(k => { const m = document.querySelector('canvas.sp-cv:not([data-mode])'), c = document.querySelector('canvas.sp-cv[data-mode="chart"]'); return !!m && !!c && !!(m.compareDocumentPosition(c) & Node.DOCUMENT_POSITION_FOLLOWING) && !!document.querySelector(`#mc-sec [data-act="mc-start"][data-k="${k}"]`); }, sc.k));
+    check('charting: after the Lunar Colony the map opens on the colonies, and its switch keeps the survey chart, which still surveys', colsFirst && await p.evaluate(k => !!document.querySelector('canvas.sp-cv[data-mode="chart"]') && !!document.querySelector(`#mc-sec [data-act="mc-start"][data-k="${k}"]`), sc.k));
     check('charting: no page errors', !o.errors.length, o.errors);
     await o.ctx.close();
   }
