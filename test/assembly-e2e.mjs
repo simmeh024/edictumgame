@@ -2,7 +2,8 @@
 // one; the tabs in the address and on the arrow keys; the debate the Assembly opens on the Community Board; the rulebook,
 // a resolution in it bound to a member's nation and a repeal proposed from it; the result card of a closed count; the
 // Records tab's attendance, Book of Resolutions and voting record, also on the nation page; a commendation tabled
-// from the form and a passed one's laurel; and an absent member, who keeps its seat but not the chair.
+// from the form and a passed one's laurel; an absent member, who keeps its seat but not the chair; and a member's
+// Chancery seal beside its name at the vote, in the Book, among the endorsements and on a treaty.
 import { createRequire } from 'node:module';
 import { check, finish, until, sleep, player, open, ready, found, nav, text, clearEmulators, register, OUT, PROJECT } from './lib.mjs';
 const require = createRequire(new URL('../functions/package.json', import.meta.url));
@@ -55,6 +56,13 @@ check('an abstention is pressed as one', await until(async () => await B.getAttr
 await refresh(A);
 check('and others see it as an abstention, not as no vote yet', await until(async () => { const t = await A.$$eval('#asmx-p-vote .asm-vl li', li => li.filter(x => x.textContent.includes('Brackwater')).map(x => x.textContent).join('')); return /Abstains/.test(t) && !/Not yet/.test(t); }, 15000));
 
+/* ── 2b. Brackwater shows its silver Chancery seal (finery/, as the server writes it): Aldmere sees it beside the name,
+   at the vote by its abstention, and none beside a computer nation ── */
+await db.doc('finery/' + ub).set({ reg, cl: { s: 'csl-silver', u: Date.now() + 30 * DAY, m: 7, f: [] } }, { merge: true });
+const sealAt = (p, sel, name) => p.evaluate(([sel, name]) => { G.render(); return [...document.querySelectorAll(sel)].some(x => x.textContent.includes(name) && !!x.querySelector('.club-seal[data-seal="silver"]')); }, [sel, name]);
+check('a member’s seal shows beside its name at the vote', await until(() => sealAt(A, '#asmx-p-vote .asm-vl li', 'Brackwater'), 15000));
+check('and no seal beside a computer nation there, or beside Aldmere, which shows none', await A.evaluate(() => [...document.querySelectorAll('#asmx-p-vote .asm-vl li')].every(li => li.textContent.includes('Brackwater') || !li.querySelector('.club-seal'))));
+
 /* ── 3. the tabs in the address and on the arrow keys ── */
 await A.click('#asmx-tab-prop');
 check('a tab shows its pane, and the address says which', await tab(A) === 'prop' && await A.evaluate(() => location.hash) === '#assembly/prop' && await shown(A, '#asm-form'));
@@ -97,6 +105,7 @@ await A.click('#asmx-tab-rec');
 check('the Book of Resolutions lists the closed count from the server', await until(async () => /The Happy Hen Convention/.test(await text(A, '#asmx-p-rec .asm-hist')) && /Passed/.test(await text(A, '#asmx-p-rec .asm-hist')), 15000));
 await A.click('#asmx-p-rec .asm-hv summary');
 check('with how each member voted and the reasons they gave', /Free the hens/.test(await text(A, '#asmx-p-rec .asm-hv')) && /Brackwater/.test(await text(A, '#asmx-p-rec .asm-hv')));
+check('and the seal beside Brackwater’s name in it', await A.evaluate(() => !!document.querySelector('#asmx-p-rec .asm-hv .club-seal[data-seal="silver"]')));
 check('the voting record, and attendance in three figures', /1 for, 0 against/.test(await text(A, '#asmx-p-rec .asm-rec')) && await A.$$eval('#asmx-p-rec .asm-figs .fig', f => f.length) === 3);
 await shot(A, 'records');
 await nav(A, 'nation');
@@ -153,6 +162,7 @@ await shot(A, 'debate');
 await nav(A, 'assembly'); await A.click('#asmx-tab-mem');
 await A.click(`#asmx-p-mem [data-act="asm-end"][data-id="${ub}"]`);
 check('an endorsement counts for Brackwater', await until(() => A.evaluate(id => G.S.civic?.info.some(([i, v]) => i === id && v.k >= 1), ub)));
+check('the endorsements list shows Brackwater’s seal', await until(() => sealAt(A, '#asmx-p-mem .mem', 'Brackwater')));
 await B.ctx.close();
 await db.doc('nations/' + ub).update({ ts: Timestamp.fromMillis(Date.now() - 20 * DAY) });
 await root.set({ at: Date.now() }, { merge: true });
@@ -160,6 +170,14 @@ await refresh(A);
 check('absent for twenty days, it keeps its seat but cannot hold the chair', await until(() => A.evaluate(id => G.S.civic?.D?.id !== id && G.S.civic.info.some(([i, v]) => i === id && v.ab), ub), 15000));
 check('the Members tab says why', await until(async () => /Absent/.test(await text(A, '#asmx-p-mem .asm-ends')) && /cannot hold the chair/.test(await text(A, '#asmx-p-mem .asm-ends'))));
 await shot(A, 'members');
+
+/* ── 8b. a treaty in force names the other side with its seal ── */
+const tyId = 'nap_' + [ua, ub].sort().join('_');
+await db.doc('treaties/' + tyId).set({ reg, k: 'nap', p: [ua, ub], a: ua, b: ub, st: 'active', t: Date.now() - DAY, at: Date.now() - DAY });
+await nav(A, 'diplomacy'); await A.click('#dp-tab-treaties');
+check('a treaty in force shows the other side’s seal', await until(() => sealAt(A, '.dpt-l .dpt-n', 'Brackwater'), 15000));
+await shot(A, 'treaty-seal');
+await nav(A, 'assembly'); await A.waitForSelector('#asmx');
 
 /* ── 9. at phone width ── */
 await A.setViewportSize({ width: 390, height: 844 });
