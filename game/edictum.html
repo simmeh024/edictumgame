@@ -3642,6 +3642,12 @@ html[lang="fr"] .id-tilt{font-size:9px;letter-spacing:0}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--isl-sand:#e0b46a}}
 :root[data-theme="dark"]{--isl-sand:#e0b46a}
 .edict-isl{font:600 10.5px/1.4 var(--f-mono);padding:3px 6px;border-radius:3px;background:var(--isl-sand);color:var(--sheet);letter-spacing:.06em;text-transform:uppercase;margin-left:6px}
+/* the eight early edicts about the Moon: a moon-grey tag, “The Moon · 3 of 8” */
+:root{--mn-grey:#4f5b78}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--mn-grey:#b4bfd8}}
+:root[data-theme="dark"]{--mn-grey:#b4bfd8}
+.edict-moon{font:600 10.5px/1.4 var(--f-mono);padding:3px 6px;border-radius:3px;background:var(--mn-grey);color:var(--sheet);letter-spacing:.06em;text-transform:uppercase;margin-left:6px;white-space:nowrap}
+.edict-reading-tools .edict-moon{margin-left:-6px;margin-right:auto}
 .issue-item:has(.edict-isl) .issue-card{border-color:var(--isl-sand);box-shadow:inset 4px 0 0 var(--isl-sand);background:color-mix(in srgb,var(--isl-sand) 7%,var(--sheet))}
 .paper.edict:has(.edict-isl){border-top:5px solid var(--isl-sand)}
 .opt-isl{margin:6px 0 10px;font-size:13px;line-height:1.45;color:var(--ink-2);border-left:3px solid var(--isl-sand);padding-left:9px}
@@ -46997,6 +47003,7 @@ function tutComing(n,o){
   try{const r=tierReady(n);if(r)it.push({ic:'hammer',t:`Retool the ${BUILDINGS[r.b.k].n} in ${cityLabel(n,r.c)}`,d:'All five of its upgrades are done: at tier II they start again',btn:`<button type="button" class="linkish small" data-act="tier-city" data-id="${esc(r.c.id)}" data-k="${esc(r.b.k)}">Choose its line</button>`});}catch(e){}
   try{const w=wsOf(n);if(w&&!w.d&&w.c.length<WS_AT.length&&!(n.inbox||[]).some(x=>wsK(x.id)>=0)){const need=WS_AT[w.c.length],have=Math.min(w.e,need);
     if(have<need)it.push({ic:'mail',t:`${w.c.length?'Next':'First'} letter from Willow Street`,d:`after ${need} edicts · ${have} of ${need}`,p:have/need});}}catch(e){}
+  try{const m=mnComing(n);if(m)it.push(m);}catch(e){}
   try{const T=territory(),mi=T.byId[myId()];if(mi!==undefined){const free=Math.min(maxCities(T,mi),MAX_CITIES)-cityList(n).length;
     if(free>0&&nvxCitySite(T,mi)){if(!o.noCity)it.push({ic:'city',t:free===1?'A new city':`${free} new cities`,d:'ready to found now',go:1});}
     else if(mileOf(n).cities<MILE_CITIES){const pop=popNow(n),m=MILESTONES.find(m=>pop<m.p-1e-9&&m.city);if(m)it.push({ic:'city',t:'Another city',d:`at ${fmtPop(m.p)} people · ${fmtPop(pop)} now`,p:pop/m.p});}}}catch(e){}
@@ -92839,6 +92846,90 @@ DSP_LOG.isb={sec:'business',w:5,kick:'Land',go:'map',h:['{N} builds a land bridg
 DSP_LOG.isg={sec:'business',w:4,kick:'Land',go:'map',h:['{B} grows into the sea','{N} adds {AN} to {B}'],b:'The dredging fleet of {N} has come out of retirement to add {AN} of new land to {B}. The terns have already complained.'};
 /* the browser tests' window into the three (EDICTUM_PROBE.isd) */
 if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE.isd={ISSUES:ISD_ISSUES,AT:ISD_AT,GROW:ISD_GROW,PAY:ISD_PAY,pick:isdPick,next:isdNext,due:isdDue,isle:isdIsle,charter:isdCharter,townName:isdTownName,bridgeAt:isdBridgeAt,hexOf:isdHexOf,maxCities:()=>{const T=territory();return maxCities(T,T.byId[myId()]);}};}catch(e){}
+
+/* ───────── the Moon, seen from here: eight early edicts about the Moon (21 November 2026) ─────────
+   The owner asked for new edicts at the front of the game, so that a player finds out more about the Moon, early. Each
+   tells something true about it: the one face it shows, the tides it raises in the ground, earthshine, its slow drift
+   away, how it was born, moonquakes, the cold of its polar craters, and a piece of it that fell to Earth. The last ends
+   with that piece in the hands of the nation's nine-year-olds, just before Class 4B writes (the prelude, SPX_AT).
+   - Until the Space page is open (spOpen) they are never drawn at random (their req), and arrive in order: the first
+     not yet answered or vetoed (issLast), once the nation has enacted MN_AT[k] edicts (n.ws.e, the count the letters
+     and the prelude use). One at a time, and never straight after another (the latest decision is not one of them), so
+     a nation already past the counts meets them spaced out. A follow-up, a letter from Willow Street or the prelude
+     that is due goes first.
+   - Once the page is open they are ordinary edicts: a nation that never met them may draw them like any other.
+   - They are appended after every other edict, so no number moves (n.iseen keeps numbers). */
+const MN_AT=[1,3,6,8,12,15,18,21];
+const MN_ISSUES=[
+{id:'mn-face',c:'culture',t:'The Same Face',q:'The best-selling children’s encyclopaedia in {N} says that the Moon has a “dark side”, where the Sun never shines. The astronomers of the university observatory have written in to complain. The Moon turns exactly once for each trip it makes around the world, which is why {N} only ever sees the same face of it, but its far side gets just as much sunlight as the near side. It is dark only in the sense that nobody standing in {N} has ever seen it. The publisher says the phrase sells books, and asks the government to leave the page alone.',o:[
+ {t:'“Reprint the page, and put the far side of the Moon on the cover, in full sunlight,” says Minister of Health and Education {HEA}. “Children should learn that the Moon has a back, and that the back is not in the dark.”',e:{edu:2,sci:1,econ:-1},fx:'the children’s encyclopaedias of {N} have the far side of the Moon on the cover, in full sunlight'},
+ {t:'“Let the children see for themselves,” says amateur astronomer Wilhelmina Achterberg-Osei. “A telescope night at every school, and a prize for the first child in each class who can explain why the Moon never turns round.”',e:{edu:1,sci:1,happy:1,tax:1},fx:'every school in {N} holds a telescope night once a term, and the children can explain why the Moon never turns round'},
+ {t:'“The dark side is a figure of speech, like a broken heart,” says the Poet Laureate, Ambrose Fenwick-Darko. “Nobody corrects a love song with a stethoscope. Leave the poets their Moon.”',e:{culture:2,econ:1,edu:-1},fx:'the encyclopaedias of {N} still give the Moon a dark side, with a footnote the astronomers wrote themselves'}]},
+{id:'mn-tide',c:'nature',t:'The Ground Is Breathing',q:'The national survey office has found that its measuring posts in {CAP} rise and fall by up to a third of a metre twice a day, and so does the rest of {N}, with everybody standing on it. Nobody had noticed, because everything goes up and down together. The cause is the Moon, which pulls on the solid ground just as it pulls on the sea. At sea the tides are simply taller, and they come about fifty minutes later each day, because the Moon rises about fifty minutes later. The surveyors want to know which height the official maps should give.',o:[
+ {t:'“Measure everything at both tides and print the average,” says Surveyor General Cornelius Abernathy-Mensah. “A map should be right at lunchtime and at midnight, whatever the Moon is doing.”',e:{sci:2,cons:1,tax:1},fx:'every height on the official maps of {N} is the average of the Moon’s high tide in the ground and its low one'},
+ {t:'“Put a tide table on the back of every bus ticket,” says harbour master Ingrid Solberg-Achebe. “One for the sea and one for the ground. If the Moon is lifting the whole country, people should know when.”',e:{edu:1,happy:1,tour:1},fx:'every bus ticket in {N} carries the day’s tides, for the sea and for the ground under it'},
+ {t:'“A mountain is as high as the signpost says it is,” says Minister of Public Works {WRK}. “I am not repainting thirty thousand signposts because the Moon cannot keep still.”',e:{cons:2,econ:1,sci:-1},fx:'the signposts of {N} give the same heights as ever, whatever the Moon is doing to the ground beneath them'}]},
+{id:'mn-earthshine',c:'nature',t:'The Old Moon in the New Moon’s Arms',q:'All week a thin crescent Moon has hung over {CAP} at dusk, with the rest of its round face showing as a faint grey ghost, which country people call the old moon in the new moon’s arms. A painter worked out the reason some five hundred years ago: the dark part is lit by sunlight bouncing off the Earth. The meteorologists at the university say that this earthshine is brighter when there is more cloud over the world, so measuring it every night would tell them whether the planet is sending more sunlight back into space, or less. They would like a small telescope on a mountain.',o:[
+ {t:'“One small telescope, one mountain, every clear night for ten years,” says climatologist Dr. Henrietta Valdés-Okoro. “The Moon is a mirror held up to the whole planet. Somebody in {N} should be reading it.”',e:{sci:2,env:1,tax:1},fx:'a telescope on a mountain in {N} measures the earthshine on the Moon every clear night, to learn how much sunlight the world sends back'},
+ {t:'“Switch off the streetlights on crescent evenings, so that everybody can see it,” says Councillor Barnaby Quist of the Dark Skies League. “Half of {CAP} has never seen the old moon at all.”',e:{env:2,happy:1,safety:-1},fx:'the streetlights of {N} go out on crescent evenings, so that everybody can see the old moon in the new moon’s arms'},
+ {t:'“Make it a holiday,” says Minister of Culture {CUL}. “Lanterns, a crescent-shaped pastry and an evening off work. The scientists are welcome to come.”',e:{culture:2,happy:1,econ:-1},fx:'the Evening of the Old Moon is a {D} holiday, with lanterns and a crescent-shaped pastry'}]},
+{id:'mn-leaving',c:'tech',t:'The Moon Is Leaving',q:'“THE MOON IS LEAVING US,” said the front page of the {CAP} Evening Courier on Tuesday, and the switchboards have been busy ever since. The story is true, but slow. The Moon drifts about four centimetres further from the Earth every year, about as fast as a fingernail grows, and it has been drifting for billions of years. It was measured by firing lasers at mirrors left on the Moon by the first people to walk there: of every hundred million billion particles of light sent up, about one comes back. The university would like a laser of its own.',o:[
+ {t:'“Give us the laser,” says Professor Ottoline Haverkamp-Diallo of the university observatory. “If the Moon is going somewhere, {N} should know how far, to the millimetre, every clear night.”',e:{sci:3,tax:1,econ:-1},fx:'a {D} laser fires at the mirrors on the Moon every clear night, and catches about one particle of light in a hundred million billion'},
+ {t:'“Calm everybody down,” says Minister of Health and Education {HEA}. “One poster: the Moon is leaving at the speed of a growing fingernail, and it will still be there for your grandchildren’s grandchildren’s grandchildren.”',e:{edu:2,happy:1},fx:'posters across {N} explain that the Moon is leaving at the speed of a growing fingernail, and that nobody need pack'},
+ {t:'“Then we must give it a reason to stay,” says Mrs. Dorothea Plumtree, founder of the Society for Lunar Retention. “A song, sung to the Moon by the whole nation once a month. It has worked on my cats.”',e:{weird:3,culture:1,sci:-1},fx:'once a month the people of {N} sing to the Moon, in the hope that it will reconsider'}]},
+{id:'mn-origin',c:'culture',t:'Where the Moon Came From',q:'The National Museum in {CAP} is building a hall about the Moon, and its trustees cannot agree on the first wall. Most scientists think the Moon was born about four and a half billion years ago, when a body the size of a small planet struck the young Earth and the wreckage gathered into a ball. Moon rock and Earth rock are so alike, down to the kinds of oxygen in them, that they might be twins. The young Moon sat much closer than it does now and looked many times larger in the sky. The trustees have three drafts for the wall.',o:[
+ {t:'“Paint the collision across the whole back wall, as large as the wall allows,” says curator Dr. Magnus Ellery-Asante. “Children should walk in and see where the Moon came from: one enormous crash, then a very long tidy-up.”',e:{edu:2,sci:1,tax:1},fx:'the Moon Hall of the {D} National Museum opens with a painting of the crash that made the Moon, forty metres wide'},
+ {t:'“Put every theory ever proposed on the wall, side by side, and let the visitors vote,” says trustee Rupert Ashdown-Kariuki. “A museum should start an argument, not end one.”',e:{pol:1,happy:1,sci:-1},fx:'visitors to the {D} National Museum vote on where the Moon came from, and the great crash leads, narrowly ahead of a giant cheese'},
+ {t:'“Begin with our own story of the Moon,” says folklorist Agathe Nwosu-Lindqvist. “Our grandmothers had an account of it long before there were laboratories. The science can have the second room.”',e:{culture:2,relig:1,sci:-1},fx:'the Moon Hall of the {D} National Museum opens with the old {D} story of the Moon, and the science is in the second room'}]},
+{id:'mn-quake',c:'tech',t:'The Moon Rang Like a Bell',q:'A geophysicist at the university has found the recordings made by the instruments the first crews left on the Moon, and one of them was played on the radio. When a spacecraft that had finished its work was crashed into the Moon on purpose, the whole Moon shook for nearly an hour, ringing like a bell, because its dry, cold rock hardly muffles a tremor. The Moon has quakes of its own as well, some lasting ten minutes, and it is very slowly shrinking as its insides cool, wrinkling like a grape on its way to becoming a raisin. The recording is now the most requested piece on {D} radio.',o:[
+ {t:'“Fund a moonquake study,” says geophysicist Dr. Tobias Ferreira-Hallström. “Whoever builds on the Moon first will need to know where it shakes. Better that {N} knows before anybody else.”',e:{sci:2,safety:1,tax:1},fx:'{D} geophysicists keep a map of every moonquake ever recorded, for whoever builds on the Moon first'},
+ {t:'“Press it as a record,” says producer Lulu Marchetti-Owusu. “The Moon, ringing for nearly an hour, uncut. Every copy sold buys a telescope for a school.”',e:{culture:2,edu:1,weird:1},fx:'the recording of the ringing Moon is a {D} best-seller, and every copy sold has bought a telescope for a school'},
+ {t:'“If {N} ever builds there, it builds to quake rules,” says Minister of Public Works {WRK}. “Write the building code for the Moon now, while nobody is in a hurry.”',e:{safety:2,cons:1,econ:-1},fx:'{N} has a building code for the Moon, with a whole chapter on moonquakes and nothing yet to build'}]},
+{id:'mn-cold',c:'world',t:'Colder Than Pluto',q:'Near the Moon’s poles there are craters whose floors have not seen sunlight for billions of years. Down there, at around minus 240 degrees, are some of the coldest places ever measured around the Sun, colder than the surface of Pluto, and some of them hold ice: water, frozen in the dark, some of it perhaps since before there were fish on Earth. A {D} mining company has announced that it means to own some of it, and has begun selling shares. The foreign ministry points out that an old treaty, signed by most of the world’s nations, says that nobody may claim the Moon.',o:[
+ {t:'“Keep to the treaty, and say so out loud,” says Foreign Minister {FOR}. “The Moon belongs to nobody, and its ice belongs to whoever is thirsty there first.”',e:{pol:1,happy:1,econ:-1},fx:'{N} has declared that nobody may own the Moon, and the mining company’s shares are now collectors’ items'},
+ {t:'“Let them sell shares,” says stockbroker Maximilian Oyelaran-Voss. “Nobody may own the Moon, but nobody said a word about owning a company that hopes to.”',e:{econ:2,wealth:1,corrupt:1},fx:'shares in a {D} company that hopes one day to melt ice on the Moon change hands in {CAP}, at prices nobody can explain'},
+ {t:'“Fund the science first,” says glaciologist Dr. Signe Abara-Lindgren. “Ice that old is a diary of the whole solar system. Before anybody melts it, somebody should read it.”',e:{sci:2,edu:1,tax:1},fx:'{D} scientists are working out how to read the ancient ice of the Moon’s poles before anybody melts it'}]},
+{id:'mn-piece',c:'econ',t:'A Piece of the Moon',q:'A dealer has brought a grey stone the size of a fist to the National Museum in {CAP} and named a price. It is a piece of the Moon. A large impact blasted it off the surface long ago, and it drifted through space until it fell into a desert on Earth, where a camel herder picked it up. Only a few hundred such stones are known. Its broken face shows the dust that the Moon’s first visitors complained about: as sharp as powdered glass, it clung to everything and smelled, they said, like spent gunpowder. Gram for gram, the dealer wants several times the price of gold.',o:[
+ {t:'“Buy it, and put it where everybody can see it,” says museum director Constance Achebe-Rowntree. “There is only one Moon. The least {N} can do is own a small piece of it.”',e:{culture:2,tour:1,tax:1},fx:'a piece of the Moon is the star of the {D} National Museum, in a case that children press their noses against'},
+ {t:'“The market has set a price, and the market can pay it,” says Finance Minister {FIN}. “Let a collector buy it. The Moon is not going anywhere, apart from four centimetres a year.”',e:{econ:1,wealth:1,culture:-1},fx:'a piece of the Moon sits in a private collection in {CAP}, and the Treasury has kept its money'},
+ {t:'“Buy it, then let every child hold it,” says science teacher Ruth Mwangi-Thorsen. “Not behind glass. A thing from the Moon should be held, once, by every nine-year-old in {N}.”',e:{edu:2,sci:1,tax:1},fx:'a piece of the Moon tours the schools of {N} in a padded case, and every nine-year-old gets to hold it once'}]}];
+const mnReq=n=>spOpen(n);
+for(const is of MN_ISSUES){is.req=mnReq;ISSUES.push(is);is.no=ISSUES.length;ISSUE_BY_ID[is.id]=is;is.nbx=false;ISSUES_RANDOM.push(is);}
+const MN_N=MN_ISSUES.length,MN_IDS=MN_ISSUES.map(is=>is.id),mnK=id=>MN_IDS.indexOf(id);
+/* the Moon edict this nation waits for (its place, 0 to 7), or -1: only before the Space page opens, the first not yet
+   answered or vetoed, once the nation has enacted its count of edicts */
+function mnNext(m){
+  if(!m||m.npc||!m.name||spOpen(m,m.issueClock))return -1;
+  const seen=issLast(m),e=mcEdicts(m);
+  for(let k=0;k<MN_N;k++){if(seen.has(MN_IDS[k]))continue;return e>=MN_AT[k]?k:-1;}
+  return -1;
+}
+/* due at this slot: none of them on the desk, and the latest decision was not one of them */
+function mnDue(m){
+  const k=mnNext(m);if(k<0||(m.inbox||[]).some(x=>mnK(x.id)>=0))return -1;
+  const a=m.answered||[],last=a[a.length-1];return last&&mnK(last.id)>=0?-1:k;
+}
+nextEntry=(f=>function(m){
+  const k=mnDue(m);
+  if(k<0||wsChainDue(m)||wsDue(m)||spPreDue(m,m.issueClock))return f.apply(this,arguments);
+  return {id:MN_IDS[k],at:m.issueClock};
+})(nextEntry);
+/* the tag on the card and the edict: “The Moon · 3 of 8” */
+edictTopicBadge=(f=>function(is){const k=is?mnK(is.id):-1;return f.apply(this,arguments)+(k>=0?`<span class="edict-moon">The Moon · ${k+1} of ${MN_N}</span>`:'');})(edictTopicBadge);
+/* Coming up (tutComing): the next one, while its count is not reached */
+TUT_PATH.moon='<path d="M15.5 3.6A8.6 8.6 0 1 0 20.4 17 7 7 0 0 1 15.5 3.6z"/>';
+function mnComing(n){
+  if(!n||n.npc||spOpen(n))return null;
+  const seen=issLast(n);let k=0;while(k<MN_N&&seen.has(MN_IDS[k]))k++;
+  if(k>=MN_N||(n.inbox||[]).some(x=>mnK(x.id)>=0))return null;
+  const need=MN_AT[k],have=Math.min(mcEdicts(n),need);
+  return have<need?{ic:'moon',t:`${k?'Next':'First'} edict about the Moon`,d:`after ${need===1?'your first edict':need+' edicts'} · ${have} of ${need}`,p:have/need}:null;
+}
+/* How to play: the Space page's own section says they come first */
+{const h=HELP_EXT.find(x=>x&&x.k==='space-page');if(h&&typeof h.body==='function'){const b=h.body;
+  h.body=n=>String(b(n)).replace('Until then Space is not in the menu.</p>',`Until then Space is not in the menu.</p><p>Before it come ${MN_N} edicts about the Moon, one every few among your first ${MN_AT[MN_N-1]}, each with something true about it: the one face it shows, the tides it raises in the ground beneath you, the ice in its darkest craters. Once the page is open, any you have not met may turn up like any other edict.</p>`);}}
+/* the browser tests' window into them (EDICTUM_PROBE.mn) */
+if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE.mn={ISSUES:MN_ISSUES,AT:MN_AT,IDS:MN_IDS,next:mnNext,due:mnDue,coming:mnComing};}catch(e){}
 
 /* ───────── achievements, round five (14 November 2026): treaties, alliance pacts and projects, diplomatic gifts,
    letters and goodwill, city titles and walls, war, portraits, Mars and the belt, field digs, and moving region ─────────
