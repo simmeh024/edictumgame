@@ -100,7 +100,10 @@ try {
   check('the city’s other upgrades wait while it retools', busy === true, String(busy));
   const plan = await page.evaluate(() => { const p = window.__game.IFC().plan(window.__game.S.nation); return p ? p.works.map(w => w.t + ':' + w.k) : null; });
   check('the income forecast lists the retool', (plan || []).includes('tier:factory'), JSON.stringify(plan));
+  /* Stop asks first, saying what is lost; Stop work goes ahead */
   await page.click('[data-act="tier-stop"]'); await sleep(300);
+  check('Stop asks before losing half the materials', await page.evaluate(() => /lose half the materials/.test(document.querySelector('.stop-ask')?.textContent || '')));
+  await page.click('.stop-ask [data-stop-ok="1"]'); await sleep(300);
   b = await fac(); st = await stock();
   check('Stop gives half back and the Factory stays at gold', !b.tu && b.ug === 5 && ['timber', 'iron', 'oil', 'goods'].every(k => st[k] - (before[k] - Q.cost[k]) === Math.floor(Q.cost[k] / 2)), JSON.stringify({ b, st }));
 

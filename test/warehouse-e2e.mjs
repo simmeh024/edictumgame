@@ -30,7 +30,8 @@ check('the first upgrade charges double the base material cost',Object.entries(q
 check('capacity stays at the old tier while upgrading',await cap()===800&&(await record(cid)).wu?.l===1);
 if(await A.locator(`[data-act="ct-open"][data-id="${cid}"]`).getAttribute('aria-expanded')!=='true')await A.click(`[data-act="ct-open"][data-id="${cid}"]`);
 check('the city cannot run other construction during its upgrade',await A.locator(`#city-${cid} [data-act="ct-build"]`).count()>0&&await A.locator(`#city-${cid} [data-act="ct-build"]:not([disabled])`).count()===0);
-await A.click(`[data-act="wh-cancel"][data-id="${cid}"]`);const cancelled=await stock();
+/* Cancel asks first (it loses half the materials); Stop work goes ahead */
+await A.click(`[data-act="wh-cancel"][data-id="${cid}"]`);await A.click('.stop-ask [data-stop-ok="1"]');const cancelled=await stock();
 check('cancelling preserves the old Warehouse and refunds half the paid materials',!(await record(cid)).wu&&await cap()===800&&Object.entries(quote.cost).every(([r,v])=>Math.abs(cancelled[r]-s1[r]-Math.floor(v/2))<.3));
 let creditBaseline;
 for(let tier=1;tier<=4;tier++){
