@@ -80,6 +80,28 @@ await shot(A, 'festival');
 await tabTo(B, 'culture');
 check('12 million people allow no third seat', /alliances its people allow/.test(await text(B, '#dp-p-alliance')) && !await B.$(`.al-cards2 [data-act="dp-join"][data-id="${C}"]`));
 
+// the chat: a tab for each alliance's channel, each with its type's mark and its own count
+const tabWords = p => p.$$eval('#rgc-tabs .rgc-tab-al', l => l.map(b => [b.id, b.querySelector('.rgc-tl')?.textContent, [...(b.querySelector('svg.al-tym')?.classList || [])].find(c => /^al-tym-/.test(c)) || '']));
+await B.click('.rgc-btn'); await B.waitForSelector('#rgc-dock:not([hidden])');
+check('a member of two alliances has a tab for each, in type order, the Diplomacy page showing neither type', await until(async () => JSON.stringify(await tabWords(B)) === JSON.stringify([['rgc-tab-ally', 'IS', 'al-tym-def'], ['rgc-tab-ally-trade', 'The Amber Road', 'al-tym-trade']]), 10000), JSON.stringify(await tabWords(B)));
+check('and no switch buttons inside the channel', !(await B.$('.rgc-alsw')));
+await A.click('.rgc-btn'); await A.waitForSelector('#rgc-dock:not([hidden])');
+check('three alliances, three tabs', await until(async () => (await tabWords(A)).map(t => t[0]).join() === 'rgc-tab-ally-def,rgc-tab-ally-trade,rgc-tab-ally', 10000), JSON.stringify(await tabWords(A)));
+await A.click('#rgc-tab-ally-trade');
+check('choosing another alliance’s tab reads its channel there', await until(async () => /Only the members of The Amber Road read this channel/.test(await text(A, '#rgc-list')) && (await tabWords(A)).map(t => t[0]).join() === 'rgc-tab-ally-def,rgc-tab-ally,rgc-tab-ally-culture', 10000));
+await A.fill('#rgc-ax', 'Caravans leave at dawn.'); await A.press('#rgc-ax', 'Enter');
+check('a line in the channel not being read is counted on its own tab', await until(async () => (await text(B, '#rgc-tab-ally-trade .rgc-tn')).trim() === '1', 20000) && !(await B.$('#rgc-tab-ally .rgc-tn')));
+await B.click('#rgc-tab-ally'); await B.fill('#rgc-ax', 'A draft for the shield');
+await B.click('#rgc-tab-ally-trade');
+check('one click reads it, and its count is gone', await until(async () => /Caravans leave at dawn/.test(await text(B, '#rgc-list')) && (await text(B, '#rgc-tab-ally .rgc-tl')) === 'The Amber Road' && !(await B.$('#rgc-tabs .rgc-tab-al .rgc-tn')), 10000));
+check('each channel keeps its own draft', (await B.inputValue('#rgc-ax')) === '');
+await B.keyboard.press('ArrowLeft');
+check('the arrow keys move between the alliances’ tabs too', await until(async () => (await text(B, '#rgc-tab-ally .rgc-tl')) === 'IS' && await B.evaluate(() => document.activeElement?.id === 'rgc-tab-ally'), 6000));
+check('and the draft is back in its own channel', await until(async () => (await B.inputValue('#rgc-ax')) === 'A draft for the shield', 4000));
+await shot(B, 'chat-tabs');
+await B.fill('#rgc-ax', ''); await B.click('#rgc-dock [data-rgc="close"]'); await A.click('#rgc-dock [data-rgc="close"]');
+check('the drawers close again', await until(async () => !!(await A.$('#rgc-dock[hidden]')) && !!(await B.$('#rgc-dock[hidden]')), 4000));
+
 // the code worn in chat: one of the player's alliances
 await A.waitForSelector('.al-wear');
 await A.click(`.al-wear [data-act="dp-wear"][data-aid="${C}"]`);
@@ -109,7 +131,8 @@ check('leaving the first, the second takes the seat', await until(async () => se
 check('and the old pact passes to the remaining member', await until(async () => (await alDoc(D))?.ld?.stringValue === ub, 10000));
 
 // the nation card's four slots, and the map's layers
-check('the nation card shows a slot for each type', await A.evaluate(id => { const h = G.ALX().alStripHTML(id); return /Lyre Union/.test(h) && /Amber Road/.test(h) && /No research accord/.test(h); }, ua));
+/* the game hears of the seat moving a moment after the server: wait for it, as the checks above do */
+check('the nation card shows a slot for each type', await until(() => A.evaluate(id => { const h = G.ALX().alStripHTML(id); return /Lyre Union/.test(h) && /Amber Road/.test(h) && /No research accord/.test(h); }, ua), 10000));
 await nav(A, 'map');
 check('Map layers offer each type that has an alliance', await until(async () => /Defence pacts/.test(await text(A, 'main')) && /Cultural unions/.test(await text(A, 'main')), 8000));
 /* each box redraws the map as it is ticked: click it, then read it afresh */

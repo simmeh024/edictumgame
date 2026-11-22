@@ -1,6 +1,8 @@
 // The chat drawer's Alliance tab (19 Nov 2026): it carries the alliance's own name, and a name too long for the
 // row shows the short code that stands beside its members' names (the leader's own from the charter, else the
 // initials), with the full name kept for the tooltip and screen readers.
+// A member of several alliances (22 Nov 2026) has a tab for each one's channel, each led by its type's mark: the one
+// being read is 'ally', each other 'ally-<type>' (choosing it reads that channel instead).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -18,9 +20,10 @@ const fn = name => {
 };
 const ctx = vm.createContext({});
 vm.runInContext([grab(/const esc = v => [^\n]*/, 'esc'), grab(/const rgcTag=nm=>[^\n]*/, 'rgcTag'), grab(/const AL_TG_RE=[^\n]*/, 'AL_TG_RE'), grab(/const alCode=[^\n]*/, 'alCode'),
-  grab(/const RGC_AL_MAX=\d+;/, 'RGC_AL_MAX'), fn('rgcTabLabel'),
-  'this.rgcTabLabel=rgcTabLabel;this.RGC_AL_MAX=RGC_AL_MAX;'].join('\n'), ctx);
-const { rgcTabLabel, RGC_AL_MAX } = ctx;
+  grab(/const AL_TY_UI=\{[\s\S]*?\n\};/, 'AL_TY_UI'), fn('alTyMark'), fn('rgcIsAl'),
+  grab(/const RGC_AL_MAX=\d+;/, 'RGC_AL_MAX'), fn('rgcTabLabel'), fn('rgcTabs'),
+  'this.rgcTabLabel=rgcTabLabel;this.RGC_AL_MAX=RGC_AL_MAX;this.rgcTabs=rgcTabs;'].join('\n'), ctx);
+const { rgcTabLabel, RGC_AL_MAX, rgcTabs } = ctx;
 const shown = h => h.match(/<span class="rgc-tl"[^>]*>([^<]*)<\/span>/)[1];
 
 test('the other tabs keep their own labels', () => {
@@ -64,4 +67,34 @@ test('the name is escaped', () => {
 
 test('an empty name falls back to Alliance', () => {
   assert.equal(shown(rgcTabLabel('ally', '')), 'Alliance');
+});
+
+test('with two or more alliances, each tab leads with its type’s mark, its type in the tooltip and for screen readers', () => {
+  const h = rgcTabLabel('ally-trade', 'The Amber Road', '', 'trade');
+  assert.equal(shown(h), 'The Amber Road');
+  assert.match(h, /^<svg class="al-tym al-tym-trade"[^>]*aria-hidden="true"/, 'the mark comes first, hidden from screen readers');
+  assert.match(h, /title="The Amber Road · trade bloc chat"/);
+  assert.match(h, /<span class="u-sr">, trade bloc<\/span>$/);
+  const long = rgcTabLabel('ally', 'Meridian Research Institute', 'MRI', 'research');
+  assert.equal(shown(long), 'MRI', 'a long name still shows its code');
+  assert.match(long, /al-tym-research/);
+  assert.match(long, /<span class="u-sr" data-no-tr="">Meridian Research Institute<\/span><span class="u-sr">, research accord<\/span>$/);
+  assert.doesNotMatch(rgcTabLabel('ally', 'The Chat Pact'), /<svg/, 'one alliance: no mark');
+});
+
+/* rgcTabs with the page's pieces stood in for */
+const tabsWith = (al, cur) => {
+  Object.assign(ctx, { RGS: [], rgsOn: () => false, rgcAllyOn: () => al.find(B => B.id === cur) || null, rgcAllyAll: () => al.map(B => ({ ...B })) });
+  return rgcTabs().map(t => [t[0], t[1], t[3] || '']);
+};
+const CON = { id: 'a1', ty: 'def', name: 'Confederation', doc: {} }, MRI = { id: 'a2', ty: 'research', name: 'Meridian Research Institute', doc: { tg: 'MRI' } };
+
+test('a tab for each alliance, in type order: the one being read is the Alliance tab', () => {
+  assert.equal(JSON.stringify(tabsWith([CON, MRI], 'a2')), JSON.stringify([['region', 'Region', ''], ['ally-def', 'Confederation', 'def'], ['ally', 'Meridian Research Institute', 'research'], ['haps', 'Happenings', '']]));
+  assert.equal(JSON.stringify(tabsWith([CON, MRI], 'a1').map(t => t[0])), JSON.stringify(['region', 'ally', 'ally-research', 'haps']), 'reading the other: the keys swap, the order stays');
+});
+
+test('one alliance: one Alliance tab, no mark; none: no alliance tab', () => {
+  assert.equal(JSON.stringify(tabsWith([CON], 'a1')), JSON.stringify([['region', 'Region', ''], ['ally', 'Confederation', ''], ['haps', 'Happenings', '']]));
+  assert.equal(JSON.stringify(tabsWith([], '').map(t => t[0])), JSON.stringify(['region', 'haps']));
 });
