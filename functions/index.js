@@ -101,7 +101,7 @@ const isId = v => typeof v === 'string' && /^[\w-]{1,128}$/.test(v);
    and veterans in the reserve as the record has them (milReady, functions/war-rules.js) */
 function readiness(state, pol, now, drills, mil) {
   const m = mil || { cut: 0, extra: 0 };
-  const max = READY_BASE + (pol.reservists ? 2 : 0) + m.extra + SLACK, ms = milMs(trReadyMs((pol.rapidMobilisation ? 10 : 15) * 60000, drills || 0), m.cut);
+  const max = READY_BASE + (pol.reservists ? 2 : 0) + m.extra + SLACK, ms = milMs(milMs(trReadyMs((pol.rapidMobilisation ? 10 : 15) * 60000, drills || 0), m.rcut || 0), m.cut);
   if (!Number.isInteger(state.r) || typeof state.at !== 'number') return { r: max, max, ms, g: 0, at: now };
   const g = Math.max(0, Math.floor((now - state.at) / ms));
   return { r: Math.min(max, state.r + g), max, ms, g, at: state.at };

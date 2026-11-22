@@ -1,3 +1,4 @@
+import { rsWar } from './research-rules.js';
 /* War, round two (game/edictum.html, "war, round two"): what the referee (functions/index.js) reads in two nations'
    records, kept apart so the tests can run it (test/war-round-two.test.mjs). SIEGE_MS, SIEGE_MAX and PEACE_AUTO_MS
    match the game's. */
@@ -45,11 +46,13 @@ export function milBlocks(rec, k, now) {
   }
   return best;
 }
-/* {cut, extra}: the share by which a point returns sooner, and the points held beyond the rest */
+/* {cut, extra, rcut}: the share by which a point returns sooner, the points held beyond the rest, and the share
+   research takes off a point's time before the Drill Ground's cut (the game's readyMs wrappers run in that order:
+   functions/research-rules.js rsWar) */
 export function milReady(rec, now) {
   const d = milBlocks(rec, 'drillyard', now), a = milBlocks(rec, 'armoury', now), v = rec && rec.vet;
-  const vet = !!v && v.k === 'res' && num(v.t) <= now && num(v.u) > now;
-  return { cut: d >= 0 ? MIL_DRILL + MIL_DRILL_UG * d : 0, extra: (a >= 5 ? 2 : a >= 0 ? 1 : 0) + (vet ? 1 : 0) };
+  const vet = !!v && v.k === 'res' && num(v.t) <= now && num(v.u) > now, rs = rsWar(rec);
+  return { cut: d >= 0 ? MIL_DRILL + MIL_DRILL_UG * d : 0, extra: (a >= 5 ? 2 : a >= 0 ? 1 : 0) + (vet ? 1 : 0) + rs.extra, rcut: rs.rcut };
 }
 /* a point's time with the cut, rounded as the game rounds it (after a training pact's) */
 export const milMs = (ms, cut) => cut > 0 ? Math.round(ms * (1 - cut)) : ms;

@@ -26,6 +26,15 @@ const ASM_CATS={
   holiday:{n:'A public holiday',m:{happy:2,econ:-1},s:{happy:3,culture:1,econ:-2},p:'holidayEntitlement'},
   metric:{n:'Metric everything',m:{sci:1,weird:-1},s:{sci:2,edu:1,weird:2,cons:-1},p:'decimalTime'},
   health:{n:'Public health',m:{health:2,happy:-1},s:{health:3,happy:-1,tax:1,b:{health:1}},p:'junkFoodTax'},
+  /* the scientific conventions of the National Research Programme: proposed only by a nation that has researched their
+     technology (rsAsmOk, near the end); passed strong, each makes its law */
+  healthcoop:{n:'International health cooperation',m:{health:1},s:{health:2,happy:1},p:'healthCoop'},
+  sciex:{n:'Scientific exchange',m:{sci:1,edu:1},s:{sci:2,edu:1},p:'sciExchange'},
+  standards:{n:'Trade standardisation',m:{econ:1},s:{econ:2,wealth:1},p:'tradeStandards'},
+  natcon:{n:'Environmental protection',m:{env:2},s:{env:3,econ:-1},p:'natureConvention'},
+  resfund:{n:'International research funding',m:{sci:1,tax:1},s:{sci:2,tax:1},p:'researchFund'},
+  nuclear:{n:'Nuclear safety',m:{safety:1},s:{safety:2,env:1},p:'nuclearSafety'},
+  armsctl:{n:'Arms control',m:{mil:-1,safety:1},s:{mil:-2,safety:1,happy:1},p:'armsControl'},
   /* two that name one nation of the region instead (tg: c commends it, x condemns it): no effect on the members, never
      in the rulebook; a passed one marks the nation named for a week (asmMarks) */
   commend:{n:'A commendation',m:{},s:{},tg:'c'},
