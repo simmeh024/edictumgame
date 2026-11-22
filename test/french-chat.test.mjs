@@ -50,7 +50,7 @@ test('each shared chat says the same things, the French chat in French when the 
 });
 
 test('the drawer, the settings, the bell and the admin portal all know the French chat', () => {
-  assert.match(html, /function rgcTabs\(\)\{const t=\[\['region','Region'\]\];for\(const C of RGS\)if\(rgsOn\(C\)\)t\.push\(\[C\.reg,C\.tx\(\)\.tab\]\)/);
+  assert.match(html, /function rgcTabs\(\)\{\s*const t=\[\['region','Region'\]\];for\(const C of RGS\)if\(rgsOn\(C\)\)t\.push\(\[C\.reg,C\.tx\(\)\.tab\]\)/);
   assert.match(html, /<section class="sg-card" id="set-chat-fr">/);
   assert.match(html, /data-rgc="set-fr"\$\{rgfWant\(n\)\?' checked':''\}/);
   assert.match(html, /if\(x\.rf===0\|\|x\.rf===1\)r\.rf=x\.rf;/, 'dmxClean keeps the choice');

@@ -81,7 +81,11 @@ after a leader changes it asked to leave one, and each type to feel and look dif
   flask) and its titles (Marshal and Commander, Steward and Factor, Patron and Curator, Chancellor and Fellow). The
   Alliance tab has four type tabs; each alliance's pages carry its type's look (steel band, ledger rules, ornate frame,
   blueprint grid). The nation card shows four slots. Chat and the board show the code of the alliance the player
-  wears (`alWear`, `n.alw`), with its type's mark (`al.y` on world chat lines and board profiles). Map layers draw
+  wears (`alWear`, `n.alw`), with its type's mark (`al.y` on world chat lines and board profiles). The chat drawer
+  has a tab for each of the player's alliances' channels, in type order, each led by its type's mark when there are
+  two or more: the one being read is `ally` (`AL.chat`), each other `ally-<type>`, and choosing one reads it instead
+  (`AL.cty`, kept in this browser as `edictum.rgc.aty`). The others' newest lines are heard too (`AL.bg`), so each
+  tab, each type on the Alliance tab and the Chat button count what is new, and each channel keeps its own draft. Map layers draw
   each type its own way (defence outlines, trade routes, a culture wash, a research network). The Region page ranks
   alliances by type, and the admin Alliances page filters by type.
 - **From before.** Existing alliances keep their type and members; the computer alliances are defence pacts.
