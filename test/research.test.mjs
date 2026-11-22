@@ -261,11 +261,16 @@ test('the currency job reads research as the game does', () => {
   assert.deepEqual(E.researchOf({}, true), { fx: 0, cf: 0 });
 });
 
+test('the laboratory’s five stages: hours of works 3, 6, 9, 12 and 6 for the inauguration', () => {
+  const L = cut('const RS_LAB=[', '\n/* the institutions');
+  assert.deepEqual([...L.matchAll(/\},(\d+(?:\.\d+)?)\]/g)].map(m => +m[1]), [3, 6, 9, 12, 6]);
+});
+
 test('the petition, the letters and the edicts research brings', () => {
   const disc = cut('const RS_DISC={', '\nconst RS_DISC_FX=');
   for (const f of ['rep', 'crn', 'imp', 'sul', 'the', 'peo', 'col', 'bor']) assert.match(disc, new RegExp(`\\n  ${f}:\\{q:'`), 'a version for ' + f);
   assert.equal((disc.match(/“[^”]+,” says /g) || []).length, 24, 'three answers each, in the house style');
-  assert.match(SEC, /const RS_AT=75,RS_AGAIN=5,RS_ID='rs-discovery'/);
+  assert.match(SEC, /const RS_AT=60,RS_AGAIN=5,RS_ID='rs-discovery'/);
   assert.match(SEC, /ISSUES\.push\(\{id:RS_ID,c:'tech',fo:1,rsx:1,t:'A Nation of Discovery'/);
   const L = cut('const RS_LETTERS=[', '\nfor(const L of RS_LETTERS)'), ids = [...L.matchAll(/\{id:'(rsl-[a-z-]+)'/g)].map(m => m[1]);
   assert.equal(ids.length, 12);assert.equal(new Set(ids).size, 12);

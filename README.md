@@ -198,7 +198,7 @@ sit in its own record (`n.wnd`, region, amounts, highest phase seen complete), a
 Computer nations take no part, and a finished phase stays finished. Six edicts (`WND_ISSUES`) arrive as it rises,
 and contributors to a finished statue earn the epithet "the Patron".
 
-**The National Research Programme.** After 75 enacted edicts a nation's scientists petition for a National Research
+**The National Research Programme.** After 60 enacted edicts a nation's scientists petition for a National Research
 Laboratory (the gold-bordered edict "A Nation of Discovery", in its type of state's words; vetoed, it comes back five
 edicts later). Its three answers are three sites on a map (the university quarter, the coast, the hills, each with its
 own advantage); the player may pick any other hex of that kind within the borders, names it and its director, and
@@ -1224,9 +1224,9 @@ sign-ins, desktop against phone, and a table of the regions. The page is in tabs
 **Nations**, **Players**, **Content**, **Research**, **Regions** and **Operations** (arrow keys move between them).
 
 **Research** follows the National Research Programme (`functions/stats-research.js`; see
-[docs/research.md](docs/research.md#admin-statistics)): where every nation stands now (short of the 75th edict,
+[docs/research.md](docs/research.md#admin-statistics)): where every nation stands now (short of the 60th edict,
 petition set aside or due, a site to choose, building, at work, held by an enemy, destroyed, rebuilding), the
-journey step by step from the 75th edict to the 360th technology, this month's players nearest the petition and
+journey step by step from the 60th edict to the 360th technology, this month's players nearest the petition and
 those waiting between it and an open laboratory, the sites, stages and institutions, technologies and eras, each
 track, discoveries, petitions and inaugurations day by day, the most and least researched technologies, credits,
 Grand Challenges, research laws, dilemma and letter answers, licences, pledges, laboratories lost or destroyed, the

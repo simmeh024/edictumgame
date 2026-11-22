@@ -61106,7 +61106,7 @@ const ST_GLOSSARY={
   world:'The Statistics page for all regions (functions/stats.js summarize). more = content use, regions and social, operations (functions/stats-more.js).',
   regions:'The same page for each region, keyed by region id.',
   shop:'The Shop statistics page (functions/shop-stats.js). Money in each currency\'s smallest unit (cents). timing = how long buyers had played before their first purchase.',
-  nations:'One row per nation: population (millions), founded, lastActive, decided (edicts decided in all), decided14d, daysPlayed14d, engagement (0-100), features it uses now, edictsInForce, achievements, research (the National Research Programme: ph where it stands — early (under 75 enacted edicts), vetoed, due, site, building, open, lost (its hex held by an enemy), ruined, rebuild; e enacted edicts; o site (0 university quarter, 1 coast, 2 hills); st stages built of 5; l institution 0-8; n technologies of 360; tk per track (Trade, Growth, War); tt highest complete tier per track; re/sp/bal credits earned, spent, unspent; a petition granted, ft placed, i inaugurated, lo lost since, rz ruined at; q tracks with a study under way; ch Grand Challenges; lc/lr licences taken/granted; ap/apq alliance pledges and credits; last discovery; d30 discoveries in 30 days).',
+  nations:'One row per nation: population (millions), founded, lastActive, decided (edicts decided in all), decided14d, daysPlayed14d, engagement (0-100), features it uses now, edictsInForce, achievements, research (the National Research Programme: ph where it stands — early (under 60 enacted edicts), vetoed, due, site, building, open, lost (its hex held by an enemy), ruined, rebuild; e enacted edicts; o site (0 university quarter, 1 coast, 2 hills); st stages built of 5; l institution 0-8; n technologies of 360; tk per track (Trade, Growth, War); tt highest complete tier per track; re/sp/bal credits earned, spent, unspent; a petition granted, ft placed, i inaugurated, lo lost since, rz ruined at; q tracks with a study under way; ch Grand Challenges; lc/lr licences taken/granted; ap/apq alliance pledges and credits; last discovery; d30 discoveries in 30 days).',
   research:'world.rs and regions.*.rs: the Research tab (functions/stats-research.js). phase/phase30 = nations by where they stand (all / active in 30 days); steps = nations that reached each step (RS_STEPS); per = nations that researched each technology, by index (labels.technologies).',
   labels:'Readable names for edict, achievement and feature ids.',
 };
@@ -97796,7 +97796,7 @@ document.addEventListener('click',e=>{
 
 /* ───────── the National Research Programme (22 November 2026) ─────────
    A long programme for the middle and the end of the game, tying the rest of Edictum together (docs/research.md).
-   - The unlock: after 75 enacted edicts (mcEdicts) the nation's scientists petition the government (the gold-bordered
+   - The unlock: after 60 enacted edicts (mcEdicts) the nation's scientists petition the government (the gold-bordered
      edict "A Nation of Discovery", rs-discovery, in each type of state's words). Vetoed, it comes back after five more.
      Answered, the Research page opens: the player picks a city for the National Research Laboratory, names it and its
      scientific director (a portrait from Customise › Portraits' pieces), and builds it in five stages (RS_LAB).
@@ -98365,10 +98365,10 @@ function rsAccrue(n,now){
 
 /* ── the laboratory: five stages, then eight institutions ── */
 const RS_LAB=[
-  ['Site preparation','Surveyors stake out the site, the old warehouse comes down, and the neighbours are promised it will be quiet. It will not be.',{timber:30,food:20},6],
-  ['Foundations and infrastructure','Foundations, drains, a power line and a road wide enough for a lorry full of glassware.',{timber:50,iron:25,goods:15},12],
-  ['Research facilities','Laboratories, a library, a workshop, and a corridor long enough for a proper argument.',{timber:40,iron:40,goods:40},18],
-  ['Scientific equipment and recruitment','Microscopes, balances, a furnace, and forty scientists lured from the universities with the promise of a car park.',{iron:30,goods:60,oil:15,food:30},24],
+  ['Site preparation','Surveyors stake out the site, the old warehouse comes down, and the neighbours are promised it will be quiet. It will not be.',{timber:30,food:20},3],
+  ['Foundations and infrastructure','Foundations, drains, a power line and a road wide enough for a lorry full of glassware.',{timber:50,iron:25,goods:15},6],
+  ['Research facilities','Laboratories, a library, a workshop, and a corridor long enough for a proper argument.',{timber:40,iron:40,goods:40},9],
+  ['Scientific equipment and recruitment','Microscopes, balances, a furnace, and forty scientists lured from the universities with the promise of a car park.',{iron:30,goods:60,oil:15,food:30},12],
   ['Inauguration','A ribbon, a brass band, a speech that runs long, and the first experiment, which works.',{food:80,goods:40},6]];
 /* the institutions: [name for a republic, what it adds, stages [name, materials, hours]]. Level 4, the Grand Academy,
    is also the Grand Challenge of tier XVI. Names follow the type of state (rsInstName) */
@@ -98582,8 +98582,8 @@ function rsMandate(k,arg){
   commit(n);toast(msg);render();
 }
 
-/* ── the petition: "A Nation of Discovery", in each type of state's words (fdFam), after 75 enacted edicts ── */
-const RS_AT=75,RS_AGAIN=5,RS_ID='rs-discovery';
+/* ── the petition: "A Nation of Discovery", in each type of state's words (fdFam), after 60 enacted edicts ── */
+const RS_AT=60,RS_AGAIN=5,RS_ID='rs-discovery';
 const RS_DISC={
   rep:{q:'Forty-one professors, two very nearly famous chemists and the whole staff of the {CAP} Polytechnic have petitioned the Senate. {N}, they write, has the minds but not the means: give them a National Research Laboratory, with a building, a budget and a director, and they will give the republic its future. They have marked three possible sites on a map, and the Senate is asked to choose one.',
     o:['“Build it in the university quarter, beside the lecture halls,” says Dr. Ishaan Okonkwo-Reyes of the Academic Senate. “Every student who walks past is a scientist we have not hired yet.”',
@@ -98625,7 +98625,7 @@ ISSUES.push({id:RS_ID,c:'tech',fo:1,rsx:1,t:'A Nation of Discovery',q:'{RSQ}',o:
 fill=(f=>function(t,n,x){
   if(typeof t==='string'&&n&&t.indexOf('{RS')>=0){const T=RS_DISC[fdFam(n)]||RS_DISC.rep;t=t.replace(/\{RS(Q|[123]|X[123])\}/g,(m,k)=>k==='Q'?T.q:k[0]==='X'?RS_DISC_FX[+k[1]-1]:T.o[+k-1]);}
   return f.call(this,t,n,x);})(fill);
-/* due: the petition, once 75 edicts are enacted and no laboratory is founded; after a veto, five more first */
+/* due: the petition, once RS_AT edicts are enacted and no laboratory is founded; after a veto, five more first */
 function rsDue(n){
   if(!n||n.npc||!(n.founded>0)||rsOf(n)||OBS)return false;
   const e=mcEdicts(n),dv=n.nrx&&Number.isInteger(n.nrx.dv)?n.nrx.dv:-1;
@@ -99858,16 +99858,16 @@ if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE.rs={RS,RS_B
 
 /* ── the admin's Statistics › Research tab (functions/stats-research.js): where nations stand on the way to the
    laboratory, and what they research. Counted on the server from every record (d.rs); names here from the catalogue ── */
-const ST_RS_PH={early:['Not yet at 75 enacted edicts','no petition yet'],vetoed:['Set the petition aside','it comes back five enacted edicts later'],
+const ST_RS_PH={early:[`Not yet at ${RS_AT} enacted edicts`,'no petition yet'],vetoed:['Set the petition aside','it comes back five enacted edicts later'],
   due:['Petition due','on the desk, or coming with the next edicts'],site:['Petition granted','the laboratory’s site not yet chosen'],
   building:['Building the laboratory','stages I to V'],open:['Laboratory at work','researching'],lost:['Laboratory held by an enemy','research kept, none done'],
   ruined:['Laboratory destroyed or left behind','to be rebuilt on a new site'],rebuild:['Rebuilding the laboratory','research resumes once it reopens']};
 const ST_RS_ORDER=['early','vetoed','due','site','building','open','lost','ruined','rebuild'];
 const ST_RS_SHORT={site:'Choosing a site',building:'Building',open:'At work',lost:'Held by an enemy',ruined:'Destroyed or left',rebuild:'Rebuilding'};
-const stRsStep=k=>({e75:'Enacted 75 edicts',granted:'Granted the scientists’ petition',placed:'Chose a site and began to build',open:'Inaugurated the laboratory',
+const stRsStep=k=>({ready:`Enacted ${RS_AT} edicts`,granted:'Granted the scientists’ petition',placed:'Chose a site and began to build',open:'Inaugurated the laboratory',
   d1:'Made a first discovery',tier5:'Reached Tier V (studies of some hours begin)',n50:'Researched 50 technologies',n100:'Researched 100 technologies',
   n200:'Researched 200 technologies',n300:'Researched 300 technologies',n360:'Researched all 360'})[k]||(/^st[1-4]$/.test(k)?`Finished stage ${roman(+k[2])}: ${RS_LAB[+k[2]-1][0].toLowerCase()}`:k);
-const ST_RS_STEPS=['e75','granted','placed','st1','st2','st3','st4','open','d1','tier5','n50','n100','n200','n300','n360'];
+const ST_RS_STEPS=['ready','granted','placed','st1','st2','st3','st4','open','d1','tier5','n50','n100','n200','n300','n360'];
 Object.assign(ADMST,{rsph:''});
 const stRsInst=l=>cap1(RS_INST[l]?RS_INST[l][0].replace(/^the /,''):'Level '+(l+1));
 const stRsTech=j=>{const r=RS[j];return r?`${esc(r.n)} <span class="hint">${esc(RS_TRACKS[r.k].n)}, Tier ${roman(r.t)}${r.s===0?', milestone':''}</span>`:`#${j}`;};
@@ -99886,12 +99886,12 @@ function stResearch(d){
   const P=X.programmes,opened=X.levels.reduce((s,v)=>s+v,0),building=X.stages.reduce((s,v)=>s+v,0),sum=a=>a.reduce((s,v)=>s+v,0);
   /* where nations stand now: this month's players, with every nation beside them */
   const phases=`<div class="adst-rows">${ST_RS_ORDER.map(k=>stBar(`${esc(ST_RS_PH[k][0])} <span class="hint">${esc(ST_RS_PH[k][1])}</span>`,X.phase30[k]||0,X.active30,` · ${stN(X.phase[k]||0)} in all`)).join('')}</div>`;
-  /* the journey, as a share of the nations past the 75th edict */
-  const journey=`<div class="adst-rows">${ST_RS_STEPS.map(k=>stBar(esc(stRsStep(k)),X.steps[k]||0,k==='e75'?X.nations:X.steps.e75,` · ${stN(X.steps30[k]||0)} active`)).join('')}</div>
-    <p class="hint">The first bar is a share of every nation; the rest are shares of the ${stN(X.steps.e75)} past the 75th edict, and “active” counts those who played this month. A step counts once reached, so a laboratory since lost or destroyed still counts as built.
+  /* the journey, as a share of the nations past the petition's edict (RS_AT) */
+  const journey=`<div class="adst-rows">${ST_RS_STEPS.map(k=>stBar(esc(stRsStep(k)),X.steps[k]||0,k==='ready'?X.nations:X.steps.ready,` · ${stN(X.steps30[k]||0)} active`)).join('')}</div>
+    <p class="hint">The first bar is a share of every nation; the rest are shares of the ${stN(X.steps.ready)} past the ${RS_AT}th edict, and “active” counts those who played this month. A step counts once reached, so a laboratory since lost or destroyed still counts as built.
     ${X.timing.toOpenN?` From the petition granted to the laboratory open took ${stRsHours(X.timing.toOpenH)} (the median of ${stN(X.timing.toOpenN)}).`:''}${X.timing.toPetitionN?` Nations were granted the petition ${stN(Math.round(X.timing.toPetitionD))} days after their founding (the median of ${stN(X.timing.toPetitionN)}).`:''}</p>`;
   const approach=`<div class="adst-rows">${X.approach.map(b=>stBar(`${b.a} to ${b.b} enacted edicts`,b.n,(X.phase30.early||0))).join('')}</div>`;
-  const next=X.next.length?stTbl([['Nation'],...(all?[['Region']]:[]),['Enacted edicts',1],['Last active']],X.next.slice(0,10).map(x=>`<tr><td>${stNatBtn(x.id,x.name)}</td>${all?`<td>${esc(regName(x.reg))}</td>`:''}<td class="num">${stN(x.e)} <span class="hint">of 75</span></td><td>${esc(rel(x.t))}</td></tr>`)):'<p class="hint">No player this month is short of the petition.</p>';
+  const next=X.next.length?stTbl([['Nation'],...(all?[['Region']]:[]),['Enacted edicts',1],['Last active']],X.next.slice(0,10).map(x=>`<tr><td>${stNatBtn(x.id,x.name)}</td>${all?`<td>${esc(regName(x.reg))}</td>`:''}<td class="num">${stN(x.e)} <span class="hint">of ${RS_AT}</span></td><td>${esc(rel(x.t))}</td></tr>`)):'<p class="hint">No player this month is short of the petition.</p>';
   const stuck=X.stuck.length?stTbl([['Nation'],...(all?[['Region']]:[]),['Where'],['Since'],['Last active']],X.stuck.map(x=>`<tr><td>${stNatBtn(x.id,x.name)}</td>${all?`<td>${esc(regName(x.reg))}</td>`:''}<td>${esc(ST_RS_PH[x.ph]?ST_RS_PH[x.ph][0]:x.ph)}${x.ph==='building'?` <span class="hint">stage ${roman(Math.min(5,x.st+1))} of 5</span>`:''}${x.ph==='due'?` <span class="hint">${x.desk?'on the desk':'with the next edicts'}</span>`:''}${x.ph==='vetoed'?` <span class="hint">${stN(x.e)} enacted</span>`:''}</td><td>${x.a?esc(rel(x.a)):'–'}</td><td>${esc(rel(x.t))}</td></tr>`)):'<p class="hint">No player this month is waiting between the petition and an open laboratory.</p>';
   /* the laboratories */
   const labs=`<div class="adst-rsl">
@@ -99919,16 +99919,16 @@ function stResearch(d){
   const list=`<div class="adst-pick adst-nfilt"><div class="field"><label for="st-rsph">Where they stand</label><select class="input" id="st-rsph"><option value="">Every programme</option>${ST_RS_ORDER.filter(k=>!['early','vetoed','due'].includes(k)).map(k=>`<option value="${k}"${k===ph?' selected':''}>${esc(ST_RS_PH[k][0])} (${stN(X.phase[k]||0)})</option>`).join('')}</select></div></div>
     ${L.length?`<div class="adst-rstbl">`+stTbl([['Nation'],...(all?[['Region']]:[]),['Where'],['Technologies',1],['Tiers <span class="hint">Trade · Growth · War</span>'],['Institution',1],['Site'],['Credits',1],['This week',1],['Last discovery']],L.map(x=>`<tr><td>${stNatBtn(x.id,x.name)}</td>${all?`<td class="rs-nw">${esc(regName(x.reg))}</td>`:''}<td>${esc(ST_RS_SHORT[x.ph]||x.ph)}${x.ph==='building'||x.ph==='rebuild'?` <span class="hint">stage ${roman(Math.min(5,x.st+1))}</span>`:''}${x.lo?` <span class="hint">since ${esc(rel(x.lo))}</span>`:''}</td><td class="num">${stN(x.n)}</td><td class="rs-tt">${x.tt.map(t=>t?roman(t):'–').join(' · ')}</td><td class="num">${x.i?`<span data-tip="${esc(stRsInst(x.l))}">${roman(x.l+1)}</span>`:'<span class="hint">–</span>'}</td><td>${RS_SITES[x.o]?esc(RS_SITES[x.o].n.replace(/^The /,'')):'–'}</td><td class="num">${x.i?stN(x.bal):'–'}</td><td class="num">${stN(x.d7)}</td><td>${x.last?esc(rel(x.last)):'–'}</td></tr>`))+'</div>':'<p class="hint">No programme stands there.</p>'}
     ${X.programmes>X.list.length?`<p class="hint">The ${stN(X.list.length)} furthest on of ${stN(X.programmes)}.</p>`:''}`;
-  const regs=all&&X.regs?stTbl([['Region'],['Nations',1],['Past 75 edicts',1],['Petitions granted',1],['Laboratories opened',1],['Lost or destroyed',1],['Technologies',1],['Most by one nation',1]],Object.entries(X.regs).sort((a,b)=>b[1].granted-a[1].granted||b[1].e75-a[1].e75).map(([r,g])=>`<tr><td><button type="button" class="linkish" data-act="st-reg" data-v="${esc(r)}">${esc(regName(r))}</button></td><td class="num">${stN(g.nations)}</td><td class="num">${stN(g.e75)}</td><td class="num">${stN(g.granted)}</td><td class="num">${stN(g.open)}</td><td class="num">${stN(g.lost)}</td><td class="num">${stN(g.techs)}</td><td class="num">${stN(g.best)}</td></tr>`)):'';
+  const regs=all&&X.regs?stTbl([['Region'],['Nations',1],[`Past ${RS_AT} edicts`,1],['Petitions granted',1],['Laboratories opened',1],['Lost or destroyed',1],['Technologies',1],['Most by one nation',1]],Object.entries(X.regs).sort((a,b)=>b[1].granted-a[1].granted||b[1].ready-a[1].ready).map(([r,g])=>`<tr><td><button type="button" class="linkish" data-act="st-reg" data-v="${esc(r)}">${esc(regName(r))}</button></td><td class="num">${stN(g.nations)}</td><td class="num">${stN(g.ready)}</td><td class="num">${stN(g.granted)}</td><td class="num">${stN(g.open)}</td><td class="num">${stN(g.lost)}</td><td class="num">${stN(g.techs)}</td><td class="num">${stN(g.best)}</td></tr>`)):'';
   return `<div class="adm-kpis">
-      ${kpi(X.steps.e75,'nations past 75 enacted edicts, where the petition comes')}${kpi(P,`petitions granted · ${stN(X.phase.vetoed||0)} set aside now`)}
+      ${kpi(X.steps.ready,`nations past ${RS_AT} enacted edicts, where the petition comes`)}${kpi(P,`petitions granted · ${stN(X.phase.vetoed||0)} set aside now`)}
       ${kpi(X.phase.open||0,`laboratories at work${building?` · ${stN(building)} being built`:''}`)}${kpi(X.d7,`discoveries this week, by ${stN(X.r7)} ${X.r7===1?'nation':'nations'}`)}
       ${kpi(X.medOpen,'technologies, the median of opened laboratories')}${kpi(X.list.length?X.list[0].n:0,'technologies, the most by one nation')}
     </div>
     ${stSec('Where nations stand',`Now, for the ${stN(X.active30)} nations active this month (30 days); “in all” counts dormant nations too. A laboratory counts as held by an enemy as its owner’s game last saw the map.`,phases)}
-    ${stSec('The journey','How far nations have come, step by step, from the 75th edict to the last technology.',journey)}
-    ${stSec('On the way to the petition',`This month’s ${stN(X.phase30.early||0)} players with fewer than 75 enacted edicts, by how many they have enacted, and the nearest.`,`${approach}<h3 class="help-h3">The ten nearest</h3>${next}`)}
-    ${stSec('Waiting','This month’s players between the 75th edict and an open laboratory, the longest waiting first: a petition due or set aside, a site to choose, a laboratory going up.',stuck)}
+    ${stSec('The journey',`How far nations have come, step by step, from the ${RS_AT}th edict to the last technology.`,journey)}
+    ${stSec('On the way to the petition',`This month’s ${stN(X.phase30.early||0)} players with fewer than ${RS_AT} enacted edicts, by how many they have enacted, and the nearest.`,`${approach}<h3 class="help-h3">The ten nearest</h3>${next}`)}
+    ${stSec('Waiting',`This month’s players between the ${RS_AT}th edict and an open laboratory, the longest waiting first: a petition due or set aside, a site to choose, a laboratory going up.`,stuck)}
     ${stSec('The laboratories','',labs)}
     ${stSec('The research','',research)}
     ${stSec('Research Credits','',credits)}
@@ -99949,7 +99949,7 @@ function stResearch(d){
 /* one nation's research, on its panel in the Nations tab */
 function stRsLine(r){
   if(!r)return '';const ph=ST_RS_PH[r.ph]?ST_RS_PH[r.ph][0]:r.ph;
-  if(!r.a)return `<p class="hint adst-rs">Research: ${esc(ph)} <span class="hint">(${stN(r.e)} of 75 enacted edicts${r.dv>=0?`; set aside at ${stN(r.dv)}`:''})</span></p>`;
+  if(!r.a)return `<p class="hint adst-rs">Research: ${esc(ph)} <span class="hint">(${stN(r.e)} of ${RS_AT} enacted edicts${r.dv>=0?`; set aside at ${stN(r.dv)}`:''})</span></p>`;
   return `<p class="hint adst-rs">Research: ${esc(ph)}${r.ph==='building'||r.ph==='rebuild'?`, stage ${roman(Math.min(5,r.st+1))} of 5`:''} · ${stN(r.n)} of 360 technologies (Trade ${r.tt[0]?roman(r.tt[0]):'–'}, Growth ${r.tt[1]?roman(r.tt[1]):'–'}, War ${r.tt[2]?roman(r.tt[2]):'–'})${r.i?` · ${esc(stRsInst(r.l))} · ${stN(r.bal)} credits unspent`:''}${RS_SITES[r.o]?` · ${esc(RS_SITES[r.o].n.toLowerCase())}`:''} · petition ${esc(fmtDate(r.a))}${r.i?`, opened ${esc(fmtDate(r.i))}`:''}${r.last?` · last discovery ${esc(rel(r.last))}`:''}${r.d30?` (${stN(r.d30)} in 30 days)`:''}</p>`;
 }
 document.addEventListener('change',e=>{if(!S.isOwner||e.target.id!=='st-rsph')return;ADMST.rsph=e.target.value;render();setTimeout(()=>document.getElementById('st-rsph')?.focus(),0);});

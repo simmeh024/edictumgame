@@ -16,7 +16,7 @@ const median = a => { if (!a.length) return 0; const s = a.slice().sort((x, y) =
 const pct = (a, p) => { if (!a.length) return 0; const s = a.slice().sort((x, y) => x - y); return s[Math.min(s.length - 1, Math.floor(p * s.length))]; };
 
 /* the game's own figures: the petition after RS_AT enacted edicts, again RS_AGAIN after a veto (game: RS_AT, RS_AGAIN) */
-export const RS_AT = 75, RS_AGAIN = 5;
+export const RS_AT = 60, RS_AGAIN = 5;
 /* the laws research brings (game: POLICIES, "the National Research Programme") */
 export const RS_LAWS = ['openScience', 'classifiedResearch', 'researchEthics', 'healthCoop', 'sciExchange', 'tradeStandards', 'natureConvention', 'researchFund', 'nuclearSafety', 'armsControl'];
 /* Where a nation stands, in the order a nation goes through it:
@@ -31,9 +31,10 @@ export const RS_LAWS = ['openScience', 'classifiedResearch', 'researchEthics', '
      rebuild  – being rebuilt after that (research is not done until it reopens) */
 export const RS_PHASES = ['early', 'vetoed', 'due', 'site', 'building', 'open', 'lost', 'ruined', 'rebuild'];
 /* the journey as steps reached (at some time, so a laboratory now lost or ruined still counts as built) */
-export const RS_STEPS = ['e75', 'granted', 'placed', 'st1', 'st2', 'st3', 'st4', 'open', 'd1', 'tier5', 'n50', 'n100', 'n200', 'n300', 'n360'];
+export const RS_STEPS = ['ready', 'granted', 'placed', 'st1', 'st2', 'st3', 'st4', 'open', 'd1', 'tier5', 'n50', 'n100', 'n200', 'n300', 'n360'];
 const TECH_BANDS = [[0, 0], [1, 9], [10, 24], [25, 49], [50, 99], [100, 199], [200, 299], [300, 359], [360, 360]];
-const EDICT_BANDS = [[0, 24], [25, 49], [50, 64], [65, 74]];
+/* the way to the petition in quarters: 0–14, 15–29, 30–44 and 45–59 enacted edicts */
+const EDICT_BANDS = [0, 1, 2, 3].map(q => [Math.round(q * RS_AT / 4), Math.round((q + 1) * RS_AT / 4) - 1]);
 
 /* one nation's research, from its record (both halves joined): a few numbers, or the phase alone before the petition */
 export function rowResearch(r, now) {
@@ -84,7 +85,7 @@ export function researchSummary(R, now, all = false) {
   for (const x of act30) if (x.rs) add(phase30, x.rs.ph);
   /* the journey: how many nations reached each step (RS_STEPS) */
   const reached = s => {
-    const has = { e75: s.e >= RS_AT || s.a > 0, granted: s.a > 0, placed: s.a > 0 && (s.ft > 0 || s.i > 0), open: s.i > 0, d1: s.n >= 1, tier5: s.far >= 5,
+    const has = { ready: s.e >= RS_AT || s.a > 0, granted: s.a > 0, placed: s.a > 0 && (s.ft > 0 || s.i > 0), open: s.i > 0, d1: s.n >= 1, tier5: s.far >= 5,
       n50: s.n >= 50, n100: s.n >= 100, n200: s.n >= 200, n300: s.n >= 300, n360: s.n >= RS_N };
     for (let k = 1; k <= 4; k++) has['st' + k] = s.a > 0 && (s.st >= k || s.i > 0);
     return has;
@@ -157,8 +158,8 @@ export function researchSummary(R, now, all = false) {
     const regs = {};
     for (const x of R) {
       if (!x.reg || !x.rs) continue;
-      const g = regs[x.reg] || (regs[x.reg] = { nations: 0, e75: 0, granted: 0, open: 0, techs: 0, best: 0, lost: 0 });
-      g.nations++; if (x.rs.e >= RS_AT || x.rs.a > 0) g.e75++; if (x.rs.a > 0) g.granted++; if (x.rs.i > 0) g.open++;
+      const g = regs[x.reg] || (regs[x.reg] = { nations: 0, ready: 0, granted: 0, open: 0, techs: 0, best: 0, lost: 0 });
+      g.nations++; if (x.rs.e >= RS_AT || x.rs.a > 0) g.ready++; if (x.rs.a > 0) g.granted++; if (x.rs.i > 0) g.open++;
       if (x.rs.ph === 'lost' || x.rs.ph === 'ruined') g.lost++;
       g.techs += x.rs.n || 0; g.best = Math.max(g.best, x.rs.n || 0);
     }
