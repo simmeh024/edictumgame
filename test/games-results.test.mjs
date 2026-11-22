@@ -24,6 +24,7 @@ function games(nations, now) {
     const edOf=t=>Math.floor((t-GAMES_EPOCH)/GAMES_WEEK),edStart=e=>GAMES_EPOCH+e*GAMES_WEEK,b1Now=()=>NOW;
     const allNations=()=>nations,entryOf=(n,e)=>((n&&n.games&&n.games.en)||[]).find(q=>q.e===e);
     const gamesHost=()=>({id:'nobody'}),edEvents=()=>['run'],gamesBids=()=>[],npcAt=()=>null,formOf=()=>0,dqOf=()=>false;
+    const gmDay=()=>0;
     const baseScores=(n)=>({run:n.s.sport});
     ${fn('gamesStatsAt')}
     let gamesMemo={k:'',v:null};

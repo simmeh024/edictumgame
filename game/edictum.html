@@ -1277,6 +1277,45 @@ header.vh:has(.sg-gear)>h1,header.vh:has(.sg-gear)>.eyebrow{padding-right:44px}
 .bids{list-style:none;margin:12px 0 0;padding:0}
 .bids li{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-top:1px solid var(--rule);font-size:14px}
 .mtab{min-width:0}
+/* the Games, round two: the opening ceremony, training and tactics, boycotts, the host's pick and mascot */
+.gm-open{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:14px 20px;align-items:center;margin:0 0 16px;padding:18px 20px;border:1px solid var(--rule);border-radius:6px;background:linear-gradient(135deg,var(--accent-soft),var(--sheet) 72%);animation:gmIn .6s ease-out}
+.gm-fl{width:96px;aspect-ratio:3/2;border-radius:3px;overflow:hidden;line-height:0;box-shadow:0 2px 6px rgba(0,0,0,.25);background:#fff}
+.gm-fl svg{width:100%;height:100%;display:block}
+.gm-ot{font-family:var(--f-display);font-weight:650;font-size:22px;line-height:1.15;margin:2px 0 6px}
+.gm-ox .muted{margin:0}
+.gm-motto{font-style:italic}
+.gm-masc{margin:0;display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center;max-width:150px}
+.gm-masc svg{width:88px;height:88px;display:block;animation:gmBob 2.6s ease-in-out infinite}
+.gm-masc figcaption{display:flex;flex-direction:column;font-size:12.5px;line-height:1.3}
+.gm-masc figcaption .hint{margin:0}
+.gm-host{grid-column:1/-1;padding-top:12px;border-top:1px dashed var(--rule-2)}
+.gm-pick{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:flex-end}
+.gm-pick .field{display:flex;flex-direction:column;gap:4px;min-width:130px}
+.gm-pick .hint{flex-basis:100%;margin:0}
+.gm-pv svg{width:46px;height:46px;display:block}
+.gm-bidm,.gm-swap{margin-top:14px;padding-top:12px;border-top:1px dashed var(--rule-2)}
+.gm-sw-row{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:flex-end}
+.gm-sw-row .field{display:flex;flex-direction:column;gap:4px;min-width:150px}
+.gm-swap .hint{margin:8px 0 0}
+.gm-draw{margin:10px 0 0}
+.gm-bsw{font-size:12.5px}
+.gm-away{margin:4px 0 0}
+.gm-boy-l{margin:4px 0 8px}
+.gm-boy{margin:6px 0 12px}
+.gev-x{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;font-size:13px}
+.gev-tr,.gev-tac{display:inline-flex;flex-wrap:wrap;align-items:center;gap:6px 8px}
+.gev-tac .seg-b{padding:6px 10px;font-size:12.5px}
+.gev-tr .hint{margin:0}
+.gc-day{margin:12px auto 0;max-width:420px;opacity:0;animation:gcIn .5s ease-out forwards;animation-delay:calc(var(--d)*.55s + .7s)}
+.gc-day ul{list-style:none;margin:4px 0 0;padding:8px 12px;display:grid;gap:4px;border:1px solid var(--rule);border-radius:6px}
+.gc-day li{display:grid;grid-template-columns:minmax(0,1fr) auto 56px;gap:10px;font-size:13.5px}
+.gc-day .num{text-align:right;font-variant-numeric:tabular-nums}
+.gm-chat-ic{background:transparent;border-color:transparent}
+.gm-chat-ic svg{width:100%;height:100%;display:block}
+@keyframes gmIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes gmBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+@media (prefers-reduced-motion:reduce){.gm-open,.gm-masc svg{animation:none}.gc-day{animation:none;opacity:1}}
+@media (max-width:640px){.gm-open{grid-template-columns:auto minmax(0,1fr);padding:14px}.gm-fl{width:64px}.gm-ot{font-size:19px}.gm-masc{grid-column:1/-1;flex-direction:row;justify-content:flex-start;text-align:left;max-width:none;gap:10px}.gm-masc svg{width:60px;height:60px}}
 @media (max-width:760px){.leader{grid-template-columns:1fr}.gev{grid-template-columns:minmax(0,1fr) auto}.gev-h,.gev-lead{grid-column:1/-1}.games-now{padding:16px}}
 .city-figs{margin-top:20px}
 .fig-s-big{font-size:14px;line-height:1.45;color:var(--ink-2)}
@@ -24080,6 +24119,17 @@ const GAME_EVENTS={
   tattoo:{n:'Military Tattoo',f:(s,x)=>0.6*s.mil+0.2*s.cons+Math.min(15,5*(x.forts+x.barracks))}
 };
 const EV_HINT={national:'health, happiness and a little weirdness',athletics:'health, happiness and clean sport',olympiad:'science and education',cookery:'culture and tourism',song:'culture, weirdness and happiness',chess:'education and science',regatta:'wealth, tourism and a harbour',strongman:'military, health and tradition',architecture:'culture, wealth and buildings',debate:'political freedom, civil rights and education',tattoo:'military, fortresses and barracks'};
+/* Games, round two (2026-11-23). Training sessions paid for in materials (TRAIN_PTS each, TRAIN_MAX a week, each dearer
+   by TRAIN_STEP of the first: en.tr {event: sessions}); tactics for the day (en.m {event: 's' play safe | 'b' go for
+   broke}) against a roll on the day that nobody sees until the Games end (GTAC: how far it can swing, steady without a
+   choice); boycotts (en.bo 1 chosen, 2 at war with the host; en.bt when; en.bg goodwill already docked); the host's own
+   pick of one event in place of one drawn (bid sw 'out>in', set at st, before its week); the host's opening ceremony
+   with its mascot (bid ms, mn). GAMES_V2: the first edition with the roll on the day, so every podium before it stays
+   exactly as it was. */
+const GAMES_V2=46,TRAIN_PTS=3,TRAIN_MAX=3,TRAIN_STEP=0.5,BOY_GW=5,BOY_TOUR=4;
+const TRAIN_COST={national:{food:30,goods:10},athletics:{food:30,goods:10},olympiad:{goods:20},cookery:{food:40},song:{goods:20},chess:{goods:20},regatta:{timber:20,goods:10},strongman:{food:30,iron:5},architecture:{timber:30,goods:10},debate:{goods:20},tattoo:{food:20,iron:10}};
+const TRAIN_WHAT={national:'kit and meals for the squad',athletics:'kit and meals for the squad',olympiad:'textbooks and laboratory time',cookery:'ingredients to practise with',song:'studio time and costumes',chess:'books, boards and a coach',regatta:'boats and sails',strongman:'meals and iron weights',architecture:'models and timber',debate:'books and speech coaching',tattoo:'drill and brass polish'};
+const GTAC={'':{n:'Steady',d:4,h:'a little luck either way'},s:{n:'Play safe',d:1,h:'almost no luck either way'},b:{n:'Go for broke',d:14,h:'a big swing, up or down'}};
 const edOf=t=>Math.floor((t-GAMES_EPOCH)/GAMES_WEEK);
 const edStart=e=>GAMES_EPOCH+e*GAMES_WEEK;
 const ordinal=k=>k+((k%100>=11&&k%100<=13)?'th':(['th','st','nd','rd'][k%10]||'th'));
@@ -24089,10 +24139,16 @@ const GAMES_WORD={meridian:'Meridian',frostmarch:'Frostmarch',northernpale:'Pale
 function gamesWord(){const r=typeof REG!=='undefined'&&REG?REG:null;if(!r)return 'Meridian';return GAMES_WORD[r.id]||String(r.name||'Meridian').replace(/^The\s+/i,'').split(/\s+/)[0]||'Meridian';}
 function gamesLocal(t){const w=gamesWord();return w==='Meridian'||typeof t!=='string'?t:t.replace(/Meridian Games/g,w+' Games');}
 const edName=e=>'the '+ordinal(e+1)+' '+gamesWord()+' Games';
-function edEvents(e){const r=rng(hash('games:'+e)),pool=Object.keys(GAME_EVENTS).filter(k=>k!=='national');for(let i=pool.length-1;i>0;i--){const j=Math.floor(r()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]];}return ['national'].concat(pool.slice(0,4));}
+/* the week's draw: the host's national sport and four more; the host may swap one of the four (gmSwapOf) */
+function edDrawn(e){const r=rng(hash('games:'+e)),pool=Object.keys(GAME_EVENTS).filter(k=>k!=='national');for(let i=pool.length-1;i>0;i--){const j=Math.floor(r()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]];}return ['national'].concat(pool.slice(0,4));}
+function edEvents(e){const d=edDrawn(e);try{const s=gmSwapOf(e);if(s){const i=d.indexOf(s[0]);if(i>0&&!d.includes(s[1]))d[i]=s[1];}}catch(x){}return d;}
+/* a swap the winning bid asked for ('out>in'), set before its week began */
+const gmEvOk=k=>typeof k==='string'&&Object.prototype.hasOwnProperty.call(GAME_EVENTS,k);
+function gmSwapParse(sw){if(typeof sw!=='string')return null;const p=sw.split('>');return p.length===2&&p[0]!==p[1]&&gmEvOk(p[0])&&gmEvOk(p[1])&&p[0]!=='national'&&p[1]!=='national'?p:null;}
+function gmSwapOf(e){if(e<GAMES_V2)return null;const b=gamesBids(e)[0];return b&&b.sw&&b.st<edStart(e)?gmSwapParse(b.sw):null;}
 function gamesBids(e){
   const out=[];
-  for(const x of allNations()){if(x.npc)continue;const bs=(x.n.games&&x.n.games.bids)||[];const b=bs.find(q=>q.e===e&&q.t<edStart(e));if(b)out.push({id:x.id,n:x.n,s:b.s,t:b.t,me:!!x.me});}
+  for(const x of allNations()){if(x.npc)continue;const bs=(x.n.games&&x.n.games.bids)||[];const b=bs.find(q=>q.e===e&&q.t<edStart(e));if(b)out.push({id:x.id,n:x.n,s:b.s,t:b.t,me:!!x.me,sw:b.sw||'',st:b.st||0,ms:b.ms||'',mn:b.mn||''});}
   return out.sort((a,b)=>b.s-a.s||a.t-b.t);
 }
 /* the computer-run nation that hosts week e when nobody bids: one of this region's own (NPC_HOSTS is refilled per region) */
@@ -24107,12 +24163,19 @@ function ctxOf(id){
   for(const ct of CS.all){if(!ct.active||ct.hi!==i)continue;if(ct.done.includes('harbour'))z.coast=1;else if(isCoastal(ct.c))z.coast=Math.max(z.coast,0.5);if(ct.done.includes('fortress'))z.forts++;if(ct.done.includes('barracks'))z.barracks++;}
   return z;
 }
-function baseScores(n,id,focus){
+function baseScores(n,id,focus,tr){
   const x=ctxOf(id),g=cabFx(n).games,p=pol(n),sc={};
-  for(const k of Object.keys(GAME_EVENTS)){const E=GAME_EVENTS[k];let v=E.f(n.s,x)+g;if(E.sport&&p.sportsAcademy)v+=8;if(k===focus)v+=FOCUS_BONUS;if(p.enhancedSport)v*=1.1;sc[k]=Math.round(Math.max(0,v)*10)/10;}
+  for(const k of Object.keys(GAME_EVENTS)){const E=GAME_EVENTS[k];let v=E.f(n.s,x)+g;if(E.sport&&p.sportsAcademy)v+=8;if(k===focus)v+=FOCUS_BONUS;v+=gmTrPts(tr,k);if(p.enhancedSport)v*=1.1;sc[k]=Math.round(Math.max(0,v)*10)/10;}
   return sc;
 }
 const formOf=(id,e,ev)=>(hash(id+':'+e+':'+ev)%2401)/100-12;
+/* training: points for the sessions booked on an event, sessions booked in all, and what the next one costs */
+const gmTrPts=(tr,k)=>tr&&tr[k]>0?TRAIN_PTS*Math.min(TRAIN_MAX,Math.floor(tr[k])):0;
+const gmTrUsed=tr=>tr?Object.values(tr).reduce((a,v)=>a+(v>0?Math.floor(v):0),0):0;
+function gmTrCost(ev,used){const c=TRAIN_COST[ev]||{goods:20},k=1+TRAIN_STEP*used,o={};for(const r in c)o[r]=Math.round(c[r]*k);return o;}
+/* the roll on the day: -1 to 1, the same for every reader, and counted only once the Games are over */
+const gmRoll=(id,e,ev)=>(hash(id+':day:'+e+':'+ev)%2001)/1000-1;
+const gmDay=(id,e,ev,tac)=>e>=GAMES_V2?GTAC[tac==='s'||tac==='b'?tac:''].d*gmRoll(id,e,ev):0;
 const dqOf=(id,e)=>hash(id+':dq:'+e)%4===0;
 function entryOf(n,e){return ((n&&n.games&&n.games.en)||[]).find(q=>q.e===e);}
 /* A player's scores are capped at what its stats allow, plus 3, so a record cannot claim more than it could have had. A
@@ -24126,17 +24189,20 @@ function gamesStatsAt(n,t){
 let gamesMemo={k:'',v:null};
 function gamesResults(e){
   const past=e<edOf(b1Now()),end=edStart(e+1);
-  const docs=allNations().filter(x=>!x.npc).map(x=>x.id+':'+((entryOf(x.n,e)||{}).t||0)).join('|'),k=e+(past?'p':'c')+'#'+docs+'#'+gamesBids(e).map(b=>b.id).join(',');
+  const docs=allNations().filter(x=>!x.npc).map(x=>x.id+':'+((entryOf(x.n,e)||{}).t||0)).join('|'),k=e+(past?'p':'c')+'#'+docs+'#'+gamesBids(e).map(b=>b.id+(b.sw||'')+(b.st<edStart(e)?'':'?')).join(',');
   if(gamesMemo.k===k)return gamesMemo.v;
-  const host=gamesHost(e),evs=edEvents(e),parts=[];
+  const host=gamesHost(e),evs=edEvents(e),parts=[],boy=[];
   for(const x of allNations()){
     if(x.npc){parts.push({id:x.id,n:x.n,npc:true,sc:baseScores(npcAt(x.id,GAMES_EPOCH+e*GAMES_WEEK)||x.n,x.id,null),dq:false});continue;}
     const en=entryOf(x.n,e);if(!en)continue;
-    {const st=past?gamesStatsAt(x.n,end):null,mx=baseScores(st?{...x.n,s:st}:x.n,x.id,en.f||null),sc={};for(const k of Object.keys(en.sc))sc[k]=Math.min(en.sc[k],(mx[k]||0)+3);parts.push({id:x.id,n:x.n,me:!!x.me,sc,f:en.f,dq:!!en.es&&dqOf(x.id,e)});}
+    /* a team that stays home (a boycott) is in no event, and is listed apart */
+    if(en.bo&&x.id!==host.id){boy.push({id:x.id,n:x.n,me:!!x.me,bo:en.bo,bt:en.bt||en.t});continue;}
+    {const st=past?gamesStatsAt(x.n,end):null,mx=baseScores(st?{...x.n,s:st}:x.n,x.id,en.f||null,en.tr),sc={};for(const k of Object.keys(en.sc))sc[k]=Math.min(en.sc[k],(mx[k]||0)+3);parts.push({id:x.id,n:x.n,me:!!x.me,sc,f:en.f,m:en.m||null,tr:en.tr||null,dq:!!en.es&&dqOf(x.id,e)});}
   }
+  /* b: the score before the day itself (what the page shows during the week); d: the roll on the day, once it is over */
   const res={};
-  for(const ev of evs)res[ev]=parts.filter(p=>!p.dq).map(p=>({p,v:Math.round(Math.max(0,(p.sc[ev]||0)+(p.id===host.id?HOST_BONUS:0)+formOf(p.id,e,ev))*10)/10})).sort((a,b)=>b.v-a.v||(a.p.id<b.p.id?-1:1));
-  const v={e,host,evs,parts,res};gamesMemo={k,v};return v;
+  for(const ev of evs)res[ev]=parts.filter(p=>!p.dq).map(p=>{const b=Math.max(0,(p.sc[ev]||0)+(p.id===host.id?HOST_BONUS:0)+formOf(p.id,e,ev)),d=past?gmDay(p.id,e,ev,p.m&&p.m[ev]||''):0;return {p,v:Math.round(Math.max(0,b+d)*10)/10,b:Math.round(b*10)/10,d:Math.round(d*10)/10};}).sort((a,b)=>b.v-a.v||(a.p.id<b.p.id?-1:1));
+  const v={e,host,evs,parts,res,boy};gamesMemo={k,v};return v;
 }
 function medalsIn(R,id){const m={g:0,s:0,b:0,list:[]};for(const ev of R.evs){const i=R.res[ev].findIndex(r=>r.p.id===id);if(i===0)m.g++;else if(i===1)m.s++;else if(i===2)m.b++;if(i>=0&&i<3)m.list.push([ev,i]);}return m;}
 function medalWords(m){return list([m.g?m.g+' gold':'',m.s?m.s+' silver':'',m.b?m.b+' bronze':''].filter(Boolean));}
@@ -24145,9 +24211,17 @@ function gamesHosting(n){const e=edOf(b1Now());if(gamesHost(e).id===myId())retur
 function gamesEnter(n,now){
   const e=edOf(now);if(e<0)return;
   n.games=n.games||{en:[],bids:[],ref:[],cl:[],hc:[],med:{g:0,s:0,b:0}};
-  const id=myId(),cur=entryOf(n,e),f=cur?cur.f:'';
-  const en={e,t:now,f,sc:baseScores(n,id,f||null),es:pol(n).enhancedSport?1:0};
+  const id=myId(),cur=entryOf(n,e),f=cur?cur.f:'',tr=cur&&cur.tr?{...cur.tr}:null;
+  const en={e,t:now,f,sc:baseScores(n,id,f||null,tr),es:pol(n).enhancedSport?1:0};
+  if(tr)en.tr=tr;if(cur&&cur.m)en.m={...cur.m};if(cur&&cur.bg)en.bg=1;
+  if(cur&&cur.bo===1){en.bo=1;en.bt=cur.bt||now;}
+  /* at war with the host, the team stays home, and goes again once there is peace */
+  else if(gmWarHost(e,id,n)){en.bo=2;en.bt=cur&&cur.bo===2&&cur.bt?cur.bt:now;}
   n.games.en=n.games.en.filter(q=>q.e!==e).concat(en).slice(-12);
+}
+/* the host of week e when this nation is at war with it (its allies' wars count, as on the map), else null */
+function gmWarHost(e,id,n){
+  try{const h=gamesHost(e);if(!h||!h.id||h.id===id||!h.n)return null;return atWar(id,h.id)?h:null;}catch(x){return null;}
 }
 function gamesPending(n,now){
   const g=n&&n.games;if(!g)return false;const cur=edOf(now);
@@ -24159,10 +24233,15 @@ function claimGames(n,now){
   const cur=edOf(now),id=myId(),notes=[];
   for(const b of g.bids){
     if(b.e<=cur&&!g.ref.includes(b.e)){g.ref.push(b.e);if(gamesHost(b.e).id!==id){for(const r of RES)n.stock[r]=stockLimit(n,r,(n.stock[r]||0)+(c3Stake(b)[r]||0));notes.push(`Your bid to host ${edName(b.e)} lost, and the materials were returned.`);}else{n.log.unshift({t:edStart(b.e),k:'hostwin',a:edName(b.e)});notes.push(`${n.name} will host ${edName(b.e)}.`);}}
-    if(b.e<cur&&!g.hc.includes(b.e)){g.hc.push(b.e);if(gamesHost(b.e).id===id){applyEffects(n,{tour:5,culture:2,happy:2,wealth:-1});n.log.unshift({t:edStart(b.e+1),k:'host',a:edName(b.e)});notes.push(`Hosting ${edName(b.e)} brought crowds of visitors.`);}}
+    if(b.e<cur&&!g.hc.includes(b.e)){g.hc.push(b.e);if(gamesHost(b.e).id===id){
+      /* every nation that stayed away costs the host a point of the tourism it brings, up to BOY_TOUR */
+      let k=0;try{k=(gamesResults(b.e).boy||[]).length;}catch(x){}
+      applyEffects(n,{tour:5-Math.min(BOY_TOUR,k),culture:2,happy:2,wealth:-1});n.log.unshift({t:edStart(b.e+1),k:'host',a:edName(b.e)});
+      notes.push(`Hosting ${edName(b.e)} brought crowds of visitors${k?`, though ${k===1?'one nation':k+' nations'} stayed away`:''}.`);}}
   }
   for(const en of g.en){
     if(en.e>=cur||g.cl.includes(en.e))continue;g.cl.push(en.e);
+    if(en.bo&&gamesHost(en.e).id!==id){notes.push(en.bo===2?`Your team stayed home from ${edName(en.e)}: you were at war with its host.`:`Your team boycotted ${edName(en.e)} and stayed home.`);continue;}
     const R=gamesResults(en.e),m=medalsIn(R,id);
     if(en.es&&dqOf(id,en.e)){notes.push(`Your team was disqualified from ${edName(en.e)} for doping.`);applyEffects(n,{happy:-1});continue;}
     g.med.g+=m.g;g.med.s+=m.s;g.med.b+=m.b;
@@ -24187,7 +24266,7 @@ function placeBid(){
   commit(n);S.gamesMsg='';render();toast(`${n.name} has bid to host ${edName(e)}. The committee decides when this week’s Games end.`);
 }
 function bidStrength(n){const x=ctxOf(myId()),T=territory(),i=T.byId[myId()],cities=i===undefined?0:cityState(T).agg[i].cities;return Math.round(n.s.culture+n.s.tour+0.5*n.s.wealth+3*x.dev+5*cities+2*cabFx(n).games);}
-function setFocus(ev){const n=clone(S.nation),now=Date.now();gamesEnter(n,now);const en=entryOf(n,edOf(now));en.f=ev===en.f?'':ev;en.sc=baseScores(n,myId(),en.f||null);commit(n);render();}
+function setFocus(ev){const n=clone(S.nation),now=Date.now();gamesEnter(n,now);const en=entryOf(n,edOf(now));en.f=ev===en.f?'':ev;en.sc=baseScores(n,myId(),en.f||null,en.tr);commit(n);render();}
 function podium(R,ev){
   const rows=R.res[ev].slice(0,3);
   return `<ol class="pod">${rows.map((r,i)=>`<li class="pod-${i}"><span class="medal m${i}" aria-label="${['Gold','Silver','Bronze'][i]}">${i+1}</span><span class="pod-n">${r.p.me?'<b>'+esc(r.p.n.name)+'</b>':esc(r.p.n.name)}</span><span class="pod-v">${r.v.toFixed(1)}</span></li>`).join('')}</ol>`;
@@ -24200,28 +24279,32 @@ function medalTable(cur){
   return {rows,eds:eds.size};
 }
 function gamesView(){
-  const n=S.nation,now=Date.now(),e=edOf(now),host=gamesHost(e),evs=edEvents(e),en=entryOf(n,e),id=myId();
+  const n=S.nation,now=Date.now(),e=edOf(now),host=gamesHost(e),evs=edEvents(e),en=entryOf(n,e),id=myId(),v2=e>=GAMES_V2,away=!!(en&&en.bo&&host.id!==id);
   const msg=S.gamesMsg?`<p class="war-msg">${esc(S.gamesMsg)}</p>`:'';
-  const head=`<header class="vh"><p class="eyebrow">Meridian Games Committee</p><h1>The Meridian Games</h1><p>Every week the nations of ${REGION} send teams to five events. Your scores come from your census figures, your Minister of Culture and Sport, your buildings and a dash of luck on the day. Your team enters automatically whenever you make a decision during the week, and its scores are updated each time. Medals lift your people’s spirits, and hosting brings the crowds.</p></header>`;
-  const live=gamesResults(e),mine=en?en.sc:baseScores(n,id,null);
+  const head=`<header class="vh"><p class="eyebrow">Meridian Games Committee</p><h1>The Meridian Games</h1><p>Every week the nations of ${REGION} send teams to five events. Your scores come from your census figures, your Minister of Culture and Sport, your buildings, the training you pay for and a dash of luck on the day. Your team enters automatically whenever you make a decision during the week, and its scores are updated each time. Medals lift your people’s spirits, and hosting brings the crowds.</p></header>`;
+  const live=gamesResults(e),mine=en?en.sc:baseScores(n,id,null),st=stockNow(n,now),used=gmTrUsed(en&&en.tr);
   const evRows=evs.map(ev=>{
     const rows=live.res[ev],myRank=rows.findIndex(r=>r.p.id===id),focus=en&&en.f===ev;
     const proj=Math.max(0,(mine[ev]||0)+(host.id===id?HOST_BONUS:0)+formOf(id,e,ev));
     return `<li class="gev${focus?' focus':''}"><div class="gev-h"><b>${esc(evName(ev,host))}</b><span class="hint">${esc(EV_HINT[ev])}</span></div>
-      <div class="gev-me"><span class="lbl">Your team</span><span class="gev-v">${en?proj.toFixed(1):'—'}</span><span class="gev-r">${en?(myRank>=0?ordinal(myRank+1)+' of '+rows.length+' so far':'Disqualified'):'Not entered'}</span></div>
+      <div class="gev-me"><span class="lbl">Your team</span><span class="gev-v">${en&&!away?proj.toFixed(1):'—'}</span><span class="gev-r">${away?'Staying home':en?(myRank>=0?ordinal(myRank+1)+' of '+rows.length+' so far':'Disqualified'):'Not entered'}</span></div>
       <div class="gev-lead"><span class="lbl">Leading</span>${rows.slice(0,3).map((r,i)=>`<span class="gl"><span class="medal m${i}">${i+1}</span>${r.p.me?'<b>'+esc(r.p.n.name)+'</b>':esc(r.p.n.name)}</span>`).join('')}</div>
-      ${OBS?'':`<button class="btn${focus?'':' ghost'} small-btn" data-act="g-focus" data-ev="${ev}" aria-pressed="${!!focus}">${focus?'Training focus':'Focus training here'}</button>
-      ${gevWhyHTML(gevWhy(n,id,e,ev,en?en.f:null,host.id),en?proj:null)}`}</li>`;
+      ${OBS||away?'':`<button class="btn${focus?'':' ghost'} small-btn" data-act="g-focus" data-ev="${ev}" aria-pressed="${!!focus}">${focus?'Training focus':'Focus training here'}</button>
+      ${gmEvTools(e,ev,en,st,used,v2)}${gevWhyHTML(gevWhy(n,id,e,ev,en?en.f:null,host.id,en&&en.tr),en?proj:null,v2?(GTAC[(en&&en.m&&en.m[ev])||'']).d:0)}`}</li>`;
   }).join('');
   const last=e-1>=0?gamesResults(e-1):null,lastMine=last?medalsIn(last,id):null,lastEntered=last&&entryOf(n,e-1);
   /* until the ceremony is watched, last week stays out of the medal table and the records */
   const hideLast=!!(last&&lastEntered&&!gcerSeen(e-1)),mt=medalTable(hideLast?e-1:e);
-  const nextBids=gamesBids(e+1),myBid=(n.games&&n.games.bids||[]).find(b=>b.e===e+1),st=stockNow(n,now),miss=lacking(BID_COST,st);
+  const nextBids=gamesBids(e+1),myBid=(n.games&&n.games.bids||[]).find(b=>b.e===e+1),miss=lacking(BID_COST,st);
+  const sw=gmSwapOf(e),boy=live.boy||[];
   return `${head}${msg}${c3Strip(n,now,{need:!myBid&&canFeature(n,'host')?BID_COST:null})}
-  <section class="games-now"><div class="gn-h"><div><p class="eyebrow">This week</p><h2 class="gn-t">${esc(cap1(edName(e)))}</h2><p class="muted">Hosted by ${host.id===id?'<b>'+esc(host.n.name)+'</b> (you)':esc(host.n.name)} in ${esc(host.n.capital)}. Results in <b data-live="gclose" data-t="${edStart(e+1)}">${fmtWait(edStart(e+1)-now)}</b>.</p></div>
-    <div>${OBS?'':en?`<span class="pill up">Your team is entered</span>`:`<button class="btn" data-act="g-enter">Send your team</button>`}</div></div>
+  ${gmOpeningHTML(e,host)}
+  <section class="games-now"><div class="gn-h"><div><p class="eyebrow">This week</p><h2 class="gn-t">${esc(cap1(edName(e)))}</h2><p class="muted">Hosted by ${host.id===id?'<b>'+esc(host.n.name)+'</b> (you)':esc(host.n.name)} in ${esc(host.n.capital)}. Results in <b data-live="gclose" data-t="${edStart(e+1)}">${fmtWait(edStart(e+1)-now)}</b>.</p>
+    ${sw?`<p class="hint">The host swapped the ${esc(evName(sw[0],host))} for the ${esc(evName(sw[1],host))}.</p>`:''}${boy.length?`<p class="hint gm-away">Staying away: ${boy.map(b=>(b.me?'<b>'+esc(b.n.name)+'</b>':esc(b.n.name))+(b.bo===2?' (at war with the host)':'')).join(', ')}.</p>`:''}</div>
+    <div>${OBS?'':away?`<span class="pill">Staying home</span>`:en?`<span class="pill up">Your team is entered</span>`:`<button class="btn" data-act="g-enter">Send your team</button>`}</div></div>
+    ${OBS?'':gmBoyHTML(e,host,en)}
     ${pol(n).enhancedSport?'<p class="hint">Enhanced Sport is legal in your nation: your scores are 10% higher, but one Games in four your team is disqualified.</p>':''}
-    <p class="hint">Pick one event to focus your training on for ${FOCUS_BONUS} more points. Scores shown include the luck of the draw.</p>
+    <p class="hint">Pick one event to focus your training on for ${FOCUS_BONUS} more points, and book up to ${TRAIN_MAX} extra training sessions a week at +${TRAIN_PTS} each, paid for in materials, each dearer than the last${en&&!away?` (${Math.max(0,TRAIN_MAX-used)} left this week)`:''}.${v2?` On the day each event adds a roll nobody sees until the Games end: choose ${esc(GTAC.s.n.toLowerCase())} (±${GTAC.s.d}), ${esc(GTAC[''].n.toLowerCase())} (±${GTAC[''].d}) or ${esc(GTAC.b.n.toLowerCase())} (±${GTAC.b.d}).`:''} Scores shown include this week’s form${v2?', but not the day itself':''}.</p>
     <ul class="gevs">${evRows}</ul></section>
   ${last?(lastEntered&&!gcerSeen(e-1)?`<section class="section g-call" id="g-cer-call"><p class="eyebrow">The results are in</p><h2 class="h2">Last week: ${esc(cap1(edName(e-1)))}</h2><p class="muted">Hosted by ${esc(last.host.n.name)}. The medals have been decided: see how your team did on the podium.</p><div class="row" style="margin-top:12px"><button class="btn" data-act="g-cer" data-e="${e-1}">See the results</button></div></section>`
     :`<section class="section"><h2 class="h2">Last week: ${esc(cap1(edName(e-1)))}</h2><p class="muted" style="margin-bottom:14px">Hosted by ${esc(last.host.n.name)}. ${lastEntered?(lastMine.g+lastMine.s+lastMine.b?`Your team won ${esc(medalWords(lastMine))}.`:'Your team came home without a medal.'):'Your team did not take part.'}${lastEntered?` <button class="linkish" data-act="g-cer" data-e="${e-1}">Watch the medal ceremony</button>`:''}</p>
@@ -24230,9 +24313,10 @@ function gamesView(){
   ${gamesRecordsHTML(hideLast?e-1:e)}${OBS?'':gamesCabinetHTML(n)}
   <section class="section"><h2 class="h2">Host ${esc(edName(e+1))}</h2>
     <p class="muted">Hosting adds ${HOST_BONUS} points to every event for your team, and brings tourism, culture and happiness once the Games are over, at a small cost to incomes. A bid costs ${costText(BID_COST)}, all returned if you lose. Until this week’s Games end you can raise your bid, or withdraw it and get three quarters of your stake back. The strongest bid wins: culture, tourism, wealth, cities and buildings all count.</p>
-    ${nextBids.length?`<ul class="bids">${nextBids.map((b,i)=>`<li><span>${i===0?'<span class="pill up">Leading</span> ':''}${b.me?'<b>'+esc(b.n.name)+'</b>':esc(b.n.name)}</span><span class="num">Bid strength ${b.s}</span></li>`).join('')}</ul>`:`<p class="hint" style="margin-top:10px">No bids yet.${NPC_BY_ID[npcHost(e+1)]?` Without one, ${esc(NPC_BY_ID[npcHost(e+1)].name)} hosts.`:''}</p>`}
+    ${nextBids.length?`<ul class="bids">${nextBids.map((b,i)=>{const p=gmSwapParse(b.sw);return `<li><span>${i===0?'<span class="pill up">Leading</span> ':''}${b.me?'<b>'+esc(b.n.name)+'</b>':esc(b.n.name)}${p?`<span class="hint gm-bsw"> · would swap the ${esc(evName(p[0],{player:true,n:b.n}))} for the ${esc(evName(p[1],{player:true,n:b.n}))}</span>`:''}</span><span class="num">Bid strength ${b.s}</span></li>`;}).join('')}</ul>`:`<p class="hint" style="margin-top:10px">No bids yet.${NPC_BY_ID[npcHost(e+1)]?` Without one, ${esc(NPC_BY_ID[npcHost(e+1)].name)} hosts.`:''}</p>`}
+    <p class="hint gm-draw">Next week’s draw: the host’s national sport, ${esc(list(edDrawn(e+1).slice(1).map(k=>GAME_EVENTS[k].n)))}. The winning host may swap one of those four for another event.</p>
     <div class="row" style="margin-top:14px"${OBS?' hidden':''}>${myBid?c3BidTools(n,myBid,st):!canFeature(n,'host')?`<span class="pill">Unlocks at ${fmtPopShort(featureAt('host'))} people</span>`:`<button class="btn" data-act="g-bid"${miss.length?' disabled':''}>Bid to host (strength ${bidStrength(n)})</button>`}</div>
-    ${!OBS&&myBid?c3BidNote(n,myBid,st):''}${!OBS&&!myBid&&miss.length?`<p class="hint" style="margin-top:8px">You need ${esc(list(miss))} more in your stockpile.</p>`:''}
+    ${!OBS&&myBid?c3BidNote(n,myBid,st)+gmSwapHTML(e+1,myBid)+`<div class="gm-bidm"><p class="lbl">If you win: your mascot</p>${gmPickHTML(e+1,myBid,{player:true,id,n})}</div>`:''}${!OBS&&!myBid&&miss.length?`<p class="hint" style="margin-top:8px">You need ${esc(list(miss))} more in your stockpile.</p>`:''}
   </section>`;
 }
 
@@ -24258,21 +24342,23 @@ function gevPart(k,w,s,x){
   return [`${Math.round(w*100)}% of ${STATS[k]?STATS[k].n:k} (${Math.round(s[k]||0)})`,w*(s[k]||0)];
 }
 /* rows of [words, points] and the total, which is the score shown for the event */
-function gevWhy(n,id,e,ev,focus,hostId){
+function gevWhy(n,id,e,ev,focus,hostId,tr){
   const x=ctxOf(id),p=pol(n),rows=(GEV_PARTS[ev]||[]).map(([k,w])=>gevPart(k,w,n.s,x));
   const g=cabFx(n).games;if(g)rows.push(['Your Minister of Culture and Sport',g]);
   if(GAME_EVENTS[ev].sport&&p.sportsAcademy)rows.push(['Sports academies',8]);
   if(focus===ev)rows.push(['Training focus on this event',FOCUS_BONUS]);
+  const tp=gmTrPts(tr,ev);if(tp)rows.push([`Training sessions (${tp/TRAIN_PTS})`,tp]);
   let sum=Math.max(0,rows.reduce((a,r)=>a+r[1],0));
   if(p.enhancedSport){rows.push(['Enhanced Sport (+10%)',sum*0.1]);sum*=1.1;}
   if(hostId===id){rows.push(['Home crowd: you host these Games',HOST_BONUS]);sum+=HOST_BONUS;}
   const luck=formOf(id,e,ev);rows.push([luck>=0?'Form on the day (luck)':'Form on the day (bad luck)',luck]);sum+=luck;
   return {rows,total:Math.max(0,sum)};
 }
-function gevWhyHTML(W,shown){
+function gevWhyHTML(W,shown,day){
   const f=v=>(v>=0?'+':'−')+Math.abs(v).toFixed(1);
   const drift=shown!=null&&Math.abs(shown-W.total)>=0.1?`<li class="gw-note"><span>Your entry keeps your figures from when it was saved; it catches up when you next act</span><span class="num">${f(shown-W.total)}</span></li>`:'';
-  return `<details class="gw"><summary>Why this score</summary><ul>${W.rows.map(([t,v])=>`<li><span>${esc(t)}</span><span class="num">${f(v)}</span></li>`).join('')}${drift}<li class="gw-t"><span>Score</span><span class="num">${(shown!=null?shown:W.total).toFixed(1)}</span></li></ul></details>`;
+  const dy=day?`<li class="gw-note"><span>Still to come: the day itself, revealed when the Games end</span><span class="num">±${day}</span></li>`:'';
+  return `<details class="gw"><summary>Why this score</summary><ul>${W.rows.map(([t,v])=>`<li><span>${esc(t)}</span><span class="num">${f(v)}</span></li>`).join('')}${drift}<li class="gw-t"><span>Score</span><span class="num">${(shown!=null?shown:W.total).toFixed(1)}</span></li>${dy}</ul></details>`;
 }
 
 /* ── records: the best score ever in each event, who holds the most golds in it, and this nation's best Games ── */
@@ -24319,14 +24405,234 @@ function gamesCeremony(e){
   if(!(e>=0)||!S.nation)return;const R=gamesResults(e),me=myId(),m=medalsIn(R,me),entered=entryOf(S.nation,e);
   const step=(r,i)=>r?`<li class="gc-s gc-s${i}"><span class="gc-f">${gcerFlag(r.p.n)}</span><span class="gc-n">${r.p.id===me?'<b>'+esc(r.p.n.name)+'</b>':esc(r.p.n.name)}</span><span class="gc-v num">${r.v.toFixed(1)}</span><span class="gc-b"><span class="medal m${i}">${i+1}</span></span></li>`:'';
   const evs=R.evs.map((ev,k)=>{const rows=R.res[ev];return `<section class="gc-ev" style="--d:${k}"><h3>${esc(evName(ev,R.host))}</h3><ol class="gc-pod">${step(rows[1],1)}${step(rows[0],0)}${step(rows[2],2)}</ol></section>`;}).join('');
-  const sum=!entered?'Your team did not enter these Games.':(m.g+m.s+m.b)?`Your team won ${esc(medalWords(m))}.`:'Your team came home without a medal this time.';
+  const home=!!(entered&&entered.bo&&R.host.id!==me);
+  const sum=!entered?'Your team did not enter these Games.':home?(entered.bo===2?'Your team stayed home: you were at war with the host.':'Your team stayed home: you boycotted these Games.'):(m.g+m.s+m.b)?`Your team won ${esc(medalWords(m))}.`:'Your team came home without a medal this time.';
+  /* the day itself, revealed: what each of the team's events gained or lost on the day, and how it was played */
+  let day='';if(entered&&!home&&e>=GAMES_V2){const f=v=>(v>=0?'+':'−')+Math.abs(v).toFixed(1);
+    const li=R.evs.map(ev=>{const r=(R.res[ev]||[]).find(q=>q.p.id===me);if(!r)return '';const t=(entered.m&&entered.m[ev])||'';return `<li><span>${esc(evName(ev,R.host))}</span><span class="hint">${esc(GTAC[t].n)}</span><span class="num">${f(r.d||0)}</span></li>`;}).join('');
+    if(li)day=`<div class="gc-day" style="--d:${R.evs.length}"><p class="lbl">On the day</p><ul>${li}</ul></div>`;}
   let d=document.getElementById('g-cer');if(d)d.remove();
   d=document.createElement('dialog');d.id='g-cer';d.className='g-cer';d.setAttribute('aria-labelledby','g-cer-h');
   d.innerHTML=`<div class="gc-in"><p class="eyebrow">Medal ceremony · hosted by ${esc(R.host.n.name)}</p><h2 id="g-cer-h" tabindex="-1" autofocus>${esc(cap1(edName(e)))}</h2><div class="gc-evs">${evs}</div>
-    <p class="gc-sum${m.g+m.s+m.b?' won':''}" style="--d:${R.evs.length}">${sum}</p><div class="row gc-act"><button class="btn" data-act="g-cer-close">Close</button></div></div>`;
+    <p class="gc-sum${m.g+m.s+m.b?' won':''}" style="--d:${R.evs.length}">${sum}</p>${day}<div class="row gc-act"><button class="btn" data-act="g-cer-close">Close</button></div></div>`;
   document.body.appendChild(d);d.addEventListener('close',()=>d.remove(),{once:true});
   d.addEventListener('click',ev=>{if(ev.target===d||(ev.target.closest&&ev.target.closest('[data-act="g-cer-close"]')))d.close();});
   d.showModal();d.scrollTop=0;try{d.querySelector('#g-cer-h').focus({preventScroll:true});}catch(x){}gcerMark(e);const c=document.getElementById('g-cer-call');if(c)c.classList.add('seen');
+}
+
+/* ───────── the Games, round two (2026-11-23) ───────── */
+/* The host's mascot: a shape from GM_MASC and a name from GM_NAMES, both chosen from lists (nothing typed, so nothing to
+   moderate), kept on the host's bid (ms, mn); without a choice, one by the week and the host. Drawn in the host's
+   colours */
+const GM_MASC={blob:{n:'Blob'},star:{n:'Star'},ball:{n:'Ball'},drop:{n:'Raindrop'},sun:{n:'Sun'},flame:{n:'Flame'},cloud:{n:'Cloud'},box:{n:'Parcel'},bowl:{n:'Dish'}};
+const gmMsOk=k=>typeof k==='string'&&Object.prototype.hasOwnProperty.call(GM_MASC,k);
+const GM_NAMES=['Champ','Momentum','Pip','Dash','Bolt','Medley','Hopper','Laurel','Goldie','Sprint','Ziggy','Pebble','Rally','Tempo','Nimbus','Biscuit'];
+const GM_MEDAL_SVG='<svg viewBox="0 0 24 16" aria-hidden="true"><path d="M8.5 0h3l1 6-2.6.8zM15.5 0h-3l-1 6 2.6.8z" fill="#C0392B"/><circle cx="12" cy="10" r="5.2" fill="#E4B83C" stroke="#A5821F" stroke-width=".8"/><path d="M12 7.3l.8 1.7 1.9.2-1.4 1.3.4 1.9-1.7-1-1.7 1 .4-1.9-1.4-1.3 1.9-.2z" fill="#FFF3C4"/></svg>';
+/* normalising a record's training and tactics: known events only, at most TRAIN_MAX sessions in all */
+function gmTrClean(v){if(!v||typeof v!=='object')return null;const o={};let left=TRAIN_MAX;for(const k of Object.keys(v).filter(gmEvOk)){const c=Math.min(left,Math.max(0,Math.floor(+v[k]||0)));if(c>0){o[k]=c;left-=c;}}return Object.keys(o).length?o:null;}
+function gmTacClean(v){if(!v||typeof v!=='object')return null;const o={};for(const k of Object.keys(GAME_EVENTS))if(v[k]==='s'||v[k]==='b')o[k]=v[k];return Object.keys(o).length?o:null;}
+function gmDish(n){return typeof (n&&n.dish)==='string'&&n.dish.trim()?n.dish.trim().slice(0,40):'fish stew';}
+/* week e's mascot; b: the bid to read (else the winning bid, when a player hosts) */
+function gmMascOf(e,host,b){
+  const ks=Object.keys(GM_MASC),h=hash(String(host&&host.id||'')+':masc:'+e);
+  if(b===undefined&&host&&host.player){const w=gamesBids(e)[0];b=w&&w.id===host.id?w:null;}
+  const k=b&&gmMsOk(b.ms)?b.ms:ks[h%ks.length],nm=b&&GM_NAMES.includes(b.mn)?b.mn:GM_NAMES[Math.floor(h/ks.length)%GM_NAMES.length];
+  return {k,nm,label:k==='bowl'?`${nm}, a bowl of ${gmDish(host&&host.n)}`:`${nm} the ${GM_MASC[k].n}`};
+}
+/* the host's colours: its map colour and the first other colour of its flag */
+function gmCols(n){let a='#57A6DE';try{a=nationColor(n)||a;}catch(x){}let b='';for(const c of (n&&n.flag&&Array.isArray(n.flag.c))?n.flag.c:[]){const v=safeColor(c,'');if(v&&v!==String(a).toUpperCase()){b=v;break;}}return [a,b||'#F2C94C'];}
+function gmStar(cx,cy,r){let p='';for(let i=0;i<10;i++){const a=-Math.PI/2+i*Math.PI/5,rr=i%2?r*.5:r;p+=(i?'L':'M')+(cx+rr*Math.cos(a)).toFixed(1)+' '+(cy+rr*Math.sin(a)).toFixed(1);}return p+'Z';}
+function gmMascotSVG(k,c1,c2,label){
+  const ink='#1D2430',ln=`stroke="${ink}" stroke-opacity=".3" stroke-width="2.2" stroke-linejoin="round"`;let b='',fy=50;
+  if(k==='star'){b=`<path d="${gmStar(50,54,46)}" fill="${c1}" stroke="${c1}" stroke-width="10" stroke-linejoin="round"/>`;fy=56;}
+  else if(k==='ball'){b=`<circle cx="50" cy="52" r="40" fill="${c1}" ${ln}/><path d="M22 24Q38 52 22 80M78 24Q62 52 78 80" fill="none" stroke="${c2}" stroke-width="5" stroke-linecap="round"/>`;fy=48;}
+  else if(k==='drop'){b=`<path d="M50 6C50 6 86 46 86 63A36 36 0 0 1 14 63C14 46 50 6 50 6Z" fill="${c1}" ${ln}/><path d="M30 58Q30 46 38 38" fill="none" stroke="#fff" stroke-opacity=".5" stroke-width="4" stroke-linecap="round"/>`;fy=60;}
+  else if(k==='sun'){let r='';for(let i=0;i<12;i++){const a=i*Math.PI/6,p=(d,t)=>(50+d*Math.cos(a+t)).toFixed(1)+' '+(52+d*Math.sin(a+t)).toFixed(1);r+=`M${p(31,-.17)}L${p(47,0)}L${p(31,.17)}Z`;}b=`<path d="${r}" fill="${c2}"/><circle cx="50" cy="52" r="32" fill="${c1}" ${ln}/>`;fy=48;}
+  else if(k==='flame'){b=`<path d="M50 4C58 24 82 34 82 62A32 32 0 0 1 18 62C18 46 30 38 35 24C39 35 45 38 47 40C50 30 47 16 50 4Z" fill="${c1}" ${ln}/><path d="M50 46C56 56 66 62 66 74A16 16 0 0 1 34 74C34 64 44 58 50 46Z" fill="${c2}" opacity=".85"/>`;fy=60;}
+  else if(k==='cloud'){b=`<path d="M26 82A20 20 0 0 1 22 43A24 24 0 0 1 68 30A22 22 0 0 1 80 82Z" fill="${c1}" ${ln}/>`;fy=56;}
+  else if(k==='box'){b=`<rect x="14" y="24" width="72" height="66" rx="10" fill="${c1}" ${ln}/><rect x="45" y="24" width="10" height="66" fill="${c2}"/><path d="M50 24C40 8 26 14 34 24ZM50 24C60 8 74 14 66 24Z" fill="${c2}" ${ln}/>`;fy=54;}
+  else if(k==='bowl'){b=`<path d="M16 52C18 26 82 26 84 52Z" fill="${c2}" ${ln}/><circle cx="36" cy="40" r="3" fill="#fff" opacity=".6"/><circle cx="58" cy="36" r="2.5" fill="#fff" opacity=".6"/><path d="M8 50H92C92 76 74 92 50 92C26 92 8 76 8 50Z" fill="${c1}" ${ln}/>`;fy=66;}
+  else{b=`<path d="M52 10C75 8 92 28 90 52C88 77 71 92 48 91C25 90 8 73 10 49C12 27 29 12 52 10Z" fill="${c1}" ${ln}/><path d="M28 28C34 21 43 18 50 18" fill="none" stroke="#fff" stroke-opacity=".45" stroke-width="4" stroke-linecap="round"/>`;fy=48;}
+  const eye=x=>`<ellipse cx="${x}" cy="${fy}" rx="6.5" ry="7.5" fill="#fff" ${ln}/><circle cx="${x+1}" cy="${fy+1}" r="3.8" fill="${ink}"/><circle cx="${x+2.4}" cy="${fy-1.2}" r="1.3" fill="#fff"/>`;
+  const face=eye(37)+eye(63)+`<path d="M40 ${fy+12}Q50 ${fy+21} 60 ${fy+12}" fill="none" stroke="${ink}" stroke-width="3.4" stroke-linecap="round"/><circle cx="27" cy="${fy+11}" r="4.2" fill="#FF7A7A" opacity=".45"/><circle cx="73" cy="${fy+11}" r="4.2" fill="#FF7A7A" opacity=".45"/>`;
+  return `<svg viewBox="0 0 100 100" role="img" aria-label="${esc(label)}">${b}${face}</svg>`;
+}
+/* the opening ceremony that heads the Games page all week: the host's flag, motto and mascot; the host changes the mascot here */
+function gmOpeningHTML(e,host){
+  if(!host||!host.n)return '';
+  const hn=host.n,mine=host.id===myId(),M=gmMascOf(e,host),[c1,c2]=gmCols(hn),motto=typeof hn.motto==='string'?hn.motto.trim().slice(0,90):'';
+  let fl='';try{fl=flagSVG(hn.flag,'Flag of '+hn.name);}catch(x){}
+  const myb=mine&&!OBS?c3MyBid(S.nation,e):null;
+  return `<section class="gm-open" aria-labelledby="gm-open-h"><div class="gm-fl">${fl}</div>
+    <div class="gm-ox"><p class="eyebrow">Opening ceremony</p><h2 class="gm-ot" id="gm-open-h">${esc(cap1(edName(e)))} open in ${esc(hn.capital)}</h2>
+      <p class="muted">Hosted by ${mine?'<b>'+esc(hn.name)+'</b> (you)':esc(hn.name)}${motto?`, under the motto <q class="gm-motto">${esc(motto)}</q>`:''}.</p></div>
+    <figure class="gm-masc">${gmMascotSVG(M.k,c1,c2,M.label)}<figcaption><b>${esc(M.label)}</b><span class="hint">Official mascot</span></figcaption></figure>
+    ${myb?`<div class="gm-host">${gmPickHTML(e,myb,host)}</div>`:''}</section>`;
+}
+function gmPickHTML(e,b,host){
+  const M=gmMascOf(e,host,b),[c1,c2]=gmCols(host&&host.n);
+  return `<div class="gm-pick" role="group" aria-label="Your Games mascot"><div class="field"><label for="gm-ms-${e}">Mascot</label><select class="input" id="gm-ms-${e}" data-gm="ms" data-e="${e}">${Object.keys(GM_MASC).map(k=>`<option value="${k}"${k===M.k?' selected':''}>${esc(GM_MASC[k].n)}</option>`).join('')}</select></div>
+    <div class="field"><label for="gm-mn-${e}">Name</label><select class="input" id="gm-mn-${e}" data-gm="mn" data-e="${e}">${GM_NAMES.map(v=>`<option value="${v}"${v===M.nm?' selected':''}>${v}</option>`).join('')}</select></div>
+    <span class="gm-pv" aria-hidden="true">${gmMascotSVG(M.k,c1,c2,M.label)}</span><p class="hint">${esc(M.label)}. Everyone in ${esc(REG.the||REGION)} sees it at the opening ceremony.</p></div>`;
+}
+/* one event's training and tactics */
+function gmEvTools(e,ev,en,st,used,v2){
+  const k=(en&&en.tr&&en.tr[ev])||0,left=TRAIN_MAX-used,cost=gmTrCost(ev,used),miss=lacking(cost,st),tac=(en&&en.m&&en.m[ev])||'';
+  const tr=`<span class="gev-tr">${left>0?`<button class="btn ghost small-btn" data-act="g-train" data-ev="${ev}"${miss.length?' disabled':''} title="${esc(cap1(TRAIN_WHAT[ev]||'training'))}">Train +${TRAIN_PTS} · ${esc(costText(cost))}</button>`:''}${k?`<span class="chip">Trained ×${k}</span>`:''}${left>0&&miss.length?`<span class="hint">Need ${esc(list(miss))} more</span>`:''}</span>`;
+  const seg=v2?`<span class="gev-tac"><span class="lbl" id="gtac-${ev}">On the day</span><span class="seg" role="group" aria-labelledby="gtac-${ev}">${['s','','b'].map(t=>`<button type="button" class="seg-b${tac===t?' on':''}" data-act="g-tac" data-ev="${ev}" data-t="${t}" aria-pressed="${tac===t}" title="${esc(cap1(GTAC[t].h))}">${esc(GTAC[t].n)} ±${GTAC[t].d}</button>`).join('')}</span></span>`:'';
+  return `<div class="gev-x">${tr}${seg}</div>`;
+}
+/* staying home: at war with the host, or a boycott */
+function gmBoyHTML(e,host,en){
+  if(!host||!host.n||host.id===myId())return '';
+  const H=esc(host.n.name),C=esc(host.n.capital),npc=NPC_SET.has(host.id);
+  if(en&&en.bo===2)return `<div class="war-box calm gm-boy"><p><b>Your team is staying home.</b> You are at war with ${H}, so your athletes will not travel to ${C}. They go again if there is peace before these Games end.</p></div>`;
+  if(en&&en.bo===1)return `<div class="war-box calm gm-boy"><p><b>You are boycotting these Games.</b> Your team stays home: no events and no medals this week. Every nation that stays away costs ${H} part of the tourism hosting brings.</p><div class="row"><button class="btn ghost" data-act="g-unboy">Send the team after all</button></div></div>`;
+  if(S.gmBoyAsk)return `<div class="war-box calm gm-boy" role="group" aria-labelledby="gm-boy-h"><p id="gm-boy-h"><b>Boycott ${esc(edName(e))} in ${C}?</b> Your team stays home this week: it competes in nothing and wins no medals. Each nation that stays away costs the host 1 tourism of what hosting brings (up to ${BOY_TOUR}), and the whole region hears of it.${npc?` ${H} will think less of you (−${BOY_GW} goodwill).`:''} You can change your mind until the Games end.</p><div class="row"><button class="btn danger" data-act="g-boy">Boycott the Games</button><button class="btn ghost" data-act="g-boy-no">Keep competing</button></div></div>`;
+  return `<p class="gm-boy-l"><button type="button" class="linkish small" data-act="g-boy-ask">Boycott these Games…</button></p>`;
+}
+/* the host's pick: swap one of next week's four drawn events for another, set on the bid */
+function gmSwapHTML(e1,b){
+  const d=edDrawn(e1),cur=gmSwapParse(b.sw),ins=Object.keys(GAME_EVENTS).filter(k=>k!=='national'&&!d.includes(k));
+  return `<div class="gm-swap" role="group" aria-labelledby="gm-sw-h"><p class="lbl" id="gm-sw-h">If you win: swap one event</p>
+    <div class="row gm-sw-row"><div class="field"><label for="gm-sw-o">Drop</label><select class="input" id="gm-sw-o"><option value="">Choose…</option>${d.slice(1).map(k=>`<option value="${k}"${cur&&cur[0]===k?' selected':''}>${esc(GAME_EVENTS[k].n)}</option>`).join('')}</select></div>
+    <div class="field"><label for="gm-sw-i">Hold instead</label><select class="input" id="gm-sw-i"><option value="">Choose…</option>${ins.map(k=>`<option value="${k}"${cur&&cur[1]===k?' selected':''}>${esc(GAME_EVENTS[k].n)}</option>`).join('')}</select></div>
+    <button type="button" class="btn ghost small-btn" data-act="g-swap">${cur?'Change the swap':'Set the swap'}</button>${cur?`<button type="button" class="linkish small" data-act="g-swap-clear">Keep the draw</button>`:''}</div>
+    <p class="hint">${cur?`If you win, your Games hold the ${esc(GAME_EVENTS[cur[1]].n)} in place of the ${esc(GAME_EVENTS[cur[0]].n)}.`:'Pick an event your nation is strong in. Every bidder can see the swap you ask for.'} It is settled when this week’s Games end.</p></div>`;
+}
+/* the actions */
+function gmTrain(ev){
+  const now=Date.now(),e=edOf(now),n0=S.nation;if(e<0||!gmEvOk(ev)||!edEvents(e).includes(ev))return;
+  const cur=entryOf(n0,e);if(cur&&cur.bo&&gamesHost(e).id!==myId()){S.gamesMsg='Your team is staying home this week.';render();return;}
+  const used=gmTrUsed(cur&&cur.tr);if(used>=TRAIN_MAX){S.gamesMsg=`Your team has trained ${TRAIN_MAX} times this week, the most it can.`;render();return;}
+  const cost=gmTrCost(ev,used),st=stockNow(n0,now),miss=lacking(cost,st);
+  if(miss.length){S.gamesMsg='This session costs '+costText(cost)+'. You need '+list(miss)+' more.';render();return;}
+  const n=clone(n0);gamesEnter(n,now);const en=entryOf(n,e);
+  for(const r of RES)st[r]-=cost[r]||0;n.stock=roundStock(st);n.stockAt=now;n._stockSet=true;
+  en.tr=Object.assign({},en.tr||{});en.tr[ev]=(en.tr[ev]||0)+1;en.sc=baseScores(n,myId(),en.f||null,en.tr);
+  commit(n);S.gamesMsg='';render();
+  const f=document.querySelector(`#main [data-act="g-train"][data-ev="${ev}"]`)||document.querySelector(`#main [data-act="g-focus"][data-ev="${ev}"]`);if(f)try{f.focus({preventScroll:true});}catch(x){}
+  toast(`A training session for the ${evName(ev,gamesHost(e))}: ${TRAIN_WHAT[ev]||'training'}, +${TRAIN_PTS} points this week.`);
+}
+function gmSetTac(ev,t){
+  const now=Date.now(),e=edOf(now);if(e<GAMES_V2||!(t===''||t==='s'||t==='b')||!gmEvOk(ev)||!edEvents(e).includes(ev))return;
+  const n=clone(S.nation);gamesEnter(n,now);const en=entryOf(n,e);if(en.bo&&gamesHost(e).id!==myId())return;
+  const m=Object.assign({},en.m||{});if(t)m[ev]=t;else delete m[ev];if(Object.keys(m).length)en.m=m;else delete en.m;
+  commit(n);render();
+  const f=document.querySelector(`#main [data-act="g-tac"][data-ev="${ev}"][data-t="${t}"]`);if(f)try{f.focus({preventScroll:true});}catch(x){}
+}
+function gmBoycott(on){
+  const now=Date.now(),e=edOf(now),host=gamesHost(e),id=myId();if(e<0||!host||!host.n||host.id===id)return;
+  const n=clone(S.nation);gamesEnter(n,now);const en=entryOf(n,e);
+  if(on){if(en.bo)return;en.bo=1;en.bt=now;
+    if(NPC_SET.has(host.id)&&!en.bg){n.gw={...(n.gw||{})};n.gw[host.id]=clamp((n.gw[host.id]||0)-BOY_GW,-GW_MAX,GW_MAX);en.bg=1;}}
+  else{if(en.bo!==1)return;delete en.bo;delete en.bt;}
+  commit(n);S.gmBoyAsk=false;render();
+  const f=document.querySelector(on?'#main [data-act="g-unboy"]':'#main [data-act="g-boy-ask"]');if(f)try{f.focus({preventScroll:true});}catch(x){}
+  toast(on?`${n.name} is boycotting ${edName(e)}. The region will hear of it.`:`Your team is going to ${edName(e)} in ${host.n.capital} after all.`);
+}
+function gmSetSwap(clear){
+  const now=Date.now(),e1=edOf(now)+1,n0=S.nation;if(!c3MyBid(n0,e1))return;
+  let sw='';
+  if(!clear){const o=(document.getElementById('gm-sw-o')||{}).value||'',i=(document.getElementById('gm-sw-i')||{}).value||'',d=edDrawn(e1);
+    if(!o||!i){S.gamesMsg='Choose the event to drop and the one to hold instead.';render();return;}
+    if(!d.includes(o)||d.includes(i)||!gmSwapParse(o+'>'+i))return;sw=o+'>'+i;}
+  const n=clone(n0),b=c3MyBid(n,e1);if(sw){b.sw=sw;b.st=now;}else{delete b.sw;delete b.st;}
+  commit(n);S.gamesMsg='';render();
+  const f=document.querySelector('#main [data-act="g-swap"]');if(f)try{f.focus({preventScroll:true});}catch(x){}
+  const p=gmSwapParse(sw);toast(p?`If you win, your Games hold the ${GAME_EVENTS[p[1]].n} in place of the ${GAME_EVENTS[p[0]].n}.`:'Your Games would keep the draw as it is.');
+}
+function gmSetMascot(e,k,v){
+  const cur=edOf(Date.now());if(e!==cur&&e!==cur+1)return;if(e===cur&&gamesHost(e).id!==myId())return;
+  if(k==='ms'?!gmMsOk(v):k==='mn'?!GM_NAMES.includes(v):true)return;
+  const n0=S.nation,b0=c3MyBid(n0,e);if(!b0)return;
+  const M=gmMascOf(e,{player:true,id:myId(),n:n0},b0),n=clone(n0),b=c3MyBid(n,e);b.ms=M.k;b.mn=M.nm;b[k]=v;
+  commit(n);render();
+}
+document.addEventListener('click',ev=>{
+  const b=ev.target&&ev.target.closest&&ev.target.closest('[data-act]');if(!b||!S.nation||OBS)return;const a=b.dataset.act;
+  if(a==='g-train'){gmTrain(b.dataset.ev);return;}
+  if(a==='g-tac'){gmSetTac(b.dataset.ev,b.dataset.t||'');return;}
+  if(a==='g-boy-ask'){S.gmBoyAsk=true;render();const f=document.querySelector('#main [data-act="g-boy"]');if(f)try{f.focus({preventScroll:true});}catch(x){}return;}
+  if(a==='g-boy-no'){S.gmBoyAsk=false;render();const f=document.querySelector('#main [data-act="g-boy-ask"]');if(f)try{f.focus({preventScroll:true});}catch(x){}return;}
+  if(a==='g-boy'){gmBoycott(true);return;}
+  if(a==='g-unboy'){gmBoycott(false);return;}
+  if(a==='g-swap'){gmSetSwap(false);return;}
+  if(a==='g-swap-clear'){gmSetSwap(true);return;}
+});
+document.addEventListener('change',ev=>{const t=ev.target;if(!t||!t.dataset||!t.dataset.gm||!S.nation||OBS)return;const id=t.id;gmSetMascot(+t.dataset.e,t.dataset.gm,t.value);const s=id&&document.getElementById(id);if(s)try{s.focus({preventScroll:true});}catch(x){}});
+
+/* ── the Games in the region's chat: drawn by each game from the records, so nothing is written and every reader sees
+   the same lines: each week's opening ceremony, the results (the gold medallists only once the reader has watched the
+   ceremony, or when their team was not there), records broken, and boycotts. Region tab only ── */
+let gmChatMemo={k:'',v:[]},gmRecMemo=new Map();
+function gmChatLines(now){
+  const e=edOf(now);if(e<0)return [];
+  const k=e+'#'+Math.floor(now/60000)+'#'+dspSig();if(gmChatMemo.k===k)return gmChatMemo.v;
+  const out=[];
+  for(const q of [e-1,e]){if(q<0)continue;const t0=edStart(q),h=gamesHost(q);
+    out.push({id:'gm-open-'+q,t:t0+1000,sys:'games',gk:'open',e:q});
+    for(const x of allNations()){if(x.npc||x.id===h.id)continue;const en=entryOf(x.n,q);if(en&&en.bo&&en.bt)out.push({id:'gm-boy-'+q+'-'+x.id,t:Math.max(t0+2000,en.bt),sys:'games',gk:'boy',e:q,a:x.id,bo:en.bo});}}
+  if(e>=1)out.push({id:'gm-res-'+(e-1),t:edStart(e),sys:'games',gk:'res',e:e-1});
+  const v=out.filter(m=>m.t<=now&&now-m.t<8*DAY).sort((a,b)=>a.t-b.t);gmChatMemo={k,v};return v;
+}
+function gmChatMix(list){
+  try{if(!Array.isArray(list)||!S.nation)return list;const L=gmChatLines(Date.now());if(!L.length)return list;
+    /* a full window of lines (RGC_SHOW) reaches back only so far: nothing of ours goes above its first line */
+    const floor=list.length>=RGC_SHOW&&list[0]?list[0].t:0,out=list.filter(m=>!(m&&m.sys==='games'));
+    for(const m of L){if(m.t<floor)continue;const i=out.findIndex(x=>x&&x.t>m.t);out.splice(i<0?out.length:i,0,m);}
+    return out;}catch(x){return list;}
+}
+/* the events whose best score ever fell at edition e: [{ev, name, id, n, v, old}] */
+function gmRecordsBroken(e){
+  const k=e+'#'+Math.floor(Date.now()/600000),c=gmRecMemo.get(e);if(c&&c.k===k)return c.v;let v=[];
+  try{const R=gamesResults(e);if(R.parts.some(p=>!p.npc)){const B=gamesRecords(e).best;
+    for(const ev of R.evs){const top=(R.res[ev]||[])[0],b=B[ev];if(top&&b&&top.v>b.v)v.push({ev,name:evName(ev,R.host),id:top.p.id,n:top.p.n.name,v:top.v,old:b.v});}}}catch(x){v=[];}
+  gmRecMemo.set(e,{k,v});if(gmRecMemo.size>6)gmRecMemo.delete(gmRecMemo.keys().next().value);return v;
+}
+function gmChatLine(m){
+  const host=gamesHost(m.e),hn=host&&host.n,when=`${fmtDate(m.t)}, ${fmtTime(m.t)}`,me=myId();
+  const who=(id,nm)=>id===me?`<b>${esc(nm)}</b>`:`<button type="button" class="linkish rgc-nm" data-act="visit" data-id="${esc(id)}">${esc(nm)}</button>`;
+  let lab='The Games',fl='',x='';
+  if(m.gk==='open'){if(!hn)return '';const M=gmMascOf(m.e,host),[c1,c2]=gmCols(hn);lab='The Games · Opening ceremony';fl=gmMascotSVG(M.k,c1,c2,M.label);
+    x=`${esc(cap1(edName(m.e)))} open in <b>${esc(hn.capital)}</b>, hosted by ${host.player?who(host.id,hn.name):esc(hn.name)}. The mascot is ${esc(M.label)}. <a href="#games" data-act="go" data-v="games">Open the Games</a>`;}
+  else if(m.gk==='boy'){const X=findNation(m.a),nm=X?X.n.name:'A nation';lab='The Games · Boycott';try{fl=X?flagSVG(X.n.flag,'Flag of '+nm):'';}catch(e){}
+    x=m.bo===2?`${who(m.a,nm)} stays away from ${esc(edName(m.e))}: it is at war with ${esc(hn?hn.name:'the host')}.`:`${who(m.a,nm)} is boycotting ${esc(edName(m.e))} in ${esc(hn?hn.capital:'the host’s capital')}.`;}
+  else{lab='The Games · Results';fl=GM_MEDAL_SVG;
+    const en=S.nation&&entryOf(S.nation,m.e),gate=!!(en&&!(en.bo&&host.id!==me)&&!gcerSeen(m.e));
+    if(gate)x=`The results of ${esc(edName(m.e))} are in. <button type="button" class="linkish" data-act="g-cer" data-e="${m.e}">See the results</button>`;
+    else{const R=gamesResults(m.e),golds=R.evs.map(ev=>{const w=(R.res[ev]||[])[0];return w?`${esc(evName(ev,R.host))}, ${esc(w.p.n.name)}`:'';}).filter(Boolean),rec=gmRecordsBroken(m.e);
+      x=`The results of ${esc(edName(m.e))} are in. ${golds.length?'Gold medals: '+golds.join('; ')+'.':'No medals were won.'}${rec.map(r=>` New record, ${esc(r.name)}: ${esc(r.n)} with ${r.v.toFixed(1)}.`).join('')} <a href="#games" data-act="go" data-v="games">Open the Games</a>`;}}
+  return `<li class="rgc-l rgc-sys gm-chat gm-chat-${m.gk}${RGC.goto===m.id?' flash':''}" data-id="${esc(m.id)}"><p class="rgc-sh"><span>${esc(lab)}</span><time datetime="${new Date(m.t).toISOString()}" title="${esc(when)}">${esc(fmtTime(m.t))}</time></p><div class="rgc-sw"><span class="mflag sm gm-chat-fl${m.gk==='boy'?'':' gm-chat-ic'}">${fl}</span><p class="rgc-x rgc-sx">${x}</p></div></li>`;
+}
+
+/* ── the Dispatch: the opening on each week's first day, records, the upset of the week and doping on the day the
+   results are in, and boycotts on the day they are declared (dspBuild, beside dspGames) ── */
+function dspGames2(C,out){
+  const e=edOf(C.from),di=Math.round((C.from-edStart(e))/DAY);if(e<0)return;
+  const host=gamesHost(e),hn=host&&host.n;
+  if(di===0&&hn){
+    const M=gmMascOf(e,host),sw=gmSwapOf(e),motto=dspClean(hn.motto,80),v={G:edName(e),CAP:dspClean(hn.capital,40),HOST:dspClean(hn.name,40)};
+    out.push({k:'go:'+e,t:C.from,sec:'sport',kick:'The Games',w:5,h:dspT(dspPick(['{G} open in {CAP}','Flags up in {CAP} as {G} begin','{CAP} welcomes {G}'],C.no,'goh'),v),
+      b:`${v.HOST} welcomed the teams of ${REG.the} to ${v.CAP}${motto?`, under the motto “${motto}”`:''}. The official mascot, ${dspClean(M.label,80)}, ${dspPick(['led the parade','lit the flame, carefully','fell over twice and was cheered both times','signed autographs until its pen ran dry','waved at everyone, including the opposition'],C.no,'gom')}.${sw?` The host has swapped the ${GAME_EVENTS[sw[0]].n} for the ${GAME_EVENTS[sw[1]].n}.`:''} This week’s events: ${list(edEvents(e).map(ev=>dspClean(evName(ev,host),40)))}.`,who:[host.id],go:'games',place:v.CAP.toUpperCase()});
+  }
+  if(di===0&&e>=1){
+    const q=e-1,R=gamesResults(q),G=edName(q);
+    for(const r of gmRecordsBroken(q).slice(0,2)){const N=dspClean(r.n,40),EV=dspClean(r.name,40);
+      out.push({k:'gr:'+q+':'+r.ev,t:C.from,sec:'sport',kick:'Records',w:6,h:`Record: ${N} scores ${r.v.toFixed(1)} in the ${EV}`,b:`${N} set a new record in the ${EV} at ${G}: ${r.v.toFixed(1)} points, beating the old mark of ${r.old.toFixed(1)}. The scoreboard has been photographed from several angles.`,who:[r.id],go:'games'});}
+    /* the upset: a gold won from third place or lower before the day itself */
+    if(q>=GAMES_V2){let best=null;
+      for(const ev of R.evs){const rows=R.res[ev]||[];if(rows.length<3)continue;const w=rows[0],byB=rows.slice().sort((a,b)=>b.b-a.b||(a.p.id<b.p.id?-1:1)),rk=byB.indexOf(w);if(rk>=2&&(!best||rk>best.rk))best={ev,w,rk,lead:byB[0]};}
+      if(best){const N=dspClean(best.w.p.n.name,40),EV=dspClean(evName(best.ev,R.host),40),L=dspClean(best.lead.p.n.name,40),broke=!!(best.w.p.m&&best.w.p.m[best.ev]==='b');
+        out.push({k:'gu:'+q,t:C.from,sec:'sport',kick:'The Games',w:7,h:`Upset in the ${EV}: ${N} snatches gold`,b:`${N} went into the final day ${ordinal(best.rk+1)} in the ${EV}${broke?' and went for broke':''}, and came home with the gold. ${L}, who had led all week, is said to be studying the replay.`,who:[best.w.p.id,best.lead.p.id],go:'games'});}}
+    for(const p of R.parts){if(p.npc||!p.dq)continue;const N=dspClean(p.n.name,40),D=dspClean(p.n.demonym,40)||demonymOf(N);
+      out.push({k:'gd:'+q+':'+p.id,t:C.from,sec:'sport',kick:'Scandal',w:7,h:`Doping scandal: ${D} team sent home from ${G}`,b:`The ${D} team has been disqualified from ${G} after tests found what its doctor calls “a vitamin”. Enhanced Sport is still legal in ${N}, and its athletes still glow faintly in the dark.`,who:[p.id],go:'games'});}
+  }
+  for(const q of [e-1,e]){if(q<0)continue;const hq=gamesHost(q);if(!hq||!hq.n)continue;
+    for(const x of allNations()){if(x.npc||x.id===hq.id)continue;const en=entryOf(x.n,q);if(!en||!en.bo||!dspIn(C,en.bt))continue;
+      const N=dspClean(x.n.name,40),H=dspClean(hq.n.name,40),HC=dspClean(hq.n.capital,40),G=edName(q);
+      out.push({k:'gb:'+q+':'+x.id,t:en.bt,sec:'world',kick:'The Games',w:en.bo===2?4:6,h:en.bo===2?`${N} team stays home from ${G}`:`${N} boycotts ${G}`,
+        b:en.bo===2?`With ${N} at war with ${H}, its athletes will not travel to ${HC}. The empty seats have been offered to the public.`:`${N} will not send a team to ${G} in ${HC}. ${H} says the athletes of ${N} “will be missed, a little”.`,who:[x.id,hq.id],go:'games',place:dspPlace(x.n)});}}
 }
 
 /* ───────── growth milestones ───────── */
@@ -27995,8 +28301,9 @@ function helpBody(n){
       <dl class="help-tbl">${EXP_TABLE.map(([r,l])=>`<div><dt>${r}</dt><dd>${l}</dd></div>`).join('')}</dl>
       <p>The first nation to make a discovery names the site and gains its rewards, and a follow-up edict may come of it. A remarkable discovery gives half as much again and a bonus land credit. Exploring a site on another nation’s land costs goodwill with it.</p>${G(go('explore','Open expeditions'))}`,
     games:`<p>Every week the nations of ${REGION} meet at the Meridian Games in five events: the host’s national sport and four more drawn for that week. Your team enters automatically whenever you make a decision during the week.</p>
-      <p>Scores come from your census figures, your Minister of Culture and Sport, your buildings and luck on the day. Focus your training on one event for ${FOCUS_BONUS} more points. Medals lift happiness, and gold medals culture too.</p>
-      <p>From ${fp('host')} people you can bid to host next week’s Games for ${cost(BID_COST)}, returned if you lose. The strongest bid wins${typeof C3_RAISE_MAX==='number'?`; you can raise your bid up to ${num(C3_RAISE_MAX)} times, or withdraw it, though the committee keeps part of the stake`:''}. The host’s team scores ${HOST_BONUS} more in every event, and hosting brings tourism, culture and happiness at a small cost to incomes. Enhanced Sport makes your team score 10% more, but one Games in four it is disqualified.</p>${G(go('games','Open the Games'))}`,
+      <p>Scores come from your census figures, your Minister of Culture and Sport, your buildings and luck on the day. Focus your training on one event for ${FOCUS_BONUS} more points, and book up to ${num(TRAIN_MAX)} training sessions a week at ${num(TRAIN_PTS)} points each, paid for in the materials each event needs. On the day itself every event adds a roll that nobody sees until the Games end: play safe and it hardly moves, go for broke and it can swing ${num(GTAC.b.d)} points either way. Medals lift happiness, and gold medals culture too.</p>
+      <p>Each week opens with the host’s ceremony: its flag, its motto and a mascot it chooses. A nation at war with the host stays home, and any nation may boycott a host’s Games: it wins nothing that week, and every nation that stays away costs the host part of the tourism hosting brings.</p>
+      <p>From ${fp('host')} people you can bid to host next week’s Games for ${cost(BID_COST)}, returned if you lose. The strongest bid wins${typeof C3_RAISE_MAX==='number'?`; you can raise your bid up to ${num(C3_RAISE_MAX)} times, or withdraw it, though the committee keeps part of the stake`:''}. The winning bid may swap one of the four drawn events for another. The host’s team scores ${HOST_BONUS} more in every event, and hosting brings tourism, culture and happiness at a small cost to incomes. Enhanced Sport makes your team score 10% more, but one Games in four it is disqualified.</p>${G(go('games','Open the Games'))}`,
     navy:`<p>A Blue-Water Navy is a policy. With it your troops cross the sea without losing strength, and your explorers travel 15 hexes further and do better on remote islets. It comes from edicts: coastal nations meet them most often${navy.length?`, among them ${list(navy)}`:''}${lake?', and even a landlocked nation may be offered a fleet on its lakes':''}. Coastal Batteries, from similar edicts, make your coastal hexes 25% harder to take.</p>`,
     cab:`<p>Seven ministers run your departments. Each has a skill from 1 to 5, one or two traits and a loyalty score. Skill above 3 helps their department and skill below 3 hurts it: the economy, the army, affinity with computer nations, your defences, building speed, growth or Games scores. Traits add quirks.</p>
       <p>Loyalty rises and falls with the edicts you decide and the ministers you sack. Below 20 a minister is plotting: their skill counts half, and every ${hrs(RESIGN_SLOT)} there is a one-in-five chance they resign. You can replace a minister on the Government page once every ${hrs(SACK_MS)}, but sacking upsets the rest of the cabinet.</p>
@@ -28219,7 +28526,7 @@ function tallyScan(n,old,now){
   for(const c of n.cities||[])if(!(old&&(old.cities||[]).some(o=>o.id===c.id))&&!(cap0&&cap0.id===c.id))bump('cities',c.t||now);
   /* medals, event by event, worked out once when an edition is claimed */
   const g=n.games,og=old&&old.games;
-  if(g&&Array.isArray(g.cl)){const was=new Set((og&&og.cl)||[]);for(const e of g.cl){if(was.has(e))continue;try{const R=gamesResults(e),m=medalsIn(R,myId());const at=edStart(e+1);for(const [ev,i] of m.list)bump('medal:'+ev+':'+['g','s','b'][i],at);if(m.g)bump('medal:g',at,m.g);if(m.s)bump('medal:s',at,m.s);if(m.b)bump('medal:b',at,m.b);bump('games',at);}catch(err){}}}
+  if(g&&Array.isArray(g.cl)){const was=new Set((og&&og.cl)||[]);for(const e of g.cl){if(was.has(e))continue;if((entryOf(n,e)||{}).bo&&gamesHost(e).id!==myId())continue;try{const R=gamesResults(e),m=medalsIn(R,myId());const at=edStart(e+1);for(const [ev,i] of m.list)bump('medal:'+ev+':'+['g','s','b'][i],at);if(m.g)bump('medal:g',at,m.g);if(m.s)bump('medal:s',at,m.s);if(m.b)bump('medal:b',at,m.b);bump('games',at);}catch(err){}}}
   /* milestones: the first time each was passed */
   const mr=milesReached(n.pop||0).length;for(let i=0;i<mr;i++)if(!F['mile:'+i]){const l=(n.log||[]).find(l=>l.k==='mile'&&l.a===fmtPopShort(MILESTONES[i].p));F['mile:'+i]=i===0?(n.founded||now):l?l.t:now;T['mile:'+i]=1;}
   /* the lowest and highest each census figure has reached */
@@ -35471,6 +35778,7 @@ function dspBuild(no,now){
   for(const x of players){try{dspIssueStories(x,C,st);}catch(e){}try{dspLogStories(x,C,st,byId);}catch(e){}try{dspHonours(x,C,st);}catch(e){}}
   try{dspNpcStories(npcs,C,st);}catch(e){}
   try{dspGames(C,st);}catch(e){}
+  try{dspGames2(C,st);}catch(e){}
   try{st=st.concat(dspExt(C));}catch(e){}
   {const seen=new Set();st=st.filter(s=>s&&s.h&&!seen.has(s.k)&&seen.add(s.k));}
   for(const s of st){s.h=cap1(s.h);if(!s.place&&s.who&&byId.has(s.who[0]))s.place=dspPlace(byId.get(s.who[0]).n);}
@@ -46310,10 +46618,56 @@ const FR_UI={
 "Your team":"Votre équipe",
 "Your team is entered":"Votre équipe est inscrite",
 "Your voting record fills in as the counts close.":"Votre historique de votes se remplit à mesure que les décomptes se closent.",
+"Opening ceremony":"Cérémonie d’ouverture",
+"Official mascot":"Mascotte officielle",
+"Mascot":"Mascotte",
+"Name":"Nom",
+"Staying home":"Reste au pays",
+"Boycott these Games…":"Boycotter ces Jeux…",
+"Boycott the Games":"Boycotter les Jeux",
+"Keep competing":"Continuer à concourir",
+"Send the team after all":"Envoyer l’équipe quand même",
+"Your team is staying home.":"Votre équipe reste au pays.",
+"You are boycotting these Games.":"Vous boycottez ces Jeux.",
+"On the day":"Le jour J",
+"If you win: swap one event":"Si vous gagnez : échanger une épreuve",
+"If you win: your mascot":"Si vous gagnez : votre mascotte",
+"Drop":"Retirer",
+"Hold instead":"Organiser à la place",
+"Choose…":"Choisir…",
+"Set the swap":"Fixer l’échange",
+"Change the swap":"Changer l’échange",
+"Keep the draw":"Garder le tirage",
+"Still to come: the day itself, revealed when the Games end":"Encore à venir : le jour J, révélé à la fin des Jeux",
+"Pick an event your nation is strong in. Every bidder can see the swap you ask for. It is settled when this week’s Games end.":"Choisissez une épreuve où votre nation est forte. Chaque candidat voit l’échange que vous demandez. Il est tranché à la fin des Jeux de cette semaine.",
+"The Games · Opening ceremony":"Les Jeux · Cérémonie d’ouverture",
+"The Games · Boycott":"Les Jeux · Boycott",
+"The Games · Results":"Les Jeux · Résultats",
+"Ball":"Ballon",
+"Raindrop":"Goutte de pluie",
+"Flame":"Flamme",
+"Cloud":"Nuage",
+"Parcel":"Colis",
+"Dish":"Plat",
+"Play safe":"Jouer la sécurité",
+"Go for broke":"Tout risquer",
+"Pick one event to focus your training on for 10 more points, and book up to 3 extra training sessions a week at +3 each, paid for in materials, each dearer than the last. On the day each event adds a roll nobody sees until the Games end: choose play safe (±1), steady (±4) or go for broke (±14). Scores shown include this week’s form, but not the day itself.":"Choisissez une épreuve sur laquelle concentrer l’entraînement pour 10 points de plus, et réservez jusqu’à 3 séances d’entraînement supplémentaires par semaine à +3 chacune, payées en matériaux, chacune plus chère que la précédente. Le jour J, chaque épreuve ajoute un tirage que personne ne voit avant la fin des Jeux : choisissez jouer la sécurité (±1), stable (±4) ou tout risquer (±14). Les scores affichés incluent la forme de la semaine, mais pas le jour J.",
 "Zoom in":"Zoom avant",
 "Zoom out":"Zoom arrière"
 },p:[
-["Every week the nations of {x} send teams to five events. Your scores come from your census figures, your Minister of Culture and Sport, your buildings and a dash of luck on the day. Your team enters automatically whenever you make a decision during the week, and its scores are updated each time. Medals lift your people’s spirits, and hosting brings the crowds.","Chaque semaine, les nations de {x} envoient des équipes à cinq épreuves. Vos scores dépendent de vos chiffres du recensement, de votre ministre de la Culture et des Sports, de vos bâtiments et d’un brin de chance le jour J. Votre équipe est inscrite automatiquement dès que vous prenez une décision dans la semaine, et ses scores sont mis à jour à chaque fois. Les médailles remontent le moral de votre peuple, et accueillir les Jeux attire les foules."],
+["Pick one event to focus your training on for {n1} more points, and book up to {n2} extra training sessions a week at +{n3} each, paid for in materials, each dearer than the last ({n4} left this week). On the day each event adds a roll nobody sees until the Games end: choose play safe (±{n5}), steady (±{n6}) or go for broke (±{n7}). Scores shown include this week’s form, but not the day itself.", "Choisissez une épreuve sur laquelle concentrer l’entraînement pour {n1} points de plus, et réservez jusqu’à {n2} séances d’entraînement supplémentaires par semaine à +{n3} chacune, payées en matériaux, chacune plus chère que la précédente ({n4} restante{n4?s} cette semaine). Le jour J, chaque épreuve ajoute un tirage que personne ne voit avant la fin des Jeux : choisissez jouer la sécurité (±{n5}), stable (±{n6}) ou tout risquer (±{n7}). Les scores affichés incluent la forme de la semaine, mais pas le jour J."],
+["Next week’s draw: the host’s national sport, {x}. The winning host may swap one of those four for another event.", "Tirage de la semaine prochaine : le sport national de l’hôte, {x}. L’hôte retenu peut échanger l’une de ces quatre épreuves contre une autre."],
+["The {n}st {x1} Games open in {x2}", "Ouverture des {n}{n?ers|es} Jeux de {x1} à {x2}"],
+["The {n}nd {x1} Games open in {x2}", "Ouverture des {n}es Jeux de {x1} à {x2}"],
+["The {n}rd {x1} Games open in {x2}", "Ouverture des {n}es Jeux de {x1} à {x2}"],
+["The {n}th {x1} Games open in {x2}", "Ouverture des {n}es Jeux de {x1} à {x2}"],
+["Play safe ±{n}", "Jouer la sécurité ±{n}"],
+["Steady ±{n}", "Stable ±{n}"],
+["Go for broke ±{n}", "Tout risquer ±{n}"],
+["Train +{n} · {t}", "S’entraîner +{n} · {t}"],
+["Trained ×{n}", "Entraînée ×{n}"],
+["Training sessions ({n})", "Séances d’entraînement ({n})"],
+["Every week the nations of {x} send teams to five events. Your scores come from your census figures, your Minister of Culture and Sport, your buildings, the training you pay for and a dash of luck on the day. Your team enters automatically whenever you make a decision during the week, and its scores are updated each time. Medals lift your people’s spirits, and hosting brings the crowds.","Chaque semaine, les nations de {x} envoient des équipes à cinq épreuves. Vos scores dépendent de vos chiffres du recensement, de votre ministre de la Culture et des Sports, de vos bâtiments, de l’entraînement que vous payez et d’un brin de chance le jour J. Votre équipe est inscrite automatiquement dès que vous prenez une décision dans la semaine, et ses scores sont mis à jour à chaque fois. Les médailles remontent le moral de votre peuple, et accueillir les Jeux attire les foules."],
 ["{n1} of {n2} stamps · {n3} of {n4} land credits earned (the next at {n5} stamps). Open another nation’s page to collect its entry stamp: it goes in the first free place, and you choose where it stays. Richer covers, inks and prints unlock with the Passport achievements, the Passport Office in the museum and a Diplomata in one of your cities.","{n1} tampon{n1?s} sur {n2} · {n3} crédit{n3?s} de terre sur {n4} obtenu{n3?s} (le prochain à {n5} tampons). Ouvrez la page d’une autre nation pour récolter son tampon d’entrée : il se place au premier emplacement libre, et vous choisissez où il reste. Des couvertures, encres et impressions plus riches se débloquent avec les succès Passeport, le Bureau des passeports du musée et un Diplomata dans l’une de vos villes."],
 ["Once a day your press office can lean on the editor about one story that mentions {x}. Push it up the paper for {n1} mandate, or try to bury it for {n2} mandate and a little corruption: the editor usually buries it at the back of the paper, but now and then prints, on the front page, that you asked. You have {n3} of {n4} mandate.","Une fois par jour, votre service de presse peut faire pression sur le rédacteur en chef au sujet d’un article qui mentionne {x}. Faites-le remonter dans le journal pour {n1} de mandat, ou tentez de l’enterrer pour {n2} de mandat et un peu de corruption : le rédacteur l’enterre généralement en dernière page, mais il lui arrive d’imprimer en une que vous l’avez demandé. Vous avez {n3} de mandat sur {n4}."],
 ["Founds {x} again from the beginning, under the same name. Population, laws, land, cities, achievements and stories start afresh. The flag, particulars, culture, factbook, map colour, currency, edict pace and topics, and Customise choices come along, and Shop purchases stay with your account.","Refonde {x} depuis le début, sous le même nom. Population, lois, terres, villes, succès et histoires repartent de zéro. Le drapeau, les informations, la culture, la fiche descriptive, la couleur sur la carte, la monnaie, le rythme et les thèmes des édits, et les choix de Personnaliser sont conservés, et les achats de la Boutique restent attachés à votre compte."],
@@ -51353,8 +51707,10 @@ function newDraft(){
 }
 function normGames(d){
   const g=d.games&&typeof d.games==='object'?d.games:{},nm=(v,def)=>typeof v==='number'&&isFinite(v)?v:def,ints=a=>Array.isArray(a)?a.filter(Number.isInteger).slice(-20):[];
-  const en=Array.isArray(g.en)?g.en.filter(x=>x&&Number.isInteger(x.e)&&x.sc&&typeof x.sc==='object').slice(-12).map(x=>{const sc={};for(const k of Object.keys(GAME_EVENTS))sc[k]=clamp(nm(x.sc[k],0),0,250);return {e:x.e,t:nm(x.t,0),f:GAME_EVENTS[x.f]?x.f:'',sc,es:x.es?1:0};}):[];
-  const bids=Array.isArray(g.bids)?g.bids.filter(b=>b&&Number.isInteger(b.e)).slice(-6).map(b=>({e:b.e,t:nm(b.t,0),s:clamp(Math.round(nm(b.s,0)),0,600)})):[];
+  const en=Array.isArray(g.en)?g.en.filter(x=>x&&Number.isInteger(x.e)&&x.sc&&typeof x.sc==='object').slice(-12).map(x=>{const sc={};for(const k of Object.keys(GAME_EVENTS))sc[k]=clamp(nm(x.sc[k],0),0,250);const o={e:x.e,t:nm(x.t,0),f:GAME_EVENTS[x.f]?x.f:'',sc,es:x.es?1:0};
+    const tr=gmTrClean(x.tr),m=gmTacClean(x.m);if(tr)o.tr=tr;if(m)o.m=m;if(x.bo===1||x.bo===2){o.bo=x.bo;o.bt=nm(x.bt,0);}if(x.bg)o.bg=1;return o;}):[];
+  const bids=Array.isArray(g.bids)?g.bids.filter(b=>b&&Number.isInteger(b.e)).slice(-6).map(b=>{const o={e:b.e,t:nm(b.t,0),s:clamp(Math.round(nm(b.s,0)),0,600)};
+    if(gmSwapParse(b.sw)){o.sw=b.sw;o.st=nm(b.st,0);}if(gmMsOk(b.ms))o.ms=b.ms;if(typeof b.mn==='string'&&GM_NAMES.includes(b.mn))o.mn=b.mn;return o;}):[];
   const md=g.med||{},cnt=v=>Math.max(0,Math.floor(nm(v,0)));
   return {en,bids,ref:ints(g.ref),cl:ints(g.cl),hc:ints(g.hc),med:{g:cnt(md.g),s:cnt(md.s),b:cnt(md.b)}};
 }
@@ -82795,7 +83151,7 @@ mapBox=(f=>function(kind){const h=f.apply(this,arguments),n=S.nation;if(kind!=='
 
 /* the browser tests' window into the game: test/lib.mjs sets EDICTUM_PROBE before the page loads (a
    player's own browser can reach all of this anyway) */
-if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({RPATCH,SC:()=>scProbe(),WR3:()=>({CQ_ISSUES,cqFall,cqDue,cqTake,cityFounded,cqBuildings,openMapAt,WAR3_ISSUES,wr3WarsSection,wr3BattleCard,wr3MapData,wr3Econ,wr3Close,wr3VetDue,wr3WindToggle,wr3MunOn,wr3Reserve,wr3Factors,wr3On}),WR2:()=>({wrFallenCard,WR,WAR_GOALS,WAR2_ISSUES,wrSiege,wrSiegesOn,wrFallsAt,myFall,wrSiegeWhy,wrCapExposed,wrUnrest,wrWarsOf,wrPopFx,wrTribute,wrForts,wrFortify,wrSurrender,wrSiegeStart,wrRise,wrCarry,wrEdictDue,wrSafe,wrNotice,territory,frontier,economy,warControls,targetPanel,armyBlock,warNotice,warWith,pairWar,nationView,rgnOverview,hxCard}),HELPX:()=>({HLP,HELP_CH,HELP_SUM,HELP_FOR,GLOSS,helpFind,helpIndex,helpSecList,helpForYou,helpChapters,rgcCmd,rgcCardOf,rgcCardHTML,admhHs,admhHsCount}),MTP:()=>({MTP,MTP_PAD,TBMP_SCALE,redrawMaps,mapScale,viewOf}),SCR:()=>({scrOf,scrClean,scrDef,scrFamOf,scrEdParse,scrGlyphs,scrLay,scrChars,scrSVG,scrLine,scrCard,scrCharterSVG,scrFmt,scrFor,dmRich,dmPlain,scrDmWith,SCR_FAM,SCR_ABC,SCS}),BDX:()=>bdProbe(),LDX:()=>ldProbe(),FLY:()=>({flagSVG,fgSplit,fgFused}),RD:()=>rdProbe(),JV:()=>jvProbe(),M100P:()=>({M100,M100_N,M100_MC,M100_MCN,m100Bits,m100Got,m100In,m100Due,m100Count,m100Show,m100Open,ctgMcOk,nationColor,czShOk,czShieldPath,unlocksOf,czPatSVG,xsMax}),M200P:()=>({M200,M200_N,M200_MC,M200_MCN,M200_U,m200Bits,m200Got,m200In,m200Due,m200Count,m200Show,m200Open,ctgMcOk,nationColor,czShOk,czShieldPath,unlocksOf,czPatSVG,czStampArt,czFrameArt,czCharge,czFramed,flagSVG,xsMax,ACH_BY_ID,achEarnedIds}),WTN:()=>({WN,wbMap,wnKind,wnWaters,wnSync,wnAt,wnRename,wnReset,wnNameProblem,wnTaken,wnPanel,wnLabels,lakeMap,isLake,cellAt,WN_REACH,WTN_MAX,REG,RV,rvData,hexDist,territory,MAP,HEX_W,updateMapPanel,logLine}),RVN:()=>({RV,rvData,rvSync,rvKey,rvHeld,rvStretch,rvMost,rvEdgeHolder,rvAt,rvNameAt,rvLabelAt,rvParts,rvRename,rvReset,rvNameProblem,rvTidy,rvLabel,rvnPanel,logLine,RVN_MAX,RVN_LEN,updateMapPanel,hexDist,HEX_W,REG}),CP2:()=>({BLD_ICO,bldIco,bldLead,cxDefTotal,cxOrder,qjBuilding,BUILDINGS}),PRVC:()=>({cxPrvOf,cxPrvSeatTrial,cxOvwCols,prvSeat,prvMine,prvOfCell,prvSetAut,prvAppoint,PRV}),NPX:()=>({fbTrend,fbYesterday,heroLead,heroOpen,opOf,OPEN_TO,hnOf,hnFill,hnLine,nbSection,ppWho,ppWhoHTML,ppHash,ppCarried,economy,territory,bordersOf,fillDeal,findNation,clsHide,MAP,hexDist,STAT_KEYS,popNow,myId}),PT:()=>ptProbe(),LTH:()=>lthProbe(),DAM:()=>damProbe(),CHAT:()=>({RGC,RGW,RGF,tab:rgcTab(),count:rgcCount(),region:rgcUnread(),world:rgwUnread(),named:rgwNamedUnread(),fr:rgwUnread(RGF),frNamed:rgwNamedUnread(RGF),frOn:rgfOn(),hidden:document.hidden}),UXP2:()=>({edictDesk,edictStep,edictOpen,fill,ISSUE_BY_ID,ACH,keysOpen,dmOthers,dmPickList,stGroups,stTabLast,navRecent,vhData,VH_KEY,VH_AFTER,QJ_DO,qjItems:q=>navQjItems(q),NAV_REC_KEY,ST_KEY}),HID:()=>({HIDN,hidMask,iAmHidden,frontier,mapPanel,warControls}),WG:()=>({wgTakers,wgForField,wgForPick,warGiveHex,warGive,occupiedFrom,attack,offerPeace,declareWar,collectConquests,dedupeConq}),WAKE:()=>({dormFresh,dormQuiet,dormWelcome,moveTo,RSTAT,REGIONS,REG,regDisabled}),HMB:()=>({RCTRL,hmBake,hmAutoFlag,fxDraw,capHolder,FX_DEF,DEF_FLAG,hmRle,hmLiveNorm,hmMapNorm,hmSel,hmRegions,hmBlocked,hmEngaged:()=>hmEngaged,HM,REG,MAP}),LAND:()=>({landWait,capLift,capWrong,capNote,raceKnown,RACE,worldHeardAt:()=>worldHeardAt,landQ:()=>S.landQ,landQueued,fdSites:(n,T)=>fdSites(n,T)}),BG:{gain:bldGain,html:bldGainHtml},IB:()=>({agRoster,agPick,agStatus,heatOf,cvRoll,cvKey,cvBlock,cvOdds,buLv,buGap,buAll,BU,BU_KEYS,ibFile,ibWanted,ibChatter,HEAT_MAX,DD_TASKS,DD_LEG,findNation,allNations,cvProtected}),VL:()=>({VL_SECS,VL_DEF,CLS,CLS_OPS,CLS_READ,vlOrder,clsOf,clsRaw,clsMax,clsSeen,clsHide,clsRead,vlSave,findNation}),IFC:()=>({plan:ifcPlan,works:ifcWorks,line:ifcLine,tab:ifcTab}),XP:()=>({BUILDINGS,XU,XU_KEYS,XU_TOTAL,LOST_KINDS,LOST_ORDER,xuLv,xuWhy,xuHave,xuStart,xuCost,xuGear,xpSeen,expFree,xpTeamOpen,nationBuilt,expBackTeam,SITES,SITE_KINDS,expPlan,expOdds,expRuns,expRange,flRange,flAlive,flPlan,flDebug,flNow,discoveries,sendExpedition,hearReport,xpRoute,xpRivals,xpRivalText,xpFinds,flOdds,territory}),SVC:()=>({SVC,SVC_N,SVC_V,SVC_NEED,svcPlan,svcOpen,svcDig,svcShort,svcRoll,svcAmt,svcDayOf,svcRoom,svcNext}),FLC:()=>({FLC,FLC_RULES,FLC_CAT,flcId,flcTimes,flcPhase,flcPrev,flcView,flcLoad,flcChamp,flcTodo,flcClaims,flcLand,flcStreak,flcAllDone,flcSeen,flcDuty,flcDeskOn,flcDraftPush,FCA}),LK:{lakeMap,isLake,claimLand,lakeShore,fillHeld,LAKE_MAX,LAKE_A,freeCell,claimFrontier,blockPlan,autoPlan,terrCount,placePhrase,claimWhy,swapCheck,inspectPanel,writeClaims,landCredits:n=>landCredits(n)},PST:()=>({PST,PST_LOOKS,PST_SHAPES,PST_SIZES,pstBar,pstKm,pstView,pstBox,pstPlace,pstKeyOf,pstRender,pstShow,pstHide,pstLocked,pstOffered,pstSizeOffered,pstPrintK,pstSealId,pstPhys,pstCrc}),DIG:()=>({DIG_SETS,DIG_FIRST,DIG_POOL,DIG_SITES,DIG_LEN,DIG_EVENTS,DIG_SCH,digSet,digHeld,digDone,digRew,digCredits,digOrder,digActive,digRetired,digOpenedAt,digPlan,digSend,digOpen,digChoose,digMod,digEvent,digPity,digGround,digInvites,digJoin,digJointOn,digGiftsIn,digTake,digGiveSpare,digSellSpare,digHire,digRegionFinds,digFirsts,landEarned:n=>landEarned(n),REG,REGIONS,COL_BY_ID}),MW:()=>({mwOf,mwPoints,mwVisitors,mwTakings,mwExhibit,mwExhibitItems,mwRanking,mwWorn,mwSlots,mwOnShow,COL_BY_ID,COL_ITEMS,DIG_SETS,MW_FLOORS}),GM:()=>({gamesResults,edOf,b1Now,gevWhy,baseScores,entryOf,medalsIn,gamesRecords,gamesCeremony,unlocksOf,myId,formOf,GAME_EVENTS,clone,commit}),GB:()=>({IRON_DEP,IRON_DEP_YIELD,CELL_RES,MAP_T:MAP.T,mapAt:c=>{centerMain(c,NEAR_Z*1.6);},stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,FOOD_SPOIL,FOOD_EAT,FOOD_TIERS,FOOD_LAND,foodTier,TIMBER_BURN,foodGrowth,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({dspShown,dspRegShown,dspRegs,dspPic,dspLocator,dspHtDefs,pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),ASMX:()=>({ASMX,ASMX_TABS,asmBookAt,asmState,asmArcLoad,REG}),RGNX:()=>({RGN,RGN_PAGE,notifItems,ONL,onlRefresh}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals,seatsOf,alliancesOf,alMineAll,alClashes,alFest,alWornOf,alGuardsOf,alSeatsFor,allianceOf,AL_TY_UI,alStripHTML}),TYX:()=>({TY,TY_RULES,TY_K,tyOf,tyList,tyWarBlock,tyIncoming,affinity,alPactLive,alRelationsHTML,econOf,armyPower,armyRaw,attackMult,readyMs,drWords,drNote,drBroken,relationCard}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,achTierCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC,step:rcStepCheck,head:rcHead,sponsoring:rcSponsoring,qr:qrMatrix,card:rcCardDraw,invCap:rcInvCap,free:rcFreeLand,STEPS:RC_STEPS,UNL:RC_UNLOCKS}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend,card:n=>tutCard(n),phase:n=>tutPhase(n),picks:(n,ph)=>tutPicks(n,ph),group:(n,k)=>tutGroup(n,tutL(k)),hid:n=>tutHid(n)},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours,
+if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({RPATCH,SC:()=>scProbe(),WR3:()=>({CQ_ISSUES,cqFall,cqDue,cqTake,cityFounded,cqBuildings,openMapAt,WAR3_ISSUES,wr3WarsSection,wr3BattleCard,wr3MapData,wr3Econ,wr3Close,wr3VetDue,wr3WindToggle,wr3MunOn,wr3Reserve,wr3Factors,wr3On}),WR2:()=>({wrFallenCard,WR,WAR_GOALS,WAR2_ISSUES,wrSiege,wrSiegesOn,wrFallsAt,myFall,wrSiegeWhy,wrCapExposed,wrUnrest,wrWarsOf,wrPopFx,wrTribute,wrForts,wrFortify,wrSurrender,wrSiegeStart,wrRise,wrCarry,wrEdictDue,wrSafe,wrNotice,territory,frontier,economy,warControls,targetPanel,armyBlock,warNotice,warWith,pairWar,nationView,rgnOverview,hxCard}),HELPX:()=>({HLP,HELP_CH,HELP_SUM,HELP_FOR,GLOSS,helpFind,helpIndex,helpSecList,helpForYou,helpChapters,rgcCmd,rgcCardOf,rgcCardHTML,admhHs,admhHsCount}),MTP:()=>({MTP,MTP_PAD,TBMP_SCALE,redrawMaps,mapScale,viewOf}),SCR:()=>({scrOf,scrClean,scrDef,scrFamOf,scrEdParse,scrGlyphs,scrLay,scrChars,scrSVG,scrLine,scrCard,scrCharterSVG,scrFmt,scrFor,dmRich,dmPlain,scrDmWith,SCR_FAM,SCR_ABC,SCS}),BDX:()=>bdProbe(),LDX:()=>ldProbe(),FLY:()=>({flagSVG,fgSplit,fgFused}),RD:()=>rdProbe(),JV:()=>jvProbe(),M100P:()=>({M100,M100_N,M100_MC,M100_MCN,m100Bits,m100Got,m100In,m100Due,m100Count,m100Show,m100Open,ctgMcOk,nationColor,czShOk,czShieldPath,unlocksOf,czPatSVG,xsMax}),M200P:()=>({M200,M200_N,M200_MC,M200_MCN,M200_U,m200Bits,m200Got,m200In,m200Due,m200Count,m200Show,m200Open,ctgMcOk,nationColor,czShOk,czShieldPath,unlocksOf,czPatSVG,czStampArt,czFrameArt,czCharge,czFramed,flagSVG,xsMax,ACH_BY_ID,achEarnedIds}),WTN:()=>({WN,wbMap,wnKind,wnWaters,wnSync,wnAt,wnRename,wnReset,wnNameProblem,wnTaken,wnPanel,wnLabels,lakeMap,isLake,cellAt,WN_REACH,WTN_MAX,REG,RV,rvData,hexDist,territory,MAP,HEX_W,updateMapPanel,logLine}),RVN:()=>({RV,rvData,rvSync,rvKey,rvHeld,rvStretch,rvMost,rvEdgeHolder,rvAt,rvNameAt,rvLabelAt,rvParts,rvRename,rvReset,rvNameProblem,rvTidy,rvLabel,rvnPanel,logLine,RVN_MAX,RVN_LEN,updateMapPanel,hexDist,HEX_W,REG}),CP2:()=>({BLD_ICO,bldIco,bldLead,cxDefTotal,cxOrder,qjBuilding,BUILDINGS}),PRVC:()=>({cxPrvOf,cxPrvSeatTrial,cxOvwCols,prvSeat,prvMine,prvOfCell,prvSetAut,prvAppoint,PRV}),NPX:()=>({fbTrend,fbYesterday,heroLead,heroOpen,opOf,OPEN_TO,hnOf,hnFill,hnLine,nbSection,ppWho,ppWhoHTML,ppHash,ppCarried,economy,territory,bordersOf,fillDeal,findNation,clsHide,MAP,hexDist,STAT_KEYS,popNow,myId}),PT:()=>ptProbe(),LTH:()=>lthProbe(),DAM:()=>damProbe(),CHAT:()=>({RGC,RGW,RGF,tab:rgcTab(),count:rgcCount(),region:rgcUnread(),world:rgwUnread(),named:rgwNamedUnread(),fr:rgwUnread(RGF),frNamed:rgwNamedUnread(RGF),frOn:rgfOn(),hidden:document.hidden}),UXP2:()=>({edictDesk,edictStep,edictOpen,fill,ISSUE_BY_ID,ACH,keysOpen,dmOthers,dmPickList,stGroups,stTabLast,navRecent,vhData,VH_KEY,VH_AFTER,QJ_DO,qjItems:q=>navQjItems(q),NAV_REC_KEY,ST_KEY}),HID:()=>({HIDN,hidMask,iAmHidden,frontier,mapPanel,warControls}),WG:()=>({wgTakers,wgForField,wgForPick,warGiveHex,warGive,occupiedFrom,attack,offerPeace,declareWar,collectConquests,dedupeConq}),WAKE:()=>({dormFresh,dormQuiet,dormWelcome,moveTo,RSTAT,REGIONS,REG,regDisabled}),HMB:()=>({RCTRL,hmBake,hmAutoFlag,fxDraw,capHolder,FX_DEF,DEF_FLAG,hmRle,hmLiveNorm,hmMapNorm,hmSel,hmRegions,hmBlocked,hmEngaged:()=>hmEngaged,HM,REG,MAP}),LAND:()=>({landWait,capLift,capWrong,capNote,raceKnown,RACE,worldHeardAt:()=>worldHeardAt,landQ:()=>S.landQ,landQueued,fdSites:(n,T)=>fdSites(n,T)}),BG:{gain:bldGain,html:bldGainHtml},IB:()=>({agRoster,agPick,agStatus,heatOf,cvRoll,cvKey,cvBlock,cvOdds,buLv,buGap,buAll,BU,BU_KEYS,ibFile,ibWanted,ibChatter,HEAT_MAX,DD_TASKS,DD_LEG,findNation,allNations,cvProtected}),VL:()=>({VL_SECS,VL_DEF,CLS,CLS_OPS,CLS_READ,vlOrder,clsOf,clsRaw,clsMax,clsSeen,clsHide,clsRead,vlSave,findNation}),IFC:()=>({plan:ifcPlan,works:ifcWorks,line:ifcLine,tab:ifcTab}),XP:()=>({BUILDINGS,XU,XU_KEYS,XU_TOTAL,LOST_KINDS,LOST_ORDER,xuLv,xuWhy,xuHave,xuStart,xuCost,xuGear,xpSeen,expFree,xpTeamOpen,nationBuilt,expBackTeam,SITES,SITE_KINDS,expPlan,expOdds,expRuns,expRange,flRange,flAlive,flPlan,flDebug,flNow,discoveries,sendExpedition,hearReport,xpRoute,xpRivals,xpRivalText,xpFinds,flOdds,territory}),SVC:()=>({SVC,SVC_N,SVC_V,SVC_NEED,svcPlan,svcOpen,svcDig,svcShort,svcRoll,svcAmt,svcDayOf,svcRoom,svcNext}),FLC:()=>({FLC,FLC_RULES,FLC_CAT,flcId,flcTimes,flcPhase,flcPrev,flcView,flcLoad,flcChamp,flcTodo,flcClaims,flcLand,flcStreak,flcAllDone,flcSeen,flcDuty,flcDeskOn,flcDraftPush,FCA}),LK:{lakeMap,isLake,claimLand,lakeShore,fillHeld,LAKE_MAX,LAKE_A,freeCell,claimFrontier,blockPlan,autoPlan,terrCount,placePhrase,claimWhy,swapCheck,inspectPanel,writeClaims,landCredits:n=>landCredits(n)},PST:()=>({PST,PST_LOOKS,PST_SHAPES,PST_SIZES,pstBar,pstKm,pstView,pstBox,pstPlace,pstKeyOf,pstRender,pstShow,pstHide,pstLocked,pstOffered,pstSizeOffered,pstPrintK,pstSealId,pstPhys,pstCrc}),DIG:()=>({DIG_SETS,DIG_FIRST,DIG_POOL,DIG_SITES,DIG_LEN,DIG_EVENTS,DIG_SCH,digSet,digHeld,digDone,digRew,digCredits,digOrder,digActive,digRetired,digOpenedAt,digPlan,digSend,digOpen,digChoose,digMod,digEvent,digPity,digGround,digInvites,digJoin,digJointOn,digGiftsIn,digTake,digGiveSpare,digSellSpare,digHire,digRegionFinds,digFirsts,landEarned:n=>landEarned(n),REG,REGIONS,COL_BY_ID}),MW:()=>({mwOf,mwPoints,mwVisitors,mwTakings,mwExhibit,mwExhibitItems,mwRanking,mwWorn,mwSlots,mwOnShow,COL_BY_ID,COL_ITEMS,DIG_SETS,MW_FLOORS}),GM:()=>({gamesResults,edOf,b1Now,gevWhy,baseScores,entryOf,medalsIn,gamesRecords,gamesCeremony,unlocksOf,myId,formOf,GAME_EVENTS,clone,commit}),GM2:()=>({GAMES_V2,GTAC,TRAIN_PTS,TRAIN_MAX,BOY_GW,edOf,edStart,entryOf,gamesHost,gamesBids,edEvents,edDrawn,gmSwapOf,gmMascOf,gmChatLines,gmChatLine,gmTrCost,gevWhy,formOf,gamesResults,dspBuild,dspNoOf,c3MyBid,gcerSeen,stockNow,stockCap,canFeature,myId,clone,commit}),GB:()=>({IRON_DEP,IRON_DEP_YIELD,CELL_RES,MAP_T:MAP.T,mapAt:c=>{centerMain(c,NEAR_Z*1.6);},stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,FOOD_SPOIL,FOOD_EAT,FOOD_TIERS,FOOD_LAND,foodTier,TIMBER_BURN,foodGrowth,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({dspShown,dspRegShown,dspRegs,dspPic,dspLocator,dspHtDefs,pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),ASMX:()=>({ASMX,ASMX_TABS,asmBookAt,asmState,asmArcLoad,REG}),RGNX:()=>({RGN,RGN_PAGE,notifItems,ONL,onlRefresh}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals,seatsOf,alliancesOf,alMineAll,alClashes,alFest,alWornOf,alGuardsOf,alSeatsFor,allianceOf,AL_TY_UI,alStripHTML}),TYX:()=>({TY,TY_RULES,TY_K,tyOf,tyList,tyWarBlock,tyIncoming,affinity,alPactLive,alRelationsHTML,econOf,armyPower,armyRaw,attackMult,readyMs,drWords,drNote,drBroken,relationCard}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,achTierCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC,step:rcStepCheck,head:rcHead,sponsoring:rcSponsoring,qr:qrMatrix,card:rcCardDraw,invCap:rcInvCap,free:rcFreeLand,STEPS:RC_STEPS,UNL:RC_UNLOCKS}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend,card:n=>tutCard(n),phase:n=>tutPhase(n),picks:(n,ph)=>tutPicks(n,ph),group:(n,k)=>tutGroup(n,tutL(k)),hid:n=>tutHid(n)},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours,
   SV:MC_SV,XS:MC_XS,QUEUE:MC_QUEUE,DISH:MC_DISH,FINDS:MC_FINDS,CHART_MS:MC_CHART_MS,repSecs:mcRepSecs,repKind:mcRepKind,fold:mcFold,lane:mcLane,dish:mcDish,
   finds:mcFinds,findAt:mcFindAt,bits:mcBitsList,charted:mcCharted,chartedNow:mcChartedNow,unqueue:mcUnqueue,dishBuild:mcDishBuild,bringHome:mcBringHome,
   secSite:mcSecSite,prefOk:mcPrefOk,prefTile:mcPrefTile,setPref:mcSetPref,startProblem:mcStartProblem,wfKey:mcWfKey,osKey:mcOsKey},WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR,bell:now=>notifItems(now||Date.now())},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},TIER:()=>({BTIER,bEff,bTier,bTierNext,bTierLine,tierQuote,tierProblem,cxTier,cxTrMap,tierSettle,tierReady,cxGoldNow,cxUpQuote,cxUpList,cxUps}),CX:{upgradable:cxUpgradable,mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState,UG:CX_UG,LV:CX_LV,ups:cxUps,upMap:cxUpMap,extras:cxBldExtras,quote:cxUpQuote},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo,unlockTarget,unlockShow,unlockFresh,unlockQueue,ULK,UNLOCKS,unlocksOf,toast:m=>toast(m)},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{coinBackSVG:cuCoinBackSVG,noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,coinSVG:cuCoinSVG,guide:cuGuideHTML,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,drawMap,sfKey,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ACH_RANKS_V1,ID_BD,achVal,achCtx,achEvalNew,achState,stockRates:n=>stockRates(n),achPoints,achRank,achRankOf,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,flagNorm:(f,n)=>flagNorm(f,n),flagSVG:(f,l)=>flagSVG(f,l),mapTip:id=>{const T=mapTerr('main'),i=T.list.findIndex(x=>x.id===id);if(i<0)return '';const cell=Array.prototype.indexOf.call(T.owner,i);return MAP_TIP.map(h=>{try{return h({kind:'main',cell,cv:null,x:0,y:0});}catch(e){return '';}}).filter(x=>typeof x==='string').join(' | ');},cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
@@ -88334,6 +88690,7 @@ function rgcAsk(m,nm,mine){
 }
 function rgcLine(m,run,by,me,mod,memo){
   if(m.sys==='all')return rgcCastLine(m,me,mod);
+  if(m.sys==='games')return gmChatLine(m);
   if(m.sys)return rgcSysLine(m,by,me,mod);
   /* a line the Edictum team signed (tm): the team's mark and name, never a nation's, and nothing to report or block;
      a line of the alliance channel (ally): Delete for its writer and the alliance's officers, nothing else */
@@ -88427,7 +88784,7 @@ function rgcPaint(){
   if(tab==='haps')h=rgcHapsHTML();
   else{
     const me=myId(),mod=rgcMod(),by=new Map(allNations().map(x=>[x.id,x])),memo=new Map(),A=tab==='ally'?rgcAllyOn():null;
-    const C=rgcCh(),W=rgsOf(tab),src=tab==='ally'?rgcAllyLines():C.list,vis0=src.filter(m=>m.a===me||!dmBlocked(m.a)),hid=src.length-vis0.length,vis=tab==='ally'||typeof xmChatMix!=='function'?vis0:xmChatMix(vis0);
+    const C=rgcCh(),W=rgsOf(tab),src=tab==='ally'?rgcAllyLines():C.list,vis0=src.filter(m=>m.a===me||!dmBlocked(m.a)),hid=src.length-vis0.length,vis1=tab==='ally'||typeof xmChatMix!=='function'?vis0:xmChatMix(vis0),vis=tab==='region'?gmChatMix(vis1):vis1;
     const hidTxt=hid?` <span class="rgc-hid">${hid} ${hid===1?'line from a nation you blocked is':'lines from nations you blocked are'} hidden.</span>`:'';
     h=tab==='ally'?`<li class="rgc-intro">Only the members of ${esc(A?A.name:'your alliance')} read this channel.${hidTxt}</li>`
       :W?`<li class="rgc-intro">${esc(W.tx().intro)}${hidTxt}</li>`
