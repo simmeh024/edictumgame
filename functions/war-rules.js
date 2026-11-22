@@ -25,3 +25,31 @@ export function shielded(n, now) {
   if (g && now >= num(g.t) && now <= num(g.u) && num(g.u) - num(g.t) <= GRACE_MS + 60000) return true;
   return !!n && num(n.shd) > now && num(n.shd) <= num(n.founded) + SHIELD_MS + 60000;
 }
+
+/* Military buildings (22 November 2026; game/edictum.html, "military buildings"): what readiness the attacker's own
+   record allows. A finished Drill Ground (drillyard) brings each point back MIL_DRILL sooner, MIL_DRILL_UG more for each upgrade
+   block; a finished Arsenal (armoury) holds one point more, two with all five blocks; veterans in the reserve (war, round three:
+   vet {k: 'res', t, u}) one more. Read from the record, whoever holds the city now, so never less than the game
+   allows (the game counts only the ones in cities it holds). */
+export const MIL_DRILL = 0.2, MIL_DRILL_UG = 0.02;
+/* the upgrade blocks of the best finished building k in a record's cities (0 to 5), or -1 with none */
+export function milBlocks(rec, k, now) {
+  let best = -1;
+  for (const c of Array.isArray(rec && rec.cities) ? rec.cities.slice(0, 200) : []) {
+    for (const b of Array.isArray(c && c.b) ? c.b.slice(0, 40) : []) {
+      if (!b || b.k !== k || !(num(b.d) <= now)) continue;
+      let u = Number.isInteger(b.ug) && b.ug >= 1 && b.ug <= 5 ? b.ug : 0;
+      if (b.uu && b.uu.u === u + 1 && u < 5 && num(b.uu.d) > 0 && num(b.uu.d) <= now) u++;
+      if (u > best) best = u;
+    }
+  }
+  return best;
+}
+/* {cut, extra}: the share by which a point returns sooner, and the points held beyond the rest */
+export function milReady(rec, now) {
+  const d = milBlocks(rec, 'drillyard', now), a = milBlocks(rec, 'armoury', now), v = rec && rec.vet;
+  const vet = !!v && v.k === 'res' && num(v.t) <= now && num(v.u) > now;
+  return { cut: d >= 0 ? MIL_DRILL + MIL_DRILL_UG * d : 0, extra: (a >= 5 ? 2 : a >= 0 ? 1 : 0) + (vet ? 1 : 0) };
+}
+/* a point's time with the cut, rounded as the game rounds it (after a training pact's) */
+export const milMs = (ms, cut) => cut > 0 ? Math.round(ms * (1 - cut)) : ms;

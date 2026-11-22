@@ -100,15 +100,8 @@ test('the decision: goodwill with the region, and the capital marked decided', (
   assert.deepEqual(J(r.e), { culture: 2 }, 'the rest goes on as usual');
 });
 
-test('the city cap, tripled: three cities for every one people, land and buildings bring, the capital still one, 99 at most', () => {
-  const ctx = vm.createContext({ Math, MAX_CITIES: 99, CITY_MULT: 3, S: { nation: {} }, myArea: () => 0 });
-  let mile = 1, area = 0, bonus = false, gold = false;
-  Object.assign(ctx, { mileOf: () => ({ cities: mile }), areaCities: () => area, cityBonusOpen: () => bonus, cityGoldOpen: () => gold });
-  vm.runInContext(fn('maxCities'), ctx);
-  assert.equal(ctx.maxCities({}, 0), 1, 'a new nation: its capital');
-  bonus = true;assert.equal(ctx.maxCities({}, 0), 4, 'its first building: three more');
-  gold = true;assert.equal(ctx.maxCities({}, 0), 7, 'its first gold upgrade: three more again');
-  mile = 14;area = 5;assert.equal(ctx.maxCities({}, 0), 1 + 3 * 20, 'twenty-one sources: sixty-one cities');
-  area = 19;assert.equal(ctx.maxCities({}, 0), 99, 'never more than 99');
+test('the city cap as it always was: one city for each that people, land and buildings bring, 33 at most (tripled for a few minutes on 22 Nov 2026, then set back)', () => {
+  assert.match(src, /function maxCities\(T,i\)\{return Math\.min\(MAX_CITIES,mileOf\(S\.nation\)\.cities\+areaCities\(myArea\(T,i\)\)\+\(cityBonusOpen\(S\.nation\)\?1:0\)\+\(cityGoldOpen\(S\.nation\)\?1:0\)\);\}/);
+  assert.match(src, /MAX_CITIES=33,CQ_MAX=10,/);assert.doesNotMatch(src, /CITY_MULT/);
   assert.match(src, /const lcCities=n=>\{const cap=cellOf\(n&&n\.loc\);return n&&Array\.isArray\(n\.cities\)\?n\.cities\.filter\(c=>c&&c\.c!==cap&&!c\.cq\)\.length:0;\};/, 'a captured city earns no founding land credits');
 });
