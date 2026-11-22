@@ -13,7 +13,7 @@ save to); `functions/civic.js` (the save permit calls `rsSettle`); `functions/al
 
 ## For players
 
-1. **The petition.** After 75 enacted edicts (the count Space and Willow Street use: vetoes and letters do not count),
+1. **The petition.** After 60 enacted edicts (the count Space and Willow Street use: vetoes and letters do not count),
    the nation's scientists petition the government: the gold-bordered edict *A Nation of Discovery*, in the words of
    the nation's type of state (republic, crown, empire, sultanate, theocracy, people's republic, colony, borough). Its
    three answers are three **sites**, shown as pins I, II and III on a map in the edict, the way the founding edict
@@ -26,7 +26,7 @@ save to); `functions/civic.js` (the save permit calls `rsSettle`); `functions/al
    | The hills | own hills or mountains | War research 10% cheaper, and the laboratory's hex 30% harder to take |
 
    An answer whose kind has no hex within the borders is refused with a toast. A veto does not shut research out: the
-   petition comes back after five more enacted edicts. Nations already past 75 get it at once.
+   petition comes back after five more enacted edicts. Nations already past 60 get it at once.
 2. **The laboratory.** *Research Lab* appears in the menu (Your nation) once the petition is granted, and not before
    (a veto leaves it hidden). The Laboratory tab shows the three kinds of site as buttons and a map framed on the
    nation's own land, with the answer's pin and a dot on every hex the chosen kind may take: never water, a city or
@@ -34,8 +34,9 @@ save to); `functions/civic.js` (the save permit calls `rsSettle`); `functions/al
    laboratory and its scientific director, and picks the director's portrait from the Customise › Portraits pieces
    the nation holds. Five stages follow: site preparation; foundations and infrastructure; research facilities;
    scientific equipment and recruitment; inauguration. Each takes materials from the stock (given 10, 50 or all at
-   a time, as for the Great Statue) and then hours of works. In all about 120 timber, 95 iron, 155 goods, 15 oil and
-   130 food, a few days' surplus for a nation of 75 edicts. The inauguration is in the national history, the
+   a time, as for the Great Statue) and then hours of works: 3, 6, 9 and 12 for the first four, 6 for the inauguration
+   (36 in all, before research that speeds building). In all about 120 timber, 95 iron, 155 goods, 15 oil and
+   130 food, a few days' surplus for a nation of 60 edicts. The inauguration is in the national history, the
    newspaper and the bell, and pays the **Founding Research Grant of 12 RC**: Tier I's 2, 3 and 4.
    Works and studies whose time is up finish by themselves within seconds, whatever page the player is on.
 3. **Research Credits.** From the inauguration: `10 + floor(Science & Technology / 5) + the institution's bonus`
@@ -252,11 +253,11 @@ The admin portal's **Statistics › Research** tab (`game/edictum.html` `stResea
 - **Where nations stand** now, for this month's players and for all: short of the 75th enacted edict, the petition
   set aside (back five edicts later), the petition due, granted with no site chosen, building (stage I to V), at
   work, held by an enemy, destroyed or left behind, rebuilding.
-- **The journey**: how many reached each step, from the 75th edict through the petition, the site, each stage, the
+- **The journey**: how many reached each step, from the 60th edict through the petition, the site, each stage, the
   inauguration, the first discovery and Tier V to 50, 100, 200, 300 and all 360 technologies; the median time from
   the petition to the inauguration, and from founding to the petition.
 - **On the way to the petition**: this month's players short of it by enacted edicts, and the ten nearest.
-  **Waiting**: this month's players between the 75th edict and an open laboratory, the longest waiting first.
+  **Waiting**: this month's players between the 60th edict and an open laboratory, the longest waiting first.
 - **The laboratories**: sites chosen, the stage each one being built is on, the institutions reached.
 - **The research**: technologies per programme, the furthest era, each track (technologies, the median and furthest
   tier complete, studies under way), discoveries, researchers, petitions and inaugurations each day for 30 days (from

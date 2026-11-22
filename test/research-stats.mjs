@@ -12,7 +12,7 @@ import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { nationRow, summarize } from '../functions/stats.js';
-import { researchBrief, DAY } from '../functions/stats-research.js';
+import { researchBrief, DAY, RS_AT } from '../functions/stats-research.js';
 import { rsEnc, rsPut, rsIdx } from '../functions/research-rules.js';
 
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url))), PUB = path.join(ROOT, 'public');
@@ -47,7 +47,7 @@ for (let j = 0; j < 80; j++) {
   const name = NAMES[j % NAMES.length] + (j >= NAMES.length ? ' ' + 'IVXL'[Math.floor(j / NAMES.length) - 1] : ''), reg = j % 5 === 4 ? 'frostmarch' : 'meridian';
   const r = { name, reg, pop: 2 + rnd() * 30, updatedAt: NOW - (j % 9 === 8 ? 45 * DAY : rnd() * 3 * DAY), founded: NOW - (30 + rnd() * 60) * DAY };
   const stage = j < 22 ? 'early' : j < 25 ? 'vetoed' : j < 29 ? 'due' : j < 31 ? 'site' : j < 37 ? 'building' : j < 74 ? 'open' : j < 76 ? 'lost' : j < 78 ? 'ruined' : 'rebuild';
-  r.ws = { e: stage === 'early' ? Math.floor(rnd() * 75) : 75 + Math.floor(rnd() * 120) };
+  r.ws = { e: stage === 'early' ? Math.floor(rnd() * RS_AT) : RS_AT + Math.floor(rnd() * 120) };
   if (stage === 'vetoed') r.nrx = { dv: r.ws.e = 77, dvt: NOW - DAY };
   if (stage === 'due' && j % 2) r.inbox = [{ id: 'rs-discovery', t: NOW - H }];
   if (!['early', 'vetoed', 'due'].includes(stage)) {
@@ -99,11 +99,11 @@ const wide = async page => page.evaluate(() => document.documentElement.scrollWi
   const { ctx, page, errors } = await start('light', { width: 1360, height: 900 });
   const t = await txt(page, '#adst-p-research');
   check('the Research tab sits between Content and Regions, chosen', await page.evaluate(() => [...document.querySelectorAll('.adst-tab')].map(b => b.dataset.v).join(',') === 'overview,activity,nations,players,content,research,regions,ops' && document.getElementById('adst-t-research').getAttribute('aria-selected') === 'true'));
-  check('headline figures: past 75 edicts, petitions, laboratories at work, discoveries this week', /nations past 75 enacted edicts/.test(t) && /petitions granted/.test(t) && /laboratories at work/.test(t) && /discoveries this week/.test(t) && /technologies, the most by one nation/.test(t));
-  check('the figures are the server’s: 58 past the 75th edict, 51 petitions granted', await page.evaluate(() => { const k = [...document.querySelectorAll('#adst-p-research .adm-kpi b')].map(b => b.textContent); return k[0] === '58' && k[1] === '51'; }), D.rs.steps.e75 + ' ' + D.rs.programmes);
+  check(`headline figures: past ${RS_AT} edicts, petitions, laboratories at work, discoveries this week`, new RegExp(`nations past ${RS_AT} enacted edicts`).test(t) && /petitions granted/.test(t) && /laboratories at work/.test(t) && /discoveries this week/.test(t) && /technologies, the most by one nation/.test(t));
+  check(`the figures are the server’s: 58 past the ${RS_AT}th edict, 51 petitions granted`, await page.evaluate(() => { const k = [...document.querySelectorAll('#adst-p-research .adm-kpi b')].map(b => b.textContent); return k[0] === '58' && k[1] === '51'; }), D.rs.steps.ready + ' ' + D.rs.programmes);
   for (const s of ['Where nations stand', 'The journey', 'On the way to the petition', 'Waiting', 'The laboratories', 'The research', 'Research Credits', 'Grand Challenges', 'Laws, dilemmas and letters', 'Together and at war', 'Nations with a programme', 'By region'])
     check('a section: ' + s, t.includes(s));
-  check('where nations stand names every phase', ['Not yet at 75 enacted edicts', 'Set the petition aside', 'Petition due', 'Petition granted', 'Building the laboratory', 'Laboratory at work', 'Laboratory held by an enemy', 'Laboratory destroyed or left behind', 'Rebuilding the laboratory'].every(p => t.includes(p)));
+  check('where nations stand names every phase', [`Not yet at ${RS_AT} enacted edicts`, 'Set the petition aside', 'Petition due', 'Petition granted', 'Building the laboratory', 'Laboratory at work', 'Laboratory held by an enemy', 'Laboratory destroyed or left behind', 'Rebuilding the laboratory'].every(p => t.includes(p)));
   check('the journey names the stages by the game’s own words', /Finished stage II: foundations and infrastructure/.test(t) && /Reached Tier V/.test(t) && /Researched all 360/.test(t));
   check('the laboratories: sites, stages and institutions', /The university quarter/.test(t) && /The coast/.test(t) && /The hills/.test(t) && /Stage III: research facilities/.test(t) && /Research Institute/.test(t));
   check('the most researched technologies by name, track and tier', /Most researched/.test(t) && /Trade, Tier I/.test(t));

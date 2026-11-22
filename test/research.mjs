@@ -1,5 +1,5 @@
 // The National Research Programme in the game (game/edictum.html, "the National Research Programme"): the petition
-// after 75 enacted edicts (vetoed, it comes back five later), the Research page appearing in the menu, the laboratory
+// after 60 enacted edicts (vetoed, it comes back five later), the Research page appearing in the menu, the laboratory
 // founded in a city, named, built in five stages from the stock, its inauguration and the Founding Research Grant of
 // 12, the first three discoveries, Research Credits counted while away, the research tree with its eras, locks and
 // detail panel, studies from Tier V, a Grand Challenge's locks, the scientific record and Letters from the Laboratory.
@@ -74,12 +74,12 @@ try {
     const cat = await page.evaluate(() => { const r = window.__game.rs; return { n: r.RS.length, ids: new Set(r.RS.map(x => x.id)).size, t1: [0, 1, 2, 3, 4].map(i => r.RS[i].cost), tot: r.RS.reduce((s, x) => s + x.cost, 0) }; });
     check('360 technologies, 360 ids, tier I at 10, 2, 3, 4, 6, 125,415 RC in all', cat.n === 360 && cat.ids === 360 && cat.t1.join() === '10,2,3,4,6' && cat.tot === 125415, cat);
     check('no Research Lab in the menu before the petition', await page.evaluate(() => !document.querySelector('.nav [data-v="research"]')));
-    await t.edit(n => { n.ws.e = 74; n.inbox = []; });
+    await t.edit(n => { n.ws.e = 59; n.inbox = []; });
     await t.go('issues');
-    check('at 74 enacted edicts the petition has not come', !(await t.desk()).some(x => x.id === 'rs-discovery'));
-    await t.edit(n => { n.ws.e = 75; n.inbox = []; });
+    check('at 59 enacted edicts the petition has not come', !(await t.desk()).some(x => x.id === 'rs-discovery'));
+    await t.edit(n => { n.ws.e = 60; n.inbox = []; });
     await t.go('issues');
-    check('at 75 the petition is on the desk, gold-bordered and tagged', await until(async () => (await t.desk()).some(x => x.id === 'rs-discovery' && x.tag === 'National Research' && x.gold === '2px')), await t.desk());
+    check('at 60 the petition is on the desk, gold-bordered and tagged', await until(async () => (await t.desk()).some(x => x.id === 'rs-discovery' && x.tag === 'National Research' && x.gold === '2px')), await t.desk());
     await page.click('.issue-card[data-id="rs-discovery"]');
     check('it is called A Nation of Discovery and has three answers, in a republic’s words', await until(() => page.evaluate(() => /A Nation of Discovery/.test(document.querySelector('.paper.edict .h1').textContent) && /Senate|petitioned/.test(document.querySelector('.paper.edict').textContent) && document.querySelectorAll('[data-act="answer"][data-id="rs-discovery"]').length === 3)));
     check('the petition shows its three sites on a map, each with its advantage', await until(() => page.evaluate(() => { const m = document.querySelector('.paper.edict .rs-sitemap'); return !!m && !!m.querySelector('canvas.map-cv') && /The university quarter/.test(m.textContent) && /The coast/.test(m.textContent) && /The hills/.test(m.textContent) && /Research Credits a day/.test(m.textContent); })));
@@ -90,11 +90,11 @@ try {
     await until(() => page.evaluate(() => (window.__game.S.nation.answered || []).some(a => a.id === 'rs-discovery' && a.o === -1)));
     await sleep(300);
     const dv = await page.evaluate(() => window.__game.S.nation.nrx && window.__game.S.nation.nrx.dv);
-    check('a veto is noted with the edicts so far', dv === 75, dv);
-    await t.edit(n => { n.ws.e = 79; n.inbox = []; });
+    check('a veto is noted with the edicts so far', dv === 60, dv);
+    await t.edit(n => { n.ws.e = 64; n.inbox = []; });
     await t.go('issues');
     check('four edicts later it has not come back', !(await t.desk()).some(x => x.id === 'rs-discovery'));
-    await t.edit(n => { n.ws.e = 80; n.inbox = []; });
+    await t.edit(n => { n.ws.e = 65; n.inbox = []; });
     await t.go('issues');
     check('five edicts later it is back: a veto cannot shut research out', await until(async () => (await t.desk()).some(x => x.id === 'rs-discovery')));
     await t.answer('rs-discovery', 0);
@@ -231,7 +231,7 @@ try {
   /* ── a phone, dark: the tree as one column, no sideways scroll, every tab ── */
   {
     const t = await start('dark', { width: 390, height: 844 }), { page } = t;
-    await t.edit(n => { n.ws.e = 75; n.inbox = []; });
+    await t.edit(n => { n.ws.e = 60; n.inbox = []; });
     await t.go('issues');
     await until(async () => (await t.desk()).some(x => x.id === 'rs-discovery'));
     const k2 = await page.evaluate(() => { const c = window.__game.rs.rsLabSites(window.__game.S.nation); return [2, 1, 0].find(k => c[k] >= 0); });
@@ -253,7 +253,7 @@ try {
   /* ── the other two: a desktop in the dark theme, a phone in the light ── */
   for (const [theme, vp, tag] of [['dark', { width: 1600, height: 1000 }, '1600-dark'], ['light', { width: 390, height: 844 }, '390-light']]) {
     const t = await start(theme, vp), { page } = t;
-    await t.edit(n => { n.ws.e = 75; n.inbox = []; });
+    await t.edit(n => { n.ws.e = 60; n.inbox = []; });
     await t.go('issues');
     await until(async () => (await t.desk()).some(x => x.id === 'rs-discovery'));
     const k3 = await page.evaluate(() => { const c = window.__game.rs.rsLabSites(window.__game.S.nation); return [1, 2, 0].find(k => c[k] >= 0); });

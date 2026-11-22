@@ -14,7 +14,7 @@ const save = rec => ({ j: JSON.stringify(rec), reg: rec.reg, name: rec.name, pop
 const bits = (tiers, extra = []) => { const b = new Uint8Array(45); tiers.forEach((t, k) => { for (let x = 1; x <= t; x++) for (let s = 0; s < 5; s++) rsPut(b, rsIdx(k, x, s)); }); for (const i of extra) rsPut(b, i); return rsEnc(b); };
 const base = (name, extra) => Object.assign({ name, reg: 'meridian', pop: 5, updatedAt: NOW - H, founded: NOW - 40 * DAY }, extra);
 const nations = {
-  early: base('Early', { ws: { e: 60 } }),
+  early: base('Early', { ws: { e: 50 } }),
   vetoed: base('Vetoed', { ws: { e: 77 }, nrx: { dv: 76, dvt: NOW - DAY } }),
   due: base('Due', { ws: { e: 90 }, inbox: [{ id: 'rs-discovery', t: NOW - H }] }),
   site: base('Site', { ws: { e: 80 }, nrp: { v: 1, a: NOW - 2 * DAY, o: 1, st: 0, l: 0, k: rsEnc(new Uint8Array(45)), re: 0, rs: 0, q: [] } }),
@@ -34,7 +34,7 @@ const nations = {
 const rows = () => Object.entries(nations).map(([id, r]) => nationRow(id, save(r), null, NOW));
 const world = () => ({ at: NOW, rows: rows(), accts: [], limited: false, devices: [], posts: {}, finery: [], days: [] });
 
-test('the game’s own figures: the petition at 75, again 5 later, its edict, and the laws research brings', () => {
+test('the game’s own figures: the petition at 60, again 5 later, its edict, and the laws research brings', () => {
   assert.match(src, new RegExp(`const RS_AT=${RS_AT},RS_AGAIN=${RS_AGAIN},RS_ID='rs-discovery'`));
   for (const k of RS_LAWS) assert.match(src, new RegExp(`\\n  ${k}:\\['`), 'a law: ' + k);
   assert.match(src, /for\(const k of \['su','xu','i','ra','rp','lo'\]\)/, 'the game keeps when the laboratory was first seen lost');
@@ -65,9 +65,10 @@ test('the Research tab counts the world: phases, the journey, laboratories, rese
   assert.deepEqual(X.phase, { early: 2, vetoed: 1, due: 1, site: 1, building: 1, open: 1, lost: 1, ruined: 2, rebuild: 1 });
   assert.equal(X.phase30.early, 1, 'the dormant nation is not this month’s');
   assert.deepEqual(Object.keys(X.steps), RS_STEPS);
-  assert.equal(X.steps.e75, 9); assert.equal(X.steps.granted, 7); assert.equal(X.steps.placed, 6, 'every laboratory placed or opened, not the site still to choose');
+  assert.equal(X.steps.ready, 9); assert.equal(X.steps.granted, 7); assert.equal(X.steps.placed, 6, 'every laboratory placed or opened, not the site still to choose');
   assert.equal(X.steps.st2, 6); assert.equal(X.steps.st3, 5); assert.equal(X.steps.open, 5); assert.equal(X.steps.d1, 5); assert.equal(X.steps.tier5, 1); assert.equal(X.steps.n50, 1); assert.equal(X.steps.n100, 0);
-  assert.deepEqual(X.approach.map(b => b.n), [0, 0, 1, 0], 'Early, at 60 enacted edicts');
+  assert.deepEqual(X.approach.map(b => [b.a, b.b]), [[0, 14], [15, 29], [30, 44], [45, 59]], 'the way to the petition at 60, in quarters');
+  assert.deepEqual(X.approach.map(b => b.n), [0, 0, 0, 1], 'Early, at 50 enacted edicts');
   assert.deepEqual(X.sites, [3, 2, 2]); assert.deepEqual(X.stages, [0, 0, 1, 0, 0]);
   assert.equal(X.levels.reduce((s, v) => s + v, 0), 5); assert.equal(X.levels[2], 1);
   assert.equal(X.techs.find(b => b.a === 0).n, 2, 'the site and the building have none');
