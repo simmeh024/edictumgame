@@ -67,7 +67,7 @@ check('the line shows in the writer’s drawer', await until(async () => (await 
 let all = await lines();
 const first = all.find(l => /Good morning/.test(l.x));
 check('the server keeps the line with its author, nation name, time and expiry', first && first.a === uidB && first.nm === 'Chatterly' && first.t > 0 && Date.parse(first.exp) > Date.now() + 29 * 864e5 && !first.st, JSON.stringify(first));
-check('nothing in the line is drawn as markup', !(await B.$('#rgc-list .rgc-x b')));
+check('nothing in the line is drawn as markup', !(await B.$('#rgc-list .rgc-l:not(.rgc-sys) .rgc-x b')));
 check('the reader’s button counts the new line without opening', await until(async () => (await text(C, '.rgc-btn .rgc-n')) === '1' && /1 new/.test(await C.getAttribute('.rgc-btn', 'aria-label')), 15000));
 check('a line naming the reader’s nation is told in a notice', await until(async () => /Chatterly mentioned Quillmark in the region chat/.test(await told(C)), 60000), await told(C));
 await openChat(C);
@@ -393,7 +393,8 @@ check('Say hi in the region chat is a step of the tutorial, done by a first line
 
 /* ── 13. a nation founded now: its welcome line in the drawer, Welcome from the others, Say hello from itself ── */
 const W = await player('welcomed'), uidW = await open(W); await found(W, 'Welcomia');
-const sysLi = `#rgc-list .rgc-l.rgc-sys`;
+/* the welcome, not a line each game draws (the Games, the festive season) */
+const sysLi = `#rgc-list .rgc-l.rgc-sys:not(.gm-chat):not(.xm-chat)`;
 check('a nation founded now is welcomed in the open chat at once', await until(async () => /Welcomia has been founded, welcome to #Meridian Reach!/.test(await text(B, sysLi + ' .rgc-x')), 30000), await text(B, '#rgc-list'));
 check('drawn as an announcement of a new nation, not a line of its own', /New nation/.test(await text(B, sysLi + ' .rgc-sh')) && !(await B.$(sysLi + ' .rgc-lh')));
 check('the others get a Welcome button', !!(await B.$(`${sysLi} [data-rgc="welcome"][data-id="${uidW}"]`)));

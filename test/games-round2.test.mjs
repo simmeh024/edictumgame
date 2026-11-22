@@ -200,6 +200,7 @@ test('the region chat: Games lines go in by time, never above the first line of 
 test('the page, the chat and the Dispatch are wired in', () => {
   assert.match(html, /if\(m\.sys==='games'\)return gmChatLine\(m\);/, 'rgcLine draws the Games lines');
   assert.match(html, /vis=tab==='region'\?gmChatMix\(vis1\):vis1/, 'only the region tab has them');
+  assert.match(html, /if\(!vis0\.length&&\(tab==='ally'\|\|!C\.pend\.length\)\)h\+=`<li class="rgc-empty">/, 'with only drawn lines, the chat still asks for a hello');
   assert.match(html, /try\{dspGames2\(C,st\);\}catch\(e\)\{\}/, 'the Dispatch reads them');
   assert.match(html, /\$\{gmOpeningHTML\(e,host\)\}/, 'the opening ceremony heads the Games page');
   assert.match(html, /if\(\(entryOf\(n,e\)\|\|\{\}\)\.bo&&gamesHost\(e\)\.id!==myId\(\)\)continue;/, 'a Games stayed home from does not count as taking part');
