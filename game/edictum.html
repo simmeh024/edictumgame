@@ -25744,7 +25744,10 @@ const NPC_FIRST={
   alremove:[0,(V,l,n)=>`We note our removal from ${l.fx||'your alliance'}. We had thought better of you, but we will not hold a grudge for longer than is customary.`],
   tradeno:[50,(V,l,n)=>`We see that our offer was declined. A pity. Our Board of Trade remains open, should ${n.name} change its mind.`]
 };
-function npcFirst(id,l,n){const V=npcVoice(id),f=NPC_FIRST[l.k];return `${V.open.replace(/^Your letter has been received|^Thank you for (contacting|writing)[^.]*\./,'A word from us.')} ${f[1](V,l,n)} ${V.sign}`;}
+/* the opening of a letter they write unasked: their usual opening without the sentences that answer a letter of yours
+   ("Your letter has been received", "The Doge read your letter"), then the lead */
+function npcUnasked(V,lead){const keep=(String(V.open).match(/[^.!?]+[.!?]+/g)||[]).map(t=>t.trim()).filter(t=>!/\byour (?:letter|communication|call|message)\b|\bcontacting\b|\bfor writing\b|\bread your\b|\bfor your letter\b/i.test(t));return [...keep,lead].join(' ');}
+function npcFirst(id,l,n){const V=npcVoice(id),f=NPC_FIRST[l.k];return `${npcUnasked(V,'A word from us.')} ${f[1](V,l,n)} ${V.sign}`;}
 /* a trade idea, about once a week, from one of the three computer nations whose values are closest to yours (taking turns
    by the week, then the others): only terms its Board of Trade would sign today (npcDealFor: within both sides' daily
    spare, priced as it prices them), and none while every deal slot is taken or from a nation you have blocked. Nothing
@@ -25757,7 +25760,7 @@ function npcIdea(n,now){
   for(const c of [cand[k],...cand.filter((y,q)=>q!==k)]){
     const d=npcDealFor(c.x.id);if(!d)continue;
     const V=npcVoice(c.x.id),r=resName(d.r[0]),g=resName(d.g[0]);
-    return {w:c.x.id,t:now+90000,i:1,x:`${V.open.replace(/^Your letter has been received[^.]*\.|^Thank you for (contacting|writing)[^.]*\./,'A proposal, unasked.')} Our merchants tell us ${n.name} ${d.short?`is short of ${r}`:`could use more ${r}`}, and we have ${r} to spare. We offer ${fmtAmt(d.r[1])} ${r} a day for ${fmtAmt(d.g[1])} of your ${g} a day${d.lack?`, which we are short of`:''}. The terms are attached: sign them from this letter, or change them on the Trade page. ${V.sign}`,
+    return {w:c.x.id,t:now+90000,i:1,x:`${npcUnasked(V,'A proposal, unasked.')} Our merchants tell us ${n.name} ${d.short?`is short of ${r}`:`could use more ${r}`}, and we have ${r} to spare. We offer ${fmtAmt(d.r[1])} ${r} a day for ${fmtAmt(d.g[1])} of your ${g} a day${d.lack?`, which we are short of`:''}. The terms are attached: sign them from this letter, or change them on the Trade page. ${V.sign}`,
       a:npcIdeaAtt(c.x.id,d)};
   }
   return null;
