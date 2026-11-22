@@ -33,7 +33,8 @@ const nation = (e, x = {}) => ({ name: 'Testland', issueClock: 1000, ws: { e }, 
 test('eight Moon edicts, the last appended, before the Space page opens', () => {
   assert.ok(A > 0 && B > A);
   /* appended after every other edict but the war edicts (war-round-two.test.mjs), which keep the same rule */
-  const war = code.lastIndexOf('ISSUES.push('), last = code.lastIndexOf('ISSUES.push(', war - 1);
+  const vet = code.lastIndexOf('ISSUES.push('), war = code.lastIndexOf('ISSUES.push(', vet - 1), last = code.lastIndexOf('ISSUES.push(', war - 1);
+  assert.equal(code.lastIndexOf('for(const is of ', vet), code.indexOf('for(const is of WAR3_ISSUES){'), 'then the veterans’ edicts');
   assert.equal(code.lastIndexOf('for(const is of ', war), code.indexOf('for(const is of WAR2_ISSUES){'), 'only the war edicts after them');
   assert.equal(code.lastIndexOf('for(const is of ', last), code.indexOf('for(const is of MN_ISSUES){'), 'appended after every other edict');
   assert.match(fs.readFileSync(new URL('../scripts/split-content.mjs', import.meta.url), 'utf8'), /'MN_ISSUES'/);

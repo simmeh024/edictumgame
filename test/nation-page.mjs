@@ -75,7 +75,7 @@ try {
   /* ── desktop, light ── */
   const d = await start('light', { width: 1280, height: 900 }), { page } = d;
   const V = await S(page, () => { const L = window.__game.VL(); return { def: L.VL_DEF, cls: L.CLS.map(c => c[0]), ops: L.CLS_OPS, read: L.CLS_READ }; });
-  check('nineteen sections can move, nine topics can be classified', V.def.length === 19 && V.cls.length === 9, V);
+  check('twenty sections can move, nine topics can be classified', V.def.length === 20 && V.cls.length === 9, V);
   check('Gather intelligence reads every topic; the other operations their own', V.ops.g.length === 9 && V.ops.b.join() === 'cit' && V.ops.w.join() === 'mil' && V.ops.m.join() === 'eco,cab' && V.ops.d.join() === 'trd' && V.ops.c.join() === 'cu', V.ops);
   check('what an agent reads stays open for 7 days', V.read === 7 * DAY);
 
@@ -110,7 +110,8 @@ try {
   await page.focus('#vl-grip-gf'); await page.keyboard.press('ArrowUp'); await sleep(250); await page.keyboard.press('ArrowUp'); await sleep(250);
   check('the arrow keys on a handle move it, and the handle keeps the focus', (await order(page)).endsWith('gf,dorm,cv') && await S(page, () => document.activeElement && document.activeElement.id === 'vl-grip-gf'), await order(page));
   /* a mouse drag: Museum above Honours */
-  await page.locator('#vl-grip-mu').scrollIntoViewIfNeeded();
+  /* to the middle of the screen, clear of the card preview pinned above the list */
+  await S(page, () => document.getElementById('vl-grip-mu').scrollIntoView({ block: 'center' })); await sleep(250);
   const gm = await page.locator('#vl-grip-mu').boundingBox(), ga = await page.locator('#vl-grip-ach').boundingBox();
   await page.mouse.move(gm.x + gm.width / 2, gm.y + gm.height / 2); await page.mouse.down();
   for (let i = 1; i <= 8; i++) { await page.mouse.move(gm.x + gm.width / 2, gm.y + gm.height / 2 + (ga.y - gm.y) * i / 8 - 6); await sleep(30); }
@@ -217,7 +218,7 @@ try {
   const kept = await S(page, () => ({ vl: window.__game.S.nation.vl, r: ((window.__game.S.nation.ifl || {}).p2 || {}).r }));
   check('after a reload the layout keeps only known sections and topics, once each', JSON.stringify(kept.vl) === JSON.stringify({ o: ['leg', 'cit'], c: ['eco'] }), kept.vl);
   const o2 = (await order(page)).split(',');
-  check('the order fills in the sections it left out, each after the one before it by default', o2.length === 19 && new Set(o2).size === 19 && o2.indexOf('leg') < o2.indexOf('cit') && o2.indexOf('prv') === o2.indexOf('cit') + 1 && o2[0] === 'fr', o2);
+  check('the order fills in the sections it left out, each after the one before it by default', o2.length === 20 && new Set(o2).size === 20 && o2.indexOf('leg') < o2.indexOf('cit') && o2.indexOf('prv') === o2.indexOf('cit') + 1 && o2[0] === 'fr', o2);
   check('the file keeps only real read times', JSON.stringify(Object.keys(kept.r || {})) === JSON.stringify(['eco']), kept.r);
   check('no script errors on the desktop', d.errors.length === 0, d.errors);
   await d.ctx.close();
