@@ -24,6 +24,7 @@ import { goneList, goneRestore } from './gone.js';
 import { banOver } from './bans.js';
 import { balanceOf } from './balance.js';
 import { letterStats } from './letter-stats.js';
+import { researchBrief } from './stats-research.js';
 import { onceAdmin, onceStatus } from './once.js';
 import DATA from './civic-data.json' with { type: 'json' };
 
@@ -282,7 +283,7 @@ async function statsNation(db, data) {
   const r = Object.assign({}, parse(x.exists ? x.get('j') : null) || {}, own);
   if (!r.reg) r.reg = shared.reg; if (!r.name) r.name = shared.name; if (!r.updatedAt) r.updatedAt = shared.updatedAt;
   const now = Date.now(), row = nationRow(uid, shared, x.exists ? x.data() : null, now);
-  return { ...nationDetail(uid, r, now), eng: row?.eng || null, style: row?.style || '', features: row ? row.f.concat(row.f2 || []) : [] };
+  return { ...nationDetail(uid, r, now), eng: row?.eng || null, style: row?.style || '', features: row ? row.f.concat(row.f2 || []) : [], research: researchBrief(row?.rs) };
 }
 /* Export everything (the Statistics page's Export button): the world and every region as the page counts them, every
    nation's row (no account details: no email, IP or sign-in), the shop, for a spreadsheet or an AI to read. */
@@ -294,7 +295,7 @@ async function statsExport(db) {
   const nations = counted.rows.map(x => ({ id: x.id, reg: x.reg, name: x.name, pop: x.pop, founded: x.founded, lastActive: x.t, decided: x.dec,
     decided14d: x.r14, daysPlayed14d: x.d14, cities: x.cities, claims: x.claims, edictPace: x.freq, inbox: x.inbox, engagement: x.eng?.[0] ?? null,
     tutorialSteps: x.tut.length, tutorialLists: x.lists, features: x.f.concat(x.f2 || []), edictsInForce: x.pol || [], achievements: x.ach || [],
-    styleThisWeek: x.style, actionsThisWeek: x.a7, lastAction: x.last, buildings: x.bld, lifetime: x.life }));
+    styleThisWeek: x.style, actionsThisWeek: x.a7, lastAction: x.last, buildings: x.bld, lifetime: x.life, research: researchBrief(x.rs) }));
   return { at: counted.at, world, regions, shop, nations };
 }
 /* What a removal or a ban would take with it, counted before the admin confirms it rather than described in prose.

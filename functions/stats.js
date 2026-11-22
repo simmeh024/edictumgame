@@ -2,11 +2,13 @@
 // 'stats') and the daily record of it (jobs/stats). Every nation's record and every sign-in account is boiled down
 // to a few numbers per nation (nationRow, accountRow), and those to counts for the whole world or one region
 // (summarize). Nation names leave here only for the admin portal (the nations list, the onboarding funnel, the most
-// engaged players, the recruiters, the latest events and the play styles' leaders), and they are public in the game anyway.
+// engaged players, the recruiters, the latest events and the play styles' leaders, and the Research tab's nations with a
+// programme, nearest the petition and waiting), and they are public in the game anyway.
 // Pure: it is handed a Firestore instance and a way to list accounts, so the job and the tests can use it as well.
 import { nationText } from './nationtext.js';
 import { rowMore } from './stats-more.js';
 import { rowActs, actSummary, actDay } from './stats-acts.js';
+import { rowResearch, researchSummary } from './stats-research.js';
 
 export const DAY = 86400000;
 const KEEP = 30 * DAY;   // rulings older than this are not kept per nation (a record holds its latest 80 at most)
@@ -61,7 +63,7 @@ export function nationRow(id, shared, priv, now) {
     d14: days.size, r14: ans.filter(a => a[2] >= 0 && a[0] > from).length,
   };
   row.eng = engagement(row);
-  Object.assign(row, rowMore(r, now), rowActs(r, now));
+  Object.assign(row, rowMore(r, now), rowActs(r, now), rowResearch(r, now));
   return row;
 }
 /* How engaged a player is, 0 to 100, from four parts: the days of the last fortnight they played (40), the edicts they
@@ -265,6 +267,8 @@ export function summarize(g, reg = '', now = g.at) {
     releases: (g.news || []).filter(p => p.t > today - SPAN * DAY && p.t <= now + DAY).map(p => ({ t: p.t, ti: p.ti, tg: p.tg })),
     recruits: recruiting(R, g, now),
     eng: engageBands(active30),
+    /* the National Research Programme: where nations stand on the way to the laboratory and in the research (functions/stats-research.js) */
+    rs: researchSummary(R, now, !reg),
   };
 }
 const FUNNEL_MAX = 3000;
