@@ -131,7 +131,8 @@ check('leaving the first, the second takes the seat', await until(async () => se
 check('and the old pact passes to the remaining member', await until(async () => (await alDoc(D))?.ld?.stringValue === ub, 10000));
 
 // the nation card's four slots, and the map's layers
-check('the nation card shows a slot for each type', await A.evaluate(id => { const h = G.ALX().alStripHTML(id); return /Lyre Union/.test(h) && /Amber Road/.test(h) && /No research accord/.test(h); }, ua));
+/* the game hears of the seat moving a moment after the server: wait for it, as the checks above do */
+check('the nation card shows a slot for each type', await until(() => A.evaluate(id => { const h = G.ALX().alStripHTML(id); return /Lyre Union/.test(h) && /Amber Road/.test(h) && /No research accord/.test(h); }, ua), 10000));
 await nav(A, 'map');
 check('Map layers offer each type that has an alliance', await until(async () => /Defence pacts/.test(await text(A, 'main')) && /Cultural unions/.test(await text(A, 'main')), 8000));
 /* each box redraws the map as it is ticked: click it, then read it afresh */

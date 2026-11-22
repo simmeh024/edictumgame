@@ -594,6 +594,14 @@ test('Alliances: founded by a Registered Nation of 10 million, joined on request
   await civic(f, { op: 'alEdit', aid, tg: ' p7 ' });
   assert.equal((await allianceOf(aid)).tg, 'P7');
   await rejects(civic(g, { op: 'alFound', name: 'Coded ' + crypto.randomUUID().slice(0, 8), tg: 'p7' }), 'al_tag');
+  /* alliance looks: the second colour and the coat of arms, the leader's to set, or to give back to the banner */
+  await assert.rejects(civic(f, { op: 'alEdit', aid, ac: 'teal' }), e => e.status === 'INVALID_ARGUMENT', 'a second colour is a colour');
+  await civic(f, { op: 'alEdit', aid, ac: '#e9c46a', ar: { s: 'heater', d: 'fess', t: ['gules', 'or'], c: 'lion', ct: 'argent', z: 1 } });
+  A = await allianceOf(aid); assert.equal(A.ac, '#E9C46A'); assert.deepEqual(A.ar, { s: 'heater', d: 'fess', t: ['gules', 'or'], c: 'lion', ct: 'argent' });
+  for (const ar of [{ s: 'heater', d: 'fess', t: ['gules'], c: 'lion', ct: 'or' }, { s: 'heater', d: 'fess', t: ['gules', 'or'], c: '<b>', ct: 'or' }, 'arms'])
+    await assert.rejects(civic(f, { op: 'alEdit', aid, ar }), e => e.status === 'INVALID_ARGUMENT', JSON.stringify(ar));
+  await civic(f, { op: 'alEdit', aid, ac: '', ar: null });
+  A = await allianceOf(aid); assert.equal(A.ac, ''); assert.equal(A.ar, null);
   /* founding opens at 7.5 million */
   await db.doc('nations/' + g.uid).update({ pop: 7.4 });
   await rejects(civic(g, { op: 'alFound', name: 'Too small' }), 'al_small');
