@@ -8,9 +8,12 @@ import { AL_TYPES, AL_ACCESS, AL_RES, AL_PROJECTS, AL_OFFICERS, AL_XP, AL_ALLY_M
   AL_TY_PJ, alSeats, AL_SEAT_POP, AL_CLASH, AL_VOTE, AL_TYPE_WAIT, AL_XP_TY, AL_STUDIES, AL_STUDY_DAYS } from './alliance-rules.js';
 
 /* Alliances, written only here (civic ops al*), so that an alliance outlives the nation that founded it.
-     alliances/{aid}        {v, reg, name, tg?, mo, em, col, ty, acc, t, fd, ld, tyAt, mem, npc, iv, rq, xp, tt, tr, dn, pj, log}
+     alliances/{aid}        {v, reg, name, tg?, mo, em, col, ac?, ar?, ty, acc, t, fd, ld, tyAt, mem, npc, iv, rq, xp, tt, tr, dn, pj, log}
                             tg its short code (2 to 4 capitals or digits, one per region), which the leader sets in
                             the charter; without it the game shows the name's initials
+                            ac its second colour (beside col; without it the game takes one from the banner) and ar its
+                            coat of arms {s, d, t: [field, second], c, ct} (without it the game draws arms from the
+                            banner); the game keeps only the shields, divisions, tinctures and charges it knows
                             mem {uid: {t: joined, r?: 'o' an officer}}; ld the leader (a member); fd who founded it
                             npc {id: t} computer members; iv {uid: t} invitations; rq {uid: {t, x}} requests with a note
                             xp renown and tt its last daily tally; tr the treasury and dn {uid: {res totals, lt, xd, xq}}
@@ -56,6 +59,14 @@ function emblem(e) {
   const p = KEY(e.p);
   if (!p || c.length !== 3 || c.some(x => !x)) return null;
   return { p, c, e: KEY(e.e) || 'none', ec: COL(e.ec) || '#F2C230' };
+}
+/* an alliance's coat of arms: a shield, a division, two tinctures, a charge (or none) and its tincture, each a key the
+   game knows (it shows the banner's arms in place of one it does not) */
+function armsOf(x) {
+  if (!x || typeof x !== 'object' || Array.isArray(x)) return null;
+  const s = KEY(x.s), d = KEY(x.d), t = Array.isArray(x.t) ? x.t.slice(0, 2).map(KEY) : [], c = x.c === '' || x.c == null ? '' : KEY(x.c) || null, ct = KEY(x.ct);
+  if (!s || !d || t.length !== 2 || t.some(v => !v) || c === null || !ct) return null;
+  return { s, d, t, c, ct };
 }
 /* the short code as given: capitals and digits only, 2 to 4 of them, or '' for none (the initials) */
 function tagOf(x) {
@@ -202,7 +213,7 @@ const nameOf = s => (s && s.exists && line(s.get('name'), 80)) || 'A nation';
 
 /* ── founding and the charter ── */
 async function alFound(db, who, d) {
-  const name = line(d.name, AL_NAME), mo = line(d.mo, AL_MOTTO), em = emblem(d.em) || DEF_EM, col = COL(d.col) || '#3A8FD1';
+  const name = line(d.name, AL_NAME), mo = line(d.mo, AL_MOTTO), em = emblem(d.em) || DEF_EM, col = COL(d.col) || '#3A8FD1', ac = COL(d.ac);
   const ty = AL_TYPES.includes(d.ty) ? d.ty : 'def', acc = AL_ACCESS.includes(d.acc) ? d.acc : 'apply', tg = tagOf(d.tg);
   if (name.length < 3) throw new HttpsError('invalid-argument', 'Give the alliance a name of at least three characters.');
   let aid = '';
@@ -214,7 +225,7 @@ async function alFound(db, who, d) {
     if (same.docs.some(s => fold(s.get('name')) === fold(name))) refuse('al_name', 'Another alliance in this region already has that name.');
     if (tagTaken(same, tg, '')) refuse('al_tag', 'Another alliance in this region already uses that short code.');
     const now = Date.now(), ref = db.collection('alliances').doc(); aid = ref.id;
-    const A = { v: 1, reg, name, ...(tg ? { tg } : {}), mo, em, col, ty, acc, t: now, fd: who.uid, ld: who.uid, mem: { [who.uid]: { t: now, g: e.generation } }, npc: {}, iv: {}, rq: {}, xp: 0, tt: now, tr: {}, dn: {}, pj: {}, log: [] };
+    const A = { v: 1, reg, name, ...(tg ? { tg } : {}), mo, em, col, ...(ac ? { ac } : {}), ty, acc, t: now, fd: who.uid, ld: who.uid, mem: { [who.uid]: { t: now, g: e.generation } }, npc: {}, iv: {}, rq: {}, xp: 0, tt: now, tr: {}, dn: {}, pj: {}, log: [] };
     logged(A, { k: 'found', a: who.uid, b: nameOf(e.saved), x: name });
     tx.create(ref, A);
     S.s[ty] = aid; if (!S.a) S.a = aid;
@@ -247,6 +258,9 @@ async function alEdit(db, who, d) {
     if (d.mo !== undefined) ch.mo = line(d.mo, AL_MOTTO);
     if (d.em !== undefined) { const em = emblem(d.em); if (!em) throw new HttpsError('invalid-argument', 'That banner cannot be used.'); ch.em = em; }
     if (d.col !== undefined) { const c = COL(d.col); if (!c) throw new HttpsError('invalid-argument', 'Choose a colour.'); ch.col = c; }
+    /* the second colour ('' goes back to the banner's), and the coat of arms (null goes back to the banner's) */
+    if (d.ac !== undefined) { const c = d.ac === '' ? '' : COL(d.ac); if (c === '' && d.ac !== '') throw new HttpsError('invalid-argument', 'Choose a second colour.'); ch.ac = c; }
+    if (d.ar !== undefined) { const ar = d.ar === null ? null : armsOf(d.ar); if (ar === null && d.ar !== null) throw new HttpsError('invalid-argument', 'Those arms cannot be used.'); ch.ar = ar; }
     if (d.acc !== undefined) { if (!AL_ACCESS.includes(d.acc)) throw new HttpsError('invalid-argument', 'Choose who may join.'); ch.acc = d.acc; }
     /* a trade bloc's common tariff on goods from outside it */
     if (d.ct !== undefined) {

@@ -7,7 +7,7 @@ The founder leaving dissolved the alliance, and nothing else could be shared. Th
 
 | Path | What it holds |
 | --- | --- |
-| `alliances/{aid}` | `reg, name, mo` (motto), `em` (banner: a flag object), `col` (map colour), `ty` (type), `acc` (who may join), `t`, `fd` (founder), `ld` (leader), `tyAt`, `mem {uid: {t, r?, g}}` (`r: 'o'` = officer, `g` = the nation's generation when it joined), `npc {id: t}`, `iv {uid: t}`, `rq {uid: {t, x}}`, `xp`, `tt` (last tally), `tr` (treasury), `dn {uid: {res…, lt, xd, xq}}`, `pj {project: level}`, `log` (last 40 events), `cl {uid: until}` (members in a clash), `tv` (a vote on a new type `{ty, t, end, by, y, n}`), `sd` (a research accord's study `{k, t, end, by}`), `ct` (a trade bloc's common tariff). Read by everyone. |
+| `alliances/{aid}` | `reg, name, mo` (motto), `em` (banner: a flag object), `col` (map colour), `ty` (type), `acc` (who may join), `t`, `fd` (founder), `ld` (leader), `tyAt`, `mem {uid: {t, r?, g}}` (`r: 'o'` = officer, `g` = the nation's generation when it joined), `npc {id: t}`, `iv {uid: t}`, `rq {uid: {t, x}}`, `xp`, `tt` (last tally), `tr` (treasury), `dn {uid: {res…, lt, xd, xq}}`, `pj {project: level}`, `log` (last 40 events), `cl {uid: until}` (members in a clash), `tv` (a vote on a new type `{ty, t, end, by, y, n}`), `sd` (a research accord's study `{k, t, end, by}`), `ct` (a trade bloc's common tariff), `ac` (its second colour; without it the game takes one from the banner) and `ar` (its coat of arms `{s, d, t: [field, second], c, ct}`: shield, division, two tinctures, a charge or none and its tincture; without it the game draws arms from the banner). Read by everyone. |
 | `alliances/{aid}/chat/{id}` | The members' channel `{a, nm, x, t}`. Only members read it (rules check `mem`). Not called `posts`: every `posts` collection is readable by anyone, so players can find their own posts when deleting their account. |
 | `allyOf/{id}` | `{v: 2, reg, t, s {ty: aid}, w {ty: [aid]}, a, npc?}`: the alliances a nation (or computer nation) belongs to, one of each type (`s`), those waiting for a seat it already holds (`w`, a clash), and the one whose code it wears in chat and on the board (`a`). The battle referee reads the defence pact's seat (`s.def`, else the first waiting) to decide whose armies help an attack, and every seat for a pact between alliances. An entry from before (no `v`) names one alliance in `a`, whose type is read from the alliance; the daily tally rewrites it in the new shape. |
 | `alPace/{uid}` | Channel pacing (one message every 8 s, 40 an hour). Server only. |
@@ -85,6 +85,52 @@ after a leader changes it asked to leave one, and each type to feel and look dif
   each type its own way (defence outlines, trade routes, a culture wash, a research network). The Region page ranks
   alliances by type, and the admin Alliances page filters by type.
 - **From before.** Existing alliances keep their type and members; the computer alliances are defence pacts.
+
+## Alliance looks (22 November 2026)
+
+Asked by the owner: take alliances to the next level visually. Fourteen ideas were built, all drawn in the page from what
+the records already hold; the server only keeps the charter's two new fields (`ac`, `ar`, checked in `alEdit` and
+`alFound`).
+
+- **Frames.** From level 4 the banner stands in a frame of bronze, from 7 silver and at 10 gold (`alTier`), wherever it is
+  drawn; drawn large it carries the level's medallion, and gold a laurel and a slow glint.
+- **Arms.** Every alliance has a coat of arms: the leader's from the charter's designer (free shields, divisions, base
+  tinctures and free charges only), else drawn from the banner (`alArmsAuto`). The full achievement takes the type's
+  supporters (lions, elephants, doves, owls), its compartment, a crest that rises with the frame (a wreath, a helm, a
+  coronet, a crown), mantling from silver, and the motto on the scroll. In the head, the charter and the public page.
+- **Second colour.** `ac`, or the banner's second colour. The head's livery, the channel's band, the plaza, the seat, the
+  court, the web and the map layers use both (a defence pact's outline lined within, a union's wash edged, capitals filled).
+- **The seat.** Over the Alliance tab and the public page: the type's building (a fortress, a market hall, a theatre, an
+  observatory), larger with each level of the Alliance Hall and finer with the frame, the banner flying from it, and a
+  house for every member (a computer member's roof is slate).
+- **The plaza.** The Treasury's projects as buildings, a storey and a pennant a level, scaffolding where none is built and
+  grey where the type no longer uses them; a building opens its card.
+- **The court.** Members (and the public page) as a court: the leader on high in the frame's metal, the officers below, the
+  members sized by their people, lit when they played today and grey when they do not count; or the roll alone
+  (`edictum.al.mv` in the browser).
+- **The chronicle.** History as a timeline by month, a mark for each event and the great ones larger. The Hall of
+  Chronicles illuminates it: gold initials, then gold rules, then parchment and its title. Votes, studies and clashes
+  have words at last.
+- **The week.** Under the renown bar: renown each day for two weeks from the daily tallies, this week against the last,
+  and what earned it.
+- **The web.** Relations (and the public page) open on the region's alliances round this one, sized by members, joined by
+  pacts, pacts offered and rivalries; lines between two others are fainter. Each circle is a link.
+- **Moments.** A level risen, or a project built, is shown once in each member's browser the next time it plays
+  (`edictum.almo.<aid>` holds what it last saw; the first sight only notes it). The player who built a project gets no
+  moment for it. Hidden from browsers driven by tests unless `window.EDICTUM_ALMO`.
+- **Sealed letters.** An invitation waits in its envelope under the alliance's wax seal (the type's mark) until it is
+  opened, once (`edictum.al.ltr`); the waiting strip carries the seal too.
+- **The channel.** The alliance's band over it, the leader's and officers' lines in their titles' colours, and the
+  alliance's events between the messages, in the Diplomacy channel and the chat drawer's alliance tab.
+- **The war horn.** A defence pact's unanswered call to arms sounds over the Diplomacy page, the channel and the war room:
+  who attacked whom, how long the ally has been under attack (calls to arms have no deadline, so it counts up), the land
+  where they meet, and a flag for each ally that fills in as it answers.
+- **The rooms.** A defence pact's war table (each member's army as a token on its capital, guards as shields, attackers'
+  arrows), a trade bloc's flows (a ribbon for the deals between each two members), a research accord's study on a
+  blueprint ring, a cultural union's festival under bunting with its host's flag.
+
+Tests: `test/alliance-looks.test.mjs` (in `test:fx`), the charter's fields in `test/civic.test.mjs`, and
+`test/alliance-looks-e2e.mjs` (`npm run test:alliance-looks`).
 
 ## Alliances from before
 
