@@ -66,8 +66,8 @@ test('the whole world: activity, rulings, retention, the tutorial and accounts',
   assert.deepEqual(d.regions.find(r => r.reg === 'meridian'), { reg: 'meridian', nations: 2, a1: 2, a7: 2, a30: 2, new1: 1, new7: 1, new30: 1, dec1: 3, deciders1: 2, posts: { all: 9, week: 4 } });
   assert.deepEqual(d.list.map(x => [x.name, x.reg]), [['Aldoria', 'meridian'], ['Borvia', 'meridian'], ['Cirrus', 'frostmarch']], 'every nation, the most recently active first, with its region');
   assert.equal(d.history[0].a1, 2);
-  const { funnel, eng, recruits, list, act, ...rest } = d;
-  assert.ok(!JSON.stringify(rest).includes('Aldoria'), 'no nation names for the whole world but in the nations list, the funnel, the most engaged, the recruiters and the activity');
+  const { funnel, eng, recruits, list, act, rs, ...rest } = d, { list: rsList, next: rsNext, stuck: rsStuck, ...rsRest } = rs;
+  assert.ok(!JSON.stringify(rest).includes('Aldoria') && !JSON.stringify(rsRest).includes('Aldoria'), 'no nation names for the whole world but in the nations list, the funnel, the most engaged, the recruiters, the activity and research’s lists');
 });
 
 test('one region: its own figures, its accounts and its nations, the most recently active first', () => {
@@ -140,8 +140,8 @@ test('releases, engagement bands and the most engaged for the page; feature use 
   const d = summarize(g);
   assert.deepEqual(d.releases, [{ t: NOW - 2 * DAY, ti: 'Cities expanded', tg: 'update' }], 'only those in the charts\' 60 days');
   assert.deepEqual(d.eng.bands, [3, 0, 0, 0]); assert.equal(d.eng.median, 4); assert.deepEqual(d.eng.top.map(x => x.id), ['a', 'b', 'c']);
-  const { funnel, eng, recruits, list, act, ...rest } = d;
-  assert.ok(!JSON.stringify(rest).includes('Aldoria'), 'for the whole world, nations are named only in the nations list, the funnel, the most engaged, the recruiters and the activity');
+  const { funnel, eng, recruits, list, act, rs, ...rest } = d, { list: rsList, next: rsNext, stuck: rsStuck, ...rsRest } = rs;
+  assert.ok(!JSON.stringify(rest).includes('Aldoria') && !JSON.stringify(rsRest).includes('Aldoria'), 'for the whole world, nations are named only in the nations list, the funnel, the most engaged, the recruiters, the activity and research’s lists');
   const s = snapshot(g, Date.parse('2026-11-03T00:07:00Z'));
   assert.equal(s.all.act30, 3); assert.deepEqual(s.all.feat, { settled: 1, land: 1, build: 1, cities: 1, war: 1, holiday: 1 });
   assert.equal(s.regs.frostmarch.act30, 1); assert.deepEqual(s.regs.frostmarch.feat, {});
