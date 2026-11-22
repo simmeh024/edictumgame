@@ -89,8 +89,8 @@
   }
   var L = { get: function (k) { return sget('localStorage', k); }, set: function (k, v) { return sset('localStorage', k, v); } };
   var SS = { get: function (k) { return sget('sessionStorage', k); }, set: function (k, v) { return sset('sessionStorage', k, v); } };
-  /* An admin observing another region (game/edictum.html, OBS) sees it read-only. While this tab's key is set, the
-     adapter refuses what would act for the player there or touch their nation: saving or deleting any document but
+  /* An admin observing another region, or a player visiting one (game/edictum.html, OBS), sees it read-only. While
+     this tab's key is set, the adapter refuses what would act for the player there or touch their nation: saving or deleting any document but
      the admin's own staff mark and development news, a board post, the referee, the Assembly and the shop. The game
      sends none of these while observing; this holds should a page path be missed. Two exceptions act as the admin,
      not the player: a message on the region's board signed by the Edictum team (post, as: 'team'), and removing a

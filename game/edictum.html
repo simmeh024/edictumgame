@@ -12916,13 +12916,21 @@ const HOME_REG=(()=>{let id='meridian';try{const raw=localStorage.getItem('state
     /* a recruiting link names the recruiter's region (section "recruiting"): the visitor starts there, beside them */
     if(!r)try{const u=new URL(location.href),o=JSON.parse(localStorage.getItem('edictum.recruitBy.v1')||'null');r=(u.searchParams.has('recruit')&&u.searchParams.get('rg'))||(o&&typeof o.g==='string'&&o.g)||'';}catch(e){r='';}
     id=r&&REG_BY_ID[r]?r:FIRST_REG;}}catch(e){}return REG_BY_ID[id];})();
-/* Observer mode (admins only): this tab shows the region OBS names, read-only, as if the admin lived there. The
-   key lives in this tab's sessionStorage (set by obsEnter, cleared by obsExit). While it is set the admin's own
-   nation is never read, normalised, committed or saved here: S.nation is a stand-in with no land (obsNation),
-   and every save path returns early. connect() sends anyone who is not an admin back to their own nation. The
-   admin's own region is never observed: the game there is theirs to play. */
+/* Observer mode: this tab shows the region OBS names, read-only, as if the reader lived there. An admin observes any
+   region from the admin portal or the World page; a player visits one from the World page (22 Nov 2026: "allow players
+   to visit other regions, not to move but to observe like an admin can"), and sees what any player may read there:
+   no region chat, alliance channel, classified file or admin tool (those stay the admin's, obsStaff). The key lives in
+   this tab's sessionStorage (set by obsEnter, cleared by obsExit). While it is set the reader's own nation is never
+   read, normalised, committed or saved here: S.nation is a stand-in with no land (obsNation), and every save path
+   returns early. connect() sends a tab with no sign-in back to its own nation. The reader's own region is never
+   observed: the game there is theirs to play. OBS_KEY+'.adm' notes that an admin opened it, so the page says
+   Observing rather than Visiting before the sign-in is confirmed (obsWord). */
 const OBS_KEY='edictum.observe';
 const OBS=(()=>{try{const r=sessionStorage.getItem(OBS_KEY);if(r&&REG_BY_ID[r]&&r!==HOME_REG.id)return r;if(r)sessionStorage.removeItem(OBS_KEY);}catch(e){}return '';})();
+const OBS_ADM=!!OBS&&(()=>{try{return sessionStorage.getItem(OBS_KEY+'.adm')==='1';}catch(e){return false;}})();
+/* an admin observing (everything a player there sees, and the staff's view besides), or a player visiting */
+function obsStaff(){return !!OBS&&!!S.isOwner;}
+function obsWord(lower){const w=(S.obsOn?!!S.isOwner:OBS_ADM)?'Observing':'Visiting';return lower?w.toLowerCase():w;}
 /* Player view (admins only): this tab shows one player's game as they see it, their nation, pages and settings, and
    nothing in it can be done. sessionStorage PV_KEY holds "<uid>|<region>" (pvEnter, pvExit). S.uid is that player, so
    every "me" is theirs; S.mode is readonly, every save path returns early (as for OBS) and the adapter refuses every
@@ -23206,7 +23214,7 @@ async function alReq(d){
 function alErrText(e){const m=(e&&e.message)||'';if((e&&e.code)==='unavailable'||/network|failed to fetch|offline|internal/i.test(m))return 'The server could not be reached. Check your connection and try again.';return m||'That did not work. Try again in a moment.';}
 function alPaint(){if(['diplomacy','alliance','visit','region'].includes(S.view))render();}
 async function alAct(op,d,done){
-  if(OBS){toast('Observing: nothing can be changed.');return null;}
+  if(OBS){toast(obsWord()+': nothing can be changed.');return null;}
   if(S.mode!=='world'){toast('Alliances need the online game.');return null;}
   if(AL.busy)return null;AL.busy=op;AL.msg='';alPaint();
   try{const r=(await alReq(Object.assign({op},d)))||{};if(done)done(r);return r;}
@@ -28128,7 +28136,7 @@ function warGiveHex(c,T){
   return `<div style="margin-top:14px"><label class="lbl" for="wg-to">Hand this hex over</label><div class="name-row" style="margin-top:6px"><select class="input" id="wg-to" data-c="${c}">${to.map(x=>`<option value="${esc(x.id)}"${x.id===sel?' selected':''}>${esc(x.n.name)}${x.npc?' (computer)':''}${o>=0&&T.list[o]&&x.id===T.list[o].id?' (it was theirs)':''}</option>`).join('')}</select><button class="btn ghost" type="button" data-act="wg-ask" data-c="${c}">Hand over…</button></div><p class="hint" style="margin-top:6px">This hex was taken from ${esc(from)} in war. You can give it to a nation whose land touches it. It still counts as land taken in war.</p></div>`;
 }
 function warGive(c,to){
-  if(OBS){toast('Observing: nothing can be changed.');return;}
+  if(OBS){toast(obsWord()+': nothing can be changed.');return;}
   S.wgAsk=null;S.wgPick=null;
   const T=territory(),mi=T.byId[myId()],x=wgTakers(T,c).find(y=>y.id===to);
   if(mi===undefined||!T.occ[c]||T.owner[c]!==mi||T.isCap[c]||!x){toast('That hex can no longer be handed over.');updateMapPanel();redrawMaps();return;}
@@ -33156,8 +33164,9 @@ function foundAutoRegion(){
 }
 function worldCard(R,now){
   const here=R.id===REG.id,disabled=regDisabled(R.id),pc=regCount(R.id),npcs=R.id==='meridian'?NPCS_MER:R.npcs,sel=S.wrSel===R.id;
+  const chip=here?` <span class="chip ok">${OBS?obsWord():'You are here'}</span>`:OBS&&R.id===HOME_REG.id?' <span class="chip">Your region</span>':'';
   return `<article class="wr-card${here?' here':''}${sel?' sel':''}${disabled?' region-disabled':''}"><button class="wr-pick" data-act="wr-sel" data-id="${R.id}" aria-expanded="${sel}"${disabled?' disabled':''}><canvas class="wr-map" data-wr="${R.id}" width="226" height="124" aria-hidden="true"></canvas>
-    <span class="wr-b"><span class="wr-n">${esc(R.name)}${here?' <span class="chip ok">You are here</span>':''}${disabled?` <span class="chip">${regLabel(R.id)}</span>`:''}</span><span class="wr-s">${esc(R.short)}</span>
+    <span class="wr-b"><span class="wr-n">${esc(R.name)}${chip}${disabled?` <span class="chip">${regLabel(R.id)}</span>`:''}</span><span class="wr-s">${esc(R.short)}</span>
     <span class="wr-meta">${esc(regClimate(R))} · ${npcs.length} computer nations · ${pc===1?'1 player':pc+' players'}</span></span></button></article>`;
 }
 function worldDetail(R,now){
@@ -33165,10 +33174,12 @@ function worldDetail(R,now){
   const nat=npcs.slice().sort((a,b)=>b.pop-a.pop).map(x=>`<li class="mem"><span class="mflag">${flagSVG(x.flag,'Flag of '+x.name)}</span><span class="mem-n"><b>${esc(x.name)}</b><span class="mem-s">The ${esc(x.pretitle)} of ${esc(x.name)} · “${esc(x.motto)}”</span></span><span class="mem-v">${fmtPop(here&&NPC_BY_ID[x.id]?popNow(NPC_BY_ID[x.id]):x.pop*NPC_POP)}</span></li>`).join('');
   const blocs=(R.id==='meridian'?[{name:'The Iron Compact'},{name:'The Meridian League'}]:R.blocs||[]).map(b=>esc(b.name));
   let act='';
-  if(OBS)act=here?'<p class="hint">You are observing this region.</p>':`<div class="row">${obsRegionBtn(R.id,'btn')}</div>`;
-  else if(regDisabled(R.id))act=`<p class="err">${regionMessage(R.id)}</p>`;
+  /* a visit (obsEnter): the region read-only, as its players see it, while the nation stays at home */
+  const vis=here||regDisabled(R.id)&&!S.isOwner?'':obsRegionBtn(R.id,'btn ghost'),visHint=vis&&!OBS?`<p class="hint wr-vis">${S.isOwner?'Observe':'Visit'} to look round ${esc(R.the)} as its players see it, read-only: its map, nations, board, Census and Assembly. ${esc(n.name)} stays at home.</p>`:'';
+  if(OBS)act=here?`<p class="hint">You are ${obsWord(1)} this region, read-only.</p><div class="row"><button type="button" class="btn ghost" data-act="obs-exit">Return to my nation</button></div>`:`<div class="row">${obsRegionBtn(R.id,'btn')}</div>`;
+  else if(regDisabled(R.id))act=`<p class="err">${regionMessage(R.id)}</p>${vis?`<div class="row">${vis}</div>`:''}`;
   else if(here)act=`<p class="hint">${esc(n.name)} lives here${n.mvAt?`, since ${fmtDate(n.mvAt)}`:''}.</p>`;
-  else if(wait>0)act=`<p class="hint">You moved on ${fmtDate(n.mvAt)}. The next move is possible in <b data-mvcd="${(n.mvAt||0)+MOVE_CD}">${fmtWait(wait)}</b>.</p>`;
+  else if(wait>0)act=`<p class="hint">You moved on ${fmtDate(n.mvAt)}. The next move is possible in <b data-mvcd="${(n.mvAt||0)+MOVE_CD}">${fmtWait(wait)}</b>.</p>${vis?`<div class="row">${vis}</div>${visHint}`:''}`;
   else if(S.wrAsk===R.id){const P=movePlan(n),bk=RES.filter(r=>P.back[r]).map(r=>`${P.back[r]} ${resName(r)}`);
     act=`<div class="war-box wr-ask"><p class="war-k">Move ${esc(n.name)} to ${esc(R.name)}?</p>
       <p>Your people, laws, cabinet, treasury, history, honours and museum come with you. Your land starts again from the core round a new capital that you choose on arrival, and three quarters of the land credits you have earned can be spent again there.</p>
@@ -33178,7 +33189,7 @@ function worldDetail(R,now){
         ${P.wars?`<li>Your ${P.wars===1?'war ends':P.wars+' wars end'}.</li>`:''}${P.al?`<li>You leave ${esc(P.al.name)}.</li>`:''}${P.deals?`<li>${P.deals===1?'Your trade deal lapses':'Your '+P.deals+' trade deals lapse'}.</li>`:''}
         <li>You cannot move again for 14 days.</li></ul>
       <div class="row"><button class="btn danger solid" data-act="wr-go" data-id="${R.id}">Move to ${esc(R.name)}</button><button class="btn ghost" data-act="wr-cancel">Stay</button></div></div>`;}
-  else act=`<div class="row"><button class="btn" data-act="wr-ask" data-id="${R.id}">Move here…</button></div>`;
+  else act=`<div class="row"><button class="btn" data-act="wr-ask" data-id="${R.id}">Move here…</button>${vis}</div>${visHint}`;
   return `<section class="wr-detail" aria-label="${esc(R.name)}"><div class="wr-dmap"><canvas class="wr-map big" data-wr="${R.id}" width="452" height="248" aria-hidden="true"></canvas></div>
     <div><p class="eyebrow">${esc(regClimate(R))}</p><h2 class="h2" style="margin-top:4px">${esc(R.name)}</h2><p>${esc(R.desc)}</p>
     ${blocs.length?`<p class="hint">Alliances: ${list(blocs)}.</p>`:''}
@@ -33191,7 +33202,7 @@ VIEWS_EXT.world=now=>{
   /* a fresh visit to this page counts again if the counts are more than 15 seconds old */
   const now0=Date.now();regStatsSoon(now0-(RSTAT.seen||0)>1e4?15e3:3e5);RSTAT.seen=now0;if(sel)regNamesSoon(sel.id);
   if(S.moving)return `<div class="empty wr-moving"><p class="empty-h">Packing up for ${esc(S.moving)}</p><p>The archives are crated, the anthem is folded, and the capital’s buildings are numbered brick by brick.</p></div>`;
-  return `<header class="vh"><p class="eyebrow">Atlas of the known world</p><h1>The World</h1><p>${REGIONS.length} regions, each with its own lands and nations. ${OBS?`You are observing ${esc(REG.the)}. Choose another region to observe it.</p></header>`:`${esc(n.name)} lives in ${esc(REG.the)}. You can move to another region: your nation comes with you, but your land starts again, and after a move you must wait 14 days before the next.</p></header>
+  return `<header class="vh"><p class="eyebrow">Atlas of the known world</p><h1>The World</h1><p>${REGIONS.length} regions, each with its own lands and nations. ${OBS?`You are ${obsWord(1)} ${esc(REG.the)}, read-only. Choose another region to ${S.isOwner?'observe':'visit'} it, or return to your nation.</p></header>`:`${esc(n.name)} lives in ${esc(REG.the)}. You can move to another region: your nation comes with you, but your land starts again, and after a move you must wait 14 days before the next.</p></header>
     <p class="wr-status">${wait>0?`Next move possible in <b data-mvcd="${(n.mvAt||0)+MOVE_CD}">${fmtWait(wait)}</b>, on ${fmtDate((n.mvAt||0)+MOVE_CD)}.`:'You are free to move.'}${n.mvN?` ${esc(n.name)} has moved ${n.mvN===1?'once':n.mvN+' times'}.`:''}</p>`}
     ${sel?worldDetail(sel,now):''}
     <div class="wr-grid">${regionsByAvail().map(R=>worldCard(R,now)).join('')}</div>`;
@@ -34795,7 +34806,7 @@ asmDue=function(n,now){
 const civicAssemblyView=VIEWS_EXT.assembly;
 VIEWS_EXT.assembly=now=>{
   const a=S.civic&&S.civic.reg===REG.id?S.civic.account:null;
-  const reason=!a?'Connecting to the Assembly…':OBS?'You are observing: this is the Assembly as its members see it, read-only.':a.kind==='guest'?'Guest Nations may read debates. Link a sign-in account to become a Registered Nation and take political actions.':a.reason==='moderated'?'This nation cannot take political actions while under moderation.':!a.eligible?'Assembly voting, proposals and leadership unlock 24 hours after your nation was founded.':'';
+  const reason=!a?'Connecting to the Assembly…':OBS?`You are ${obsWord(1)}: this is the Assembly as its members see it, read-only.`:a.kind==='guest'?'Guest Nations may read debates. Link a sign-in account to become a Registered Nation and take political actions.':a.reason==='moderated'?'This nation cannot take political actions while under moderation.':!a.eligible?'Assembly voting, proposals and leadership unlock 24 hours after your nation was founded.':'';
   return (reason?`<p class="war-msg" role="status">${esc(reason)}</p>`:'')+civicAssemblyView(now);
 };
 window.addEventListener('edictum:linked',()=>{civicAt=0;civicFails=0;civicRetry=0;civicEpoch++;civicRefresh();});
@@ -56311,7 +56322,8 @@ if(OWN_WAIT.on)setTimeout(ownWaitEnd,10000);
 function ownWaitView(){return `<div class="found own-wait" role="status" aria-live="polite"><header class="found-head"><span class="wordmark">Edictum</span><span class="brand-sub">A nation simulator · Region of ${esc(REGION)}</span></header><p class="eyebrow">One moment</p><h1 class="display">Opening your nation…</h1><p class="lede">Fetching your nation’s latest save.</p></div>`;}
 let connectEngaged=false;
 async function connect(){
-  /* observing needs the region's data and an admin's account: without either, this tab goes back to its own nation */
+  /* observing needs the region's data and a sign-in (the player view an admin's account): without them, this tab goes
+     back to its own nation */
   const quit=()=>{ownWaitEnd();if(OBS)obsExit();if(PV)pvExit();};
   if(!window.claude||typeof window.claude.use!=='function')return quit();
   let db,user;
@@ -56324,7 +56336,7 @@ async function connect(){
   S.isOwner=await user.isOwner();
   S.isMod=!S.isOwner&&typeof user.isMod==='function'&&await user.isMod();
   S.isAmb=!S.isOwner&&!S.isMod&&typeof user.isAmb==='function'&&await user.isAmb();
-  if((OBS||PV)&&!S.isOwner)return quit();
+  if(PV&&!S.isOwner)return quit();
   if(PV){S.uid=PV.uid;try{if(!(await pvLoad(db)))return;}catch(e){S.pvErr=e&&e.message||'unknown';render();return;}}
   await regionControls();
   try{S.google=typeof user.google==='function'?!!(await user.google()):false;}catch(e){S.google=false;}
@@ -56637,7 +56649,7 @@ function findNation(id){
 const NAV=[['nation','Nation'],['issues','Edicts'],['map','Map'],['cities','Cities'],PRV_NAV,['diplomacy','Diplomacy'],['intel','Intelligence'],['trade','Trade'],['government','Government'],['games','Games'],['museum','Museum'],['achievements','Achievements'],['passport','Passport'],['census','Census'],['stats','Statistics'],['region','Region'],['dispatch','Dispatch'],['assembly','Assembly'],['world','World'],['space','Space'],['messages','Messages'],['flock','Flock'],['settings','Settings'],['customise','Customise'],['help','Help']];
 
 function modeChip(){
-  if(OBS)return `<p class="mode world"><i></i><span>Observing ${REGION}, read-only. Nothing is saved in this tab.</span></p>`;
+  if(OBS)return `<p class="mode world"><i></i><span>${obsWord()} ${REGION}, read-only. Nothing is saved in this tab.</span></p>`;
   if(S.mode==='world')return `<p class="mode world"><i></i><span>Connected to ${REGION}. Your nation is visible to other players.</span></p>`;
   if(S.mode==='readonly')return `<p class="mode"><i></i><span>View-only access. Your nation is saved in this browser.</span></p>`;
   return `<p class="mode"><i></i><span>Offline. Your nation is saved in this browser.</span></p>`;
@@ -58200,7 +58212,7 @@ function visitView(now){
   return `${prev?vlPrevBar(n):`<button class="back" data-act="go" data-v="region">← ${REGION}</button>`}
   <div class="vs-page${prev?' vs-prev':''}"${prev?' inert':''}>
   ${hero(n,{player:!x.npc,id:x.id})}
-  <div class="row visit-acts"><button class="btn ghost" data-act="map-open" data-id="${esc(x.id)}">Show on the map</button>${OBS?'':`<button class="btn ghost" data-act="visit-link" data-id="${esc(x.id)}">Copy link</button>`}${OBS?`<button class="btn ghost" data-act="st-open" data-id="${esc(x.id)}">Statistics and factbook</button>${x.npc?'':`<button class="btn ghost" data-act="admin-inspect" data-id="${esc(x.id)}">Inspect player</button>`}</div>`:`<button class="btn ghost" data-act="trade-go" data-id="${esc(x.id)}">Propose a trade</button><button class="btn ghost" data-act="spy-go" data-id="${esc(x.id)}">Send a spy</button><button class="btn ghost" data-act="dm-open" data-id="${esc(x.id)}">Send a message</button>${!x.npc&&!x.me&&!x.prev&&x.id!==S.uid&&S.mode==='world'?`<button class="btn ghost" data-act="sc-send-open" data-id="${esc(x.id)}">Send Supply Cache${scLinked()?'':'<span class="sc-lock" title="For Registered Nations"> 🔒</span>'}</button>`:''}<button class="btn ghost" data-act="st-open" data-id="${esc(x.id)}">Statistics and factbook</button><button class="btn ghost" data-act="pp-view" data-id="${esc(x.id)}">View passport</button>${!x.npc&&!x.me&&x.id!==S.uid&&S.mode==='world'?`<button class="btn ghost" data-act="report-nation" data-id="${esc(x.id)}">Report</button>`:''}</div>`}
+  <div class="row visit-acts"><button class="btn ghost" data-act="map-open" data-id="${esc(x.id)}">Show on the map</button>${OBS?'':`<button class="btn ghost" data-act="visit-link" data-id="${esc(x.id)}">Copy link</button>`}${OBS?`<button class="btn ghost" data-act="st-open" data-id="${esc(x.id)}">Statistics and factbook</button>${x.npc||!obsStaff()?'':`<button class="btn ghost" data-act="admin-inspect" data-id="${esc(x.id)}">Inspect player</button>`}</div>`:`<button class="btn ghost" data-act="trade-go" data-id="${esc(x.id)}">Propose a trade</button><button class="btn ghost" data-act="spy-go" data-id="${esc(x.id)}">Send a spy</button><button class="btn ghost" data-act="dm-open" data-id="${esc(x.id)}">Send a message</button>${!x.npc&&!x.me&&!x.prev&&x.id!==S.uid&&S.mode==='world'?`<button class="btn ghost" data-act="sc-send-open" data-id="${esc(x.id)}">Send Supply Cache${scLinked()?'':'<span class="sc-lock" title="For Registered Nations"> 🔒</span>'}</button>`:''}<button class="btn ghost" data-act="st-open" data-id="${esc(x.id)}">Statistics and factbook</button><button class="btn ghost" data-act="pp-view" data-id="${esc(x.id)}">View passport</button>${!x.npc&&!x.me&&x.id!==S.uid&&S.mode==='world'?`<button class="btn ghost" data-act="report-nation" data-id="${esc(x.id)}">Report</button>`:''}</div>`}
   ${hnLine(x,now)}
   ${vlNav(B.nav,x,now)}
   <div class="nation-grid vs-top">
@@ -69751,7 +69763,7 @@ function wndView(now){
     <figure class="wd-fig paper">${wndSVG(W.done,W.frac,{cls:'wd-big'})}<figcaption><span class="lbl">${fin?'Finished':`Phase ${W.done+1} of ${WND_N}`}</span><b>${esc(fin?'Unveiled, gilded and much photographed':WND_PH[W.done][0])}</b>${fin?'':`<span class="hint">${Math.floor(W.frac*100)}% of this phase is built.</span>`}</figcaption></figure>
     <div class="wd-side">
       ${fin?`<section class="wd-box"><h2 class="h2">Finished</h2><p>The statue stands over ${esc(REG.the)}. ${mine?`${esc(n.name)} is on the plaque, and may style itself <b>“the Patron”</b> in Customise.`:'Your nation gave nothing towards it, which the guides mention on every tour.'}</p></section>`
-        :OBS?`<section class="wd-box"><h2 class="h2">Gifts</h2><p class="hint">The players of ${esc(REG.the)} give to this phase from here. Observing, you see the statue as they do.</p></section>`
+        :OBS?`<section class="wd-box"><h2 class="h2">Gifts</h2><p class="hint">The players of ${esc(REG.the)} give to this phase from here. ${obsWord()}, you see the statue as they do.</p></section>`
         :`<section class="wd-box"><h2 class="h2">Give to this phase</h2><p class="hint">Gifts come from your stock, and count only towards what this phase still needs.${mine?` You have given ${esc(costText(Object.fromEntries(RES.filter(r=>mine.c[r]>0).map(r=>[r,Math.round(mine.c[r])]))))} so far.`:''}</p>${give}</section>`}
       <section class="wd-box"><h2 class="h2">The plaque</h2>${plaque}</section>
     </div>
@@ -70063,7 +70075,7 @@ function lthView(now){
     give=`<section class="wd-box"><h2 class="h2">Give to this phase</h2>
       <p class="hint lt-share">You have given ${fmt0(g)} to this phase. ${g>=sh?'That is your share: its reward is yours once it is finished.':`Give ${fmt0(sh-g)} more to share its reward.`} ${room>0?`You may give ${fmt0(room)} more; no nation may give more than ${fmt0(cap)}.`:'That is all one nation may give to it; the rest must come from other nations.'}</p>
       <p class="hint lt-hands">${L.hands?`${L.hands===1?'One nation has':`${L.hands} nations have`} given to this phase`:'No nation has given to this phase yet'}${L.hands<LTH_HANDS?`: it needs at least ${LTH_HANDS} before it can be finished`:''}.</p>${rows}</section>`;}
-  else if(!lit)give=`<section class="wd-box"><h2 class="h2">Gifts</h2><p class="hint">The players of ${esc(REG.the)} give to this phase from here. Observing, you see the lighthouse as they do.</p></section>`;
+  else if(!lit)give=`<section class="wd-box"><h2 class="h2">Gifts</h2><p class="hint">The players of ${esc(REG.the)} give to this phase from here. ${obsWord()}, you see the lighthouse as they do.</p></section>`;
   const k=lthTop(n),fin=lit?`<section class="wd-box"><h2 class="h2">Lit</h2><p>The lighthouse stands on the coast of ${esc(REG.the)}, and its beam can be seen thirty miles out. ${mine?`${esc(n.name)} is on the plaque${k?`, in ${LTH_MEDAL[k-1]}, and the Keeper’s Beam pattern is in Customise`:''}.`:'Your nation gave nothing towards it, which the keeper mentions to every visitor.'}</p></section>`:'';
   const got=lthRewarded(n).length;
   return `<header class="vh"><p class="eyebrow">A wonder of ${esc(REG.the)}</p><h1>${esc(lthName())}</h1><p>With the Great Statue finished, the Office of Monuments has turned to the coast. The lighthouse is twice the size of the statue, and no nation can build it alone: no nation may give more than ${Math.round(LTH_CAP*100)}% of a phase, so every phase needs at least ${LTH_HANDS} nations.</p></header>${lit?'':c3Strip(n,now)}
@@ -70467,7 +70479,7 @@ function damView(now){
     give=`<section class="wd-box"><h2 class="h2">Give to this phase</h2>
       <p class="hint dm-share">You have given ${fmt0(tot)} to the dam in all. ${tot>=DAM_SHARE_AT?`That is your share: ${DAM_LAND} land credits are yours.`:`Give ${fmt0(DAM_SHARE_AT-tot)} more in all to earn its ${DAM_LAND} land credits.`} ${room>0?`You may give ${fmt0(room)} more to this phase; no nation may give more than ${fmt0(cap)}.`:'That is all one nation may give to this phase; the rest must come from other nations.'}</p>
       <p class="hint dm-hands">${L.hands?`${L.hands===1?'One nation has':`${L.hands} nations have`} given to this phase`:'No nation has given to this phase yet'}${L.hands<DAM_HANDS?`: it needs at least ${DAM_HANDS} before it can be finished`:''}.</p>${rows}</section>`;}
-  else if(!open)give=`<section class="wd-box"><h2 class="h2">Gifts</h2><p class="hint">The players of ${esc(REG.the)} give to this phase from here. Observing, you see the dam as they do.</p></section>`;
+  else if(!open)give=`<section class="wd-box"><h2 class="h2">Gifts</h2><p class="hint">The players of ${esc(REG.the)} give to this phase from here. ${obsWord()}, you see the dam as they do.</p></section>`;
   const k=damTop(n),fin=open?`<section class="wd-box"><h2 class="h2">Open</h2><p>The Great Dam holds back its reservoir in ${esc(REG.the)}, and its turbines light every city of the region. Every tier II works of the region makes ${Math.round(DAM_FTR*100)}% more. ${mine?`${esc(n.name)} is on the plaque${k?`, in ${DAM_MEDAL[k-1]} place, and the Floodgate pattern is in Customise`:''}.`:'Your nation gave nothing towards it, which the turbine-hall guides mention on every tour.'}</p></section>`:'';
   return `<header class="vh"><p class="eyebrow">A wonder of ${esc(REG.the)}</p><h1>${esc(damName())}</h1><p>With the Great Lighthouse lit, the Office of Monuments has turned inland, to a river far from the coast. The dam is three times the size of the lighthouse and built in twenty phases. No nation may give more than ${Math.round(DAM_CAP*100)}% of a phase, so every phase needs at least ${DAM_HANDS} nations.</p></header>${open?'':c3Strip(n,now)}
   <div class="wd-grid">
@@ -71196,7 +71208,7 @@ function scReadyAt(n){const a=S.civic&&S.civic.account,r=a?Number(a.readyAt):0;i
 function scWhyNot(id,now){
   const n=S.nation,x=id?findNation(id):null;
   if(!n||!x||x.me||x.npc)return 'Supply Caches go to other players’ nations.';
-  if(OBS)return 'Observing: nothing can be sent.';
+  if(OBS)return obsWord()+': nothing can be sent.';
   if(S.mode!=='world')return 'Supply Caches need the online game.';
   if(PV||tabPassive)return 'Nothing can be sent from this tab.';
   if(!scLinked())return SC_LINK;
@@ -75878,58 +75890,67 @@ museumView=(f=>function(now){
 })(museumView);
 
 /* ───────── observer mode ─────────
-   An admin opens any region read-only (OBS, by REG): its world map, Region page and board, Census, the World page and
-   its nations' pages, as a player there sees them, with a bar on every page that leads back. The tab reloads into
-   the region and out of it, so the map, the region's listeners and everything worked out from them are the
-   observed region's, and nothing of the admin's own nation is in the page. Defined last: these wrap the views. */
+   An admin, or a player visiting from the World page, opens another region read-only (OBS, by REG): its world map,
+   Region page and board, Census, Assembly, the World page and its nations' pages, as a player there sees them, with a
+   bar on every page that leads back. The tab reloads into the region and out of it, so the map, the region's listeners
+   and everything worked out from them are the observed region's, and nothing of the reader's own nation is in the
+   page. A player sees only what the rules let any player read (obsStaff for the rest). Defined last: these wrap the
+   views. */
 const OBS_NAV=['map','region','census','world','assembly','wonder','dispatch','community','games'],OBS_VIEWS=OBS_NAV.concat('visit','stats','alliance');
 let obsGoing=false;
 /* the observing tab's S.nation: a nation with no land, no clock and no record, which nothing saves */
 function obsNation(){const now=Date.now();return normalize({name:'Observer',pretitle:'Observer',leader:'Observer',reg:REG.id,founded:now,popAt:now,issueClock:now,updatedAt:now,claims:[],inbox:[],log:[]});}
-/* into a region (and to one of its nations), or back to the admin's own when it is theirs */
+/* may this tab observe or visit another region: online and signed in, an admin, or a player with a nation (the
+   server's Assembly asks the same, functions/civic.js mayObserve); not from the player view */
+function obsCan(){return S.mode!=='local'&&!!S.db&&!!S.uid&&!PV&&!S.banned&&(!!S.isOwner||!!OBS||!!(S.nation&&S.nation.name&&!S.nation.npc));}
+/* into a region (and to one of its nations), or back to the reader's own when it is theirs */
 async function obsEnter(id,visit){
-  if(!S.isOwner||!REG_BY_ID[id]||obsGoing)return;obsGoing=true;
+  if(!obsCan()||!REG_BY_ID[id]||obsGoing||regDisabled(id)&&!S.isOwner&&id!==HOME_REG.id||visit&&!S.isOwner)return;obsGoing=true;
   try{await flushNow();}catch(e){}
-  try{if(id===HOME_REG.id)sessionStorage.removeItem(OBS_KEY);else sessionStorage.setItem(OBS_KEY,id);}
-  catch(e){obsGoing=false;toast('This browser keeps no session storage, which observing a region needs.');return;}
+  try{if(id===HOME_REG.id){sessionStorage.removeItem(OBS_KEY);sessionStorage.removeItem(OBS_KEY+'.adm');}else{sessionStorage.setItem(OBS_KEY,id);if(S.isOwner)sessionStorage.setItem(OBS_KEY+'.adm','1');else sessionStorage.removeItem(OBS_KEY+'.adm');}}
+  catch(e){obsGoing=false;toast('This browser keeps no session storage, which visiting a region needs.');return;}
   try{history.replaceState(null,'','#'+(visit?'visit/'+encodeURIComponent(visit):id===HOME_REG.id?'nation':'map'));}catch(e){}
   location.reload();
 }
 function obsExit(){
-  try{sessionStorage.removeItem(OBS_KEY);}catch(e){return;}
+  try{sessionStorage.removeItem(OBS_KEY);sessionStorage.removeItem(OBS_KEY+'.adm');}catch(e){return;}
   try{history.replaceState(null,'','#nation');}catch(e){}
   location.reload();
 }
 /* connect() has confirmed the admin: the region's pages may be drawn */
 function obsConnected(){S.obsOn=true;}
-function obsBar(){return `<div class="obs-bar" role="region" aria-label="Observer mode"><p><b>Observing ${esc(REG.name)}</b> — read-only</p><button type="button" class="btn small" data-act="obs-exit">Return to my nation</button></div>`;}
-function obsWho(){return `<div class="side-who obs-who"><span class="side-name"><span class="side-pre">Observing, read-only</span><span class="side-nm">${esc(REG.name)}</span></span>${S.isOwner?'<a class="adm-pill" href="#admin" data-act="admin-open" title="Open the admin portal">Admin</a>':''}</div>`;}
-/* the admin portal's ways in: a region, and a nation of another region */
+function obsBar(){return `<div class="obs-bar" role="region" aria-label="${obsWord()==='Observing'?'Observer mode':'Visiting another region'}"><p><b>${obsWord()} ${esc(REG.name)}</b> — read-only${obsWord()==='Observing'?'':'. Your nation stays at home'}</p><button type="button" class="btn small" data-act="obs-exit">Return to my nation</button></div>`;}
+function obsWho(){return `<div class="side-who obs-who"><span class="side-name"><span class="side-pre">${obsWord()}, read-only</span><span class="side-nm">${esc(REG.name)}</span></span>${S.isOwner?'<a class="adm-pill" href="#admin" data-act="admin-open" title="Open the admin portal">Admin</a>':''}</div>`;}
+/* the ways in: the World page's region (anyone who may, obsCan), the admin portal's region, and a nation of another
+   region (obsVisitBtn, the admins') */
 function obsRegionBtn(id,cls='btn ghost small'){
-  if(!S.isOwner||S.mode==='local'||!REG_BY_ID[id]||id===REG.id)return '';
-  return OBS&&id===HOME_REG.id?`<button type="button" class="${cls}" data-act="obs-exit">Return to my nation</button>`:`<button type="button" class="${cls}" data-act="obs-go" data-id="${esc(id)}">Observe ${esc(regName(id))}</button>`;
+  if(!obsCan()||!REG_BY_ID[id]||id===REG.id||regDisabled(id)&&!S.isOwner&&!(OBS&&id===HOME_REG.id))return '';
+  return OBS&&id===HOME_REG.id?`<button type="button" class="${cls}" data-act="obs-exit">Return to my nation</button>`:`<button type="button" class="${cls}" data-act="obs-go" data-id="${esc(id)}">${S.isOwner?'Observe':'Visit'} ${esc(regName(id))}</button>`;
 }
 function obsVisitBtn(reg,id){return S.isOwner&&S.mode!=='local'&&REG_BY_ID[reg]?`<button type="button" class="btn ghost small" data-act="obs-go" data-id="${esc(reg)}" data-visit="${esc(id)}">View nation in ${esc(regName(reg))}</button>`:'';}
-function obsView(v){return ADM_VIEWS.includes(v)||OBS_VIEWS.includes(v)&&(v!=='stats'||!!S.statsFor&&S.statsFor!==myId())?v:'map';}
+/* the pages a tab observing shows: the region's (OBS_VIEWS) and, an admin's, the admin portal (until the sign-in is
+   confirmed an admin page may stay: mainView says the region is opening meanwhile) */
+function obsView(v){return ADM_VIEWS.includes(v)&&(!!S.isOwner||!S.obsOn)||OBS_VIEWS.includes(v)&&(v!=='stats'||!!S.statsFor&&S.statsFor!==myId())?v:'map';}
 /* the map without a nation of one's own: a click selects the nation there */
 function obsMapPanel(){
   const T=territory(),i=S.mapSel!=null?T.byId[S.mapSel]:undefined;
   if(i===undefined){const pl=allNations().filter(x=>!x.npc).length;
-    return `<p class="eyebrow">Observing</p><h2 class="mp-h">${esc(REG.name)}</h2><p class="muted">${pl===1?'One nation is':pl+' nations are'} run by players here. Select a nation on the map to see it.</p>`;}
+    return `<p class="eyebrow">${obsWord()}</p><h2 class="mp-h">${esc(REG.name)}</h2><p class="muted">${pl===1?'One nation is':pl+' nations are'} run by players here. Select a nation on the map to see it.</p>`;}
   const x=T.list[i];
   return `<p class="eyebrow">${x.npc?'Computer-run nation':'Player nation'}</p><div class="mp-nat"><span class="mflag">${flagSVG(x.n.flag,'Flag of '+x.n.name)}</span><h2 class="mp-h">${esc(x.n.name)}</h2></div>
     <p class="muted">${esc(fullName(x.n))} · ${esc(classify(x.n.s))}</p>
     <dl class="mp-dl"><div><dt>Population</dt><dd>${fmtPop(popNow(x.n))}</dd></div><div><dt>Land area</dt><dd>${fmtArea(T.count[i])}</dd></div><div><dt>Army</dt><dd>${brig(x.n)}</dd></div><div><dt>Alliance</dt><dd>${esc(allianceName(x.id))}</dd></div></dl>
     <div class="row" style="margin-top:16px"><button class="btn ghost" data-act="visit" data-id="${esc(x.id)}">View nation</button></div>`;
 }
-/* an alliance's page, with its channel, read-only: observers read every alliance's channel (firestore.rules) */
+/* an alliance's page, with its channel, read-only: an admin observing reads every alliance's channel (firestore.rules);
+   a player visiting reads none */
 function obsChat(A){
   const C=AL.chat;if(C.aid!==A.id)return '<p class="hint" role="status">Opening the channel…</p>';
   if(C.err)return `<p class="err">${esc(C.err)}</p>`;
   if(!C.list.length)return '<p class="hint">No messages in this channel yet.</p>';
   return `<ol class="al-chat" data-stick="alo:${esc(A.id)}">${C.list.map(m=>`<li class="al-msg"><p class="al-msg-h"><b>${nationLink(m.a,findNation(m.a)?findNation(m.a).n.name:m.nm,false)}</b><span class="hint">${esc(rel(m.t))}</span></p><p class="al-msg-x">${esc(m.x)}</p></li>`).join('')}</ol>`;
 }
-alPageView=(f=>function(){const h=f.apply(this,arguments);if(!OBS)return h;const A=politics().al.get(AL.view);if(!A||!A.srv)return h;
+alPageView=(f=>function(){const h=f.apply(this,arguments);if(!obsStaff())return h;const A=politics().al.get(AL.view);if(!A||!A.srv)return h;
   try{alChatConnect();}catch(e){}
   return h+`<section class="dip-sec obs-chan"><h2 class="h2">Channel <span class="hint">· the members’ messages, read-only</span></h2>${obsChat(A)}</section>`;})(alPageView);
 go=(f=>function(v){return f.call(this,OBS?obsView(v):v);})(go);
@@ -75937,7 +75958,7 @@ shell=(f=>function(){if(OBS)S.view=obsView(S.view);return f.apply(this,arguments
 mainView=(f=>function(){
   if(!OBS)return f.apply(this,arguments);
   if(!S.obsOn)return `<p class="hint" role="status">Opening ${esc(REG.name)}…</p>`;
-  try{return f.apply(this,arguments);}catch(e){return `<div class="empty"><p class="empty-h">This page could not be drawn while observing</p><p>${esc(e.message)}</p></div>`;}
+  try{return f.apply(this,arguments);}catch(e){return `<div class="empty"><p class="empty-h">This page could not be drawn while ${obsWord(1)}</p><p>${esc(e.message)}</p></div>`;}
 })(mainView);
 navGroups=(f=>function(){const g=f.apply(this,arguments);return OBS?g.map(x=>({...x,items:x.items.filter(([v])=>OBS_NAV.includes(v))})).filter(x=>x.items.length):g;})(navGroups);
 mapPanel=(f=>function(){return OBS?obsMapPanel():f.apply(this,arguments);})(mapPanel);
@@ -85197,7 +85218,7 @@ function alTyping(){const a=document.activeElement;return !!(a&&(a.tagName==='TE
    the Alliance tab shows, else its first (the Alliance tab may show a type it holds none of) */
 function alChatA(){if(!S.nation)return null;const s=seatsOf(myId()),ok=t=>!!(t&&s[t]&&!s[t].npc&&s[t].srv),t=[AL.cty,alTy(),...AL_TY_KEYS].find(ok);return t?s[t]:null;}
 function alChatConnect(){
-  const A=OBS?(S.view==='alliance'?politics().al.get(AL.view):null):alChatA(),aid=A&&A.srv?A.id:'',C=AL.chat;
+  const A=OBS?(S.view==='alliance'&&obsStaff()?politics().al.get(AL.view):null):alChatA(),aid=A&&A.srv?A.id:'',C=AL.chat;
   if(C.aid===aid){alChatBgSync();return;}
   if(C.unsub)try{C.unsub();}catch(e){}
   Object.assign(C,{aid,list:[],unsub:null,err:''});
@@ -86611,7 +86632,7 @@ function tyConnect(){if(hmQuiet())return;
 }
 connect=(f=>async function(){const r=await f.apply(this,arguments);try{tyConnect();}catch(e){}return r;})(connect);
 async function tyAct(op,d,done){
-  if(OBS){toast('Observing: nothing can be changed.');return null;}
+  if(OBS){toast(obsWord()+': nothing can be changed.');return null;}
   if(S.mode!=='world'){toast('Treaties need the online game.');return null;}
   if(TY.busy)return null;TY.busy=op;TY.msg='';render();
   try{const r=(await alReq(Object.assign({op},d)))||{};if(done)done(r);return r;}
@@ -86923,7 +86944,7 @@ function bdConnect(){if(hmQuiet())return;
 }
 connect=(f=>async function(){const r=await f.apply(this,arguments);try{bdConnect();}catch(e){}return r;})(connect);
 async function bdAct(op,d,done){
-  if(OBS){toast('Observing: nothing can be changed.');return null;}
+  if(OBS){toast(obsWord()+': nothing can be changed.');return null;}
   if(S.mode!=='world'){toast('Border agreements need the online game.');return null;}
   if(BD.busy)return null;BD.busy=op;BD.msg='';render();
   try{const r=(await alReq(Object.assign({op},d)))||{};if(done)done(r);return r;}
@@ -87159,7 +87180,7 @@ document.addEventListener('click',e=>{
   if(a==='bd-no'){bdAct('bdAnswer',{bid:id,yes:false},()=>{if(BD.view===id)BD.view='';});return;}
   if(a==='bd-renew'){bdAct('bdRenew',{bid:id},r=>toast(r.renewed?`Renewed until ${fmtDate(r.exp)}.`:'Renewal asked. It runs on once every side has asked.'));return;}
   if(a==='bd-end'){bdAct('bdEnd',{bid:id},r=>{if(r.end)toast(`The border agreement ends on ${fmtDate(r.end)}.`);});return;}
-  if(a==='bd-chat'){if(!B)return;if(OBS){toast('Observing: nothing can be changed.');return;}
+  if(a==='bd-chat'){if(!B)return;if(OBS){toast(obsWord()+': nothing can be changed.');return;}
     rgcCivic({op:'rcPost',reg:(typeof RGC!=='undefined'&&RGC.reg)||S.nation.reg||REG.id,x:'Border agreement: '+bdNames(B.p),cd:{k:'border',id}}).then(()=>toast('Posted in the region chat.'),err=>toast(alErrText(err)));return;}
   if(a==='bd-sw-go'){BD.sw={give:+el.dataset.c,to:id,take:null};BD.view='';S.mapCell=null;updateMapPanel();redrawMaps();return;}
   if(a==='bd-sw-x'){BD.sw=null;updateMapPanel();redrawMaps();return;}
@@ -87289,7 +87310,7 @@ const ldGot=n=>Array.isArray(n&&n.lnr)?n.lnr:[];
 const ldSeen=n=>Array.isArray(n&&n.lnl)?n.lnl:[];
 function ldCan(){return !!S.nation&&!OBS&&!PV&&!tabPassive&&S.mode==='world'&&!!S.db;}
 async function ldAct(op,d,done,quiet){
-  if(OBS){toast('Observing: nothing can be changed.');return null;}
+  if(OBS){toast(obsWord()+': nothing can be changed.');return null;}
   if(S.mode!=='world'){toast('Land deals need the online game.');return null;}
   if(LD.busy)return null;LD.busy=op;LD.msg='';if(!quiet)render();
   try{const r=(await alReq(Object.assign({op},d)))||{};if(done)done(r);return r;}
@@ -88002,7 +88023,7 @@ const jvKey=e=>e.w==='a'?myId()+'_'+e.id:e.v;
 /* why this nation cannot propose a k to id now, or '' (site: the route found) */
 function jvWhyNot(id,k,T,now,site){
   const n=S.nation,x=id?findNation(id):null;
-  if(OBS)return 'Observing: nothing can be changed.';
+  if(OBS)return obsWord()+': nothing can be changed.';
   if(S.mode!=='world')return 'Joint ventures need the online game.';
   if(PV||tabPassive)return 'Nothing can be proposed from this tab.';
   if(!civicRegistered())return 'Joint ventures need a Registered Nation. Link a sign-in account in your account menu.';
@@ -88060,7 +88081,7 @@ function jvConnect(){if(hmQuiet())return;
 }
 connect=(f=>async function(){const r=await f.apply(this,arguments);try{jvConnect();}catch(e){}return r;})(connect);
 async function jvAct(op,d,done){
-  if(OBS){toast('Observing: nothing can be changed.');return null;}
+  if(OBS){toast(obsWord()+': nothing can be changed.');return null;}
   if(S.mode!=='world'){toast('Joint ventures need the online game.');return null;}
   if(JV.busy)return null;JV.busy=op;JV.msg='';render();
   try{const r=(await alReq(Object.assign({op},d)))||{};if(done)done(r);return r;}
@@ -88304,7 +88325,7 @@ function rdOpen(now){now=now||Date.now();const R=RD.cur;return !!R&&R.reg===REG.
 function rdLeft(){const M=RD.mine;return M&&M.ok?0:RD_RULES.tries-(M?M.g.length:0);}
 const rdOrd=k=>k+(k%100>=11&&k%100<=13?'th':['th','st','nd','rd'][k%10]||'th');
 async function rdGuessAt(c){
-  const R=RD.cur;if(!R||RD.busy||!rdOpen())return;if(OBS){toast('Observing: nothing can be changed.');return;}
+  const R=RD.cur;if(!R||RD.busy||!rdOpen())return;if(OBS){toast(obsWord()+': nothing can be changed.');return;}
   RD.busy=true;updateMapPanel();
   try{const r=(await alReq({op:'rdGuess',rid:R.id,c}))||{};
     if(r.right){if(!r.again){const n=clone(S.nation);n._rdw={id:R.id,rank:r.rank};commit(n);setTimeout(()=>{try{if(S.nation&&!OBS)commit(clone(S.nation));}catch(e){}},60);}
@@ -89614,7 +89635,7 @@ function rgcTeamWho(){const ids=[...(S.staff||[])],mods=S.staffMod||new Set();
   return `<div class="rgc-ask rgc-who" role="note"><b>Who's the Edictum team?</b><p>Lines signed <b>Edictum team</b> come from one of the people who run the game. The pill shows their role: <span class="staff-pill">DEV</span> makes and runs the game, <span class="staff-pill mod">MOD</span> keeps the chats friendly. Hover the pill to see who wrote the line.</p>${li.length?`<ul>${li.map(([n,m])=>`<li>${esc(n)} <span class="staff-pill${m?' mod':''}">${m?'MOD':'DEV'}</span></li>`).join('')}</ul>`:''}<button type="button" class="linkish small" data-rgc="team-who" data-id="${esc(RGC.who)}">Close</button></div>`;}
 const RGC_TEAM_SVG='<svg viewBox="0 0 12 14" aria-hidden="true"><path d="M6 .8 11 2.7v3.9c0 3.1-2.1 5.6-5 6.6-2.9-1-5-3.5-5-6.6V2.7Z" fill="currentColor"/></svg>';
 const RGC_SVG='<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M4.5 5.8A2.3 2.3 0 0 1 6.8 3.5h10.4a2.3 2.3 0 0 1 2.3 2.3v7.4a2.3 2.3 0 0 1-2.3 2.3h-6.6l-4 3.4c-.5.4-1.1 0-1.1-.5v-2.9a2.3 2.3 0 0 1-1-1.9Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M8.3 8.4h7.4M8.3 11.4h4.6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>';
-function rgcOn(){if(PV||!S.db)return false;if(OBS)return !!S.obsOn;return !!S.nation&&S.mode==='world'&&dmx(S.nation).rc!==0;}
+function rgcOn(){if(PV||!S.db)return false;if(OBS)return !!S.obsOn&&(!!S.isOwner||!!S.isMod);return !!S.nation&&S.mode==='world'&&dmx(S.nation).rc!==0;}
 function rgcMod(){return !!S.isOwner&&!PV||isStaff(myId());}
 /* an ambassador silences the author of a line (not staff, not another ambassador), and does nothing else here */
 function rgcAmb(){return !!S.isAmb&&!PV&&!OBS;}
@@ -91195,10 +91216,11 @@ function clsMax(n){let m=CLS_BASE;try{if(pol(n).counterIntel)m++;if(buLv(n,'list
 function clsRaw(n){const v=n&&n.vl;return v&&Array.isArray(v.c)?[...new Set(v.c.filter(k=>typeof k==='string'&&CLS_BY[k]))]:[];}
 /* what is classified: the first clsMax chosen (a nation that loses its Counter-Intelligence Bureau keeps the first three) */
 function clsOf(n){return !n||n.npc?[]:clsRaw(n).slice(0,clsMax(n));}
-/* may the reader see topic k of nation x: on their own page, observing as staff, or when their file read it within CLS_READ.
+/* may the reader see topic k of nation x: on their own page, observing as staff (obsStaff: a player visiting sees what
+   a stranger does), or when their file read it within CLS_READ.
    x.prev is the nation's own page in preview, seen as a visitor without clearance */
 function clsSeen(x,k,now){
-  if(!x||x.npc)return {ok:true};if(x.me&&!x.prev)return {ok:true,own:true};if(OBS)return {ok:true,staff:true};if(x.prev||!S.nation)return {ok:false};
+  if(!x||x.npc)return {ok:true};if(x.me&&!x.prev)return {ok:true,own:true};if(OBS)return obsStaff()?{ok:true,staff:true}:{ok:false};if(x.prev||!S.nation)return {ok:false};
   const r=ibFile(S.nation,x.id).r,t=r&&r[k];return typeof t==='number'&&now-t<CLS_READ&&t<=now+6e4?{ok:true,t,until:t+CLS_READ}:{ok:false};
 }
 function clsHide(x,k,now){return clsOf(x&&x.n).includes(k)&&!clsSeen(x,k,now||Date.now()).ok;}
