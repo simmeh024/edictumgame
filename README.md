@@ -1221,7 +1221,17 @@ day by day, how many keep playing after a day, a week or a month (also per found
 decided (weekday by hour, in the admin's own time zone), edict pace and full desks, the most decided edicts and
 their favourite answers, every tutorial step, which features active nations use, guests against linked
 sign-ins, desktop against phone, and a table of the regions. The page is in tabs: **Overview**, **Activity**,
-**Nations**, **Players**, **Content**, **Regions** and **Operations** (arrow keys move between them).
+**Nations**, **Players**, **Content**, **Research**, **Regions** and **Operations** (arrow keys move between them).
+
+**Research** follows the National Research Programme (`functions/stats-research.js`; see
+[docs/research.md](docs/research.md#admin-statistics)): where every nation stands now (short of the 75th edict,
+petition set aside or due, a site to choose, building, at work, held by an enemy, destroyed, rebuilding), the
+journey step by step from the 75th edict to the 360th technology, this month's players nearest the petition and
+those waiting between it and an open laboratory, the sites, stages and institutions, technologies and eras, each
+track, discoveries, petitions and inaugurations day by day, the most and least researched technologies, credits,
+Grand Challenges, research laws, dilemma and letter answers, licences, pledges, laboratories lost or destroyed, the
+nations with a programme (filtered by where they stand) and a table of the regions. A nation's panel in **Nations**
+says where it stands in research too.
 
 **Activity** shows what nations do (`functions/stats-acts.js`): the timed actions their records keep (edicts
 decided, buildings and upgrades started, hexes claimed, cities founded, trades, wars, hexes taken, peace,
@@ -1245,7 +1255,8 @@ and **View nation**. Letters stay out: only the tally's count of them.
 its private half once, lists every Firebase Authentication account, and keeps the result ten minutes per
 instance (**Count again** counts afresh). That is two document reads per nation, plus one per 1,000 accounts,
 each time it counts. Only counts leave the server, apart from the nations list, the funnel, the most engaged,
-the recruiters and the Activity tab's latest events and style leaders, which name nations (public in the game).
+the recruiters, the Activity tab's latest events and style leaders and the Research tab's nation lists, which name
+nations (public in the game).
 
 How many played on a given day cannot be worked out later (a nation keeps only the time of its last save), so
 `.github/workflows/stats.yml` runs `jobs/stats/run.mjs` every night at 00:07 UTC (and 03:53 as a safety net; a

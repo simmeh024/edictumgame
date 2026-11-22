@@ -295,6 +295,9 @@ await A.screenshot({ path: OUT + '/admin-stats.png', fullPage: true });
 await stTab('content');
 check('Statistics shows content use, regions and social, and operations', await until(async () => { const t = await stText(); return /Content use/.test(t) && /Edicts in force/.test(t) && /Achievement rarity/.test(t); }, 30000) && (await stTab('regions'), await until(async () => /Region fill and growth/.test(await stText())))
   && (await stTab('ops'), await until(async () => { const t = await stText(); return /Operations/.test(t) && /Pages visited/.test(t); })), (await stText()).slice(0, 400));
+// the National Research Programme: where nations stand on the way to the laboratory (functions/stats-research.js)
+await stTab('research');
+check('Research shows where nations stand on the way to the laboratory, counted on the server', await until(async () => { const t = await text(A, '#adst-p-research'); return /nations past 75 enacted edicts/.test(t) && /Where nations stand/.test(t) && /Not yet at 75 enacted edicts/.test(t) && /The journey/.test(t) && /On the way to the petition/.test(t); }, 30000), (await text(A, '#adst-p-research').catch(() => '')).slice(0, 300));
 // what nations do: actions this week and day by day, play styles, buildings, the event log
 await stTab('activity');
 check('Activity shows what nations do: actions, play styles, buildings and the latest events', await until(async () => { const t = await stText(); return /buildings started this week/.test(t) && /Actions each day/.test(t) && /Play styles this week/.test(t) && /What they build/.test(t) && /Events this week/.test(t) && /Latest events/.test(t); }, 30000), (await stText()).slice(0, 600));

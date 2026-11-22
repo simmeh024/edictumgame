@@ -187,7 +187,8 @@ try {
     /* war: a computer nation takes the laboratory's hex. Nothing researched is lost, but no research is done */
     const before = await page.evaluate(() => { const r = window.__game.rs, n = window.__game.S.nation; return { k: n.nrp.k, count: r.rsCount(r.rsBits(n.nrp.k)) }; });
     await t.edit((n, now, G) => { const T = G.rs.territory(), foe = T.list.find(x => x.npc); n.conq = (n.conq || []).concat({ c: n.nrp.c, t: now, n: foe.id }); });
-    const war = await page.evaluate(() => { const r = window.__game.rs, n = window.__game.S.nation; return { active: r.rsActive(n), rate: r.rsRate(n, Date.now()), why: r.rsWhy(n, 6), k: n.nrp.k, where: r.rsLabWhere({ id: 'me', n }, r.territory()).s }; });
+    await until(() => page.evaluate(() => (window.__game.S.nation.nrp.lo || 0) > 0), 9000);
+    const war = await page.evaluate(() => { const r = window.__game.rs, n = window.__game.S.nation; return { active: r.rsActive(n), rate: r.rsRate(n, Date.now()), why: r.rsWhy(n, 6), k: n.nrp.k, where: r.rsLabWhere({ id: 'me', n }, r.territory()).s, lo: n.nrp.lo || 0 }; });
     check('the hex taken: research is kept, but no credits and no research while it is held', !war.active && war.rate === 0 && /enemy|hands/.test(war.why[0]) && war.k === before.k, war);
     const q0 = (await t.R()).q.length;
     await page.evaluate(() => window.__game.rs.rsResearch(22));
@@ -197,6 +198,7 @@ try {
     await page.screenshot({ path: OUT + '/research-lab-occupied-1360.png' });
     await t.edit(n => { n.conq = (n.conq || []).filter(e => !(e && e.n && e.c === n.nrp.c)); });
     check('the hex retaken: the laboratory works again', await page.evaluate(() => window.__game.rs.rsActive(window.__game.S.nation)));
+    check('the record notes when the hex was first seen lost, for the admin’s statistics, and forgets it once held again', await until(async () => !(await t.R()).lo, 9000) && war.lo > 0, { lo: war.lo, now: (await t.R()).lo });
     /* destroyed: rebuilt from its foundations, here or elsewhere; the research and the institution stay */
     await t.edit((n, now, G) => { G.rs.rsRuinTest(n, now, 'Vesad'); });
     const ru = await t.R();

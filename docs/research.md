@@ -243,6 +243,36 @@ laboratory blueprint for the nation card, and a museum set, *Instruments of Disc
 notebook, a model steam engine, the first stethoscope, a vaccine's vial, a valve computer, a manuscript, the Grand
 Academy's seal, the Legacy Register).
 
+## Admin statistics
+
+The admin portal's **Statistics › Research** tab (`game/edictum.html` `stResearch`, counted on the server by
+`functions/stats-research.js`: `rowResearch` rides on `functions/stats.js` `nationRow` as `rs`, `researchSummary` on
+`summarize` as `rs`) shows, for the world or one region:
+
+- **Where nations stand** now, for this month's players and for all: short of the 75th enacted edict, the petition
+  set aside (back five edicts later), the petition due, granted with no site chosen, building (stage I to V), at
+  work, held by an enemy, destroyed or left behind, rebuilding.
+- **The journey**: how many reached each step, from the 75th edict through the petition, the site, each stage, the
+  inauguration, the first discovery and Tier V to 50, 100, 200, 300 and all 360 technologies; the median time from
+  the petition to the inauguration, and from founding to the petition.
+- **On the way to the petition**: this month's players short of it by enacted edicts, and the ten nearest.
+  **Waiting**: this month's players between the 75th edict and an open laboratory, the longest waiting first.
+- **The laboratories**: sites chosen, the stage each one being built is on, the institutions reached.
+- **The research**: technologies per programme, the furthest era, each track (technologies, the median and furthest
+  tier complete, studies under way), discoveries, researchers, petitions and inaugurations each day for 30 days (from
+  the scientific record), the most and least researched technologies.
+- **Research Credits** earned, spent and held; **Grand Challenges** under way and completed; the research **laws** in
+  force and the answers to the **dilemmas** and **letters**; licences, alliance pledges and initiatives; laboratories
+  held by an enemy, destroyed, left behind, and enemy laboratories destroyed.
+- **Nations with a programme**, the furthest on first, filtered by where they stand; **by region** for the world.
+
+A nation's panel in the **Nations** tab gives its research in one line, and the export carries each nation's
+`research` (the glossary explains the fields) and the technologies' names. A laboratory counts as **held by an
+enemy** from `n.nrp.lo`, which the owner's game sets the first time it sees the laboratory's hex in another
+nation's hands and clears when the hex is held again (or the laboratory falls to ruins), within seconds while the
+owner plays (`rsLoDue`): it is as of the owner's last save. Tests: `test/stats-research.test.mjs` (in `test:fx`) and `test/research-stats.mjs`
+(`test:research-stats`), and a check in `test/admin-e2e.mjs`.
+
 ## Data
 
 `n.nrp`, shared (the save permit, the referee, the currency job and every player's game read it):
@@ -251,6 +281,7 @@ Academy's seal, the Legacy Register).
 | --- | --- |
 | `v`, `a`, `o` | version, petition granted, the kind of site (0 the university quarter, 1 the coast, 2 the hills) |
 | `c`, `sc`, `rg`, `ft`, `rz` | the laboratory's hex, the petition's suggested hex, its region, when it was placed, when it fell to ruins |
+| `lo` | when the owner's game first saw the laboratory's hex held by another nation (cleared when held again) |
 | `nm`, `dn`, `dl` | the laboratory's name, director's name and look |
 | `st`, `sg`, `su`, `sh` | stages built (0–5), materials given to the stage in progress, its works' end, hurried |
 | `i` | inaugurated (credits count from here) |
