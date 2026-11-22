@@ -15,19 +15,23 @@ await fetch(`http://${FS_HOST}/v1/projects/${PROJECT}/databases/(default)/docume
   body: JSON.stringify({ fields: { owns: { mapValue: { fields: { founder: { integerValue: String(Date.now()) } } } } } }) });
 const go = (p, v) => p.evaluate(v => document.querySelector(`.nav [data-v="${v}"]`).click(), v);
 
-// the page: under Other, the player's own region first, highlighted and open, the others collapsed
-check('the Community Board sits under Other', /Community Board/.test(await text(B, '.side .nav-grp[data-g="other"] .nav-g')));
+// the page: under News and people; the latest of every board, then the player's own region, highlighted and open; the
+// other boards with topics collapsed, and the empty ones behind a picker
+check('the Community Board sits under News and people', /Community Board/.test(await text(B, '.side .nav-grp[data-g="news"] .nav-g')));
 await go(B, 'community');
 await B.waitForSelector('.cb-reg');
-const regs = await B.$$eval('.cb-reg:not([data-reg="chancery"])', l => l.map(s => ({ reg: s.dataset.reg, mine: s.classList.contains('mine'), open: s.querySelector('.cb-reg-tg').getAttribute('aria-expanded') === 'true' })));
+const regs = await B.$$eval('.cb-reg:not([data-reg="chancery"]):not([data-reg="latest"])', l => l.map(s => ({ reg: s.dataset.reg, mine: s.classList.contains('mine'), open: s.querySelector('.cb-reg-tg').getAttribute('aria-expanded') === 'true' })));
 const home = await B.evaluate(() => G.S.nation.reg);
-check('the own region comes first, highlighted and open', regs[0].reg === home && regs[0].mine && regs[0].open, JSON.stringify(regs[0]));
-check('every other region is collapsed', regs.length > 3 && regs.slice(1).every(r => !r.mine && !r.open), regs.length);
+check('Latest on every board comes first', await B.$eval('.cb-reg', s => s.dataset.reg) === 'latest');
+check('then the own region, highlighted and open', regs[0].reg === home && regs[0].mine && regs[0].open, JSON.stringify(regs[0]));
+check('any other board with topics is collapsed', regs.slice(1).every(r => !r.mine && !r.open), JSON.stringify(regs));
+const empties = await B.$$eval('#cb-goreg option', l => l.map(o => o.value));
+check('the boards with no topics wait behind a picker', empties.length > 3 && !empties.includes(home), empties.length);
 // a board with no player's topics: empty, or holding only the debate the Assembly opened for its resolution at the vote
 check('an empty board says so, or holds only the Assembly’s debate', await until(async () => { const t = await text(B, '.cb-reg.mine'); return /No topics yet/.test(t) || ((await B.$$('.cb-reg.mine .cb-row-m')).length === 1 && /Resolution No\. \d+/.test(t)); }));
 
 // B opens a topic on another region's board
-const far = regs[1].reg;
+const far = empties[0];
 await B.click('.cb-start [data-act="cb-new"]');
 await B.selectOption('#cb-f-reg', far); await B.selectOption('#cb-f-tg', 'trade');
 await B.fill('#cb-f-ti', 'Grain for steel'); await B.fill('#cb-f-x', 'Who sells steel?\nWe pay in grain.');
