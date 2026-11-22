@@ -91,8 +91,18 @@ await B.click('[data-act="cb-earlier"]');
 check('Show earlier shows them all', await until(async () => (await B.$$('.cb-reps .cb-post')).length === 34) && !(await B.$('.cb-earlier')));
 check('a Reply bar stays in view while reading', await B.evaluate(() => { const b = document.querySelector('.cb-rbar'), r = b && b.getBoundingClientRect(); return !!r && r.bottom <= innerHeight && r.top > innerHeight - 120 && getComputedStyle(b).position === 'sticky'; }));
 const target = await B.$$eval('.cb-reps .cb-post', l => { const p = l.find(x => /Readerland/.test(x.querySelector('.cb-au').textContent)); return p && p.id; });
+/* the guest's recovery-code dialog can open at any moment and its button takes the focus; the page's locator handler
+   closes it only before an action, never while a check just reads (CI, 22 Nov 2026: the dialog held the focus for the
+   whole check, then "agreed, " went to its button). Close it while waiting, and press Reply again if it took the focus:
+   the name is added once, so the box still reads "@Readerland " */
+const focused = () => B.evaluate(() => !!document.activeElement && document.activeElement.id === 'cb-r-x');
+await calm(B);
 await B.click(`#${target} [data-act="cb-reply-to"]`);
-check('Reply under a post names its author in the box, ready to type', await until(async () => /^@Readerland $/.test(await B.inputValue('#cb-r-x')) && await B.evaluate(() => document.activeElement && document.activeElement.id === 'cb-r-x')));
+check('Reply under a post names its author in the box, ready to type', await until(async () => {
+  await calm(B); if (!(await focused())) await B.click(`#${target} [data-act="cb-reply-to"]`, { timeout: 3000 }).catch(() => {});
+  return /^@Readerland $/.test(await B.inputValue('#cb-r-x')) && await focused();
+}));
+await calm(B); if (!(await focused())) await B.focus('#cb-r-x');
 await B.keyboard.type('agreed, count us in.');
 await clickPast(B, '#cb-rf button[type="submit"]');
 check('the reply goes, and mentions them', await until(async () => /count us in/.test(await text(B, '.cb-reps')) && /@Readerland/.test(await text(B, '.cb-reps .cb-at'))));
