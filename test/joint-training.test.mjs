@@ -96,7 +96,8 @@ test('readiness comes 5% sooner for each pact at work, three at most, in the gam
   assert.match(code, /function readyMs\(n\)\{const ms=\(pol\(n\)\.rapidMobilisation\?10:15\)\*60000,e=econMine\(n\),k=\(e&&e\.drillN\)\|\|0;return k\?drReadyMs\(ms,k\):ms;\}/);
   /* a copy of the player's record (an attack spends readiness on one) counts the player's own training */
   assert.match(code, /function econMine\(n\)\{return econOf\(n\)\|\|\(n&&!n\.npc&&S\.nation&&n!==S\.nation&&n\.founded===S\.nation\.founded&&n\.name===S\.nation\.name\?econOf\(S\.nation\):null\);\}/);
-  assert.match(referee, /ms = trReadyMs\(\(pol\.rapidMobilisation \? 10 : 15\) \* 60000, drills \|\| 0\)/);
+  /* a Drill Ground's cut comes after the pacts' (military buildings: milMs) */
+  assert.match(referee, /ms = milMs\(trReadyMs\(\(pol\.rapidMobilisation \? 10 : 15\) \* 60000, drills \|\| 0\), m\.cut\)/);
   assert.match(referee, /T\.k === 'drill' && trLive\(T, now\) && !trVoid\(T, \{ \[uid\]: mine \}\)/);
 });
 

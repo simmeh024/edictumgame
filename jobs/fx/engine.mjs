@@ -207,6 +207,14 @@ export function indicators(id, rec, now, ctx) {
     /* pwl: the share a nation at war loses a day (the game's warLoss, war round two), for 30 days at most */
     const wl = clamp(num(rec.pwl, 0), 0, 0.2);
     pop = Math.max(0.1, logistic(P0, K, r, Math.min(dt, 3650)) * (wl > 0 ? Math.exp(-wl * Math.min(dt, 30)) : 1));
+    /* mhr: people coming home from a Military Hospital after a war (the game's milHomeAdd), each entry's share of the
+       time since the last count */
+    const at = num(rec.popAt, now);
+    for (const e of Array.isArray(rec.mhr) ? rec.mhr.slice(0, 4) : []) {
+      if (!isObj(e)) continue;
+      const p = num(e.p, 0), t = num(e.t, 0), u = num(e.u, 0), lo = Math.max(at, t), hi = Math.min(now, u);
+      if (p > 0 && u > t && hi > lo) pop += p * (hi - lo) / (u - t);
+    }
   }
   const wb = npc ? 0 : clamp(num(rec.wb, 0), 0, 1e4), prod = prodAt(rec, s, now, npc), gpc = incomeW(s.wealth + wb) * prosper * prod, out = gpc * pop * 1e6;
   /* growth: output now against output about a week ago (at least a day back), per day, in percent */

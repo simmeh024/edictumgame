@@ -8531,6 +8531,18 @@ span.nw-tag{cursor:default}
 .cx-blks i.on{background:var(--accent);border-color:var(--accent)}
 .cx-blks i.on.ug{background:var(--ug);border-color:var(--ug)}
 .cx-blks i.wip{border-color:var(--accent);background:repeating-linear-gradient(135deg,var(--accent) 0 2px,transparent 2px 4px)}
+/* the block whose upgrade, retool or economy level is under way: filled in the colour being fitted, with an arrow up */
+.cx-blks i.upg{position:relative}
+.cx-blks i.upg b{position:absolute;inset:-1px;border-radius:2px;background:var(--ug);animation:cxUpg 1.8s ease-in-out infinite}
+.cx-blks i.upg b::after{content:'';position:absolute;inset:0;background:var(--sheet);-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 9 9'%3E%3Cpath d='M1.9 6 4.5 3.3 7.1 6' fill='none' stroke='%23000' stroke-width='1.7'/%3E%3C/svg%3E") center/100% 100% no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 9 9'%3E%3Cpath d='M1.9 6 4.5 3.3 7.1 6' fill='none' stroke='%23000' stroke-width='1.7'/%3E%3C/svg%3E") center/100% 100% no-repeat}
+@keyframes cxUpg{50%{opacity:.5}}
+@media (prefers-reduced-motion:reduce){.cx-blks i.upg b{animation:none}}
+.cx-it-b.cx-it-up{flex-wrap:nowrap}.cx-it-up .cx-it-st{min-width:0}
+/* in the phone strip, where the other lines are cut short, it wraps so the time left stays in view */
+.cx-item .cx-it-b.cx-it-up{white-space:normal}
+.cx-it-up .ugb-dot{margin:0 4px 0 0}
+.cx-it-ubar i{background:var(--ug)}
+.cx-ov-up{display:block;margin-top:3px;color:var(--ink);font-weight:400}
 .cx-it-b{display:flex;flex-wrap:wrap;align-items:center;gap:2px 6px;margin-top:2px}
 .cx-it-idle{color:var(--stamp);font-weight:650}
 .cx-item.idle{border-color:color-mix(in srgb,var(--stamp) 40%,var(--rule))}
@@ -22137,7 +22149,7 @@ const NPC_SET=new Set(NPC_NATIONS.map(n=>n.id));
 const NPC_BY_ID=Object.fromEntries(NPC_NATIONS.map(n=>[n.id,n]));
 /* TRUCE_MS: after peace, neither side may declare war again for 72 hours; PEACE_AUTO_MS: a peace offer the other
    side leaves unanswered for 30 hours takes effect on its own (jobs/fx/engine.mjs PEACE_AUTO_MS matches) */
-const READY_BASE=6,MAX_READY=8,TRUCE_MS=72*3600000,PEACE_AUTO_MS=30*3600000,TERR_DEF=[1,1,1,1.25,1.6],AGENT_MS=30*60000,ALLY_MIN=65;
+const READY_BASE=6,MAX_READY=11,TRUCE_MS=72*3600000,PEACE_AUTO_MS=30*3600000,TERR_DEF=[1,1,1,1.25,1.6],AGENT_MS=30*60000,ALLY_MIN=65;
 /* War, round two (21 Nov 2026; "war, round two" near the end of the script holds the rest):
    SIEGE_MS a siege stands this long before the final assault on a capital, which may come until SIEGE_MAX; CAP_DEF the
    capital's last defenders; SURR_TRUCE the truce after a surrender, TRIB_MS/TRIB_SHARE the tribute it pays (a share of
@@ -22751,7 +22763,7 @@ function battle(T,cell,ai,bi,reach){
   const attHelp=helps(aAl,B.id),defHelp=helps(bAl,A.id),sum=a=>a.reduce((s,h)=>s+h.v,0);
   const gap=reach?reach.gap:0,sea=reach?reach.amph:false,pA=pol(A.n);
   let terr=TERR_DEF[MAP.T[cell]];if(pA.mountainTroops)terr=1+(terr-1)/2;
-  let att=(armyPower(A.n)*attackMult(A.n)/(1+hexDist(A.cap,cell)/30)+sum(attHelp))*(0.7+0.15*kA)*(1-0.15*gap)*(sea&&!pA.navalFleet?Math.min(1,0.75+alFx(A.id).sea):1);
+  let att=(armyPower(A.n)*attackMult(A.n)/(1+hexDist(A.cap,cell)/30)+sum(attHelp))*(0.7+0.15*kA)*(1-0.15*gap)*(sea&&!pA.navalFleet&&!milNavy(T,ai)?Math.min(1,0.75+alFx(A.id).sea):1);
   let def=(armyPower(B.n)/(1+hexDist(B.cap,cell)/30)+sum(defHelp)*(1+alFx(B.id).defHelp))*terr*(0.7+0.15*kB)*defenceMult(B.n,cell)*cityDefMult(T,bi,cell)*(1+cabFx(B.n).def);
   let intel=[];
   if(A.id===myId()){const ie=intelEffects(B.id,cell);att*=ie.att;def*=ie.def;intel=ie.notes;}
@@ -28194,6 +28206,8 @@ function helpBody(n){
       <p>A nation under siege may surrender instead: the war ends on current lines, it pays ${Math.round(TRIB_SHARE*100)}% of its spare materials to the besieger for ${TRIB_MS/DAY} days, and a truce holds for ${SURR_TRUCE/DAY} days.</p>
       <h3 class="help-h3">Defending</h3>
       <p>The defender can act too. Spend a point of readiness to fortify one of your hexes for ${hrs(FORT_MS)} (${Math.round((FORT_DEF-1)*100)}% harder to take, ${FORT_MAX} at a time). Your troops fight ${Math.round((RALLY-1)*100)}% harder to win back a hex lost within the day, and a city rises ${Math.round((LIBERATE-1)*100)}% stronger to free itself from an occupier. If enemies took your land while you were away for more than ${hrs(GRACE_AWAY)}, your people rally when you come back: nobody may attack you for ${GRACE_MS/DAY} days, at most once every ${GRACE_GAP/DAY} days. The grace ends if your army attacks land that was never yours.</p>
+      <h3 class="help-h3">Military buildings</h3>
+      <p>Besides the Barracks (army strength) and the Fortress (hexes near the city harder to take), four buildings help a nation at war. A <b>Drill Ground</b> brings readiness back 20% sooner (30% with all five upgrades), and an <b>Arsenal</b> holds one more point of readiness (two with all five) and adds 2% to your army; each needs a Barracks, and a nation has one of each. A <b>Naval Dockyard</b>, in a coastal city, lets your troops cross the water without the 25% loss, and makes your coastal hexes within 3 of the city 25% harder to take (35% with all five). A <b>Military Hospital</b> cuts the people a war costs by 20% (30% with all five), and when a war ends, a quarter of the people it cost come home over the next week. Like any building, the Dockyard and the Hospital work for whoever holds their city; the Drill Ground and the Arsenal count only in a city of your own that you hold.</p>
       <h3 class="help-h3">The cost of war</h3>
       <p>A war uses food, timber, iron, oil and goods every day, on top of what the nation needs in peacetime, and each war costs more than the last: two at once cost nearly three times one, three cost five times. Every occupied city needs a garrison. Short of materials, cities grow restless and produce less, and a city at war whose mood falls under ${STRIKE_AT} goes on strike and produces nothing. War also slows population growth, and several wars at once, hunger and war weariness make the population shrink. Weariness builds every day at war, and faster with more wars, wars of conquest and land lost; at 100 the government sues for peace on current lines with every enemy. While cities complain or strike, war edicts land on your desk until there is peace.</p>
       <h3 class="help-h3">Seeing the war</h3>
@@ -44749,8 +44763,11 @@ const FR_UI={
    {n?un|des} picks a word by the same rule (with a digit, {n2?s}). Each pattern needs words of its own besides the
    slots, or a {c}. build.py cuts the object between the FR_MORE marks into a file only a page in French downloads. */
 /*FR_MORE*/const FR_MORE={d:{
+"Drill Ground":"Terrain d’exercice",
 "Game words":"Mots du jeu",
 "Explain game words where they appear":"Expliquer les mots du jeu là où ils paraissent",
+"Military Hospital":"Hôpital militaire",
+"Naval Dockyard":"Arsenal maritime",
 "Words such as goodwill, mandate and readiness are underlined with dots the first time a page uses them. Point at one, or tap it, for a sentence on what it means and a link to How to play. For now this works with the English interface only.":"Des mots comme goodwill, mandate ou readiness sont soulignés en pointillés la première fois qu’une page les emploie. Survolez-en un, ou touchez-le, pour une phrase qui l’explique et un lien vers le guide. Pour l’instant, cela ne fonctionne qu’avec l’interface en anglais.",
 ", and":", et",
 "; the":" ; la",
@@ -75625,11 +75642,34 @@ function cxTodo(T,mine,now,canFound){
 function cxItem(ct,T,now,on){
   const b=blkOf(ct,T),u=blkUsed(ct),cur=ct.prog.find(x=>x.s<=now)||ct.prog[0],band=ct.mood!=null&&ct.active?cxBand(ct.mood):null,ev=cxEvDue(ct,now);
   const occ=!ct.active||!cxOk(ct,T)&&ct.fid===myId(),idle=!occ&&ct.fid===myId()&&!ct.prog.length&&u<b.n;
-  const st=occ?'Occupied':cur?`${BUILDINGS[cur.k].n} · ${fmtDur(cur.d-now)}`:ct.fid!==myId()?'Captured':u<b.n?(b.n-u===1?'One empty block':(b.n-u)+' empty blocks'):'Every block in use';
-  /* its blocks in their upgrade colours, and a bar for the building under way */
+  const up=!occ&&ct.fid===myId()?cxUpNow(ct,now):null;
+  const st=occ?'Occupied':cur?`${BUILDINGS[cur.k].n} · ${fmtDur(cur.d-now)}`:ct.fid!==myId()?'Captured':u<b.n?(b.n-u===1?'One empty block':(b.n-u)+' empty blocks'):up?'':'Every block in use';
+  /* its blocks in their upgrade colours, and a bar for the building under way (or else for the upgrade) */
   const run=!occ&&cur&&cur.s<=now&&cur.d>now,pct=run?clamp((now-cur.s)/Math.max(1,cur.d-cur.s)*100,0,100):0;
-  let blks='';for(let i=0;i<b.n;i++){const k=ct.done[i],g=k?(ct.tr&&ct.tr[k]?5:ct.ug?ct.ug[k]|0:0):0;blks+=k?`<i class="on${g?' ug ugb-'+CX_UG[g-1].c:''}"></i>`:i<ct.done.length+ct.prog.length?'<i class="wip"></i>':'<i></i>';}
-  return `<button class="cx-item${on?' on':''}${idle?' idle':''}" data-act="cx-sel" data-id="${esc(ct.id)}" aria-current="${on?'true':'false'}"><span class="cx-it-h">${ct.rec&&ct.fn?ccSVG(ct,'cc-s'):''}<b>${esc(ct.nm)}</b>${ct.cap?'<span class="chip">Capital</span>':''}${ct.rec&&ct.rec.cq?`<span class="chip" title="Taken from ${esc(ct.rec.cq)}; it does not count against your cities">Captured</span>`:''}${ct.strike?'<span class="chip war">On strike</span>':''}${ev?'<span class="cx-dot" title="A matter waits for you" aria-label="A matter waits for you">!</span>':''}</span><span class="cx-it-s">${ct.active?cpFmt(b.pop)+' people · ':''}${u}/${b.n} blocks${band?` · <span class="cx-mood-t ${band[3]}">${band[1]}</span>`:''}</span>${b.n&&ct.active?`<span class="cx-blks" aria-hidden="true">${blks}</span>`:''}<span class="cx-it-b">${cur&&!occ?bldIco(cur.k,'b-ic-xs'):''}<span class="cx-it-st">${esc(st)}</span>${idle?'<span class="cx-it-idle">Builders idle</span>':''}</span>${run?`<span class="bar cx-it-bar"><i data-live="buildbar" data-s="${cur.s}" data-d="${cur.d}" style="width:${pct.toFixed(1)}%"></i></span>`:''}</button>`;
+  const blks=cxBlks(ct,b.n,up),upBar=!run&&up?`<span class="bar cx-it-bar cx-it-ubar ugb-${up.c}"><i data-live="buildbar" data-s="${up.s}" data-d="${up.d}" style="width:${clamp((now-up.s)/Math.max(1,up.d-up.s)*100,0,100).toFixed(1)}%"></i></span>`:'';
+  return `<button class="cx-item${on?' on':''}${idle?' idle':''}" data-act="cx-sel" data-id="${esc(ct.id)}" aria-current="${on?'true':'false'}"><span class="cx-it-h">${ct.rec&&ct.fn?ccSVG(ct,'cc-s'):''}<b>${esc(ct.nm)}</b>${ct.cap?'<span class="chip">Capital</span>':''}${ct.rec&&ct.rec.cq?`<span class="chip" title="Taken from ${esc(ct.rec.cq)}; it does not count against your cities">Captured</span>`:''}${ct.strike?'<span class="chip war">On strike</span>':''}${ev?'<span class="cx-dot" title="A matter waits for you" aria-label="A matter waits for you">!</span>':''}</span><span class="cx-it-s">${ct.active?cpFmt(b.pop)+' people · ':''}${u}/${b.n} blocks${band?` · <span class="cx-mood-t ${band[3]}">${band[1]}</span>`:''}</span>${b.n&&ct.active?`<span class="cx-blks" aria-hidden="true">${blks}</span>`:''}${st||idle?`<span class="cx-it-b">${cur&&!occ?bldIco(cur.k,'b-ic-xs'):''}${st?`<span class="cx-it-st">${esc(st)}</span>`:''}${idle?'<span class="cx-it-idle">Builders idle</span>':''}</span>`:''}${up?`<span class="cx-it-b cx-it-up">${cxUpLine(up,now,true)}</span>`:''}${run?`<span class="bar cx-it-bar"><i data-live="buildbar" data-s="${cur.s}" data-d="${cur.d}" style="width:${pct.toFixed(1)}%"></i></span>`:upBar}</button>`;
+}
+/* the upgrade, retool or economy level under way in one of the player's cities (each city works on one at a time),
+   for the list of cities and the table: its building, start, end, the colour being fitted and its words */
+function cxUpNow(ct,now){
+  if(!ct||ct.npc||!ct.rec)return null;
+  const b=cxUpBusy(ct.rec,now);
+  if(b){const e=cxBldExtras(b);if(e.tu&&e.tu.d>now)return {k:b.k,s:e.tu.s,d:e.tu.d,c:'gold',w:'retool to tier '+TIER_ROMAN[e.tu.l]};
+    if(e.uu)return {k:b.k,s:e.uu.s,d:e.uu.d,c:CX_UG[e.uu.u-1].c,w:CX_UG[e.uu.u-1].c+' upgrade'};}
+  const m=elBusy(ct.rec,now);if(m){const e=elExtras(m);if(e.eu)return {k:m.k,s:e.eu.s,d:e.eu.d,c:'gold',w:'economy level '+e.eu.l};}
+  return null;
+}
+function cxUpLine(up,now,live){
+  const left=fmtDur(Math.max(0,up.d-now));
+  return `${bldIco(up.k,'b-ic-xs')}<span class="cx-it-st">${esc(BUILDINGS[up.k].n)} · <i class="ugb-dot ugb-${up.c}" aria-hidden="true"></i>${esc(up.w)} · ${live?`<span data-live="build" data-d="${up.d}">${left}</span>`:left}</span>`;
+}
+/* a city's blocks in their upgrade colours: a striped one for a building under way, and the building being upgraded
+   filled in the colour being fitted, with an arrow up */
+function cxBlks(ct,n,up){
+  let h='',hit=false;
+  for(let i=0;i<n;i++){const k=ct.done[i],g=k?(ct.tr&&ct.tr[k]?5:ct.ug?ct.ug[k]|0:0):0,u=!!k&&!!up&&!hit&&up.k===k;if(u)hit=true;
+    h+=k?`<i class="on${g?' ug ugb-'+CX_UG[g-1].c:''}${u?' upg':''}">${u?`<b class="ugb-${up.c}"></b>`:''}</i>`:i<ct.done.length+ct.prog.length?'<i class="wip"></i>':'<i></i>';}
+  return h;
 }
 function cxPage(T,CS,mine,held,a,n,st,now){
   const mi=T.byId[myId()],lim=maxCities(T,mi),have=cityList(n).filter(c=>!c.cq).length,room=have<lim&&have<MAX_CITIES,canFound=room&&nvxCitySite(T,mi);
@@ -92178,21 +92218,21 @@ const CX_OVW_COLS=[['nm','City'],['pop','People'],['blk','Blocks'],['mood','Mood
 function cxOvwRow(ct,T,now){
   const b=blkOf(ct,T),u=blkUsed(ct),mine=ct.fid===myId(),occ=!ct.active||(mine&&!cxOk(ct,T)),cur=ct.prog.find(x=>x.s<=now)||ct.prog[0],band=ct.mood!=null&&ct.active?cxBand(ct.mood):null;
   const my=ct.rec&&cxCityExtras(ct.rec).my,idle=!occ&&mine&&!ct.prog.length&&u<b.n,ev=mine&&!occ&&cxEvDue(ct,now);
-  const pv=cxPrvOf(ct);
-  return {ct,nm:ct.nm,pop:ct.active?b.pop:0,blk:b.n?u/b.n:1,u,n:b.n,mood:band?ct.mood:-1,band,bld:occ?3:idle?0:cur?1:2,cur,idle,occ,my,ev,prv:pv?pv.nm:'',pid:pv?pv.id:0,seat:!!pv&&pv.seat===ct.c};
+  const pv=cxPrvOf(ct),up=!occ&&mine?cxUpNow(ct,now):null;
+  return {ct,nm:ct.nm,pop:ct.active?b.pop:0,blk:b.n?u/b.n:1,u,n:b.n,mood:band?ct.mood:-1,band,bld:occ?3:idle?0:cur||up?1:2,cur,up,idle,occ,my,ev,prv:pv?pv.nm:'',pid:pv?pv.id:0,seat:!!pv&&pv.seat===ct.c};
 }
 function cxOverview(T,all,sel,now){
   if(all.length<2)return '';
   const s=S.cxSort||{k:'',d:1},rows=all.map(ct=>cxOvwRow(ct,T,now)),cols=cxOvwCols(),pc=cols.some(c=>c[0]==='prv');
   if(s.k){const v=r=>s.k==='my'?(r.my?r.my.nm:'~'):s.k==='prv'?(r.prv||'~'):r[s.k];rows.sort((a,b)=>{const x=v(a),y=v(b);return (typeof x==='string'?x.localeCompare(y):x-y)*s.d;});}
   const th=([k,l])=>`<th scope="col"${s.k===k?` aria-sort="${s.d>0?'ascending':'descending'}"`:''} class="cx-ov-${k}"><button type="button" class="cx-sort" data-act="cx-sort" data-k="${k}">${l}<span class="cx-sort-a" aria-hidden="true">${s.k===k?(s.d>0?'▲':'▼'):''}</span></button></th>`;
-  const bl=r=>{let h='';const done=r.ct.done.slice(0,r.n);for(let i=0;i<r.n;i++){const k=done[i],g=k?(r.ct.tr&&r.ct.tr[k]?5:r.ct.ug?r.ct.ug[k]|0:0):0;h+=k?`<i class="on${g?' ug ugb-'+CX_UG[g-1].c:''}"></i>`:i<r.ct.done.length+r.ct.prog.length?'<i class="wip"></i>':'<i></i>';}return h;};
+  const bl=r=>cxBlks(r.ct,r.n,r.up),upL=r=>r.up?`<span class="cx-ov-up">${cxUpLine(r.up,now)}</span>`:'';
   const row=r=>`<tr class="${r.ct.id===sel?'on':''}${r.idle?' idle':''}"><th scope="row" class="cx-ov-nm"><button type="button" class="cx-ov-go" data-act="cx-sel" data-id="${esc(r.ct.id)}" aria-current="${r.ct.id===sel}">${r.ct.rec&&r.ct.fn?ccSVG(r.ct,'cc-s'):''}<b>${esc(r.nm)}</b>${r.ct.rec&&r.ct.rec.cq?` <span class="chip" title="Taken from ${esc(r.ct.rec.cq)}; it does not count against your cities">Captured</span>`:''}${r.ct.cap?' <span class="chip">Capital</span>':''}${r.ev?'<span class="cx-dot" title="A matter waits for you" aria-label="A matter waits for you">!</span>':''}</button></th>${pc?`
     <td class="cx-ov-prv">${r.pid?`<button type="button" class="linkish cx-ov-pl" data-act="prv-go" data-id="${r.pid}">${esc(r.prv)}</button>${r.seat?' <span class="cx-ov-n">seat</span>':''}`:'—'}</td>`:''}
     <td class="cx-ov-pop">${r.pop?cpFmt(r.pop):'—'}</td>
     <td class="cx-ov-blk"><span class="cx-ov-b">${r.u}/${r.n}</span><span class="cx-blks" aria-hidden="true">${bl(r)}</span></td>
     <td class="cx-ov-mood">${r.band?`<span class="cx-mood-t ${r.band[3]}">${r.band[1]}</span> <span class="cx-ov-n">${r.ct.mood}</span>`:'—'}</td>
-    <td class="cx-ov-bld">${r.occ?'<span class="cx-ov-occ">Occupied</span>':r.cur?`${bldIco(r.cur.k,'b-ic-xs')}${esc(BUILDINGS[r.cur.k].n)} · ${fmtDur(Math.max(0,r.cur.d-now))}`:r.idle?`<span class="cx-ov-idle">Idle · ${r.n-r.u===1?'one empty block':(r.n-r.u)+' empty blocks'}</span>`:r.ct.fid!==myId()?'Captured':'Every block in use'}</td>
+    <td class="cx-ov-bld">${r.occ?'<span class="cx-ov-occ">Occupied</span>':r.cur?`${bldIco(r.cur.k,'b-ic-xs')}${esc(BUILDINGS[r.cur.k].n)} · ${fmtDur(Math.max(0,r.cur.d-now))}${upL(r)}`:r.idle?`<span class="cx-ov-idle">Idle · ${r.n-r.u===1?'one empty block':(r.n-r.u)+' empty blocks'}</span>${upL(r)}`:r.ct.fid!==myId()?'Captured':r.up?cxUpLine(r.up,now):'Every block in use'}</td>
     <td class="cx-ov-my">${r.my?esc(r.my.nm):r.ct.fid===myId()&&!r.occ?'<span class="cx-ov-none">None yet</span>':'—'}</td></tr>`;
   return `<details class="cx-ovw" id="cx-ovw" open><summary>All ${all.length} cities at a glance</summary><div class="cx-ovw-w"><table class="cx-ovw-t"><thead><tr>${cols.map(th).join('')}</tr></thead><tbody>${rows.map(row).join('')}</tbody></table></div><p class="hint cx-ovw-h">Sort by any column; a city's name opens it below.</p></details>`;
 }
@@ -95963,7 +96003,7 @@ function wr3Factors(T,cell,od,reach,ai,bi){
   if(od.terr>1)out.push(`${MAP.T[cell]===4?'Mountains':'Hills'}: +${Math.round((od.terr-1)*100)}% to the defender.`);
   out.push(`Borders: ${od.kA} of the hexes around it held by you or your allies, ${od.kB} by them.`);
   if(reach&&reach.gap)out.push(`${reach.gap} ${reach.gap===1?'hex':'hexes'} of open ground or sea crossed: −${15*reach.gap}%.`);
-  if(reach&&reach.amph&&!pol(A.n).navalFleet)out.push('By sea: −25%.');
+  if(reach&&reach.amph&&!pol(A.n).navalFleet){if(milNavy(T,ai))out.push(`By sea, with ${A.me?'your':'their'} naval dockyard: no strength lost.`);else out.push('By sea: −25%.');}
   try{out.push(...cityDefNotes(T,bi,cell));}catch(e){}
   if(od.attHelp.length)out.push(`Allies in the assault: ${list(od.attHelp.map(h=>h.name))}.`);
   if(od.defHelp.length)out.push(`Allies in the defence: ${list(od.defHelp.map(h=>h.name))}.`);
@@ -96380,6 +96420,132 @@ function stopDraw(){
 }
 render=(f=>function(){const r=f.apply(this,arguments);try{stopDraw();}catch(e){}return r;})(render);
 if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE.wd={wdLive,wdText,dlHexOf,dlShortHTML,stopLoss,STOP,STOP_ACTS,WD_K};}catch(e){}
+
+/* ───────── military buildings (22 November 2026) ─────────
+   Four buildings for the Defence tab, the owner's picks 1, 2, 5 and 12 of the military building ideas:
+   - Drill Ground (drillyard, one per nation, needs a Barracks): readiness comes back MIL_DRILL sooner, MIL_DRILL_UG
+     more for each upgrade block (30% at gold).
+   - Arsenal (armoury, one per nation, needs a Barracks): one more point of readiness held, two with all five blocks,
+     and army strength +2% (its blocks add their share of that, as a Barracks' do).
+   - Naval Dockyard (dockyard, coastal cities): the holder's troops cross the water without losing strength (as with a
+     Blue-Water Navy), and its coastal hexes within MIL_DOCK_R of the city are MIL_DOCK harder to take, MIL_DOCK_UG
+     more a block.
+   - Military Hospital (milhosp, one per nation): people lost to war MIL_HOSP fewer, MIL_HOSP_UG more a block; when a
+     war ends while it works, MIL_HOME of the people the war cost (its report's p) come home over MIL_HOME_MS
+     (n.mhr [{p,t,u}], counted in popNow from the last count on).
+   Readiness is the referee's too (functions/war-rules.js milReady): it reads the Drill Ground and Arsenal in the
+   attacker's own record whoever holds the city, so the game counts only those in its own cities that it still holds
+   (milOwn), never more than the referee allows. The Dockyard and Hospital work for whoever holds the city, like any
+   building (nbCity: a.mil, a.docks). ── */
+const MIL_DRILL=0.2,MIL_DRILL_UG=0.02,MIL_DOCK=0.25,MIL_DOCK_UG=0.02,MIL_DOCK_R=3,MIL_HOSP=0.2,MIL_HOSP_UG=0.02,MIL_HOME=0.25,MIL_HOME_MS=7*DAY,MIL_KEYS=['drillyard','armoury','dockyard','milhosp'];
+const milPc=v=>Math.round(v*100);
+Object.assign(BUILDINGS,{
+  drillyard:{n:'Drill Ground',c:'def',one:1,ugx:1,icon:'drillg',needB:['barracks'],d:`Readiness comes back ${milPc(MIL_DRILL)}% sooner, up to ${milPc(MIL_DRILL+MIL_DRILL_UG*CX_UG_MAX)}% with its upgrades. Uses 1 food a day. Needs a Barracks. One per nation.`,
+    q:'Up at five, round the field by six, and over the wall by breakfast, unless the wall wins.',cost:{timber:20,food:10,iron:10},h:4,up:{food:1}},
+  armoury:{n:'Arsenal',c:'def',one:1,icon:'armoury',needB:['barracks'],d:'Holds one more point of readiness, two with all five upgrades. Army strength +2%. Uses 1 iron a day. Needs a Barracks. One per nation.',
+    q:'Row upon row of crates stencilled DO NOT DROP, and one quartermaster who has counted every one of them twice.',cost:{timber:15,iron:30,goods:10},h:6,army:0.02,up:{iron:1}},
+  dockyard:{n:'Naval Dockyard',c:'def',need:'coast',ugx:1,icon:'navyard',d:`Your troops cross the water without losing strength, and your coastal hexes within ${MIL_DOCK_R} of the city are ${milPc(MIL_DOCK)}% harder to take, up to ${milPc(MIL_DOCK+MIL_DOCK_UG*CX_UG_MAX)}% with its upgrades. Uses 1 iron a day.`,
+    q:'Grey hulls in the dry dock, a crane that never sleeps, and an admiral who calls every one of them “her”.',cost:{timber:30,iron:20,goods:5},h:5,up:{iron:1}},
+  milhosp:{n:'Military Hospital',c:'def',one:1,ugx:1,icon:'medic',mood:2,d:`People lost to war −${milPc(MIL_HOSP)}%, up to −${milPc(MIL_HOSP+MIL_HOSP_UG*CX_UG_MAX)}% with its upgrades, and when a war ends a quarter of the people it cost come home over the next week. Public Health +2 when completed. Uses 1 goods a day. One per nation.`,
+    q:'Clean sheets, a fearsome matron, and a ward of recovering sergeants who have sorted the bedpans by rank.',cost:{timber:15,iron:5,goods:20},h:5,once:{health:2},up:{goods:1}}
+});
+{const add=(p,...k)=>{const m=MILESTONES.find(m=>m.p===p);if(m)m.b=(m.b||[]).concat(k);};add(8.5,'drillyard');add(10,'dockyard');add(12.5,'milhosp');add(15,'armoury');}
+Object.assign(DC_GLYPH,{
+  drillg:{w:5.9,h:2.6,f:(q,x)=>{q.box('face',x,2.2,1.5,{flat:1});dcRoof(q,{x,w:2.2,h:1.5,roof:'hip'});q.rect('cut',x+0.85,-0.9,0.5,0.9);
+    q.ln('ink',0.18,[[x+2.7,0],[x+2.7,-2.2]],[[x+4.1,0],[x+4.1,-2.2]],[[x+2.55,-2.2],[x+4.25,-2.2]]);q.ln('ink',-0.7,[[x+3.4,-2.2],[x+3.4,-0.5]],[[x+2.7,-1.1],[x+4.1,-1.1]]);dcFlag(q,x+4.6,0,0);}},
+  armoury:{w:4.9,h:3.2,f:(q,x)=>{q.box('face',x,3.2,1.7,{flat:1});q.path('roof',(p,M)=>{p.moveTo(...M(x-0.1,-1.7));p.quadraticCurveTo(...M(x+1.6,-3.3),...M(x+3.3,-1.7));p.closePath();},{ol:1});q.rect('cut',x+1.2,-1.1,0.8,1.1);
+    for(const [cx,cy] of [[3.5,-0.7],[4.2,-0.7],[3.85,-1.4]])q.rect('back',x+cx,cy,0.7,0.7,{ol:1});q.ln('ink',-0.5,[[x+3.5,-0.35],[x+4.9,-0.35]],[[x+3.85,-1.05],[x+4.55,-1.05]]);}},
+  navyard:{w:5.6,h:4.6,f:(q,x)=>{q.poly('back',[[x+0.1,-1.3],[x+4.2,-1.3],[x+3.7,0],[x+0.6,0]],{ol:1});q.rect('face',x+1.2,-2.1,1.6,0.8,{ol:1});q.rect('roof',x+2.0,-2.7,0.35,0.6,{ol:1});
+    q.ln('ink',0.22,[[x+4.7,0],[x+4.7,-4.4]],[[x+3.0,-4.2],[x+5.5,-4.2]]);q.ln('ink',-0.7,[[x+4.7,-3.4],[x+3.6,-4.2]],[[x+3.3,-4.2],[x+3.3,-2.5]]);q.rect('roof',x+4.4,-0.4,0.6,0.4,{ol:1});}},
+  medic:{w:5,h:3,f:(q,x)=>{q.box('face',x,2.7,2.6);q.rect('roof',x-0.1,-2.82,2.9,0.22);q.rect('sheet',x+0.85,-2.3,1,1,{ol:1});q.rect('red',x+1.25,-2.2,0.2,0.8);q.rect('red',x+0.95,-1.9,0.8,0.2);q.rect('cut',x+1.05,-0.8,0.6,0.8);
+    q.poly('back',[[x+2.9,0],[x+3.95,-1.6],[x+5,0]],{ol:1});q.poly('cut',[[x+3.65,0],[x+3.95,-0.8],[x+4.25,0]]);}}
+});
+DC_GEO.navyard='coast';
+/* their icons on the Cities page: a flag over a hurdle, shells and a crate, a warship on the water, a tent with a cross */
+Object.assign(BLD_ICO,{
+  drillyard:'<path d="M3.5 20.5h17"/><path d="M6 20.5V4.5"/><path d="M6 5h7l-1.5 2.5L13 10H6"/><path d="M12 20.5v-5h7v5M12 17.5h7"/>',
+  armoury:'<path d="M3.5 20.5h17"/><path d="M5 20.5v-8a2 2 0 0 1 4 0v8M10 20.5v-8a2 2 0 0 1 4 0v8"/><rect x="15" y="14.5" width="5" height="6"/><path d="M15 17.5h5"/>',
+  dockyard:'<path d="M3 14.5h18l-2.5 4h-13Z"/><path d="M8 14.5v-3h6v3M11 11.5V8M14 12.5l4-2"/><path d="M3 21c1.5 0 1.5-.8 3-.8s1.5.8 3 .8 1.5-.8 3-.8 1.5.8 3 .8 1.5-.8 3-.8 1.5.8 3 .8"/>',
+  milhosp:'<path d="M3 20.5 12 4.5l9 16Z"/><path d="M12 11v6M9 14h6"/>'
+});
+
+/* the upgrade blocks (0 to 5) of the best finished k in a nation's own cities, or -1 with none; for the player, only in
+   a city it holds now (the referee counts them all: never more than it allows) */
+function milOwn(n,k,now){
+  now=now||Date.now();if(!n||n.npc)return -1;let T=null,i;
+  if(S.nation&&(n===S.nation||n.founded===S.nation.founded&&n.seed===S.nation.seed))try{T=territory();i=T.byId[myId()];}catch(e){T=null;}
+  let best=-1;
+  for(const c of cityList(n))for(const b of c.b||[]){
+    if(!b||b.k!==k||!(b.d<=now))continue;if(T&&(i===undefined||T.owner[c.c]!==i))continue;
+    const u=cxUps(b,now);if(u>best)best=u;}
+  return best;
+}
+/* the same for a building that works for whoever holds its city (cityState): -1 with none at work */
+function milLv(n,k){const a=bldAggOf(n);return a&&a.mil&&a.mil[k]?a.mil[k]-1:-1;}
+nbCity=(f=>function(a,ct){f.apply(this,arguments);
+  for(const k of ['dockyard','milhosp'])if(ct.done.includes(k)){const u=clamp((ct.ug&&ct.ug[k])|0,0,CX_UG_MAX),m=a.mil||(a.mil={});if(!((m[k]|0)>u))m[k]=u+1;
+    if(k==='dockyard')(a.docks||(a.docks=[])).push([ct.c,u]);}
+})(nbCity);
+
+/* readiness: a Drill Ground brings each point back sooner (after a training pact's cut, as the referee does), an
+   Arsenal holds one or two more */
+const milDrillCut=g=>g>=0?MIL_DRILL+MIL_DRILL_UG*clamp(g,0,CX_UG_MAX):0;
+readyMs=(f=>function(n){const ms=f.apply(this,arguments),c=milDrillCut(milOwn(n,'drillyard'));return c>0?Math.round(ms*(1-c)):ms;})(readyMs);
+maxReady=(f=>function(n){const a=milOwn(n,'armoury');return f.apply(this,arguments)+(a>=CX_UG_MAX?2:a>=0?1:0);})(maxReady);
+
+/* the Naval Dockyard: its holder crosses the water at full strength, and its coast near the city is harder to take */
+function milNavy(T,i){try{const a=cityState(T).agg[i];return !!(a&&a.mil&&a.mil.dockyard);}catch(e){return false;}}
+function milDockAt(a,cell){if(!a||!a.docks||!isCoastal(cell))return -1;let u=-1;for(const [c,g] of a.docks)if(g>u&&hexDist(c,cell)<=MIL_DOCK_R)u=g;return u;}
+const milDockDef=g=>MIL_DOCK+MIL_DOCK_UG*clamp(g,0,CX_UG_MAX);
+cityDefMult=(f=>function(T,bi,cell){const m=f.apply(this,arguments);try{const u=milDockAt(cityState(T).agg[bi],cell);if(u>=0)return m*(1+milDockDef(u));}catch(e){}return m;})(cityDefMult);
+cityDefNotes=(f=>function(T,bi,cell){const out=f.apply(this,arguments);try{const u=milDockAt(cityState(T).agg[bi],cell);if(u>=0)out.push(`A naval dockyard guards this coast: ${milPc(milDockDef(u))}% harder to take.`);}catch(e){}return out;})(cityDefNotes);
+
+/* the Military Hospital: fewer people lost to war, and some of the dead come home when it ends */
+function milHospCut(n){const g=milLv(n,'milhosp');return g>=0?MIL_HOSP+MIL_HOSP_UG*clamp(g,0,CX_UG_MAX):0;}
+wrPopFx=(f=>function(n){const x=f.apply(this,arguments);try{const c=x&&x.l>0?milHospCut(n):0;if(c>0)return Object.assign({},x,{l:Math.round(x.l*(1-c)*1e5)/1e5});}catch(e){}return x;})(wrPopFx);
+/* people coming home (n.mhr): each entry's share of the time since the last count */
+function milHomeAdd(n,now){
+  const L=n&&Array.isArray(n.mhr)?n.mhr:null;if(!L)return 0;const a=+n.popAt||now;let s=0;
+  for(const e of L){const lo=Math.max(a,e.t),hi=Math.min(now,e.u);if(hi>lo&&e.u>e.t)s+=e.p*(hi-lo)/(e.u-e.t);}
+  return s;
+}
+popNow=(f=>function(n,now){const v=f.apply(this,arguments);if(!n||n.npc||!n.mhr)return v;try{const w=milHomeAdd(n,now||Date.now());return w>0?v+w:v;}catch(e){return v;}})(popNow);
+growth=(f=>function(n){const g=f.apply(this,arguments);if(!n||n.npc||!Array.isArray(n.mhr))return g;const now=Date.now();let s=0;for(const e of n.mhr)if(now>=e.t&&now<e.u)s+=e.p/((e.u-e.t)/DAY);return g+s;})(growth);
+let milHomeNew=[];
+/* a war's report written (war, round three): a quarter of the people it cost start home, from this count on */
+function milHome(n,r,now){
+  if(!n||!r||!(r.p>0)||milLv(n,'milhosp')<0)return 0;
+  const p=Math.round(r.p*MIL_HOME*1e4)/1e4;if(!(p>0))return 0;
+  const at=+n.popAt||now;
+  n.mhr=(Array.isArray(n.mhr)?n.mhr:[]).filter(e=>e&&e.u>at).concat({p,t:now,u:now+MIL_HOME_MS}).slice(-4);
+  milHomeNew.push({p,nm:r.nm});
+  return p;
+}
+wr3Close=(f=>function(n,id,s,how,t1){const r=f.apply(this,arguments);try{milHome(n,r,+n.popAt||Date.now());}catch(e){}return r;})(wr3Close);
+COMMIT_HOOKS.push(n=>{
+  const out=milHomeNew.map(e=>({m:`${popAmt(e.p)} of the people the war with ${e.nm} cost are coming home from your Military Hospital over the next week.`}));milHomeNew=[];
+  if(n&&Array.isArray(n.mhr)){const at=+n.popAt||Date.now(),L=n.mhr.filter(e=>e&&e.u>at);if(L.length)n.mhr=L;else delete n.mhr;}
+  return out;
+});
+NORM_HOOKS.push((n,d)=>{
+  if(!Array.isArray(d.mhr))return;const ok=v=>typeof v==='number'&&isFinite(v),at=ok(d.popAt)?d.popAt:0,now=Date.now();
+  const L=d.mhr.filter(e=>e&&ok(e.p)&&e.p>0&&e.p<=1e4&&ok(e.t)&&ok(e.u)&&e.u>e.t&&e.u-e.t<=MIL_HOME_MS+60000&&e.u>at&&e.t<=now+DAY).slice(-4).map(e=>({p:Math.round(e.p*1e4)/1e4,t:e.t,u:e.u}));
+  if(L.length)n.mhr=L;
+});
+
+/* what each does, in words: on the Cities page (bldGain) and in the upgrade lines (nbUgLine) */
+function milLine(k,g,pol){
+  g=clamp(g|0,0,CX_UG_MAX);pol=pol||{};
+  if(k==='drillyard'){const m=pol.rapidMobilisation?10:15;return `a point of readiness comes back every ${fmt1(m*(1-milDrillCut(g)))} minutes instead of ${m}`;}
+  if(k==='armoury')return `${g>=CX_UG_MAX?'two more points':'one more point'} of readiness held, and army strength +${fmt1(2*CX_LV[g])}%`;
+  if(k==='dockyard')return `coastal hexes within ${MIL_DOCK_R} ${milPc(milDockDef(g))}% harder to take, and no strength lost crossing the water`;
+  if(k==='milhosp')return `people lost to war −${milPc(MIL_HOSP+MIL_HOSP_UG*g)}%`;
+  return '';
+}
+nbUgLine=(f=>function(k,g,pol){return f.apply(this,arguments)||(MIL_KEYS.includes(k)?milLine(k,g,pol):'');})(nbUgLine);
+bldGain=(f=>function(ct,k,T){const g=f.apply(this,arguments);if(!g||g.dorm||!MIL_KEYS.includes(k))return g;
+  try{const built=ct.done.includes(k),x=(T||territory()).list[ct.hi];g.x.push({t:milLine(k,built&&ct.ug?ct.ug[k]|0:0,x&&x.n&&x.n.policies)});}catch(e){}return g;})(bldGain);
+if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE.mil={milOwn,milLv,milNavy,milDockAt,milHospCut,milHomeAdd,milHome,milLine,MIL_KEYS,maxReady:n=>maxReady(n),readyMs:n=>readyMs(n),isCoastal:c=>isCoastal(c),wrPopFx:n=>wrPopFx(n)};}catch(e){}
 
 if(hot&&typeof hot.snapshot==='function'){try{hot.snapshot(()=>({view:S.view,openIssue:S.openIssue,result:S.result,visit:S.visit,censusKey:S.censusKey,settings:S.settings,draft:S.draft,mapViews:S.mapViews,mapSel:S.mapSel,mapPick:S.mapPick}));}catch(e){}}
 if(hot&&typeof hot.ready==='function')hot.ready(start);else start((hot&&hot.data)||{});
