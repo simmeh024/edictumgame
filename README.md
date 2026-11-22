@@ -198,6 +198,22 @@ sit in its own record (`n.wnd`, region, amounts, highest phase seen complete), a
 Computer nations take no part, and a finished phase stays finished. Six edicts (`WND_ISSUES`) arrive as it rises,
 and contributors to a finished statue earn the epithet "the Patron".
 
+**The National Research Programme.** After 75 enacted edicts a nation's scientists petition for a National Research
+Laboratory (the gold-bordered edict "A Nation of Discovery", in its type of state's words; vetoed, it comes back five
+edicts later). Its three answers are three sites on a map (the university quarter, the coast, the hills, each with its
+own advantage); the player may pick any other hex of that kind within the borders, names it and its director, and
+builds it in five stages from the stock. The laboratory has its own icon on the map; an enemy that takes its hex stops
+all research (nothing researched is lost) and may destroy it, and a destroyed laboratory is rebuilt on a new site. The
+inauguration pays a Founding Research Grant of 12 Research Credits (RC). Credits come every day, counted while away:
+10 + Science & Technology / 5 + the institution (20 a day at Science 50, up to 250 with the eighth expansion). They buy
+360 technologies in three tracks (Trade, Growth, War) of 24 tiers in six eras, 125,415 RC in all, every one with an
+effect on the economy, trade, building, war, spies, the currency, mandate, digs or space, with cross-track gates,
+buildings, materials, studies of some hours from Tier V, and eight Grand Challenges. Alliances add projects, joint
+studies' discounts and research pacts' technology licences (at most 25% off a price and 30% more credits from
+cooperation); twelve Letters from the Laboratory, eight dilemma edicts, three laws and seven Assembly conventions come
+with it. The research lives in the shared record (`n.nrp`), and the save permit holds it to the server's clock on every
+save (`functions/research-rules.js`, `rsSettle`). See [docs/research.md](docs/research.md).
+
 **Field digs.** The Museum's Field digs hall sends diggers to six sites (`DIG_SITES`, 8 to 24 hours) for two
 collections about the region's past: the Fords and the Drowned Harbours. Half of a collection brings 2 land
 credits and all of it 7 more, counted from what is held. One dig at a time, or two with an Institute of Field

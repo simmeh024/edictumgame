@@ -517,6 +517,9 @@ service cloud.firestore {
     // treaties between two nations (functions/treaties.js): written only by the server, read by everyone, as the
     // game shows each nation's treaties and the referee keeps to their non-aggression pacts
     match /treaties/{tid} { allow read: if true; }
+    // technology licences (the National Research Programme, functions/treaties.js trLic): written only by the server,
+    // read only by the two nations (the game asks where p array-contains its own uid)
+    match /rsLic/{lid} { allow read: if request.auth != null && request.auth.uid in resource.data.p; }
     // war, round two: sieges and falls, written by the referee only (functions/index.js)
     match /sieges/{sid} { allow read: if true; }
     // border agreements between two to four nations (functions/borders.js): written only by the server, read by

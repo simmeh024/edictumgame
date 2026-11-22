@@ -2,6 +2,7 @@ import { HttpsError } from 'firebase-functions/v2/https';
 import { eligibility, refuse, nationJSON } from './eligibility.js';
 import { NPC, npcAffinity, warWithNpc } from './alliances.js';
 import { TR_KINDS, TR_MAX, TR_NOTICE, TR_RECORD, TR_REOFFER, TR_NPC_MIN, trId, trLive, trVoid } from './treaty-rules.js';
+import { RS_N, RS_LIC, rsLicFee, rsKnows, rsOpenLab } from './research-rules.js';
 
 /* Treaties between two nations, written only here (civic ops tr*): a non-aggression pact, a trade agreement, a
    research pact or joint military training (functions/treaty-rules.js holds the data's shape and the rules). A player offers one; the other
@@ -127,14 +128,58 @@ async function trEnd(db, who, d) {
 }
 
 /* a nation that is deleted (its account, or by an admin) is party to nothing; called outside any other transaction */
+/* ── technology licences (the National Research Programme, functions/research-rules.js RS_LIC): a nation licenses a
+   technology it has researched to a partner of a research pact in force, who has not. The licensee pays the fee in
+   materials (its game, from its stock) and gets 20% off that technology for 30 days; it still needs every prerequisite
+   and researches it itself. One per technology per licensee ever (rsLic/<licensee>_<technology>; a declined one may be
+   offered again after a week); an exporter offers at most 3 a week and a licensee accepts at most 3 a week; both
+   nations at least a week old, with a laboratory open, and Registered (eligibility). Read only by the two nations. */
+const isLid = v => typeof v === 'string' && /^[\w-]{1,128}_\d{1,3}$/.test(v);
+async function trLic(db, who, d) {
+  const to = isUid(d.to) ? d.to : '', i = Number.isInteger(d.i) && d.i >= 0 && d.i < RS_N ? d.i : -1;
+  if (!to || to === who.uid || i < 0) throw new HttpsError('invalid-argument', 'Choose a partner and a technology.');
+  return db.runTransaction(async tx => {
+    const e = await eligibility(tx, who), reg = regOf(e), now = Date.now(), lid = to + '_' + i, ref = db.doc('rsLic/' + lid);
+    const [other, cur, mine, sent] = await Promise.all([tx.get(db.doc('nations/' + to)), tx.get(ref), partyTo(tx, db, who.uid), tx.get(db.collection('rsLic').where('f', '==', who.uid))]);
+    if (!other.exists || (other.get('reg') || '') !== reg) refuse('tr_region', 'That nation is not in your region.');
+    const O = nationJSON(other), recs = { [who.uid]: e.n, [to]: O };
+    const pact = mine.find(x => x.T.k === 'research' && Array.isArray(x.T.p) && x.T.p.includes(to) && trLive(x.T, now) && !trVoid(x.T, recs));
+    if (!pact) refuse('lic_pact', 'Licences go only to a partner of a research pact in force.');
+    if (!rsOpenLab(e.n) || !rsOpenLab(O)) refuse('lic_lab', 'Both nations need their research laboratory open.');
+    if (now - founded(e.n) < RS_LIC.age || now - founded(O) < RS_LIC.age) refuse('lic_age', 'Both nations must be at least a week old.');
+    if (!rsKnows(e.n, i)) refuse('lic_unknown', 'You can license only a technology you have researched.');
+    if (rsKnows(O, i)) refuse('lic_known', 'They have researched it already.');
+    if (cur.exists) { const L = cur.data(); if (!(L.st === 'declined' && now - (Number(L.t) || 0) >= RS_LIC.week)) refuse('lic_once', 'That technology has already been licensed to them.'); }
+    if (sent.docs.filter(s => now - (Number(s.get('t')) || 0) < RS_LIC.week).length >= RS_LIC.perWeek) refuse('lic_week', `You may offer ${RS_LIC.perWeek} licences a week.`);
+    tx.set(ref, { reg, p: [who.uid, to], f: who.uid, to, i, st: 'offered', t: now, fee: rsLicFee(i), ff: founded(e.n), ft: founded(O) });
+    return { ok: true, lid };
+  });
+}
+async function trLicAns(db, who, d) {
+  const lid = isLid(d.lid) ? d.lid : '';
+  if (!lid) throw new HttpsError('invalid-argument', 'Choose a licence.');
+  return db.runTransaction(async tx => {
+    const e = await eligibility(tx, who), ref = db.doc('rsLic/' + lid), [cur, got] = await Promise.all([tx.get(ref), tx.get(db.collection('rsLic').where('to', '==', who.uid))]), now = Date.now();
+    if (!cur.exists) refuse('lic_missing', 'That licence is no longer on offer.');
+    const L = cur.data();
+    if (L.to !== who.uid || L.st !== 'offered') refuse('lic_missing', 'That licence is no longer on offer.');
+    if (Number(L.ft) && Number(L.ft) !== founded(e.n)) { tx.delete(ref); refuse('lic_missing', 'That licence was offered to an earlier nation.'); }
+    if (d.yes !== true) { tx.update(ref, { st: 'declined', at: now }); return { ok: true, st: 'declined' }; }
+    if (rsKnows(e.n, L.i)) refuse('lic_known', 'You have researched it already.');
+    if (got.docs.filter(s => s.get('st') === 'active' && now - (Number(s.get('at')) || 0) < RS_LIC.week).length >= RS_LIC.perWeek) refuse('lic_week', `You may accept ${RS_LIC.perWeek} licences a week.`);
+    tx.update(ref, { st: 'active', at: now, u: now + RS_LIC.days * 86400000 });
+    return { ok: true, st: 'active', fee: L.fee };
+  });
+}
+
 export async function trDrop(db, uid) {
   try {
-    const qs = await db.collection('treaties').where('p', 'array-contains', uid).get();
-    if (qs.empty) return;
-    const b = db.batch(); qs.docs.forEach(s => b.delete(s.ref)); await b.commit();
+    const [qs, lc] = await Promise.all([db.collection('treaties').where('p', 'array-contains', uid).get(), db.collection('rsLic').where('p', 'array-contains', uid).get()]);
+    if (qs.empty && lc.empty) return;
+    const b = db.batch(); qs.docs.forEach(s => b.delete(s.ref)); lc.docs.forEach(s => b.delete(s.ref)); await b.commit();
   } catch (e) { console.warn('trDrop', uid, e && e.message); }
 }
 
-const OPS = { trOffer, trAnswer, trCancel, trEnd };
+const OPS = { trOffer, trAnswer, trCancel, trEnd, trLic, trLicAns };
 export const isTreatyOp = op => Object.prototype.hasOwnProperty.call(OPS, op);
 export function treaty(db, who, d) { return OPS[d.op](db, who, d); }

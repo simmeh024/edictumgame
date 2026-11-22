@@ -20,6 +20,7 @@ import { land, isLandOp } from './land.js';
 import { venture, isVentureOp } from './ventures.js';
 import { riddle, isRiddleOp } from './riddles.js';
 import { xmSettle, xmNowMs } from './xmas-rules.js';
+import { rsSettle } from './research-rules.js';
 
 const regions = new Set(DATA.regions.map(r => r.id));
 const statKeys = Object.keys(DATA.regions[0].npcs[0].s);
@@ -120,6 +121,8 @@ async function permit(db, who, d) {
     /* the Christmas answers (functions/xmas-rules.js): each new one held to its letter's date and order by this clock */
     const xmKept = xmSettle(n, before, xmNowMs());
     const now = Date.now();
+    /* the National Research Programme (functions/research-rules.js): research held to the rules and this clock */
+    const rsKept = rsSettle(n, before, now, e.saved.exists && e.saved.get('ts')?.toMillis ? e.saved.get('ts').toMillis() : 0);
     let most = Infinity, pop = p.pop;
     if (!e.saved.exists) {
       const c = await createCap(tx, db, who, e, p, d.from, carryHash(d.fk), now);
@@ -148,8 +151,8 @@ async function permit(db, who, d) {
        this permit's z; a build from before saves j as it always did */
     const z = deflateNation(result.j);
     tx.create(ref, { ...result, z, sk, exp: Timestamp.fromMillis(Date.now() + 120000), authGeneration: who.generation, sensitive: !!(founded || pvp.length), nationGeneration: e.generation });
-    if (d.zip === 1) { const { j, ...rest } = result; return { ...rest, z: z.toString('base64'), sk, permit: ref.id, xm: xmKept }; }
-    return { ...result, sk, permit: ref.id, xm: xmKept };
+    if (d.zip === 1) { const { j, ...rest } = result; return { ...rest, z: z.toString('base64'), sk, permit: ref.id, xm: xmKept, rs: rsKept }; }
+    return { ...result, sk, permit: ref.id, xm: xmKept, rs: rsKept };
   });
 }
 
