@@ -204,7 +204,7 @@ await nav(A, 'settings'); await A.click('#sg-tab-letters'); await A.uncheck('#sl
 check('Settings › Letters can stop the letters they write unasked', await until(() => A.evaluate(() => G.S.nation.dmx.npc === 0)));
 const quiet = await A.evaluate(id => { const n = G.clone(G.S.nation), now = Date.now(); n.log.unshift({ t: now + 1, k: 'peace', a: id, b: 'x' }); n.log = n.log.slice(0, 60); G.commit(n); return (G.S.nation.dm || []).filter(m => m.i && m.w === id && /guns are silent/.test(m.x)).length; }, npc);
 check('after which a peace brings no letter', quiet === 0);
-check('and, about once a week, the closest one proposes a trade', await A.evaluate(() => { const m = G.LTR().npcIdea(G.S.nation, Date.now()); return !!m && m.a.k === 'idea' && m.i === 1; }));
+check('and, about once a week, the closest one proposes a trade it would sign, or none when it has nothing to offer', await A.evaluate(() => { const L = G.LTR(), m = L.npcIdea(G.S.nation, Date.now()); return m ? m.a.k === 'idea' && m.i === 1 && L.npcVerdict(m.w, m.a.r, m.a.g).ok : !G.allNations().some(x => x.npc && L.npcDealFor(x.id)); }));
 
 /* ── 14. formatting, labels, the attachment filter, and the admin's Letter statistics ── */
 await nav(A, 'messages'); await pickPeer(A, uidB); await A.waitForSelector('#dm-text'); await sleep(3200);

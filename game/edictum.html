@@ -25413,22 +25413,152 @@ const NPC_VOICE={
   'npc-ilsund':{sign:'The Council Speaker, Havnby',open:'Your letter was discussed by the island councils, in the sauna.',lines:['We are a small people against a large sea, and we value every friend.','The navy (one rowing boat) delivered your letter personally.','Every fishing cooperative voted to reply. This is the reply.']}
 };
 const npcVoice=id=>NPC_VOICE[id]||{sign:nameOf(id),open:'Thank you for your letter.',lines:['We will consider it.']};
-function npcReply(id,text,now,kind){
-  const V=npcVoice(id),me=myId(),ws=warWith(id),x=String(text).toLowerCase(),h=hash(text+':'+now),pick=a=>a[h%a.length];
-  const body=[],aff=()=>{try{return affinity(NPC_BY_ID[id],S.nation);}catch(e){return 0;}};
+/* what a letter to a computer nation says about trade: the materials it names, and for each whether the writer asks for
+   it (get) or offers it (pay). The nearest telling words before a material decide, the longer phrase winning a tie:
+   "we need iron", "can you spare iron", "your iron" ask for it; "we have food", "do you need food", "our food" offer it;
+   in "X for Y" the two swap sides, and "iron and oil" share one. A number just before the material asked for is the
+   daily amount wanted (n) */
+const NPC_RES_W={food:'food|grain|wheat|bread|fish|crops?|harvests?|rice|corn|meat',timber:'timber|wood|lumber|logs?|planks?',iron:'iron|steel|ore|metals?',oil:'oil|petrol|fuel',goods:'goods|wares|products|manufactures'};
+const NPC_ASK_RX=[
+  [/\b(?:we|i)(?: really| badly| urgently| also| still)? (?:need|want|lack|require|seek|buy|import)\b|\b(?:we are|we're|i am|i'm) (?:short of|short on|out of|looking for|in need of)\b|\b(?:we|i) (?:could|would) (?:use|like)\b/g,'get',3],
+  [/\b(?:you|your)(?: can| could| would| will| still)? (?:have|has|spare|sell|give|send|offer|supply|export|provide)\b|\b(?:give|send|sell|supply) (?:us|me)\b|\byour\b/g,'get',2],
+  [/\b(?:we|i)(?: can| could| will| would| shall| also| still)? (?:have|has|sell|give|send|offer|supply|export|spare|provide|trade)\b|\b(?:do|does|would|could|will) you (?:need|want|lack|require|buy|use|like)\b|\byou (?:need|want|lack|require|are short)\b|\b(?:give|send|sell|supply|provide) you\b|\b(?:our|my)\b/g,'pay',2],
+  [/\b(?:need|needs|want|wanted|buy|buying|short of|shortage|lack|lacking|import|importing|looking for|send|give|supply|provide|deliver)\b/g,'get',1],
+  [/\b(?:sell|selling|offer|offering|surplus|export|exporting|plenty of|too much|spare|trade|swap)\b/g,'pay',1]];
+function npcAsk(text){
+  const x=String(text).toLowerCase().replace(/[’‘`]/g,"'"),found=[],hits=[];
+  for(const r of RES){const m=new RegExp('(?:(\\d+(?:\\.\\d+)?)\\s*(?:(?:units?|tons?|tonnes?|crates?|barrels?|loads?)\\s+(?:of\\s+)?)?)?\\b(?:'+NPC_RES_W[r]+')\\b').exec(x);
+    if(m)found.push({r,at:m.index,end:m.index+m[0].length,n:m[1]?+m[1]:0,k:''});}
+  for(const [rx,k,w] of NPC_ASK_RX){rx.lastIndex=0;let m;while((m=rx.exec(x))){hits.push({end:m.index+m[0].length,k,w});if(!m[0].length)rx.lastIndex++;}}
+  found.sort((a,b)=>a.at-b.at);
+  let prev=null;
+  for(const f of found){
+    const cl=Math.max(...['.','?','!',';','\n'].map(c=>f.at>0?x.lastIndexOf(c,f.at-1):-1))+1,near=prev&&prev.k&&prev.end>cl?prev:null,lo=near?near.end:cl,mid=near?x.slice(near.end,f.at):'';
+    const h=hits.filter(q=>q.end>lo&&q.end<=f.at).sort((a,b)=>b.end-a.end||b.w-a.w)[0],swap=near&&/\bfor\b/.test(mid);
+    f.k=h&&!(swap&&h.w<2)?h.k:swap?(near.k==='get'?'pay':'get'):near&&/^[\s,]*(?:and|or|&|plus)?[\s,]*(?:some|any|more|also)?\s*$/.test(mid)?near.k:'';
+    prev=f;
+  }
+  const known=found.find(f=>f.k);
+  found.forEach((f,q)=>{if(!f.k)f.k=known?(known.k==='get'?'pay':'get'):found.length>1&&q===0?'pay':'get';});
+  const g=found.find(f=>f.k==='get'),p=found.find(f=>f.k==='pay'&&(!g||f.r!==g.r));
+  return {get:g?g.r:'',n:g?g.n:0,pay:p?p.r:'',any:found.length>0};
+}
+/* the best deal a computer nation would sign today, by its Board of Trade's own rules (npcVerdict): a material it can
+   spare that the player lacks, or could use more of, for one the player can spare and it is not swimming in, each daily
+   amount within both sides' spare and priced as the Board prices it (npcWant). o.get and o.pay fix the materials (what
+   the player receives, and gives), o.n the amount asked for. A pair already running between them is not offered twice.
+   In npcVerdict's order: g what the player gives, r what it receives; null when there is none */
+function npcDealFor(id,o={}){
+  let E;try{E=economy();}catch(e){return null;}
+  const me=myId(),i=E.T.byId[me],j=E.T.byId[id];
+  if(i===undefined||j===undefined||warWith(id).war||gwOf(S.nation,id)<=C3_HOSTILE)return null;
+  const half=v=>Math.floor(v*2+1e-9)/2,run=new Set(E.active.filter(d=>d.a===me&&d.b===id).map(d=>d.ag[0]+'>'+d.bg[0]));
+  let best=null;
+  for(const r of RES){
+    if(o.get&&r!==o.get)continue;
+    const theirs=E.sup[r][j]-E.dem[r][j],need=E.ratio[r][i];if(theirs<0.5||(!o.get&&need>=1.4))continue;
+    for(const g of RES){
+      if(g===r||(o.pay&&g!==o.pay)||E.ratio[g][j]>1.3||run.has(g+'>'+r))continue;
+      const mine=spareOf(E,me,g);if(mine<0.5)continue;
+      const gap=E.dem[r][i]*(need<1?1:1.25)-E.sup[r][i];
+      let ra=half(Math.min(theirs,8,o.n>0?o.n:Math.max(1,gap)));if(ra<0.5)continue;
+      let ga=npcWant(id,[g,0],[r,ra]);
+      if(ga>mine+1e-9){ra=half(ra*mine/ga);if(ra<0.5)continue;ga=npcWant(id,[g,0],[r,ra]);if(ga>mine+1e-9)continue;}
+      if(!(ga>0)||!npcVerdict(id,[g,ga],[r,ra]).ok)continue;
+      const sc=(1.5-Math.min(1.5,need))*3+(1.3-Math.min(1.3,E.ratio[g][j]))+Math.min(ra,4)/8;
+      if(!best||sc>best.sc)best={g:[g,ga],r:[r,ra],sc,short:need<1,lack:E.ratio[g][j]<1};
+    }
+  }
+  return best;
+}
+/* a deal's terms as a letter puts them, and as an attachment (npcIdea's: a.g what they give, a.r what the player gives) */
+const npcTerms=d=>`${fmtAmt(d.r[1])} ${resName(d.r[0])} a day for ${fmtAmt(d.g[1])} ${resName(d.g[0])} a day`;
+const npcIdeaAtt=(id,d)=>({k:'idea',id,g:[d.r[0],d.r[1]],r:[d.g[0],d.g[1]]});
+/* a computer nation's answer about trade (npcAsk's q): what it can and cannot do with the materials named, what it lacks
+   and can spare when asked, and terms it would sign today, attached. {lines, a} */
+function npcTradeTalk(id,q,ask){
+  let E;try{E=economy();}catch(e){return {lines:['Our Board of Trade will hear any fair offer on the Trade page.']};}
+  const me=myId(),i=E.T.byId[me],j=E.T.byId[id],nm=resName,lines=[];
+  if(i===undefined||j===undefined)return {lines:['Our Board of Trade has nothing to trade with just now.']};
+  if(gwOf(S.nation,id)<=C3_HOSTILE)return {lines:['We do not trade with a nation we regard as hostile. Mend relations first, and our Board of Trade will open its doors again.']};
+  const sp=r=>E.sup[r][j]-E.dem[r][j],spares=RES.filter(r=>sp(r)>=0.5).sort((a,b)=>sp(b)-sp(a)),needs=RES.filter(r=>E.ratio[r][j]<0.95).sort((a,b)=>E.ratio[a][j]-E.ratio[b][j]);
+  if(ask.need||ask.spare)lines.push(`Just now ${needs.length?`we are short of ${list(needs.map(nm))}`:'we lack nothing'}, and ${spares.length?`we can spare ${list(spares.map(nm))}`:'we have nothing to spare'}.`);
+  let get=q.get,pay=q.pay;
+  if(get){const s=sp(get);
+    if(s<0.5){lines.push(`We have no ${nm(get)} to spare${E.ratio[get][j]<1?': we are short of it ourselves':''}.`);get='';}
+    else if(q.n>s+1e-9)lines.push(`We can spare only ${fmtAmt(Math.floor(s*2)/2)} ${nm(get)} a day, not ${fmtAmt(q.n)}.`);}
+  if(pay){if(E.ratio[pay][j]>1.3){lines.push(`We have all the ${nm(pay)} we need.`);pay='';}
+    else if(spareOf(E,me,pay)<0.5){lines.push(`You have no ${nm(pay)} to spare yourselves, so we would receive nothing.`);pay='';}}
+  /* the terms asked for, else keeping what was asked for and changing the other side, else anything that works */
+  const tries=[[get,pay],[get,''],['',pay],['','']].filter((t,k,A)=>A.findIndex(u=>u[0]===t[0]&&u[1]===t[1])===k);
+  let d=null;for(const [tg,tp] of tries){d=npcDealFor(id,{get:tg,pay:tp,n:tg?q.n:0});if(d)break;}
+  if(d){
+    const other=q.get&&d.r[0]!==q.get,rather=q.pay&&d.g[0]!==q.pay;
+    /* what was asked for is spare, but not on any terms the player can meet: say why before offering something else */
+    if(other&&get){const run=E.active.find(x=>x.a===me&&x.b===id&&x.bg[0]===get);
+      lines.push(run?`Our deal already sends you ${fmtAmt(run.bg[1])} ${nm(get)} a day, and nothing else you can spare would pay for more.`:`We have ${nm(get)} to spare, but nothing you can spare would pay for it just now.`);}
+    lines.push(`${other?'Instead, we could send you':'We can send you'} ${npcTerms(d)}${rather?` (${nm(d.g[0])} rather than ${nm(q.pay)})`:''}.`);
+    lines.push(dealSlots()>=maxDeals()?`The terms are attached, but every one of your deal slots is taken: end a deal, or rent a slot, before signing.`:'The terms are attached: sign them here, or change them on the Trade page.');
+    return {lines,a:npcIdeaAtt(id,d)};
+  }
+  if(!ask.need&&!ask.spare)lines.push(spares.length?`We can spare ${list(spares.map(nm))}${needs.length?` and are short of ${list(needs.map(nm))}`:''}, but there is no deal between us today that both sides could keep.`:'We have nothing to spare just now. Write again when our harvests and mines have caught up.');
+  else if(spares.length)lines.push('But nothing you can spare is anything we need, so there is no deal between us today.');
+  return {lines};
+}
+/* how the deals a computer nation has with the player are going, as it would tell it */
+function npcDealNews(id){
+  let E;try{E=economy();}catch(e){return [];}const me=myId();
+  return E.active.filter(d=>d.npc&&d.a===me&&d.b===id).slice(0,2).map(d=>{const w=`${fmtAmt(d.bg[1])} ${resName(d.bg[0])} a day for ${fmtAmt(d.ag[1])} ${resName(d.ag[0])}`;
+    if(d.sus)return `Our deal (${w}) is suspended${d.frz?' while relations are frozen':' while we are at war'}.`;
+    if(typeof d.fa==='number'&&d.fa<0.98)return `Our deal (${w}) runs short: you deliver only ${Math.round(d.fa*100)}% of the ${resName(d.ag[0])} you promised, so we send the same share.`;
+    if(typeof d.fb==='number'&&d.fb<0.98)return `Our deal (${w}) runs short: we can deliver only ${Math.round(d.fb*100)}% of it just now, and you send the same share. We apologise.`;
+    return `Our deal (${w}) runs smoothly.`;});
+}
+/* a computer nation's answer to a letter: what kind of note it is, its attachment (att: the peace or the invitation sent
+   with it, already acted on), whether you are at war, and what the letter asks about (trade, the deals between you,
+   peace, an alliance, the Games, who they are). Some answers carry terms they would sign (a trade idea). {x, a} */
+function npcReply(id,text,now,kind,att){
+  const V=npcVoice(id),me=myId(),ws=warWith(id),h=hash(text+':'+now),pick=a=>a[h%a.length],D=NPC_BY_ID[id]||(findNation(id)||{}).n||{};
+  /* the two nations' names (a note's opening names both) say nothing about what is asked: "Iron Coast" is not iron */
+  let x=String(text).toLowerCase().replace(/[’‘`]/g,"'");for(const w of [S.nation&&S.nation.name,D.name])if(w&&String(w).length>2)x=x.split(String(w).toLowerCase()).join(' ');
+  const body=[],aff=()=>{try{return affinity(NPC_BY_ID[id],S.nation);}catch(e){return 0;}},gw=gwOf(S.nation,id);
+  let a=null,said=false;
+  if(!ws.war&&gw<=-10)body.push(gw<=C3_HOSTILE?'Relations between us are hostile, and one letter will not change that.':`Relations between us are ${gwWord(gw).toLowerCase()}, but we will answer.`);
   if(kind==='congrats')body.push('We thank you for your kind words, and return them with interest.');
   else if(kind==='condol')body.push('Your sympathy is a comfort to our people, and will not be forgotten.');
   else if(kind==='protest')body.push(ws.war?'A protest from a nation at war with us is a curious thing. We have framed it.':'Your protest has been received, read twice and filed under “noted”.');
-  else if(kind==='friend'&&!ws.war){const a=aff();body.push(a>=ALLY_MIN?`We accept your friendship gladly: our values are close (affinity ${a}).`:`Friendship is earned. Our values are still some way apart (affinity ${a} of the ${ALLY_MIN} we would want in an ally).`);}
-  else if(kind==='ultim')body.push((num0(S.nation&&S.nation.army)||0)>3?'We have read your demands. We do not respond to threats, but we have doubled the guard on the border.':'We do not respond to threats, least of all small ones.');
-  else if(kind==='treaty')body.push('Treaties are signed, not posted. Send us an offer on the Trade page, or an invitation on the Diplomacy page, and you will have our answer at once.');
-  if(ws.war&&kind!=='protest'){body.push(/peace|truce|ceasefire|surrender|stop/.test(x)?'Peace is possible. Withdraw from our land and we will sign at once. Or fight on, and in time we may offer terms ourselves.':'We do not correspond with nations at war with us. Lay down your arms, then write again.');}
-  else if(sameAlliance(me,id))body.push('As your ally, we are always glad to hear from you. Our troops stand with yours.');
-  if(/trade|deal|iron|oil|food|timber|goods|sell|buy/.test(x)&&!ws.war&&kind!=='treaty')body.push('Our Board of Trade will hear any fair offer. Propose one on the Trade page and you will have our answer at once.');
-  if(/alli|join|pact|friend/.test(x)&&!ws.war&&!sameAlliance(me,id)&&kind!=='friend'){const a=aff(),bloc=NPC_BLOCS.find(b=>b.members.includes(id));body.push(bloc?`We are sworn to ${bloc.name} and will join no other alliance.`:a>=ALLY_MIN?`Our values are close (affinity ${a}). Invite us into an alliance and we would consider it.`:`Our values are too far apart for an alliance (affinity ${a} of the ${ALLY_MIN} we need).`);}
-  if(/games|medal|olympi|sport|athlet/.test(x))body.push('We look forward to beating you at the Meridian Games.');
-  if(!body.length)body.push(pick(V.lines));
-  return `${V.open} ${body.join(' ')} ${V.sign}`;
+  else if(kind==='friend'&&!ws.war){const v=aff();body.push(v>=ALLY_MIN?`We accept your friendship gladly: our values are close (affinity ${v}).`:`Friendship is earned. Our values are still some way apart (affinity ${v} of the ${ALLY_MIN} we would want in an ally).`);}
+  else if(kind==='ultim'){let r=1;try{r=armyPower(S.nation)/Math.max(0.01,armyPower(D));}catch(e){}body.push(r>1.2?'We have read your demands. We do not respond to threats, but we have doubled the guard on the border.':r<0.8?'We do not respond to threats, least of all from an army smaller than ours.':'We do not respond to threats. Our armies are evenly matched, and neither of us would enjoy finding out which is better.');}
+  if(att&&att.k==='peace'&&!ws.war)body.push('Our envoy has signed the peace you sent. Let the guns stay silent.');
+  if(ws.war&&kind!=='protest'){said=true;
+    const askPeace=(att&&att.k==='peace')||/peace|truce|cease-?fire|armistice|surrender|stop|end (?:the|this) war/.test(x);
+    if(!askPeace)body.push('We do not correspond with nations at war with us, except about peace. Offer it, and we will answer.');
+    else if(!ws.direct)body.push('This war is your alliance’s quarrel with us. Peace must come from the nation that began it.');
+    else if(ws.theyOffered)body.push('We have already offered peace on current lines. Accept it on the War page and the guns fall silent.');
+    else{let held=0;try{const T=territory();held=occupiedFrom(T,T.byId[me],T.byId[id]).length;}catch(e){}
+      body.push(held?`We will sign no peace while your troops hold ${hexWord(held)} of our land. Withdraw from it and we sign at once; or fight on, and in time we may offer terms ourselves.`:'Peace is possible. Offer it on current lines, attached to a letter or from the War page, and we sign at once.');}
+  }
+  else{
+    if(sameAlliance(me,id))body.push('As your ally, we are always glad to hear from you. Our troops stand with yours.');
+    const q=npcAsk(x),ask={need:/what (?:do|does|would|could|might) (?:you|your \w+) (?:need|want|lack|require|import|buy)|what are you short|what (?:do|does) (?:you|your \w+) lack/.test(x),spare:/what (?:can|could|do|would|will) you (?:spare|offer|sell|give|export|provide|have)|what do you have/.test(x)};
+    if(q.any||ask.need||ask.spare||kind==='treaty'||/\b(?:trade|trading|deal|sell|buy|import|export|market|commerce|exchange|resources?|materials?)\b/.test(x)){
+      const news=/\b(?:deal|deals|contract|agreement|deliver\w*|shipments?)\b/.test(x)?npcDealNews(id):[];
+      body.push(...news);
+      if(!news.length||q.any||ask.need||ask.spare){const t=npcTradeTalk(id,q,ask);body.push(...t.lines);a=t.a||null;}
+      if(kind==='treaty'&&!a)body.push('A treaty of trade is signed on the Trade page; one of friendship, on the Diplomacy page.');
+      said=true;}
+    else if(kind==='treaty'){body.push('Treaties are signed, not posted. Send us an offer on the Trade page, or an invitation on the Diplomacy page, and you will have our answer at once.');said=true;}
+    if((att&&att.k==='ally')||(/alli|join|pact|bloc|league|coalition/.test(x)&&!sameAlliance(me,id)&&kind!=='friend')){const v=aff(),bloc=NPC_BLOCS.find(b=>b.members.includes(id));
+      body.push(bloc?`We are sworn to ${bloc.name} and will join no other alliance.`:v>=ALLY_MIN?(att&&att.k==='ally'?`Our values are close (affinity ${v}), and we take up your invitation gladly.`:`Our values are close (affinity ${v}). Invite us into an alliance and we would consider it.`):`Our values are too far apart for an alliance (affinity ${v} of the ${ALLY_MIN} we need).`);said=true;}
+    if(!kind&&/\b(?:attack|invade|invasion|destroy|crush|conquer|annex|declare war)\b/.test(x)){let r=1;try{r=armyPower(S.nation)/Math.max(0.01,armyPower(D));}catch(e){}
+      body.push(r>1.2?'Your army is larger than ours, we know. We will make up the difference in courage, and in fortifications.':r<0.8?'Our army is larger than yours, and it is not bored. We advise against it.':'Our armies are evenly matched. Neither of us would enjoy finding out which is better.');said=true;}
+  }
+  if(/games|medal|olympi|sport|athlet/.test(x)){body.push('We look forward to beating you at the Meridian Games.');said=true;}
+  if(/who are you|tell (?:me|us) about (?:you|your)|introduce yourselves|what (?:kind of|sort of) (?:nation|country|place)/.test(x)&&D.name){body.push(`We are the ${D.pretitle||'nation'} of ${D.name}, governed from ${D.capital||'our capital'}${D.leader?` by ${/^[A-Z]/.test(D.leader)&&!/^(Nobody|Whoever)/.test(D.leader)?'the '+D.leader:D.leader.toLowerCase()}`:''}. Our motto: “${D.motto||'Onward'}”.`);said=true;}
+  if(/how are (?:you|things)|how is (?:life|your)|how do you do/.test(x)&&!said){body.push('We are well, thank you, and our warehouses are in order.');said=true;}
+  if(/\bthank/.test(x)&&!said)body.push('You are most welcome.');
+  if(!body.length||!said&&body.length<2&&!kind)body.push(/\?\s*$/.test(x.trim())&&!/\bthank/.test(x)?'We are not sure what you ask. Our Board of Trade answers questions of trade, our Foreign Office questions of peace and alliances.':pick(V.lines));
+  return {x:`${V.open} ${body.join(' ')} ${V.sign}`,...(a?{a}:{})};
 }
 /* what a computer nation writes, unasked, after something happens between you (a log entry naming it) */
 const NPC_FIRST={
@@ -25440,15 +25570,34 @@ const NPC_FIRST={
   tradeno:[50,(V,l,n)=>`We see that our offer was declined. A pity. Our Board of Trade remains open, should ${n.name} change its mind.`]
 };
 function npcFirst(id,l,n){const V=npcVoice(id),f=NPC_FIRST[l.k];return `${V.open.replace(/^Your letter has been received|^Thank you for (contacting|writing)[^.]*\./,'A word from us.')} ${f[1](V,l,n)} ${V.sign}`;}
-/* a trade idea, about once a week, from the computer nation whose values are closest to yours */
+/* a trade idea, about once a week, from one of the three computer nations whose values are closest to yours (taking turns
+   by the week, then the others): only terms its Board of Trade would sign today (npcDealFor: within both sides' daily
+   spare, priced as it prices them), and none while every deal slot is taken or from a nation you have blocked. Nothing
+   to propose: null, and the hook asks again in a day */
 function npcIdea(n,now){
-  const me=myId(),cand=allNations().filter(x=>x.npc&&!warWith(x.id).war).map(x=>{let a=0;try{a=affinity(x.n,n);}catch(e){}return {x,a};}).sort((p,q)=>q.a-p.a||(p.x.id<q.x.id?-1:1));
-  const c=cand[hash(n.seed+':idea:'+Math.floor(now/(7*DAY)))%Math.max(1,Math.min(3,cand.length))];if(!c)return null;
-  const st=n.stock||{},have=RES.slice().sort((a,b)=>num0(st[b])-num0(st[a])),want=have[0],give=have.filter(r=>r!==want)[hash(c.x.id+now)%(RES.length-1)];
-  const amt=v=>Math.max(5,Math.min(40,Math.round(v/10)*5)),ga=amt(num0(st[want])/4),ra=amt(ga*1.1);
-  const V=npcVoice(c.x.id);
-  return {w:c.x.id,t:now+90000,i:1,x:`${V.open.replace(/^Your letter has been received[^.]*\.|^Thank you for (contacting|writing)[^.]*\./,'A proposal, unasked.')} Our merchants tell us ${n.name} has ${want} to spare, and we have ${give} in our warehouses. Shall we trade ${ra} ${give} for ${ga} of your ${want}? The terms are attached; put them to our Board of Trade on the Trade page and you will have our answer at once. ${V.sign}`,
-    a:{k:'idea',id:c.x.id,g:[give,ra],r:[want,ga]}};
+  try{if(dealSlots()>=maxDeals())return null;}catch(e){return null;}
+  const cand=allNations().filter(x=>x.npc&&!warWith(x.id).war&&!dmBlocked(x.id)).map(x=>{let a=0;try{a=affinity(x.n,n);}catch(e){}return {x,a};}).sort((p,q)=>q.a-p.a||(p.x.id<q.x.id?-1:1));
+  if(!cand.length)return null;
+  const k=hash(n.seed+':idea:'+Math.floor(now/(7*DAY)))%Math.min(3,cand.length);
+  for(const c of [cand[k],...cand.filter((y,q)=>q!==k)]){
+    const d=npcDealFor(c.x.id);if(!d)continue;
+    const V=npcVoice(c.x.id),r=resName(d.r[0]),g=resName(d.g[0]);
+    return {w:c.x.id,t:now+90000,i:1,x:`${V.open.replace(/^Your letter has been received[^.]*\.|^Thank you for (contacting|writing)[^.]*\./,'A proposal, unasked.')} Our merchants tell us ${n.name} ${d.short?`is short of ${r}`:`could use more ${r}`}, and we have ${r} to spare. We offer ${fmtAmt(d.r[1])} ${r} a day for ${fmtAmt(d.g[1])} of your ${g} a day${d.lack?`, which we are short of`:''}. The terms are attached: sign them from this letter, or change them on the Trade page. ${V.sign}`,
+      a:npcIdeaAtt(c.x.id,d)};
+  }
+  return null;
+}
+/* where a computer nation's trade idea stands now (its letter may be days old): a deal for the pair already running
+   (run), the terms still good (ok; full: no deal slot free), new terms for the same pair when the old ones no longer work
+   (new, with why the old failed), or nothing doing (no, with why) */
+function npcIdeaNow(id,a){
+  const ok=p=>Array.isArray(p)&&RES.includes(p[0])&&p[1]>0;if(!ok(a.g)||!ok(a.r)||!NPC_SET.has(id))return {st:'no',why:'These terms are no longer a deal.'};
+  let E;try{E=economy();}catch(e){return {st:'no',why:'The Board of Trade is closed just now.'};}
+  const me=myId();
+  if(E.active.some(d=>d.a===me&&d.b===id&&d.ag[0]===a.r[0]&&d.bg[0]===a.g[0]))return {st:'run'};
+  const full=dealSlots()>=maxDeals(),v=npcVerdict(id,a.r,a.g);if(v.ok)return {st:'ok',full};
+  const d=npcDealFor(id,{get:a.g[0],pay:a.r[0]});if(d){const t=npcIdeaAtt(id,d);return {st:'new',g:t.g,r:t.r,why:v.why,full};}
+  return {st:'no',why:v.why};
 }
 /* run with every commit (COMMIT_HOOKS, from the end of the script: the list is made after this section) */
 function dmNpcHook(n,old,now){
@@ -25461,7 +25610,7 @@ function dmNpcHook(n,old,now){
       n.dm=(n.dm||[]).concat({w:l.a,t:Math.max(now,l.t)+60000+hash(l.k+l.t)%120000,x:npcFirst(l.a,l,n),i:1});}
     x.nl=top;
   }
-  if((S.mode==='world'||S.mode==='local')&&x.npc!==0){if(!x.nw)x.nw=now+2*DAY;else if(now>=x.nw){const m=npcIdea(n,now);if(m&&!dmBlocked(m.w))n.dm=(n.dm||[]).concat(m);x.nw=now+7*DAY;}}
+  if((S.mode==='world'||S.mode==='local')&&x.npc!==0){if(!x.nw)x.nw=now+2*DAY;else if(now>=x.nw){const m=npcIdea(n,now);if(m)n.dm=(n.dm||[]).concat(m);x.nw=now+(m?7:1)*DAY;}}
   dmTrim(n);
   return [];
 }
@@ -25608,7 +25757,7 @@ function sendDm(){
   if(m.a&&!grp){if(m.a.k==='peace'){const w=warWith(peer);if(w.war&&!w.iOffered)offerPeace(peer,'keep');}else if(m.a.k==='ally'){const A=allianceOf(me);if(A&&!A.npc&&alCan(A,me,'o')&&!A.members.includes(peer))inviteAllyBase(peer);}}
   const n=clone(S.nation);
   n.dm=(n.dm||[]).concat(m);
-  if(npc)n.dm.push({w:peer,t:now+30000+hash(x+':'+now)%60000,x:npcReply(peer,x,now,m.k),i:1});
+  if(npc){const R=npcReply(peer,x,now,m.k,m.a);n.dm.push({w:peer,t:now+30000+hash(x+':'+now)%60000,x:R.x,i:1,...(R.a?{a:R.a}:{})});}
   dmTrim(n);n.seenDm=Object.assign({},n.seenDm||{},{[peer]:now});
   if(n.dmx&&n.dmx.arc&&n.dmx.arc[peer]){delete n.dmx.arc[peer];}
   S.msgDraft='';S.dmCompose={};S.msgErr='';const d=dmDrafts();delete d[peer];dmDraftKeep();
@@ -25655,7 +25804,13 @@ function dmAttCard(a,from,mine,peer){
     if(!p)return box('No longer open','The offer was withdrawn or has ended.','');
     if(p.to===me)return box(`You give ${amt(p.r)} and receive ${amt(p.g)}`,p.declined?'You declined this offer.':'',p.declined?'':`<button type="button" class="btn small" data-act="tr-accept" data-id="${esc(p.id)}">Accept</button><button type="button" class="btn ghost small" data-act="tr-decline" data-id="${esc(p.id)}">Decline</button>`);
     return box(`${esc(nameOf(p.from))} gives ${amt(p.g)} for ${amt(p.r)}`,p.declined?'Declined.':'Waiting for an answer.','');}
-  if(a.k==='idea')return box(`They give ${amt(a.g)} for ${amt(a.r)} of yours`,'A suggestion from their Board of Trade, not yet an offer.',`<button type="button" class="btn small" data-act="dm-idea" data-id="${esc(a.id||from)}" data-g="${esc(a.g[0])}" data-ga="${a.g[1]}" data-r="${esc(a.r[0])}" data-ra="${a.r[1]}">Open on the Trade page</button>`);
+  if(a.k==='idea'){const id=a.id||from,I=npcIdeaNow(id,a),T=(g,r)=>`They give ${fmtAmt(g[1])} ${esc(resName(g[0]))} a day for ${fmtAmt(r[1])} of your ${esc(resName(r[0]))}`,
+      B=(g,r,lbl,sign)=>`<button type="button" class="btn${sign?'':' ghost'} small" data-act="${sign?'dm-idea-sign':'dm-idea'}" data-id="${esc(id)}" data-g="${esc(g[0])}" data-ga="${g[1]}" data-r="${esc(r[0])}" data-ra="${r[1]}">${lbl}</button>`,
+      full=' Every deal slot of yours is taken: end a deal, or rent a slot, to sign it.';
+    if(I.st==='run')return box('Agreed',`A deal with ${esc(nameOf(id))} for these goods is running.`,`<button type="button" class="btn ghost small" data-act="go" data-v="trade">Open Trade</button>`);
+    if(I.st==='ok')return box(T(a.g,a.r),'Their Board of Trade would sign this today.'+(I.full?full:''),(I.full?'':B(a.g,a.r,'Sign the deal',1))+B(a.g,a.r,'Change it on the Trade page'));
+    if(I.st==='new')return box(T(I.g,I.r),`The terms in the letter no longer work. ${esc(I.why)} These would.`+(I.full?full:''),(I.full?'':B(I.g,I.r,'Sign the deal',1))+B(I.g,I.r,'Change it on the Trade page'));
+    return box(T(a.g,a.r),`No longer possible. ${esc(I.why)}`,B(a.g,a.r,'Open on the Trade page'));}
   if(a.k==='peace'){const other=mine?peer:from,w=warWith(other);
     if(!w.war)return box('Peace holds','There is no war between you now.','');
     const by=w.ends?`It takes effect by itself at ${peaceWhen(w.ends)}.`:'';
@@ -25846,7 +26001,12 @@ document.addEventListener('click',e=>{
     const api=window.claude&&typeof window.claude.use==='function'?window.claude.use('report'):null;const go2=r=>{if(r&&typeof r.open==='function')r.open({kind:'letter',target:m.from,post:m.from+'~'+myId()+'~'+m.t,reg:REG.id,name:nameOf(m.from),x:m.x});else toast('Reporting needs a connection to the region.');};
     Promise.resolve(api).then(go2).catch(()=>{});}
   else if(a==='dm-city'){const c=+el.dataset.c;if(!Number.isSafeInteger(c))return;centerMain(c,NEAR_Z+1);S.mapSel=null;S.mapCell=c;S.mapTarget=null;go('map');}
-  else if(a==='dm-idea'){const R=k=>RES.includes(k)?k:RES[0];S.trade={...(S.trade||{}),w:id,gr:R(el.dataset.r),ga:+el.dataset.ra||10,rr:R(el.dataset.g),ra:+el.dataset.ga||10};S.tradeMsg='';go('trade');}
+  else if(a==='dm-idea'){const R=k=>RES.includes(k)?k:RES[0];S.trade={...(S.trade||{}),w:id,gr:R(el.dataset.r),ga:+el.dataset.ra||1,rr:R(el.dataset.g),ra:+el.dataset.ga||1,counter:'',touched:true};S.tradeMsg='';go('trade');}
+  else if(a==='dm-idea-sign'){const R=k=>RES.includes(k)?k:RES[0],g=[R(el.dataset.r),roundAmt(el.dataset.ra)],r=[R(el.dataset.g),roundAmt(el.dataset.ga)];
+    const v=NPC_SET.has(id)?npcVerdict(id,g,r):{ok:false,why:'Only a computer nation’s terms can be signed from a letter.'};
+    if(!v.ok){toast(v.why);render();return;}
+    if(dealSlots()>=maxDeals()){toast(`You already have ${maxDeals()} deals and offers. End one before signing another.`);return;}
+    S.trade={...(S.trade||{}),w:id,gr:g[0],ga:g[1],rr:r[0],ra:r[1],counter:'',touched:true};proposeDeal();}
   else if(a==='dm-gpick'){S.dmGroupPick=true;S.dmGSel=[];S.dmGName='';render();}
   else if(a==='dm-gcancel'){S.dmGroupPick=false;render();}
   else if(a==='dm-xn-pick'){const id=el.dataset.id;if(!S.isOwner||!XN.has(id)&&!findNation(id))return;dmSetPeer(id);render();return;}
@@ -83463,7 +83623,7 @@ mapBox=(f=>function(kind){const h=f.apply(this,arguments),n=S.nation;if(kind!=='
 
 /* the browser tests' window into the game: test/lib.mjs sets EDICTUM_PROBE before the page loads (a
    player's own browser can reach all of this anyway) */
-if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({RPATCH,SC:()=>scProbe(),WR3:()=>({CQ_ISSUES,cqFall,cqDue,cqTake,cityFounded,cqBuildings,openMapAt,WAR3_ISSUES,wr3WarsSection,wr3BattleCard,wr3MapData,wr3Econ,wr3Close,wr3VetDue,wr3WindToggle,wr3MunOn,wr3Reserve,wr3Factors,wr3On}),WR2:()=>({wrFallenCard,WR,WAR_GOALS,WAR2_ISSUES,wrSiege,wrSiegesOn,wrFallsAt,myFall,wrSiegeWhy,wrCapExposed,wrUnrest,wrWarsOf,wrPopFx,wrTribute,wrForts,wrFortify,wrSurrender,wrSiegeStart,wrRise,wrCarry,wrEdictDue,wrSafe,wrNotice,territory,frontier,economy,warControls,targetPanel,armyBlock,warNotice,warWith,pairWar,nationView,rgnOverview,hxCard}),HELPX:()=>({HLP,HELP_CH,HELP_SUM,HELP_FOR,GLOSS,helpFind,helpIndex,helpSecList,helpForYou,helpChapters,rgcCmd,rgcCardOf,rgcCardHTML,admhHs,admhHsCount}),MTP:()=>({MTP,MTP_PAD,TBMP_SCALE,redrawMaps,mapScale,viewOf}),SCR:()=>({scrOf,scrClean,scrDef,scrFamOf,scrEdParse,scrGlyphs,scrLay,scrChars,scrSVG,scrLine,scrCard,scrCharterSVG,scrFmt,scrFor,dmRich,dmPlain,scrDmWith,SCR_FAM,SCR_ABC,SCS}),BDX:()=>bdProbe(),LDX:()=>ldProbe(),FLY:()=>({flagSVG,fgSplit,fgFused}),RD:()=>rdProbe(),JV:()=>jvProbe(),M100P:()=>({M100,M100_N,M100_MC,M100_MCN,m100Bits,m100Got,m100In,m100Due,m100Count,m100Show,m100Open,ctgMcOk,nationColor,czShOk,czShieldPath,unlocksOf,czPatSVG,xsMax}),M200P:()=>({M200,M200_N,M200_MC,M200_MCN,M200_U,m200Bits,m200Got,m200In,m200Due,m200Count,m200Show,m200Open,ctgMcOk,nationColor,czShOk,czShieldPath,unlocksOf,czPatSVG,czStampArt,czFrameArt,czCharge,czFramed,flagSVG,xsMax,ACH_BY_ID,achEarnedIds}),WTN:()=>({WN,wbMap,wnKind,wnWaters,wnSync,wnAt,wnRename,wnReset,wnNameProblem,wnTaken,wnPanel,wnLabels,lakeMap,isLake,cellAt,WN_REACH,WTN_MAX,REG,RV,rvData,hexDist,territory,MAP,HEX_W,updateMapPanel,logLine}),RVN:()=>({RV,rvData,rvSync,rvKey,rvHeld,rvStretch,rvMost,rvEdgeHolder,rvAt,rvNameAt,rvLabelAt,rvParts,rvRename,rvReset,rvNameProblem,rvTidy,rvLabel,rvnPanel,logLine,RVN_MAX,RVN_LEN,updateMapPanel,hexDist,HEX_W,REG}),CP2:()=>({BLD_ICO,bldIco,bldLead,cxDefTotal,cxOrder,qjBuilding,BUILDINGS}),PRVC:()=>({cxPrvOf,cxPrvSeatTrial,cxOvwCols,prvSeat,prvMine,prvOfCell,prvSetAut,prvAppoint,PRV}),NPX:()=>({fbTrend,fbYesterday,heroLead,heroOpen,opOf,OPEN_TO,hnOf,hnFill,hnLine,nbSection,ppWho,ppWhoHTML,ppHash,ppCarried,economy,territory,bordersOf,fillDeal,findNation,clsHide,MAP,hexDist,STAT_KEYS,popNow,myId}),PT:()=>ptProbe(),LTH:()=>lthProbe(),DAM:()=>damProbe(),CHAT:()=>({RGC,RGW,RGF,tab:rgcTab(),count:rgcCount(),region:rgcUnread(),world:rgwUnread(),named:rgwNamedUnread(),fr:rgwUnread(RGF),frNamed:rgwNamedUnread(RGF),frOn:rgfOn(),hidden:document.hidden}),UXP2:()=>({edictDesk,edictStep,edictOpen,fill,ISSUE_BY_ID,ACH,keysOpen,dmOthers,dmPickList,stGroups,stTabLast,navRecent,vhData,VH_KEY,VH_AFTER,QJ_DO,qjItems:q=>navQjItems(q),NAV_REC_KEY,ST_KEY}),HID:()=>({HIDN,hidMask,iAmHidden,frontier,mapPanel,warControls}),WG:()=>({wgTakers,wgForField,wgForPick,warGiveHex,warGive,occupiedFrom,attack,offerPeace,declareWar,collectConquests,dedupeConq}),WAKE:()=>({dormFresh,dormQuiet,dormWelcome,moveTo,RSTAT,REGIONS,REG,regDisabled}),HMB:()=>({RCTRL,hmBake,hmAutoFlag,fxDraw,capHolder,FX_DEF,DEF_FLAG,hmRle,hmLiveNorm,hmMapNorm,hmSel,hmRegions,hmBlocked,hmEngaged:()=>hmEngaged,HM,REG,MAP}),LAND:()=>({landWait,capLift,capWrong,capNote,raceKnown,RACE,worldHeardAt:()=>worldHeardAt,landQ:()=>S.landQ,landQueued,fdSites:(n,T)=>fdSites(n,T)}),BG:{gain:bldGain,html:bldGainHtml},IB:()=>({agRoster,agPick,agStatus,heatOf,cvRoll,cvKey,cvBlock,cvOdds,buLv,buGap,buAll,BU,BU_KEYS,ibFile,ibWanted,ibChatter,HEAT_MAX,DD_TASKS,DD_LEG,findNation,allNations,cvProtected}),VL:()=>({VL_SECS,VL_DEF,CLS,CLS_OPS,CLS_READ,vlOrder,clsOf,clsRaw,clsMax,clsSeen,clsHide,clsRead,vlSave,findNation}),IFC:()=>({plan:ifcPlan,works:ifcWorks,line:ifcLine,tab:ifcTab}),XP:()=>({BUILDINGS,XU,XU_KEYS,XU_TOTAL,LOST_KINDS,LOST_ORDER,xuLv,xuWhy,xuHave,xuStart,xuCost,xuGear,xpSeen,expFree,xpTeamOpen,nationBuilt,expBackTeam,SITES,SITE_KINDS,expPlan,expOdds,expRuns,expRange,flRange,flAlive,flPlan,flDebug,flNow,discoveries,sendExpedition,hearReport,xpRoute,xpRivals,xpRivalText,xpFinds,flOdds,territory}),SVC:()=>({SVC,SVC_N,SVC_V,SVC_NEED,svcPlan,svcOpen,svcDig,svcShort,svcRoll,svcAmt,svcDayOf,svcRoom,svcNext}),FLC:()=>({FLC,FLC_RULES,FLC_CAT,flcId,flcTimes,flcPhase,flcPrev,flcView,flcLoad,flcChamp,flcTodo,flcClaims,flcLand,flcStreak,flcAllDone,flcSeen,flcDuty,flcDeskOn,flcDraftPush,FCA}),LK:{lakeMap,isLake,claimLand,lakeShore,fillHeld,LAKE_MAX,LAKE_A,freeCell,claimFrontier,blockPlan,autoPlan,terrCount,placePhrase,claimWhy,swapCheck,inspectPanel,writeClaims,landCredits:n=>landCredits(n)},PST:()=>({PST,PST_LOOKS,PST_SHAPES,PST_SIZES,pstBar,pstKm,pstView,pstBox,pstPlace,pstKeyOf,pstRender,pstShow,pstHide,pstLocked,pstOffered,pstSizeOffered,pstPrintK,pstSealId,pstPhys,pstCrc}),DIG:()=>({DIG_SETS,DIG_FIRST,DIG_POOL,DIG_SITES,DIG_LEN,DIG_EVENTS,DIG_SCH,digSet,digHeld,digDone,digRew,digCredits,digOrder,digActive,digRetired,digOpenedAt,digPlan,digSend,digOpen,digChoose,digMod,digEvent,digPity,digGround,digInvites,digJoin,digJointOn,digGiftsIn,digTake,digGiveSpare,digSellSpare,digHire,digRegionFinds,digFirsts,landEarned:n=>landEarned(n),REG,REGIONS,COL_BY_ID}),MW:()=>({mwOf,mwPoints,mwVisitors,mwTakings,mwExhibit,mwExhibitItems,mwRanking,mwWorn,mwSlots,mwOnShow,COL_BY_ID,COL_ITEMS,DIG_SETS,MW_FLOORS}),GM:()=>({gamesResults,edOf,b1Now,gevWhy,baseScores,entryOf,medalsIn,gamesRecords,gamesCeremony,unlocksOf,myId,formOf,GAME_EVENTS,clone,commit}),GM2:()=>({GAMES_V2,GTAC,TRAIN_PTS,TRAIN_MAX,BOY_GW,edOf,edStart,entryOf,gamesHost,gamesBids,edEvents,edDrawn,gmSwapOf,gmMascOf,gmChatLines,gmChatLine,gmTrCost,gevWhy,formOf,gamesResults,dspBuild,dspNoOf,c3MyBid,gcerSeen,stockNow,stockCap,canFeature,myId,clone,commit}),GB:()=>({IRON_DEP,IRON_DEP_YIELD,CELL_RES,MAP_T:MAP.T,mapAt:c=>{centerMain(c,NEAR_Z*1.6);},stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,FOOD_SPOIL,FOOD_EAT,FOOD_TIERS,FOOD_LAND,foodTier,TIMBER_BURN,foodGrowth,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({dspShown,dspRegShown,dspRegs,dspPic,dspLocator,dspHtDefs,pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),ASMX:()=>({ASMX,ASMX_TABS,asmBookAt,asmState,asmArcLoad,REG}),RGNX:()=>({RGN,RGN_PAGE,notifItems,ONL,onlRefresh}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals,seatsOf,alliancesOf,alMineAll,alClashes,alFest,alWornOf,alGuardsOf,alSeatsFor,allianceOf,AL_TY_UI,alStripHTML,alArmsSVG,alArmsAuto,alPzKeys,alMoCheck,alOpenPage,alWeekData,alLvOpens}),TYX:()=>({TY,TY_RULES,TY_K,tyOf,tyList,tyWarBlock,tyIncoming,affinity,alPactLive,alRelationsHTML,econOf,armyPower,armyRaw,attackMult,readyMs,drWords,drNote,drBroken,relationCard}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,achTierCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC,step:rcStepCheck,head:rcHead,sponsoring:rcSponsoring,qr:qrMatrix,card:rcCardDraw,invCap:rcInvCap,free:rcFreeLand,STEPS:RC_STEPS,UNL:RC_UNLOCKS}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend,card:n=>tutCard(n),phase:n=>tutPhase(n),picks:(n,ph)=>tutPicks(n,ph),group:(n,k)=>tutGroup(n,tutL(k)),hid:n=>tutHid(n)},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours,
+if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({RPATCH,SC:()=>scProbe(),WR3:()=>({CQ_ISSUES,cqFall,cqDue,cqTake,cityFounded,cqBuildings,openMapAt,WAR3_ISSUES,wr3WarsSection,wr3BattleCard,wr3MapData,wr3Econ,wr3Close,wr3VetDue,wr3WindToggle,wr3MunOn,wr3Reserve,wr3Factors,wr3On}),WR2:()=>({wrFallenCard,WR,WAR_GOALS,WAR2_ISSUES,wrSiege,wrSiegesOn,wrFallsAt,myFall,wrSiegeWhy,wrCapExposed,wrUnrest,wrWarsOf,wrPopFx,wrTribute,wrForts,wrFortify,wrSurrender,wrSiegeStart,wrRise,wrCarry,wrEdictDue,wrSafe,wrNotice,territory,frontier,economy,warControls,targetPanel,armyBlock,warNotice,warWith,pairWar,nationView,rgnOverview,hxCard}),HELPX:()=>({HLP,HELP_CH,HELP_SUM,HELP_FOR,GLOSS,helpFind,helpIndex,helpSecList,helpForYou,helpChapters,rgcCmd,rgcCardOf,rgcCardHTML,admhHs,admhHsCount}),MTP:()=>({MTP,MTP_PAD,TBMP_SCALE,redrawMaps,mapScale,viewOf}),SCR:()=>({scrOf,scrClean,scrDef,scrFamOf,scrEdParse,scrGlyphs,scrLay,scrChars,scrSVG,scrLine,scrCard,scrCharterSVG,scrFmt,scrFor,dmRich,dmPlain,scrDmWith,SCR_FAM,SCR_ABC,SCS}),BDX:()=>bdProbe(),LDX:()=>ldProbe(),FLY:()=>({flagSVG,fgSplit,fgFused}),RD:()=>rdProbe(),JV:()=>jvProbe(),M100P:()=>({M100,M100_N,M100_MC,M100_MCN,m100Bits,m100Got,m100In,m100Due,m100Count,m100Show,m100Open,ctgMcOk,nationColor,czShOk,czShieldPath,unlocksOf,czPatSVG,xsMax}),M200P:()=>({M200,M200_N,M200_MC,M200_MCN,M200_U,m200Bits,m200Got,m200In,m200Due,m200Count,m200Show,m200Open,ctgMcOk,nationColor,czShOk,czShieldPath,unlocksOf,czPatSVG,czStampArt,czFrameArt,czCharge,czFramed,flagSVG,xsMax,ACH_BY_ID,achEarnedIds}),WTN:()=>({WN,wbMap,wnKind,wnWaters,wnSync,wnAt,wnRename,wnReset,wnNameProblem,wnTaken,wnPanel,wnLabels,lakeMap,isLake,cellAt,WN_REACH,WTN_MAX,REG,RV,rvData,hexDist,territory,MAP,HEX_W,updateMapPanel,logLine}),RVN:()=>({RV,rvData,rvSync,rvKey,rvHeld,rvStretch,rvMost,rvEdgeHolder,rvAt,rvNameAt,rvLabelAt,rvParts,rvRename,rvReset,rvNameProblem,rvTidy,rvLabel,rvnPanel,logLine,RVN_MAX,RVN_LEN,updateMapPanel,hexDist,HEX_W,REG}),CP2:()=>({BLD_ICO,bldIco,bldLead,cxDefTotal,cxOrder,qjBuilding,BUILDINGS}),PRVC:()=>({cxPrvOf,cxPrvSeatTrial,cxOvwCols,prvSeat,prvMine,prvOfCell,prvSetAut,prvAppoint,PRV}),NPX:()=>({fbTrend,fbYesterday,heroLead,heroOpen,opOf,OPEN_TO,hnOf,hnFill,hnLine,nbSection,ppWho,ppWhoHTML,ppHash,ppCarried,economy,territory,bordersOf,fillDeal,findNation,clsHide,MAP,hexDist,STAT_KEYS,popNow,myId}),PT:()=>ptProbe(),LTH:()=>lthProbe(),DAM:()=>damProbe(),CHAT:()=>({RGC,RGW,RGF,tab:rgcTab(),count:rgcCount(),region:rgcUnread(),world:rgwUnread(),named:rgwNamedUnread(),fr:rgwUnread(RGF),frNamed:rgwNamedUnread(RGF),frOn:rgfOn(),hidden:document.hidden}),UXP2:()=>({edictDesk,edictStep,edictOpen,fill,ISSUE_BY_ID,ACH,keysOpen,dmOthers,dmPickList,stGroups,stTabLast,navRecent,vhData,VH_KEY,VH_AFTER,QJ_DO,qjItems:q=>navQjItems(q),NAV_REC_KEY,ST_KEY}),HID:()=>({HIDN,hidMask,iAmHidden,frontier,mapPanel,warControls}),WG:()=>({wgTakers,wgForField,wgForPick,warGiveHex,warGive,occupiedFrom,attack,offerPeace,declareWar,collectConquests,dedupeConq}),WAKE:()=>({dormFresh,dormQuiet,dormWelcome,moveTo,RSTAT,REGIONS,REG,regDisabled}),HMB:()=>({RCTRL,hmBake,hmAutoFlag,fxDraw,capHolder,FX_DEF,DEF_FLAG,hmRle,hmLiveNorm,hmMapNorm,hmSel,hmRegions,hmBlocked,hmEngaged:()=>hmEngaged,HM,REG,MAP}),LAND:()=>({landWait,capLift,capWrong,capNote,raceKnown,RACE,worldHeardAt:()=>worldHeardAt,landQ:()=>S.landQ,landQueued,fdSites:(n,T)=>fdSites(n,T)}),BG:{gain:bldGain,html:bldGainHtml},IB:()=>({agRoster,agPick,agStatus,heatOf,cvRoll,cvKey,cvBlock,cvOdds,buLv,buGap,buAll,BU,BU_KEYS,ibFile,ibWanted,ibChatter,HEAT_MAX,DD_TASKS,DD_LEG,findNation,allNations,cvProtected}),VL:()=>({VL_SECS,VL_DEF,CLS,CLS_OPS,CLS_READ,vlOrder,clsOf,clsRaw,clsMax,clsSeen,clsHide,clsRead,vlSave,findNation}),IFC:()=>({plan:ifcPlan,works:ifcWorks,line:ifcLine,tab:ifcTab}),XP:()=>({BUILDINGS,XU,XU_KEYS,XU_TOTAL,LOST_KINDS,LOST_ORDER,xuLv,xuWhy,xuHave,xuStart,xuCost,xuGear,xpSeen,expFree,xpTeamOpen,nationBuilt,expBackTeam,SITES,SITE_KINDS,expPlan,expOdds,expRuns,expRange,flRange,flAlive,flPlan,flDebug,flNow,discoveries,sendExpedition,hearReport,xpRoute,xpRivals,xpRivalText,xpFinds,flOdds,territory}),SVC:()=>({SVC,SVC_N,SVC_V,SVC_NEED,svcPlan,svcOpen,svcDig,svcShort,svcRoll,svcAmt,svcDayOf,svcRoom,svcNext}),FLC:()=>({FLC,FLC_RULES,FLC_CAT,flcId,flcTimes,flcPhase,flcPrev,flcView,flcLoad,flcChamp,flcTodo,flcClaims,flcLand,flcStreak,flcAllDone,flcSeen,flcDuty,flcDeskOn,flcDraftPush,FCA}),LK:{lakeMap,isLake,claimLand,lakeShore,fillHeld,LAKE_MAX,LAKE_A,freeCell,claimFrontier,blockPlan,autoPlan,terrCount,placePhrase,claimWhy,swapCheck,inspectPanel,writeClaims,landCredits:n=>landCredits(n)},PST:()=>({PST,PST_LOOKS,PST_SHAPES,PST_SIZES,pstBar,pstKm,pstView,pstBox,pstPlace,pstKeyOf,pstRender,pstShow,pstHide,pstLocked,pstOffered,pstSizeOffered,pstPrintK,pstSealId,pstPhys,pstCrc}),DIG:()=>({DIG_SETS,DIG_FIRST,DIG_POOL,DIG_SITES,DIG_LEN,DIG_EVENTS,DIG_SCH,digSet,digHeld,digDone,digRew,digCredits,digOrder,digActive,digRetired,digOpenedAt,digPlan,digSend,digOpen,digChoose,digMod,digEvent,digPity,digGround,digInvites,digJoin,digJointOn,digGiftsIn,digTake,digGiveSpare,digSellSpare,digHire,digRegionFinds,digFirsts,landEarned:n=>landEarned(n),REG,REGIONS,COL_BY_ID}),MW:()=>({mwOf,mwPoints,mwVisitors,mwTakings,mwExhibit,mwExhibitItems,mwRanking,mwWorn,mwSlots,mwOnShow,COL_BY_ID,COL_ITEMS,DIG_SETS,MW_FLOORS}),GM:()=>({gamesResults,edOf,b1Now,gevWhy,baseScores,entryOf,medalsIn,gamesRecords,gamesCeremony,unlocksOf,myId,formOf,GAME_EVENTS,clone,commit}),GM2:()=>({GAMES_V2,GTAC,TRAIN_PTS,TRAIN_MAX,BOY_GW,edOf,edStart,entryOf,gamesHost,gamesBids,edEvents,edDrawn,gmSwapOf,gmMascOf,gmChatLines,gmChatLine,gmTrCost,gevWhy,formOf,gamesResults,dspBuild,dspNoOf,c3MyBid,gcerSeen,stockNow,stockCap,canFeature,myId,clone,commit}),GB:()=>({IRON_DEP,IRON_DEP_YIELD,CELL_RES,MAP_T:MAP.T,mapAt:c=>{centerMain(c,NEAR_Z*1.6);},stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,FOOD_SPOIL,FOOD_EAT,FOOD_TIERS,FOOD_LAND,foodTier,TIMBER_BURN,foodGrowth,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({dspShown,dspRegShown,dspRegs,dspPic,dspLocator,dspHtDefs,pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),ASMX:()=>({ASMX,ASMX_TABS,asmBookAt,asmState,asmArcLoad,REG}),RGNX:()=>({RGN,RGN_PAGE,notifItems,ONL,onlRefresh}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals,seatsOf,alliancesOf,alMineAll,alClashes,alFest,alWornOf,alGuardsOf,alSeatsFor,allianceOf,AL_TY_UI,alStripHTML,alArmsSVG,alArmsAuto,alPzKeys,alMoCheck,alOpenPage,alWeekData,alLvOpens}),TYX:()=>({TY,TY_RULES,TY_K,tyOf,tyList,tyWarBlock,tyIncoming,affinity,alPactLive,alRelationsHTML,econOf,armyPower,armyRaw,attackMult,readyMs,drWords,drNote,drBroken,relationCard}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,npcIdeaNow,npcDealFor,npcAsk,npcReply,npcVerdict,npcTradeTalk,dealSlots,maxDeals,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,achTierCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC,step:rcStepCheck,head:rcHead,sponsoring:rcSponsoring,qr:qrMatrix,card:rcCardDraw,invCap:rcInvCap,free:rcFreeLand,STEPS:RC_STEPS,UNL:RC_UNLOCKS}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend,card:n=>tutCard(n),phase:n=>tutPhase(n),picks:(n,ph)=>tutPicks(n,ph),group:(n,k)=>tutGroup(n,tutL(k)),hid:n=>tutHid(n)},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours,
   SV:MC_SV,XS:MC_XS,QUEUE:MC_QUEUE,DISH:MC_DISH,FINDS:MC_FINDS,CHART_MS:MC_CHART_MS,repSecs:mcRepSecs,repKind:mcRepKind,fold:mcFold,lane:mcLane,dish:mcDish,
   finds:mcFinds,findAt:mcFindAt,bits:mcBitsList,charted:mcCharted,chartedNow:mcChartedNow,unqueue:mcUnqueue,dishBuild:mcDishBuild,bringHome:mcBringHome,
   secSite:mcSecSite,prefOk:mcPrefOk,prefTile:mcPrefTile,setPref:mcSetPref,startProblem:mcStartProblem,wfKey:mcWfKey,osKey:mcOsKey},WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR,bell:now=>notifItems(now||Date.now())},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},TIER:()=>({BTIER,bEff,bTier,bTierNext,bTierLine,tierQuote,tierProblem,cxTier,cxTrMap,tierSettle,tierReady,cxGoldNow,cxUpQuote,cxUpList,cxUps}),CX:{upgradable:cxUpgradable,mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState,UG:CX_UG,LV:CX_LV,ups:cxUps,upMap:cxUpMap,extras:cxBldExtras,quote:cxUpQuote},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo,unlockTarget,unlockShow,unlockFresh,unlockQueue,ULK,UNLOCKS,unlocksOf,toast:m=>toast(m)},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{coinBackSVG:cuCoinBackSVG,noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,coinSVG:cuCoinSVG,guide:cuGuideHTML,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,drawMap,sfKey,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ACH_RANKS_V1,ID_BD,achVal,achCtx,achEvalNew,achState,stockRates:n=>stockRates(n),achPoints,achRank,achRankOf,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,flagNorm:(f,n)=>flagNorm(f,n),flagSVG:(f,l)=>flagSVG(f,l),mapTip:id=>{const T=mapTerr('main'),i=T.list.findIndex(x=>x.id===id);if(i<0)return '';const cell=Array.prototype.indexOf.call(T.owner,i);return MAP_TIP.map(h=>{try{return h({kind:'main',cell,cv:null,x:0,y:0});}catch(e){return '';}}).filter(x=>typeof x==='string').join(' | ');},cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
