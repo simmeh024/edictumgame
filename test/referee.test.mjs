@@ -106,6 +106,25 @@ test('an Army Reserve holds two more points, and Rapid Mobilisation brings them 
   assert.ok(no.next > 0 && no.next <= 10 * 60000);
 });
 
+/* military buildings (functions/war-rules.js milReady): read from the attacker's own record */
+test('an Arsenal holds one more point, and a Drill Ground brings a point back 20% sooner', async () => {
+  const g = await guest(), now = Date.now(), b = (k, x = {}) => ({ k, s: now - 2 * 86400000, d: now - 86400000, ...x });
+  await nation(g.uid, { policies: {}, cities: [{ id: 'cap', c: 10, b: [b('barracks'), b('armoury')] }] });
+  for (let i = 0; i < 8; i++) assert.equal((await battle(g, { c: 300 + i })).ok, true, 'point ' + (i + 1));   // 6, the Arsenal's, the slack
+  assert.equal((await battle(g)).why, 'ready');
+  const v = x => Number.isInteger(x) ? { integerValue: String(x) } : { doubleValue: x };
+  const spent = () => doc('armies/' + g.uid, { method: 'PATCH', body: JSON.stringify({ fields: { r: v(0), at: v(Date.now() - 12.5 * 60000), n: v(1), w: v(0) } }) });
+  await spent();
+  assert.equal((await battle(g)).why, 'ready', '12.5 minutes on: not back without a Drill Ground');
+  await nation(g.uid, { policies: {}, cities: [{ id: 'cap', c: 10, b: [b('barracks'), b('armoury'), b('drillyard')] }] });
+  await spent();
+  assert.equal((await battle(g)).ok, true, 'a Drill Ground readies it in 12');
+  /* a Drill Ground still being built does nothing */
+  await nation(g.uid, { policies: {}, cities: [{ id: 'cap', c: 10, b: [b('drillyard', { d: Date.now() + 86400000 })] }] });
+  await spent();
+  assert.equal((await battle(g)).why, 'ready');
+});
+
 test('the dice are fair: about half of the battles at 50% are won', async () => {
   const g = await guest();
   await nation(g.uid);
