@@ -61,7 +61,7 @@ await A.screenshot({ path: OUT + '/observe-map.png', fullPage: true });
   await A.screenshot({ path: OUT + '/observe-alliance.png', fullPage: true }); }
 await nav(A, 'region'); await regionTab(A);
 check('the Region page lists the region’s nations, with no “You”', await until(async () => /Frostia/.test(await text(A, '.tbl')) && !/Adminland/.test(await text(A, '.tbl')) && !await A.$('.tbl .chip.you')));
-check('and its board, with a form that posts only as the Edictum team', /Message board/.test(await text(A, '#rgn-p-board')) && !!await A.$('#rmb-form #rmb-as-team:checked') && !await A.$('#rmb-as-nat'));
+check('and its board, with a form that posts only as the Edictum team', /Quick messages/.test(await text(A, '#rgn-p-board')) && !!await A.$('#rmb-form #rmb-as-team:checked') && !await A.$('#rmb-as-nat'));
 await A.click(`.tbl [data-act="visit"][data-id="${uidB}"]`);
 check('a nation’s page opens', await until(async () => await A.evaluate(() => G.S.view === 'visit') && /Frostia/.test(await text(A, '.main'))));
 const acts = await A.$$eval('.visit-acts [data-act]', els => els.map(e => e.dataset.act).join(','));
