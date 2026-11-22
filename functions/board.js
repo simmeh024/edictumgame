@@ -244,7 +244,8 @@ export async function cbReply(db, who, d, regions) {
     mark();
     tx.create(ref, { ...me, x, t: now, ...(q ? { q } : {}), ...(Object.keys(mn).length ? { mn } : {}), ...(me.of ? {} : armsIn(d, x)), ...(P ? picOut(tx, db, who, P, ref.id, reg, tid, now) : {}) });
     notifyMentions(tx, db, mn, me, reg, tid, ref.id, topic.get('ti'), x, now);
-    tx.update(topicRef, { rc: (topic.get('rc') || 0) + 1, la: now });
+    /* lr: who replied last, shown in the lists (game/edictum.html cbRow) */
+    tx.update(topicRef, { rc: (topic.get('rc') || 0) + 1, la: now, lr: String(me.nm || '').slice(0, 80) });
     tx.set(metaRef, counted(meta, now, { r: 1 }));
     profiled(tx, db, who, d, me, u, back, now);
     /* the followers: a topic from before following began starts with its author; the one replying joins unless they

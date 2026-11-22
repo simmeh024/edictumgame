@@ -1,9 +1,13 @@
 # Community Board
 
-Every region's board, under Other › Community Board. The player's own region comes first and open, then the
-Chancery (Club members and Founding Supporters), then every other region, collapsed. Registered Nations open topics
-and reply on any board; guests read, follow and react. Everything is written by the server (civic ops `cb*` in
-`functions/board.js`); the page only reads.
+Every region's board, under News and people › Community Board. First *Latest on every board* (the newest topics of
+all the boards with any), then the player's own region, open, then the Chancery (Club members and Founding
+Supporters), then the other boards that have topics, collapsed; the empty boards wait behind a picker. Registered
+Nations open topics and reply on any board; guests read, follow and react. Everything is written by the server (civic
+ops `cb*` in `functions/board.js`); the page only reads.
+
+The Region page's **Board** tab shows the same board: the region's topics first, then its **Quick messages** (the
+short-message board, `boards/{reg}`, up to 400 characters, unchanged), so each region has one place to talk.
 
 ## What players can do
 
@@ -30,13 +34,25 @@ and reply on any board; guests read, follow and react. Everything is written by 
 - **Author column**: flag, name, rank colour, alliance initials, a Club mark, online state, the Founder and staff
   badges, the region, and the total number of posts. Under each post, the author's **signature**, written in
   Customise › Community Board (up to 100 characters). Staff can remove a signature with *Remove signature*.
+- **Finding topics** (2026-11-22): buttons for a kind, and for *Unanswered*, *Started by me* and *Following*, apply
+  to Latest and every board, and are kept on the device (`edictum.cbFlt`). A row shows the post's first line and
+  who replied last (`lr`). *Latest on every board* reads each board with topics once every 90 seconds (15 topics
+  each); the boards open on the page stay live.
+- **Reading a long topic**: it opens on its latest 20 replies, or from the first unread one, with *Show N earlier
+  replies*. Every post has *Reply* (which names its author in the box, a mention). A *Reply* bar stays at the foot of
+  the screen while the replies scroll by and comes to rest above the reply box. At the bottom: back to the boards
+  (where the list was left) and the previous and next topic of the list the topic was opened from.
+- **Drafts**: a topic or reply being written is kept on the device for 14 days (`edictum.cbDraft.<uid>`, a reply per
+  topic). A topic left unfinished is offered on the front page: *Continue writing* or *Discard*.
+- **When the next post may go**: the form says so ("You can post again in 25 seconds."), from the device's own posts
+  and the wait the server last gave. *Post* stays pressable; the server's pacing decides.
 
 ## How it works
 
 | Data | What it holds | Who reads it |
 | --- | --- | --- |
 | `cb/{reg}` | topic and reply counts, last activity, posts today | everyone |
-| `cb/{reg}/posts/{tid}` | a topic; `rv {uid: kind}` reactions | everyone (the Chancery: members) |
+| `cb/{reg}/posts/{tid}` | a topic; `rv {uid: kind}` reactions; `lr` who replied last | everyone (the Chancery: members) |
 | `cb/{reg}/posts/{tid}/posts/{rid}` | a reply; `q` the post it quotes, `rv` | as above |
 | `cbSubs/{tid}` | `{reg, f: {uid: 1 following, 0 muted}}` | server only |
 | `cbWatch/{uid}/t/{tid}` | the player's copy: `{reg, ti, f, n, t, nt, nm, s}` | the player, who may only set `n` to 0 and `s` |
@@ -66,3 +82,6 @@ and reply on any board; guests read, follow and react. Everything is written by 
 - `test/board-e2e.mjs` (`npm run test:board`): the whole flow in the browser, from preview and formatting through
   notices, the New line, reactions, quotes and muting, to the signature and staff removing it. Screenshot:
   `test/out/board-following.png`.
+- `test/board-round3-e2e.mjs` (`npm run test:board-round3`): Latest, the picker, filters, rows, a 34-reply thread
+  (Show earlier, Reply, the bar, the way on), drafts across a reload, the pacing line, the Region page's Board tab, and
+  a phone. Screenshots: `test/out/board3-topic.png`, `board3-region.png`, `board3-phone.png`.
