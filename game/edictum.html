@@ -9098,7 +9098,6 @@ button[disabled] .gv-cost{opacity:.6}
 .al-slot.empty{opacity:.45;border-style:dashed;padding:3px 6px}
 .al-lay{display:inline-flex;flex-wrap:wrap;gap:4px 10px}.al-lay-t{display:inline-flex;align-items:center}
 .al-key{display:inline-flex;align-items:center}
-.rgc-alsw{display:flex;flex-wrap:wrap;gap:4px;margin:0 0 6px}.rgc-alsw .seg-b{display:inline-flex;align-items:center;padding:3px 8px;font-size:12px}
 /* the looks */
 .al-th{border-radius:6px}
 .al-th>.al-head,.alp.al-th .al-head{padding:14px 16px;border-radius:6px}
@@ -9721,7 +9720,7 @@ button.rgc-nm{text-align:left}
 .rgc-tab{position:relative;display:inline-flex;align-items:center;gap:6px;padding:9px 10px 8px;border:0;border-bottom:2px solid transparent;margin-bottom:-1px;background:none;color:var(--ink-2);font-size:13.5px;font-weight:500;cursor:pointer}
 .rgc-tab:hover{color:var(--ink)}
 .rgc-tab.on{color:var(--ink);border-bottom-color:var(--accent)}
-.rgc-tab-al{min-width:0}
+.rgc-tab-al{min-width:0}.rgc-tab .al-tym{width:15px;height:15px;margin:0 -2px 0 0;vertical-align:0}
 .al-tg-row{display:flex;align-items:center;gap:10px}
 .al-tg-in{width:7.5em;font-family:var(--f-mono);text-transform:uppercase;letter-spacing:.08em}
 .al-tg-in::placeholder{text-transform:none}
@@ -84104,14 +84103,15 @@ connect=(f=>async function(){const r=await f.apply(this,arguments);try{alConnect
 /* someone typing in a field of the page is not drawn over by a snapshot; the next one, or a click, draws it */
 function alTyping(){const a=document.activeElement;return !!(a&&(a.tagName==='TEXTAREA'||a.tagName==='INPUT'&&/^(text|search|number)$/.test(a.type))&&a.closest&&a.closest('.dp,.alp'));}
 /* the channel the player reads: its alliance of the type chosen in chat or on the Alliance tab (AL.cty), else the one
-   the Alliance tab shows */
-function alChatA(){if(!S.nation)return null;const s=seatsOf(myId()),t=AL.cty&&s[AL.cty]&&!s[AL.cty].npc?AL.cty:alTy(),A=s[t];return A&&!A.npc&&A.srv?A:null;}
+   the Alliance tab shows, else its first (the Alliance tab may show a type it holds none of) */
+function alChatA(){if(!S.nation)return null;const s=seatsOf(myId()),ok=t=>!!(t&&s[t]&&!s[t].npc&&s[t].srv),t=[AL.cty,alTy(),...AL_TY_KEYS].find(ok);return t?s[t]:null;}
 function alChatConnect(){
   const A=OBS?(S.view==='alliance'?politics().al.get(AL.view):null):alChatA(),aid=A&&A.srv?A.id:'',C=AL.chat;
-  if(C.aid===aid)return;
+  if(C.aid===aid){alChatBgSync();return;}
   if(C.unsub)try{C.unsub();}catch(e){}
   Object.assign(C,{aid,list:[],unsub:null,err:''});
   try{C.seen=Number(localStorage.getItem('edictum.alchat.'+aid))||0;}catch(e){C.seen=0;}
+  alChatBgSync();
   if(!aid||!S.db)return;
   try{C.unsub=S.db.collection('alliances/'+aid+'/chat').orderBy('t','desc').limit(60).onSnapshot(qs=>{
     C.list=qs.docs.map(d=>{const v=d.data()||{};return {id:d.id,a:String(v.a||''),nm:String(v.nm||'A nation').slice(0,80),x:String(v.x||'').slice(0,1000),t:Number(v.t)||0};}).sort((a,b)=>a.t-b.t);C.err='';
@@ -84121,6 +84121,26 @@ function alChatConnect(){
   },e=>{C.err='The channel could not be loaded.';});}catch(e){}
 }
 function alChatUnread(){const C=AL.chat,me=myId();return C.list.filter(m=>m.t>C.seen&&m.a!==me).length;}
+/* a member of several alliances reads one channel at a time (AL.chat); each of its other alliances' channels is heard
+   too, its newest lines only (AL.bg), so its tab in the chat (and its type on the Diplomacy page) can count what is
+   new there */
+function alChatBgSync(){
+  const M=AL.bg||(AL.bg=new Map());let want=[];
+  if(!OBS&&S.nation&&S.db)try{want=alMineAll().filter(B=>B.srv&&B.id!==AL.chat.aid).map(B=>B.id);}catch(e){}
+  for(const [aid,B] of M)if(!want.includes(aid)){try{if(B.unsub)B.unsub();}catch(e){}M.delete(aid);}
+  for(const aid of want){if(M.has(aid))continue;const B={list:[],unsub:null};M.set(aid,B);
+    try{B.unsub=S.db.collection('alliances/'+aid+'/chat').orderBy('t','desc').limit(30).onSnapshot(qs=>{
+      B.list=qs.docs.map(d=>{const v=d.data()||{};return {a:String(v.a||''),t:Number(v.t)||0};});NVX.ver++;
+      try{if(typeof rgcBadge==='function'){rgcBadge();if(RGC.open)rgcTabsPaint();}}catch(e){}
+    },()=>{});}catch(e){}}
+}
+/* what is new in one of the player's alliances' channels, the one being read or another */
+function alChatUnreadOf(A){
+  if(!A||A.npc||!A.srv)return 0;if(AL.chat.aid===A.id)return alChatUnread();
+  const B=AL.bg&&AL.bg.get(A.id);if(!B||!B.list.length)return 0;
+  let seen=0;try{seen=Number(localStorage.getItem('edictum.alchat.'+A.id))||0;}catch(e){}
+  const me=myId();return B.list.filter(m=>m.t>seen&&m.a!==me).length;
+}
 function alChatSeen(){const C=AL.chat,t=C.list.length?C.list[C.list.length-1].t:0;if(t>C.seen){C.seen=t;try{localStorage.setItem('edictum.alchat.'+C.aid,String(t));}catch(e){}NVX.ver++;}}
 
 /* ── what an alliance does for its members: its type, then its projects ── */
@@ -84567,7 +84587,7 @@ const AL_LOG={found:e=>`${e.b?esc(e.b):'A nation'} founded ${esc(e.x||'the allia
 function alHistoryHTML(A){const L=A.doc.log;return L.length?`<ol class="al-log">${L.map(e=>`<li><span class="hint">${esc(fmtDate(e.t))}</span> ${(AL_LOG[e.k]||(()=>'Something happened.'))(e)}</li>`).join('')}</ol>`:'<p class="muted">Nothing yet.</p>';}
 
 /* the four types, as tabs above the Alliance tab: each with its mark, and the player's alliance of that type */
-function alTyBadge(A){const me=myId(),V=A.doc.tv;return (alCan(A,me,'o')?A.pending.length:0)+alPactAsks(A)+(V&&Date.now()<V.end&&!V.y[me]&&!V.n[me]?1:0)+(alChatA()===A?alChatUnread():0);}
+function alTyBadge(A){const me=myId(),V=A.doc.tv;return (alCan(A,me,'o')?A.pending.length:0)+alPactAsks(A)+(V&&Date.now()<V.end&&!V.y[me]&&!V.n[me]?1:0)+alChatUnreadOf(A);}
 function alTyTabs(cur){
   const s=seatsOf(myId()),cl=alClashes(),me=myId(),P=politics();
   return `<div class="al-tyt" role="tablist" aria-label="Your alliances by type">${AL_TY_KEYS.map(t=>{const A=s[t]&&!s[t].npc?s[t]:null,c=cl.some(x=>x.ty===t),inv=[...P.al.values()].filter(B=>B.srv&&B.ty===t&&B.invited.includes(me)&&!B.members.includes(me)).length,n=(A&&A.srv?alTyBadge(A):inv)+(c?1:0);
@@ -84641,7 +84661,7 @@ function dpAlliance(now){
     S.alForm=null;AL.tyAid=A.id;
     const subs=alSubsFor(ty),sub=subs.some(s=>s[0]===AL.sub)?AL.sub:'members';
     if(sub==='channel'&&alChatA()!==A){AL.cty=ty;try{alChatConnect();}catch(e){}}
-    const un=alChatA()===A?alChatUnread():0;
+    const un=alChatUnreadOf(A);
     const pane={members:()=>alMembersHTML(A,true)+alRequestsHTML(A)+alLeaveHTML(A),channel:()=>alChannelHTML(A),treasury:()=>alTreasuryHTML(A),war:()=>alWarRoomHTML(A,now),market:()=>alMarketHTML(A,now),festival:()=>alFestHTML(A,now),studies:()=>alStudiesHTML(A,now),
       invite:()=>alInviteHTML(A),charter:()=>alCharterHTML(A),relations:()=>alRelationsHTML(A),history:()=>alHistoryHTML(A)}[sub]();
     const req=alCan(A,me,'o')?A.pending.length:0;
@@ -84774,7 +84794,7 @@ function alWaitCount(){
   const me=myId(),P=politics(),mine=alMineAll().filter(A=>A.srv),now=Date.now();let inv=0,req=0,pact=0,vote=0;
   for(const B of P.al.values())if(B.srv&&B.invited.includes(me)&&!B.members.includes(me))inv++;
   for(const A of mine){if(alCan(A,me,'o'))req+=A.pending.length;pact+=alPactAsks(A);const V=A.doc.tv;if(V&&now<V.end&&!V.y[me]&&!V.n[me])vote++;}
-  return {inv,req,chat:alChatA()?alChatUnread():0,calls:alCalls(now).filter(c=>!c.ans).length,tr:tyIncoming().length,jv:jvIncoming().length,pact,vote,clash:alClashes().length};
+  return {inv,req,chat:mine.reduce((k,A)=>k+alChatUnreadOf(A),0),calls:alCalls(now).filter(c=>!c.ans).length,tr:tyIncoming().length,jv:jvIncoming().length,pact,vote,clash:alClashes().length};
 }
 allianceNotice=function(){
   if(!S.nation)return '';const w=alWaitCount(),bits=[];
@@ -88344,7 +88364,7 @@ function rgcPaint(){
     const me=myId(),mod=rgcMod(),by=new Map(allNations().map(x=>[x.id,x])),memo=new Map(),A=tab==='ally'?rgcAllyOn():null;
     const C=rgcCh(),W=rgsOf(tab),src=tab==='ally'?rgcAllyLines():C.list,vis0=src.filter(m=>m.a===me||!dmBlocked(m.a)),hid=src.length-vis0.length,vis=tab==='ally'||typeof xmChatMix!=='function'?vis0:xmChatMix(vis0);
     const hidTxt=hid?` <span class="rgc-hid">${hid} ${hid===1?'line from a nation you blocked is':'lines from nations you blocked are'} hidden.</span>`:'';
-    h=tab==='ally'?`<li class="rgc-intro">${rgcAllySwitch(A)}Only the members of ${esc(A?A.name:'your alliance')} read this channel.${hidTxt}</li>`
+    h=tab==='ally'?`<li class="rgc-intro">Only the members of ${esc(A?A.name:'your alliance')} read this channel.${hidTxt}</li>`
       :W?`<li class="rgc-intro">${esc(W.tx().intro)}${hidTxt}</li>`
       :`<li class="rgc-intro">Everyone in ${esc(rgcIn())} can read this chat. Be kind. Type @ to mention a nation; a line’s menu answers it, reacts to it, reports it or blocks its nation.${hidTxt}</li>`;
     let prev=null,day='',fresh=false;
@@ -88383,7 +88403,7 @@ function rgcFoot(){
     if(RGC.foot!==key){RGC.foot=key;
       f.innerHTML=!A?'':reg?`<form class="rgc-f" id="rgc-aform" novalidate><label class="sr" for="rgc-ax">Write to ${esc(A.name)}</label><textarea class="input" id="rgc-ax" rows="1" maxlength="1000" placeholder="Write to ${esc(A.name)}…" enterkeyhint="send" autocomplete="off" spellcheck="true"></textarea><button class="btn" type="submit" id="rgc-asend">Send</button></form><p class="rgc-msg" id="rgc-amsg" role="status"></p>`
         :'<p class="rgc-ro">Writing in the alliance channel needs a Registered Nation. Link a sign-in to join in.</p>';
-      const ta=f.querySelector('#rgc-ax');if(ta){ta.value=RGC.adraft;rgcGrow(ta);}}
+      const ta=f.querySelector('#rgc-ax');if(ta){ta.value=RGC.adraft[A.id]||'';rgcGrow(ta);}}
     const m=f.querySelector('#rgc-amsg');if(m){m.textContent=RGC.amsg;m.classList.toggle('err',!!RGC.amsg);}
     const b=f.querySelector('#rgc-asend');if(b)b.disabled=RGC.abusy;
     return;
@@ -88553,35 +88573,45 @@ setInterval(()=>{try{
 const RGC_RX=[['hear','👍','Hear, hear'],['ha','😄','Ha!'],['bravo','👏','Bravo'],['shame','👎','Shame'],['fire','🔥','Fire'],['love','❤️','Love'],['wow','😮','Wow'],['hmm','🤔','Hmm'],['sad','😢','Sad'],['angry','😡','Angry'],['hundred','💯','Spot on'],['thanks','🙏','Thanks'],['eyes','👀','Watching'],['salute','🫡','Salute']];
 const RGC_HAPS=40,RGC_WIDE=typeof window.matchMedia==='function'?window.matchMedia('(min-width:1100px)'):null;
 function rgcLS(k,v){try{if(v===undefined)return localStorage.getItem(k);localStorage.setItem(k,String(v));}catch(e){}return null;}
-Object.assign(RGC,{tab:rgcLS('edictum.rgc.tab')||'region',lastTab:'',re:null,mn:null,docked:rgcLS('edictum.rgc.dock')==='1',adraft:'',abusy:false,amsg:'',hapMemo:{at:0,k:'',list:[]},want:false,goto:''});
+Object.assign(RGC,{tab:rgcLS('edictum.rgc.tab')||'region',lastTab:'',re:null,mn:null,docked:rgcLS('edictum.rgc.dock')==='1',adraft:{},abusy:false,amsg:'',hapMemo:{at:0,k:'',list:[]},want:false,goto:''});
 function rgcAllyOn(){if(OBS)return null;try{return alChatA();}catch(e){return null;}}
-/* a player in several alliances switches between their channels here: one button for each, with its type's mark */
-function rgcAllySwitch(A){let l=[];try{l=alMineAll().filter(B=>B.srv);}catch(e){}if(l.length<2)return '';
-  return `<span class="rgc-alsw" role="group" aria-label="Your alliances’ channels">${l.map(B=>`<button type="button" class="seg-b${B===A?' on':''}" data-act="rgc-alsw" data-v="${esc(B.ty)}" aria-pressed="${B===A}">${alTyMark(B.ty,'',true)}${esc(alCode(B.name,B.doc.tg))}</button>`).join('')}</span> `;}
-document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-act="rgc-alsw"]');if(!el)return;const t=el.dataset.v;if(!AL_TY_KEYS.includes(t))return;AL.cty=t;try{alChatConnect();}catch(err){}try{rgcPaint();}catch(err){render();}});
-function rgcTabs(){const t=[['region','Region']];for(const C of RGS)if(rgsOn(C))t.push([C.reg,C.tx().tab]);const A=rgcAllyOn();if(A)t.push(['ally',A.name||'Alliance',A.doc&&A.doc.tg]);t.push(['haps','Happenings']);return t;}
+/* a member of several alliances has a tab for each one's channel, in type order, each with its type's mark: the one
+   being read is 'ally', each other 'ally-<type>'; choosing one reads it instead (AL.cty, kept in this browser) */
+function rgcAllyAll(){if(OBS)return [];try{return alMineAll().filter(B=>B.srv);}catch(e){return [];}}
+{const t=rgcLS('edictum.rgc.aty');if(!AL.cty&&AL_TY_KEYS.includes(t))AL.cty=t;}
+function rgcTabs(){
+  const t=[['region','Region']];for(const C of RGS)if(rgsOn(C))t.push([C.reg,C.tx().tab]);
+  const A=rgcAllyOn();if(A){const l=rgcAllyAll();if(!l.some(B=>B.id===A.id))l.unshift(A);const many=l.length>1;
+    for(const B of l)t.push([B.id===A.id?'ally':'ally-'+B.ty,B.name||'Alliance',B.doc&&B.doc.tg,many?B.ty:'']);}
+  t.push(['haps','Happenings']);return t;
+}
+function rgcIsAl(k){return k==='ally'||/^ally-/.test(k);}
 /* the Alliance tab carries the alliance's own name; one longer than RGC_AL_MAX letters shows its short code instead,
    the one that stands beside its members' names (alCode: the leader's own, else the initials), with the full name in
-   its tooltip and for screen readers.
+   its tooltip and for screen readers. With two or more alliances (ty given), each tab leads with its type's mark, and
+   its type is said in the tooltip and to screen readers.
    The name is the player's own words, so the French interface leaves it alone (data-no-tr). */
 const RGC_AL_MAX=14;
-function rgcTabLabel(k,l,tg){
-  if(k!=='ally')return l;
-  const nm=String(l||'').trim()||'Alliance',tip=`${esc(nm)} · alliance chat`;
-  if([...nm].length<=RGC_AL_MAX)return `<span class="rgc-tl" data-no-tr="" title="${tip}">${esc(nm)}</span>`;
-  return `<span class="rgc-tl" data-no-tr="" title="${tip}" aria-hidden="true">${esc(alCode(nm,tg)||nm)}</span><span class="u-sr" data-no-tr="">${esc(nm)}</span>`;
+function rgcTabLabel(k,l,tg,ty){
+  if(!rgcIsAl(k))return l;
+  const U=ty&&AL_TY_UI[ty],nm=String(l||'').trim()||'Alliance',tip=`${esc(nm)} · ${U?esc(U.n.toLowerCase()):'alliance'} chat`;
+  const mk=U?alTyMark(ty,'',true):'',sr=U?`<span class="u-sr">, ${esc(U.n.toLowerCase())}</span>`:'';
+  if([...nm].length<=RGC_AL_MAX)return `${mk}<span class="rgc-tl" data-no-tr="" title="${tip}">${esc(nm)}</span>${sr}`;
+  return `${mk}<span class="rgc-tl" data-no-tr="" title="${tip}" aria-hidden="true">${esc(alCode(nm,tg)||nm)}</span><span class="u-sr" data-no-tr="">${esc(nm)}</span>${sr}`;
 }
 function rgcTab(){if(!rgcTabs().some(x=>x[0]===RGC.tab))RGC.tab='region';return RGC.tab;}
 function rgcAllyUnread(){try{return rgcAllyOn()?alChatUnread():0;}catch(e){return 0;}}
-/* the Chat button counts the Region and Alliance tabs, and the shared chats' lines that name the player */
-function rgcCount(){return rgcUnread()+rgcAllyUnread()+RGS.reduce((k,C)=>k+rgwNamedUnread(C),0);}
+/* the Chat button counts the Region tab, every alliance tab, and the shared chats' lines that name the player */
+function rgcAllyAllUnread(){try{return rgcAllyOn()?rgcAllyAll().reduce((k,B)=>k+alChatUnreadOf(B),0):0;}catch(e){return 0;}}
+function rgcCount(){return rgcUnread()+rgcAllyAllUnread()+RGS.reduce((k,C)=>k+rgwNamedUnread(C),0);}
 function rgcAllyLines(){const C=AL.chat;return (C&&C.list||[]).map(m=>({id:m.id,a:m.a,nm:m.nm,x:m.x,t:m.t,st:'',ally:true}));}
 /* the alliance channel's listener (alChatConnect) calls this with every snapshot */
 function rgcAllyHeard(){if(RGC.open&&rgcTab()==='ally'){if(!document.hidden)try{alChatSeen();}catch(e){}rgcPaint();}rgcBadge();}
 function rgcTabsPaint(){
   const el=RGC.dock&&RGC.dock.querySelector('#rgc-tabs');if(!el)return;const cur=rgcTab();
   const n={region:cur==='region'?0:rgcUnread(),ally:cur==='ally'?0:rgcAllyUnread(),haps:cur==='haps'?0:rgcHapNew()};for(const C of RGS)n[C.reg]=cur===C.reg?0:rgwUnread(C);
-  const h=rgcTabs().map(([k,l,tg])=>`<button type="button" role="tab" id="rgc-tab-${k}" class="rgc-tab${k===cur?' on':''}${k==='ally'?' rgc-tab-al':''}" data-rgc="tab" data-v="${k}" aria-selected="${k===cur}" aria-controls="rgc-body" tabindex="${k===cur?0:-1}">${rgcTabLabel(k,l,tg)}${n[k]?`<span class="rgc-tn" aria-label="${n[k]} new">${n[k]>99?'99+':n[k]}</span>`:''}</button>`).join('');
+  for(const B of rgcAllyAll())if(B.id!==AL.chat.aid)n['ally-'+B.ty]=alChatUnreadOf(B);
+  const h=rgcTabs().map(([k,l,tg,ty])=>`<button type="button" role="tab" id="rgc-tab-${k}" class="rgc-tab${k===cur?' on':''}${rgcIsAl(k)?' rgc-tab-al':''}" data-rgc="tab" data-v="${k}" aria-selected="${k===cur}" aria-controls="rgc-body" tabindex="${k===cur?0:-1}">${rgcTabLabel(k,l,tg,ty)}${n[k]?`<span class="rgc-tn" aria-label="${n[k]} new">${n[k]>99?'99+':n[k]}</span>`:''}</button>`).join('');
   /* compared with what was last written, not innerHTML: a name with an apostrophe (escaped here, not when the browser
      reads it back) or a French label would otherwise rewrite the row on every tick */
   if(el._h!==h){const f=document.activeElement,had=f&&el.contains(f)?f.dataset.v:'';el.innerHTML=h;el._h=h;if(had){const b=document.getElementById('rgc-tab-'+had);if(b)b.focus({preventScroll:true});}}
@@ -88604,6 +88634,8 @@ function rgcTabShow(k){
 }
 function rgcSetTab(v,focus){
   if(!rgcTabs().some(x=>x[0]===v))return;
+  /* another alliance's tab: its channel is read instead, and its tab becomes the Alliance tab */
+  if(/^ally-/.test(v)){const ty=v.slice(5);if(!AL_TY_KEYS.includes(ty))return;AL.cty=ty;rgcLS('edictum.rgc.aty',ty);RGC.amsg='';try{alChatConnect();}catch(e){}v='ally';}
   RGC.tab=v;rgcLS('edictum.rgc.tab',v);Object.assign(RGC,{menu:'',ask:null,stick:v!=='haps',goto:''});
   if(v==='region'&&!document.hidden)rgcSeen();
   if(rgsOf(v))rgwLook(rgsOf(v));
@@ -88710,7 +88742,7 @@ async function rgcAllySend(){
   const ta=document.getElementById('rgc-ax'),A=rgcAllyOn();if(!ta||!A||RGC.abusy)return;
   const x=ta.value.trim();if(!x)return;
   RGC.abusy=true;RGC.amsg='';rgcFoot();
-  try{await alReq({op:'alPost',aid:A.id,x});achPend('rch');ta.value='';RGC.adraft='';rgcGrow(ta);RGC.stick=true;}
+  try{await alReq({op:'alPost',aid:A.id,x});achPend('rch');ta.value='';delete RGC.adraft[A.id];rgcGrow(ta);RGC.stick=true;}
   catch(e){RGC.amsg=alErrText(e);}
   finally{RGC.abusy=false;rgcFoot();const t=document.getElementById('rgc-ax');if(t&&RGC.open)t.focus({preventScroll:true});}
 }
@@ -88776,7 +88808,7 @@ NOTIF_SOURCES.push((n,now)=>(CB.mnAll||[]).filter(m=>m.k==='chat'&&typeof m.rc==
   txt:`${String(m.nm||'A nation').slice(0,80)} ${m.rp?'answered you':'mentioned you'} in ${m.reg==='fr'?'the French chat':m.reg==='world'?'the world chat':'the region chat'}: ${String(m.x||'').slice(0,120)}`})));
 document.addEventListener('mousedown',e=>{const li=e.target.closest&&e.target.closest('#rgc-mn li');if(!li)return;e.preventDefault();const ta=document.getElementById('rgc-x');if(ta)rgcMnPick(ta,Number(li.dataset.k));});
 document.addEventListener('focusout',e=>{if(e.target&&e.target.id==='rgc-x')setTimeout(()=>{const ta=document.getElementById('rgc-x');if(ta&&document.activeElement!==ta)rgcMnShow(ta);},0);});
-document.addEventListener('input',e=>{const el=e.target;if(!el)return;if(el.id==='rgc-x')rgcMnShow(el);else if(el.id==='rgc-ax'){RGC.adraft=el.value;rgcGrow(el);if(RGC.amsg){RGC.amsg='';rgcFoot();}}});
+document.addEventListener('input',e=>{const el=e.target;if(!el)return;if(el.id==='rgc-x')rgcMnShow(el);else if(el.id==='rgc-ax'){const A=rgcAllyOn();if(A)RGC.adraft[A.id]=el.value;rgcGrow(el);if(RGC.amsg){RGC.amsg='';rgcFoot();}}});
 document.addEventListener('submit',e=>{if(e.target&&e.target.id==='rgc-aform'){e.preventDefault();rgcAllySend();}});
 /* before the drawer's own keys: the @ list, leaving an answer, the alliance's Enter, the tabs' arrows */
 document.addEventListener('keydown',e=>{
