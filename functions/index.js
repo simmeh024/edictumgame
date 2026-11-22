@@ -51,7 +51,7 @@ import { pace, ipRule } from './pace.js';
 import { trId, trLive, trVoid, trReadyMs, TR_FX, TR_RECORD } from './treaty-rules.js';
 import { alRelLive } from './alliance-rules.js';
 import { warWord } from './letters.js';
-import { warOf, shielded, num, SIEGE_MS, SIEGE_MAX } from './war-rules.js';
+import { warOf, shielded, num, SIEGE_MS, SIEGE_MAX, milReady, milMs } from './war-rules.js';
 
 initializeApp();
 const db = getFirestore();
@@ -97,9 +97,11 @@ const isId = v => typeof v === 'string' && /^[\w-]{1,128}$/.test(v);
 
 /* the game's readiness (readiness() and spendReady() in game/edictum.html): a point returns every 15
    minutes (10 with Rapid Mobilisation), 5% sooner for each pact of joint military training in force (drills; the game
-   counts only those at work, so never more than here), up to 6 (8 with an Army Reserve) */
-function readiness(state, pol, now, drills) {
-  const max = READY_BASE + (pol.reservists ? 2 : 0) + SLACK, ms = trReadyMs((pol.rapidMobilisation ? 10 : 15) * 60000, drills || 0);
+   counts only those at work, so never more than here), up to 6 (8 with an Army Reserve); a Drill Ground, an Arsenal
+   and veterans in the reserve as the record has them (milReady, functions/war-rules.js) */
+function readiness(state, pol, now, drills, mil) {
+  const m = mil || { cut: 0, extra: 0 };
+  const max = READY_BASE + (pol.reservists ? 2 : 0) + m.extra + SLACK, ms = milMs(trReadyMs((pol.rapidMobilisation ? 10 : 15) * 60000, drills || 0), m.cut);
   if (!Number.isInteger(state.r) || typeof state.at !== 'number') return { r: max, max, ms, g: 0, at: now };
   const g = Math.max(0, Math.floor((now - state.at) / ms));
   return { r: Math.min(max, state.r + g), max, ms, g, at: state.at };
@@ -157,7 +159,7 @@ async function battle(uid, data) {
       if (!sg) return { ok: false, why: 'siege' };
     }
     const drills = mineTr.docs.filter(s => { const T = s.data(); return T.k === 'drill' && trLive(T, now) && !trVoid(T, { [uid]: mine }); }).length;
-    const rd = readiness(st.exists ? st.data() : {}, mine.policies || {}, now, drills);
+    const rd = readiness(st.exists ? st.data() : {}, mine.policies || {}, now, drills, milReady(mine, now));
     if (rd.r < 1) return { ok: false, why: 'ready', next: rd.at + (rd.g + 1) * rd.ms - now };
     /* the odds: the attacker's own, within the game's bounds, and no better than its army, with its allies'
        help, could make them against the defender's, both as their last saves declared */
