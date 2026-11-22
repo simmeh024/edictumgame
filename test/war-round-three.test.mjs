@@ -91,7 +91,7 @@ test('veterans and memorials: two edicts after a war with battles fought, the se
   for (const is of L.slice(0, 2)) { assert.equal(src.split(`{id:'${is.id}',c:`).length, 2);assert.equal(src.split(`t:'${is.t}'`).length, 2);assert.ok(is.o.every(o => o.t && o.e && o.fx));assert.match(is.q, /\{WARFOE\}/); }
   assert.deepEqual(J(L[0].o.map(o => o.e.wvet || '')), ['pen', 'res', '']);assert.deepEqual(J(L[1].o.map(o => o.e.wmem || 0)), [1, 1, 0]);
   const code = src.slice(0, src.lastIndexOf('</script>')), at = code.indexOf('for(const is of WAR3_ISSUES){');
-  assert.ok(at > code.indexOf('for(const is of WAR2_ISSUES){'));assert.equal(code.indexOf('ISSUES.push(', at + 40), -1, 'the last edicts added');
+  assert.ok(at > code.indexOf('for(const is of WAR2_ISSUES){'));{const rsAt=code.indexOf('/* ───────── the National Research Programme (22 November 2026)'),next=code.indexOf('ISSUES.push(', at + 40);assert.ok(rsAt>at&&next>rsAt,'the last edicts added before the research edicts');assert.equal(code.indexOf('ISSUES.push(', code.indexOf('/* ───────── military buildings (22 November 2026)')), -1, 'and nothing after those');}
   assert.match(readFileSync(new URL('../scripts/split-content.mjs', import.meta.url), 'utf8'), /'WAR2_ISSUES','WAR3_ISSUES'/);
   const ctx = vm.createContext({ OBS: false, S: { mode: 'world' }, Date });
   vm.runInContext(vars(cut('const WAR3_ISSUES=[', '\nfor(const is of WAR3_ISSUES)')) + '\n' + fn('wr3VetDue'), ctx);

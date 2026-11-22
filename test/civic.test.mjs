@@ -1613,3 +1613,76 @@ test('A commendation or a condemnation names one nation of the region, checked a
   await assert.rejects(civic(b,{...named,target:a.uid}),e=>e.code==='invalid_target'&&/laurel/.test(e.message));
   const seen=await civic(b,{op:'state'});assert.ok(seen.locks.some(L=>L.k==='test~laurel'&&L.tg===a.uid),'every player of the region receives the mark with the counts');
 });
+
+/* ── the National Research Programme (functions/research-rules.js, docs/research.md) ── */
+const rsB64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+const rsBits = (...ix) => { const b = new Uint8Array(45); for (const i of ix) b[i >> 3] |= 1 << (i & 7); let s = ''; for (let q = 0; q < 15; q++) { const v = (b[q * 3] << 16) | (b[q * 3 + 1] << 8) | b[q * 3 + 2]; s += rsB64[(v >> 18) & 63] + rsB64[(v >> 12) & 63] + rsB64[(v >> 6) & 63] + rsB64[v & 63]; } return s; };
+/* a player's saved record with an open laboratory, founded long ago */
+async function rsPlayer(linked, nrp, extra = {}) {
+  const p = await player(linked, true), s = await db.doc('nations/' + p.uid).get(), n = JSON.parse(s.get('j')), now = Date.now();
+  Object.assign(n, { founded: now - 30 * DAY, s: { sci: 50, civil: 50, econ: 50, pol: 50 }, nrp: { v: 1, a: now - 9 * DAY, i: now - 8 * DAY, ra: now - 60000, re: 100, rs: 0, l: 0, st: 5, k: rsBits(), q: [], ap: [], gr: 'f', ...nrp }, ...extra });
+  await s.ref.update({ j: JSON.stringify(n) });
+  return { p, n };
+}
+const rsSave = (p, n) => civic(p, { op: 'authorizeSave', record: { reg: 'meridian', name: n.name, pop: 10, army: 1, cl: 0, updatedAt: Date.now(), j: JSON.stringify(n) }, rev: 1 });
+
+test('Research is held to the server’s clock on every save: credits no faster than the record allows, research paid for and never lost',async()=>{
+  const { p, n } = await rsPlayer(false, {});
+  /* honest: three of tier I, paid */
+  let r = await rsSave(p, { ...n, nrp: { ...n.nrp, k: rsBits(1, 2, 3), rs: 9, re: 100, ra: Date.now() } });
+  assert.equal(r.rs.ok, true);assert.equal(JSON.parse(r.j).nrp.k, rsBits(1, 2, 3));
+  /* a device a year ahead claiming a year of credits: held to the server's minute */
+  r = await rsSave(p, { ...n, nrp: { ...n.nrp, re: 100 + 365 * 20, ra: Date.now() + 365 * DAY } });
+  assert.equal(r.rs.ok, false);const kept = JSON.parse(r.j).nrp;assert.ok(kept.re < 101 && kept.ra <= Date.now() + 130000, JSON.stringify(kept));
+  /* unpaid research: taken back */
+  r = await rsSave(p, { ...n, nrp: { ...n.nrp, k: rsBits(1, 2, 3, 4) } });
+  assert.equal(r.rs.ok, false);assert.equal(JSON.parse(r.j).nrp.k, rsBits());
+  /* a save without the research it had keeps it */
+  await db.doc('nations/' + p.uid).update({ j: JSON.stringify({ ...n, nrp: { ...n.nrp, k: rsBits(1), rs: 2 } }) });
+  const none = { ...n };delete none.nrp;
+  r = await rsSave(p, none);
+  assert.equal(JSON.parse(r.j).nrp.k, rsBits(1));
+});
+
+test('An alliance research project: begun from the treasury by an officer, members give pledged credits once each, up to a cap, and it completes',async()=>{
+  const a = await rsPlayer(true, { re: 1000 }), b = await rsPlayer(true, { re: 1000 }), aid = (await civic(a.p, { op: 'alFound', name: 'Accord ' + crypto.randomUUID().slice(0, 6), ty: 'research', acc: 'open' })).aid;
+  assert.equal((await civic(b.p, { op: 'alRequest', aid })).joined, true);
+  await assert.rejects(civic(b.p, { op: 'alRsStart', aid, k: 'p' }));
+  await rejects(civic(a.p, { op: 'alRsStart', aid, k: 'p' }), 'al_treasury');
+  await db.doc('alliances/' + aid).update({ tr: { goods: 500, oil: 500, iron: 500, food: 0, timber: 0 } });
+  await rejects(civic(a.p, { op: 'alRsStart', aid, k: 'g' }), 'al_rs_level');
+  assert.equal((await civic(a.p, { op: 'alRsStart', aid, k: 'p' })).need, 360);
+  await rejects(civic(a.p, { op: 'alRsStart', aid, k: 'p' }), 'al_rs_on');
+  let A = await allianceOf(aid);assert.equal(A.tr.goods, 350);assert.equal(A.rp.need, 360);
+  /* b pledges 200 in its saved record: credited once */
+  const t = Date.now();
+  await db.doc('nations/' + b.p.uid).update({ j: JSON.stringify({ ...b.n, nrp: { ...b.n.nrp, rs: 200, ap: [{ t, a: aid, q: 200 }] } }) });
+  assert.equal((await civic(b.p, { op: 'alRsGive', aid })).credited, 200);
+  assert.equal((await civic(b.p, { op: 'alRsGive', aid })).credited, 0, 'the same pledge counts once');
+  /* a's pledge of 400: the project takes only the 160 it still needs (and never more than 300 from one member) */
+  await db.doc('nations/' + a.p.uid).update({ j: JSON.stringify({ ...a.n, nrp: { ...a.n.nrp, rs: 400, ap: [{ t: t + 1, a: aid, q: 400 }] } }) });
+  const done = await civic(a.p, { op: 'alRsGive', aid });
+  assert.equal(done.credited, 160);assert.equal(done.done, true);
+  A = await allianceOf(aid);assert.ok(A.rp.done > 0 && A.rp.end > Date.now() + 29 * DAY);assert.equal(A.rp.c[b.p.uid], 200);assert.equal(A.rp.c[a.p.uid], 160);
+});
+
+test('Technology licences: to a research partner only, once per technology, a week’s limit, accepted or declined by the licensee',async()=>{
+  const a = await rsPlayer(true, { k: rsBits(1, 2, 3, 4, 0) }), b = await rsPlayer(true, { k: rsBits(1) }), c = await rsPlayer(true, {});
+  const tid = 'research_' + [a.p.uid, b.p.uid].sort().join('_');
+  await rejects(civic(a.p, { op: 'trLic', to: b.p.uid, i: 2 }), 'lic_pact');
+  await civic(a.p, { op: 'trOffer', id: b.p.uid, k: 'research' });await civic(b.p, { op: 'trAnswer', tid, yes: true });
+  await rejects(civic(a.p, { op: 'trLic', to: b.p.uid, i: 1 }), 'lic_known');
+  await rejects(civic(a.p, { op: 'trLic', to: b.p.uid, i: 7 }), 'lic_unknown');
+  await rejects(civic(a.p, { op: 'trLic', to: c.p.uid, i: 2 }), 'lic_pact');
+  const { lid } = await civic(a.p, { op: 'trLic', to: b.p.uid, i: 2 });
+  assert.equal(lid, b.p.uid + '_2');
+  await rejects(civic(a.p, { op: 'trLic', to: b.p.uid, i: 2 }), 'lic_once');
+  await rejects(civic(a.p, { op: 'trLicAns', lid, yes: true }), 'lic_missing');
+  const ok = await civic(b.p, { op: 'trLicAns', lid, yes: true });
+  assert.equal(ok.st, 'active');assert.ok(ok.fee.goods > 0);
+  const L = (await db.doc('rsLic/' + lid).get()).data();assert.equal(L.st, 'active');assert.ok(L.u > Date.now() + 29 * DAY);assert.deepEqual(L.p, [a.p.uid, b.p.uid]);
+  await rejects(civic(a.p, { op: 'trLic', to: b.p.uid, i: 2 }), 'lic_once');
+  await civic(a.p, { op: 'trLic', to: b.p.uid, i: 3 });await civic(a.p, { op: 'trLic', to: b.p.uid, i: 4 });
+  await rejects(civic(a.p, { op: 'trLic', to: b.p.uid, i: 0 }), 'lic_week');
+  assert.equal((await civic(b.p, { op: 'trLicAns', lid: b.p.uid + '_3', yes: false })).st, 'declined');
+});
