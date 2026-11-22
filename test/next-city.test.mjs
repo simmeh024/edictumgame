@@ -38,7 +38,7 @@ test('the short form for the city list button', () => {
 
 test('no text still formats nextCityAt on its own', () => {
   assert.doesNotMatch(html, /fmtPopShort\(nextCityAt\(/);
-  assert.equal(html.split('nextCityWhen(S.nation,myArea(T,mi))?` The next ${CITY_MULT} unlock at').length - 1, 2, 'cityProblem and the empty card');
+  assert.equal(html.split('nextCityWhen(S.nation,myArea(T,mi))?` The next one unlocks at').length - 1, 2, 'cityProblem and the empty card');
   assert.match(html, /nextCityWhen\(n,myArea\(T,mi\),true\)\?`Next at \$\{nextCityWhen\(n,myArea\(T,mi\),true\)\}`:'No room for another'/);
   assert.match(html, /nextCityWhen\(S\.nation,myArea\(T,mi\)\)\?'No room for another city yet':'No room for another city'/);
 });
@@ -61,9 +61,7 @@ test('the first gold upgrade opens one more city, for good', () => {
   assert.equal(g.open({ cities: [], tly: { 'log:bgold': 1 } }), true, 'the tally of gold upgrades finished');
   assert.equal(g.open({ npc: 1, cities: [city({ k: 'farm', ug: 5 })] }), false, 'computer nations have none');
   assert.equal(g.open(null), false);
-  /* each brings CITY_MULT cities since 22 Nov 2026 (the capital itself still one) */
-  assert.match(html, /function maxCities\(T,i\)\{const b=mileOf\(S\.nation\)\.cities\+areaCities\(myArea\(T,i\)\)\+\(cityBonusOpen\(S\.nation\)\?1:0\)\+\(cityGoldOpen\(S\.nation\)\?1:0\);return Math\.min\(MAX_CITIES,1\+CITY_MULT\*Math\.max\(0,b-1\)\);\}/);
-  assert.match(html, /MAX_CITIES=99,CITY_MULT=3,/);
+  assert.match(html, /function maxCities\(T,i\)\{return Math\.min\(MAX_CITIES,mileOf\(S\.nation\)\.cities\+areaCities\(myArea\(T,i\)\)\+\(cityBonusOpen\(S\.nation\)\?1:0\)\+\(cityGoldOpen\(S\.nation\)\?1:0\)\);\}/);
   assert.equal(html.split('${cityGoldHint(S.nation)}').length - 1, 2, 'both messages at the limit name it while it is still ahead');
   assert.match(html, /hadGold=cityGoldKept\(old\);let newGold=false;/, 'the save that finishes the first one judges it on the record before');
   assert.match(html, /if\(newGold&&!hadGold\)out\.push\(/, 'and says so');
