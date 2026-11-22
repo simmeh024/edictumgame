@@ -89,6 +89,12 @@ try {
   check('the hex is still theirs, raided, not taken', st1.owner === plan.D && st1.raid === 1 && st1.conq === 0, st1);
   check('the raiders brought materials home', st1.stock.iron > st0.iron && st1.stock.goods >= st0.goods, { before: st0, after: st1.stock });
   check('the log and the message say so', st1.log === 'raid' && /Your raiders struck/.test(st1.msg), st1.msg);
+  /* war, round three: the battle report, and the raided hex on the war layer */
+  check('a battle report opens in the panel, with the dice and what counted', await until(() => ev(() => { const el = document.querySelector('#map-panel .wr3-br'); return !!el && /The dice came up \d+/.test(el.textContent) && el.querySelectorAll('.wr3-br-f li').length >= 2; })), await ev(() => document.querySelector('#map-panel .wr3-br')?.textContent || ''));
+  await page.screenshot({ path: path.join(OUT, 'war-aims-report.png') });
+  check('the raided hex is on the war layer', await ev(c => window.__game.WR3().wr3MapData(window.__game.WR2().territory()).raided.includes(c), plan.c));
+  await page.click('#map-panel [data-act="wr3-br-close"]');
+  check('the report closes', await until(() => ev(() => !document.querySelector('#map-panel .wr3-br'))));
   check('every attack wears the nation down a little', st1.ww >= st0.ww + 0.25, st1.ww);
 
   /* 3. a border war stops at 12 hexes */
