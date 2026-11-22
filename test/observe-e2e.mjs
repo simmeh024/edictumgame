@@ -1,6 +1,7 @@
 // Observer mode: an admin opens another region read-only (game/edictum.html, OBS), walks its map, Region page,
 // Census and nations, and comes back with their own nation untouched, in this browser and on the server.
-// A player who is not an admin is sent straight back to their own nation.
+// A player who is not an admin visits another region from the World page (22 Nov 2026): the same read-only pages,
+// without the staff's view (no region chat, alliance channel or player inspection), and comes back the same way.
 import { OUT, FS_HOST, PROJECT, player, open, ready, found, localNation, nationDoc, until, check, finish, setClaims, text, restGet, clearEmulators, nav, sleep, regionTab } from './lib.mjs';
 await clearEmulators();
 const A = await player('admin'), B = await player('frost player');
@@ -124,11 +125,63 @@ check('and back again', await until(async () => await text(A, '.side-nm') === 'A
 await A.evaluate(() => sessionStorage.setItem('edictum.observe', 'meridian')); await A.reload(); await ready(A);
 check('observing the admin’s own region is simply playing it', await until(async () => await text(A, '.side-nm') === 'Adminland') && !await A.$('.obs-bar') && await A.evaluate(() => !sessionStorage.getItem('edictum.observe')));
 
-// A player who is not an admin
-const beforeB = await localNation(B), serverB = await stamp(uidB);
-await B.evaluate(() => sessionStorage.setItem('edictum.observe', 'meridian'));
-await B.reload();
-check('a player who is not an admin is sent back to their own nation', await until(async () => await text(B, '.side-nm') === 'Frostia' && !await B.$('.obs-bar') && await B.evaluate(() => !sessionStorage.getItem('edictum.observe') && G.S.mode === 'world'), 20000));
+// A player who is not an admin visits another region from the World page
+{ const now = Date.now(), put = (path, fields) => fetch(`http://${FS_HOST}/v1/projects/${PROJECT}/databases/(default)/documents/${path}`, { method: 'PATCH', headers: { 'content-type': 'application/json', authorization: 'Bearer owner' }, body: JSON.stringify({ fields }) });
+  await put('alliances/al-mer', { reg: { stringValue: 'meridian' }, name: { stringValue: 'Herring League' }, mem: { mapValue: { fields: { [uidA]: { mapValue: { fields: { t: { integerValue: String(now) }, r: { stringValue: 'o' } } } } } } } });
+  await put('alliances/al-mer/chat/m1', { a: { stringValue: uidA }, nm: { stringValue: 'Adminland' }, x: { stringValue: 'Our secret herring plans' }, t: { integerValue: String(now) } }); }
+await nav(B, 'world');
+await B.click('[data-act="wr-sel"][data-id="meridian"]');
+check('the World page offers a visit beside the move', await until(async () => !!await B.$('.wr-detail [data-act="obs-go"][data-id="meridian"]')) && !!await B.$('.wr-detail [data-act="wr-ask"]') && /Frostia stays at home/.test(await text(B, '.wr-detail')), await text(B, '.wr-detail'));
+check('labelled as a visit', /^Visit /.test(await text(B, '.wr-detail [data-act="obs-go"]')), await text(B, '.wr-detail [data-act="obs-go"]'));
+check('but not to the player’s own region', await (async () => { await B.click('[data-act="wr-sel"][data-id="frostmarch"]'); await sleep(200); return !await B.$('.wr-detail [data-act="obs-go"]'); })());
+await B.click('[data-act="wr-sel"][data-id="meridian"]'); await B.waitForSelector('.wr-detail [data-act="obs-go"][data-id="meridian"]');
+await B.screenshot({ path: OUT + '/visit-world.png', fullPage: true });
+await Promise.all([B.waitForEvent('load'), B.click('.wr-detail [data-act="obs-go"][data-id="meridian"]')]); await ready(B);
+const barB = () => text(B, '.obs-bar');
+check('a bar says which region the player visits, read-only, with the way back', await until(async () => /^Visiting .*Meridian.* — read-only\. Your nation stays at home/.test(await barB()) && /Return to my nation/.test(await barB()), 15000), await barB());
+/* as for the admin: the page that was left sends what it kept as it closes (obsEnter); from here on nothing may change
+   the player's nation, in this browser or on the server */
+await sleep(1500);
+const rawB = await raw(B), beforeB = JSON.parse(rawB || 'null'), serverB = await stamp(uidB);
+check('this browser still keeps the player’s own nation', beforeB?.name === 'Frostia' && beforeB?.reg === 'frostmarch', JSON.stringify([beforeB?.name, beforeB?.reg]));
+const standInB = () => B.evaluate(() => JSON.stringify([G.S.nation.name, G.S.nation.loc ?? null, G.S.mode, G.S.obsOn, G.S.view]));
+check('the page is the Meridian’s map, with a stand-in for the player’s nation', await until(async () => await standInB() === JSON.stringify(['Observer', null, 'readonly', true, 'map']), 15000), await standInB());
+check('the map shows the region’s nations', await until(async () => await B.evaluate(() => G.territory().list.some(x => x.n.name === 'Adminland')), 15000));
+check('its panel selects nations', /Select a nation on the map/.test(await text(B, '#map-panel')) && /^Visiting/.test(await text(B, '#map-panel')));
+const navsB = await B.$$eval('.nav [data-v]', els => [...new Set(els.map(e => e.dataset.v))].sort().join(','));
+check('the menu holds the same pages an admin observes', navsB === 'assembly,census,community,dispatch,games,map,region,wonder,world', navsB);
+check('no region chat: it is for the region’s own nations', !await B.$('.rgc-btn') && await B.evaluate(() => !document.querySelector('#rgc-dock:not([hidden])')));
+check('and no admin pill', !await B.$('.side-who .adm-pill'));
+await B.screenshot({ path: OUT + '/visit-map.png', fullPage: true });
+await nav(B, 'assembly');
+check('the Assembly opens with the region’s seats, read-only, for a visitor too', await until(async () => /Assembly/.test(await text(B, '.main')) && /one run by a player/.test(await text(B, '.main')) && /You are visiting/.test(await text(B, '.main')), 20000), (await text(B, '.main')).slice(0, 300));
+await nav(B, 'region'); await regionTab(B, 'alliances');
+check('the Region page lists the region’s alliances', await until(async () => !!await B.$('[data-act="al-page"]'), 20000));
+await B.click('[data-act="al-page"]');
+check('an alliance’s page opens without its members’ channel', await until(async () => /Herring League/.test(await text(B, '.main')), 20000) && !await B.$('.obs-chan') && !/secret herring/.test(await text(B, '.main')));
+await regionTab(B);
+check('the Region page lists the region’s nations, with no “You”', await until(async () => /Adminland/.test(await text(B, '.tbl')) && !/Frostia/.test(await text(B, '.tbl')) && !await B.$('.tbl .chip.you')));
+check('and its board, with no form to post as a nation or as the team', !await B.$('#rmb-as-team') && !await B.$('#rmb-as-nat'));
+await B.click(`.tbl [data-act="visit"][data-id="${uidA}"]`);
+check('a nation’s page opens', await until(async () => await B.evaluate(() => G.S.view === 'visit') && /Adminland/.test(await text(B, '.main'))));
+const actsB = await B.$$eval('.visit-acts [data-act]', els => els.map(e => e.dataset.act).join(','));
+check('with nothing to do to it but look, and no inspection', actsB === 'map-open,st-open', actsB);
+await B.screenshot({ path: OUT + '/visit-nation.png', fullPage: true });
+await B.evaluate(() => { G.S.view = 'admin'; G.render(); });
+check('the admin portal is not drawn for a visitor', await B.evaluate(() => G.S.view) === 'map' && !await B.$('.adm'));
+await B.evaluate(() => { G.S.view = 'issues'; G.render(); });
+check('nor a page of their own nation', await B.evaluate(() => G.S.view) === 'map');
+const triesB = await B.evaluate(async uid => {
+  const db = await window.claude.use('db'), civic = await window.claude.use('civic'), code = p => p.then(() => 'sent', e => e.code);
+  return [await code(db.doc('nations/' + uid).set({ name: 'Overwritten', reg: 'meridian' })), await code(db.post('meridian', 'Hello from a visitor')), await code(civic.request({ op: 'state' }))].join(',');
+}, uidB);
+check('the save adapter refuses a nation save, a board post and the Assembly', triesB === 'read_only,read_only,read_only', triesB);
+await nav(B, 'world');
+check('the World page offers the way home instead of a move', await until(async () => /You are visiting/.test(await text(B, '.vh')) && /return to your nation/.test(await text(B, '.vh'))) && !await B.$('.wr-status'));
+await sleep(6000); // a clock tick
+{ const now = await raw(B), st = await stamp(uidB); check('the player’s nation is untouched while visiting, here and on the server', now === rawB && st === serverB, changed(rawB, now) + ' ' + serverB + ' → ' + st); }
+await Promise.all([B.waitForEvent('load'), B.click('.obs-bar [data-act="obs-exit"]')]); await ready(B);
+check('Return to my nation brings the player’s nation back', await until(async () => await text(B, '.side-nm') === 'Frostia' && !await B.$('.obs-bar') && await B.evaluate(() => G.S.mode === 'world' && !sessionStorage.getItem('edictum.observe')), 20000));
 const afterB = await localNation(B);
-check('with their nation as it was', afterB._rev === beforeB._rev && afterB.reg === 'frostmarch' && JSON.stringify(afterB.loc) === JSON.stringify(beforeB.loc) && JSON.stringify(afterB.claims) === JSON.stringify(beforeB.claims) && await stamp(uidB) === serverB);
+check('as it was, in its own region', afterB._rev === beforeB._rev && afterB.reg === 'frostmarch' && JSON.stringify(afterB.loc) === JSON.stringify(beforeB.loc) && JSON.stringify(afterB.claims) === JSON.stringify(beforeB.claims) && await stamp(uidB) === serverB);
 await finish();
