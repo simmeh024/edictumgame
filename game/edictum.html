@@ -7297,6 +7297,16 @@ html.ux-has-sections{--ux-index-height:54px}.ux-has-sections .flag-preview-row>.
 .cb-post.staff{border-left:3px solid var(--stamp)}
 .cb-post.hd{border-style:dashed}
 .cb-au{display:flex;flex-direction:column;align-items:flex-start;gap:6px;min-width:0;font-size:13px}
+.cb-flt{display:flex;flex-direction:column;gap:6px;margin:16px 0 12px}.cb-flt-r{display:flex;flex-wrap:wrap;gap:6px}
+.cb-row-x{display:block;margin:2px 0 4px;color:var(--ink-2);font-size:13.5px;line-height:1.4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+.cb-row-rg{font-size:11.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-3);font-weight:650}
+.cb-other{display:flex;flex-wrap:wrap;align-items:flex-end;gap:6px 12px;margin:14px 0 4px;padding:12px 14px;border:1px dashed var(--rule);border-radius:6px}.cb-other .lbl{width:100%;margin:0}.cb-other select{max-width:280px}
+.cb-draft-l{margin-left:12px;font-size:13.5px;color:var(--ink-3)}.cb-bar-l{display:inline-flex;flex-wrap:wrap;gap:4px 12px;align-items:baseline}
+.cb-earlier{margin:4px 0 12px}.cb-rh-n{font-size:14px;font-weight:400}
+.cb-botnav{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:flex-start;max-width:900px;margin:24px 0 6px;padding-top:14px;border-top:1px solid var(--rule)}.cb-step{display:flex;flex-direction:column;max-width:280px}.cb-step-t{font-size:13px;color:var(--ink-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cb-rbar{position:sticky;bottom:12px;z-index:6;display:flex;justify-content:flex-end;align-items:center;gap:18px;max-width:900px;margin:14px 0 0;padding:8px 12px;border:1px solid var(--rule);border-radius:8px;background:var(--sheet);box-shadow:0 4px 18px rgba(0,0,0,.10)}
+@media (max-width:959px){.cb-rbar{bottom:calc(var(--u-tab) + env(safe-area-inset-bottom,0px) + 8px)}}
+.rgn-cb{margin:0 0 26px;padding:16px;border:1px solid var(--rule);border-radius:8px;background:var(--sheet)}.rgn-cb-hd{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:flex-end;justify-content:space-between;margin-bottom:8px}.rgn-cb-hd .eyebrow{margin:0}.rgn-cb .cb-rows{margin:0}.rgn-qm-p{margin:-4px 0 12px}
 .cb-au .nw-fl{width:64px;display:block}
 .cb-au-n{font-size:14.5px;overflow-wrap:anywhere}
 .cb-au .staff-pill,.cb-au .founder-pill{padding:2px 8px 2px 6px;font-size:10px}
@@ -57436,7 +57446,7 @@ function regionView(now){
   let alN=0;try{alN=[...politics().al.values()].filter(A=>A.srv&&A.members.length).length;}catch(e){}
   const badge={nations:`<span class="rgn-tab-n">${fmt0(all.length)}</span>`,alliances:alN?`<span class="rgn-tab-n">${alN}</span>`:''};
   const panes={overview:()=>rgnOverview(all,now),nations:()=>rgnNations(all,now),happenings:()=>hapsHTML,invite:()=>rcRegionPane(now),
-    board:()=>`<section aria-labelledby="rgn-mb-h"><h2 class="h2 sr" id="rgn-mb-h">Message board</h2>${rmbBoardHTML()}</section>`,alliances:()=>{let r='';try{r=alRanking();}catch(e){}return r;}};
+    board:()=>`${cbRegionBlock()}<section class="rgn-qm" aria-labelledby="rgn-mb-h"><h2 class="h3" id="rgn-mb-h">Quick messages</h2><p class="hint rgn-qm-p">Short notes to the whole region, up to 400 characters, with replies and reactions. For a longer conversation, start a topic above.</p>${rmbBoardHTML()}</section>`,alliances:()=>{let r='';try{r=alRanking();}catch(e){}return r;}};
   return `<header class="vh"><p class="eyebrow">Region</p><h1>${REGION}</h1><p>${REG_MER?'A loose association of island and mainland states strung along the old trade meridian.':esc(REG.desc)} ${players===1?'One nation is run by a player':players+' nations are run by players'}, and ${npcs} by the computer.${dormNote()}${S.mode!=='world'&&S.mode!=='readonly'?' Other players appear here when you are signed in.':''}</p></header>
   <div class="rgn" id="rgn" data-tab="${t}">
     <div class="rgn-tabs" role="tablist" aria-label="${esc(REGION)}">${RGN_TABS.map(([k,l])=>`<button type="button" role="tab" id="rgn-tab-${k}" class="rgn-tab${k===t?' on':''}" data-act="rgn-tab" data-v="${k}" aria-selected="${k===t}" aria-controls="rgn-p-${k}" tabindex="${k===t?0:-1}">${l}${badge[k]||''}</button>`).join('')}</div>
@@ -65581,7 +65591,7 @@ function cbPost(id,d){
     pn:d.pn===true,lk:d.lk===true,hd:d.hd===true,ed:cbMs(d.ed),mn:d.mn&&typeof d.mn==='object'?Object.fromEntries(Object.entries(d.mn).filter(([u,v])=>typeof v==='string').slice(0,5).map(([u,v])=>[u,v.slice(0,80)])):{},
     /* the post it quotes (a reply's), and the reactions {uid: kind} of the known kinds */
     am:typeof d.am==='string'&&d.am.length<=4000?d.am:'',pc:d.pc&&typeof d.pc==='object'&&Number.isInteger(d.pc.w)&&Number.isInteger(d.pc.h)&&d.pc.w>0&&d.pc.h>0?{w:Math.min(d.pc.w,1000),h:Math.min(d.pc.h,1000),k:String(d.pc.k||'')}:null,
-    q:typeof d.q==='string'&&CB_ID.test(d.q)?d.q:'',rv:d.rv&&typeof d.rv==='object'?Object.fromEntries(Object.entries(d.rv).filter(([u,v])=>/^[\w-]{1,128}$/.test(u)&&RMB_RX.some(x=>x[0]===v)).slice(0,500)):{}};
+    q:typeof d.q==='string'&&CB_ID.test(d.q)?d.q:'',lr:typeof d.lr==='string'?d.lr.slice(0,80):'',rv:d.rv&&typeof d.rv==='object'?Object.fromEntries(Object.entries(d.rv).filter(([u,v])=>/^[\w-]{1,128}$/.test(u)&&RMB_RX.some(x=>x[0]===v)).slice(0,500)):{}};
 }
 const cbDay=()=>new Date().toISOString().slice(0,10);
 /* the counts for every board */
@@ -65593,7 +65603,7 @@ function cbListen(){
 function cbLoad(reg){
   if(CB.lists[reg]||!S.db)return;
   const L=CB.lists[reg]={list:null,pins:[],err:'',off:[],n:CB_PAGE,more:false};
-  const up=()=>{if(S.view==='community')quietRender();};
+  const up=()=>{if(S.view==='community'||S.view==='region')quietRender();};
   L.reload=()=>{L.off.forEach(f=>{try{f();}catch(e){}});L.off=[
     S.db.collection('cb/'+reg+'/posts').orderBy('la','desc').limit(L.n).onSnapshot(qs=>{L.list=qs.docs.map(d=>cbPost(d.id,d.data())).filter(Boolean);L.more=qs.size>=L.n;cbPresence(L.list);up();},()=>{L.err='The board could not be loaded.';up();}),
     S.db.collection('cb/'+reg+'/posts').where('pn','==',true).onSnapshot(qs=>{L.pins=qs.docs.map(d=>cbPost(d.id,d.data())).filter(Boolean);cbPresence(L.pins);up();},()=>{})];};
@@ -65605,13 +65615,13 @@ function cbOpenTopic(reg,id){
   cbCloseTopic();if(!S.db||!cbBoardOk(reg)||!CB_ID.test(id))return;
   const seen=cbSeenAll()[id],w=CB.watch&&CB.watch.get(id);
   const T=CB.topic={reg,id,p:null,err:'',off:[],since:Math.max(seen?Number(seen[1])||0:0,w?w.s||0:0),jumped:false},R=CB.reps={list:null,err:''};
-  CB.rq=null;CB.rxPick='';
+  CB.rq=null;CB.rxPick='';CB.rx=cbDraftReply(id);
   const up=()=>{if(S.view==='community')quietRender();};
   T.off=[S.db.doc('cb/'+reg+'/posts/'+id).onSnapshot(s=>{T.p=s.exists?cbPost(id,s.data()):null;T.err=s.exists?'':'This topic is no longer here. It may have been deleted or moved.';if(T.p){cbPresence([T.p]);cbUserWant([T.p.a]);cbMarkRead(T);}up();},()=>{T.err='The topic could not be loaded.';up();}),
     S.db.collection('cb/'+reg+'/posts/'+id+'/posts').orderBy('t','asc').limit(500).onSnapshot(qs=>{const first=R.list==null;R.list=qs.docs.map(d=>cbPost(d.id,d.data())).filter(Boolean);cbPresence(R.list);cbUserWant(R.list.map(x=>x.a));up();if(first)cbJumpNew(T);},()=>{R.err='The replies could not be loaded.';up();})];
   try{history.replaceState(null,'','#community/'+reg+'/'+id);}catch(e){}
 }
-function cbCloseTopic(){const T=CB.topic;if(T)T.off.forEach(f=>{try{f&&f();}catch(e){}});CB.topic=null;CB.reps=null;CB.edit=null;CB.ask=null;}
+function cbCloseTopic(){const T=CB.topic;if(T){clearTimeout(cbDraftT);cbDraftSaveNow();}if(T)T.off.forEach(f=>{try{f&&f();}catch(e){}});CB.topic=null;CB.reps=null;CB.edit=null;CB.ask=null;}
 /* who is online: presence/<uid> {t}, asked at most every two minutes for each author on screen */
 function cbPresence(list){
   if(!S.db||!list)return;const now=Date.now();
@@ -65659,14 +65669,16 @@ function cbOwnBar(reg,p,tid){
   if(p.hd)return '';
   /* anyone who may reply quotes a post into their reply; the topic's link is for pasting into another post */
   const T=CB.topic,q=S.mode==='world'&&T&&T.p&&(!T.p.lk||cbStaff())?`<button type="button" class="linkish small" data-act="cb-quote" ${d}>Quote</button>`:'',
-    lnk=rid?'':`<button type="button" class="linkish small" data-act="cb-link" ${d}>Copy link</button>`;
+    lnk=rid?'':`<button type="button" class="linkish small" data-act="cb-link" ${d}>Copy link</button>`,
+    /* Reply: the box, with the author named (a mention) unless it is the team or the Assembly's clerk */
+    re=q&&p.a!==S.uid&&!p.as?`<button type="button" class="linkish small" data-act="cb-reply-to"${p.of?'':` data-nm="${esc(p.nm)}" data-u="${esc(p.a)}"`}>Reply</button>`:'';
   if(S.mode!=='world')return lnk?`<div class="cb-acts">${lnk}</div>`:'';
-  if(p.of&&p.a!==S.uid)return `<div class="cb-acts">${q}${S.isOwner?`<button type="button" class="linkish small" data-act="cb-edit" ${d}>Edit</button>`:''}${lnk}</div>`;
+  if(p.of&&p.a!==S.uid)return `<div class="cb-acts">${re}${q}${S.isOwner?`<button type="button" class="linkish small" data-act="cb-edit" ${d}>Edit</button>`:''}${lnk}</div>`;
   /* the Assembly clerk's debate topic: no author to report or answer to; staff keep their controls above */
   if(p.as)return q||lnk?`<div class="cb-acts">${q}${lnk}</div>`:'';
   if(p.a===S.uid){const ask=cbAsking(t,rid,'own')?`<div class="adm-ask"><p>Delete your ${rid?'reply':'topic'}${!rid&&p.rc?` and its ${p.rc} ${p.rc===1?'reply':'replies'}`:''}?</p><div class="row"><button type="button" class="btn danger small" data-act="cb-del-yes" ${d}>Yes, delete</button><button type="button" class="btn ghost small" data-act="cb-ask-no">Cancel</button></div></div>`:'';
     return `<div class="cb-acts">${q}<button type="button" class="linkish small" data-act="cb-edit" ${d}>Edit</button><button type="button" class="linkish small" data-act="cb-own-del" ${d}>Delete</button>${lnk}</div>${ask}`;}
-  return `<div class="cb-acts">${q}${lnk}<button type="button" class="linkish small" data-act="cb-rep" ${d}>Report</button></div>`;
+  return `<div class="cb-acts">${re}${q}${lnk}<button type="button" class="linkish small" data-act="cb-rep" ${d}>Report</button></div>`;
 }
 function cbEditForm(rid){
   return `<form class="rmb-form cb-ef" id="cb-ef">${rid?'':`<label class="lbl" for="cb-e-ti">Title</label><input class="input" id="cb-e-ti" maxlength="${CB_TITLE}" value="${esc(CB.edit.ti)}">`}
@@ -65682,26 +65694,28 @@ function cbArticle(reg,p,tid){
   return `<article class="cb-post${p.st?' staff':''}${p.hd?' hd':''}" id="cb-${p.id}">${cbAuthor(p)}<div class="cb-body">${head}<p class="cb-when"><time datetime="${new Date(p.t||Date.now()).toISOString()}">${esc(rel(p.t))}</time>${p.ed?` · edited ${esc(rel(p.ed))}`:''}</p>${body}${sig}${editing||p.hd?'':cbReacts(reg,p,tid)}${editing?'':cbOwnBar(reg,p,tid)}${cbModBar(reg,p,tid)}</div></article>`;
 }
 /* a line in a board's list of topics */
-function cbRow(reg,p){
-  if(p.hd&&!cbStaff())return '';
+function cbRow(reg,p,o){
+  if(p.hd&&!cbStaff())return '';o=o||{};
   const on=!p.of&&cbOnline(p.a),nw=cbNews(p),mark=nw.n?`<span class="cb-new-n" title="New replies since you last read it">${nw.n} new</span> `:nw.fresh?'<span class="cb-new-n fresh" title="A topic you have not opened yet">New</span> ':'';
+  const ex=p.hd?'':cbExcerpt(p.x),last=p.rc>0&&p.lr?`last reply by ${p.lr} ${rel(p.la)}`:rel(p.la);
   return `<li class="cb-row${p.pn?' pin':''}${p.hd?' hd':''}${nw.n||nw.fresh?' unread':''}"><span class="cb-row-au">${p.of?cbTeamAv(p,'cb-row-av'):`${nwFlag(p.fl,p.nm)}<span class="cb-dot${on?' on':''}" title="${on?'Online':'Offline'}"></span>`}</span>
-    <a class="cb-row-m" href="#community/${reg}/${p.id}" data-act="cb-topic" data-reg="${reg}" data-t="${p.id}"><span class="cb-row-t">${mark}${p.pn?'<span class="chip cb-pin">Pinned</span> ':''}${p.lk?'<span class="chip">Locked</span> ':''}${p.hd?'<i>Hidden by staff</i>':esc(p.ti)}</span>
-    <span class="cb-row-s"><span class="cb-tag t-${p.tg}">${esc(CB_TAG[p.tg])}</span><span>${esc(p.nm)}${p.of?'':`<span class="u-sr"> (${on?'online':'offline'})</span>`}${p.st==='admin'?' · Edictum staff':''}${p.fd?' · Founder':''}</span><span>${p.rc} ${p.rc===1?'reply':'replies'}</span><span>${esc(rel(p.la))}</span></span></a></li>`;
+    <a class="cb-row-m" href="#community/${reg}/${p.id}" data-act="cb-topic" data-reg="${reg}" data-t="${p.id}" data-ti="${p.hd?'':esc(p.ti)}"><span class="cb-row-t">${mark}${p.pn?'<span class="chip cb-pin">Pinned</span> ':''}${p.lk?'<span class="chip">Locked</span> ':''}${p.hd?'<i>Hidden by staff</i>':esc(p.ti)}</span>${ex?`<span class="cb-row-x">${esc(ex)}</span>`:''}
+    <span class="cb-row-s">${o.lt?`<span class="cb-row-rg">${esc(cbRegName(reg))}</span>`:''}<span class="cb-tag t-${p.tg}">${esc(CB_TAG[p.tg])}</span><span>${esc(p.nm)}${p.of?'':`<span class="u-sr"> (${on?'online':'offline'})</span>`}${p.st==='admin'?' · Edictum staff':''}${p.fd?' · Founder':''}</span><span>${p.rc} ${p.rc===1?'reply':'replies'}</span><span>${esc(last)}</span></span></a></li>`;
 }
 function cbBoard(R){
   const reg=R.id,mine=!!(REG&&reg===REG.id),open=cbOpenSet().has(reg),m=CB.meta[reg]||{},today=m.dd===cbDay()?m.dn||0:0,n=m.n||0;
   let inner='';
-  if(open){cbLoad(reg);const L=CB.lists[reg],pins=L&&L.pins||[],ids=new Set(pins.map(p=>p.id)),rest=L&&L.list?L.list.filter(p=>!ids.has(p.id)):null;
-    inner=`<div class="cb-reg-b" id="cb-b-${reg}">${L&&L.err?`<p class="err">${esc(L.err)}</p>`:rest==null?'<p class="hint">Fetching the topics…</p>':!rest.length&&!pins.length?`<p class="hint">No topics yet.${S.mode==='world'?' Be the first to start one.':''}</p>`:
-      `<ul class="cb-rows">${pins.concat(rest).map(p=>cbRow(reg,p)).join('')}</ul>${L.more?`<p><button type="button" class="btn ghost small" data-act="cb-more" data-reg="${reg}">Older topics</button></p>`:''}`}
-      ${S.mode==='world'?`<p class="cb-new-in"><button type="button" class="btn ghost small" data-act="cb-new" data-reg="${reg}">New topic in ${esc(R.name)}</button></p>`:''}</div>`;}
+  if(open){cbLoad(reg);const L=CB.lists[reg],pins=L&&L.pins||[],ids=new Set(pins.map(p=>p.id)),rest=L&&L.list?L.list.filter(p=>!ids.has(p.id)):null,shown=rest?pins.concat(rest).filter(p=>(!p.hd||cbStaff())&&cbFltOk(p)):null;
+    inner=`<div class="cb-reg-b" id="cb-b-${reg}">${L&&L.err?`<p class="err">${esc(L.err)}</p>`:rest==null?'<p class="hint">Fetching the topics…</p>':!rest.length&&!pins.length?`<p class="hint">No topics yet.${S.mode==='world'?' Be the first to start one.':''}</p>`:!shown.length?cbNoMatch():
+      `<ul class="cb-rows" data-l="${reg}">${shown.map(p=>cbRow(reg,p)).join('')}</ul>${L.more?`<p><button type="button" class="btn ghost small" data-act="cb-more" data-reg="${reg}">Older topics</button></p>`:''}`}
+      ${S.mode==='world'?`<p class="cb-new-in"><button type="button" class="btn ghost small" data-act="cb-new" data-reg="${reg}">New topic in ${esc(R.name)}</button></p>`:''}${mine&&reg!==CB_CH.id?'<p class="hint cb-qm">Short hellos and notes to the whole region go in <button type="button" class="linkish small" data-act="cb-qm">Quick messages</button>, under the topics on the Region page.</p>':''}</div>`;}
   return `<section class="cb-reg${mine?' mine':''}${open?' open':''}" data-reg="${reg}"><h2 class="cb-reg-h"><button type="button" class="cb-reg-tg" data-act="cb-tg" data-reg="${reg}" aria-expanded="${open}"${open?` aria-controls="cb-b-${reg}"`:''}>
     <span class="cb-car" aria-hidden="true">${open?'▾':'▸'}</span><span class="cb-reg-n">${mine?'<span class="cb-star" aria-hidden="true">★</span> ':''}${esc(R.name)}${mine?' <span class="cb-yours">Your region</span>':''}</span>
     <span class="cb-reg-c">${n} ${n===1?'topic':'topics'}${today?` · <b>${today} new today</b>`:''}</span></button></h2>${inner}</section>`;
 }
 function cbForm(){
-  if(!CB.form)return S.mode==='world'?`<p class="cb-start"><button type="button" class="btn" data-act="cb-new" data-reg="${REG?REG.id:''}">New topic</button></p>`:'';
+  if(!CB.form){if(S.mode!=='world')return '';const d=cbDraftGet().f;
+    return `<p class="cb-start"><button type="button" class="btn" data-act="cb-new" data-reg="${REG?REG.id:''}">New topic</button>${d?`<span class="cb-draft-l">Unfinished topic${d.ti.trim()?` “${esc(d.ti.trim().slice(0,60))}”`:''}: <button type="button" class="linkish small" data-act="cb-draft-go">Continue writing</button> <button type="button" class="linkish small" data-act="cb-draft-no">Discard</button></span>`:''}</p>`;}
   const hint=accountActionHint('topic');
   if(hint)return `<div class="info">${hint} <button type="button" class="linkish" data-act="cb-new-no">Close</button></div>`;
   const f=CB.f;
@@ -65711,7 +65725,7 @@ function cbForm(){
     <span><label class="lbl" for="cb-f-tg">Kind</label><select class="input" id="cb-f-tg">${CB_TAGS.map(([k,l])=>`<option value="${k}"${k===f.tg?' selected':''}>${l}</option>`).join('')}</select></span></div>
     <label class="lbl" for="cb-f-ti">Title</label><input class="input" id="cb-f-ti" maxlength="${CB_TITLE}" value="${esc(f.ti)}" placeholder="What is it about?">
     <label class="lbl" for="cb-f-x">Post as ${esc(fullName(S.nation))}</label>${cbTools('cb-f-x')}<textarea class="input" id="cb-f-x" rows="6" maxlength="${CB_TEXT}" placeholder="Say your piece…"${CB.pv['cb-f-x']?' hidden':''}>${esc(f.x)}</textarea>${cbPreview('cb-f-x',f.x)}
-    <div class="rmb-bar"><span class="hint" id="cb-f-c">${f.x.length} / ${CB_TEXT}</span><span class="row"><button type="button" class="btn ghost" data-act="cb-new-no">Cancel</button><button class="btn" type="submit"${CB.busy?' disabled':''}>${CB.busy==='new'?'Posting…':'Post topic'}</button></span></div></form>`;
+    <div class="rmb-bar"><span class="cb-bar-l"><span class="hint" id="cb-f-c">${f.x.length} / ${CB_TEXT}</span>${cbPaceHint('new')}</span><span class="row"><button type="button" class="btn ghost" data-act="cb-new-no">Cancel</button><button class="btn" type="submit"${CB.busy?' disabled':''}>${CB.busy==='new'?'Posting…':'Post topic'}</button></span></div></form>`;
 }
 function cbTopicView(head){
   const T=CB.topic,R=T.reg===CB_CH.id?CB_CH:REG_BY_ID[T.reg],p=T.p,reps=CB.reps;
@@ -65726,11 +65740,14 @@ function cbTopicView(head){
       <label class="nwe-opt" for="cb-r-team"><input type="radio" name="cb-r-as" id="cb-r-team" value="team"${team?' checked':''}><span><b>${esc(sg.nm)}</b>${sg.rl?` (${esc(sg.rl)})`:''} ${STAFF_PILL}</span></label>
       ${S.nation&&S.nation.name?`<label class="nwe-opt" for="cb-r-nat"><input type="radio" name="cb-r-as" id="cb-r-nat" value="nation"${team?'':' checked'}><span class="nwe-opt-n">${nwFlag(JSON.stringify(S.nation.flag||{}),S.nation.name)}<b>${esc(fullName(S.nation))}</b></span></label>`:''}</fieldset>`:'';
   const form=p.lk&&!cbStaff()?'<p class="hint">This topic is locked: it takes no more replies.</p>':S.mode!=='world'?'<p class="hint">Reconnect to reply.</p>':`${as}${hint?`<div class="info">${hint}</div>`:
-    `<form class="rmb-form cb-rf" id="cb-rf"><label class="lbl" for="cb-r-x">${S.isOwner?'Your reply':'Reply as '+esc(fullName(S.nation))}</label>${cbQuoting(T)}${cbTools('cb-r-x')}<textarea class="input" id="cb-r-x" rows="4" maxlength="${CB_TEXT}" placeholder="Your reply…"${CB.pv['cb-r-x']?' hidden':''}>${esc(CB.rx)}</textarea>${cbPreview('cb-r-x',CB.rx)}<div class="rmb-bar"><span class="hint" id="cb-r-c">${CB.rx.length} / ${CB_TEXT}</span><button class="btn" type="submit"${CB.busy?' disabled':''}>${CB.busy==='reply'?'Posting…':'Post reply'}</button></div></form>`}`;
+    `<form class="rmb-form cb-rf" id="cb-rf"><label class="lbl" for="cb-r-x">${S.isOwner?'Your reply':'Reply as '+esc(fullName(S.nation))}</label>${cbQuoting(T)}${cbTools('cb-r-x')}<textarea class="input" id="cb-r-x" rows="4" maxlength="${CB_TEXT}" placeholder="Your reply…"${CB.pv['cb-r-x']?' hidden':''}>${esc(CB.rx)}</textarea>${cbPreview('cb-r-x',CB.rx)}<div class="rmb-bar"><span class="cb-bar-l"><span class="hint" id="cb-r-c">${CB.rx.length} / ${CB_TEXT}</span>${cbPaceHint('reply')}</span><button class="btn" type="submit"${CB.busy?' disabled':''}>${CB.busy==='reply'?'Posting…':'Post reply'}</button></div></form>`}`;
   /* the New line: before the first reply by someone else since the player last read the topic */
   const nu=list&&T.since?list.findIndex(x=>x.t>T.since&&x.a!==S.uid):-1;
-  return head+back+cbJumpBar(T,list,nu)+cbArticle(T.reg,p)+cbFollowBar(T)+`<h2 class="h3 cb-rh">${p.rc} ${p.rc===1?'reply':'replies'}</h2>`+
-    (reps&&reps.err?`<p class="err">${esc(reps.err)}</p>`:list==null?'<p class="hint">Loading the replies…</p>':`<div class="cb-reps">${list.map((x,i)=>(i===nu?`<div class="cb-newl" id="cb-newl"><span>New since you last read</span></div>`:'')+cbArticle(T.reg,x,p.id)).join('')}</div>`)+form;
+  /* a long thread opens on its latest replies, or from the first one not read yet */
+  let from=0;if(list&&!(CB.all&&CB.all[T.id])&&list.length>CB_SHOW){from=list.length-CB_SHOW;if(nu>=0)from=Math.min(from,Math.max(0,nu-1));}
+  const earlier=from>0?`<p class="cb-earlier"><button type="button" class="btn ghost small" data-act="cb-earlier" data-t="${T.id}">Show ${from} earlier ${from===1?'reply':'replies'}</button></p>`:'',canRe=!(p.lk&&!cbStaff())&&S.mode==='world'&&!hint;
+  return head+back+cbJumpBar(T,list,nu)+cbArticle(T.reg,p)+cbFollowBar(T)+`<h2 class="h3 cb-rh">${p.rc} ${p.rc===1?'reply':'replies'}${from>0?` <span class="hint cb-rh-n">· the latest ${list.length-from}</span>`:''}</h2>`+
+    (reps&&reps.err?`<p class="err">${esc(reps.err)}</p>`:list==null?'<p class="hint">Loading the replies…</p>':`${earlier}<div class="cb-reps">${list.map((x,i)=>i<from?'':(i===nu?`<div class="cb-newl" id="cb-newl"><span>New since you last read</span></div>`:'')+cbArticle(T.reg,x,p.id)).join('')}</div>`)+cbReplyBar(canRe)+form+cbBotNav(T);
 }
 /* the Chancery board (functions/board.js CB_CHANCERY): for Chancery Club members and Founding Supporters, read and
    written only by them (firestore.rules chanceryMember) and staff */
@@ -65746,8 +65763,10 @@ function cbView(){
   cbListen();
   if(CB.pend){const [g,t]=CB.pend;CB.pend=null;cbOpenTopic(g,t);}
   if(CB.topic)return cbTopicView(head);
-  const regs=regionsByAvail().filter(R=>!regDisabled(R.id)||(REG&&R.id===REG.id)||(CB.meta[R.id]&&CB.meta[R.id].n)),own=regs.filter(R=>REG&&R.id===REG.id),rest=regs.filter(R=>!REG||R.id!==REG.id);
-  return head+cbSearchBox()+(CB.sq?'':cbForm()+cbFollowing())+`<div class="cb-regs"${CB.sq?' hidden':''}>${own.map(cbBoard).join('')}${cbChancery()?cbBoard(CB_CH):cbChanceryLocked()}${rest.map(cbBoard).join('')}</div>`;
+  const regs=regionsByAvail().filter(R=>!regDisabled(R.id)||(REG&&R.id===REG.id)||(CB.meta[R.id]&&CB.meta[R.id].n)),own=regs.filter(R=>REG&&R.id===REG.id),open=cbOpenSet();
+  /* the other boards: those with topics, and any the player opened; the empty rest wait behind a picker */
+  const rest=regs.filter(R=>(!REG||R.id!==REG.id)&&((CB.meta[R.id]&&CB.meta[R.id].n>0)||open.has(R.id))),shown=new Set(own.concat(rest).map(R=>R.id));
+  return head+cbSearchBox()+(CB.sq?'':cbForm()+cbFollowing()+cbFilterBar()+cbLatest())+`<div class="cb-regs"${CB.sq?' hidden':''}>${own.map(cbBoard).join('')}${cbChancery()?cbBoard(CB_CH):cbChanceryLocked()}${rest.map(cbBoard).join('')}${cbOtherPick(shown)}</div>`;
 }
 /* ── @mentions: typing @ in a topic or reply offers the nations of the player's region and the authors on the boards
    they have open; the server (functions/board.js mentioned) checks each name and leaves a notice in their bell ── */
@@ -65836,9 +65855,9 @@ async function cbSendTopic(){
   if(CB.pic&&CB.pic['cb-f-x']&&CB.pic['cb-f-x'].busy){toast('The picture is still being prepared.');return;}
   if(!f.x.trim()){toast('Write something first.');return;}
   CB.busy='new';render();
-  try{const mn0=cbMnIds(f.ti+' '+f.x),pic=cbPicArg('cb-f-x'),r=await cbCall({op:'cbTopic',reg:f.reg,ti:f.ti.trim(),x:f.x.trim(),tg:f.tg,mn:mn0,...cbRankArg(),...cbArmsArg(f.x),...pic}),reg=f.reg;achPend('cbt');achPend('cbp');if(mn0.length)achPend('mnt');cbPostAch(f.x,reg,!!pic.pic);cbPicDone('cb-f-x');CB.f={reg:'',ti:'',x:'',tg:'general'};CB.form=false;CB.pv={};CB.users.delete(S.uid);
+  try{const mn0=cbMnIds(f.ti+' '+f.x),pic=cbPicArg('cb-f-x'),r=await cbCall({op:'cbTopic',reg:f.reg,ti:f.ti.trim(),x:f.x.trim(),tg:f.tg,mn:mn0,...cbRankArg(),...cbArmsArg(f.x),...pic}),reg=f.reg;achPend('cbt');achPend('cbp');if(mn0.length)achPend('mnt');cbPostAch(f.x,reg,!!pic.pic);cbPicDone('cb-f-x');if(!cbStaff())cbPaceNote(true);if(REG&&reg===REG.id)tutMark('b');cbDraftDone('f');CB.f={reg:'',ti:'',x:'',tg:'general'};CB.form=false;CB.pv={};CB.users.delete(S.uid);
     cbOpenSet().add(reg);cbKeepOpen();if(r&&r.id){cbOpenTopic(reg,r.id);window.scrollTo(0,0);}toast('Your topic is posted.');}
-  catch(e){cbErr(e,'topic');}
+  catch(e){cbPaceFrom(e);cbErr(e,'topic');}
   CB.busy='';render();
 }
 async function cbSendReply(){
@@ -65847,8 +65866,8 @@ async function cbSendReply(){
   const q=CB.rq&&CB.rq.t===T.id?CB.rq.id:'';
   if(CB.pic&&CB.pic['cb-r-x']&&CB.pic['cb-r-x'].busy){toast('The picture is still being prepared.');CB.busy='';render();return;}
   const pic=cbPicArg('cb-r-x'),team=cbReplyAs()==='team';
-  try{await cbCall({op:'cbReply',reg:T.reg,topic:T.id,x,mn:cbMnIds(x),...(q?{q}:{}),...(team?{as:'team',...cbaSign()}:{...cbRankArg(),...cbArmsArg(x)}),...pic});achPend('cbp');if(cbMnIds(x).length)achPend('mnt');if(!team)cbPostAch(x,T.reg,!!pic.pic);cbPicDone('cb-r-x');CB.rx='';CB.rq=null;CB.pv['cb-r-x']=false;CB.users.delete(S.uid);cbUserWant([S.uid]);}
-  catch(e){cbErr(e,'reply');}
+  try{await cbCall({op:'cbReply',reg:T.reg,topic:T.id,x,mn:cbMnIds(x),...(q?{q}:{}),...(team?{as:'team',...cbaSign()}:{...cbRankArg(),...cbArmsArg(x)}),...pic});achPend('cbp');if(cbMnIds(x).length)achPend('mnt');if(!team)cbPostAch(x,T.reg,!!pic.pic);cbPicDone('cb-r-x');if(!team&&!cbStaff())cbPaceNote(false);if(!team&&REG&&T.reg===REG.id)tutMark('b');cbDraftDone(T.id);CB.rx='';CB.rq=null;CB.pv['cb-r-x']=false;CB.users.delete(S.uid);cbUserWant([S.uid]);}
+  catch(e){cbPaceFrom(e);cbErr(e,'reply');}
   CB.busy='';render();
   const t=document.getElementById('cb-r-x');if(t&&!CB.rx)try{t.focus({preventScroll:true});}catch(e){}
 }
@@ -66155,28 +66174,28 @@ document.addEventListener('click',e=>{
 
 /* ── hooks ── */
 EXT_PAGES.push('community');NAV_LABELS.community='Community Board';
-(()=>{const g=NAV_GROUPS.find(x=>x.k==='other');if(g&&!g.v.includes('community'))g.v.splice(g.v.indexOf('devnews')+1,0,'community');})();
+(()=>{const g=NAV_GROUPS.find(x=>x.k==='news');if(g&&!g.v.includes('community'))g.v.splice(g.v.indexOf('messages')+1||g.v.length,0,'community');})();
 NAV_WORDS.community='community board forum topics discussion talk regions players chat posts replies';
 VIEWS_EXT.community=()=>{setTimeout(cbVisited,0);return cbView();};
 uxHashView=(f=>function(hash){const m=/^community\/([a-z]{2,40})\/([A-Za-z0-9]{20})$/.exec(hash);if(m){if(!CB.topic||CB.topic.id!==m[2])CB.pend=[m[1],m[2]];return 'community';}return f.apply(this,arguments);})(uxHashView);
 connect=(f=>async function(){const r=await f.apply(this,arguments);cbBeat();return r;})(connect);
 tick=(f=>function(){cbBeat();return f.apply(this,arguments);})(tick);
 go=(f=>function(v){
-  if(v!=='community'&&S.view==='community'){for(const k of Object.keys(CB.lists))cbDrop(k);cbCloseTopic();}
+  if(v!=='community'&&(S.view==='community'||S.view==='region')){for(const k of Object.keys(CB.lists))cbDrop(k);cbCloseTopic();}
   return f.apply(this,arguments);})(go);
 document.addEventListener('input',e=>{
   const t=e.target,id=t&&t.id||'';if(id.slice(0,3)!=='cb-')return;
-  if(id==='cb-f-ti'){CB.f.ti=t.value.slice(0,CB_TITLE);return;}
+  if(id==='cb-f-ti'){CB.f.ti=t.value.slice(0,CB_TITLE);cbDraftSave();return;}
   if(id==='cb-f-x'||id==='cb-r-x')cbMnSuggest(t);
-  if(id==='cb-f-x'){CB.f.x=t.value.slice(0,CB_TEXT);const c=document.getElementById('cb-f-c');if(c)c.textContent=CB.f.x.length+' / '+CB_TEXT;return;}
-  if(id==='cb-r-x'){CB.rx=t.value.slice(0,CB_TEXT);const c=document.getElementById('cb-r-c');if(c)c.textContent=CB.rx.length+' / '+CB_TEXT;return;}
+  if(id==='cb-f-x'){CB.f.x=t.value.slice(0,CB_TEXT);const c=document.getElementById('cb-f-c');if(c)c.textContent=CB.f.x.length+' / '+CB_TEXT;cbDraftSave();return;}
+  if(id==='cb-r-x'){CB.rx=t.value.slice(0,CB_TEXT);const c=document.getElementById('cb-r-c');if(c)c.textContent=CB.rx.length+' / '+CB_TEXT;cbDraftSave();return;}
   if(id==='cb-e-ti'&&CB.edit){CB.edit.ti=t.value.slice(0,CB_TITLE);return;}
   if(id==='cb-e-x'&&CB.edit){CB.edit.x=t.value.slice(0,CB_TEXT);return;}
 });
 document.addEventListener('change',e=>{
   const t=e.target,id=t&&t.id||'';
-  if(id==='cb-f-reg'&&cbBoardOk(t.value)){CB.f.reg=t.value;return;}
-  if(id==='cb-f-tg'&&CB_TAG[t.value]){CB.f.tg=t.value;return;}
+  if(id==='cb-f-reg'&&cbBoardOk(t.value)){CB.f.reg=t.value;cbDraftSave();return;}
+  if(id==='cb-f-tg'&&CB_TAG[t.value]){CB.f.tg=t.value;cbDraftSave();return;}
   if(id==='cb-move-to'&&REG_BY_ID[t.value]){CB.moveTo=t.value;return;}
 });
 document.addEventListener('submit',e=>{const id=e.target&&e.target.id;
@@ -66186,9 +66205,14 @@ document.addEventListener('click',e=>{
   const reg=el.dataset.reg,t=el.dataset.t,r=el.dataset.r||'';
   if(a==='cb-tg'){const o=cbOpenSet();if(o.has(reg)){o.delete(reg);cbDrop(reg);}else o.add(reg);cbKeepOpen();render();const b=document.querySelector(`[data-act="cb-tg"][data-reg="${reg}"]`);if(b)try{b.focus({preventScroll:true});}catch(err){}return;}
   if(a==='cb-more'){const L=CB.lists[reg];if(L){L.n+=CB_PAGE;L.reload();}return;}
-  if(a==='cb-topic'){e.preventDefault();cbOpenTopic(reg,t);render();window.scrollTo(0,0);return;}
-  if(a==='cb-back'){e.preventDefault();cbCloseTopic();try{history.replaceState(null,'','#community');}catch(err){}render();return;}
-  if(a==='cb-new'){CB.form=true;CB.f.reg=cbBoardOk(reg)?reg:REG?REG.id:'';cbCloseTopic();try{history.replaceState(null,'','#community');}catch(err){}render();window.scrollTo(0,0);const i=document.getElementById('cb-f-ti');if(i)try{i.focus();}catch(err){}return;}
+  if(a==='cb-topic'){e.preventDefault();const ul=el.closest('.cb-rows');CB.seq=ul?[...ul.querySelectorAll('a[data-act="cb-topic"]')].map(x=>({reg:x.dataset.reg,id:x.dataset.t,ti:x.dataset.ti||''})):null;
+    if(S.view!=='community'){cbOpenSet().add(reg);cbKeepOpen();uxOpen('community',()=>{CB.pend=[reg,t];CB.backY=0;},'.vh');return;}
+    CB.backY=window.scrollY;cbOpenTopic(reg,t);render();window.scrollTo(0,0);return;}
+  if(a==='cb-back'){e.preventDefault();cbCloseTopic();try{history.replaceState(null,'','#community');}catch(err){}render();const y=CB.backY||0;window.scrollTo(0,y);requestAnimationFrame(()=>window.scrollTo(0,y));return;}
+  if(a==='cb-new'){const d=cbDraftGet().f;if(d&&!CB.f.ti&&!CB.f.x)CB.f={reg:d.reg,ti:d.ti,x:d.x,tg:d.tg};CB.form=true;CB.f.reg=cbBoardOk(reg)?reg:REG?REG.id:'';cbCloseTopic();try{history.replaceState(null,'','#community');}catch(err){}
+    const fo=()=>{const i=document.getElementById(CB.f.ti?'cb-f-x':'cb-f-ti');if(i)try{i.focus();}catch(err){}};
+    if(S.view!=='community'){uxOpen('community',null,'#cb-nf');setTimeout(fo,60);return;}
+    render();window.scrollTo(0,0);fo();return;}
   if(a==='cb-new-no'){CB.form=false;render();return;}
   if(a==='cb-ask-no'){CB.ask=null;render();return;}
   if(a==='cb-edit'){const p=cbFind(reg,t,r);if(p){CB.edit={reg,t,r,ti:p.ti,x:p.x};render();const i=document.getElementById('cb-e-x');if(i)try{i.focus();}catch(err){}}return;}
@@ -95150,8 +95174,8 @@ H('market','The market board and waiting offers',()=>`<p>The <b>Market board</b>
 H('chat','Chat',()=>`<p>The <b>Chat</b> button (beside the bell, unless Settings › Chat puts it elsewhere) opens the chats from any page: ${REGION}’s own, <b>World</b>, which every region shares, <b>Français</b>, where the nations that play in French talk (it shows by itself when the game is in French), and your alliance’s channel if you belong to one. Every nation may write in its region’s chat, Guest Nations up to 10 lines an hour. A line holds up to 300 characters, and lines are kept for 30 days.</p>
   <p>Write @ and a nation’s name to mention it: its bell rings. A line’s menu lets you react, reply, report it to the moderators or block its nation, which hides its lines and its letters. Quick commands post a card instead of words: ${RGC_CMDS.map(([c,d])=>`<b>${esc(c)}</b> (${esc(d)})`).join(', ')}. <b>/help</b> alone lists them.</p>
   <p>Moderators (MOD) keep the chats friendly and can silence a player for a while, and so can ambassadors, with a blue pill; DEV and TEAM mark the game’s own team. An alliance’s channel is for its members, with a Registered Nation. Settings › Chat turns the region chat, the World and Français tabs and mention notices on or off, and moves the button.</p>`);
-H('board','Message boards',()=>`<p>The Region page’s <b>Board</b> tab is ${REGION}’s notice board. Registered Nations post messages of up to 400 characters and reply under them; everyone, guests too, can react. A reply to your message rings your bell. You can remove your own messages and report anyone else’s.</p>
-  <p>The <b>Community Board</b>, under Other pages, holds longer conversations as topics, each with a title, up to 4,000 characters and a tag: ${and(CB_TAGS.map(t=>t[1]))}. Follow a topic to hear of new replies. Ask a question under the Help tag, or with <b>Still stuck?</b> at the end of any section of this guide.</p>`);
+H('board','Message boards',()=>`<p>Every region has one board. The <b>Community Board</b>, under News and people, holds its topics, each with a title, up to 4,000 characters and a kind: ${and(CB_TAGS.map(t=>t[1]))}; the Region page’s <b>Board</b> tab shows the same topics. <b>Latest on every board</b> lists the newest topics of all the regions; the buttons above it show one kind, the unanswered topics, your own or those you follow. Follow a topic to hear of new replies, and press Reply under any post to answer its author. What you are writing is kept on this device until you post it. Ask a question under the Help kind, or with <b>Still stuck?</b> at the end of any section of this guide.</p>
+  <p>Under the topics on the Region page, <b>Quick messages</b> are short notes to the whole region, up to 400 characters, with replies under them; everyone, guests too, can react. A reply to your message rings your bell. You can remove your own messages and report anyone else’s.</p>`);
 H('events','Seasonal events',()=>{const X=typeof XM_EV!=='undefined'?XM_EV:null;return `<p>Some things come round with the calendar: ${to('games','the Games')} every week, ${to('riddle','the riddle')} every Monday and ${to('flagcomp','the Flag Competition')} every month. Others come once a year and have a page of their own while they last.</p>
   ${X?`<h3 class="help-h3">The Twenty-Five Lights (Christmas)</h3>
   <p>On ${dm(X.pre)} a note arrives from Mara Bell: answer it, any way you like, for ${typeof XM_LAND==='number'?XM_LAND:5} land credits. From ${dm(X.start)} to ${dm(X.start+(X.days-1)*DAY)} a new letter comes each day at midnight UTC, on the Christmas page in the menu and as a card on the Edicts page. Answer them in order, each with one of three replies; letters that have arrived can be answered at once, and they never take a place on your desk. Each answer lights a window, adds a keepsake to the Museum’s Christmas case and brings some materials, even above your storage. ${typeof XM_CZD!=='undefined'?`Days ${and(XM_CZD.map(String))} bring designs for Customise. `:''}The calendar closes on ${dm(X.close)}; the letters stay to read.</p>`:''}`;});
@@ -96420,6 +96444,169 @@ function stopDraw(){
 }
 render=(f=>function(){const r=f.apply(this,arguments);try{stopDraw();}catch(e){}return r;})(render);
 if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE.wd={wdLive,wdText,dlHexOf,dlShortHTML,stopLoss,STOP,STOP_ACTS,WD_K};}catch(e){}
+
+/* ───────── Community Board, round three (2026-11-22): easier to find, read and answer ─────────
+   - One board per region: the Region page's Board tab shows the region's Community Board topics first (cbRegionBlock),
+     with the short messages under them as Quick messages (rmbBoardHTML, unchanged).
+   - The front page: filters (a kind; unanswered, started by me, following: cbFlt*, kept on this device), the latest
+     topics of every board in one list (cbLatest: each board with topics read once every CB_LT_TTL, the boards open on
+     the page live), the own region, then only the boards with topics; the empty ones behind a picker (cbOtherPick).
+   - Rows: the first line of the post, and who replied last (lr, written by functions/board.js on each reply).
+   - A topic: long threads open on the latest CB_SHOW replies, or from the first unread, with Show earlier; a Reply
+     button on every post (mentions its author) and a Reply bar that stays in view; at the bottom, back to the boards
+     (where the list was left) and the previous and next topic of the list it was opened from (CB.seq).
+   - Drafts: a topic or reply being written is kept on this device for 14 days, per topic (cbDraft*).
+   - Pacing: the form says when the next post may go (cbPace*: this device's own posts against functions/board.js's
+     CB_GAP, CB_HOUR and CB_TOPICS, and the wait the server last gave); Post stays pressable, the server decides. */
+const CB_LT_N=15,CB_LT_SHOW=10,CB_LT_TTL=90e3,CB_SHOW=20,LS_CBF='edictum.cbFlt',LS_CBLT='edictum.cbLtOpen',CB_PACE={gap:30000,hour:20,topics:5};
+/* ── filters ── */
+function cbFltGet(){
+  if(!CB.flt){let o=null;try{o=JSON.parse(localStorage.getItem(LS_CBF)||'null');}catch(e){}CB.flt={tg:o&&CB_TAG[o.tg]?o.tg:'',w:o&&['un','mine','fw'].includes(o.w)?o.w:''};}
+  return CB.flt;
+}
+function cbFltSet(k,v){const F=cbFltGet();if(k==='tg')F.tg=CB_TAG[v]?v:'';else if(k==='w')F.w=['un','mine','fw'].includes(v)?v:'';try{localStorage.setItem(LS_CBF,JSON.stringify(F));}catch(e){}}
+function cbFltOn(){const F=cbFltGet();return !!(F.tg||F.w);}
+function cbFltOk(p){
+  const F=cbFltGet();if(F.tg&&p.tg!==F.tg)return false;
+  if(F.w==='un')return !(p.rc>0)&&!p.lk;
+  if(F.w==='mine')return p.a===S.uid;
+  if(F.w==='fw'){const w=CB.watch&&CB.watch.get(p.id);return !!(w&&w.f===1);}
+  return true;
+}
+function cbFltWords(){const F=cbFltGet();return [F.tg?CB_TAG[F.tg]:'',{un:'unanswered',mine:'started by you',fw:'followed by you'}[F.w]||''].filter(Boolean).join(', ');}
+function cbFilterBar(){
+  const F=cbFltGet(),chip=(k,v,l,on)=>`<button type="button" class="chip-btn${on?' on':''}" data-act="cb-flt" data-k="${k}" data-v="${v}" aria-pressed="${on}">${esc(l)}</button>`;
+  return `<div class="cb-flt"><div class="cb-flt-r" role="group" aria-label="Kind of topic">${chip('tg','','All kinds',!F.tg)}${CB_TAGS.map(([k,l])=>chip('tg',k,l,F.tg===k)).join('')}</div>
+    <div class="cb-flt-r" role="group" aria-label="Which topics">${chip('w','','Every topic',!F.w)}${chip('w','un','Unanswered',F.w==='un')}${S.uid?chip('w','mine','Started by me',F.w==='mine')+chip('w','fw','Following',F.w==='fw'):''}</div></div>`;
+}
+function cbNoMatch(){return `<p class="hint cb-nomatch">Nothing here is ${esc(cbFltWords())}. <button type="button" class="linkish small" data-act="cb-flt-clear">Show every topic</button></p>`;}
+/* ── the first line of a post, for the lists: no embeds, quotes or marks ── */
+function cbExcerpt(x){
+  const t=String(x||'').split('\n').map(l=>l.trim()).filter(l=>l&&!/^\[(?:my flag|my arms|offer|want)\b/i.test(l)&&!/^>/.test(l)).join(' ').replace(/\*\*|__|[*_`~]/g,'').replace(/\s+/g,' ').trim();
+  return t.length>140?t.slice(0,138).trimEnd()+'…':t;
+}
+/* ── the latest topics on every board ── */
+function cbLtBoards(){
+  const out=new Set();if(REG&&REG.id&&cbBoardOk(REG.id))out.add(REG.id);
+  for(const [r,m] of Object.entries(CB.meta||{}))if(m&&m.n>0&&cbBoardOk(r)&&(r===CB_CH.id||!regDisabled(r)||(REG&&r===REG.id)))out.add(r);
+  return [...out];
+}
+function cbLtLoad(){
+  if(!S.db)return;const L=CB.lt||(CB.lt={list:null,at:0,busy:false,err:'',key:'',n:CB_LT_SHOW}),regs=cbLtBoards(),key=regs.slice().sort().join(','),now=Date.now();
+  if(L.busy||L.key===key&&now-L.at<CB_LT_TTL)return;L.busy=true;L.key=key;
+  Promise.all(regs.map(reg=>S.db.collection('cb/'+reg+'/posts').orderBy('la','desc').limit(CB_LT_N).get().then(qs=>qs.docs.map(d=>({reg,p:cbPost(d.id,d.data())})).filter(x=>x.p),()=>[])))
+    .then(A=>{L.list=A.flat();L.at=Date.now();L.busy=false;L.err='';if(S.view==='community')quietRender();},()=>{L.busy=false;L.err='The latest topics could not be fetched.';if(S.view==='community')quietRender();});
+}
+/* what was fetched, with the boards open on the page (kept live) in their place */
+function cbLtItems(){
+  const live=new Set(),out=[],seen=new Set();
+  for(const [reg,B] of Object.entries(CB.lists))if(B&&B.list){live.add(reg);for(const p of (B.pins||[]).concat(B.list))out.push({reg,p});}
+  for(const x of (CB.lt&&CB.lt.list)||[])if(!live.has(x.reg))out.push(x);
+  return out.filter(x=>{const k=x.reg+'/'+x.p.id;if(seen.has(k))return false;seen.add(k);return (!x.p.hd||cbStaff())&&cbFltOk(x.p);}).sort((a,b)=>b.p.la-a.p.la);
+}
+function cbLtOpen(){if(CB.ltOpen===undefined){let v=null;try{v=localStorage.getItem(LS_CBLT);}catch(e){}CB.ltOpen=v!=='0';}return CB.ltOpen;}
+function cbLatest(){
+  cbLtLoad();const L=CB.lt,open=cbLtOpen(),k=cbLtBoards().length;
+  let inner='';
+  if(open){const items=L&&L.list?cbLtItems():null;
+    inner=`<div class="cb-reg-b" id="cb-b-latest">${L&&L.err&&!L.list?`<p class="err">${esc(L.err)}</p>`:items==null?'<p class="hint">Fetching the latest topics…</p>':!items.length?(cbFltOn()?cbNoMatch():'<p class="hint">No topics on any board yet.</p>')
+      :`<ul class="cb-rows" data-l="latest">${items.slice(0,L.n).map(x=>cbRow(x.reg,x.p,{lt:1})).join('')}</ul>${items.length>L.n?'<p><button type="button" class="btn ghost small" data-act="cb-lt-more">More topics</button></p>':''}`}</div>`;}
+  return `<section class="cb-reg cb-lt${open?' open':''}" data-reg="latest"><h2 class="cb-reg-h"><button type="button" class="cb-reg-tg" data-act="cb-lt-tg" aria-expanded="${open}"${open?' aria-controls="cb-b-latest"':''}>
+    <span class="cb-car" aria-hidden="true">${open?'▾':'▸'}</span><span class="cb-reg-n">Latest on every board</span><span class="cb-reg-c">${k} ${k===1?'board':'boards'} with topics</span></button></h2>${inner}</section>`;
+}
+/* the boards with no topic yet, behind a picker */
+function cbOtherPick(shown){
+  if(CB.sq)return '';const rest=regionsByAvail().filter(R=>!shown.has(R.id)&&!regDisabled(R.id));if(!rest.length)return '';
+  return `<div class="cb-other"><label class="lbl" for="cb-goreg">${rest.length} more ${rest.length===1?'board has':'boards have'} no topics yet</label><span class="row"><select class="input" id="cb-goreg">${rest.map(R=>`<option value="${R.id}">${esc(R.name)}</option>`).join('')}</select><button type="button" class="btn ghost small" data-act="cb-goreg">Open the board</button></span></div>`;
+}
+/* ── drafts ── */
+const LS_CBD=()=>'edictum.cbDraft.'+(S.uid||'');
+function cbDraftGet(){
+  let o=null;try{o=JSON.parse(localStorage.getItem(LS_CBD())||'null');}catch(e){}o=o&&typeof o==='object'?o:{};const now=Date.now(),r={};
+  for(const [k,v] of Object.entries(o.r&&typeof o.r==='object'?o.r:{}))if(CB_ID.test(k)&&v&&typeof v.x==='string'&&v.x.trim()&&now-(+v.t||0)<14*DAY)r[k]={x:v.x.slice(0,CB_TEXT),t:+v.t};
+  const g=o.f,f=g&&typeof g==='object'&&now-(+g.t||0)<14*DAY&&(String(g.ti||'').trim()||String(g.x||'').trim())?{reg:String(g.reg||''),ti:String(g.ti||'').slice(0,CB_TITLE),x:String(g.x||'').slice(0,CB_TEXT),tg:CB_TAG[g.tg]?g.tg:'general',t:+g.t}:null;
+  return {f,r};
+}
+function cbDraftPut(o){try{localStorage.setItem(LS_CBD(),JSON.stringify({f:o.f||null,r:Object.fromEntries(Object.entries(o.r||{}).sort((a,b)=>b[1].t-a[1].t).slice(0,20))}));}catch(e){}}
+function cbDraftSaveNow(){
+  if(!S.uid)return;const o=cbDraftGet(),now=Date.now();
+  if(CB.form){const f=CB.f;o.f=f.ti.trim()||f.x.trim()?{reg:f.reg,ti:f.ti,x:f.x,tg:f.tg,t:now}:null;}
+  if(CB.topic){if(CB.rx.trim())o.r[CB.topic.id]={x:CB.rx,t:now};else delete o.r[CB.topic.id];}
+  cbDraftPut(o);
+}
+let cbDraftT=0;
+function cbDraftSave(){clearTimeout(cbDraftT);cbDraftT=setTimeout(cbDraftSaveNow,300);}
+function cbDraftReply(id){const d=cbDraftGet().r[id];return d?d.x:'';}
+function cbDraftDone(k){clearTimeout(cbDraftT);const o=cbDraftGet();if(k==='f')o.f=null;else delete o.r[k];cbDraftPut(o);}
+/* ── pacing ── */
+const LS_CBP=()=>'edictum.cbPace.'+(S.uid||'');
+function cbPaceGet(){
+  let o=null;try{o=JSON.parse(localStorage.getItem(LS_CBP())||'null');}catch(e){}const now=Date.now(),ok=a=>(Array.isArray(a)?a:[]).filter(t=>typeof t==='number'&&t<=now&&now-t<3600e3);
+  return {p:ok(o&&o.p),q:ok(o&&o.q)};
+}
+function cbPaceNote(topic){const P=cbPaceGet(),now=Date.now();P.p=P.p.concat(now).slice(-CB_PACE.hour);if(topic)P.q=P.q.concat(now).slice(-CB_PACE.topics);try{localStorage.setItem(LS_CBP(),JSON.stringify(P));}catch(e){}}
+function cbPaceWait(topic){
+  if(cbStaff())return 0;const P=cbPaceGet(),now=Date.now();
+  const gap=P.p.length?Math.max(...P.p)+CB_PACE.gap-now:0,hour=P.p.length>=CB_PACE.hour?Math.min(...P.p.slice(-CB_PACE.hour))+3600e3-now:0,
+    top=topic&&P.q.length>=CB_PACE.topics?Math.min(...P.q.slice(-CB_PACE.topics))+3600e3-now:0;
+  return Math.max(0,gap,hour,top,(CB.paceAt||0)-now);
+}
+const cbPaceWords=ms=>{const s=Math.ceil(ms/1000);return s<90?s+(s===1?' second':' seconds'):Math.ceil(s/60)+' minutes';};
+function cbPaceText(k){const w=cbPaceWait(k==='new');return w>0?'You can post again in '+cbPaceWords(w)+'.':'';}
+function cbPaceHint(k){const t=cbPaceText(k);return `<span class="hint cb-pace-h" data-cb-pace="${k}" role="status"${t?'':' hidden'}>${esc(t)}</span>`;}
+/* the wait the server gave when it refused a post */
+function cbPaceFrom(e){
+  if(!e||e.code!=='cb_paced')return;let w=Number(e.details&&e.details.wait);
+  if(!(w>0)){const m=/again in (\d+) (second|minute)/.exec(String(e.message||''));if(m)w=+m[1]*(m[2]==='minute'?60e3:1e3);}
+  if(w>0)CB.paceAt=Date.now()+w;
+}
+setInterval(()=>{if(S.view!=='community'||document.hidden)return;
+  for(const el of document.querySelectorAll('[data-cb-pace]')){const t=cbPaceText(el.dataset.cbPace);if(el.textContent!==t)el.textContent=t;if(el.hidden!==!t)el.hidden=!t;}},1000);
+/* ── a topic: earlier replies, Reply, the bar and the way on. The bar sits just above the reply box: held at the
+   foot of the screen while the replies scroll by, it comes to rest above the box rather than over its Post button ── */
+function cbReplyFocus(){
+  const f=document.getElementById('cb-rf'),x=document.getElementById('cb-r-x');
+  if(!f){const h=document.querySelector('.cb-reps ~ .hint, .cb-reps ~ .info, .cb-botnav');if(h)try{h.scrollIntoView({block:'center'});}catch(e){}return;}
+  try{f.scrollIntoView({block:'center'});}catch(e){}
+  if(x)try{x.focus({preventScroll:true});x.setSelectionRange(x.value.length,x.value.length);}catch(e){}
+}
+function cbReplyBar(can){
+  return `<div class="cb-rbar" role="group" aria-label="This topic">${can?'<button type="button" class="btn small" data-act="cb-reply-go">Reply</button>':''}<button type="button" class="linkish small" data-act="cb-top">↑ Top</button><a class="linkish small" href="#community" data-act="cb-back">All boards</a></div>`;
+}
+function cbBotNav(T){
+  const L=CB.seq||[],i=L.findIndex(x=>x.reg===T.reg&&x.id===T.id),pv=i>0?L[i-1]:null,nx=i>=0&&i<L.length-1?L[i+1]:null,
+    a=(x,l)=>`<a class="cb-step" href="#community/${x.reg}/${x.id}" data-act="cb-step" data-reg="${x.reg}" data-t="${x.id}"><span class="cb-step-l">${l}</span>${x.ti?`<span class="cb-step-t">${esc(x.ti)}</span>`:''}</a>`;
+  return `<nav class="cb-botnav" aria-label="More topics"><a class="cb-bk" href="#community" data-act="cb-back">← Back to the boards</a>${pv?a(pv,'‹ Previous topic'):''}${nx?a(nx,'Next topic ›'):''}</nav>`;
+}
+/* ── the Region page's Board tab: the region's Community Board, then its Quick messages ── */
+function cbRegionBlock(){
+  const reg=REG&&REG.id;if(!reg||!S.db||S.mode==='local')return '';cbListen();cbLoad(reg);
+  const L=CB.lists[reg],pins=L&&L.pins||[],ids=new Set(pins.map(p=>p.id)),items=L&&L.list?pins.concat(L.list.filter(p=>!ids.has(p.id))).filter(p=>!p.hd||cbStaff()):null,n=(CB.meta[reg]||{}).n||0;
+  const rows=L&&L.err?`<p class="err">${esc(L.err)}</p>`:items==null?'<p class="hint">Fetching the topics…</p>':items.length?`<ul class="cb-rows" data-l="${reg}">${items.slice(0,8).map(p=>cbRow(reg,p)).join('')}</ul>${n>8?`<p class="hint">${n} topics in all: <button type="button" class="linkish small" data-act="cb-goboard" data-reg="${reg}">see them all</button>.</p>`:''}`
+    :`<p class="hint">No topics yet. Start the first: every nation, here and in other regions, can read it and answer.</p>`;
+  return `<section class="rgn-cb" aria-labelledby="rgn-cb-h"><div class="rgn-cb-hd"><div><p class="eyebrow">Community Board</p><h2 class="h3" id="rgn-cb-h">Topics in ${esc(REGION)}</h2></div><span class="row">${S.mode==='world'&&S.nation&&!OBS?`<button type="button" class="btn small" data-act="cb-new" data-reg="${reg}">New topic</button>`:''}<button type="button" class="btn ghost small" data-act="cb-goboard" data-reg="${reg}">Open the board</button></span></div>${rows}</section>`;
+}
+document.addEventListener('click',e=>{
+  const el=e.target.closest&&e.target.closest('[data-act]');if(!el)return;const a=el.dataset.act;if(a.slice(0,3)!=='cb-')return;
+  if(a==='cb-flt'){cbFltSet(el.dataset.k,el.dataset.v);render();const b=document.querySelector(`[data-act="cb-flt"][data-k="${el.dataset.k}"][data-v="${el.dataset.v}"]`);if(b)try{b.focus({preventScroll:true});}catch(err){}return;}
+  if(a==='cb-flt-clear'){cbFltSet('tg','');cbFltSet('w','');render();return;}
+  if(a==='cb-lt-tg'){CB.ltOpen=!cbLtOpen();try{localStorage.setItem(LS_CBLT,CB.ltOpen?'1':'0');}catch(err){}render();const b=document.querySelector('[data-act="cb-lt-tg"]');if(b)try{b.focus({preventScroll:true});}catch(err){}return;}
+  if(a==='cb-lt-more'){if(CB.lt)CB.lt.n+=CB_LT_SHOW;render();return;}
+  if(a==='cb-goreg'){const s=document.getElementById('cb-goreg'),v=s&&s.value;if(!v||!REG_BY_ID[v])return;cbOpenSet().add(v);cbKeepOpen();render();
+    const sec=document.querySelector(`.cb-reg[data-reg="${v}"]`);if(sec){try{sec.scrollIntoView({block:'start'});}catch(err){}const b=sec.querySelector('.cb-reg-tg');if(b)try{b.focus({preventScroll:true});}catch(err){}}return;}
+  if(a==='cb-earlier'){const t=el.dataset.t;CB.all=CB.all||{};CB.all[t]=true;const first=document.querySelector('.cb-reps .cb-post'),id=first&&first.id,y0=first?first.getBoundingClientRect().top:0;render();
+    const f=id&&document.getElementById(id);if(f){window.scrollBy(0,f.getBoundingClientRect().top-y0);const top=document.querySelector('.cb-reps .cb-post');if(top){top.setAttribute('tabindex','-1');try{top.focus({preventScroll:true});}catch(err){}}}return;}
+  if(a==='cb-reply-go'){cbReplyFocus();return;}
+  if(a==='cb-reply-to'){const nm=el.dataset.nm||'',u=el.dataset.u||'';
+    if(nm&&u){CB.mnPick=CB.mnPick||new Map();CB.mnPick.set(nm,u);if(!CB.rx.includes('@'+nm))CB.rx=(CB.rx.trim()?CB.rx.replace(/\s*$/,'\n'):'')+'@'+nm+' ';}
+    CB.pv['cb-r-x']=false;render();cbDraftSave();cbReplyFocus();return;}
+  if(a==='cb-top'){window.scrollTo({top:0,left:0,behavior:mfxRM()?'auto':'smooth'});const h=document.querySelector('.cb-post .cb-ti');if(h){h.setAttribute('tabindex','-1');try{h.focus({preventScroll:true});}catch(err){}}return;}
+  if(a==='cb-step'){e.preventDefault();cbOpenTopic(el.dataset.reg,el.dataset.t);render();window.scrollTo(0,0);return;}
+  if(a==='cb-draft-go'){const d=cbDraftGet().f;if(!d)return;CB.f={reg:cbBoardOk(d.reg)?d.reg:REG?REG.id:'',ti:d.ti,x:d.x,tg:d.tg};CB.form=true;render();const i=document.getElementById(d.ti?'cb-f-x':'cb-f-ti');if(i)try{i.focus();}catch(err){}return;}
+  if(a==='cb-draft-no'){cbDraftDone('f');CB.f={reg:'',ti:'',x:'',tg:'general'};render();toast('The unfinished topic is gone.');return;}
+  if(a==='cb-goboard'){e.preventDefault();const reg=el.dataset.reg;if(!cbBoardOk(reg))return;uxOpen('community',()=>{cbOpenSet().add(reg);cbKeepOpen();cbCloseTopic();},`.cb-reg[data-reg="${reg}"]`);return;}
+  if(a==='cb-qm'){uxOpen('region',()=>{RGN.tab='board';},'#rgn-mb-h');return;}
+});
 
 /* ───────── military buildings (22 November 2026) ─────────
    Four buildings for the Defence tab, the owner's picks 1, 2, 5 and 12 of the military building ideas:
