@@ -47,6 +47,14 @@ check('the referee lays both sieges', sB.ok && sC.ok && sB.doc.st === 'on' && sC
 check('A sees its siege, the final assault a day off', await until(() => A.evaluate(id => !!G.WR2().wrSiege(G.S.uid, id), ub), 15000));
 check('B is told on its home page', await until(async () => /Siege Axetere has laid siege to/.test(plain(await B.evaluate(() => G.WR2().warNotice()))), 20000), plain(await B.evaluate(() => G.WR2().warNotice())));
 check('and offered to surrender', /Surrender…/.test(await box(B, ua)), await box(B, ua));
+/* war, round three: the sieges on the war layer of A's map, and both wars counted in A's record */
+check('the war layer shows both sieges', await until(() => A.evaluate(ids => { const T = G.WR2().territory(), D = G.WR3().wr3MapData(T); return ids.every(id => D.sieges.some(s => s.c === T.list[T.byId[id]].cap)); }, [ub, uc]), 15000));
+await A.evaluate(() => { const b = document.querySelector('[data-ed="recovery-saved"]'); if (b) b.click(); });
+await A.evaluate(id => G.WR3().openMapAt(id), uc);await sleep(1200);
+await A.evaluate(() => { const c = document.querySelector('canvas[data-map="main"]'); if (c) c.scrollIntoView({ block: 'center' }); });await sleep(600);
+await A.locator('canvas[data-map="main"]').screenshot({ path: OUT + '/war-fall-siege-map.png' }).catch(() => A.screenshot({ path: OUT + '/war-fall-siege-map.png' }).catch(() => {}));
+await A.evaluate(() => G.commit(G.clone(G.S.nation)));
+check('A counts both wars while they last', await until(() => A.evaluate(([b, c]) => !!(G.S.nation.wst && G.S.nation.wst[b] && G.S.nation.wst[c]), [ub, uc]), 15000), await A.evaluate(() => G.S.nation.wst));
 await B.screenshot({ path: OUT + '/war-fall-siege-notice.png' }).catch(() => {});
 check('a final assault before the day is up is refused', (await A.evaluate(async ([d, c]) => (await (await window.claude.use('referee')).battle({ d, c, p: 0.95, cap: 1 })), [uc, cc])).why === 'siege');
 
@@ -56,12 +64,16 @@ const bRec = await B.evaluate(id => ({ surr: G.S.nation.surr && G.S.nation.surr[
 check('B surrenders: saved with 14 days of tribute', bRec.surr > 0 && bRec.trib && bRec.trib[0].u - bRec.trib[0].t === 14 * DAY, bRec);
 check('for A the war with B is over, under a 14-day truce', await until(() => A.evaluate(id => { const w = G.WR2().warWith(id); return !w.war && w.surr === id && w.truceUntil > Date.now() + 13 * 864e5; }, ub), 20000));
 check('and no final assault on B', (await A.evaluate(async ([d, c]) => (await (await window.claude.use('referee')).battle({ d, c, p: 0.95, cap: 1 })), [ub, cb])).why === 'surr');
+check('A’s war report on B: they surrendered, a victory', await until(async () => { await A.evaluate(() => G.commit(G.clone(G.S.nation))); return A.evaluate(id => (G.S.nation.wrp || []).some(r => r.id === id && r.how === 'surr-them' && r.res === 'won'), ub); }, 20000), await A.evaluate(() => G.S.nation.wrp));
+check('and B’s: it surrendered, a defeat', await until(async () => { await B.evaluate(() => G.commit(G.clone(G.S.nation))); return B.evaluate(id => (G.S.nation.wrp || []).some(r => r.id === id && r.how === 'surr-me' && r.res === 'lost'), ua); }, 20000), await B.evaluate(() => G.S.nation.wrp));
 check('A is paid tribute from B\'s spare materials', await until(() => A.evaluate(() => Object.values(G.WR2().wrTribute(G.S.nation)).some(v => v > 0)), 15000), await A.evaluate(() => G.WR2().wrTribute(G.S.nation)));
 
 /* C holds out: a day later, the final assault */
 const r = await fetch(`http://${FS_HOST}/v1/projects/${PROJECT}/databases/(default)/documents/sieges/${sC.id}?updateMask.fieldPaths=t`, { method: 'PATCH', headers: { 'content-type': 'application/json', authorization: 'Bearer owner' }, body: JSON.stringify({ fields: { t: { integerValue: String(Date.now() - 25 * H) } } }) });
 check('(a day passes)', r.status === 200, r.status);
 check('A\'s page knows the capital is open to the final assault', await until(() => A.evaluate(([id, c]) => { const s = G.WR2().wrSiege(G.S.uid, id); return !!s && Date.now() - s.t > 24 * 3600000; }, [uc, cc]), 15000));
+/* battles fought in the war with C (as A's attacks count them), so its veterans come home to an edict */
+await A.evaluate(id => { const n = G.clone(G.S.nation); n.wst = { ...n.wst, [id]: { ...n.wst[id], a: 5, w: 3 } }; G.commit(n); }, uc);
 let won = null;
 for (let i = 0; i < 6 && !(won && won.win); i++) won = await A.evaluate(async ([d, c]) => (await (await window.claude.use('referee')).battle({ d, c, p: 0.95, cap: 1 })), [uc, cc]);
 check('the final assault takes the capital, and C falls', won && won.win && won.fell, won);
@@ -70,6 +82,30 @@ const falls = await restListAdmin('sieges');
 check('the siege is marked fallen', falls.some(d => d.id === sC.id && d.fields.st.stringValue === 'fell'));
 check('C leaves A\'s map, and its capital is A\'s', await until(() => A.evaluate(([id, c]) => { const T = G.WR2().territory(); return T.byId[id] === undefined && T.owner[c] === T.byId[G.S.uid] && T.spoil.get(c) === id; }, [uc, cc]), 20000));
 check('the region remembers the fall', /Fallen nations Vesad fell to Axetere/.test(plain(await A.evaluate(() => G.WR2().wrFallenCard()))));
+check('A’s war report on C: its capital fell, a victory', await until(async () => { await A.evaluate(() => G.commit(G.clone(G.S.nation))); return A.evaluate(id => (G.S.nation.wrp || []).some(r => r.id === id && r.how === 'fell-them' && r.res === 'won' && r.a === 5), uc); }, 20000), JSON.stringify(await A.evaluate(() => ({ me: G.S.uid, falls: G.WR2().wrFallsAt(null).map(f => ({ d: f.d, a: f.a, ft: f.ft })), wrp: G.S.nation.wrp, log: G.S.nation.log.slice(0, 8).map(l => l.k + ':' + l.t) }))));
+const wars = plain(await A.evaluate(() => { const x = G.allNations().find(y => y.me); return G.WR3().wr3WarsSection(x, true); }));
+check('the Wars section on A’s page lists both reports', /War reports/.test(wars) && /Conquest with Vesad Victory/.test(wars) && /Conquest with Bevton Victory/.test(wars) && /Their capital fell/.test(wars) && /They surrendered/.test(wars), wars);
+await A.evaluate(() => { location.hash = '#nation'; });await A.waitForSelector('#wr3-wars', { timeout: 10000 }).catch(() => {});
+await A.evaluate(() => { const el = document.getElementById('wr3-wars'); if (el) el.scrollIntoView({ block: 'start' }); });await sleep(400);
+await A.locator('#wr3-wars').screenshot({ path: OUT + '/war-fall-wars.png' }).catch(() => {});
+check('its veterans come home: the Coming Home edict lands on the desk', await until(() => A.evaluate(() => (G.syncInbox(G.S.nation, Date.now()).inbox || []).some(x => x.id === 'wr-home')), 20000), await A.evaluate(() => G.syncInbox(G.S.nation, Date.now()).inbox.map(x => x.id)));
+/* the capital taken: one of fifteen edicts lands on A's desk; taking it over makes Vesad's capital a city of A that does
+   not count against the cities A may found */
+const cqd = await A.evaluate(() => { const d = G.syncInbox(G.S.nation, Date.now()).inbox.find(x => G.WR3().CQ_ISSUES.some(i => i.id === x.id)); return d ? d.id : null; });
+check('a capital-taken edict lands on A’s desk', !!cqd, cqd);
+if (cqd) {
+  const oi = await A.evaluate(id => G.WR3().CQ_ISSUES.find(i => i.id === id).o.findIndex(o => o.e.cqc), cqd);
+  const before = await A.evaluate(() => ({ all: G.S.nation.cities.length, founded: G.WR3().cityFounded(G.S.nation) }));
+  await A.evaluate(([id, o]) => G.answer(id, o), [cqd, oi]);
+  check('taken over, the capital is a city of A, marked captured', await until(() => A.evaluate(c => (G.S.nation.cities || []).some(x => x.c === c && x.cq === 'Vesad'), cc), 10000), JSON.stringify(await A.evaluate(() => G.S.nation.cities)));
+  check('and it does not count against the cities A may found', await A.evaluate(b => G.WR3().cityFounded(G.S.nation) === b.founded && G.S.nation.cities.length === b.all + 1, before));
+  check('the capital’s fate is decided once', await A.evaluate(() => (G.S.nation.cqd || []).length === 1 && !G.syncInbox(G.S.nation, Date.now()).inbox.some(x => /^cq-/.test(x.id))));
+  check('saved so', await until(async () => { const d = await nationDoc(ua); return (d?.rec?.cities || []).some(x => x.c === cc && x.cq === 'Vesad'); }, 15000));
+  await A.evaluate(() => { location.hash = '#cities'; });await sleep(1500);
+  check('the Cities page marks it Captured', /Captured/.test(await A.evaluate(() => document.querySelector('.cx-list, .cx-items, main')?.textContent || '')));
+  await A.screenshot({ path: OUT + '/war-fall-captured-city.png' }).catch(() => {});
+}
+check('the war layer shows the ruins', await A.evaluate(c => G.WR3().wr3MapData(G.WR2().territory()).ruins.some(r => r.c === c), cc));
 check('the sack is A\'s achievement', await until(() => A.evaluate(() => !!(G.S.nation.ach || {})['war-sack']), 15000));
 
 /* C's player sees the fall, and rises again */

@@ -10,7 +10,7 @@
      d  the nation attacked: a player's uid, or a computer nation's id (npc-…)
      c  the hex (its cell number); p the odds the attacker's game worked out; w the ally whose war it is
         ('' in a war of its own); h the allied nations joining the assault
-     → {ok: true, win, t, s?, s2?, d, p, r}: t the server's time (the conquest's), s and s2 the seals of a victory,
+     → {ok: true, win, t, s?, s2?, d, p, r, roll}: t the server's time (the conquest's), s and s2 the seals of a victory,
        d the defender they name, p the odds used, r the readiness left; or {ok: false, why, next?}: why 'ready'
        (next: ms until the next point), 'nation' (no saved nation yet), 'gone' (no such defender in the
        attacker's region), 'banned', or 'hidden' (a moderator has hidden the attacker or the defender)
@@ -187,7 +187,8 @@ async function battle(uid, data) {
     const cap = def > 0 ? Math.min(P_MAX, TILT * att / (TILT * att + def)) : P_MAX;
     const p = Math.min(P_MAX, Math.max(P_MIN, data.p)), pe = Math.min(p, cap);
     const roll = crypto.randomInt(0, 1e6) / 1e6, win = roll < pe;
-    const out = { ok: true, win, t: now, w, d, p: Math.round(pe * 1e4) / 1e4, r: rd.r - 1 };
+    /* roll: the dice, for the game's battle report (war, round three) */
+    const out = { ok: true, win, t: now, w, d, p: Math.round(pe * 1e4) / 1e4, r: rd.r - 1, roll: Math.round(roll * 1e4) / 1e4 };
     const sign = text => crypto.sign('sha256', Buffer.from(text), { key, dsaEncoding: 'ieee-p1363' }).toString('base64url');
     if (win) { out.s = sign(sealText(uid, c, now, w)); out.s2 = sign(sealText2(uid, c, now, w, d)); }
     if (win && sg) {

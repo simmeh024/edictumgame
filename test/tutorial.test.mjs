@@ -259,7 +259,7 @@ test('the first building opens a second city, and Found a second city pays 10 la
   n=r.reload(n);const goods=n.stock.goods,cr=r.ctx.credits(n);n.cities=[{b:[{k:'farm'}]},{b:[]}];const m=r.save(n);
   assert.ok(m.some(x=>/Step done: Found a second city\. \+10 land credits and 200 goods\./.test(x)),m.join(' | '));
   assert.equal(n.stock.goods,Math.min(400,goods+200));assert.equal(r.ctx.credits(n),cr+10);
-  assert.match(source,/function maxCities\(T,i\)\{return Math\.min\(MAX_CITIES,mileOf\(S\.nation\)\.cities\+areaCities\(myArea\(T,i\)\)\+\(cityBonusOpen\(S\.nation\)\?1:0\)\+/);
+  assert.match(source,/function maxCities\(T,i\)\{const b=mileOf\(S\.nation\)\.cities\+areaCities\(myArea\(T,i\)\)\+\(cityBonusOpen\(S\.nation\)\?1:0\)\+/);
 });
 
 test('upgrades are ambitions: grey pays 4 land credits and 50 of each, gold 10 and 200 of each',()=>{

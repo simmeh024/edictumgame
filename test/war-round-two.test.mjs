@@ -41,7 +41,7 @@ test('the constants: a day\'s siege, an assault for two more, the server keeps t
 /* the game's pairWar and warCovers over a few records */
 function wars(recs, now) {
   const ctx = vm.createContext({ TRUCE_MS: 72 * H, PEACE_AUTO_MS: 30 * H, SURR_TRUCE: 14 * DAY, NPC_SET: new Set(['npc-1']), DAY,
-    docOf: id => recs[id], hidDoc: () => null, wakeFence: () => 0, npcPeaceWait: () => 24 * H, Date: { now: () => now } });
+    docOf: id => recs[id], hidDoc: () => null, wrFellOf: () => null, wakeFence: () => 0, npcPeaceWait: () => 24 * H, Date: { now: () => now } });
   vm.runInContext(vars(GOALS.replace('${BORDER_CAP}', '12')) + '\n' + fn('pairWar') + '\n' + fn('warCovers'), ctx);
   return ctx;
 }
@@ -235,7 +235,10 @@ test('the five war edicts: never drawn at random, the last edicts added, each wi
   }
   assert.match(SEC, /for\(const is of WAR2_ISSUES\)\{is\.fo=1;ISSUES\.push\(is\);is\.no=ISSUES\.length;ISSUE_BY_ID\[is\.id\]=is;is\.nbx=false;\}/);
   const code = src.slice(0, src.lastIndexOf('</script>')), at = code.indexOf('for(const is of WAR2_ISSUES){');
-  assert.equal(code.indexOf('ISSUES.push(', at + 40), -1, 'nothing after them');
+  /* nothing after them but the veterans' edicts (war-round-three.test.mjs), which keep the same rule */
+  const vet = code.indexOf('ISSUES.push(', at + 40);
+  assert.ok(vet > 0 && code.lastIndexOf('for(const is of ', vet) === code.indexOf('for(const is of WAR3_ISSUES){'), 'only the veterans’ edicts after them');
+  assert.equal(code.indexOf('ISSUES.push(', vet + 20), -1, 'and nothing after those');
   assert.match(readFileSync(new URL('../scripts/split-content.mjs', import.meta.url), 'utf8'), /'WAR2_ISSUES'/);
 });
 test('which war edict comes: the one that fits the trouble, one at a time and a day apart', () => {
