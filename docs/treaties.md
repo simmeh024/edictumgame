@@ -85,3 +85,13 @@ Kept in each alliance's record as `rel {aid: …}`, written only by `functions/a
 Nothing to set up by hand. Merging deploys the `civic`, `referee`, `accounts` and `admin` functions, the rules (the
 `treaties` collection is readable by everyone) and the site. Single-field indexes cover the two queries (`reg ==` and
 `p array-contains`).
+
+## Technology licences
+
+A research pact in force lets either side license a technology it has researched to the other (the National Research
+Programme, docs/research.md): `trLic {to, i}` offers it, `trLicAns {lid, yes}` takes it up or declines it. Licences are
+`rsLic/<licensee>_<technology> {reg, p, f, to, i, st, t, at, u, fee, ff, ft}`, written only by the server and read only
+by the two nations (the game listens where `p` contains its uid). The licensee pays the fee in materials and has 20% off
+that technology for 30 days; it still needs every prerequisite. One per technology per licensee (a declined one may be
+offered again after a week), three offers and three acceptances a week, both nations a week old with a laboratory open.
+Deleting an account deletes its licences with its treaties (`trDrop`).

@@ -1422,3 +1422,13 @@ test('a moderator reads reports, every region chat and the silences, and marks o
   await assertFails(as('pl').doc('staff/pl').set({ t: 1, m: true }));
   await assertFails(as('pl').collection('reports').get());
 });
+
+test('technology licences (rsLic): only the two nations read one, and nobody writes one but the server', async () => {
+  await env.withSecurityRulesDisabled(async ctx => { await ctx.firestore().doc('rsLic/bob_2').set({ reg: 'meridian', p: ['alice', 'bob'], f: 'alice', to: 'bob', i: 2, st: 'offered', t: Date.now() }); });
+  await assertSucceeds(env.authenticatedContext('bob').firestore().doc('rsLic/bob_2').get());
+  await assertSucceeds(env.authenticatedContext('alice').firestore().collection('rsLic').where('p', 'array-contains', 'alice').get());
+  await assertFails(env.authenticatedContext('carol').firestore().doc('rsLic/bob_2').get());
+  await assertFails(env.unauthenticatedContext().firestore().doc('rsLic/bob_2').get());
+  await assertFails(env.authenticatedContext('bob').firestore().doc('rsLic/bob_2').update({ st: 'active' }));
+  await assertFails(env.authenticatedContext('alice').firestore().doc('rsLic/alice_9').set({ p: ['alice'], f: 'alice', to: 'alice', i: 9, st: 'active' }));
+});

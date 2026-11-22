@@ -193,6 +193,30 @@ export function centralBankUps(rec, now) {
    less through (a quarter at gold), holographic banknotes take a further quarter; the game's nbForgeryMult agrees */
 export const forgeryMult = I => (I.bank ? Math.round((0.5 - 0.05 * Math.min(5, Math.max(0, I.ug | 0))) * 100) / 100 * (I.holo ? 0.75 : 1) : 1);
 
+/* the National Research Programme (game/edictum.html; functions/research-rules.js): what a record's research does for its
+   currency once its laboratory is open (nrp.i): development points (its technologies' fx, at most 6, and 2 more for the
+   International Financial Centre) and less harm from forged notes (their cf, at most 0.3, and half of their Central
+   Bank share, at most 0.5, when a Central Bank stands), 0.5 off at most. The technologies are read from the bitset nrp.k
+   (60 characters of base64url, index = track * 120 + (tier - 1) * 5 + slot); the game's rsFxBits and rsCfOf agree
+   (test/research.test.mjs). */
+export const RS_FXI = { 21: 1, 24: 1, 35: 1, 36: 1, 55: 1, 65: 1 }, RS_CFI = { 39: 0.1, 46: 0.05, 53: 0.05, 58: 0.05, 75: 0.05 }, RS_CBI = { 10: 0.1, 36: 0.15, 82: 0.1, 111: 0.1 };
+const RS_B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+export function researchOf(rec, bank) {
+  const p = isObj(rec && rec.nrp) ? rec.nrp : null, o = { fx: 0, cf: 0 };
+  if (!p || !(num(p.i, 0) > 0) || typeof p.k !== 'string' || p.k.length !== 60) return o;
+  const b = new Uint8Array(45);
+  for (let q = 0; q < 15; q++) {
+    let v = 0;
+    for (let j = 0; j < 4; j++) { const c = RS_B64.indexOf(p.k[q * 4 + j]); if (c < 0) return o; v = v * 64 + c; }
+    b[q * 3] = (v >> 16) & 255; b[q * 3 + 1] = (v >> 8) & 255; b[q * 3 + 2] = v & 255;
+  }
+  const has = i => !!(b[i >> 3] & (1 << (i & 7))), sum = T => Object.entries(T).reduce((s, [i, v]) => s + (has(+i) ? v : 0), 0);
+  const fin = isObj(p.ch) && isObj(p.ch.finctr) && num(p.ch.finctr.d, 0) > 0;
+  o.fx = Math.round(Math.min(6, sum(RS_FXI)) * 1000) / 1000 + (fin ? 2 : 0);
+  o.cf = Math.min(0.5, Math.round(Math.min(0.3, sum(RS_CFI)) * 1000) / 1000 + (bank ? Math.round(Math.min(0.5, sum(RS_CBI)) * 1000) / 1000 * 0.5 : 0));
+  return o;
+}
+
 /* ── indicators: one nation's real figures, read from its record ───────── */
 /* rec is a player's shared record or, with npc set, a computer-run nation's definition. Every figure comes
    from what the game simulates; nothing here is invented to fill a formula. */
@@ -239,13 +263,13 @@ export function indicators(id, rec, now, ctx) {
   const debt = debtOf(n, s, p), ind = industries(n).slice(0, 5), tot = ind.reduce((a, c) => a + Math.max(0, c[1]), 0) || 1;
   /* diversification: how evenly the five largest industries share the economy (1 = evenly) */
   const div = -ind.reduce((a, c) => { const q = Math.max(0, c[1]) / tot; return a + (q > 0 ? q * Math.log(q) : 0); }, 0) / Math.log(5);
-  const tr = ctx.trade || { partners: new Set(), volume: 0 }, bank = !npc && hasCentralBank(rec, now), holo = !!p.bankHolograms, bankUg = bank ? centralBankUps(rec, now) : 0;
+  const tr = ctx.trade || { partners: new Set(), volume: 0 }, bank = !npc && hasCentralBank(rec, now), holo = !!p.bankHolograms, bankUg = bank ? centralBankUps(rec, now) : 0, rs = npc ? { fx: 0, cf: 0 } : researchOf(rec, bank);
   return {
     npc, gpc, out, pop, prosper, gOut: clamp(num(gOut, 0), -50, 50), gPc: clamp(num(gPc, 0), -50, 50), span, outVol: clamp(num(outVol, 0), 0, 100),
     approval: govApproval(s), law: lawOf(s), safety: s.safety, corrupt: s.corrupt, sci: s.sci, edu: s.edu, econ: s.econ, div: clamp(div, 0, 1),
     infl: inflOf(s, p), debt, credit: creditOf(debt, s), unemp: unempOf(s, p),
     cbi: !!p.centralBankIndependence, pbank: !!p.peoplesBank, oilFund: !!p.oilFund, tariffs: !!p.importTariffs,
-    bank, holo, counterfeit: ctx.counterfeit > now ? (p.counterIntel ? 4 : 8) * forgeryMult({ bank, holo, ug: bankUg }) : 0,
+    bank, holo, counterfeit: ctx.counterfeit > now ? (p.counterIntel ? 4 : 8) * forgeryMult({ bank, holo, ug: bankUg }) * (1 - rs.cf) : 0, rsDev: rs.fx,
     wars: clamp(num(ctx.wars, 0), 0, 20), partners: tr.partners.size, volume: clamp(tr.volume, 0, 10000),
     days: npc ? Infinity : Math.max(0, (now - num(rec.founded, now)) / DAY)
   };
@@ -269,7 +293,7 @@ export function valuationFactors(I) {
     /* trade: partners and volume of live deals, open markets; import tariffs shut some trade out */
     trade: clamp(55 * Math.min(1, I.partners / 4) + 30 * Math.min(1, I.volume / 20) + 15 * I.econ / 100 - (I.tariffs ? 8 : 0), 0, 100),
     /* development and diversification: science, education and how evenly industries share the economy */
-    dev: clamp(0.4 * I.sci + 0.3 * I.edu + 0.3 * I.div * 100, 0, 100)
+    dev: clamp(0.4 * I.sci + 0.3 * I.edu + 0.3 * I.div * 100 + num(I.rsDev, 0), 0, 100)
   };
 }
 export const strengthOf = f => V_KEYS.reduce((a, k) => a + V_W[k] * f[k], 0);

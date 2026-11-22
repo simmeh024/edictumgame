@@ -52,7 +52,10 @@ test('three edicts, after the 550th, 750th and 900th decision: a town, a land br
   /* then the veterans' edicts (war-round-three.test.mjs), and nothing after those */
   const vet = code.indexOf('ISSUES.push(', war + 20);
   assert.ok(vet > 0 && code.lastIndexOf('for(const is of ', vet) === code.indexOf('for(const is of WAR3_ISSUES){'), 'then the veterans’ edicts');
-  assert.equal(code.indexOf('ISSUES.push(', vet + 20), -1, 'and nothing after those');
+  /* then the National Research Programme's (research.test.mjs), and nothing after those */
+  const rsAt = code.indexOf('/* ───────── the National Research Programme (22 November 2026)'), rsP = code.indexOf('ISSUES.push(', vet + 20);
+  assert.ok(rsAt > vet && rsP > rsAt, 'then the research edicts');
+  assert.equal(code.indexOf('ISSUES.push(', code.indexOf('/* ───────── military buildings (22 November 2026)')), -1, 'and nothing after those');
   assert.match(fs.readFileSync(new URL('../scripts/split-content.mjs', import.meta.url), 'utf8'), /'ISL_ISSUES','ISD_ISSUES'/);
   for (const is of L) {
     assert.match(is.id, /^isl-[a-z-]+$/);

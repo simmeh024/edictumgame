@@ -218,6 +218,9 @@
   NX_KEYS.sco = 1;
   /* the works the builders finished lately, for the bell (game/edictum.html, the section "works done") */
   NX_KEYS.wd = 1;
+  /* the National Research Programme's scientific record, letters and mandate initiatives (nrx); its technologies,
+     credits and laboratory (nrp) stay shared, since the save permit, the referee and the currency job read them */
+  NX_KEYS.nrx = 1;
   /* fields this build's game kept without knowing them (a newer build's: game/edictum.html, normalize, d._fk) go to the
      private half, so a newer build's private field never turns public by way of an older tab; _fk itself is not saved */
   function splitNation(d) {
@@ -408,7 +411,7 @@
       } else if (space) {
         b.delete(spaceRef);
       }
-    }).then(function () { if (from) L.set(LS_CARRY, null); A.raceAt[uid] = enc.updatedAt; setTimeout(recoveryCheck, 0); window.dispatchEvent(typeof CustomEvent === 'function' ? new CustomEvent('edictum:saved', { detail: { rev: enc.rev, xm: isObj(approved.xm) ? approved.xm : null } }) : new Event('edictum:saved')); return { rev: enc.rev }; });
+    }).then(function () { if (from) L.set(LS_CARRY, null); A.raceAt[uid] = enc.updatedAt; setTimeout(recoveryCheck, 0); window.dispatchEvent(typeof CustomEvent === 'function' ? new CustomEvent('edictum:saved', { detail: { rev: enc.rev, xm: isObj(approved.xm) ? approved.xm : null, rs: isObj(approved.rs) ? approved.rs : null } }) : new Event('edictum:saved')); return { rev: enc.rev }; });
   }
   /* Races (a free hex claimed, a site found first) are judged by the server's time of the save that first
      carried each entry: every new claim or find gets stamps/<reg>/<c<cell>|s<site>>/<uid> {t: server time} in

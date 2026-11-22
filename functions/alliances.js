@@ -3,6 +3,7 @@ import { eligibility, refuse, nationJSON, DAY } from './eligibility.js';
 /* Settings › Privacy › Who can reach me: a nation that takes none of a kind (rch[k] 'n') is kept to here too */
 const closed = (N, k) => !!(N && N.rch && typeof N.rch === 'object' && N.rch[k] === 'n');
 import { cabinetAffinity } from './affinity.js';
+import { RS_AL_PROJ, RS_AL_SCALE, rsAlNeed, rsAlCost } from './research-rules.js';
 import DATA from './civic-data.json' with { type: 'json' };
 import { AL_TYPES, AL_ACCESS, AL_RES, AL_PROJECTS, AL_OFFICERS, AL_XP, AL_ALLY_MIN, AL_FOUND_POP, AL_REL_MAX, AL_REL_NOTICE, alLevel, alPlaces, alRelLive,
   AL_TY_PJ, alSeats, AL_SEAT_POP, AL_CLASH, AL_VOTE, AL_TYPE_WAIT, AL_XP_TY, AL_STUDIES, AL_STUDY_DAYS } from './alliance-rules.js';
@@ -377,6 +378,55 @@ async function alStudy(db, who, d) {
     logged(A, { k: 'study', a: who.uid, x: d.k });
     tx.update(ref, { tr: A.tr, sd: A.sd, xp: A.xp, log: A.log });
     return { ok: true, end: A.sd.end };
+  });
+}
+
+/* ── national research (functions/research-rules.js): an alliance's research project, one at a time. Its leader or an
+   officer begins one of the alliance's type (k 'p', or 'g' its Grand Challenge from alliance level 4), paid from the
+   treasury; members give Research Credits by pledging them in their own record (nrp.ap [{t, a, q}], spent there, and
+   held by the save permit), and alRsGive credits the pledges the saved record holds that are newer than the last one
+   credited, at most a member's cap. Once the credits are gathered the members who gave have its discount for its days. */
+const rpOf = A => A.rp && typeof A.rp === 'object' && !Array.isArray(A.rp) ? A.rp : null;
+async function alRsStart(db, who, d) {
+  const k = d.k === 'g' ? 'g' : 'p';
+  return db.runTransaction(async tx => {
+    await eligibility(tx, who);
+    const { ref, A } = await load(tx, db, d); need(A, who.uid, 'o');
+    const ty = seatTy(A.ty), P = RS_AL_PROJ[ty], S = RS_AL_SCALE[k], now = Date.now(), cur = rpOf(A);
+    if (!P) refuse('al_rs_type', 'This alliance has no research project of its type.');
+    if (alLevel(A.xp) < S.lv) refuse('al_rs_level', 'Its Grand Challenge needs alliance level ' + S.lv + '.');
+    if (cur && (!cur.done || now < (Number(cur.end) || 0))) refuse('al_rs_on', cur.done ? 'The last project’s discount still runs.' : 'A research project is already under way.');
+    const cost = rsAlCost(ty, k), short = AL_RES.filter(r => (Number(A.tr[r]) || 0) + 1e-9 < (cost[r] || 0));
+    if (short.length) refuse('al_treasury', 'The treasury is short of ' + short.map(r => Math.ceil((cost[r] || 0) - (Number(A.tr[r]) || 0)) + ' ' + r).join(', ') + '.');
+    for (const r of AL_RES) if (cost[r]) A.tr[r] = Math.round(((Number(A.tr[r]) || 0) - cost[r]) * 100) / 100;
+    const members = Object.keys(A.mem).length;
+    A.rp = { k, ty, t: now, by: who.uid, need: rsAlNeed(k, members), got: 0, c: {}, w: {}, done: 0, end: 0 };
+    logged(A, { k: 'rsproj', a: who.uid, x: P[k].n });
+    tx.update(ref, { tr: A.tr, rp: A.rp, log: A.log });
+    return { ok: true, need: A.rp.need };
+  });
+}
+async function alRsGive(db, who, d) {
+  return db.runTransaction(async tx => {
+    const e = await eligibility(tx, who, { linked: false });
+    const { aid, ref, A } = await load(tx, db, d); need(A, who.uid, 'm');
+    const R = rpOf(A), now = Date.now();
+    if (!R || R.done) return { ok: true, credited: 0 };
+    const S = RS_AL_SCALE[R.k === 'g' ? 'g' : 'p'], w = { ...(R.w || {}) }, c = { ...(R.c || {}) }, lt = Number(w[who.uid]) || 0;
+    let top = lt, add = 0;
+    const ap = e.n && e.n.nrp && Array.isArray(e.n.nrp.ap) ? e.n.nrp.ap : [];
+    for (const p of ap) {
+      if (!p || p.a !== aid || !Number.isFinite(p.t) || p.t <= lt || p.t > now + 60000) continue;
+      add += Math.max(0, Math.min(1000, Number(p.q) || 0)); top = Math.max(top, p.t);
+    }
+    const room = Math.max(0, S.cap - (Number(c[who.uid]) || 0)), q = Math.round(Math.min(add, room, Math.max(0, R.need - (Number(R.got) || 0))) * 100) / 100;
+    w[who.uid] = top;
+    if (q > 0) c[who.uid] = Math.round(((Number(c[who.uid]) || 0) + q) * 100) / 100;
+    const got = Math.round(((Number(R.got) || 0) + q) * 100) / 100, fin = got + 1e-6 >= R.need;
+    A.rp = { ...R, w, c, got, ...(fin ? { done: now, end: now + S.days * DAY } : {}) };
+    if (fin) { A.xp = (A.xp || 0) + S.xp; logged(A, { k: 'rsdone', a: who.uid, x: (RS_AL_PROJ[R.ty] || {})[R.k] ? RS_AL_PROJ[R.ty][R.k].n : '' }); }
+    tx.update(ref, { rp: A.rp, ...(fin ? { xp: A.xp, log: A.log } : {}) });
+    return { ok: true, credited: q, done: fin };
   });
 }
 
@@ -892,6 +942,6 @@ export async function alDrop(db, uid) {
   } catch (e) { console.warn('alDrop', uid, e && e.message); }
 }
 
-const OPS = { alFound, alEdit, alInvite, alUninvite, alRequest, alCancel, alAnswer, alLeave, alRemove, alRole, alDonate, alBuild, alPost, alPostDel, alTally, alMigrate, alPact, alPactAnswer, alPactEnd, alRival, alVote, alWear, alStudy };
+const OPS = { alFound, alEdit, alInvite, alUninvite, alRequest, alCancel, alAnswer, alLeave, alRemove, alRole, alDonate, alBuild, alPost, alPostDel, alTally, alMigrate, alPact, alPactAnswer, alPactEnd, alRival, alVote, alWear, alStudy, alRsStart, alRsGive };
 export const isAllianceOp = op => Object.prototype.hasOwnProperty.call(OPS, op);
 export function alliance(db, who, d) { return OPS[d.op](db, who, d); }

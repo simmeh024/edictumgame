@@ -161,3 +161,15 @@ their players come back.
 clashes, wearing, studies, project types), `test/rules.test.mjs` and `test/referee.test.mjs` (only a defence pact
 helps in battle), `test/diplomacy-e2e.mjs` (`npm run test:diplomacy`) and `test/alliance-types-e2e.mjs`
 (`npm run test:alliance-types`).
+
+## Research (the National Research Programme)
+
+Each type helps one research track (docs/research.md): a defence pact War, a trade bloc Trade, a cultural union Growth,
+a research accord all three, and the accord adds 5% to its members' Research Credits. The projects keep their old
+benefits and gain a research one (cheaper research of their kind; the Alliance Academy +5% credits a level), and the
+five joint studies also make their track cheaper while they run. A **research project** lives on the alliance's
+document as `rp {k, ty, t, by, need, got, c, w, done, end}`: an officer begins one with `alRsStart {aid, k: 'p' | 'g'}`
+(paid from the treasury; `g`, the alliance's Grand Challenge, from level 4), and a member's game credits the Research
+Credits it pledged in its own record (`nrp.ap`, spent there and held by the save permit) with `alRsGive {aid}`, once
+each (watermark `w[uid]`), at most 300 (1,200) a member. Completed, the members who gave (`c`) have its discount for 30
+(90) days and the alliance earns 60 (150) renown. Nothing researched is ever given, and leaving takes nothing away.
