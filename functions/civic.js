@@ -345,11 +345,17 @@ async function regionView(db, who, waited) {
   try { return await run; } finally { if (closing.get(reg) === run) closing.delete(reg); }
 }
 
-/* An admin observing a region (the game's observer mode) reads its Assembly as a player there sees it, without a seat:
-   the same cached region view, with no record of their own, and nothing closed or locked on their account. */
+/* A player visiting another region, or an admin observing one (the game's observer mode, OBS), reads its Assembly as a
+   player there sees it, without a seat: the same cached region view, with no record of their own, and nothing closed or
+   locked on their account. A player needs a saved nation and no ban (as for reading their own region's); an admin
+   needs neither. */
+async function mayObserve(db, who) {
+  if (who.admin) return;
+  await db.runTransaction(tx => eligibility(tx, who, { linked: false, hidden: true }), { readOnly: true });
+}
 async function observeView(db, who, reg) {
-  if (!who.admin) throw new HttpsError('permission-denied', 'Only Edictum admins can observe a region.');
   if (!regions.has(reg)) throw new HttpsError('invalid-argument', 'Choose a region.');
+  await mayObserve(db, who);
   const now = Date.now(), meta = await db.doc('assemblyRegions/' + reg).get();
   const base = await regionBase(db, reg, rootKey(meta));
   const records = base.records.slice(), locks = base.locks.map(L => ({ ...L })), due = regionDue(reg, base.root, records, locks, now);
@@ -357,14 +363,15 @@ async function observeView(db, who, reg) {
 }
 
 /* The Book of Resolutions: a region's finished cycles, newest first, a page at a time (before: the cycle to start
-   below), each with its count and how the members voted. Any nation reads its own region's; an admin observing
-   reads the one it observes. A cycle closed before the Book was kept (no asmBook/{c}) is written up once from its
-   lock and its votes, so the reads that takes happen only the first time. */
+   below), each with its count and how the members voted. Any nation reads its own region's, and the one it visits;
+   an admin observing reads the one it observes. A cycle closed before the Book was kept (no asmBook/{c}) is written
+   up once from its lock and its votes, so the reads that takes happen only the first time. */
 export const BOOK_PAGE = 12;
 async function bookRead(db, who, d) {
   let reg = '';
   if (typeof d.obs === 'string' && d.obs) {
-    if (!who.admin) throw new HttpsError('permission-denied', 'Only Edictum admins can observe a region.');
+    if (!regions.has(d.obs)) throw new HttpsError('invalid-argument', 'Choose a region.');
+    await mayObserve(db, who);
     reg = d.obs;
   } else reg = (await db.runTransaction(tx => eligibility(tx, who, { linked: false, hidden: true }), { readOnly: true })).n.reg;
   if (!regions.has(reg)) throw new HttpsError('invalid-argument', 'Choose a region.');

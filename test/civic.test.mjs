@@ -1082,15 +1082,25 @@ test('The Delegate names the region’s newspaper; nobody else can, and the same
   await rejects(civic(leader,{op:'paper',name:'The Second Name'}),'paper_cooldown');
 });
 
-test('An admin observing a region reads its Assembly without a seat; a player cannot',async()=>{
+test('An admin observing a region, or a player visiting it, reads its Assembly without a seat; an account without a nation cannot',async()=>{
   const f=await player(false,false,'frostmarch'), p=await player(), a=await player();
   await auth.setCustomUserClaims(a.uid,{admin:true});
   const fresh=await sign('signInWithCustomToken',{token:await auth.createCustomToken(a.uid,{admin:true})});
-  await assert.rejects(civic(p,{op:'state',obs:'frostmarch'}),e=>e.status==='PERMISSION_DENIED');
   const s=await civic(fresh,{op:'state',obs:'frostmarch'});
   assert.equal(s.reg,'frostmarch');assert.ok(s.cur);assert.ok(s.recs.some(r=>r.id===f.uid));assert.ok(!s.recs.some(r=>r.id===a.uid));
   assert.equal(s.account.eligible,false);
   await assert.rejects(civic(fresh,{op:'state',obs:'atlantis'}),e=>e.status==='INVALID_ARGUMENT');
+  /* a player of Meridian visiting Frostmarch: the region's records, none of their own, and no seat */
+  const v=await civic(p,{op:'state',obs:'frostmarch'});
+  assert.equal(v.reg,'frostmarch');assert.ok(v.recs.some(r=>r.id===f.uid));assert.ok(!v.recs.some(r=>r.id===p.uid));assert.equal(v.account.eligible,false);
+  await assert.rejects(civic(p,{op:'state',obs:'atlantis'}),e=>e.status==='INVALID_ARGUMENT');
+  /* their own region's Assembly is still theirs, with their seat */
+  const own=await civic(p,{op:'state'});assert.equal(own.reg,'meridian');
+  /* no nation, or a ban: no visit */
+  const none=await sign('signUp',{});
+  await rejects(civic(none,{op:'state',obs:'frostmarch'}),'nation_required');
+  const b=await player();await db.doc('bans/'+b.uid).set({t:Date.now(),by:a.uid});
+  await rejects(civic(b,{op:'state',obs:'frostmarch'}),'banned');
 });
 
 test('A vote carries its reason: kept with the vote and shown beside it, cut to 100 characters; an abstention is a vote on record',async()=>{
@@ -1136,7 +1146,9 @@ test('Closing a count keeps it in the Book with every vote and reason, the next 
   assert.ok(topic.exists);assert.equal(topic.get('as'),true);assert.equal(topic.get('tg'),'assembly');assert.equal(topic.get('a'),'assembly');assert.ok(topic.get('ti').startsWith(`Resolution No. ${c+1}: `));
   assert.ok((await db.doc(`cb/${reg}`).get()).get('n')>=1);
   const book=await civic(b,{op:'book'});assert.equal(book.list[0].c,c-1);assert.equal(book.list[0].vm[b.uid],-1);
-  await assert.rejects(civic(b,{op:'book',obs:'meridian'}),e=>e.status==='PERMISSION_DENIED');
+  /* a visitor reads another region's Book; an account without a nation reads none */
+  const vb=await civic(b,{op:'book',obs:'meridian'});assert.equal(vb.reg,'meridian');assert.ok(Array.isArray(vb.list));
+  await rejects(civic(await sign('signUp',{}),{op:'book',obs:'meridian'}),'nation_required');
   await db.doc('nations/'+b.uid).delete();await call(b,'referee',{op:'forget'});
   const after=(await db.doc(`${root}/asmBook/${c-1}`).get()).data();
   assert.equal(after.vm[b.uid],undefined);assert.equal(after.vu.includes(b.uid),false);assert.equal(after.vm[a.uid],1);
