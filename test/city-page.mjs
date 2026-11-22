@@ -151,6 +151,19 @@ try {
   await page.click('#cx-ovw [data-act="cx-sel"][data-id="c1"]'); await sleep(300);
   check('a name in the table opens that city', await page.evaluate(() => window.__game.S.cxSel === 'c1') && await page.locator('#city-c1.cx-detail').count() === 1);
 
+  /* an upgrade under way shows in the list and the table: its block filled in the colour being fitted with an arrow
+     up, and a line with the building, the upgrade and the time left (22 November 2026) */
+  await edit((n, now) => { n.cities.find(c => c.id === 'c1').b[0].uu = { u: 3, s: now - 1800e3, d: now + 5400e3 }; });
+  await sleep(300);
+  const upCard = await page.evaluate(() => { const it = document.querySelector('.cx-list [data-act="cx-sel"][data-id="c1"]'), b = it && it.querySelector('.cx-blks i.upg');
+    return it && { n: it.querySelectorAll('.cx-blks i.upg').length, ring: b ? b.firstElementChild.className : '', line: (it.querySelector('.cx-it-up') || {}).textContent, bar: !!it.querySelector('.cx-it-ubar i[data-live="buildbar"]'), st: [...it.querySelectorAll('.cx-it-b:not(.cx-it-up)')].map(e => e.textContent).join(' ') }; });
+  check('an upgrade under way marks its block in the list, in the colour being fitted', !!upCard && upCard.n === 1 && upCard.ring === 'ugb-blue', JSON.stringify(upCard));
+  check('and the card says which building, which upgrade and how long', !!upCard && /^Farm Estates · blue upgrade · 1 h (29|30) min$/.test((upCard.line || '').replace(/\s+/g, ' ').trim()) && upCard.bar && !/Every block in use/.test(upCard.st), JSON.stringify(upCard));
+  const upRow = await txt('#cx-ovw tr:has([data-id="c1"]) .cx-ov-bld');
+  check('the table of cities says it too', /Farm Estates · blue upgrade · 1 h (29|30) min/.test(upRow || '') && await page.locator('#cx-ovw tr:has([data-id="c1"]) .cx-blks i.upg').count() === 1, upRow);
+  await page.screenshot({ path: path.join(OUT, 'city-page-upgrade.png') });
+  await edit(n => { delete n.cities.find(c => c.id === 'c1').b[0].uu; });
+
   /* People: the gauge, the reasons as bars, the mayor's face and letter, the candidates' faces */
   await tab('ppl');
   check('the mood shows on a gauge with its reasons as bars', await page.locator('#city-c1 svg.cx-gauge').count() === 1 && await page.locator('#city-c1 .cx-mparts .cx-mp-bar i').count() >= 1);

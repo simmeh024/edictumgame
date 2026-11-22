@@ -8531,6 +8531,18 @@ span.nw-tag{cursor:default}
 .cx-blks i.on{background:var(--accent);border-color:var(--accent)}
 .cx-blks i.on.ug{background:var(--ug);border-color:var(--ug)}
 .cx-blks i.wip{border-color:var(--accent);background:repeating-linear-gradient(135deg,var(--accent) 0 2px,transparent 2px 4px)}
+/* the block whose upgrade, retool or economy level is under way: filled in the colour being fitted, with an arrow up */
+.cx-blks i.upg{position:relative}
+.cx-blks i.upg b{position:absolute;inset:-1px;border-radius:2px;background:var(--ug);animation:cxUpg 1.8s ease-in-out infinite}
+.cx-blks i.upg b::after{content:'';position:absolute;inset:0;background:var(--sheet);-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 9 9'%3E%3Cpath d='M1.9 6 4.5 3.3 7.1 6' fill='none' stroke='%23000' stroke-width='1.7'/%3E%3C/svg%3E") center/100% 100% no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 9 9'%3E%3Cpath d='M1.9 6 4.5 3.3 7.1 6' fill='none' stroke='%23000' stroke-width='1.7'/%3E%3C/svg%3E") center/100% 100% no-repeat}
+@keyframes cxUpg{50%{opacity:.5}}
+@media (prefers-reduced-motion:reduce){.cx-blks i.upg b{animation:none}}
+.cx-it-b.cx-it-up{flex-wrap:nowrap}.cx-it-up .cx-it-st{min-width:0}
+/* in the phone strip, where the other lines are cut short, it wraps so the time left stays in view */
+.cx-item .cx-it-b.cx-it-up{white-space:normal}
+.cx-it-up .ugb-dot{margin:0 4px 0 0}
+.cx-it-ubar i{background:var(--ug)}
+.cx-ov-up{display:block;margin-top:3px;color:var(--ink);font-weight:400}
 .cx-it-b{display:flex;flex-wrap:wrap;align-items:center;gap:2px 6px;margin-top:2px}
 .cx-it-idle{color:var(--stamp);font-weight:650}
 .cx-item.idle{border-color:color-mix(in srgb,var(--stamp) 40%,var(--rule))}
@@ -75378,11 +75390,34 @@ function cxTodo(T,mine,now,canFound){
 function cxItem(ct,T,now,on){
   const b=blkOf(ct,T),u=blkUsed(ct),cur=ct.prog.find(x=>x.s<=now)||ct.prog[0],band=ct.mood!=null&&ct.active?cxBand(ct.mood):null,ev=cxEvDue(ct,now);
   const occ=!ct.active||!cxOk(ct,T)&&ct.fid===myId(),idle=!occ&&ct.fid===myId()&&!ct.prog.length&&u<b.n;
-  const st=occ?'Occupied':cur?`${BUILDINGS[cur.k].n} · ${fmtDur(cur.d-now)}`:ct.fid!==myId()?'Captured':u<b.n?(b.n-u===1?'One empty block':(b.n-u)+' empty blocks'):'Every block in use';
-  /* its blocks in their upgrade colours, and a bar for the building under way */
+  const up=!occ&&ct.fid===myId()?cxUpNow(ct,now):null;
+  const st=occ?'Occupied':cur?`${BUILDINGS[cur.k].n} · ${fmtDur(cur.d-now)}`:ct.fid!==myId()?'Captured':u<b.n?(b.n-u===1?'One empty block':(b.n-u)+' empty blocks'):up?'':'Every block in use';
+  /* its blocks in their upgrade colours, and a bar for the building under way (or else for the upgrade) */
   const run=!occ&&cur&&cur.s<=now&&cur.d>now,pct=run?clamp((now-cur.s)/Math.max(1,cur.d-cur.s)*100,0,100):0;
-  let blks='';for(let i=0;i<b.n;i++){const k=ct.done[i],g=k?(ct.tr&&ct.tr[k]?5:ct.ug?ct.ug[k]|0:0):0;blks+=k?`<i class="on${g?' ug ugb-'+CX_UG[g-1].c:''}"></i>`:i<ct.done.length+ct.prog.length?'<i class="wip"></i>':'<i></i>';}
-  return `<button class="cx-item${on?' on':''}${idle?' idle':''}" data-act="cx-sel" data-id="${esc(ct.id)}" aria-current="${on?'true':'false'}"><span class="cx-it-h">${ct.rec&&ct.fn?ccSVG(ct,'cc-s'):''}<b>${esc(ct.nm)}</b>${ct.cap?'<span class="chip">Capital</span>':''}${ct.rec&&ct.rec.cq?`<span class="chip" title="Taken from ${esc(ct.rec.cq)}; it does not count against your cities">Captured</span>`:''}${ct.strike?'<span class="chip war">On strike</span>':''}${ev?'<span class="cx-dot" title="A matter waits for you" aria-label="A matter waits for you">!</span>':''}</span><span class="cx-it-s">${ct.active?cpFmt(b.pop)+' people · ':''}${u}/${b.n} blocks${band?` · <span class="cx-mood-t ${band[3]}">${band[1]}</span>`:''}</span>${b.n&&ct.active?`<span class="cx-blks" aria-hidden="true">${blks}</span>`:''}<span class="cx-it-b">${cur&&!occ?bldIco(cur.k,'b-ic-xs'):''}<span class="cx-it-st">${esc(st)}</span>${idle?'<span class="cx-it-idle">Builders idle</span>':''}</span>${run?`<span class="bar cx-it-bar"><i data-live="buildbar" data-s="${cur.s}" data-d="${cur.d}" style="width:${pct.toFixed(1)}%"></i></span>`:''}</button>`;
+  const blks=cxBlks(ct,b.n,up),upBar=!run&&up?`<span class="bar cx-it-bar cx-it-ubar ugb-${up.c}"><i data-live="buildbar" data-s="${up.s}" data-d="${up.d}" style="width:${clamp((now-up.s)/Math.max(1,up.d-up.s)*100,0,100).toFixed(1)}%"></i></span>`:'';
+  return `<button class="cx-item${on?' on':''}${idle?' idle':''}" data-act="cx-sel" data-id="${esc(ct.id)}" aria-current="${on?'true':'false'}"><span class="cx-it-h">${ct.rec&&ct.fn?ccSVG(ct,'cc-s'):''}<b>${esc(ct.nm)}</b>${ct.cap?'<span class="chip">Capital</span>':''}${ct.rec&&ct.rec.cq?`<span class="chip" title="Taken from ${esc(ct.rec.cq)}; it does not count against your cities">Captured</span>`:''}${ct.strike?'<span class="chip war">On strike</span>':''}${ev?'<span class="cx-dot" title="A matter waits for you" aria-label="A matter waits for you">!</span>':''}</span><span class="cx-it-s">${ct.active?cpFmt(b.pop)+' people · ':''}${u}/${b.n} blocks${band?` · <span class="cx-mood-t ${band[3]}">${band[1]}</span>`:''}</span>${b.n&&ct.active?`<span class="cx-blks" aria-hidden="true">${blks}</span>`:''}${st||idle?`<span class="cx-it-b">${cur&&!occ?bldIco(cur.k,'b-ic-xs'):''}${st?`<span class="cx-it-st">${esc(st)}</span>`:''}${idle?'<span class="cx-it-idle">Builders idle</span>':''}</span>`:''}${up?`<span class="cx-it-b cx-it-up">${cxUpLine(up,now,true)}</span>`:''}${run?`<span class="bar cx-it-bar"><i data-live="buildbar" data-s="${cur.s}" data-d="${cur.d}" style="width:${pct.toFixed(1)}%"></i></span>`:upBar}</button>`;
+}
+/* the upgrade, retool or economy level under way in one of the player's cities (each city works on one at a time),
+   for the list of cities and the table: its building, start, end, the colour being fitted and its words */
+function cxUpNow(ct,now){
+  if(!ct||ct.npc||!ct.rec)return null;
+  const b=cxUpBusy(ct.rec,now);
+  if(b){const e=cxBldExtras(b);if(e.tu&&e.tu.d>now)return {k:b.k,s:e.tu.s,d:e.tu.d,c:'gold',w:'retool to tier '+TIER_ROMAN[e.tu.l]};
+    if(e.uu)return {k:b.k,s:e.uu.s,d:e.uu.d,c:CX_UG[e.uu.u-1].c,w:CX_UG[e.uu.u-1].c+' upgrade'};}
+  const m=elBusy(ct.rec,now);if(m){const e=elExtras(m);if(e.eu)return {k:m.k,s:e.eu.s,d:e.eu.d,c:'gold',w:'economy level '+e.eu.l};}
+  return null;
+}
+function cxUpLine(up,now,live){
+  const left=fmtDur(Math.max(0,up.d-now));
+  return `${bldIco(up.k,'b-ic-xs')}<span class="cx-it-st">${esc(BUILDINGS[up.k].n)} · <i class="ugb-dot ugb-${up.c}" aria-hidden="true"></i>${esc(up.w)} · ${live?`<span data-live="build" data-d="${up.d}">${left}</span>`:left}</span>`;
+}
+/* a city's blocks in their upgrade colours: a striped one for a building under way, and the building being upgraded
+   filled in the colour being fitted, with an arrow up */
+function cxBlks(ct,n,up){
+  let h='',hit=false;
+  for(let i=0;i<n;i++){const k=ct.done[i],g=k?(ct.tr&&ct.tr[k]?5:ct.ug?ct.ug[k]|0:0):0,u=!!k&&!!up&&!hit&&up.k===k;if(u)hit=true;
+    h+=k?`<i class="on${g?' ug ugb-'+CX_UG[g-1].c:''}${u?' upg':''}">${u?`<b class="ugb-${up.c}"></b>`:''}</i>`:i<ct.done.length+ct.prog.length?'<i class="wip"></i>':'<i></i>';}
+  return h;
 }
 function cxPage(T,CS,mine,held,a,n,st,now){
   const mi=T.byId[myId()],lim=maxCities(T,mi),have=cityList(n).filter(c=>!c.cq).length,room=have<lim&&have<MAX_CITIES,canFound=room&&nvxCitySite(T,mi);
@@ -91451,21 +91486,21 @@ const CX_OVW_COLS=[['nm','City'],['pop','People'],['blk','Blocks'],['mood','Mood
 function cxOvwRow(ct,T,now){
   const b=blkOf(ct,T),u=blkUsed(ct),mine=ct.fid===myId(),occ=!ct.active||(mine&&!cxOk(ct,T)),cur=ct.prog.find(x=>x.s<=now)||ct.prog[0],band=ct.mood!=null&&ct.active?cxBand(ct.mood):null;
   const my=ct.rec&&cxCityExtras(ct.rec).my,idle=!occ&&mine&&!ct.prog.length&&u<b.n,ev=mine&&!occ&&cxEvDue(ct,now);
-  const pv=cxPrvOf(ct);
-  return {ct,nm:ct.nm,pop:ct.active?b.pop:0,blk:b.n?u/b.n:1,u,n:b.n,mood:band?ct.mood:-1,band,bld:occ?3:idle?0:cur?1:2,cur,idle,occ,my,ev,prv:pv?pv.nm:'',pid:pv?pv.id:0,seat:!!pv&&pv.seat===ct.c};
+  const pv=cxPrvOf(ct),up=!occ&&mine?cxUpNow(ct,now):null;
+  return {ct,nm:ct.nm,pop:ct.active?b.pop:0,blk:b.n?u/b.n:1,u,n:b.n,mood:band?ct.mood:-1,band,bld:occ?3:idle?0:cur||up?1:2,cur,up,idle,occ,my,ev,prv:pv?pv.nm:'',pid:pv?pv.id:0,seat:!!pv&&pv.seat===ct.c};
 }
 function cxOverview(T,all,sel,now){
   if(all.length<2)return '';
   const s=S.cxSort||{k:'',d:1},rows=all.map(ct=>cxOvwRow(ct,T,now)),cols=cxOvwCols(),pc=cols.some(c=>c[0]==='prv');
   if(s.k){const v=r=>s.k==='my'?(r.my?r.my.nm:'~'):s.k==='prv'?(r.prv||'~'):r[s.k];rows.sort((a,b)=>{const x=v(a),y=v(b);return (typeof x==='string'?x.localeCompare(y):x-y)*s.d;});}
   const th=([k,l])=>`<th scope="col"${s.k===k?` aria-sort="${s.d>0?'ascending':'descending'}"`:''} class="cx-ov-${k}"><button type="button" class="cx-sort" data-act="cx-sort" data-k="${k}">${l}<span class="cx-sort-a" aria-hidden="true">${s.k===k?(s.d>0?'▲':'▼'):''}</span></button></th>`;
-  const bl=r=>{let h='';const done=r.ct.done.slice(0,r.n);for(let i=0;i<r.n;i++){const k=done[i],g=k?(r.ct.tr&&r.ct.tr[k]?5:r.ct.ug?r.ct.ug[k]|0:0):0;h+=k?`<i class="on${g?' ug ugb-'+CX_UG[g-1].c:''}"></i>`:i<r.ct.done.length+r.ct.prog.length?'<i class="wip"></i>':'<i></i>';}return h;};
+  const bl=r=>cxBlks(r.ct,r.n,r.up),upL=r=>r.up?`<span class="cx-ov-up">${cxUpLine(r.up,now)}</span>`:'';
   const row=r=>`<tr class="${r.ct.id===sel?'on':''}${r.idle?' idle':''}"><th scope="row" class="cx-ov-nm"><button type="button" class="cx-ov-go" data-act="cx-sel" data-id="${esc(r.ct.id)}" aria-current="${r.ct.id===sel}">${r.ct.rec&&r.ct.fn?ccSVG(r.ct,'cc-s'):''}<b>${esc(r.nm)}</b>${r.ct.rec&&r.ct.rec.cq?` <span class="chip" title="Taken from ${esc(r.ct.rec.cq)}; it does not count against your cities">Captured</span>`:''}${r.ct.cap?' <span class="chip">Capital</span>':''}${r.ev?'<span class="cx-dot" title="A matter waits for you" aria-label="A matter waits for you">!</span>':''}</button></th>${pc?`
     <td class="cx-ov-prv">${r.pid?`<button type="button" class="linkish cx-ov-pl" data-act="prv-go" data-id="${r.pid}">${esc(r.prv)}</button>${r.seat?' <span class="cx-ov-n">seat</span>':''}`:'—'}</td>`:''}
     <td class="cx-ov-pop">${r.pop?cpFmt(r.pop):'—'}</td>
     <td class="cx-ov-blk"><span class="cx-ov-b">${r.u}/${r.n}</span><span class="cx-blks" aria-hidden="true">${bl(r)}</span></td>
     <td class="cx-ov-mood">${r.band?`<span class="cx-mood-t ${r.band[3]}">${r.band[1]}</span> <span class="cx-ov-n">${r.ct.mood}</span>`:'—'}</td>
-    <td class="cx-ov-bld">${r.occ?'<span class="cx-ov-occ">Occupied</span>':r.cur?`${bldIco(r.cur.k,'b-ic-xs')}${esc(BUILDINGS[r.cur.k].n)} · ${fmtDur(Math.max(0,r.cur.d-now))}`:r.idle?`<span class="cx-ov-idle">Idle · ${r.n-r.u===1?'one empty block':(r.n-r.u)+' empty blocks'}</span>`:r.ct.fid!==myId()?'Captured':'Every block in use'}</td>
+    <td class="cx-ov-bld">${r.occ?'<span class="cx-ov-occ">Occupied</span>':r.cur?`${bldIco(r.cur.k,'b-ic-xs')}${esc(BUILDINGS[r.cur.k].n)} · ${fmtDur(Math.max(0,r.cur.d-now))}${upL(r)}`:r.idle?`<span class="cx-ov-idle">Idle · ${r.n-r.u===1?'one empty block':(r.n-r.u)+' empty blocks'}</span>${upL(r)}`:r.ct.fid!==myId()?'Captured':r.up?cxUpLine(r.up,now):'Every block in use'}</td>
     <td class="cx-ov-my">${r.my?esc(r.my.nm):r.ct.fid===myId()&&!r.occ?'<span class="cx-ov-none">None yet</span>':'—'}</td></tr>`;
   return `<details class="cx-ovw" id="cx-ovw" open><summary>All ${all.length} cities at a glance</summary><div class="cx-ovw-w"><table class="cx-ovw-t"><thead><tr>${cols.map(th).join('')}</tr></thead><tbody>${rows.map(row).join('')}</tbody></table></div><p class="hint cx-ovw-h">Sort by any column; a city's name opens it below.</p></details>`;
 }
