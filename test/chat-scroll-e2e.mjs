@@ -99,9 +99,17 @@ check('the page drawn anew keeps the newest message in sight', await until(() =>
 await nav(C, 'cities'); await nav(C, 'diplomacy');
 if (!(await C.$('#al-chat'))) { await C.click('#dp-tab-alliance'); await C.click('[data-act="dp-sub"][data-v="channel"]'); }
 check('opened again from another page, the newest message', await until(async () => !!(await C.$('#al-chat')) && await atEnd(C, '#al-chat')), String(await gap(C, '#al-chat')));
-await wheelUp(C, '#al-chat', -600);
+/* the reader scrolls up. The channel is brought into view first: the Alliance tab above it (its looks, plaza and chronicle)
+   can leave the box's middle below the fold, where the wheel turns the page and not the box. Then wait for the box to
+   move, and wheel again if it has not (CI, 22 Nov 2026: one wheel 400 ms after the channel reopened left it at 0). */
+let alUp = 0;
+for (let i = 0; i < 4 && alUp <= 200; i++) {
+  await C.$eval('#al-chat', el => el.scrollIntoView({ block: 'center' }));
+  await wheelUp(C, '#al-chat', -600);
+  alUp = await until(async () => { const g = await gap(C, '#al-chat'); return g > 200 ? g : 0; }, 2500) || 0;
+}
 const alHeld = await C.$eval('#al-chat', b => b.scrollTop);
-check('the reader scrolls up in the channel', (await gap(C, '#al-chat')) > 200, String(await gap(C, '#al-chat')));
+check('the reader scrolls up in the channel', alUp > 200, String(await gap(C, '#al-chat')));
 await put(`alliances/${aid}/chat/afresh2`, alLine('A second message while the reader looks back.', Date.now()));
 check('a new message then does not pull the reader down', await until(async () => /A second message while the reader looks back/.test(await text(C, '#al-chat'))) && Math.abs(await C.$eval('#al-chat', b => b.scrollTop) - alHeld) <= 2, `${alHeld} → ${await C.$eval('#al-chat', b => b.scrollTop)}`);
 await C.fill('#al-chat-x', 'On my way to the harbour.'); await C.click('#al-chat-form button[type="submit"]');

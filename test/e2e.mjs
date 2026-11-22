@@ -54,7 +54,11 @@ const postsM = await restList('boards/meridian/posts');
 check('the post is its own document in boards/meridian/posts', postsM.some(p => p.fields.a.stringValue === uidA && p.fields.x.stringValue === 'Greetings from Aldoria' && p.fields.t.timestampValue));
 await A.fill('#rmb-text', 'Too soon');
 await A.click('#rmb-form button[type="submit"]');
-const toasts = p => p.evaluate(() => [...document.querySelectorAll('.toast')].map(t => t.textContent).join(' | '));
+/* what the player is being told: the toast on screen and those queued behind it (G.PT().toasts(): the one showing and the
+   queue). Toasts show one at a time, several seconds each, so a message can wait behind founding's and a battle's for
+   longer than a check's patience; it counts once it is on its way (CI, 22 Nov 2026: the board's "every 20 seconds" toast
+   was still queued after 40 s). */
+const toasts = p => p.evaluate(() => [...document.querySelectorAll('.toast')].map(t => t.textContent).concat(window.G && typeof G.PT === 'function' ? G.PT().toasts() : []).join(' | '));
 // toasts show one at a time, and founding queued several: allow for the queue
 check('a second post within 20 seconds waits, and the player is told', await until(async () => /every 20 seconds/.test(await toasts(A)), 40000) && (await A.inputValue('#rmb-text')) === 'Too soon');
 await A.fill('#rmb-text', '');
