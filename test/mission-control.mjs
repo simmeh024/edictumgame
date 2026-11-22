@@ -178,7 +178,8 @@ try {
     const g = await goldOf(p, '.issue-card.mc-card');
     check(`${tag}: a 2 px gold border all round the card`, allGold(g), g);
     check(`${tag}: labelled Mission Control without needing colour`, await p.evaluate(() => /Mission Control · Letter I of XIV/.test(document.querySelector('.issue-card.mc-card .mc-tag').textContent)));
-    check(`${tag}: ordinary cards keep their own border`, await p.evaluate(() => { const c = document.querySelector('.issue-card:not(.mc-card)'); return !c || getComputedStyle(c).borderTopWidth === '1px'; }));
+    /* ordinary: neither Mission Control's nor research's gold-bordered edicts (the scientists' petition also comes at 60 enacted edicts) */
+    check(`${tag}: ordinary cards keep their own border`, await p.evaluate(() => { const c = [...document.querySelectorAll('.issue-card:not(.mc-card)')].find(b => !b.querySelector('.rsx-tag')); return !c || getComputedStyle(c).borderTopWidth === '1px'; }));
     check(`${tag}: no sideways scrolling`, await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
     await card.focus(); await p.keyboard.press('Shift+Tab'); await p.keyboard.press('Tab');
     check(`${tag}: the focus ring is still there`, await p.evaluate(() => { const e = document.activeElement; return e && e.classList.contains('mc-card') && getComputedStyle(e).outlineStyle !== 'none' && getComputedStyle(e).outlineWidth !== '0px'; }));
