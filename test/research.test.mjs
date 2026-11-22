@@ -272,6 +272,11 @@ test('the petition, the letters and the edicts research brings', () => {
   assert.ok(/inauguration|open/.test(L) && /emigrat|chair abroad/.test(L) && /trials/i.test(L) && /accident/i.test(L) && /interfere|Minister Disagrees/.test(L) && /Request From Abroad/.test(L), 'the events asked for');
   const D = cut('const RS_DILEMMAS=[', '\nfor(const D of RS_DILEMMAS)');
   for (const m of D.matchAll(/rq:'([a-z0-9-]+)'/g)) assert.ok(G.RS_BY[m[1]], 'a dilemma needs a real technology: ' + m[1]);
+  /* every edict research brings sits under one of the edict topics (the Edicts page's badge, the admin's All edicts) */
+  const topics = [...src.match(/const ISSUE_TOPICS = (\[.*?\]\]);/)[1].matchAll(/\['([a-z]+)','/g)].map(m => m[1]);
+  assert.equal(topics.length, 10);
+  for (const m of D.matchAll(/\{id:'(rse-[a-z]+)',rq:'[a-z0-9-]+',c:'([a-z]+)'/g)) assert.ok(topics.includes(m[2]), `${m[1]}: no edict topic “${m[2]}”`);
+  assert.equal([...D.matchAll(/\{id:'rse-/g)].length, [...D.matchAll(/\{id:'rse-[a-z]+',rq:'[a-z0-9-]+',c:'([a-z]+)'/g)].length, 'every dilemma read');
   assert.match(src, /if\(k<0\)\{if\(a\.o>=0&&!\/\^\(mc\|rsl\)-\/\.test\(a\.id\)\)W\(\)\.e\+\+;continue;\}/, 'letters are not enacted edicts');
   /* appended after every other edict, so no edict number moves */
   const last = Math.max(...[...src.matchAll(/ISSUES\.push\(/g)].map(m => m.index));
