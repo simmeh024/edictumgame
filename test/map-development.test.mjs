@@ -159,6 +159,18 @@ test('road hexes that no city works yield ten percent more, counted once',()=>{
  n.infra.push({...n.infra[0],id:'two',k:'rail',d:NOW-1});all.forEach(c=>c.done=['rail']);const B=agg();ctx.mpNetworkBonuses(world,all,B,NOW);
  assert.ok(Math.abs(B[0].add.food-(base/.04*.1+free.length*2*.1))<1e-8,'a second route over the same hexes adds no more hex yield');
 });
+/* railways (2026-11-22, the food, timber and iron sinks): every hex of working track takes MP_RAIL_IRON iron a day,
+   counted once where two lines share it, only where it still works, and never for a road */
+test('working railway track takes 0.1 iron a hex a day to keep up, a road none',()=>{
+ const {ctx,n,world,all,path}=lineFixture(),agg=()=>[{add:{food:0,timber:0,iron:0,oil:0},up:{food:0,timber:0,iron:0,oil:0,goods:0},army:0}];
+ let A=agg();ctx.mpNetworkBonuses(world,all,A,NOW);assert.equal(A[0].up.iron,0,'a road');assert.equal(A[0].railUp,undefined);
+ n.infra=[route(ctx,path,'rail')];all.forEach(c=>c.done=['rail']);A=agg();ctx.mpNetworkBonuses(world,all,A,NOW);
+ assert.equal(A[0].railHx,path.length);assert.ok(Math.abs(A[0].up.iron-0.1*path.length)<1e-9);
+ n.infra.push({...n.infra[0],id:'two'});A=agg();ctx.mpNetworkBonuses(world,all,A,NOW);assert.equal(A[0].railHx,path.length,'shared track counted once');
+ n.infra=[n.infra[0]];world.owner[path[3]]=1;A=agg();ctx.mpNetworkBonuses(world,all,A,NOW);assert.equal(A[0].railHx,path.length-1,'the hex lost takes nothing');
+ n.infra[0]={...n.infra[0],d:NOW+60000};world.owner.fill(0);A=agg();ctx.mpNetworkBonuses(world,all,A,NOW);assert.equal(A[0].up.iron,0,'track still being laid');
+ assert.deepEqual({...ctx.types.rail.cost},{timber:2,iron:3,goods:2},'sleepers cost timber');
+});
 test('a partly cut road keeps working up to the break from each end',()=>{
  const {ctx,n,world,a,m,b,all,path}=lineFixture();world.owner[path[3]]=1;
  assert.deepEqual([...ctx.mpLiveCells(n.infra[0],world,0)],path.slice(0,3).concat(path.slice(4)));
