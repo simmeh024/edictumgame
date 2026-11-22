@@ -8429,6 +8429,8 @@ span.nw-tag{cursor:default}
 .tier-l li b{grid-column:1}.tier-l li .hint{grid-column:1;margin:0}.tier-l li .btn{grid-column:2;grid-row:1/span 2}
 @media (max-width:520px){.tier-l li{grid-template-columns:minmax(0,1fr)}.tier-l li .btn{grid-column:1;grid-row:auto;justify-self:start;margin-top:4px}}
 .cx-lv-c{color:var(--ink-3)}
+.ux-short{display:block;flex-basis:100%;margin-top:3px;font-size:12.5px;line-height:1.5;color:var(--down)}.ux-short .linkish{margin-left:10px;white-space:nowrap}
+.stop-ask{display:inline-flex;flex-wrap:wrap;align-items:center;gap:6px 10px}.stop-ask-t{color:var(--down)}
 .cx-qa{gap:10px}
 .cx-qend{margin-top:10px}
 .cx-gobuild{margin-top:12px}
@@ -22566,12 +22568,12 @@ async function attack(){
     n.raid=(Array.isArray(n.raid)?n.raid.filter(x=>x&&now-x.t<30*DAY):[]).concat(e).slice(-60);
     const L=wrLoot(cell),st=stockNow(n,now);for(const r in L)st[r]=stockLimit(n,r,num0(st[r])+L[r]);n.stock=roundStock(st);n.stockAt=now;n._stockSet=true;
     n.gw={...(n.gw||{}),[en.id]:clamp(((n.gw||{})[en.id]||0)-2,-GW_MAX,GW_MAX)};
-    n.log.unshift({t:now,k:'raid',a:en.id,b:en.n.name,fx:landName(cell)});
+    n.log.unshift({t:now,k:'raid',a:en.id,b:en.n.name,fx:landName(cell),c:cell});
     msgs.push(`Victory. Your raiders struck ${placePhrase(cell)} and came home with ${list(Object.entries(L).map(([r,v])=>v+' '+r))}. The hex yields nothing for ${en.n.name} for a day.`);
   }
-  else if(win){const e=w?{c:cell,t,w,d:en.id}:{c:cell,t,d:en.id};if(seal)e.s=seal;if(seal2)e.s2=seal2;if(typeof refSig(e)==='string')REF.ok.set(refK(myId(),e),true);n.gw={...(n.gw||{}),[en.id]:clamp(((n.gw||{})[en.id]||0)-3,-GW_MAX,GW_MAX)};n.conq.push(e);n.log.unshift({t:now,k:'conq',a:en.id,b:en.n.name,fx:landName(cell)});
+  else if(win){const e=w?{c:cell,t,w,d:en.id}:{c:cell,t,d:en.id};if(seal)e.s=seal;if(seal2)e.s2=seal2;if(typeof refSig(e)==='string')REF.ok.set(refK(myId(),e),true);n.gw={...(n.gw||{}),[en.id]:clamp(((n.gw||{})[en.id]||0)-3,-GW_MAX,GW_MAX)};n.conq.push(e);n.log.unshift({t:now,k:'conq',a:en.id,b:en.n.name,fx:landName(cell),c:cell});
     const gv=wgForPick(T,cell,bi);
-    if(gv){n.bx=(n.bx||[]).concat({c:cell,t:t+1,to:gv.id,fr:myId(),wr:1});n.log.unshift({t:now,k:'hand',a:gv.id,b:gv.n.name,fx:landName(cell)});msgs.push(`Victory. Your forces took a hex ${placePhrase(cell)} from ${en.n.name} and handed it to ${gv.n.name}.`);}
+    if(gv){n.bx=(n.bx||[]).concat({c:cell,t:t+1,to:gv.id,fr:myId(),wr:1});n.log.unshift({t:now,k:'hand',a:gv.id,b:gv.n.name,fx:landName(cell),c:cell});msgs.push(`Victory. Your forces took a hex ${placePhrase(cell)} from ${en.n.name} and handed it to ${gv.n.name}.`);}
     else if(fell){n.log.unshift({t:now+1,k:'sack',a:en.id,b:en.n.name,fx:en.n.capital||''});msgs.push(`Victory. ${en.n.capital||'Their capital'} has fallen, and with it ${en.n.name}. Its land taken in war is yours to keep.`);}
     else msgs.push(`Victory. Your forces took a hex ${placePhrase(cell)} from ${en.n.name}.`);}
   else msgs.push(`${en.n.name} held the line. Your attack was repelled.`);
@@ -22581,7 +22583,7 @@ async function attack(){
   for(const ci of counters){
     const x=T.list[ci];if(!x.npc||struck>=2)continue;
     const ct=npcCounter(T,ci);
-    if(ct&&ct.cell!==cell&&Math.random()<ct.p*(ci===bi?1:0.5)){struck++;n.conq.push({c:ct.cell,t:now+struck,n:x.id});n.log.unshift({t:now+struck,k:'lost',a:x.id,b:x.n.name,fx:landName(ct.cell)});msgs.push(`${x.n.name} struck back and took a hex ${placePhrase(ct.cell)}.`);}
+    if(ct&&ct.cell!==cell&&Math.random()<ct.p*(ci===bi?1:0.5)){struck++;n.conq.push({c:ct.cell,t:now+struck,n:x.id});n.log.unshift({t:now+struck,k:'lost',a:x.id,b:x.n.name,fx:landName(ct.cell),c:ct.cell});msgs.push(`${x.n.name} struck back and took a hex ${placePhrase(ct.cell)}.`);}
   }
   n.conq=dedupeConq(n.conq);n.log=n.log.slice(0,60);
   commit(n);
@@ -25324,10 +25326,10 @@ function notifItems(now){
   for(const x of enemies()){const w=warWith(x.id);if(w.direct&&w.theyOffered&&!w.iOffered)pin.push({k:'war',dl:'peace:'+x.id,txt:`${x.n.name} has offered peace.${w.ends?` Unless you answer first, it takes effect by itself at ${fmtTime(w.ends)} on ${fmtDate(w.ends)}.`:''}`,go:'map'});}
   const MY={resign:l=>`${l.b} resigned as ${l.a}. ${l.fx} takes over.`,npcwar:l=>`${l.b} declared war on ${n.name}.`,retire:l=>l.b?`${l.b} retired as ${l.a}. ${l.fx} takes over.`:`Your ${l.a} retired. ${l.fx} takes over.`,npcleft:l=>`${l.b} left ${l.fx}: its values have drifted too far from yours.`,autoland:l=>`${l.a==='1'?'A land credit was':l.a+' land credits were'} spent automatically, around ${l.fx}.`,lost:l=>`${l.b} seized a hex of ${l.fx} from you.`,games:l=>`The results of ${l.a} are in. See how your team did.`,gres:l=>`The results of ${l.a} are in. See how your team did.`,host:l=>`You hosted ${l.a}.`,hostwin:l=>`You will host ${l.a}.`,mile:l=>`${n.name} passed ${l.a} people${l.b?' and is now a '+l.b:''}. Unlocked: ${l.fx}.`,mile0:l=>`Growth milestones have arrived. ${n.name} has already passed ${l.a} of them, with bonus land credits to spend.`};
   const GO={resign:'government',npcwar:'map',retire:'government',npcleft:'diplomacy',autoland:'map',lost:'map',games:'games',gres:'games',host:'games',hostwin:'games',mile:'nation',mile0:'nation'};
-  for(const l of n.log)if(MY[l.k])ev.push({t:l.t,k:l.k,txt:MY[l.k](l),go:GO[l.k]});
+  for(const l of n.log)if(MY[l.k])ev.push({t:l.t,k:l.k,txt:MY[l.k](l),go:GO[l.k],dl:dlHexOf(l)});
   const THEY={war:(x,l)=>`${x.n.name} declared war on you.`,peace:(x,l)=>`${x.n.name} made peace with you${l.fx==='return'?' and withdrew from your land':''}.`,aljoin:(x,l)=>`${x.n.name} joined ${l.b}.`,alleave:(x,l)=>`${x.n.name} left ${l.b}.`,alremove:(x,l)=>`${x.n.name} removed you from ${l.fx}.`,tradeno:(x,l)=>`${x.n.name} declined your trade offer.`,reply:(x,l)=>`${x.n.name} answered the matter you raised${l.fx?': '+l.fx:''}.`,conq:(x,l)=>`${x.n.name} seized a hex of ${l.fx} from you.`,trade:(x,l)=>`${x.n.name} signed a trade deal with you.`,tradeend:(x,l)=>`${x.n.name} ended a trade deal with you.`,aladmit:(x,l)=>`${x.n.name} admitted you to ${l.fx||'its alliance'}.`,caught:(x,l)=>`A spy from ${x.n.name} was caught in ${n.name}.`,cede:(x,l)=>`${x.n.name} ceded a border hex on ${l.fx} to you.`,hand:(x,l)=>`${x.n.name} handed you a hex on ${l.fx} that it took in war.`,shared:(x,l)=>`${x.n.name} has raised a matter with you. It is waiting on your desk.`,incident:(x,l)=>`Explorers from ${x.n.name} went tramping across ${l.fx}, on your land.`};
   const TGO={aljoin:'diplomacy',alleave:'diplomacy',alremove:'diplomacy',tradeno:'trade',reply:'diplomacy',war:'map',peace:'map',conq:'map',trade:'trade',tradeend:'trade',aladmit:'diplomacy',caught:'diplomacy',cede:'map',hand:'map',shared:'issues',incident:'explore'};
-  for(const x of allNations()){if(x.npc||x.me)continue;for(const l of x.n.log||[])if(l.a===me&&THEY[l.k]&&l.t>=(n.founded||0))ev.push({t:l.t,k:l.k,txt:THEY[l.k](x,l),go:TGO[l.k]});
+  for(const x of allNations()){if(x.npc||x.me)continue;for(const l of x.n.log||[])if(l.a===me&&THEY[l.k]&&l.t>=(n.founded||0))ev.push({t:l.t,k:l.k,txt:THEY[l.k](x,l),go:TGO[l.k],dl:dlHexOf(l,x)});
     /* a peace that came by itself: an offer left unanswered for PEACE_AUTO_MS (pairWar); nobody logs it, so it is told here */
     if((n.wars&&n.wars[x.id])||(x.n.wars&&x.n.wars[me])){const d=pairWar(me,x.id),hrsW=ms=>ms/3600000+' hours',cool=` Neither of you may declare war again for ${hrsW(TRUCE_MS)}.`;
       if(!d.war&&d.auto&&d.peaceAt<=now&&now-d.peaceAt<14*DAY&&d.peaceAt>=(n.founded||0))ev.push({t:d.peaceAt,k:'peace',go:'map',txt:d.auto===me
@@ -25959,12 +25961,12 @@ function geoAfter(n,opt,ent,now,prior){
   if(nb&&e.nb){n.gw={...(n.gw||{})};n.gw[nb]=clamp((n.gw[nb]||0)+e.nb,-GW_MAX,GW_MAX);notes.push(['Relations',`${nbName}: ${gwWord(n.gw[nb]).toLowerCase()} (${e.nb>0?'+':'−'}${Math.abs(e.nb)} goodwill)`]);}
   if(nb&&e.cede&&i!==undefined){
     const j=T.byId[nb],c=j===undefined?-1:borderHex(T,i,j,n.seed+':cede:'+now);
-    if(c>=0){n.bx=(n.bx||[]).concat({c,t:now,to:nb,fr:myId()});n.log.unshift({t:now,k:'cede',a:nb,b:nbName,fx:landName(c)});notes.push(['Border',`A border hex on ${landName(c)} now belongs to ${nbName}.`]);}
+    if(c>=0){n.bx=(n.bx||[]).concat({c,t:now,to:nb,fr:myId()});n.log.unshift({t:now,k:'cede',a:nb,b:nbName,fx:landName(c),c});notes.push(['Border',`A border hex on ${landName(c)} now belongs to ${nbName}.`]);}
     else{addBonusCredits(n,-1);notes.push(['Land office',`With no shared border to redraw, ${n.name} renounced a land claim in ${nbName}’s favour (one land credit fewer).`]);}
   }
   if(nb&&e.take&&i!==undefined){
     const j=T.byId[nb],c=npc&&j!==undefined?borderHex(T,j,i,n.seed+':take:'+now):-1;
-    if(c>=0){n.bx=(n.bx||[]).concat({c,t:now,to:myId(),fr:nb});n.log.unshift({t:now,k:'take',a:nb,b:nbName,fx:landName(c)});notes.push(['Border',`${n.name} annexed a border hex on ${landName(c)} from ${nbName}.`]);}
+    if(c>=0){n.bx=(n.bx||[]).concat({c,t:now,to:myId(),fr:nb});n.log.unshift({t:now,k:'take',a:nb,b:nbName,fx:landName(c),c});notes.push(['Border',`${n.name} annexed a border hex on ${landName(c)} from ${nbName}.`]);}
     else{addBonusCredits(n,1);notes.push(['Arbitration',`The Meridian Court of Arbitration left ${nbName}’s land alone and awarded ${n.name} a land credit instead.`]);}
   }
   if(opt.nx&&ISSUE_BY_ID[opt.nx]){
@@ -27118,7 +27120,7 @@ function npcWarTick(n,now){
         if(wrShielded(n,ts))continue;
         const ct=npcCounter(T,ni);if(!ct||taken.has(ct.cell))continue;
         const long=ts-n.wars[id].t>=npcPeaceWait(id);
-        if(roll<ct.p*(long?0.35:0.7)){taken.add(ct.cell);n.conq=(n.conq||[]).concat({c:ct.cell,t:ts,n:id});n.log.unshift({t:ts,k:'lost',a:id,b:x.name,fx:landName(ct.cell)});out.push(`${x.name} struck across the border and took a hex ${placePhrase(ct.cell)}.`);}
+        if(roll<ct.p*(long?0.35:0.7)){taken.add(ct.cell);n.conq=(n.conq||[]).concat({c:ct.cell,t:ts,n:id});n.log.unshift({t:ts,k:'lost',a:id,b:x.name,fx:landName(ct.cell),c:ct.cell});out.push(`${x.name} struck across the border and took a hex ${placePhrase(ct.cell)}.`);}
         continue;
       }
       if(!borders.has(id)||!canFeature(n,'war')||ts<(n.founded||0)+NPC_GRACE||wrShielded(n,ts))continue;
@@ -27189,7 +27191,7 @@ function warGive(c,to){
      follows (a clock running slow) would find the hex not yet yours, and count for nothing */
   const now=Date.now(),last=collectConquests(null).list.reduce((m,e)=>e.c===c&&e.t>m?e.t:m,0),n=clone(S.nation);
   n.bx=(n.bx||[]).concat({c,t:Math.max(now,last+1),to:x.id,fr:myId(),wr:1});
-  n.log.unshift({t:now,k:'hand',a:x.id,b:x.n.name,fx:landName(c)});n.log=n.log.slice(0,60);
+  n.log.unshift({t:now,k:'hand',a:x.id,b:x.n.name,fx:landName(c),c});n.log=n.log.slice(0,60);
   commit(n);
   S.mapCell=null;updateMapPanel();redrawMaps();toast(`${n.name} handed a hex ${placePhrase(c)} to ${x.n.name}.`);
 }
@@ -34862,7 +34864,7 @@ function ibBureauHTML(n,now){
     return `<li class="xu-row${L>=5?' done':''}"><span class="xu-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="${U.ic}"/></svg></span><div class="xu-b">
       <div class="xu-t"><b>${esc(U.n)}</b><span class="ugb xu-blk" role="img" aria-label="${L} of 5 blocks">${blocks}</span></div>
       ${L?`<p class="xu-now">${esc(buNowText(n,k,L))}</p>`:''}
-      ${nx>=0?`<p class="xu-next">${esc(cap1(XU_COL[nx]))}: ${esc(buLvText(k,nx))} · ${esc(costText(buCost(k,nx)))} · ${XU_H[nx]} h</p><div class="xu-f">${need}${btn}</div>`:'<p class="xu-next">Every block fitted.</p>'}</div></li>`;}).join('');
+      ${nx>=0?`<p class="xu-next">${esc(cap1(XU_COL[nx]))}: ${esc(buLvText(k,nx))} · ${esc(costText(buCost(k,nx)))} · ${XU_H[nx]} h</p><div class="xu-f">${need}${btn}</div>${/^You need/.test(why)?dlShortHTML(buCost(k,nx),stockNow(n,now)):''}`:'<p class="xu-next">Every block fitted.</p>'}</div></li>`;}).join('');
   const ws=w?`<div class="xu-ws"><div class="xu-ws-t"><span><b>In training:</b> ${esc(BU[w.k].n)}, ${XU_COL[w.u-1]}</span><b>${esc(fmtDur(w.d-now))}</b></div><span class="bar exp-bar"><i style="width:${clamp((now-w.s)/(w.d-w.s)*100,0,100).toFixed(1)}%"></i></span><div class="xu-ws-f"><span class="hint">One department at a time.</span><button type="button" class="linkish small" data-act="ib-upc">Cancel</button></div></div>`:'';
   return `<details class="xu ib-bu" id="ib-bu"${open?' open':''}><summary><span class="eyebrow">The bureau’s departments</span><span class="xp-ot">${have} of ${BU_TOTAL} blocks${w?' · one in training':''}</span></summary>
     <p class="xu-intro">Six departments of five blocks. The first block is open to everyone; better ones need the right buildings in your cities.</p>
@@ -42603,7 +42605,7 @@ function xpOutfitters(n,now){
     return `<li class="xu-row${L>=max?' done':''}"><span class="xu-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="${U.ic}"/></svg></span><div class="xu-b">
       <div class="xu-t"><b>${esc(U.n)}</b><span class="ugb xu-blk" role="img" aria-label="${L} of ${max} ${max===1?'block':'blocks'}">${blocks}</span></div>
       ${L?`<p class="xu-now">${esc(xuNowText(n,k,L))}</p>`:''}
-      ${nx>=0?`<p class="xu-next">${esc(cap1(XU_COL[nx]))}: ${esc(xuLvText(k,nx))} · ${esc(costText(xuCost(k,nx)))} · ${xuHours(k,nx)} h</p><div class="xu-f">${need}${btn}</div>`:'<p class="xu-next">Every block fitted.</p>'}</div></li>`;}).join('');
+      ${nx>=0?`<p class="xu-next">${esc(cap1(XU_COL[nx]))}: ${esc(xuLvText(k,nx))} · ${esc(costText(xuCost(k,nx)))} · ${xuHours(k,nx)} h</p><div class="xu-f">${need}${btn}</div>${/^You need/.test(why)?dlShortHTML(xuCost(k,nx),stockNow(n,now)):''}`:'<p class="xu-next">Every block fitted.</p>'}</div></li>`;}).join('');
   const ws=w?`<div class="xu-ws"><div class="xu-ws-t"><span><b>In the workshop:</b> ${esc(XU[w.k].n)}, ${XU_COL[w.u-1]}</span><b data-live="exp" data-t="${w.d}">${fmtDur(w.d-now)}</b></div><span class="bar exp-bar"><i data-live="expbar" data-s="${w.s}" data-d="${w.d}" style="width:${clamp((now-w.s)/(w.d-w.s)*100,0,100).toFixed(1)}%"></i></span><div class="xu-ws-f"><span class="hint">One upgrade at a time.</span><button type="button" class="linkish small" data-act="xu-cancel">Cancel</button></div></div>`:'';
   return `<details class="xu" id="xu"${open?' open':''}><summary><span class="eyebrow">The outfitters</span><span class="xp-ot">${have} of ${XU_TOTAL} blocks${w?' · one in the workshop':''}</span></summary>
     <p class="xu-intro">Upgrade your explorers’ kit. The first block is open to everyone; better ones need the right buildings in your cities.</p>
@@ -51372,7 +51374,7 @@ function normalizeBase(d){
   const policies={};if(d.policies&&typeof d.policies==='object')for(const k of Object.keys(d.policies))if(POLICIES[k]&&d.policies[k])policies[k]=true;
   const answered=Array.isArray(d.answered)?d.answered.filter(a=>a&&typeof a.id==='string').slice(-80).map(a=>{const r={id:a.id.slice(0,40),o:num(a.o,-1),t:num(a.t,0),fx:str(a.fx,240)};if(a.g===0||a.g===1)r.g=a.g;if(a.c===1)r.c=1;return r;}):[];
   const inbox=Array.isArray(d.inbox)?d.inbox.filter(x=>x&&ISSUE_BY_ID[x.id]&&x.cr!==1).slice(0,EDICT_KEEP).concat(d.inbox.filter(x=>x&&x.cr===1&&ISSUE_BY_ID[x.id]&&ISSUE_BY_ID[x.id].crs).slice(0,CRS_KEEP)).map(x=>x.cr===1?{id:x.id,at:num(x.at,now),cr:1}:{id:x.id,at:num(x.at,now)}):[];
-  const log=Array.isArray(d.log)?d.log.filter(x=>x&&typeof x.k==='string').slice(0,60).map(x=>{const o={t:num(x.t,0),k:str(x.k,10),fx:str(x.fx,240),a:str(x.a,60),b:str(x.b,60)};const dd=trLogAmts(x.d);if(dd){o.d=dd;if(Number.isFinite(x.s))o.s=x.s;}return o;}):[];
+  const log=Array.isArray(d.log)?d.log.filter(x=>x&&typeof x.k==='string').slice(0,60).map(x=>{const o={t:num(x.t,0),k:str(x.k,10),fx:str(x.fx,240),a:str(x.a,60),b:str(x.b,60)};const dd=trLogAmts(x.d);if(dd){o.d=dd;if(Number.isFinite(x.s))o.s=x.s;}if(Number.isInteger(x.c)&&x.c>=0&&x.c<1e6)o.c=x.c;return o;}):[];
   const fl=d.flag||{};
   const flag={p:PATTERNS[fl.p]?fl.p:DEF_FLAG.p,c:[0,1,2].map(i=>safeColor(fl.c&&fl.c[i],DEF_FLAG.c[i])),e:EMBLEMS[fl.e]?fl.e:'none',ec:safeColor(fl.ec,'#F2C230')};
   const name=str(d.name,40).trim();
@@ -75421,7 +75423,7 @@ function cxDefence(ct,T,n,st,now,ok){
   let wall;
   if(e.wu&&e.wu.d>now)wall=`<p>Building level ${e.wu.l}: <span data-live="build" data-d="${e.wu.d}">${fmtDur(e.wu.d-now)}</span> left. ${ok?`<button class="linkish small" data-act="cx-wall-no" data-id="${esc(ct.id)}">Stop</button>`:''}</p>`;
   else if(lv>=3)wall='<p class="hint">The walls are as high as they go.</p>';
-  else{const q=cxWallQuote(n,ct,lv+1),p=cxWallProblem(n,ct,st,now);wall=ok?`<div class="row cx-wall-b"><button class="btn${p?' ghost':''}" data-act="cx-wall" data-id="${esc(ct.id)}"${p?' disabled':''}>${lv?'Raise the walls to level '+(lv+1):'Build walls'}</button><span class="hint">${esc(costText(q.cost))} · ${q.hours} h · +${Math.round(CX_WALL_CITY*100)}% for the city${p?' · '+esc(p):''}</span></div>`:'';}
+  else{const q=cxWallQuote(n,ct,lv+1),p=cxWallProblem(n,ct,st,now);wall=ok?`<div class="row cx-wall-b"><button class="btn${p?' ghost':''}" data-act="cx-wall" data-id="${esc(ct.id)}"${p?' disabled':''}>${lv?'Raise the walls to level '+(lv+1):'Build walls'}</button><span class="hint">${esc(costText(q.cost))} · ${q.hours} h · +${Math.round(CX_WALL_CITY*100)}% for the city${p&&!/^You need/.test(p)?' · '+esc(p):''}</span>${p&&/^You need/.test(p)?dlShortHTML(q.cost,st):''}</div>`:'';}
   const tot=Math.round((cxDefTotal(ct,T)-1)*100);
   return `<section class="cx-sec cx-def"><div class="cx-def-g">${cxRings(lv,e.wu&&e.wu.d>now?e.wu.l:0)}<div class="cx-def-w"><h4 class="lbl-h">Walls</h4><p>${lv?`Level ${lv} of 3.`:'No walls yet.'} Each level makes the city 15% harder to take, and the hexes next to it 5%. Walls work for whoever holds the city.</p>${wall}</div></div></section>
   <section class="cx-sec"><h4 class="lbl-h">How hard ${esc(ct.nm)} is to take</h4><p class="cx-def-t"><b>${tot<0?'−':'+'}${Math.abs(tot)}%</b> in all, from the city and its works</p><ul class="cx-parts">${parts.map(t=>`<li><span>${esc(t)}</span></li>`).join('')}</ul><p class="hint">These multiply together. In a battle, the terrain, your laws, your army and your allies count on top.</p></section>
@@ -75432,7 +75434,7 @@ function cxRoads(ct,T,n,st,ok){
   const rows=routes.map(r=>{const o=CS.byCell.get(r.a===ct.c?r.b:r.a),s=mpRouteStatus(r,T,hi,CS.byCell);const via=r.a!==ct.c&&r.b!==ct.c,nmOf=c=>{const q=CS.byCell.get(c);return q?q.nm:terrName(c);};return `<li><span>${esc((MP_TYPES[r.k]&&MP_TYPES[r.k].n)||'Connection')} ${via?`${esc(nmOf(r.a))} → ${esc(nmOf(r.b))}, passing through`:`to ${esc(o?o.nm:terrName(r.a===ct.c?r.b:r.a))}`}</span><b class="${s==='Active'?'up':s==='Under construction'?'':'down'}">${esc(s)}${s==='Under construction'?' · '+fmtDur(r.d-Date.now())+' left':''}</b></li>`;}).join('');
   const linked=new Set(routes.map(r=>r.a===ct.c?r.b:r.a));
   const can=pgAvailable(n,'map'),held=CS.all.filter(o=>o!==ct&&o.active&&o.hi===hi),others=held.filter(o=>!linked.has(o.c));
-  const offers=!ok?'':!can?'<p class="hint">Roads open once your nation holds three claimed hexes.</p>':others.length?`<ul class="cx-roads">${others.map(o=>{const p=mpRoutePreview(T,'road',ct.c,o.c),miss=p.why?[]:lacking(p.cost,st);return `<li><span><b>To ${esc(o.nm)}</b> <span class="hint">${p.why?esc(p.why):`${p.steps} ${p.steps===1?'hex':'hexes'} · ${esc(costText(p.cost))} · ${fmtDur(p.ms)}`}</span></span>${p.why?'':`<button class="btn small-btn${miss.length?' ghost':''}" data-act="cx-road" data-a="${ct.c}" data-b="${o.c}"${miss.length?` disabled title="You need ${esc(list(miss))} more"`:''}>Build road</button>`}</li>`;}).join('')}</ul>`:held.length?'<p class="hint">Every other city you hold is already connected to this one.</p>':`<p class="hint">${esc(ct.nm)} is your only city for now. Once you hold a second one, you can build a road to it from here.</p>`;
+  const offers=!ok?'':!can?'<p class="hint">Roads open once your nation holds three claimed hexes.</p>':others.length?`<ul class="cx-roads">${others.map(o=>{const p=mpRoutePreview(T,'road',ct.c,o.c),miss=p.why?[]:lacking(p.cost,st);return `<li><span><b>To ${esc(o.nm)}</b> <span class="hint">${p.why?esc(p.why):`${p.steps} ${p.steps===1?'hex':'hexes'} · ${esc(costText(p.cost))} · ${fmtDur(p.ms)}`}</span>${miss.length?dlShortHTML(p.cost,st):''}</span>${p.why?'':`<button class="btn small-btn${miss.length?' ghost':''}" data-act="cx-road" data-a="${ct.c}" data-b="${o.c}"${miss.length?` disabled title="You need ${esc(list(miss))} more"`:''}>Build road</button>`}</li>`;}).join('')}</ul>`:held.length?'<p class="hint">Every other city you hold is already connected to this one.</p>':`<p class="hint">${esc(ct.nm)} is your only city for now. Once you hold a second one, you can build a road to it from here.</p>`;
   return `<section class="cx-sec" id="cx-roads"><h4 class="lbl-h">Roads</h4><p class="hint">A city on a finished road, at either end or anywhere along it, builds 10% faster, its people are happier (+5 mood), and its land produces more. Road hexes that no city works yield 10% more. If part of a road is lost, the stretches still joined to a city keep working. Railways and sea lanes are built on the map, under Transport networks.</p>${rows?`<ul class="cx-parts">${rows}</ul>`:''}${offers}</section>${cxBridges(ct,T,n,st,ok,held)}`;
 }
 /* bridges to the cities across the water, at most MP_BRIDGE hexes away */
@@ -75441,7 +75443,7 @@ function cxBridges(ct,T,n,st,ok,held){
   const has=new Set((n.infra||[]).filter(r=>r&&r.k==='bridge'&&(r.a===ct.c||r.b===ct.c)).map(r=>r.a===ct.c?r.b:r.a));
   const near=held.filter(o=>!has.has(o.c)&&hexDist(ct.c,o.c)<=MP_BRIDGE).map(o=>[o,mpRoutePreview(T,'bridge',ct.c,o.c)]).filter(([,p])=>!p.why);
   const t=MP_TYPES.bridge;
-  return `<section class="cx-sec cx-bridges"><h4 class="lbl-h">Bridges</h4><p class="hint">A bridge spans water to another of your cities at most ${MP_BRIDGE} hexes away. It is costly (${esc(costText(t.cost))} for every hex it spans) and slow to build (${t.mins/60} hours a hex), but both cities gain +${Math.round(t.bonus*100)}% on their land, the best of any connection, and count as on a road. A bridge works only while you hold both cities and every land hex it touches.</p>${near.length?`<ul class="cx-roads">${near.map(([o,p])=>{const miss=lacking(p.cost,st);return `<li><span><b>To ${esc(o.nm)}</b> <span class="hint">${p.steps} ${p.steps===1?'hex':'hexes'} · ${esc(costText(p.cost))} · ${fmtDur(p.ms)}</span></span><button class="btn small-btn${miss.length?' ghost':''}" data-act="cx-road" data-k="bridge" data-a="${ct.c}" data-b="${o.c}"${miss.length?` disabled title="You need ${esc(list(miss))} more"`:''}>Build bridge</button></li>`;}).join('')}</ul>`:`<p class="hint">No city of yours lies across the water within ${MP_BRIDGE} hexes${has.size?' that is not bridged already':''}.</p>`}</section>`;
+  return `<section class="cx-sec cx-bridges"><h4 class="lbl-h">Bridges</h4><p class="hint">A bridge spans water to another of your cities at most ${MP_BRIDGE} hexes away. It is costly (${esc(costText(t.cost))} for every hex it spans) and slow to build (${t.mins/60} hours a hex), but both cities gain +${Math.round(t.bonus*100)}% on their land, the best of any connection, and count as on a road. A bridge works only while you hold both cities and every land hex it touches.</p>${near.length?`<ul class="cx-roads">${near.map(([o,p])=>{const miss=lacking(p.cost,st);return `<li><span><b>To ${esc(o.nm)}</b> <span class="hint">${p.steps} ${p.steps===1?'hex':'hexes'} · ${esc(costText(p.cost))} · ${fmtDur(p.ms)}</span>${miss.length?dlShortHTML(p.cost,st):''}</span><button class="btn small-btn${miss.length?' ghost':''}" data-act="cx-road" data-k="bridge" data-a="${ct.c}" data-b="${o.c}"${miss.length?` disabled title="You need ${esc(list(miss))} more"`:''}>Build bridge</button></li>`;}).join('')}</ul>`:`<p class="hint">No city of yours lies across the water within ${MP_BRIDGE} hexes${has.size?' that is not bridged already':''}.</p>`}</section>`;
 }
 function cityCard(ct,T,n,st,now){
   const mine=ct.fid===myId(),holder=ct.hi>=0?T.list[ct.hi]:null,taken=mine&&!!holder&&holder.id!==myId(),occupied=mine&&(!ct.active||taken),ok=mine&&ct.active&&!taken;
@@ -85529,7 +85531,7 @@ function bdSettle(){
     const L=(n||S.nation).bx||[];if(L.some(e=>e.c===mine&&e.to===other&&e.t>=x.at))continue;
     if(T.owner[mine]!==mi||T.isCap[mine])continue;
     n=n||clone(S.nation);n.bx=(n.bx||[]).concat({c:mine,t:Math.max(now,x.at),to:other,fr:me});
-    n.log.unshift({t:now,k:'cede',a:other,b:nameOf(other),fx:landName(mine)});n.log=n.log.slice(0,60);gbBump(n,'bdsw',1,now);}
+    n.log.unshift({t:now,k:'cede',a:other,b:nameOf(other),fx:landName(mine),c:mine});n.log=n.log.slice(0,60);gbBump(n,'bdsw',1,now);}
   if(n){commit(n);toast('A hex swap is done: the land has changed hands.');redrawMaps();}
 }
 
@@ -95042,6 +95044,10 @@ function dlPlan(spec){
   if(kind==='cxnew')return {view:'cities',setup:()=>{S.cxSel='new';S.cityOpen=null;S.cxTab='b';S.cityMsg='';},target:'#cx-new'};
   if(kind==='roads'){const ct=dlCities()[0];return ct?{view:'cities',setup:()=>{S.cxSel=ct.id;S.cityOpen=null;S.cxTab='def';S.cityMsg='';},target:'#cx-roads',ct}:null;}
   if(kind==='land')return {view:'map',target:'#lc-coach'};
+  if(kind==='bldup'){const j=arg.lastIndexOf(':'),cid=arg.slice(0,j),k=arg.slice(j+1);if(!BUILDINGS[k])return null;const ct=dlCities().find(c=>c.id===cid);if(!ct||dlRank(ct,k,Date.now())<1)return dlBld([k],true);
+    const P=dlAtBld(ct,k,true),row=P.target;P.coach=['cx-up','el-up','wh-upgrade','tier-pick'].map(a=>row+' [data-act="'+a+'"]').join(',');return P;}
+  if(kind==='walls'){const ct=dlCities().find(c=>c.id===arg);if(!ct)return null;const sel=dlId('city-'+ct.id)+' .cx-def';return {view:'cities',setup:()=>{S.cxSel=ct.id;S.cityOpen=null;S.cxTab='def';S.cityMsg='';},target:sel,coach:sel+' [data-act="cx-wall"]',ct};}
+  if(kind==='hex'){const c=+arg;if(!Number.isInteger(c)||c<0||c>=MAP.N)return null;return {view:'map',setup:()=>{centerMain(c,NEAR_Z);S.mapCell=c;S.mapSel=null;},target:'[data-map="main"]'};}
   if(kind==='peace'){if(!findNation(arg))return null;const sel=`#dp-p-wars [data-act="peace"][data-id="${arg.replace(/["\\]/g,'')}"]`;return {view:'diplomacy',setup:()=>{AL.tab='wars';},target:sel,coach:sel};}
   return null;
 }
@@ -95489,6 +95495,132 @@ cxMood=(f=>function(ct,now){
   try{const c=ct.rec;if(c&&c.cq&&now-(+c.t||0)<CQ_UNSETTLED){m.parts.push([CQ_MOOD,`Taken from ${c.cq}, not yet settled`]);let v=55;for(const [d] of m.parts)v+=d;m.v=clamp(Math.round(v),0,100);}}catch(e){}
   return m;
 })(cxMood);
+/* ───────── works done (WD): the bell tells of every work the builders finish, not only new buildings ─────────
+   A building's upgrade, a retool, an economy level and a city's walls are written into the record (settled) by the
+   first save after they finish (the COMMIT_HOOKS above), and the moment they finished goes with it; a Warehouse's tier
+   and a road keep theirs. The last hook here compares each save with the record before it and keeps every work that
+   save finished in n.wd (the private half: src/shim.js NX_KEYS), the newest WD_MAX of the last 14 days, as
+   [{t, w, c, k, l, ln}] (w: up, tier, el, wh, wall; c the city's id, k the building, l the level or tier reached).
+   The bell reads n.wd, the works finished but not saved yet, and the roads, and each notice opens the work itself
+   (deep links): the building's row with its next upgrade pulsing, the city's walls, the road on the map. Settings ›
+   Notifications mutes them with finished buildings. */
+const WD_KINDS=['up','tier','el','wh','wall'],WD_MAX=20,WD_AGE=14*DAY,WD_K={up:'bup',tier:'retool',el:'elup',wh:'whup',wall:'wallup'};
+const wdKey=x=>x.w+'|'+x.c+'|'+x.k+'|'+x.l;
+/* the works of a record finished by now and not settled into it yet */
+function wdLive(n,now){
+  const out=[];
+  for(const c of cityList(n)){
+    for(const b of c.b||[]){if(!b||!BUILDINGS[b.k]||!(b.d<=now))continue;const e=cxBldExtras(b),l=elExtras(b),h=whExtras(b);
+      if(e.uu&&e.uu.d<=now)out.push({t:e.uu.d,w:'up',c:c.id,k:b.k,l:e.uu.u,s:e.uu.s});
+      if(e.tu&&e.tu.d<=now)out.push({t:e.tu.d,w:'tier',c:c.id,k:b.k,l:e.tu.l,ln:e.tu.ln,s:e.tu.s});
+      if(l.eu&&l.eu.d<=now)out.push({t:l.eu.d,w:'el',c:c.id,k:b.k,l:l.eu.l,s:l.eu.s});
+      if(h.wu&&h.wu.d<=now)out.push({t:h.wu.d,w:'wh',c:c.id,k:b.k,l:h.wu.l,s:h.wu.s});}
+    const e=cxCityExtras(c);if(e.wu&&e.wu.d<=now)out.push({t:e.wu.d,w:'wall',c:c.id,k:'',l:e.wu.l,s:e.wu.s});}
+  return out;
+}
+/* what this save finished: the works done in the record before it that it no longer carries */
+COMMIT_HOOKS.push((n,old,now)=>{
+  if(!n||n.npc||!old||old.npc)return [];
+  const sig=x=>x.w+'|'+x.c+'|'+x.k+'|'+x.s,after=new Set(wdLive(n,Infinity).map(sig)),got=[];
+  for(const x of wdLive(old,now))if(!after.has(sig(x))){const o={t:x.t,w:x.w,c:x.c,k:x.k,l:x.l};if(x.ln)o.ln=x.ln;got.push(o);}
+  if(!got.length)return [];
+  const seen=new Set(got.map(wdKey));
+  n.wd=got.concat((Array.isArray(n.wd)?n.wd:[]).filter(x=>!seen.has(wdKey(x)))).filter(x=>now-x.t<WD_AGE).sort((a,b)=>b.t-a.t).slice(0,WD_MAX);
+  return [];
+});
+NORM_HOOKS.push((n,d)=>{
+  const a=d&&Array.isArray(d.wd)?d.wd:null;if(!a)return;const o=[];
+  for(const x of a.slice(0,WD_MAX)){if(!x||typeof x!=='object'||!Number.isFinite(x.t)||!WD_KINDS.includes(x.w)||typeof x.c!=='string'||!x.c||x.c.length>40)continue;
+    const k=typeof x.k==='string'&&(x.k===''?x.w==='wall':Object.hasOwn(BUILDINGS,x.k))?x.k:null;if(k===null||!Number.isInteger(x.l)||x.l<1||x.l>999)continue;
+    const e={t:x.t,w:x.w,c:x.c,k,l:x.l};if(typeof x.ln==='string'&&/^[a-z]{1,12}$/.test(x.ln))e.ln=x.ln;o.push(e);}
+  if(o.length)n.wd=o;
+});
+function wdText(n,c,x){
+  const city=cityLabel(n,c),B=BUILDINGS[x.k];
+  if(x.w==='wall')return x.l>=1&&x.l<=3?`The walls of ${city} reach level ${x.l} of 3.`:'';
+  if(!B)return '';
+  if(x.w==='up'){const U=CX_UG[x.l-1];if(!U)return '';const b=(c.b||[]).find(y=>y&&y.k===x.k),tq=b?cxTier(b,Date.now()):{t:1},nm=tq.t>=2?bEff(x.k,tq.t,tq.ln).n:B.n;
+    return `The ${nm} in ${city} has its ${U.c} upgrade, ${x.l} of ${CX_UG_MAX}${x.l===CX_UG_MAX?': it works at double strength':''}.`;}
+  if(x.w==='tier'){const L=bTierLine(x.k,x.l,x.ln);return L?`The ${B.n} in ${city} is retooled: it is now ${tierA(L.n)}, tier ${TIER_ROMAN[x.l]||x.l}. Its five upgrades start again.`:'';}
+  if(x.w==='el')return `The ${B.n} in ${city} reaches economy level ${x.l}.`;
+  if(x.w==='wh')return `The Warehouse in ${city} reaches tier ${x.l+1}.`;
+  return '';
+}
+NOTIF_SOURCES.push((n,now)=>{
+  if(!n||n.npc||n!==S.nation)return [];
+  const out=[],seen=new Set(),cities=new Map(cityList(n).map(c=>[c.id,c]));
+  for(const x of wdLive(n,now).concat(Array.isArray(n.wd)?n.wd:[])){
+    if(!(x.t<=now)||now-x.t>=WD_AGE||seen.has(wdKey(x)))continue;seen.add(wdKey(x));
+    const c=cities.get(x.c);if(!c)continue;let txt='';try{txt=wdText(n,c,x);}catch(e){}if(!txt)continue;
+    out.push({t:x.t,k:WD_K[x.w],kl:'Ministry of Works',txt,go:'cities',dl:x.w==='wall'?'walls:'+x.c:'bldup:'+x.c+':'+x.k});}
+  let CS=null;
+  for(const r of Array.isArray(n.infra)?n.infra:[]){if(!r||!(r.d<=now)||now-r.d>=WD_AGE||r.reg!==REG.id||!Object.hasOwn(MP_TYPES,r.k)||!mpRouteShape(r))continue;
+    if(!CS)CS=cityState(territory());const nm=cell=>{const q=CS.byCell.get(cell);return q?q.nm:terrName(cell);};
+    out.push({t:r.d,k:'route',kl:'Ministry of Works',txt:`The ${MP_TYPES[r.k].n.toLowerCase()} from ${nm(r.a)} to ${nm(r.b)} is open.`,go:'map',dl:'hex:'+r.path[Math.floor(r.path.length/2)]});}
+  return out;
+});
+{const g=NTF_GROUPS.find(x=>x[0]==='build');if(g){g[1]='Finished buildings, upgrades, walls and roads';g[2].push('bup','retool','elup','whup','wallup','route');}}
+/* the hex a notice of land taken, lost, handed or ceded is about: kept with the log entry since 2026-11-21; a conquest
+   logged before then is matched with the conqueror's own record of it (n.conq: the hex, the time, the loser) */
+const DL_HEX=new Set(['lost','conq','cede','hand']);
+function dlHexOf(l,x){
+  if(!l||!DL_HEX.has(l.k))return undefined;let c=Number.isInteger(l.c)?l.c:-1;
+  if(c<0&&x&&l.k==='conq'){const me=myId();for(const e of (x.n&&x.n.conq)||[])if(e&&e.d===me&&Number.isInteger(e.c)&&Math.abs((e.t||0)-l.t)<120000){c=e.c;break;}}
+  return c>=0&&c<MAP.N?'hex:'+c:undefined;
+}
+
+/* ───────── what is missing: a work short of materials says by how much, with a way to trade for each ─────────
+   The building catalogue lists what a new building lacks (uxCostRequirements); an upgrade, an economy level, a road,
+   the walls and the outfitters' and the bureau's blocks only greyed their button out, or said it in a tooltip that a
+   phone never shows. Trade for opens the Trade page on that resource (ux-resource), with a way back. */
+function dlShortHTML(cost,st){
+  const miss=RES.filter(r=>(cost&&cost[r]||0)>num0(st&&st[r])+1e-6);if(!miss.length)return '';
+  const need=r=>Math.max(1,Math.ceil(cost[r]-num0(st[r])));
+  return `<span class="ux-short">Short of ${esc(list(miss.map(r=>need(r)+' '+resName(r))))}.${miss.map(r=>`<button type="button" class="linkish small" data-act="ux-resource" data-r="${r}" data-need="${need(r)}">Trade for ${esc(resName(r))}</button>`).join('')}</span>`;
+}
+cxLvBits=(f=>function(ct,k,mine,now){const h=f.apply(this,arguments);if(typeof h!=='string'||!/data-act="cx-up"[^>]* disabled/.test(h))return h;
+  try{const n=S.nation,b=ct.rec.b.find(x=>x.k===k),st=stockNow(n,now),p=cxUpProblem(n,ct,k,st,now);if(!p||!/^You need/.test(p))return h;
+    const sh=dlShortHTML(cxUpQuote(n,ct,k,cxUps(b,now)+1,cxTier(b,now).t).cost,st);return sh?h.replace(/<\/span>$/,sh+'</span>'):h;}catch(e){return h;}})(cxLvBits);
+elBits=(f=>function(ct,k,mine,now){const h=f.apply(this,arguments);if(typeof h!=='string'||!/data-act="el-up"[^>]* disabled/.test(h))return h;
+  try{const n=S.nation,st=stockNow(n,now),p=elProblem(n,ct,k,st,now);if(!p||!/^You need/.test(p))return h;const b=ct.rec.b.find(x=>x.k===k);
+    const sh=dlShortHTML(elQuote(n,ct,k,elLv(b,now)+1).cost,st);return sh?h.replace(/<\/span>$/,sh+'</span>'):h;}catch(e){return h;}})(elBits);
+
+/* ───────── stopping work asks first when it loses materials ─────────
+   Cancel on a building going up, and Stop on an upgrade, a retool, an economy level, the walls or a Warehouse tier,
+   gave back half the materials at a single tap. The first tap now says what is lost and asks; Stop work goes ahead,
+   Keep going leaves it. A building still waiting in the queue, the outfitters and the bureau give everything back
+   and go at once, as before. The question is kept in STOP.ask and drawn again after every render, for a minute, with the link it stands in for
+   (html) to put back. */
+const STOP={ask:null};
+const STOP_ACTS={
+  'ct-cancel':(id,k,now)=>{const c=(S.nation.cities||[]).find(x=>x.id===id),b=c&&(c.b||[]).find(x=>x.k===k&&x.d>now);return b&&!(b.s>now)?bPaid(S.nation,b):null;},
+  'cx-up-no':(id,k,now)=>{const ct=cxHeld(id),b=ct&&ct.rec&&ct.rec.b.find(x=>x.k===k),e=b&&cxBldExtras(b);return e&&e.uu&&e.uu.d>now?e.uu.p||cxUpQuote(S.nation,ct,k,e.uu.u,e.tr).cost:null;},
+  'tier-stop':(id,k,now)=>{const ct=cxHeld(id),b=ct&&ct.rec&&ct.rec.b.find(x=>x.k===k),e=b&&cxBldExtras(b);return e&&e.tu&&e.tu.d>now?e.tu.p||tierQuote(S.nation,ct,k,e.tu.l).cost:null;},
+  'el-up-no':(id,k,now)=>{const ct=cxHeld(id),b=ct&&ct.rec&&ct.rec.b.find(x=>x.k===k),e=b&&elExtras(b);return e&&e.eu&&e.eu.d>now?e.eu.p||elQuote(S.nation,ct,k,e.eu.l).cost:null;},
+  'cx-wall-no':(id,k,now)=>{const ct=cxHeld(id),e=ct&&ct.rec&&cxCityExtras(ct.rec);return e&&e.wu&&e.wu.d>now?e.wu.p||cxWallQuote(S.nation,ct,e.wu.l).cost:null;},
+  'wh-cancel':(id,k,now)=>{const c=(S.nation.cities||[]).find(x=>x.id===id),b=c&&(c.b||[]).find(x=>x.k==='warehouse'),u=b&&whExtras(b).wu;return u&&u.d>now?u.c:null;}
+};
+/* what a stop loses: the half not given back */
+function stopLoss(cost){if(!cost)return null;const o={};for(const r of RES){const v=(cost[r]||0)-Math.floor((cost[r]||0)/2);if(v>0)o[r]=v;}return Object.keys(o).length?o:null;}
+const stopQ=v=>'"'+String(v).replace(/["\\]/g,'\\$&')+'"';
+function stopSel(q){return `[data-act="${q.a}"]${q.id?`[data-id=${stopQ(q.id)}]`:''}${q.k?`[data-k=${stopQ(q.k)}]`:''}:not([data-stop-ok])`;}
+window.addEventListener('click',e=>{
+  const el=e.target.closest&&e.target.closest('[data-act]');if(!el||!S.nation)return;const a=el.dataset.act;
+  /* Keep going puts the link back itself: a render that would draw the same page leaves the page alone */
+  if(a==='stop-keep'){e.stopImmediatePropagation();const q=STOP.ask;STOP.ask=null;const box=el.closest('.stop-ask');if(box&&q&&q.html)box.outerHTML=q.html;else render();
+    if(q){const b=document.querySelector(stopSel(q));if(b)try{b.focus({preventScroll:true});}catch(x){}}return;}
+  const f=STOP_ACTS[a];if(!f)return;if(el.dataset.stopOk==='1'){STOP.ask=null;return;}
+  let lose=null;try{lose=stopLoss(f(el.dataset.id||'',el.dataset.k||'',Date.now()));}catch(x){lose=null;}if(!lose)return;
+  e.preventDefault();e.stopImmediatePropagation();STOP.ask={a,id:el.dataset.id||'',k:el.dataset.k||'',lose,t:Date.now()};render();
+  const keep=()=>{const b=document.querySelector('.stop-ask [data-act="stop-keep"]');if(b&&document.activeElement!==b)try{b.focus({preventScroll:true});}catch(x){}};keep();setTimeout(keep,0);
+},true);
+function stopDraw(){
+  const q=STOP.ask;if(!q)return;if(Date.now()-q.t>60000){STOP.ask=null;return;}
+  const el=document.querySelector(stopSel(q));if(!el)return;q.html=el.outerHTML;
+  el.outerHTML=`<span class="stop-ask" role="group" aria-label="Stop this work?"><span class="stop-ask-t">Stop now and lose half the materials (${esc(costText(q.lose))})?</span><button type="button" class="btn danger small-btn" data-act="${esc(q.a)}" data-id="${esc(q.id)}"${q.k?` data-k="${esc(q.k)}"`:''} data-stop-ok="1">Stop work</button><button type="button" class="linkish small" data-act="stop-keep">Keep going</button></span>`;
+}
+render=(f=>function(){const r=f.apply(this,arguments);try{stopDraw();}catch(e){}return r;})(render);
+if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE.wd={wdLive,wdText,dlHexOf,dlShortHTML,stopLoss,STOP,STOP_ACTS,WD_K};}catch(e){}
 
 if(hot&&typeof hot.snapshot==='function'){try{hot.snapshot(()=>({view:S.view,openIssue:S.openIssue,result:S.result,visit:S.visit,censusKey:S.censusKey,settings:S.settings,draft:S.draft,mapViews:S.mapViews,mapSel:S.mapSel,mapPick:S.mapPick}));}catch(e){}}
 if(hot&&typeof hot.ready==='function')hot.ready(start);else start((hot&&hot.data)||{});
