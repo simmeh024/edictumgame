@@ -465,7 +465,7 @@ function sitesOn(region, grown) {
     line('function cellKey(i){'), ...TABLES.map(([a, b]) => cut(a, b)), line('function hexDist(a,b){'), line('function hexDistIn(a,b,C){'), line('const BIOME_KEY='),
     'const MAP_T0=MAP.T.slice();', cut('const LAKE_MAX=', 'const claimLand='), cut('const SITE_KINDS={', '/* a site the player may see'),
     'let wndCellMemo={m:null,c:-1};', fn('wndCell'), 'let lthCellMemo={m:null,c:-1};', fn('lthCell'),
-    'return {MAP,SITES,SITE_FZ,wndCell,lthCell};'].join('\n');
+    'return {MAP,SITES,SITE_FZ,wndCell,lthCell,LOST2_KINDS};'].join('\n');
   const store = { 'statehood.nation.v1': JSON.stringify({ name: 'Baker', reg: region }) };
   return new Function('localStorage', 'window', 'performance', code)({ getItem: k => Object.prototype.hasOwnProperty.call(store, k) ? store[k] : null }, {}, { now: () => Date.now() });
 }
@@ -478,20 +478,24 @@ function sitesOn(region, grown) {
 for (const id of ['greywater', 'meridian']) test(`${id}: the sites are where they were, and the frontier's after them`, () => {
   const chart = sitesOn(id, false), now = sitesOn(id, true), M = now.MAP;
   assert.equal(chart.SITE_FZ, null, 'a map that did not grow has one list');
-  const n = chart.SITES.length;
+  /* the Lost Atlas's places (2026-11-23) come after every other site, on either map */
+  const atlas = L => L.filter(s => now.LOST2_KINDS[s.k]).length, nA = atlas(chart.SITES), nB = atlas(now.SITES);
+  for (const L of [chart.SITES, now.SITES]) { const a = atlas(L); assert.ok(a >= 10 && a <= 20, 'the Lost Atlas has its places: ' + a); assert.ok(L.slice(L.length - a).every(s => now.LOST2_KINDS[s.k] && s.lost), 'and they come last'); }
+  for (const k of Object.keys(now.LOST2_KINDS)) assert.ok(now.SITES.filter(s => s.k === k).length <= 4, k + ': no more than four');
+  const n = chart.SITES.length - nA;
   assert.equal(n, 96 + 20, 'the charted map has its 96 sites and 20 lost places');
-  chart.SITES.forEach((s, i) => {
+  chart.SITES.slice(0, n).forEach((s, i) => {
     const t = now.SITES[i];
     assert.deepEqual([M.chart[t.c], t.k, t.x, !!t.lost], [s.c, s.k, s.x, !!s.lost], `site ${i} is the one it was`);
   });
-  const extra = now.SITES.slice(n);
+  const extra = now.SITES.slice(n, now.SITES.length - nB);
   assert.ok(extra.length >= 8, 'the frontier has sites of its own');
   assert.ok(extra.filter(s => M.chart[s.c] < 0).length >= extra.length * 0.75, 'nearly all of them on its land');
   assert.equal(new Set(now.SITES.map(s => s.c)).size, now.SITES.length, 'no hex is two sites');
   // every index the frontier's build gave out names the same hex in the list now
   assert.equal(now.SITE_FZ.length, n);
   assert.ok(now.SITE_FZ.some((j, i) => j !== i), 'that build had shuffled them');
-  for (let i = n; i < now.SITES.length; i++) assert.ok(now.SITE_FZ.includes(i), 'every site after the charted ones is one of that build\'s');
+  for (let i = n; i < now.SITES.length - nB; i++) assert.ok(now.SITE_FZ.includes(i), 'every site after the charted ones is one of that build\'s');
   assert.equal(new Set(now.SITE_FZ).size, n, 'and no two of its indices land on one site');
   // the statue and the lighthouse stand where they stood
   assert.equal(M.chart[now.wndCell()], chart.wndCell(), 'the statue');

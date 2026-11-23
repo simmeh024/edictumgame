@@ -310,6 +310,9 @@ server's clock before it signs the save:
 - research is never lost: technologies, studies and credits the saved record held stay;
 - credits earned grow no faster than `rsRateMax` (the record's Science, institution and technologies, the research
   buildings, and every boost) from the time they were last counted, never past the server's time; a grant counts once;
+- Field Notes (the outfitters' Field naturalists refitted at tier II, 2026-11-23): each first find a save adds to
+  `disc` (at most `RS_FN_MAX`, 3) may add as many credits as the line's tier II blocks (`xl.nat` `notes`, `x2.nat`
+  1 to 5), once the saved record's laboratory is open (`rsFieldNotes`);
 - a new technology must follow its prerequisites and gates and be paid for (spent grows by at least its price less
   25%); one of Tier V or above must come from a study the saved record already held, finished by the server's time;
 - a study must start after the saved record, last its full time (half with emergency funding) and be paid when it

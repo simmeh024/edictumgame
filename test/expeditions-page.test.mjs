@@ -13,6 +13,7 @@ const OUTCOME=section('const EXP_TABLE=','function resolveExp(');
 const PAGE=section('/* ───────── the Expeditions page (Map › Expeditions) ─────────','/* the die with a seal on it');
 const FLT=section('function flTier(','\n/* ── bonuses:');
 const FLODDS=section('const FL_TSN=','const flSealed=');
+const PLURAL=section('function sitePl(','\n')+'\n';
 
 const DAY=864e5,NOW=1_800_000_000_000;
 function game({docs=[],sites=20}={}){
@@ -130,14 +131,14 @@ test('a fleeting party’s odds: five tiers in fives, and arriving first adds 2'
 const XUS=section("/* ── the outfitters: upgrades to the explorers' kit",'function siteDefault(si)');
 const LOSTS=section('const LOST_KINDS={','const LOST_ORDER=');
 function outfit({cities=[],now=NOW}={}){
-  const ctx=vm.createContext({Math,Object,Number,String,Date:{now:()=>now},
+  const ctx=vm.createContext({Math,Object,Number,String,Date:{now:()=>now},xb:()=>0,
     clamp:(v,a,b)=>Math.min(b,Math.max(a,v)),cap1:s=>s?s[0].toUpperCase()+s.slice(1):s,
     list:a=>a.length<2?(a[0]||''):a.length===2?a[0]+' and '+a[1]:a.slice(0,-1).join(', ')+', and '+a[a.length-1],
     BUILDINGS:{sawmill:{n:'Sawmill'},mine:{n:'Iron Mine'},orepit:{n:'Ore Pits'},outfit:{n:'Outfitters’ Guild'},farm:{n:'Farm Estates'},caravan:{n:'Caravanserai'},rail:{n:'Railway Station'},
       warehouse:{n:'Warehouse'},harbour:{n:'Harbour'},university:{n:'University'},reserve:{n:'Nature Reserve'},digs:{n:'Institute of Field Archaeology'},library:{n:'Great Library'},
       maproom:{n:'Map Room'},observ:{n:'Observatory'},market:{n:'Market Hall'},airport:{n:'Airport'},xclub:{n:'Explorers’ Club'}},
     cityList:()=>cities,cxUps:b=>b.ug||0,whLevel:b=>b.wl||0});
-  vm.runInContext(LOSTS+'const LOST_ORDER=Object.keys(LOST_KINDS);'+XUS+'\nthis.X={XU,XU_KEYS,XU_TOTAL,xuLv,xuAll,xuCost,xuHours,xuReqText,xuHave,xuGear,xuTimeK,xuReach,xuCostK,xuCurio,xuParty,xuLvText,xuNowText,LOST_KINDS};',ctx);
+  vm.runInContext(LOSTS+'const LOST_ORDER=Object.keys(LOST_KINDS);'+PLURAL+XUS+'\nthis.X={XU,XU_KEYS,XU_TOTAL,xuLv,xuAll,xuCost,xuHours,xuReqText,xuHave,xuGear,xuTimeK,xuReach,xuCostK,xuCurio,xuParty,xuLvText,xuNowText,LOST_KINDS};',ctx);
   return ctx.X;
 }
 
