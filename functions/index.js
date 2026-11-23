@@ -29,8 +29,9 @@
      referee/pub            {k, at}: its public half (SPKI, base64), which every game reads
      armies/{uid}           {r, at, n, w, last}: readiness r as of at (ms); battles n, won w, the last at last
      armies/{uid}/log/{id}  {d, c, p, pe, cap, roll, win, t}: every battle, for the admins
-     sieges/{a}_{d}_{t}     {reg, a, d, c, t, st: 'on'|'fell', an, dn, df, cn, ft?, foes?}: a siege by a of d's capital
-                            (an, dn the names, df d's founding, cn its capital's name), read by every game of the region
+     sieges/{a}_{d}_{t}     {reg, a, d, c, t, st: 'on'|'fell', an, dn, df, cn, ft?, foes?, m?}: a siege by a of d's capital
+                            (an, dn the names, df d's founding, cn its capital's name; m, once it fell, what the nation
+                            was, for its monument: functions/war-rules.js, memorial), read by every game of the region
    The seals: ECDSA P-256 with SHA-256 (64 bytes, base64url) over "edictum-battle-1|<uid>|<c>|<t>|<w>" (s) and
    "edictum-battle-2|<uid>|<c>|<t>|<w>|<d>" (s2). The first names no defender, so the odds held to one nation's army
    could be spent on another's hex; since SEAL2_AT (game/edictum.html) a conquest counts only with s2, and only
@@ -51,7 +52,7 @@ import { pace, ipRule } from './pace.js';
 import { trId, trLive, trVoid, trReadyMs, TR_FX, TR_RECORD } from './treaty-rules.js';
 import { alRelLive } from './alliance-rules.js';
 import { warWord } from './letters.js';
-import { warOf, shielded, num, SIEGE_MS, SIEGE_MAX, milReady, milMs } from './war-rules.js';
+import { warOf, shielded, num, SIEGE_MS, SIEGE_MAX, milReady, milMs, memorial } from './war-rules.js';
 
 initializeApp();
 const db = getFirestore();
@@ -194,9 +195,10 @@ async function battle(uid, data) {
     const sign = text => crypto.sign('sha256', Buffer.from(text), { key, dsaEncoding: 'ieee-p1363' }).toString('base64url');
     if (win) { out.s = sign(sealText(uid, c, now, w)); out.s2 = sign(sealText2(uid, c, now, w, d)); }
     if (win && sg) {
-      /* the capital has fallen: the siege says so, with the fallen nation's enemies, whose conquests stay theirs */
+      /* the capital has fallen: the siege says so, with the fallen nation's enemies, whose conquests stay theirs, and
+         what the nation was (m), for its monument */
       const them = record(foe), foes = [...new Set([uid, ...Object.keys(them.wars || {}).filter(isId)])].slice(0, 40);
-      const doc = { ...sg.data(), st: 'fell', ft: now, foes };
+      const doc = { ...sg.data(), st: 'fell', ft: now, foes, m: memorial(them) };
       tx.set(sg.ref, doc);
       Object.assign(out, { fell: true, id: sg.id, doc, _word: { to: d, by: str(mine.name), nation: str(them.name), capital: str(them.capital) } });
     }

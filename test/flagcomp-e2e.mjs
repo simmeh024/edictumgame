@@ -106,7 +106,7 @@ check('the judging page says what scoring earns', await until(async () => /Every
 await A.evaluate(() => { window.EDICTUM_NO_DESK = false; G.commit(G.clone(G.S.nation)); });
 await nav(A, 'issues');
 check('while judging is open the daily desk asks for three flags scored', await until(async () => /Score 3 flags in the flag competition/.test(await text(A, '.dd-fc')) && /0 of 3/.test(await text(A, '.dd-fc'))), await text(A, '.dd'));
-check('apart from the day’s three tasks', await A.locator('.dd .dd-t:not(.dd-rare):not(.dd-fc)').count() === 3);
+check('apart from the day’s three tasks', await A.locator('.dd .dd-t:not(.dd-rare):not(.dd-fc):not(.dd-new):not(.dd-wk)').count() === 3);
 await page(A); await A.waitForSelector('.flc-judge', { timeout: 15000 });
 /* a skipped flag goes to the back of the queue, on the server, and comes again once the others are scored */
 const skippedId = (await flc(A)).deal[0].id;
@@ -126,7 +126,7 @@ const deskNow = p => p.evaluate(() => { const n = G.S.nation; return { f: (n.dd 
 await desk(A, null);
 check('so a new day’s desk draws no judging task', await until(async () => { const d = await deskNow(A); return !d.f && !d.on; }), JSON.stringify(await deskNow(A)));
 await nav(A, 'issues');
-check('and shows the day’s three tasks alone', await until(async () => await A.locator('.dd .dd-t:not(.dd-rare):not(.dd-fc)').count() === 3) && await A.locator('.dd-fc').count() === 0, await text(A, '.dd'));
+check('and shows the day’s three tasks alone', await until(async () => await A.locator('.dd .dd-t:not(.dd-rare):not(.dd-fc):not(.dd-new):not(.dd-wk)').count() === 3) && await A.locator('.dd-fc').count() === 0, await text(A, '.dd'));
 await desk(A, { g: 3, c: 0, p: 0 });
 check('a judging task drawn before the last flag was scored, and given none of the scores, is let go', await until(async () => { const d = await deskNow(A); return !d.f && !d.on; }) && await until(async () => await A.locator('.dd-fc').count() === 0), JSON.stringify(await deskNow(A)));
 await desk(A, { g: 3, c: 1, p: 0 });
