@@ -68,6 +68,11 @@ A live chat for each region: the nations of a region talk to each other in short
   a membership private.
 - **Docked** (a wide screen, 1100 pixels or more): the drawer's dock button puts it beside the page, which makes room for
   it, instead of over it; it stays as the pages change. The choice is kept in the browser.
+- **Full screen** (wider than a phone, 601 pixels or more; a phone's drawer fills the screen already): the button beside
+  the dock button lets the drawer fill the browser tab (not the browser's own full screen), its lines in a column of at
+  most 900 pixels in the middle. Escape, the button again, or opening a nation's page or Chat settings from the drawer
+  ends it, and a docked drawer docks again; the next Escape closes the drawer. Closing and opening the drawer keeps it
+  full screen until the game is reloaded (`RGC.full`, `html.rgc-full`).
 - **The tutorial**: "Say hello in the region chat" (Take your place in the region, an optional group): 4 land credits
   and 10 food, timber and goods for a first line. Its button opens the chat. A guest nation may do it too.
 

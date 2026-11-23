@@ -10275,6 +10275,21 @@ button.rgc-nm{text-align:left}
 @media (min-width:1100px){.rgc-dockb{display:grid}.rgc-dockb[aria-pressed="true"]{color:var(--accent);border-color:var(--accent)}}
 html.rgc-docked body{padding-right:400px}
 html.rgc-docked .rgc-dock{box-shadow:none;animation:none}
+/* full screen: the drawer fills the tab (not the browser's own full screen), its lines kept to a readable width in the
+   middle; a phone's drawer already fills the screen, so it has no button (html.rgc-full, rgcDockApply) */
+.rgc-fsb{display:none}
+.rgc-fsb[aria-pressed="true"]{color:var(--accent);border-color:var(--accent)}
+.rgc-fsb[aria-pressed="true"] .rgc-fs-in,.rgc-fsb:not([aria-pressed="true"]) .rgc-fs-out{display:none}
+@media (min-width:601px){
+  .rgc-fsb{display:grid}
+  html.rgc-full,html.rgc-full body{overflow:hidden}
+  html.rgc-full .rgc-dock{left:0;width:auto;border-left:0;box-shadow:none;animation:none}
+  html.rgc-full .rgc-dockb{display:none}
+  html.rgc-full .rgc-head{padding-left:max(16px,calc(50% - 450px));padding-right:max(12px,calc(50% - 450px))}
+  html.rgc-full .rgc-tabw{padding-inline:max(0px,calc(50% - 450px));box-shadow:inset 0 -1px 0 var(--rule)}
+  html.rgc-full .rgc-list{max-width:900px;margin-inline:auto}
+  html.rgc-full .rgc-foot{padding-left:max(12px,calc(50% - 450px));padding-right:max(12px,calc(50% - 450px))}
+}
 /* region chat: the floating Chat button (Settings › Chat), placed by rgcFabPlace; it glides only when it snaps */
 .rgc-fab{position:fixed;z-index:45;width:52px;height:52px;border-color:var(--rule-2);background:var(--sheet);color:var(--ink);box-shadow:0 6px 18px -6px rgba(18,41,42,.45),0 1px 3px rgba(18,41,42,.18);touch-action:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;cursor:pointer}
 .rgc-fab svg{width:24px;height:24px}
@@ -10290,6 +10305,10 @@ html.map-full-open .rgc-fab,html.u-lock .rgc-fab{display:none}
 @media (max-width:600px){html.rgcf-low:not(.rgcf-typing):not(.rgc-on) .toast{bottom:var(--rgcf-clear)}}
 @media (min-width:601px) and (max-width:959px){html.rgcf-low:not(.rgcf-typing) .toast{bottom:var(--rgcf-clear)}}
 @media (min-width:960px){html.rgcf-lowr .toast{right:84px}html.rgcf-lowr.rgc-on .toast{right:484px}}
+/* the chat in full screen: notices stand above its writing box, in the corner on a wide screen and in the middle on a narrower one */
+@media (min-width:601px){html.rgc-on.rgc-full .toast{bottom:calc(86px + env(safe-area-inset-bottom,0px))}}
+@media (min-width:601px) and (max-width:959px){html.rgc-on.rgc-full .toast{left:50%;max-width:min(92vw,420px)}}
+@media (min-width:960px){html.rgc-on.rgc-full .toast{right:24px}}
 /* region chat: pictures (admins post them): the small copy in a line, the bar above the writing box, the picture over the page */
 .rgc-xc{flex:1;min-width:0}
 .rgc-xc .rgc-x{margin-bottom:3px}
@@ -65416,7 +65435,9 @@ COMMIT_HOOKS.push((n,old,now)=>{
     if(L&&!L.p&&now>=L.a&&now<=L.e&&base){const dv=Math.max(0,ddDelta(n,base,L.k));if(dv)L.c=Math.min(L.g,(L.c||0)+dv);
       if(L.c>=L.g){L.p=1;L.d=now;n.ddlc=ddlcOf(n)+1;ddKind(n,L.k);snap();just.push('l');const st=stockNow(n,now);for(const r of RES)st[r]=num0(st[r])+DD_LEG_GIFT;xsMark(n,st,now);n.stock=roundStock(st);n.stockAt=now;n._stockSet=true;try{gbBump(n,'ddl',1,now);}catch(e){}
         out.push(`Legendary task done: ${DD_TASKS[L.k].t(L.g)}. +${DD_LEG_GIFT} of every resource and +${DD_LEG_CR} land credits.${xsOf(n)?' Some of it is over your storage: those resources earn nothing more until you use some, or a Warehouse makes room.':''}`);}}}}
-  {const W=wkKey(now);let N=n.ddn;if(base&&(!N||N.w!==W))N=n.ddn={w:W,k:ddNewRoll(n,W),c:0,p:0};
+  /* the browser tests' desk switch (EDICTUM_NO_DESK) holds this one back too: drawn by the seed, it paid 25 of every
+     resource whenever a suite happened to do the week's new kind, and threw the suite's counts out */
+  if(ddOn()){const W=wkKey(now);let N=n.ddn;if(base&&(!N||N.w!==W))N=n.ddn={w:W,k:ddNewRoll(n,W),c:0,p:0};
     if(N&&N.w===W&&N.k&&DD_TASKS[N.k]&&!N.p&&base){const dv=N.k==='visit'||N.k==='vote'?(mark===N.k?1:0):Math.max(0,ddDelta(n,base,N.k));
       if(dv){N.c=1;N.p=1;n.ddnc=ddncOf(n)+1;ddKind(n,N.k);snap();const st=stockNow(n,now);for(const r of RES)st[r]=stockLimit(n,r,num0(st[r])+DD_NEW_GIFT,st[r]);n.stock=roundStock(st);n.stockAt=now;just.push('n');
         out.push(`Something new, done: ${DD_TASKS[N.k].t(1)}. +${DD_NEW_GIFT} of every resource and +${DD_NEW_CR} land credits.`);}}}
@@ -91263,6 +91284,7 @@ function rgcDock(){
   d.id='rgc-dock';d.className='rgc-dock';d.hidden=true;d.setAttribute('role','dialog');d.setAttribute('aria-labelledby','rgc-h');
   d.innerHTML=`<div class="rgc-head"><div class="rgc-ht"><p class="eyebrow">Region chat</p><h2 class="rgc-h" id="rgc-h"></h2><p class="rgc-sub" id="rgc-sub"></p></div>
     <button type="button" class="rgc-hb rgc-dockb" data-rgc="dock" aria-pressed="false" aria-label="Dock beside the page" title="Dock beside the page"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="15" rx="1.8" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M14.5 4.5v15" stroke="currentColor" stroke-width="1.6"/><path d="M16.6 8.5h2M16.6 11h2M16.6 13.5h2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></button>
+    <button type="button" class="rgc-hb rgc-fsb" data-rgc="full" aria-pressed="false" aria-label="Full screen" title="Full screen"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path class="rgc-fs-in" d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path class="rgc-fs-out" d="M9 4v5H4M20 9h-5V4M15 20v-5h5M4 15h5v5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
     <button type="button" class="rgc-hb" data-rgc="settings" aria-label="Chat settings" title="Chat settings"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4Z" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M19.4 13.5a7.6 7.6 0 0 0 0-3l2-1.6-2-3.4-2.4 1a7.5 7.5 0 0 0-2.6-1.5L14 2.5h-4l-.4 2.5A7.5 7.5 0 0 0 7 6.5l-2.4-1-2 3.4 2 1.6a7.6 7.6 0 0 0 0 3l-2 1.6 2 3.4 2.4-1a7.5 7.5 0 0 0 2.6 1.5l.4 2.5h4l.4-2.5a7.5 7.5 0 0 0 2.6-1.5l2.4 1 2-3.4Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg></button>
     <button type="button" class="rgc-hb" data-rgc="close" aria-label="Close the chat" title="Close (Esc)"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg></button></div>
     <div class="rgc-tabw"><button type="button" class="rgc-tarr" data-rgc="tabs-go" data-v="-1" tabindex="-1" aria-label="Show the tabs to the left" title="More tabs" hidden><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M10 3.5 5.5 8l4.5 4.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button><div class="rgc-tabs" id="rgc-tabs" role="tablist" aria-label="Chat"></div><button type="button" class="rgc-tarr" data-rgc="tabs-go" data-v="1" tabindex="-1" aria-label="Show the tabs to the right" title="More tabs" hidden><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div>
@@ -91586,15 +91608,16 @@ document.addEventListener('click',e=>{
     if(RGC.menu&&!(t.closest&&t.closest('.rgc-mw'))){RGC.menu='';rgcPaint();}
     /* a nation's card has done its work once its page opens */
     if(RGC.nc&&t.closest&&t.closest('#rgc-dock .rgc-nc [data-act="visit"]'))RGC.nc='';
-    /* on a phone the drawer covers the page: a nation's page, opened from its card, so the drawer steps aside */
-    if(RGC.open&&t.closest&&t.closest('#rgc-dock [data-act="visit"],#rgc-dock [data-act="acct-open"],#rgc-dock [data-act="account-compare"]')&&navNarrow())rgcOpen(false,true);
+    /* on a phone the drawer covers the page: a nation's page, opened from its card, so the drawer steps aside; in full
+       screen on a wider one, the drawer goes back to its side so the page shows beside it */
+    if(RGC.open&&t.closest&&t.closest('#rgc-dock [data-act="visit"],#rgc-dock [data-act="acct-open"],#rgc-dock [data-act="account-compare"]')){if(navNarrow())rgcOpen(false,true);else rgcFull(false);}
     return;
   }
   if(el.tagName==='INPUT')return;
   const a=el.dataset.rgc,id=el.dataset.id||'',m=rgcCh().list.find(x=>x.id===id);
   if(a==='toggle')rgcOpen(!RGC.open);
   else if(a==='close')rgcOpen(false);
-  else if(a==='settings'){if(navNarrow())rgcOpen(false,true);uxOpen('settings',null,'#set-chat-btn');}
+  else if(a==='settings'){if(navNarrow())rgcOpen(false,true);else rgcFull(false);uxOpen('settings',null,'#set-chat-btn');}
   else if(a==='jump'){RGC.stick=true;rgcPaint();}
   else if(a==='team-who'){RGC.who=RGC.who===id?'':id;rgcPaint();}
   else if(a==='nc'){const l=el.dataset.l||'';RGC.nc=RGC.nc===l?'':l;rgcPaint();
@@ -91630,6 +91653,8 @@ document.addEventListener('keydown',e=>{
   if(RGC.ask||RGC.menu){const k=(RGC.ask&&RGC.ask.id)||RGC.menu;RGC.ask=null;RGC.menu='';rgcPaint();const b=k&&document.querySelector(`#rgc-list .rgc-more[data-id="${CSS.escape(k)}"]`);if(b)b.focus();e.preventDefault();return;}
   /* a nation's card closes first, and its name keeps the focus */
   if(RGC.nc&&document.querySelector('#rgc-list .rgc-nc')){const l=RGC.nc;RGC.nc='';rgcPaint();const b=document.querySelector(`#rgc-list .rgc-nm[data-l="${CSS.escape(l)}"]`);if(b)b.focus();e.preventDefault();return;}
+  /* full screen ends first, like the browser's own; the next Escape closes the drawer */
+  if(RGC.full&&rgcFullShown()&&RGC.dock&&(RGC.dock.contains(t)||!t||t===document.body)){rgcFull(false);e.preventDefault();return;}
   /* from inside the drawer, or with nothing focused (a line just blocked or deleted), or on a phone, where it covers the page */
   if(RGC.dock&&(RGC.dock.contains(t)||(!t||t===document.body)&&!document.documentElement.classList.contains('rgc-docked')||navNarrow())){e.preventDefault();rgcOpen(false);}
 });
@@ -91658,7 +91683,7 @@ setInterval(()=>{try{
 const RGC_RX=[['hear','👍','Hear, hear'],['ha','😄','Ha!'],['bravo','👏','Bravo'],['shame','👎','Shame'],['fire','🔥','Fire'],['love','❤️','Love'],['wow','😮','Wow'],['hmm','🤔','Hmm'],['sad','😢','Sad'],['angry','😡','Angry'],['hundred','💯','Spot on'],['thanks','🙏','Thanks'],['eyes','👀','Watching'],['salute','🫡','Salute']];
 const RGC_HAPS=40,RGC_WIDE=typeof window.matchMedia==='function'?window.matchMedia('(min-width:1100px)'):null;
 function rgcLS(k,v){try{if(v===undefined)return localStorage.getItem(k);localStorage.setItem(k,String(v));}catch(e){}return null;}
-Object.assign(RGC,{tab:rgcLS('edictum.rgc.tab')||'region',lastTab:'',re:null,mn:null,docked:rgcLS('edictum.rgc.dock')==='1',adraft:{},abusy:false,amsg:'',hapMemo:{at:0,k:'',list:[]},want:false,goto:''});
+Object.assign(RGC,{tab:rgcLS('edictum.rgc.tab')||'region',lastTab:'',re:null,mn:null,docked:rgcLS('edictum.rgc.dock')==='1',full:false,adraft:{},abusy:false,amsg:'',hapMemo:{at:0,k:'',list:[]},want:false,goto:''});
 function rgcAllyOn(){if(OBS)return null;try{return alChatA();}catch(e){return null;}}
 /* a member of several alliances has a tab for each one's channel, in type order, each with its type's mark: the one
    being read is 'ally', each other 'ally-<type>'; choosing one reads it instead (AL.cty, kept in this browser) */
@@ -91834,13 +91859,20 @@ async function rgcAllySend(){
   catch(e){RGC.amsg=alErrText(e);}
   finally{RGC.abusy=false;rgcFoot();const t=document.getElementById('rgc-ax');if(t&&RGC.open)t.focus({preventScroll:true});}
 }
-/* docked: on a wide screen the page makes room for the drawer (html.rgc-docked) */
+/* docked: on a wide screen the page makes room for the drawer (html.rgc-docked); full screen: the drawer fills the tab
+   (html.rgc-full), and docks again, when it was docked, once it leaves full screen. Full screen lasts until the player
+   leaves it or reloads the game: closing the drawer and opening it again keeps it */
 function rgcDockApply(){
-  const on=RGC.open&&RGC.docked&&!!(RGC_WIDE&&RGC_WIDE.matches),root=document.documentElement,was=root.classList.contains('rgc-docked');
-  root.classList.toggle('rgc-docked',on);
-  const d=RGC.dock;if(d){d.setAttribute('role',on?'complementary':'dialog');const b=d.querySelector('[data-rgc="dock"]');if(b){const t=RGC.docked?'Float over the page':'Dock beside the page';b.setAttribute('aria-pressed',String(!!RGC.docked));b.title=t;b.setAttribute('aria-label',t);}}
+  const full=RGC.open&&RGC.full,on=RGC.open&&RGC.docked&&!full&&!!(RGC_WIDE&&RGC_WIDE.matches),root=document.documentElement,was=root.classList.contains('rgc-docked');
+  root.classList.toggle('rgc-docked',on);root.classList.toggle('rgc-full',!!full);
+  const d=RGC.dock;if(d){d.setAttribute('role',on?'complementary':'dialog');const b=d.querySelector('[data-rgc="dock"]');if(b){const t=RGC.docked?'Float over the page':'Dock beside the page';b.setAttribute('aria-pressed',String(!!RGC.docked));b.title=t;b.setAttribute('aria-label',t);}
+    const f=d.querySelector('[data-rgc="full"]');if(f){f.setAttribute('aria-pressed',String(!!RGC.full));f.setAttribute('aria-label',RGC.full?'Leave full screen':'Full screen');f.title=RGC.full?'Leave full screen (Esc)':'Full screen';}}
   if(was!==on)try{window.dispatchEvent(new Event('resize'));}catch(e){}
 }
+/* full screen applies where the button shows: wider than a phone, whose drawer fills the screen already */
+const rgcFullShown=()=>{try{return window.matchMedia('(min-width:601px)').matches;}catch(e){return (window.innerWidth||1280)>600;}};
+function rgcFull(on){on=!!on;if(RGC.full===on)return;RGC.full=on;rgcDockApply();if(RGC.open)requestAnimationFrame(rgcTabsArrows);}
+for(const [k,v] of Object.entries({'Full screen':'Plein écran','Leave full screen':'Quitter le plein écran','Leave full screen (Esc)':'Quitter le plein écran (Échap)'}))if(!(k in FR_UI))FR_UI[k]=v;
 if(RGC_WIDE)try{RGC_WIDE.addEventListener('change',rgcDockApply);}catch(e){}
 window.addEventListener('resize',()=>{if(RGC.open)rgcTabsArrows();});
 /* show a line of the chat (an answer's quote, a mention in the bell), flashed for a moment */
@@ -91869,6 +91901,7 @@ document.addEventListener('click',e=>{
     const now=performance.now(),max=Math.max(0,r.scrollWidth-r.clientWidth),from=r._tgt!=null&&now-r._tgtAt<700?r._tgt:r.scrollLeft,to=Math.max(0,Math.min(max,from+step));
     r._tgt=to;r._tgtAt=now;try{r.scrollTo({left:to,behavior:'smooth'});}catch(err){r.scrollLeft=to;}}}
   else if(a==='dock'){RGC.docked=!RGC.docked;rgcLS('edictum.rgc.dock',RGC.docked?'1':'0');rgcDockApply();}
+  else if(a==='full')rgcFull(!RGC.full);
   else if(a==='reply'&&m){RGC.menu='';rgcCh().re={id:m.id,nm:rgcName(m),x:(m.im?(m.x?'📷 '+m.x:'📷 A picture'):m.x).slice(0,90)};rgcPaint();const f=document.getElementById('rgc-x');if(f)f.focus({preventScroll:true});}
   else if(a==='re-no'){rgcCh().re=null;rgcFoot();const f=document.getElementById('rgc-x');if(f)f.focus({preventScroll:true});}
   else if(a==='react'&&m){if(RGC.menu){RGC.menu='';}rgcReact(m,el.dataset.k);const b=document.querySelector(`#rgc-list .rgc-more[data-id="${CSS.escape(id)}"]`);if(b&&!document.activeElement.closest('.rgc-rxs'))b.focus({preventScroll:true});}
