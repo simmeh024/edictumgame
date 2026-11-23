@@ -136,6 +136,8 @@ test('the browser tests can turn the desk off, leaving presence and the first bu
   const D=desk({window:{EDICTUM_NO_DESK:true}});let n=nation();
   const [m,old]=next(n,x=>{x.tly.iss=9;x.tly.dm=4;});const notes=D.save(m,old);
   eq(m.dd,undefined);assert.equal(m.stock.timber,20);assert.equal(m.stk.n,1);assert.ok(notes.every(t=>!/Desk task/.test(t)));
+  // nor is a task new to the nation drawn or paid: drawn by the seed, it threw out a suite's counts (fx-e2e, 2026-11-23)
+  eq(m.ddn,undefined);eq(m.ddnc,undefined);assert.ok(notes.every(t=>!/Something new/.test(t)));
 });
 
 test('saved records keep only well-formed desks, counts and builds',()=>{

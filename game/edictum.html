@@ -65399,7 +65399,9 @@ COMMIT_HOOKS.push((n,old,now)=>{
     if(L&&!L.p&&now>=L.a&&now<=L.e&&base){const dv=Math.max(0,ddDelta(n,base,L.k));if(dv)L.c=Math.min(L.g,(L.c||0)+dv);
       if(L.c>=L.g){L.p=1;L.d=now;n.ddlc=ddlcOf(n)+1;ddKind(n,L.k);snap();just.push('l');const st=stockNow(n,now);for(const r of RES)st[r]=num0(st[r])+DD_LEG_GIFT;xsMark(n,st,now);n.stock=roundStock(st);n.stockAt=now;n._stockSet=true;try{gbBump(n,'ddl',1,now);}catch(e){}
         out.push(`Legendary task done: ${DD_TASKS[L.k].t(L.g)}. +${DD_LEG_GIFT} of every resource and +${DD_LEG_CR} land credits.${xsOf(n)?' Some of it is over your storage: those resources earn nothing more until you use some, or a Warehouse makes room.':''}`);}}}}
-  {const W=wkKey(now);let N=n.ddn;if(base&&(!N||N.w!==W))N=n.ddn={w:W,k:ddNewRoll(n,W),c:0,p:0};
+  /* the browser tests' desk switch (EDICTUM_NO_DESK) holds this one back too: drawn by the seed, it paid 25 of every
+     resource whenever a suite happened to do the week's new kind, and threw the suite's counts out */
+  if(ddOn()){const W=wkKey(now);let N=n.ddn;if(base&&(!N||N.w!==W))N=n.ddn={w:W,k:ddNewRoll(n,W),c:0,p:0};
     if(N&&N.w===W&&N.k&&DD_TASKS[N.k]&&!N.p&&base){const dv=N.k==='visit'||N.k==='vote'?(mark===N.k?1:0):Math.max(0,ddDelta(n,base,N.k));
       if(dv){N.c=1;N.p=1;n.ddnc=ddncOf(n)+1;ddKind(n,N.k);snap();const st=stockNow(n,now);for(const r of RES)st[r]=stockLimit(n,r,num0(st[r])+DD_NEW_GIFT,st[r]);n.stock=roundStock(st);n.stockAt=now;just.push('n');
         out.push(`Something new, done: ${DD_TASKS[N.k].t(1)}. +${DD_NEW_GIFT} of every resource and +${DD_NEW_CR} land credits.`);}}}
