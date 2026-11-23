@@ -74482,7 +74482,7 @@ VIEWS_EXT.chronicle=now=>chrView(now);
 const NTF_KEY='statehood.notif';
 const NTF_GROUPS=[['ach','Achievements and rank',['ach']],['museum','Museum finds and digs',['museum','dig']],['build','Finished buildings',['build']],['city','City reminders: empty blocks, mayors, room for a city',['cxtodo']],['mile','Population milestones',['mile','mile0']],
   ['games','The Games',['games','gres','host','hostwin']],['news','The Dispatch and Flock',['dispatch','flock']],['space','Space and the belt',['space','belt']],['gift','Gifts',['gift']],
-  ['wnd','The Great Statue, the Great Lighthouse and the Great Dam',['wnd','lth','dam']],['sym','National symbols',['sym']],['alli','Alliance news',['aljoin','alleave','aladmit']],['rmbre','Replies to your messages on the region board',['rmbre']],['cbre','Replies on Community Board topics you follow',['cbre']],['devnews','Results of development news polls you voted in',['nwpoll']]];
+  ['wnd','The Great Statue, the Great Lighthouse and the Great Dam',['wnd','lth','dam']],['sym','National symbols',['sym']],['alli','Alliance news',['aljoin','alleave','aladmit']],['rmbre','Replies to your messages on the region board',['rmbre']],['cbre','Replies on Community Board topics you follow',['cbre']],['devnews','Results of development news polls you voted in',['nwpoll']],['research','Research: discoveries and finished works',['rsd','rsw','rsi','rsx','rsc']]];
 const BELL_ACT=new Set(['msg','war','npcwar','conq','cede','hand','alremove','caught','cov','blockade','dig','gift','exp','land','trade','alli']);
 const NTF=(()=>{let d={};try{d=JSON.parse(localStorage.getItem(NTF_KEY)||'{}')||{};}catch(e){d={};}
   return {rw:['auto','on','off'].includes(d.rw)?d.rw:'auto',tut:d.tut===0?0:1,badge:d.badge==='all'?'all':'act',nws:d.nws==='off'?'off':'on',nwc:d.nwc===0?0:1,nvd:d.nvd===0?0:1,mute:Array.isArray(d.mute)?d.mute.filter(k=>NTF_GROUPS.some(g=>g[0]===k)):[]};})();
@@ -99182,7 +99182,7 @@ function rsOverviewHTML(n,now){
   const avail=[];if(p.i)for(let i=0;i<RS_N;i++){if(rsHas(b,i))continue;const st=rsState(n,i,now,bal);if(st==='open'||st==='poor')avail.push([i,st,rsPrice(n,i,now)]);}
   avail.sort((x,y)=>(x[1]==='open'?0:1)-(y[1]==='open'?0:1)||x[2]-y[2]);
   const av=avail.slice(0,6).map(([i,st,pr])=>{const r=RS[i];return `<li><span class="rs-li">${rsIco(r.ico,20)}</span><span class="rs-lb"><b>${esc(r.n)}</b><span class="hint">${RS_TRACKS[r.k].n}, Tier ${roman(r.t)} · ${pr} RC${r.h?' · '+fmtDur(r.h*3600e3):''} · ${esc(rsFxParts(r.fx)[0]||'')}</span></span><button type="button" class="btn ${st==='open'?'':'ghost '}sm" data-act="rs-research" data-v="${i}"${st==='open'?'':' disabled'}>${r.h?'Study':'Research'}</button></li>`;}).join('');
-  const rec=((n.nrx||{}).h||[]).filter(e=>e[1]==='d').slice(0,6).map(e=>{const r=RS[e[2]];return r?`<li><span class="rs-li">${rsIco(r.ico,20)}</span><span class="rs-lb"><b>${esc(r.n)}</b><span class="hint">${fmtDate(e[0])} · ${esc(rsFxLine(r))}</span></span></li>`:'';}).join('');
+  const fr=RSB.from.overview||Infinity,rec=((n.nrx||{}).h||[]).filter(e=>e[1]==='d').slice(0,6).map(e=>{const r=RS[e[2]];return r?`<li><span class="rs-li">${rsIco(r.ico,20)}</span><span class="rs-lb"><b>${esc(r.n)}${e[0]>fr&&rsbTold(e)?' <span class="cz-new rs-new">New</span>':''}</b><span class="hint">${fmtDate(e[0])} · ${esc(rsFxLine(r))}</span></span></li>`:'';}).join('');
   const md=Object.entries(RS_MD).filter(([k])=>k!=='rsFund'&&k!=='rsSpeed').map(([k,[c,nm,d]])=>{const w=rsMdWait(n,k,now),ok=mdOk(n,k,now)&&!w;
     const ctl=k==='rsCommittee'?`<span class="rs-mdb">${RS_TRACKS.map(T=>`<button type="button" class="btn ghost sm" data-act="rs-md" data-k="${k}" data-v="${T.k}"${ok?'':' disabled'}>${T.n}</button>`).join('')}</span>`:`<button type="button" class="btn ghost sm" data-act="rs-md" data-k="${k}"${ok?'':' disabled'}>Order</button>`;
     return `<li><span class="rs-lb"><b>${esc(nm)}</b> <span class="num hint">${mdCost(n,k)} mandate</span><span class="hint">${esc(d)}${w?` Again in ${fmtDur(w)}.`:''}</span></span>${ctl}</li>`;}).join('');
@@ -99191,7 +99191,7 @@ function rsOverviewHTML(n,now){
       ${p.i?'':`<section class="section rs-box"><h2 class="h2">The laboratory is being built</h2><p>${esc(B?`${B.nm}: stage ${B.j+1} of 5. `:'')}Research Credits begin at the inauguration.</p><button type="button" class="btn ghost" data-act="rs-tab" data-v="lab">See the works</button></section>`}
       ${p.i?`<section class="section rs-box"><h2 class="h2">Studies under way</h2>${studies?`<ul class="rs-list">${studies}</ul>`:'<p class="hint">No study is running. Technologies from Tier V on are studied for some hours once paid for, one per track at a time.</p>'}</section>
       <section class="section rs-box"><h2 class="h2">Available now</h2>${av?`<ul class="rs-list">${av}</ul>`:'<p class="hint">Nothing is open to research just now. The research tree shows what each technology waits for.</p>'}<button type="button" class="linkish small" data-act="rs-tab" data-v="tree">Open the research tree</button></section>`:''}
-      <section class="section rs-box"><h2 class="h2">Recent discoveries</h2>${rec?`<ul class="rs-list">${rec}</ul>`:'<p class="hint">None yet. The first three discoveries cost 2, 3 and 4 Research Credits, and the Founding Research Grant pays for all of them.</p>'}</section>
+      <section class="section rs-box" id="rs-recent"><h2 class="h2">Recent discoveries</h2>${rec?`<ul class="rs-list">${rec}</ul>`:'<p class="hint">None yet. The first three discoveries cost 2, 3 and 4 Research Credits, and the Founding Research Grant pays for all of them.</p>'}</section>
     </div>
     <div class="rs-ov-b">
       <section class="section rs-box rs-labcard"><div data-labfig="ov">${rsLabArt(rsLabState(n,now),'ov')}${rsLabProgressHTML(n,now)}</div><p class="lbl">${esc(cap1(p.i?rsInstName(n,p.l|0):p.nm||''))}</p><p class="hint">${esc(rsLabPlace(n))}${p.i?` · open since ${fmtDate(p.i)}`:''}${R.idle?` · <b class="dn">${esc(R.idle)}</b>`:''}</p></section>
@@ -99306,7 +99306,7 @@ EXT_PAGES.push('research');NAV_LABELS.research='Research Lab';
 NAV_WORDS.research='research lab science laboratory technology technologies discovery credits academy innovation tree';
 NAV_ICONS.research=NAV_SVG(RS_ICO.flask);
 (()=>{const g=NAV_GROUPS.find(x=>x.k==='nation');if(g&&!g.v.includes('research'))g.v.splice((g.v.indexOf('cities')+1)||g.v.length,0,'research');})();
-VIEWS_EXT.research=now=>rsView(now);
+VIEWS_EXT.research=now=>{try{rsbTouch(now||Date.now());}catch(e){}return rsView(now);};
 /* the menu shows Research once the petition is granted */
 {const base=navGroups;navGroups=function(){const g=base.apply(this,arguments),n=S.nation;if(!n||OBS||rsOf(n))return g;return g.map(x=>({...x,items:x.items.filter(([v])=>v!=='research')})).filter(x=>x.items.length);};}
 /* tabs: flipped without a redraw (as Government's), and the address #research/<tab> */
@@ -99878,6 +99878,63 @@ if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE.rs={RS,RS_B
   rsBits,rsEnc,rsHas,rsPut,rsDone,rsTopTier,rsCount,rsGates,rsPre,rsLevelMax,rsTechRc,rsFxBits,rsFxN:n=>rsFxN(n),rsOf,rsOn,rsRate:(n,t)=>rsRate(n,t),rsRateParts:(n,t)=>rsRateParts(n,t),rsBal,rsAccrue,rsWhy,rsDisc:(n,i,t)=>rsDisc(n,i,t),rsPrice,rsMat,rsResearch,rsGive,rsFound,rsChBegin,rsMandate,rsBuildState,rsInstName,rsDue,rsLetterDue,rsFinish,rsWorks,rsCleanP,rsCleanX,rsLog,rsShow,rsCfOf,rsAsmOk,rsLicFee,rsKnows,RS_SITES,rsLabSites:n=>rsLabSites(n),rsSiteWhy,rsActive,rsRaze,rsLabWhere,rsIdleWhy,rsMove,rsPlaced,territory:()=>territory(),rsRuinTest:(n,t,by)=>rsRuin(n,t,by),admst:()=>ADMST,stResearch,stRsLine,mapTipAt:c=>MAP_TIP.map(h=>{try{return h({kind:'main',cell:c,cv:null,x:0,y:0});}catch(e){return '';}}).filter(x=>typeof x==='string').join(' | '),centerOn:c=>centerMain(c,8),
   readyMs:n=>readyMs(n),maxReady:n=>maxReady(n),bHours:(n,k)=>bHours(n,k),bCost:(n,k)=>bCost(n,k),mdRate:n=>mdRate(n),econOf:n=>econOf(n)};}catch(e){}
 
+/* ── the badge: what has finished since the player last looked, on the menu, the tab and the bell ──
+   Each study that ends (from Tier V on: a technology bought outright is the player's own doing, told by its toast) and
+   each finished stage of the laboratory, of an institution or of a Grand Challenge counts once on Research Lab in the
+   menu (nvxCompute), until the tab it belongs to has been open: the discoveries on Overview, where Recent discoveries
+   marks them New, the works on Laboratory, where the next stage is given its materials. The tab carries the same
+   number while the page is open on another. A laboratory with no site (granted and not yet founded, or destroyed)
+   counts as one thing waiting until it has one. When each tab was last open is kept with the menu's own times, on this
+   device (NVX.seen.p['rs.overview'], ['rs.lab']; a tab not yet kept goes by the page's last visit, and a nation first
+   seen here starts from now). The bell tells of each one too, under National Research, and its link opens the tab
+   (Settings › Notifications: Research). */
+const RSB_TAB={d:'overview',b:'lab',x:'lab',cs:'lab'},RSB_TAB_K=['overview','lab'],RSB={on:'',from:{},saved:0};
+/* a record entry the badge and the bell tell of: a study ended, or a stage finished */
+function rsbTold(e){const k=e&&e[1];if(!RSB_TAB[k])return false;if(k==='d'){const r=RS[e[2]];return !!(r&&r.h>0);}return true;}
+/* the tab on screen is seen up to now; the time it was last left is kept for its New marks */
+function rsbSince(s,t){return Math.max(s.t0,s.p['rs.'+t]||0);}
+function rsbTouch(now){
+  if(!S.nation||S.nation.npc||OBS)return;
+  const k=S.view==='research'&&rsOf(S.nation)&&RSB_TAB_K.includes(RSU.tab)?RSU.tab:'',s=nvxSeen();
+  /* first asked before the menu marks this visit (nvxVisit), so the page's last visit is the one before */
+  for(const t of RSB_TAB_K)if(typeof s.p['rs.'+t]!=='number')s.p['rs.'+t]=Math.max(s.t0,s.p.research||0);
+  if(k!==RSB.on){if(RSB.on)s.p['rs.'+RSB.on]=now;if(k)RSB.from[k]=rsbSince(s,k);RSB.on=k;if(k)s.p['rs.'+k]=now;RSB.saved=now;nvxSave();NVX.ver++;return;}
+  if(k){s.p['rs.'+k]=now;if(now-RSB.saved>15000){RSB.saved=now;nvxSave();}}
+}
+/* {overview: [entries], lab: [entries]} told of since each tab was last open (none for the tab on screen) */
+function rsbNew(n,now){
+  const o={overview:[],lab:[]};if(!rsOf(n))return o;
+  const s=nvxSeen(),cur=RSB.on,h=(n.nrx&&n.nrx.h)||[];
+  for(let j=0;j<h.length&&j<300;j++){const e=h[j],t=RSB_TAB[e[1]];if(!t||t===cur||!(e[0]<=now)||e[0]<=rsbSince(s,t)||!rsbTold(e))continue;o[t].push(e);}
+  return o;
+}
+nvxCompute=(f=>function(n,now){const out=f.apply(this,arguments);try{
+  const p=rsOf(n);if(!p)return out;const o=out.research||(out.research={k:0,w:[],at:[],e:0,d:0}),add=(k,w,sel)=>{if(k>0){o.k+=k;o.w.push(w);o.at.push({sel,k,w,all:false});}};
+  if(!rsPlaced(n))add(1,p.i||p.rz?'the laboratory to rebuild':'a site to choose for the laboratory','#rs-tab-lab');
+  const x=rsbNew(n,now),d=x.overview.length,w=x.lab.length;
+  add(d,d===1?'a new discovery':d+' new discoveries','#rs-tab-overview');
+  add(w,w===1?'a stage of works finished':w+' stages of works finished','#rs-tab-lab');
+}catch(e){}return out;})(nvxCompute);
+/* the tick asks every second, so the open tab is seen while it is open */
+nvxGet=(f=>function(n){try{if(n&&n===S.nation)rsbTouch(Date.now());}catch(e){}return f.apply(this,arguments);})(nvxGet);
+/* a tab flipped without a redraw: its mark goes, and the menu's number with it */
+rsShow=(f=>function(t){const had=!!document.querySelector('#rs-tab-'+t+' > .nvx-tb');const r=f.apply(this,arguments);try{rsbTouch(Date.now());if(had)render();}catch(e){}return r;})(rsShow);
+/* the bell: in the toasts' words, the stage that opens something (the inauguration, an institution, a Grand Challenge
+   complete) left to the history's own notices (rsi, rsx, rsc) */
+function rsbBell(n,e){
+  const [t,k,a,b]=e;if(!rsbTold(e))return null;
+  if(k==='d'){const r=RS[a];return ['rsd',`Discovery: ${r.n}. ${rsFxLine(r)}`];}
+  if(k==='b')return a>=0&&a<4&&RS_LAB[a+1]?['rsw',`${RS_LAB[a][0]} is finished. Next: ${RS_LAB[a+1][0].toLowerCase()}.`]:null;
+  if(k==='x'){const N=RS_INST[a]?RS_INST[a][2]:0;return N&&b<N?['rsw',`A stage of ${rsInstName(n,a)} is finished (${b} of ${N}).`]:null;}
+  if(k==='cs'){const C=RS_CH[a];return C&&b<C.st?['rsw',`${C.n}: stage ${b} of ${C.st} is finished.`]:null;}
+  return null;
+}
+NOTIF_SOURCES.push(n=>{const out=[],h=(n&&n.nrx&&n.nrx.h)||[],now=Date.now();if(!rsOf(n))return out;
+  for(let j=0;j<h.length&&j<200&&out.length<12;j++){const e=h[j];if(!(now-e[0]<14*DAY))continue;const w=rsbBell(n,e);if(w)out.push({t:e[0],k:w[0],kl:'National Research',txt:w[1],go:'research',dl:'rs:'+RSB_TAB[e[1]]});}
+  return out;});
+/* the bell's link lands on the tab: Recent discoveries, or the Laboratory */
+dlPlan=(f=>function(spec){const m=typeof spec==='string'&&/^rs:(overview|lab)$/.exec(spec);if(!m)return f.apply(this,arguments);
+  const n=S.nation;if(!n||n.npc||OBS||!rsOf(n))return null;const t=m[1];return {view:'research',setup:()=>{RSU.tab=t;},target:t==='lab'?'#rs-tab-lab':'#rs-recent'};})(dlPlan);
 /* ── the admin's Statistics › Research tab (functions/stats-research.js): where nations stand on the way to the
    laboratory, and what they research. Counted on the server from every record (d.rs); names here from the catalogue ── */
 const ST_RS_PH={early:[`Not yet at ${RS_AT} enacted edicts`,'no petition yet'],vetoed:['Set the petition aside','it comes back five enacted edicts later'],
