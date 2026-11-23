@@ -1,6 +1,8 @@
 # Material balance, 23 November 2026
 
-New nations start with 60 goods, up from 40. The other starting stores remain 60 food, 45 timber, 25 iron and 10 oil. Existing stores are not reset or topped up.
+New nations start with 60 goods, up from 40. The other starting stores remain 60 food, 45 timber, 25 iron and 10 oil.
+
+Existing player nations receive the extra **20 goods once**, automatically on their next save or within five seconds of opening the updated game. The `mbg` field records how many have actually been received. If stores have less than 20 room, only what fits is paid, and the rest remains due until space opens. Repeated saves, reloads and concurrent devices do not pay it twice. Newly founded nations are marked as already paid because their starting stock includes the increase. Re-founding creates a new nation with that same starting stock; it does not create another back payment. Computer nations are excluded. The player sees a payment notice when goods arrive.
 
 Each active city held by a player pays **2 food, 1 timber and 1 goods per day directly into the stockpile**, including cities without buildings. This income is added after consumption, the state's share, spoilage and the low-stock top-up; it does not change resource supply ratios. It follows the city's current holder, including an occupied city, through the existing city aggregate. Computer nations receive no bonus. Storage limits still apply. The resource breakdown identifies the payment as “City base income”.
 

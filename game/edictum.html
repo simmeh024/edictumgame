@@ -60352,7 +60352,7 @@ function found(){
   const now=Date.now(),{s,b}=foundStats(d.answers);
   const n={v:1,name,pretitle:d.pretitle,motto:d.motto.trim(),capital:d.capital.trim()||'Port Alder',leader:d.leader.trim()||'Leader',currency:d.currency.trim()||'crown',animal:d.animal.trim()||'otter',
     demonym:d.demonym.trim()||demonymOf(name),flag:clone(d.flag),...(d.fx&&d.fx.capital&&d.capital.trim()===d.fx.capital?{capA:d.fx.capital}:{}),founded:now,reg:REG.id,s,budget:b,policies:{},pop:5,popAt:now,answered:[],inbox:[],issueClock:now,issueSeq:0,freq:FREQ_DEF,
-    log:[{t:now,k:'found'}],seed:String(hash(name+':'+now)),updatedAt:now,claims:[],mileAck:1,onb:{v:1,u:[]}};
+    log:[{t:now,k:'found'}],seed:String(hash(name+':'+now)),updatedAt:now,claims:[],mileAck:1,mbg:20,onb:{v:1,u:[]}};
   for(let i=0;i<2;i++){n.inbox.push({id:pickIssue(n),at:now});n.issueSeq++;}
   /* the clock as if the last edict came a slot less EDICT_FIRST ago: the next one arrives ten minutes in, then every 30 */
   n.issueClock=now-(FREQ_DEF-EDICT_FIRST)*60000;
@@ -67231,6 +67231,32 @@ COMMIT_HOOKS.push((n,old,now)=>{
 setInterval(()=>{try{
   const n=S.nation;if(!n||n.npc||!n.name||document.hidden||OBS||PV||tabPassive||regBlocked()||S.mode==='readonly'||S.moving||S.db&&!RCTRL.ready)return;
   if(n.hst===1&&!(n.wbk&&wbDays(n)<WB_DAYS&&ddLater(ddDay(Date.now()),n.wbk.d)))return;
+  commit(clone(n));const a=document.activeElement;if(!(a&&a.closest&&a.closest('input,textarea,select,[contenteditable]')))quietRender();
+}catch(e){}},5000);
+
+/* ───────── material balance: the extra starting goods paid back (2026-11-24) ─────────
+   New nations already receive these 20 goods in START_STOCK (found marks mbg:20). Existing nations keep how many
+   have actually reached their stores in mbg. Full stores defer payment; partial room never forfeits the remainder.
+   This runs after actRecord, so a concurrent save replays only player actions and recalculates the payment from
+   the winning record, rather than replaying the resource gift as another player action. */
+const MB_GOODS=20;
+function mbGoodsPaid(n){return n&&Number.isInteger(n.mbg)&&n.mbg>0?Math.min(MB_GOODS,n.mbg):0;}
+NORM_HOOKS.push((n,d)=>{const p=mbGoodsPaid(d);if(p)n.mbg=p;else delete n.mbg;});
+function mbGoodsBackpay(n,old,now){
+  if(!n||n.npc||!n.name)return [];
+  const same=old&&old.founded===n.founded&&old.seed===n.seed;
+  const paid=Math.max(mbGoodsPaid(n),same?mbGoodsPaid(old):0);n.mbg=paid;
+  if(paid>=MB_GOODS)return [];
+  const st=stockNow(n,now),had=num0(st.goods),room=Math.max(0,Math.floor(stockCap(n,now)-had+1e-6));
+  const amount=Math.min(MB_GOODS-paid,room);if(!amount)return [];
+  st.goods=had+amount;n.stock=roundStock(st);n.stockAt=now;n.mbg=paid+amount;
+  return [`The larger starting stock, paid back: +${amount} goods.${n.mbg<MB_GOODS?` ${MB_GOODS-n.mbg} more will arrive when your stores have room.`:''}`];
+}
+COMMIT_HOOKS.push(mbGoodsBackpay);
+/* Opening the game is enough. While stores are full, wait without saving again until a whole good fits. */
+setInterval(()=>{try{
+  const n=S.nation;if(!n||n.npc||!n.name||mbGoodsPaid(n)>=MB_GOODS||document.hidden||OBS||PV||tabPassive||regBlocked()||S.mode==='readonly'||S.moving||S.db&&!RCTRL.ready)return;
+  const now=Date.now();if(stockCap(n,now)-num0(stockNow(n,now).goods)<1-1e-6)return;
   commit(clone(n));const a=document.activeElement;if(!(a&&a.closest&&a.closest('input,textarea,select,[contenteditable]')))quietRender();
 }catch(e){}},5000);
 
