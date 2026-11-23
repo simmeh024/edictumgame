@@ -54,14 +54,23 @@ import DATA from './civic-data.json' with { type: 'json' };
    The French chat (RC_FR, rchat/fr/chat/{id}; 2026-11-20) is a second such channel, for the nations that play in French:
    the same lines, marks and ops as the world chat, which the game shows on its own tab when the interface is in French
    or the player turned it on in Settings › Chat (dmx.rf). Its pacing is its own (rcPace f, fh), and staff read it in the
-   admin portal whatever their language. Together they are RC_SHARED, the chats every region shares. */
-export const RC_WORLD = 'world', RC_FR = 'fr', RC_SHARED = [RC_WORLD, RC_FR], RC_WORLD_GAP = 4000, RC_RANKS = 99;
-/* a chat every region shares: the world chat or the French chat */
+   admin portal whatever their language.
+   The ambassadors' chat (RC_AMB, rchat/amb/chat/{id}; 2026-11-23) is a third, closed one: only Edictum Ambassadors
+   (claim amb) and staff (admin or mod) write in it, react in it or read it (firestore.rules: staff, or a player with an
+   ambassadors/{uid} record), so they can talk over help questions and players to look after away from the players. Its
+   lines carry the same marks, it is paced on its own (rcPace b, bh), and a mention there names only an ambassador or a
+   member of staff (ambassadors/{uid} or staff/{uid}), as no one else could read the line.
+   Together they are RC_SHARED, the chats that are no one region's. */
+export const RC_WORLD = 'world', RC_FR = 'fr', RC_AMB = 'amb', RC_SHARED = [RC_WORLD, RC_FR, RC_AMB], RC_WORLD_GAP = 4000, RC_RANKS = 99;
+/* a chat that is no one region's: the world chat, the French chat or the ambassadors' chat */
 export const rcShared = reg => RC_SHARED.includes(reg);
+/* who may write, react and read in a shared chat: everyone, but the ambassadors' chat only ambassadors and staff */
+export const rcMayUse = (reg, who) => reg !== RC_AMB || !!(who && (who.admin || who.mod || who.amb));
+const ambOnly = (reg, who) => { if (!rcMayUse(reg, who)) throw new HttpsError('permission-denied', 'Only Edictum Ambassadors and staff talk in the ambassadors’ chat.', { code: 'rc_amb_only' }); };
 /* each shared chat's own pacing fields in rcPace: the time and the words of the player's last line there */
-const RC_SHARED_PACE = { [RC_WORLD]: ['w', 'wh'], [RC_FR]: ['f', 'fh'] };
+const RC_SHARED_PACE = { [RC_WORLD]: ['w', 'wh'], [RC_FR]: ['f', 'fh'], [RC_AMB]: ['b', 'bh'] };
 /* a shared chat's name, as messages and the audit log say it */
-const RC_SHARED_NAME = { [RC_WORLD]: 'the world chat', [RC_FR]: 'the French chat' };
+const RC_SHARED_NAME = { [RC_WORLD]: 'the world chat', [RC_FR]: 'the French chat', [RC_AMB]: 'the ambassadors’ chat' };
 /* a chat the browser names: a region of the game or a shared chat, or '' */
 const chatOf = (d, regions) => typeof d.reg === 'string' && (regions.has(d.reg) || rcShared(d.reg)) ? d.reg : '';
 export const RC_TEXT = 300, RC_GAP = 1500, RC_MINUTE = 12, RC_HOUR = 150, RC_GUEST_HOUR = 10, RC_SAME = 120000, RC_KEEP = 30 * 86400000;
@@ -178,6 +187,7 @@ async function rcPost(db, who, d, regions) {
   if (cd && pic) throw new HttpsError('invalid-argument', 'A card goes on its own line.');
   if (!x && !pic) throw new HttpsError('invalid-argument', 'Write something first.');
   if (team) staffOnly(who);
+  if (world) ambOnly(shared, who);
   if (d.re && !re) throw new HttpsError('invalid-argument', 'Choose a line to answer.');
   const asked = [...new Set(Array.isArray(d.mn) ? d.mn.map(uidOf).filter(u => u && u !== who.uid) : [])].slice(0, RC_MN);
   let tell = [];
@@ -229,13 +239,14 @@ async function rcPost(db, who, d, regions) {
         ...(rs.get('tm') === true ? { tm: true } : {}), ...(rs.get('im') ? { im: true } : {}) };
     }
     /* the nations mentioned: of this region (of any, in the world chat), named after an @, not blocking the writer; and
-       the author answered */
-    const low = x.toLowerCase(), mn = {}, toTell = new Map();
+       the author answered. In the ambassadors' chat, only those who read it: an ambassador or a member of staff */
+    const low = x.toLowerCase(), mn = {}, toTell = new Map(), closed = shared === RC_AMB, k = closed ? 4 : 2;
     const ask = asked.concat(r && !r.tm && r.a !== who.uid && !asked.includes(r.a) ? [r.a] : []);
-    const got = ask.length ? await tx.getAll(...ask.flatMap(u => [db.doc('nations/' + u), db.doc('lblock/' + u + '~' + who.uid)])) : [];
+    const got = ask.length ? await tx.getAll(...ask.flatMap(u => [db.doc('nations/' + u), db.doc('lblock/' + u + '~' + who.uid), ...(closed ? [db.doc('ambassadors/' + u), db.doc('staff/' + u)] : [])])) : [];
     ask.forEach((u, i) => {
-      const n = got[2 * i], block = got[2 * i + 1], nm = n.exists ? line(n.get('name'), 80) : '';
+      const n = got[k * i], block = got[k * i + 1], nm = n.exists ? line(n.get('name'), 80) : '';
       if (!nm || block.exists || (!world && n.get('reg') !== reg)) return;
+      if (closed && !got[k * i + 2].exists && !got[k * i + 3].exists) return;
       if (asked.includes(u) && low.includes('@' + nm.toLowerCase())) { mn[u] = nm; toTell.set(u, false); }
       else if (r && u === r.a) toTell.set(u, true);
     });
@@ -274,6 +285,7 @@ async function rcReact(db, who, d, regions) {
   return db.runTransaction(async tx => {
     const e = await eligibility(tx, who, { linked: false });
     if (!rcShared(reg) && !(who.admin || who.mod) && (e.n.reg || e.saved.get('reg')) !== reg) throw new HttpsError('permission-denied', 'React in your own region’s chat.');
+    ambOnly(reg, who);
     const ref = db.doc('rchat/' + reg + '/chat/' + id), s = await tx.get(ref);
     if (!s.exists) refuse('rc_gone', 'That line is no longer in the chat.');
     const rv = s.get('rv') && typeof s.get('rv') === 'object' ? s.get('rv') : {}, had = rv[who.uid] || '', pick = had === kind ? '' : kind;
