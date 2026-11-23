@@ -137,7 +137,41 @@ try {
   check('Second Shift is earned', ach);
   await go('help');
   const help = await page.evaluate(() => document.body.textContent.replace(/\s+/g, ' '));
-  check('How to play explains tiers', /A Factory with all five can then be retooled to tier II, Industrial Works/.test(help) && /an Assembly Plant \(12 goods a day for a flat 2 oil\), a Steelworks/.test(help));
+  check('How to play explains tiers', /A Factory’s tier II is Industrial Works/.test(help) && /an Assembly Plant \(12 goods a day for a flat 2 oil\), a Steelworks/.test(help)
+    && /A Market Hall’s tier II is Grand Bazaar/.test(help) && /A Sawmill’s tier II is Timber Works/.test(help));
+
+  /* the Market Hall (2026-11-23): two lines; a Trading House gives a second trade deal slot and less economy */
+  await edit((n, now) => { const c = n.cities[0], d = 864e5;
+    c.b = c.b.filter(b => b.k !== 'market' && b.k !== 'sawmill').concat([{ k: 'market', s: now - 9 * d, d: now - 8 * d, a: 1, ug: 5 }, { k: 'sawmill', s: now - 9 * d, d: now - 8 * d, a: 1, ug: 5 }]);
+    n.stock = { food: 390, timber: 390, iron: 390, oil: 390, goods: 390 }; n.stockAt = now; n._stockSet = true; });
+  await go('cities'); await sleep(300);
+  const m0 = await page.evaluate(() => { const P = window.__game.TIER(), n = window.__game.S.nation; return { deals: P.maxDeals(), slots: P.mktSlots(), pr: P.bldAggOf(n).prosper }; });
+  await page.click('[data-act="tier-pick"][data-k="market"]'); await sleep(300);
+  const ml = await page.$$eval('.tier-pick [data-act="tier-go"][data-k="market"]', bs => bs.map(b => b.textContent.trim()));
+  check('the Market Hall offers two lines', ml.join(' | ') === 'Retool as a Covered Market | Retool as a Trading House', ml.join(' | '));
+  await page.click('[data-act="tier-go"][data-k="market"][data-ln="trading"]'); await sleep(300);
+  await edit((n, now) => { const m = n.cities[0].b.find(b => b.k === 'market'); m.tu.s = now - 25 * 3600e3; m.tu.d = now - 60e3; });
+  await sleep(300);
+  const m1 = await page.evaluate(() => { const P = window.__game.TIER(), n = window.__game.S.nation, b = n.cities[0].b.find(b => b.k === 'market'); return { tr: b.tr, ln: b.ln, deals: P.maxDeals(), slots: P.mktSlots(), pr: P.bldAggOf(n).prosper }; });
+  check('a Trading House: tier II, one more trade deal slot', m1.tr === 2 && m1.ln === 'trading' && m1.slots === m0.slots + 1 && m1.deals === m0.deals + 1, JSON.stringify({ m0, m1 }));
+  check('and economy +4% where the gold Market Hall gave +6%', Math.abs((m0.pr - m1.pr) - 0.02) < 1e-9, JSON.stringify({ m0, m1 }));
+  r = await page.evaluate(() => { const b = document.querySelector('.bld [data-k="market"]'); const li = b && b.closest('li.bld'); return li ? li.textContent.replace(/\s+/g, ' ').trim() : ''; });
+  check('its row names the Trading House', /^Trading House ?II/.test(r) && /two more trade deal slots/.test(r), r);
+
+  /* the Sawmill: three lines; a Paper Mill makes goods */
+  await edit((n, now) => { n.stock = { food: 390, timber: 390, iron: 390, oil: 390, goods: 390 }; n.stockAt = now; n._stockSet = true; });
+  await page.click('[data-act="tier-pick"][data-k="sawmill"]'); await sleep(300);
+  const sl = await page.$$eval('.tier-pick [data-act="tier-go"][data-k="sawmill"]', bs => bs.map(b => b.textContent.trim()));
+  check('the Sawmill offers three lines', sl.join(' | ') === 'Retool as a Lumber Yard | Retool as a Paper Mill | Retool as a Charcoal Kiln', sl.join(' | '));
+  await page.locator('.tier-pick').screenshot({ path: path.join(OUT, 'sawmill-tier-pick.png') });
+  const g0 = await page.evaluate(() => { const G = window.__game; return G.GB().stockRates(G.S.nation); });
+  await page.click('[data-act="tier-go"][data-k="sawmill"][data-ln="paper"]'); await sleep(300);
+  await edit((n, now) => { const m = n.cities[0].b.find(b => b.k === 'sawmill'); m.tu.s = now - 25 * 3600e3; m.tu.d = now - 60e3; });
+  await sleep(300);
+  const g1 = await page.evaluate(() => { const G = window.__game, b = G.S.nation.cities[0].b.find(b => b.k === 'sawmill'); return { tr: b.tr, ln: b.ln, r: G.GB().stockRates(G.S.nation) }; });
+  check('a Paper Mill: tier II, 3 goods a day more and less timber', g1.tr === 2 && g1.ln === 'paper' && g1.r.goods - g0.goods > 2.5 && g1.r.timber < g0.timber, JSON.stringify({ g0, g1 }));
+  r = await page.evaluate(() => { const b = document.querySelector('.bld [data-k="sawmill"]'); const li = b && b.closest('li.bld'); return li ? li.textContent.replace(/\s+/g, ' ').trim() : ''; });
+  check('its row names the Paper Mill and its goods', /^Paper Mill ?II/.test(r) && /\+3 goods/.test(r), r);
 
   /* a phone: the picker fits */
   await edit((n, now) => { const c = n.cities[0]; c.b = [{ k: 'factory', s: now - 9 * 864e5, d: now - 8 * 864e5, a: 1, ug: 5 }]; n.stock = { food: 390, timber: 390, iron: 390, oil: 390, goods: 390 }; n.stockAt = now; n._stockSet = true; });
