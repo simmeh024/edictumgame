@@ -21951,6 +21951,9 @@ const ISSUES = [
  {t:'“No more novelty cakes in government buildings,” says office manager Pauline Grubb. “Round, square or rectangular only, and no fuses.”',e:{safety:1,civil:-1,happy:-2,weird:3},fx:'cakes in {D} government buildings must be round, square or rectangular, and may not have fuses'},
  {t:'“Bill the baker for the four hours,” suggests tax office director Clement Stowe. “And Bob, for having a name like that.”',e:{econ:1,happy:-1,weird:2},fx:'the baker of a bomb-shaped birthday cake was billed for four hours of bomb squad time, and so was Bob'}]},
 ];
+/* An issue's number is its place in ISSUES, and records keep the numbers of the issues they have seen (n.iseen), so
+   every new issue goes after the last ISSUES.push in this file, never into this list or an earlier section's
+   (test/edict-order.test.mjs; issRenumber puts right the one time it went wrong). */
 ISSUES.forEach((x,i)=>{x.no=i+1;});
 const ISSUE_BY_ID = Object.fromEntries(ISSUES.map(x=>[x.id,x]));
 
@@ -33904,6 +33907,34 @@ NORM_HOOKS.push((n,d)=>{
   let prev=0;days=days.map(x=>prev=Math.max(prev,Math.min(top,x|0)));
   n.isd=issPack(days);
 });
+/* Seen numbers from before the Great Dam (23 Nov 2026). n.iseen keeps issue numbers, so a new issue may only ever be
+   added after every other (test/edict-order.test.mjs). The Great Dam's four follow-ups (PR #425, live 17 November
+   15:25 UTC) went in before the museum's issues instead, and every issue from number 2052 to 2831 moved four places on:
+   a number recorded earlier now named the issue four places before the one seen. Issues a nation had answered looked
+   unseen and came back long before their 30 days, while others were held back. Once per record (n.isv), entries dated
+   before that day move four places on as well. An entry dated that day moves too, unless n.answered shows its issue
+   under the new number answered that day (a page reloaded after the build); later entries were numbered by the new
+   list. A nation founded after the build never had the old numbers. */
+const ISS_MOVE={a:2052,b:2831,by:4,day:issDay(Date.UTC(2026,10,17)),live:Date.UTC(2026,10,17,15,26)};
+function issRenumber(n,d){
+  const had=!!d&&d.isv===1;n.isv=1;
+  if(had||!d||!Array.isArray(d.iseen)||!(+n.founded<ISS_MOVE.live))return false;
+  const ids=n.iseen||[],days=issDays(n),M=ISS_MOVE;
+  const sameDay=new Set((n.answered||[]).filter(a=>a&&issDay(a.t)===M.day).map(a=>a.id));
+  let moved=0;
+  const out=ids.map((no,k)=>{
+    if(no<M.a||no>M.b||days[k]>M.day)return no;
+    if(days[k]===M.day){const is=ISSUES[no-1];if(is&&sameDay.has(is.id))return no;}
+    moved++;return no+M.by;
+  });
+  if(!moved)return false;
+  /* a number now listed twice keeps its later place (the issue seen again since) */
+  const last=new Map();out.forEach((no,k)=>last.set(no,k));
+  const keep=out.map((no,k)=>last.get(no)===k);
+  n.iseen=out.filter((no,k)=>keep[k]);n.isd=issPack(days.filter((x,k)=>keep[k]));
+  return true;
+}
+NORM_HOOKS.push((n,d)=>{issRenumber(n,d);});
 function issHelp(){
   const w=['','once','twice','three times','four times','five times','six times','seven times','eight times','nine times','ten times'][HOT_W]||HOT_W+' times';
   return `<p>An edict you have answered or dismissed stays away for at least ${ISSUE_REPEAT_DAYS} days. Edicts you have never seen come first, then the ones you saw longest ago. Only a nation that has seen every available edict in the past ${ISSUE_REPEAT_DAYS} days gets one back sooner, and then it is the one it saw longest ago.${ISSUE_HOT.size?` Newer edicts on artificial intelligence, robots, medicine, young people and social media are ${w} as likely to be drawn as the rest.`:''}</p>`;
