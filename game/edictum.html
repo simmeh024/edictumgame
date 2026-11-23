@@ -46740,7 +46740,7 @@ const FR_UI={
 "Interior":"Intérieur",
 "Interior Minister:":"Ministre de l’Intérieur :",
 "International Aid":"Aide internationale",
-"Invitations, requests to join, treaties offered, offers of peace, calls to arms and gifts appear here as they arrive.":"Invitations, demandes d’adhésion, traités proposés, offres de paix, appels aux armes et cadeaux apparaissent ici dès leur arrivée.",
+"Invitations, requests to join, treaties and border proposals offered, offers of peace, calls to arms and gifts appear here as they arrive.":"Invitations, demandes d’adhésion, traités et frontières proposés, offres de paix, appels aux armes et cadeaux apparaissent ici dès leur arrivée.",
 "Iron Fist Consumerists":"Consuméristes à poigne de fer",
 "Iron Fist Socialists":"Socialistes à poigne de fer",
 "Iron Mine":"Mine de fer",
@@ -86200,7 +86200,7 @@ function alVoteClashWords(A,ty){const k=alVoteClash(A,ty),w=(AL_TY_UI[ty]||AL_TY
 function dpWaitingHTML(now){
   const it=dpWaiting(now);
   return `<section class="dp-wait${it.length?'':' none'}" aria-labelledby="dp-wait-h"><h2 class="dp-wait-h" id="dp-wait-h">${it.length?`Waiting for you <span class="chip">${it.length}</span>`:'Nothing is waiting for you'}</h2>
-    ${it.length?`<ul class="dp-wl">${it.map(x=>`<li class="dp-wi k-${x.k}"><span class="dp-wt">${x.h}</span><span class="dp-wb">${x.b}</span></li>`).join('')}</ul>`:'<p class="hint">Invitations, requests to join, treaties offered, offers of peace, calls to arms and gifts appear here as they arrive.</p>'}</section>`;
+    ${it.length?`<ul class="dp-wl">${it.map(x=>`<li class="dp-wi k-${x.k}"><span class="dp-wt">${x.h}</span><span class="dp-wb">${x.b}</span></li>`).join('')}</ul>`:'<p class="hint">Invitations, requests to join, treaties and border proposals offered, offers of peace, calls to arms and gifts appear here as they arrive.</p>'}</section>`;
 }
 
 /* the relations: every nation the player deals with */
@@ -86581,7 +86581,7 @@ function alJoinHTML(ty,now){
 function dpView(now){
   now=now||Date.now();const t=DP_TABS.some(x=>x[0]===AL.tab)?AL.tab:'overview',me=myId();
   const badge={alliance:(()=>{let k=0;const P=politics();for(const B of P.al.values())if(B.srv&&B.invited.includes(me)&&!B.members.includes(me))k++;for(const A of alMineAll())if(A.srv)k+=alTyBadge(A);return k+alClashes().length;})(),
-    wars:enemies().length+alCalls(now).filter(c=>!c.ans).length,gifts:gfIncoming().filter(g=>!g.reply).length+scWaiting(now).length,treaties:tyIncoming().length,ventures:jvIncoming(now).length,land:ldBadge(now)};
+    wars:enemies().length+alCalls(now).filter(c=>!c.ans).length,gifts:gfIncoming().filter(g=>!g.reply).length+scWaiting(now).length,treaties:tyIncoming().length+bdWaiting(me,now).length,ventures:jvIncoming(now).length,land:ldBadge(now)};
   const tabs=`<div class="gv-tabs dp-tabs" role="tablist" aria-label="Diplomacy">${DP_TABS.map(([k,l])=>`<button type="button" role="tab" id="dp-tab-${k}" class="gv-tab dp-tab${k===t?' on':''}" data-act="dp-tab" data-v="${k}" aria-selected="${k===t}" aria-controls="dp-p-${k}" tabindex="${k===t?0:-1}">${l}${badge[k]?` <span class="gv-tab-n">${badge[k]}</span>`:''}</button>`).join('')}</div>`;
   const pane=(k,h)=>`<section class="dp-pane" id="dp-p-${k}" role="tabpanel" aria-labelledby="dp-tab-${k}" data-dp="${k}">${h}</section>`;
   const safe=f=>{try{return f();}catch(e){return `<div class="empty"><p class="empty-h">This part could not be drawn</p><p>${esc(e.message)}</p></div>`;}};
@@ -87660,23 +87660,31 @@ document.addEventListener('change',e=>{const t=e.target;if(!t)return;if(t.id==='
    each side's sphere, its buffer hatched; a claim past it asks first, and claimed anyway breaks it (bdBreach), costs
    goodwill and is told in the region's happenings. Agreements last 30 or 90 days (renewed by all) or until ended with
    notice. Two sides may swap a hex each (each game cedes its own, n.bx). Each can be posted in the region chat as a
-   card, and the Assembly keeps the region's register. */
-const BD_RULES={maxP:4,maxCells:1500,max:6,durs:[30,90,0],warn:3*86400000,notice:3*86400000,record:30*86400000,breakGw:10,swaps:3};
+   card, and the Assembly keeps the region's register.
+   23 November 2026, after a player asked whether border proposals had been removed (Saffron Coast: neither side could
+   find one that was still waiting): a proposal to answer, or a swap, is in the Diplomacy page's "Waiting for you" and
+   counted on the Treaties tab, and the bell lands on its card (dl 'bd:'); one declined or withdrawn is kept a while as
+   void, so the other sides are told (it used to vanish with no word); and the server keeps the map a proposal was
+   drawn on (cv), refusing one from a page still on an older map. */
+const BD_RULES={maxP:4,maxCells:1500,max:6,durs:[30,90,0],warn:3*86400000,notice:3*86400000,record:30*86400000,breakGw:10,swaps:3,told:7*86400000};
 const BD={docs:new Map(),rev:0,reg:'',unsub:null,ready:false,err:'',busy:'',msg:'',pick:[],view:'',brk:'',sw:null,ask:null,ok:'',sig:''};
 function bdLive(B,now){if(!B)return false;if(B.st==='active')return !(B.exp>0)||now<B.exp;return B.st==='ending'&&now<B.end&&(!(B.exp>0)||now<B.exp);}
 function bdVoid(B){for(const id of Object.keys(B.f||{})){const f=B.f[id],d=f?docOf(id):null,b=d?Number(d.founded):0;if(b>0&&b!==f)return true;}return false;}
 function bdNorm(id,d){
   const n=v=>typeof v==='number'&&isFinite(v)?v:0,s=v=>typeof v==='string'?v.slice(0,128):'',ids=v=>Array.isArray(v)?v.filter(x=>typeof x==='string').slice(0,BD_RULES.maxP):[];
   /* A border is drawn once, when it is offered (t), and its hexes are kept by number on the server, which knows
-     nothing of maps. One drawn before the frontier was drawn on the charted map, so every hex of it is counted
-     again against the wider rows; a hex swapped since keeps the side it was given. */
-  const old=d.cv!==MAP_VER&&n(d.t)<FRONT_AT,mc=old?frontCell:(c=>c);
+     nothing of maps. One drawn before the frontier was drawn on the charted map (cv 4), so every hex of it is counted
+     again against the wider rows; a hex swapped since keeps the side it was given. Since 23 Nov 2026 the server keeps
+     the map the sending page numbered it on (cv); one sent before then says so only by when it was sent, and a page
+     opened before the frontier could still send one after it (Saffron Coast, 19 Nov 2026 19:54 UTC), so such a one
+     is given cv 4 on the server by hand. */
+  const cv=Number.isInteger(d.cv)?d.cv:n(d.t)<FRONT_AT?4:MAP_VER,old=cv===4,mc=old?frontCell:(c=>c);
   const cells=v=>Array.isArray(v)?v.map(c=>Number.isInteger(c)?mc(c):c).filter(c=>Number.isInteger(c)&&c>=0&&c<MAP.N).slice(0,BD_RULES.maxCells):[];
-  const p=ids(d.p);if(p.length<2||!['offered','active','ending','broken'].includes(d.st))return null;
+  const p=ids(d.p);if(p.length<2||!['offered','active','ending','broken','void'].includes(d.st))return null;
   const sd={};for(const q of p)sd[q]=cells(d.s&&d.s[q]);
   const f={};if(d.f&&typeof d.f==='object')for(const [u,v] of Object.entries(d.f))if(typeof v==='number'&&isFinite(v))f[u]=v;
   const sw=Array.isArray(d.sw)?d.sw.filter(x=>x&&typeof x==='object'&&typeof x.id==='string'&&Number.isInteger(x.g)&&Number.isInteger(x.k)).slice(0,20).map(x=>({id:x.id.slice(0,12),by:s(x.by),to:s(x.to),g:mc(x.g),k:mc(x.k),t:n(x.t),st:x.st==='done'?'done':'offered',at:n(x.at)})):[];
-  return {id,reg:s(d.reg),p,a:s(d.a),acc:ids(d.acc),v:n(d.v),st:d.st,t:n(d.t),at:n(d.at),dur:n(d.dur),exp:n(d.exp),rn:ids(d.rn),end:n(d.end),bt:n(d.bt),by:s(d.by),bc:Number.isInteger(d.bc)?mc(d.bc):-1,s:sd,buf:cells(d.buf),sw,f,ch:old?1:0};
+  return {id,reg:s(d.reg),p,a:s(d.a),acc:ids(d.acc),v:n(d.v),st:d.st,t:n(d.t),at:n(d.at),dur:n(d.dur),exp:n(d.exp),rn:ids(d.rn),end:n(d.end),bt:n(d.bt),by:s(d.by),bc:Number.isInteger(d.bc)?mc(d.bc):-1,s:sd,buf:cells(d.buf),sw,f,ch:old?1:0,cv,why:d.why==='withdrawn'?'withdrawn':'declined',vt:n(d.vt)};
 }
 /* The number the server holds hex c by in agreement B, for what this game sends it (a claim past the line, bdBreach; a
    swap, bdSwap): the server keeps each agreement as it was drawn and compares numbers, so one drawn before the frontier
@@ -87707,6 +87715,15 @@ async function bdAct(op,d,done){
 function bdList(id){const out=[];for(const B of BD.docs.values())if(B.p.includes(id)&&!bdVoid(B))out.push(B);return out;}
 function bdOthers(B,me){return B.p.filter(x=>x!==me);}
 function bdNames(ids){return list(ids.map(id=>nameOf(id)));}
+/* what waits for this nation's answer: proposals it has not accepted, and swaps offered to it ({B} or {B, x}); the
+   Treaties tab's number, the Diplomacy page's waiting list */
+function bdWaiting(me,now){const out=[];for(const B of bdList(me)){if(B.st==='offered'&&!B.acc.includes(me))out.push({B});if(bdLive(B,now))for(const x of B.sw)if(x.st==='offered'&&x.to===me)out.push({B,x});}return out;}
+/* proposals turned down in the last BD_RULES.told, newest first: every side hears who declined one, or that it was withdrawn */
+function bdTold(me,now){return bdList(me).filter(B=>B.st==='void'&&now-B.vt<BD_RULES.told).sort((a,b)=>b.vt-a.vt);}
+function bdToldWords(B,me){
+  const by=B.by===me?'You':nameOf(B.by),whose=B.a===me?'your':B.a===B.by?'its':nameOf(B.a)+'’s',rest=B.p.filter(id=>id!==me&&id!==B.by&&id!==B.a);
+  return `${by} ${B.why==='withdrawn'||B.by===B.a?'withdrew':'declined'} ${whose} border proposal${rest.length?` with ${bdNames(rest)}`:''} on ${fmtDate(B.vt)}.`;
+}
 /* every hex an agreement in force says something about, region-wide: cell → [{B, side}] (side an id or 'buf') */
 let bdIdx=null;
 function bdIndex(){
@@ -87871,13 +87888,14 @@ function bdSettle(){
 function bdStatus(B,now){
   const me=myId();
   if(B.st==='offered'){const wait=B.p.filter(id=>!B.acc.includes(id));return `<p class="hint">${B.v>1?`Version ${B.v}, drawn by ${esc(B.a===me?'you':nameOf(B.a))}`:`Proposed by ${esc(B.a===me?'you':nameOf(B.a))}`} on ${esc(fmtDate(B.t))}. Waiting for ${esc(wait.map(id=>id===me?'you':nameOf(id)).join(', '))}. ${B.dur?`It would last ${B.dur} days.`:'It would last until a side ends it.'}</p>`;}
+  if(B.st==='void')return `<p class="hint">${esc(bdToldWords(B,me))}</p>`;
   if(B.st==='broken')return `<p class="hint">Broken on ${esc(fmtDate(B.bt))} by ${esc(B.by===me?'you':nameOf(B.by))}${B.bc>=0?`, claiming a hex on ${esc(landName(B.bc))}`:''}.</p>`;
   const end=B.st==='ending'?`Ends on ${esc(fmtDate(B.end))} (notice given by ${esc(B.by===me?'you':nameOf(B.by))}).`:B.exp?`Runs until ${esc(fmtDate(B.exp))}.`:'Runs until a side ends it.';
   const rn=B.rn.length?` Renewal asked by ${esc(B.rn.map(id=>id===me?'you':nameOf(id)).join(', '))}.`:'';
   return `<p class="hint">In force since ${esc(fmtDate(B.at))}. ${end}${rn}</p>`;
 }
 function bdTabHTML(now){
-  if(S.mode!=='world')return '';const me=myId(),busy=BD.busy?' disabled':'',L=bdList(me).filter(B=>B.st!=='broken'||now-B.bt<BD_RULES.record);
+  if(S.mode!=='world')return '';const me=myId(),busy=BD.busy?' disabled':'',L=bdList(me).filter(B=>B.st!=='void'&&(B.st!=='broken'||now-B.bt<BD_RULES.record)),told=bdTold(me,now);
   const b=(act,B,txt,cls,extra)=>`<button type="button" class="btn ${cls||'ghost'} sm" data-act="${act}" data-id="${esc(B.id)}"${extra||''}${busy}>${txt}</button>`;
   const card=B=>{const live=bdLive(B,now),acts=[];
     acts.push(b('bd-show',B,'Show on the map'));
@@ -87885,17 +87903,27 @@ function bdTabHTML(now){
     if(live){if(B.dur&&B.st==='active'&&!B.rn.includes(me))acts.push(b('bd-renew',B,`Renew for ${B.dur} days`));if(B.st==='active')acts.push(b('bd-end',B,`End with ${BD_RULES.notice/DAY} days’ notice`));}
     if(B.st!=='broken')acts.push(b('bd-chat',B,'Post in the region chat'));
     const swaps=B.sw.filter(x=>x.st==='offered'&&(x.to===me||x.by===me)).map(x=>`<li>${x.by===me?`You offered ${esc(nameOf(x.to))}`:`${esc(nameOf(x.by))} offers you`} a hex on ${esc(landName(x.g))} for one on ${esc(landName(x.k))}. ${x.to===me?`<button type="button" class="btn sm" data-act="bd-sw-yes" data-id="${esc(B.id)}" data-s="${esc(x.id)}"${busy}>Accept</button>`:''}<button type="button" class="btn ghost sm" data-act="bd-sw-no" data-id="${esc(B.id)}" data-s="${esc(x.id)}"${busy}>${x.to===me?'Decline':'Withdraw'}</button></li>`).join('');
-    return `<li class="dpt-i bd-card"><div class="bd-card-h"><span class="bd-mini">${bdMiniSVG(B,120,80)}</span><div><b>With ${list(bdOthers(B,me).map(id=>esc(nameOf(id))+idBadge(id)))}</b>${bdLegend(B)}${bdStatus(B,now)}</div></div>${swaps?`<ul class="bd-ul">${swaps}</ul>`:''}<div class="row">${acts.join('')}</div></li>`;};
+    return `<li class="dpt-i bd-card" id="bd-c-${esc(B.id)}"><div class="bd-card-h"><span class="bd-mini">${bdMiniSVG(B,120,80)}</span><div><b>With ${list(bdOthers(B,me).map(id=>esc(nameOf(id))+idBadge(id)))}</b>${bdLegend(B)}${bdStatus(B,now)}</div></div>${swaps?`<ul class="bd-ul">${swaps}</ul>`:''}<div class="row">${acts.join('')}</div></li>`;};
   const pick=allNations().filter(x=>!x.me&&!x.npc).sort((a,b)=>a.n.name.localeCompare(b.n.name));
   const sel=BD.pick.filter(id=>pick.some(x=>x.id===id));
   const held=L.filter(B=>B.st==='offered'||bdLive(B,now)).length;
   const form=`<div class="dpt-form bd-new"><p class="hint">Agree with one to ${BD_RULES.maxP-1} neighbours where each of you may claim. You hold ${held} of ${BD_RULES.max}.</p>
     <fieldset class="bd-pick"><legend class="cz-flab">With</legend>${pick.length?pick.map(x=>`<label class="bd-pk"><input type="checkbox" name="bd-pick" value="${esc(x.id)}"${sel.includes(x.id)?' checked':''}${!sel.includes(x.id)&&sel.length>=BD_RULES.maxP-1?' disabled':''}>${esc(x.n.name)}</label>`).join(''):'<span class="muted">No other player in this region yet.</span>'}</fieldset>
     <div class="row"><button type="button" class="btn" data-act="bd-draw"${!sel.length||!civicRegistered()||held>=BD_RULES.max?' disabled':''}>Draw the border on the map</button></div></div>`;
-  return `<section class="section bd-sec"><h2 class="h2">Border agreements</h2>${BD.msg?`<p class="war-msg">${esc(BD.msg)}</p>`:''}${L.length?`<ul class="dpt-l">${L.map(card).join('')}</ul>`:''}${form}
+  return `<section class="section bd-sec"><h2 class="h2">Border agreements</h2>${BD.msg?`<p class="war-msg">${esc(BD.msg)}</p>`:''}${L.length?`<ul class="dpt-l">${L.map(card).join('')}</ul>`:''}${told.length?`<ul class="dpt-l bd-told" aria-label="Proposals turned down">${told.map(B=>`<li class="dpt-i" id="bd-c-${esc(B.id)}"><span>${esc(bdToldWords(B,me))}</span></li>`).join('')}</ul>`:''}${form}
     <p class="hint">In force, the lines show on the map, and a claim past them asks first. Claimed anyway, the agreement breaks: ${BD_RULES.breakGw} goodwill lost with each other side, and the region hears of it. Two sides may swap hexes: select a hex of yours on the map.</p></section>`;
 }
 dpTreaties=(f=>function(now){return f.apply(this,arguments)+bdTabHTML(now);})(dpTreaties);
+/* the Diplomacy page's "Waiting for you": a proposal or a swap to answer. It was only at the foot of the Treaties tab,
+   uncounted, and a neighbour never found one (Saffron Coast, 23 Nov 2026). */
+dpWaiting=(f=>function(now){const it=f.apply(this,arguments);try{if(S.mode==='world'&&!OBS){const me=myId();
+  for(const {B,x} of bdWaiting(me,now||Date.now())){const y=findNation(x?x.by:B.a),others=bdOthers(B,me).filter(id=>id!==B.a);
+    it.push({k:'border',h:`${y?alFlag(y):'<span class="al-wi-g" aria-hidden="true">⬡</span>'}<span>${x?`<b>${esc(nameOf(x.by))}</b> offers to swap a hex on ${esc(landName(x.g))} for yours on ${esc(landName(x.k))}.`
+      :`<b>${esc(nameOf(B.a))}</b> ${B.v>1?'drew your border agreement again':'proposes a border agreement'}${others.length?`, with ${esc(bdNames(others))} too`:''}.`}</span>`,
+      b:`<button type="button" class="btn sm" data-act="go" data-v="diplomacy" data-dl="bd:${esc(B.id)}">See it</button><button type="button" class="btn ghost sm" data-act="bd-show" data-id="${esc(B.id)}">Show on the map</button>`});}}}catch(e){}return it;})(dpWaiting);
+/* a link to one agreement: its card on the Treaties tab (the bell, the waiting list); one turned down, its line there */
+dlPlan=(f=>function(spec){const m=typeof spec==='string'&&/^bd:([a-z0-9]{12})$/.exec(spec);if(!m)return f.apply(this,arguments);
+  if(OBS||S.mode!=='world')return null;return {view:'diplomacy',setup:()=>{AL.tab='treaties';},target:BD.docs.has(m[1])?'#bd-c-'+m[1]:'.bd-sec'};})(dlPlan);
 /* a small drawing of an agreement's sides, for the Treaties tab, the chat card and the register */
 function bdMiniSVG(B,w,h){
   const all=[];for(const id of B.p)for(const c of B.s[id])all.push([c,id]);for(const c of B.buf)all.push([c,'buf']);
@@ -87907,7 +87935,7 @@ function bdMiniSVG(B,w,h){
 function bdCardHTML(c){
   const B=BD.docs.get(c.id);
   if(!B)return '<div class="rgc-cd"><p class="rgc-cd-t">Border agreement</p><p class="muted">No longer in this region’s register.</p></div>';
-  const st=B.st==='offered'?'Proposed':B.st==='broken'?'Broken':bdLive(B,Date.now())?'In force':'Ended';
+  const st=B.st==='offered'?'Proposed':B.st==='void'?(B.why==='withdrawn'?'Withdrawn':'Declined'):B.st==='broken'?'Broken':bdLive(B,Date.now())?'In force':'Ended';
   return `<div class="rgc-cd bd-cd"><p class="rgc-cd-t">Border agreement · ${esc(st)}</p><p class="rgc-cd-big">${esc(bdNames(B.p))}</p><span class="bd-mini">${bdMiniSVG(B,200,120)}</span>${bdLegend(B)}<button type="button" class="linkish" data-act="bd-show" data-id="${esc(B.id)}">Show on the map</button></div>`;
 }
 
@@ -87926,7 +87954,7 @@ document.addEventListener('click',e=>{
     for(const c of F.buf)if(bdCount(D)<BD_RULES.maxCells&&!D.p.some(x=>D.s[x].has(c))){D.buf.add(c);k++;}
     BD.msg=k?'':'No free land lies between you to share out.';toast(k?`Suggested: ${k} hexes shared out by who is nearer. Paint over anything you would change.`:'Nothing to suggest.');updateMapPanel();redrawMaps();return;}
   if(a==='bd-send'){const D=bdDraft();if(!D)return;const s={};for(const q of D.p)s[q]=[...D.s[q]];
-    bdAct('bdOffer',{p:D.p,s,buf:[...D.buf],dur:D.dur,...(D.bid?{bid:D.bid}:{})},r=>{if(r.ok){S.bdEd=null;BD.pick=[];BD.view=r.bid;toast(r.counter?'Your version is sent back.':'The border proposal is sent.');updateMapPanel();redrawMaps();}});return;}
+    bdAct('bdOffer',{p:D.p,s,buf:[...D.buf],dur:D.dur,mv:MAP_VER,...(D.bid?{bid:D.bid}:{})},r=>{if(r.ok){S.bdEd=null;BD.pick=[];BD.view=r.bid;toast(r.counter?'Your version is sent back.':'The border proposal is sent.');updateMapPanel();redrawMaps();}});return;}
   if(a==='bd-show'){if(B){BD.view=id;S.bdEd=null;const c=B.s[me]&&B.s[me][0]!=null?B.s[me][0]:B.s[B.p[0]][0];if(c!=null)centerMain(c,NEAR_Z/2);go('map');}return;}
   if(a==='bd-view-x'){BD.view='';updateMapPanel();redrawMaps();return;}
   if(a==='bd-yes'){bdAct('bdAnswer',{bid:id,yes:true,v:+el.dataset.v||0},r=>toast(r.signed?'The border agreement is in force.':'Accepted. It waits for the others.'));return;}
@@ -87953,10 +87981,11 @@ document.addEventListener('change',e=>{const t=e.target;if(!t)return;const D=bdD
 NOTIF_SOURCES.push((n,now)=>{
   const me=myId(),out=[];if(!BD.docs.size)return out;
   for(const B of bdList(me)){const o=bdNames(bdOthers(B,me));
-    if(B.st==='offered'&&!B.acc.includes(me))out.push({t:B.t,k:'border',kl:'Border agreements',go:'diplomacy',txt:`${nameOf(B.a)} ${B.v>1?'drew your border agreement again':'proposes a border agreement'}: ${o}. See it on the Diplomacy page’s Treaties tab.`});
+    if(B.st==='offered'&&!B.acc.includes(me))out.push({t:B.t,k:'border',kl:'Border agreements',go:'diplomacy',dl:'bd:'+B.id,txt:`${nameOf(B.a)} ${B.v>1?'drew your border agreement again':'proposes a border agreement'}: ${o}. See it on the Diplomacy page’s Treaties tab.`});
     if(B.st==='active'&&B.exp&&B.exp-now<BD_RULES.warn&&now<B.exp)out.push({t:B.exp-BD_RULES.warn,k:'border',kl:'Border agreements',go:'diplomacy',txt:`Your border agreement with ${o} runs out on ${fmtDate(B.exp)}. Renew it on the Diplomacy page’s Treaties tab.`});
     if(B.st==='broken'&&B.by!==me)out.push({t:B.bt,k:'border',kl:'Border agreements',go:'diplomacy',txt:`${nameOf(B.by)} broke your border agreement by claiming a hex${B.bc>=0?' on '+landName(B.bc):''}.`});
-    for(const x of B.sw)if(x.st==='offered'&&x.to===me)out.push({t:x.t,k:'border',kl:'Border agreements',go:'diplomacy',txt:`${nameOf(x.by)} offers to swap a hex on ${landName(x.g)} for yours on ${landName(x.k)}.`});}
+    for(const x of B.sw)if(x.st==='offered'&&x.to===me)out.push({t:x.t,k:'border',kl:'Border agreements',go:'diplomacy',dl:'bd:'+B.id,txt:`${nameOf(x.by)} offers to swap a hex on ${landName(x.g)} for yours on ${landName(x.k)}.`});
+    if(B.st==='void'&&B.by!==me&&now-B.vt<BD_RULES.told)out.push({t:B.vt,k:'border',kl:'Border agreements',go:'diplomacy',dl:'bd:'+B.id,txt:bdToldWords(B,me)});}
   return out;
 });
 HAP_SOURCES.push((x,now)=>{
@@ -87974,7 +88003,7 @@ function bdRegisterHTML(now){
 VIEWS_EXT.assembly=(f=>now=>f(now)+(S.mode==='world'?bdRegisterHTML(now):''))(VIEWS_EXT.assembly);
 
 /* for the browser test (test/borders-e2e.mjs) */
-function bdProbe(){return {BD,bdList,bdIndex,bdBars,bdFair,bdSettle,draft:()=>S.bdEd,
+function bdProbe(){return {BD,bdList,bdIndex,bdBars,bdFair,bdSettle,bdWaiting,bdTold,draft:()=>S.bdEd,ask:(op,d)=>alReq(Object.assign({op},d)),
   paint:(c,brush)=>{const D=bdDraft();if(!D)return false;D.brush=brush;bdPaint(D,c);updateMapPanel();redrawMaps();return true;},
   free:(id,k)=>{const T=territory(),i=T.byId[id];if(i===undefined)return [];const cap=T.list[i].cap,out=[];for(let c=0;c<MAP.N;c++)if(T.owner[c]<0&&MAP.T[c]>=2&&!T.isCap[c])out.push(c);return out.sort((a,b)=>hexDist(cap,a)-hexDist(cap,b)).slice(0,k);},
   water:id=>{const T=territory(),i=T.byId[id];if(i===undefined)return -1;const cap=T.list[i].cap;let best=-1;for(let c=0;c<MAP.N;c++)if(MAP.T[c]<2&&T.owner[c]<0&&(best<0||hexDist(cap,c)<hexDist(cap,best)))best=c;return best;},

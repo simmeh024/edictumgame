@@ -5,9 +5,13 @@
      {reg, p: [ids], a (who sent this version), acc: [ids that accepted it], v (version), st, t (sent), at (signed),
       dur (days, 0 = no end), exp (runs out, 0 = never), rn: [ids that asked to renew], end (notice runs out),
       bt, by, bc (broken: when, by whom, the hex claimed), s: {id: [hexes on its side]}, buf: [hexes nobody claims],
-      sw: [{id, by, to, g (by gives), k (by gets), t, st 'offered'|'done', at}], f: {id: founded}}
+      sw: [{id, by, to, g (by gives), k (by gets), t, st 'offered'|'done', at}], f: {id: founded},
+      cv (the map version its hexes are numbered on, the sending game's MAP_VER; none before 23 Nov 2026),
+      why, vt (void: 'declined' or 'withdrawn', when; by says who)}
    st 'offered' until every nation has accepted the latest version (a counter-proposal is a new version, accepted by
-   its sender only); 'active' once all have; 'ending' while a notice runs; 'broken' when a nation claimed past it.
+   its sender only); 'active' once all have; 'ending' while a notice runs; 'broken' when a nation claimed past it;
+   'void' when a nation declined it or its sender withdrew it, kept for a while so the others hear of it (until 23 Nov
+   2026 it was deleted at once, and a proposal turned down vanished from every side with no word).
    A side may hold land, lake or sea hexes. */
 const DAY = 86400000;
 export const BD_RULES = {
@@ -20,7 +24,9 @@ export const BD_RULES = {
   /* goodwill a breaker loses with each other side */
   breakGw: 10,
   /* hex swaps waiting at once in one agreement */
-  swaps: 3
+  swaps: 3,
+  /* how long a declined or withdrawn proposal is kept, so the other sides are told */
+  told: 7 * DAY
 };
 /* in force: signed, not run out, not ended */
 export function bdLive(B, now) {
@@ -28,11 +34,13 @@ export function bdLive(B, now) {
   if (B.st === 'active') return !(Number(B.exp) > 0) || now < Number(B.exp);
   return B.st === 'ending' && now < (Number(B.end) || 0) && (!(Number(B.exp) > 0) || now < Number(B.exp));
 }
-/* finished: run out, notice over, or a break off the record (removed when next written) */
+/* finished: run out, notice over, a break off the record, or a proposal turned down long enough ago (removed when next
+   written) */
 export function bdDone(B, now) {
   if (!B) return true;
   if (B.st === 'broken') return now - (Number(B.bt) || 0) >= BD_RULES.record;
   if (B.st === 'active' || B.st === 'ending') return !bdLive(B, now);
+  if (B.st === 'void') return now - (Number(B.vt) || 0) >= BD_RULES.told;
   return false;
 }
 /* a nation founded again since it signed is not bound */

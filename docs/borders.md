@@ -12,4 +12,8 @@ Asked by a player on 18 November 2026: "draw some borders to expand to and agree
   - Swaps: select a hex of yours, then one of theirs. Once accepted, each game cedes its own hex (`n.bx`, log kind `cede`).
   - Renewal reminder 3 days before an agreement runs out. **Post in the region chat** adds a card (`cd.k` `border`). The Assembly shows a **Register of borders**.
   - Nine achievements, `dip-bd*`.
+- **Finding and answering** (23 November 2026, after a player asked whether proposals had been removed: in Saffron Coast neither side could find one still waiting):
+  - A proposal waiting for your answer, or a swap offered to you, is in the Diplomacy page's **Waiting for you** list (`dpWaiting`, **See it** and **Show on the map**) and counted on the Treaties tab (`bdWaiting`). The bell's notices link to the card (deep link `bd:<bid>`, card id `bd-c-<bid>`).
+  - **Decline** or **Withdraw** no longer deletes it: it becomes `st: 'void'` with `why` (`declined` or `withdrawn`), `by` and `vt`, kept for `BD_RULES.told` (7 days, `bdDone`) so every other side is told, in the bell and on the Treaties tab (`bdTold`, `bdToldWords`).
+  - The game sends its map version with a proposal (`mv`), which the server keeps as `cv`. A page sending none is asked to reload (`bd_reload`); one on an older map than any party's record (`nations/{uid}.mv`) is refused (`bd_old_map`). Without `cv`, `bdNorm` reads a proposal sent before the frontier (`FRONT_AT`) as drawn on the charted map; one drawn in a pre-frontier tab after it needs `cv: 4` set on the server.
 - **Tests**: `test/borders.test.mjs` (in `test:fx`) and `test/borders-e2e.mjs` (`npm run test:borders`, CI suite `borders`).

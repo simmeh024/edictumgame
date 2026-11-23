@@ -26,10 +26,29 @@ test('in force means the same to the game and the server', () => {
   const now = 1e12, D = 86400000;
   const cases = [
     { st: 'offered' }, { st: 'active', exp: 0 }, { st: 'active', exp: now + D }, { st: 'active', exp: now - 1 },
-    { st: 'ending', end: now + D, exp: 0 }, { st: 'ending', end: now - 1, exp: 0 }, { st: 'ending', end: now + D, exp: now - 1 }, { st: 'broken', bt: now }
+    { st: 'ending', end: now + D, exp: 0 }, { st: 'ending', end: now - 1, exp: 0 }, { st: 'ending', end: now + D, exp: now - 1 }, { st: 'broken', bt: now },
+    { st: 'void', why: 'declined', vt: now }
   ];
   for (const B of cases) assert.equal(g(B, now), R.bdLive(B, now), JSON.stringify(B));
   assert.equal(g(null, now), false);
+});
+
+test('a proposal turned down is kept a while, so the others are told, then cleared like any finished one', () => {
+  const now = 1e12;
+  assert.equal(R.bdDone({ st: 'void', vt: now - R.BD_RULES.told + 1 }, now), false, 'still told');
+  assert.equal(R.bdDone({ st: 'void', vt: now - R.BD_RULES.told }, now), true, 'told long enough');
+  assert.equal(R.bdDone({ st: 'offered', t: 0 }, now), false, 'a proposal waiting is never cleared by age');
+  assert.equal(R.bdLive({ st: 'void', vt: now }, now), false);
+});
+
+test('the server keeps the map a proposal was drawn on, and turns one down without deleting it', () => {
+  const src = fs.readFileSync(new URL('../functions/borders.js', import.meta.url), 'utf8');
+  assert.match(src, /refuse\('bd_reload'/, 'a page that sends no map is told to reload');
+  assert.match(src, /refuse\('bd_old_map'/, 'a page on an older map than a party’s record is refused');
+  assert.match(src, /cv: mv \}\);/, 'the map is kept on the proposal');
+  assert.match(src, /if \(!d\.yes\) \{ voidIt\(tx, ref, B, who\.uid, now\);/, 'declining or withdrawing keeps it, as void');
+  assert.match(src, /B\.st === 'offered'\) \{ voidIt\(/, 'ending a proposal waiting is the same');
+  assert.ok(html.includes('mv:MAP_VER'), 'the game sends its map with a proposal');
 });
 
 test('a drawn border: every nation has a side, each hex once, a cap on hexes', () => {
@@ -49,7 +68,7 @@ test('a drawn border: every nation has a side, each hex once, a cap on hexes', (
 });
 
 test('the game wires every part in', () => {
-  for (const s of ["op:'bdBreach'", "'bdOffer'", "'bdAnswer'", "'bdRenew'", "'bdEnd'", "'bdSwap'", "'bdSwapAnswer'", 'VIEWS_EXT.assembly=(f=>', 'dpTreaties=(f=>', 'writeClaims=(f=>', 'autoPlan=(f=>',
+  for (const s of ["op:'bdBreach'", "'bdOffer'", "'bdAnswer'", "'bdRenew'", "'bdEnd'", "'bdSwap'", "'bdSwapAnswer'", 'VIEWS_EXT.assembly=(f=>', 'dpTreaties=(f=>', 'dpWaiting=(f=>', 'data-dl="bd:', "dl:'bd:'+B.id", 'treaties:tyIncoming().length+bdWaiting(me,now).length', 'writeClaims=(f=>', 'autoPlan=(f=>',
     "if(c.k==='border')return bdCardHTML(c);", "c.k==='border'&&typeof c.id==='string'"]) assert.ok(html.includes(s), s);
   for (const id of ['dip-bd1', 'dip-bd3', 'dip-bdmulti', 'dip-bdbuf', 'dip-bdsea', 'dip-bdold', 'dip-bdrenew', 'dip-bdsw', 'dip-bdbrk']) assert.ok(html.includes(`'${id}'`), id);
 });

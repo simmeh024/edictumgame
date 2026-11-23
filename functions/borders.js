@@ -33,19 +33,31 @@ async function load(tx, db, d) {
 /* the other nations, in the caller's region and still as they signed */
 /* Settings › Privacy › Who can reach me: a nation that takes none of a kind (rch[k] 'n') is kept to here too */
 const closed = (N, k) => !!(N && N.rch && typeof N.rch === 'object' && N.rch[k] === 'n');
+/* ...and mv, the newest map any of their records was saved on (the rules' mv on nations/) */
 async function others(tx, db, ids, reg, offer) {
   const snaps = await Promise.all(ids.map(id => tx.get(db.doc('nations/' + id))));
   const recs = {};
+  let mv = 0;
   snaps.forEach((s, i) => {
     if (!s.exists || (s.get('reg') || '') !== reg) refuse('bd_region', 'Every nation in a border agreement must be a player of your region.');
     recs[ids[i]] = nationJSON(s);
+    mv = Math.max(mv, mapOf(s));
     if (offer && closed(recs[ids[i]], 'b')) refuse('bd_closed', 'One of those nations takes no border proposals.');
   });
-  return recs;
+  return { recs, mv };
 }
+const mapOf = s => { const v = Number(s && s.get('mv')); return Number.isInteger(v) && v > 0 ? v : 0; };
+/* turned down: kept as void for BD_RULES.told, so every other side hears who declined it, or that it was withdrawn */
+const voidIt = (tx, ref, B, uid, now) =>
+  tx.update(ref, { st: 'void', why: B.a === uid && (B.acc || []).length <= 1 ? 'withdrawn' : 'declined', by: uid, vt: now });
 
-/* a new proposal, or a counter-proposal: the drawn sides of the nations p (the caller among them) */
+/* a new proposal, or a counter-proposal: the drawn sides of the nations p (the caller among them). d.mv is the map the
+   sending page numbers hexes on (the game's MAP_VER), kept as cv. A page still on an older map than any party's record
+   is refused: its hexes are another grid's (19 Nov 2026, Saffron Coast: a proposal drawn in a tab opened before the
+   frontier landed scattered over the grown map). */
 async function bdOffer(db, who, d) {
+  const mv = Number.isInteger(d.mv) && d.mv >= 1 && d.mv <= 999 ? d.mv : 0;
+  if (!mv) refuse('bd_reload', 'The game has been updated since this page was opened. Reload the page, then draw the border again.');
   const p = Array.isArray(d.p) ? [...new Set(d.p.filter(isId))] : [];
   if (!p.includes(who.uid) || p.length < 2 || p.length > BD_RULES.maxP || p.some(id => !isUid(id)))
     throw new HttpsError('invalid-argument', `Choose one to ${BD_RULES.maxP - 1} other players for a border agreement.`);
@@ -60,7 +72,8 @@ async function bdOffer(db, who, d) {
       if (!prev || prev.st !== 'offered' || !Array.isArray(prev.p) || !prev.p.includes(who.uid)) refuse('bd_gone', 'That proposal is no longer there.');
       if (prev.p.length !== p.length || prev.p.some(id => !p.includes(id))) refuse('bd_parties', 'A counter-proposal keeps the same nations.');
     }
-    const rest = p.filter(id => id !== who.uid), recs = await others(tx, db, rest, reg, true);
+    const rest = p.filter(id => id !== who.uid), { recs, mv: theirs } = await others(tx, db, rest, reg, true);
+    if (mv < Math.max(theirs, mapOf(e.saved))) refuse('bd_old_map', 'This page is still on an older map of the region. Reload the page, then draw the border again.');
     const lists = await Promise.all(p.map(id => partyTo(tx, db, id)));
     if (!bid) { bid = newId(); ref = db.doc('borders/' + bid); }
     lists.forEach((L, i) => {
@@ -69,21 +82,22 @@ async function bdOffer(db, who, d) {
     });
     const f = {};
     for (const id of p) { const r = id === who.uid ? e.n : recs[id], v = founded(r); if (v) f[id] = v; }
-    tx.set(ref, { reg, p, a: who.uid, acc: [who.uid], v: (prev ? Number(prev.v) || 1 : 0) + 1, st: 'offered', t: now, dur, s: shape.s, buf: shape.buf, f, sw: [] });
+    tx.set(ref, { reg, p, a: who.uid, acc: [who.uid], v: (prev ? Number(prev.v) || 1 : 0) + 1, st: 'offered', t: now, dur, s: shape.s, buf: shape.buf, f, sw: [], cv: mv });
     for (const L of lists) for (const x of L) if (x.id !== bid && bdDone(x.B, now)) tx.delete(x.ref);
     return { ok: true, bid, counter: !!prev };
   });
 }
 
-/* an answer: yes adds the caller's acceptance (in force once all have accepted); no withdraws the whole proposal */
+/* an answer: yes adds the caller's acceptance (in force once all have accepted); no turns the whole proposal down
+   (declined, or withdrawn by its sender), and the others are told */
 async function bdAnswer(db, who, d) {
   return db.runTransaction(async tx => {
     const e = await eligibility(tx, who, d.yes ? {} : { linked: false, hidden: true }), now = Date.now();
     const { ref, B } = await load(tx, db, d);
     if (!B || B.st !== 'offered' || !Array.isArray(B.p) || !B.p.includes(who.uid)) refuse('bd_gone', 'That proposal is no longer there.');
     if (Number(d.v) && Number(d.v) !== Number(B.v)) refuse('bd_changed', 'The proposal was drawn again since you looked. Look at the new version first.');
-    if (!d.yes) { tx.delete(ref); return { ok: true }; }
-    const rest = B.p.filter(id => id !== who.uid), recs = await others(tx, db, rest, regOf(e));
+    if (!d.yes) { voidIt(tx, ref, B, who.uid, now); return { ok: true }; }
+    const rest = B.p.filter(id => id !== who.uid), { recs } = await others(tx, db, rest, regOf(e));
     if (bdVoid(B, { ...recs, [who.uid]: e.n })) { tx.delete(ref); return { ok: false, why: 'gone' }; }
     const acc = [...new Set([...(B.acc || []), who.uid])];
     if (B.p.every(id => acc.includes(id))) {
@@ -102,7 +116,7 @@ async function bdEnd(db, who, d) {
     await eligibility(tx, who, { linked: false, hidden: true });
     const { ref, B } = await load(tx, db, d), now = Date.now();
     if (!B || !Array.isArray(B.p) || !B.p.includes(who.uid)) refuse('bd_gone', 'That border agreement is not there.');
-    if (B.st === 'offered') { tx.delete(ref); return { ok: true }; }
+    if (B.st === 'offered') { voidIt(tx, ref, B, who.uid, now); return { ok: true }; }
     if (!bdLive(B, now)) refuse('bd_gone', 'That border agreement is not in force.');
     if (B.st === 'ending') return { ok: true, end: B.end };
     const end = now + BD_RULES.notice;
