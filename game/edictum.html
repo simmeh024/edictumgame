@@ -64815,7 +64815,8 @@ const ddOn=()=>!window.EDICTUM_NO_DESK;
 const DD_TASKS={
   iss:{t:k=>k===1?'Answer an edict':`Answer ${k} edicts`,go:null,r:[3,5],ok:()=>true},
   visit:{t:()=>'Visit another nation’s page',go:['region','Open the Region'],r:[1,1],ok:ddOthers},
-  exp:{t:k=>k===1?'Send an expedition':`Send ${k} expeditions`,go:['explore','Open expeditions'],r:[1,2],ok:n=>cellOf(n.loc)>=0},
+  /* an expedition, or a party to a fleeting find, counts (the owner, 2026-11-23: "send 2 expeditions or fleeting finds") */
+  exp:{t:k=>k===1?'Send an expedition or a fleeting find':`Send ${k} expeditions or fleeting finds`,go:['explore','Open expeditions'],r:[1,2],ok:n=>cellOf(n.loc)>=0},
   vote:{t:()=>'Vote in the Assembly',go:['assembly','Open the Assembly'],r:[1,1],ok:n=>ddCanVote(n)},
   road:{t:k=>k===1?'Build a road':`Build ${k} roads`,go:['map','Open Transport'],r:[1,2],ok:n=>pgAvailable(n,'map')&&cityList(n).length>=2&&(n.infra||[]).length<=MP_NET_MAX-2},
   claim:{t:k=>k===1?'Claim a hex':`Claim ${k} hexes`,go:['map','Open the map'],r:[1,2],ok:n=>landCredits(n)>=2},
@@ -64861,7 +64862,8 @@ function ddRoll(n,day){
 /* the rare task: one more each day, a little harder than the three, paid in DD_RARE_GIFT and DD_RARE_CR land credits
    (counted in n.ddr, which adds to landEarned like n.ddc). It is drawn from a separate pool, avoiding the three's tasks
    where it can, and kept in n.dd.r {k, g, c, p}. */
-const DD_RARE_GIFT={iron:5,oil:10,timber:20,food:30},DD_RARE_CR=3,DD_RARE_MAX=STK_MAX;
+const DD_RARE_GIFT={iron:5,oil:10,timber:20,food:30,goods:15},DD_RARE_CR=3,DD_RARE_MAX=STK_MAX;
+const ddRareGift=()=>Object.keys(DD_RARE_GIFT).map(r=>`+${DD_RARE_GIFT[r]} ${resName(r)}`);
 const DD_RARE={iss:[6,8],claim:[3,4],exp:[2,3],road:[2,3],build:[2,2],dm:[2,3],deal:[2,2],xu:[2,2],xpb:[2,2],lost:[1,1],fleet:[2,3],ugb:[2,2],svc:[2,2],city:[1,1]};
 /* the legendary task: once a calendar week (Monday to Sunday, by the player's own clock), at a moment fixed by the
    nation's seed and the week, a much bigger task appears on the desk, and stays seven days. Done in time, it pays
@@ -64905,10 +64907,10 @@ const ddFresh=(n,day,salt)=>{const k=day+(salt||''),q=ddRoll(n,k),r=ddRare(n,k,q
 const DDX_GAP=7*864e5,ddxAt=n=>n&&Number.isFinite(n.ddx)&&n.ddx>0?n.ddx:0,ddxReady=(n,now)=>now-ddxAt(n)>=DDX_GAP;
 /* how far one save moved a task on */
 function ddDelta(n,old,k){
-  const tl=key=>tallyOf(n,key)-tallyOf(old,key);
+  const tl=key=>tallyOf(n,key)-tallyOf(old,key),flNew=()=>{const had=new Set((old.fl||[]).map(e=>e&&e.k+'|'+e.s));return (n.fl||[]).filter(e=>e&&!had.has(e.k+'|'+e.s)).length;};
   if(k==='iss'||k==='claim'||k==='dm')return tl(k);
   if(k==='deal')return tl('deal')+tl('dealok');
-  if(k==='exp')return ['exp','exp2'].filter(f=>n[f]&&n[f].t0&&!(old[f]&&old[f].t0===n[f].t0)).length;
+  if(k==='exp')return ['exp','exp2'].filter(f=>n[f]&&n[f].t0&&!(old[f]&&old[f].t0===n[f].t0)).length+flNew();
   if(k==='road'){const had=new Set((old.infra||[]).map(r=>r&&r.id));return (n.infra||[]).filter(r=>r&&r.k==='road'&&!had.has(r.id)).length;}
   if(k==='build'){const had=new Set();for(const c of old.cities||[])for(const b of c.b||[])had.add(c.id+'|'+b.k);let m=0;for(const c of n.cities||[])for(const b of c.b||[])if(!had.has(c.id+'|'+b.k))m++;return m;}
   if(k==='xu')return n.xuw&&Number.isFinite(n.xuw.s)&&!(old.xuw&&old.xuw.s===n.xuw.s)?1:0;
@@ -64917,7 +64919,7 @@ function ddDelta(n,old,k){
       const u=cxBldExtras(b).uu,ou=cxBldExtras(o).uu,w=whExtras(b).wu,ow=whExtras(o).wu;
       if(u&&Number.isFinite(u.s)&&!(ou&&ou.s===u.s))m++;else if(w&&Number.isFinite(w.s)&&!(ow&&ow.s===w.s))m++;}return m;}
   if(k==='lost')return ['exp','exp2'].filter(f=>n[f]&&n[f].t0&&!(old[f]&&old[f].t0===n[f].t0)&&SITES[n[f].s]&&SITES[n[f].s].lost).length;
-  if(k==='fleet'){const had=new Set((old.fl||[]).map(e=>e&&e.k+'|'+e.s));return (n.fl||[]).filter(e=>e&&!had.has(e.k+'|'+e.s)).length;}
+  if(k==='fleet')return flNew();
   if(k==='ugb'){const was=new Map();for(const c of old.cities||[])for(const b of c.b||[])was.set(c.id+'|'+b.k,b);let m=0;
     for(const c of n.cities||[])for(const b of c.b||[]){const o=was.get(c.id+'|'+b.k);if(!o)continue;const u=cxBldExtras(b).uu,ou=cxBldExtras(o).uu;if(u&&Number.isFinite(u.s)&&!(ou&&ou.s===u.s))m++;}return m;}
   if(k==='svc'){const a=n.svc,b=old.svc;if(!a||!Array.isArray(a.c))return 0;const same=!!b&&b.d===a.d&&Array.isArray(b.c);return a.c.filter((x,i)=>x&&x[3]===1&&!(same&&b.c[i]&&b.c[i][3]===1)).length;}
@@ -64960,7 +64962,7 @@ COMMIT_HOOKS.push((n,old,now)=>{
     else out.push('Today’s desk is clear: +1 land credit to spend on the map.');}
   const R=D.r;if(R&&!R.p){const dv=base?Math.max(0,ddDelta(n,base,R.k)):0;if(dv)R.c=Math.min(R.g,(R.c||0)+dv);
     if(R.c>=R.g){R.p=1;n.ddr=ddrOf(n)+1;ddKind(n,R.k);for(const r in DD_RARE_GIFT)gift(r,DD_RARE_GIFT[r]);try{gbBump(n,'ddr',1,now);}catch(e){}
-      out.push(`Rare task done: ${DD_TASKS[R.k].t(R.g)}. +${DD_RARE_GIFT.iron} iron, +${DD_RARE_GIFT.oil} oil, +${DD_RARE_GIFT.timber} timber, +${DD_RARE_GIFT.food} food and +${DD_RARE_CR} land credits.`);}}
+      out.push(`Rare task done: ${DD_TASKS[R.k].t(R.g)}. ${ddRareGift().join(', ')} and +${DD_RARE_CR} land credits.`);}}
   /* the legendary task: it appears when its moment comes (late, after the last one, if that one was still open), and
      counts from then on */
   {const W=ddWeekOf(now);let L=n.ddl;const open=L&&!L.p&&now<=L.e;
@@ -65024,7 +65026,7 @@ function ddCard(now){
   const dots=`<span class="lc-dots" aria-hidden="true">${STK_UNLOCKS.map((x,i)=>`<i${i<sk?' class="on"':''}></i>`).join('')}</span>`;
   return `<section class="dd" aria-labelledby="dd-h"><div class="dd-h"><div><p class="eyebrow">Today’s desk</p><h2 class="stp-t" id="dd-h">${D.w?'All three done':'Three tasks for today'}</h2></div><span class="hint">New tasks in <b data-live="ddnext" data-t="${ddNextAt(now,D)}">${esc(fmtWait(ddNextAt(now,D)-now))}</b></span></div>
     <ol class="dd-l">${leg}${rows}${(()=>{const R=D.r||ddRare(n,D.d,D.q);if(!R)return '';const T=DD_TASKS[R.k],done=!!R.p,c=Math.min(R.g,R.c||0);
-      return `<li class="dd-t dd-rare${done?' done':''}"><span class="dd-i" aria-hidden="true"></span><span class="dd-x"><b><span class="dd-rare-tag">Rare</span> ${esc(T.t(R.g))}</b><span class="hint">${done?'Done':`${c} of ${R.g}`} · +${DD_RARE_GIFT.iron} iron, +${DD_RARE_GIFT.oil} oil, +${DD_RARE_GIFT.timber} timber, +${DD_RARE_GIFT.food} food, <b>+${DD_RARE_CR} land credits</b></span></span>${!done&&T.go?`<button type="button" class="btn ghost small-btn" data-act="dd-go" data-k="${R.k}">${esc(T.go[1])}</button>`:''}</li>`;})()}</ol>
+      return `<li class="dd-t dd-rare${done?' done':''}"><span class="dd-i" aria-hidden="true"></span><span class="dd-x"><b><span class="dd-rare-tag">Rare</span> ${esc(T.t(R.g))}</b><span class="hint">${done?'Done':`${c} of ${R.g}`} · ${esc(ddRareGift().join(', '))}, <b>+${DD_RARE_CR} land credits</b></span></span>${!done&&T.go?`<button type="button" class="btn ghost small-btn" data-act="dd-go" data-k="${R.k}">${esc(T.go[1])}</button>`:''}</li>`;})()}</ol>
     <p class="dd-f">${D.w?(wk?'Your desk is clear: today’s two land credits are yours.':'Your desk is clear: today’s land credit is yours.'):wk?'Clear all three for <b>+2 land credits</b>, double in your first week.':'Clear all three for <b>+1 land credit</b>.'}</p>
     ${D.w&&S.mode!=='readonly'?(ddxReady(n,now)?'<div class="row dd-x-row"><button type="button" class="btn small-btn" data-act="dd-reset">Weekly reset: three new tasks now</button><span class="hint">Once every seven days: a fresh desk today, with its own land credit.</span></div>':`<p class="hint">Weekly reset ready again in <b>${esc(fmtWait(ddxAt(n)+DDX_GAP-now))}</b>.</p>`):''}
     <p class="hint dd-stk">${dots}Presence: ${sk?`day ${sk}`:'not started'}${nx?` · next: ${STK_NEXT[sk]}`:' · all three rewards earned'}. ${today?'Today counts.':'Answer an edict or claim a hex today to count it.'} A missed day only pauses it.</p></section>`;
