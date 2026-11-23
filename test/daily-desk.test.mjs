@@ -153,8 +153,9 @@ test('a rare task every day, harder than the three and not one of them where it 
   let m=nation();m.dd={...fixedDesk(D),r:{k:'iss',g:3,c:0,p:0}};m.stk={n:1,d:D.ddDay(NOW)};
   let [a,old]=next(m,x=>{x.tly.iss=7;});D.save(a,old);assert.equal(a.dd.r.c,2);assert.equal(a.dd.r.p,0);
   [a,old]=next(a,x=>{x.tly.iss=8;});const notes=D.save(a,old);
-  assert.ok(notes.some(s=>/Rare task done: Answer 3 edicts\. \+5 iron, \+10 oil, \+20 timber, \+30 food and \+3 land credits/.test(s)),notes.join(' | '));
+  assert.ok(notes.some(s=>/Rare task done: Answer 3 edicts\. \+5 iron, \+10 oil, \+20 timber, \+30 food, \+15 goods and \+3 land credits/.test(s)),notes.join(' | '));
   assert.equal(a.dd.r.p,1);assert.equal(a.ddr,1);assert.equal(D.earned(a),BASE+3,'three land credits');
+  assert.equal(a.stock.goods,35,'15 goods with the rare task');
   [a,old]=next(a,x=>{x.tly.iss=12;});D.save(a,old);assert.equal(a.ddr,1,'paid once');
   eq(D.reload(a).dd.r,{k:'iss',g:3,c:3,p:1});assert.equal(D.reload(a).ddr,1);
 });
@@ -253,6 +254,19 @@ test('the new tasks count what a save adds',()=>{
   n=structuredClone(old);n.tly.cities=2;assert.equal(D.ddDelta(n,old,'city'),1,'a new city');
   n=structuredClone(old);n.ddc=3;assert.equal(D.ddDelta(n,{...old,ddc:2},'desk'),1,'a desk cleared');
   n=structuredClone(old);n.tly.first=2;assert.equal(D.ddDelta(n,old,'first'),2,'two first discoveries');
+});
+
+test('the expedition task counts parties sent to fleeting finds as well',()=>{
+  const D=desk(more()),old=nation({fl:[{k:'a',s:1}]});
+  assert.equal(D.DD_TASKS.exp.t(2),'Send 2 expeditions or fleeting finds');assert.equal(D.DD_TASKS.exp.t(1),'Send an expedition or a fleeting find');
+  let n=structuredClone(old);n.fl.push({k:'b',s:2});assert.equal(D.ddDelta(n,old,'exp'),1,'a fleeting find');
+  n=structuredClone(old);n.exp={s:1,t0:NOW,t1:NOW+1};assert.equal(D.ddDelta(n,old,'exp'),1,'an expedition');
+  n=structuredClone(old);n.exp={s:1,t0:NOW,t1:NOW+1};n.fl.push({k:'b',s:2});assert.equal(D.ddDelta(n,old,'exp'),2,'one of each');
+  assert.equal(D.ddDelta(n,old,'fleet'),1,'the fleeting-find task still counts only the parties');
+  let m=nation({fl:[]});m.dd={...fixedDesk(D),r:{k:'exp',g:2,c:0,p:0}};m.stk={n:1,d:D.ddDay(NOW)};
+  let [a,o]=next(m,x=>{x.exp={s:1,t0:NOW,t1:NOW+1};});D.save(a,o);assert.equal(a.dd.r.c,1);
+  [a,o]=next(a,x=>{x.fl.push({k:'c',s:3});});const notes=D.save(a,o);assert.equal(a.dd.r.p,1,'the rare task is done');
+  assert.ok(notes.some(t=>/^Rare task done: Send 2 expeditions or fleeting finds\. .*\+15 goods and \+3 land credits/.test(t)),notes.join(' | '));
 });
 
 test('a task with two survey caches never asks for more caches than the day has',()=>{

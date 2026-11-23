@@ -82,9 +82,16 @@ await B.click('[data-act="cb-flt"][data-k="tg"][data-v=""]'); await B.click('[da
 check('All kinds and Every topic show everything again', await until(async () => (await rows(B, `.cb-reg[data-reg="${home}"]`)).length >= 12));
 
 /* 9, 8. a long thread: the latest twenty, Show earlier; Reply on a post; the bar */
-/* where the list was left: with the row in view, so the click does not scroll first */
-const listY = await B.evaluate(t => { document.querySelector(`.cb-regs [data-act="cb-topic"][data-t="${t}"]`).scrollIntoView({ block: 'center' }); return scrollY; }, long);
+/* where the list was left: with the row in view, read as the click on it lands. A late redraw above the row (a topic
+   arriving, the Assembly's debate) can move it after scrollIntoView, and the click then scrolls it into view again:
+   CI saw the list left at 1231 while a reading taken before the click said 312 */
+await B.evaluate(t => {
+  document.querySelector(`.cb-regs [data-act="cb-topic"][data-t="${t}"]`).scrollIntoView({ block: 'center' });
+  addEventListener('click', e => { if (e.target.closest && e.target.closest(`[data-act="cb-topic"][data-t="${t}"]`)) window.__cbLeftY = scrollY; }, { capture: true });
+}, long);
 await B.click(`.cb-reg[data-reg="${home}"] [data-act="cb-topic"][data-t="${long}"]`);
+const listY = await B.evaluate(() => window.__cbLeftY);
+check('the list is left where the click found it', typeof listY === 'number', String(listY));
 await B.waitForSelector('.cb-reps .cb-post');
 check('a long thread opens on its latest twenty replies', await until(async () => (await B.$$('.cb-reps .cb-post')).length === 20) && /Show 14 earlier replies/.test(await text(B, '.cb-earlier')) && /the latest 20/.test(await text(B, '.cb-rh')));
 await B.click('[data-act="cb-earlier"]');

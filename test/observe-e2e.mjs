@@ -164,6 +164,7 @@ check('the Region page lists the region’s nations, with no “You”', await u
 check('and its board, with no form to post as a nation or as the team', !await B.$('#rmb-as-team') && !await B.$('#rmb-as-nat'));
 await B.click(`.tbl [data-act="visit"][data-id="${uidA}"]`);
 check('a nation’s page opens', await until(async () => await B.evaluate(() => G.S.view === 'visit') && /Adminland/.test(await text(B, '.main'))));
+check('its entry stamp waits for the passport at home, from the region visited', await until(async () => /Stamped at the border: the entry stamp of Adminland/.test(await text(B, '#toast')) && await B.evaluate(([k, id]) => { const q = JSON.parse(localStorage.getItem(k) || '[]'); return q.length === 1 && q[0][0] === id && q[0][1][0] === 'Adminland' && q[0][1][1] === 'meridian'; }, ['edictum.ppv.' + uidB, uidA]), 10000), await B.evaluate(k => localStorage.getItem(k), 'edictum.ppv.' + uidB));
 const actsB = await B.$$eval('.visit-acts [data-act]', els => els.map(e => e.dataset.act).join(','));
 check('with nothing to do to it but look, and no inspection', actsB === 'map-open,st-open', actsB);
 await B.screenshot({ path: OUT + '/visit-nation.png', fullPage: true });
@@ -182,6 +183,8 @@ await sleep(6000); // a clock tick
 { const now = await raw(B), st = await stamp(uidB); check('the player’s nation is untouched while visiting, here and on the server', now === rawB && st === serverB, changed(rawB, now) + ' ' + serverB + ' → ' + st); }
 await Promise.all([B.waitForEvent('load'), B.click('.obs-bar [data-act="obs-exit"]')]); await ready(B);
 check('Return to my nation brings the player’s nation back', await until(async () => await text(B, '.side-nm') === 'Frostia' && !await B.$('.obs-bar') && await B.evaluate(() => G.S.mode === 'world' && !sessionStorage.getItem('edictum.observe')), 20000));
+check('home again, the stamp from the visit goes into the passport', await until(async () => /Stamped on your travels: the entry stamp of Adminland, from [^,]*Meridian[^,]*, is in your passport/.test(await text(B, '#toast')), 20000), await text(B, '#toast'));
+check('kept with the Meridian as its region, saved, and nothing left waiting', await until(async () => (await localNation(B))?.pp?.v?.[uidA]?.[1] === 'meridian', 15000) && await saved(B) && await B.evaluate(k => localStorage.getItem(k) === null, 'edictum.ppv.' + uidB));
 const afterB = await localNation(B);
-check('as it was, in its own region', afterB._rev === beforeB._rev && afterB.reg === 'frostmarch' && JSON.stringify(afterB.loc) === JSON.stringify(beforeB.loc) && JSON.stringify(afterB.claims) === JSON.stringify(beforeB.claims) && await stamp(uidB) === serverB);
+check('otherwise as it was, in its own region', afterB.reg === 'frostmarch' && JSON.stringify(afterB.loc) === JSON.stringify(beforeB.loc) && JSON.stringify(afterB.claims) === JSON.stringify(beforeB.claims), changed(JSON.stringify(beforeB), JSON.stringify(afterB)));
 await finish();

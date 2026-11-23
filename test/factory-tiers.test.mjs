@@ -19,7 +19,9 @@ const N=10,zero=()=>Float64Array.from({length:N},()=>0);
 const CELL_RES={food:zero(),timber:zero(),iron:zero(),oil:zero(),goods:zero()};
 function load(){
   const ctx={DAY,CELL_RES,RES:['food','timber','iron','oil','goods'],RES_INFO:{food:['Food'],timber:['Timber'],iron:['Iron'],oil:['Oil'],goods:['Goods']},
-    BUILDINGS:{factory:{n:'Factory',c:'prod',d:'Goods +6 a day.',cost:{timber:15,iron:6},h:4,res:{goods:[0,6]},up:{oil:1}},farm:{n:'Farm Estates',cost:{timber:10,goods:8},h:2,res:{food:[0.6,2]}}},
+    BUILDINGS:{factory:{n:'Factory',c:'prod',d:'Goods +6 a day.',cost:{timber:15,iron:6},h:4,res:{goods:[0,6]},up:{oil:1}},farm:{n:'Farm Estates',cost:{timber:10,goods:8},h:2,res:{food:[0.6,2]}},
+      market:{n:'Market Hall',c:'soc',d:'Your economy +3% and one more trade deal slot.',cost:{timber:12,goods:12},h:3,prosper:0.03},
+      sawmill:{n:'Sawmill',c:'prod',d:'Timber from the land around the city doubles, and 2 more a day.',cost:{food:12,goods:8},h:2,res:{timber:[1,2]}}},cap1:s=>s?s[0].toUpperCase()+s.slice(1):s,
     bCost:(n,k)=>({...ctx.BUILDINGS[k].cost}),bHours:(n,k)=>ctx.BUILDINGS[k].h,cxBuildK:()=>1,cabFx:()=>({cost:1,build:1}),
     clamp:(v,a,b)=>Math.max(a,Math.min(b,v)),c3CleanName:s=>s,CX_TRAITS:{},ldrOf:()=>[],ldrWork:()=>[],esc:s=>String(s),
     list:a=>a.length<2?a.join(''):a.slice(0,-1).join(', ')+' and '+a[a.length-1],
@@ -32,7 +34,7 @@ function load(){
     line('const resName='),line('const fmtAmt='),
     cut('/* the five upgrade blocks','const CX_WALL='),
     cut('/* ug: upgrade blocks filled','function cxWallLv('),
-    line('function paidClean('),line('function costText('),line('function cxUpList('),line('function cxUpQuote('),
+    line('function paidClean('),line('function costText('),line('function cxUpList('),line('function cxUpQuote('),line('function mktSlotsOf('),
     cut('/* building upgrades: per city','const aGifts='),
     cut("achDef('land','land-cxlv2'","achDef('law','law-1500'"),
     cut('/* ── what a building gives in one city','function bldRow('),
@@ -172,9 +174,38 @@ test('the Cities page offers the retool at gold, and What’s next, Help and the
   assert.match(cut('function tutComing(','if(!it.length)return'),/tierReady\(n\)/);
   assert.match(source,/<p>\$\{tierHelp\(\)\}<\/p>/);
   const h=G.tierHelp();
-  assert.match(h,/A Factory with all five can then be retooled to tier II, Industrial Works, for 180 timber, 80 iron, 40 oil, 30 goods and 24 hours’ work/);
-  assert.match(h,/an Assembly Plant \(12 goods a day for a flat 2 oil\)/);assert.match(h,/a Steelworks/);assert.match(h,/a Clean Works/);
+  assert.match(h,/A Factory’s tier II is Industrial Works, for 180 timber, 80 iron, 40 oil, 30 goods and 24 hours’ work, in one of three lines: an Assembly Plant \(12 goods a day for a flat 2 oil\), a Steelworks \([^)]*\), or a Clean Works/);
+  assert.match(h,/A Market Hall’s tier II is Grand Bazaar, for 150 timber, 30 iron, 150 goods and 24 hours’ work, in one of two lines: a Covered Market \([^)]*\) or a Trading House \(/);
+  assert.match(h,/A Sawmill’s tier II is Timber Works, for 120 food, 40 iron, 100 goods and 24 hours’ work, in one of three lines: a Lumber Yard \([^)]*\), a Paper Mill \([^)]*\), or a Charcoal Kiln \(/);
   assert.match(h,/each costing twice as much and taking half as long again/);
   assert.match(source,/if\(e\.tu&&e\.tu\.d>now\)out\.push\(\{t:'tier'/,'the income forecast lists a retool under way');
   assert.match(source,/else if\(w\.t==='tier'\)\{o\.tr=w\.l;o\.ln=w\.ln;delete o\.tu;delete o\.ug;delete o\.uu;\}/);
+});
+
+/* 2026-11-23: the Market Hall (Grand Bazaar, two lines) and the Sawmill (Timber Works, three) */
+test('the Market Hall and the Sawmill have tier II too, each starting at what gold tier I gives',()=>{
+  const M=G.BTIER.market[2],W=G.BTIER.sawmill[2],gold=G.CX_LV[5];
+  assert.equal(M.n,'Grand Bazaar');deq(Object.keys(M.lines),['covered','trading']);
+  assert.equal(M.lines.covered.prosper,Math.round(G.BUILDINGS.market.prosper*gold*100)/100,'a Covered Market starts at a gold Market Hall’s economy');
+  assert.ok(M.lines.trading.prosper<M.lines.covered.prosper&&M.lines.trading.slots===2,'a Trading House: less economy, two trade deal slots');
+  deq(M.cost,{timber:150,goods:150,iron:30});
+  assert.equal(W.n,'Timber Works');deq(Object.keys(W.lines),['lumber','paper','charcoal']);
+  deq(W.lines.lumber.res.timber,G.BUILDINGS.sawmill.res.timber.map(v=>v*gold),'a Lumber Yard starts at a gold Sawmill');
+  for(const ln of ['paper','charcoal']){const t=W.lines[ln].res.timber;assert.ok(t[0]<W.lines.lumber.res.timber[0]&&t[1]<W.lines.lumber.res.timber[1],ln+' gives up some timber');}
+  deq(W.lines.paper.res.goods,[0,3]);deq(W.lines.charcoal.res.iron,[0,2]);assert.equal(W.lines.charcoal.mood,-2,'the kilns’ smoke');
+  for(const T of [M,W]){assert.equal(T.ug,2);assert.equal(T.uh,1.5);assert.equal(T.h,24);
+    for(const L of Object.values(T.lines)){assert.ok(L.n&&L.s&&L.d,L.n);assert.match(L.d,/\.$/);}
+    assert.ok(Object.values(T.cost).every(v=>v<=400),'the retool fits a stockpile of 400');}
+});
+test('a line’s economy and trade deal slots carry through to the building',()=>{
+  const c=G.bEff('market',2,'covered'),t=G.bEff('market',2,'trading');
+  deq([c.n,c.prosper,c.slots,c.base],['Covered Market',0.06,0,'Market Hall']);
+  deq([t.n,t.prosper,t.slots],['Trading House',0.04,2]);
+  assert.equal(G.bEff('factory',2,'asm').prosper,0,'a Factory’s lines give no economy');
+  const p=G.bEff('sawmill',2,'paper');deq([p.res,p.mood],[{timber:[1.5,3],goods:[0,3]},undefined]);
+  assert.equal(G.mktSlotsOf({tr:{}}),1,'a Market Hall at tier I: one slot');
+  assert.equal(G.mktSlotsOf({tr:{market:{t:2,ln:'covered'}}}),1);
+  assert.equal(G.mktSlotsOf({tr:{market:{t:2,ln:'trading'}}}),2,'a Trading House: two');
+  assert.match(source,/t\+\(c\.done\|\|\[\]\)\.filter\(k=>k==='market'\)\.length\*mktSlotsOf\(c\)/,'every Market Hall counts its slots');
+  assert.match(cut('function cityState(T){','function cityDefMult('),/if\(B\.prosper\)a\.prosper\+=B\.prosper\*lm;/,'the economy reads the line’s, times its new blocks');
 });
