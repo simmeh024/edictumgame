@@ -136,6 +136,8 @@ test('the browser tests can turn the desk off, leaving presence and the first bu
   const D=desk({window:{EDICTUM_NO_DESK:true}});let n=nation();
   const [m,old]=next(n,x=>{x.tly.iss=9;x.tly.dm=4;});const notes=D.save(m,old);
   eq(m.dd,undefined);assert.equal(m.stock.timber,20);assert.equal(m.stk.n,1);assert.ok(notes.every(t=>!/Desk task/.test(t)));
+  // nor is a task new to the nation drawn or paid: drawn by the seed, it threw out a suite's counts (fx-e2e, 2026-11-23)
+  eq(m.ddn,undefined);eq(m.ddnc,undefined);assert.ok(notes.every(t=>!/Something new/.test(t)));
 });
 
 test('saved records keep only well-formed desks, counts and builds',()=>{
@@ -494,4 +496,22 @@ test('something new each week: a kind the nation has never done, drawn by seed a
     assert.ok(notes.some(t=>/^Something new, done: .*\+25 of every resource and \+2 land credits\./.test(t)),notes.join(' | '));assert.equal(D.earned(a)-before,2);
     [a,old]=next(a,hit);D.save(a,old);assert.equal(a.ddnc,1,'once');}
   eq(D.reload({ddn:{w:W,k:'nap',c:0,p:0}}).ddn,undefined);eq(D.reload({ddn:{w:W,k:'',c:0,p:0}}).ddn,{w:W,k:'',c:0,p:0},'a week with nothing new to offer is kept');
+});
+
+// ── the desk's This week section: the region's goal, and two alliances or more folded into one line ──
+test('This week: two alliances or more fold into one line, which opens to show each goal',()=>{
+  const goals={rg:{k:'iss',g:100,c:20,mine:3,done:false},a1:{k:'iss',g:10,c:10,mine:1,done:true},a2:{k:'exp',g:9,c:3,mine:0,done:false},a3:{k:'claim',g:39,c:0,mine:0,done:false},a4:{k:'claim',g:12,c:2,mine:0,done:false}};
+  const mk=(allies,ddAl)=>{const ctx=vm.createContext({S:{ddAl,mode:'world'},esc:x=>String(x),fmtWait:()=>'6 days',clamp:(v,a,b)=>Math.max(a,Math.min(b,v)),WK_GIFT:20,WK_CR:2,
+      WK_T:{iss:g=>`answer ${g} edicts`,exp:g=>`send ${g} expeditions`,claim:g=>`claim ${g} hexes`},wkKey:()=>'2026-11-23',weekStart:()=>0,
+      wkRegion:()=>({id:'reg',name:'Meridian Reach',recs:[{},{}]}),wkAllies:()=>allies.map(id=>({id,name:'Alliance '+id,recs:[]})),wkGoal:(sc,G)=>goals[sc==='rg'?'rg':G.id]});
+    vm.runInContext(fn('wkRow')+'\n'+fn('wkWeek')+'\nthis.f=wkWeek;',ctx);return ctx.f({name:'Deskland',wgd:{w:'2026-11-23',a:[],r:0}},1000,false);};
+  const shut=mk(['a1','a2','a3','a4'],false);
+  assert.match(shut.html,/Region · this week/);assert.match(shut.html,/dd-wk-sum/);assert.match(shut.html,/4 alliance goals · 1 reached/);
+  assert.match(shut.html,/1 share waiting for you/);assert.match(shut.html,/aria-expanded="false"[^>]*>Show</);
+  assert.equal((shut.html.match(/Alliance · this week/g)||[]).length,0,'each alliance’s goal waits behind the line');
+  assert.equal(shut.left,5,'the region’s goal and four alliances’ still to be paid');
+  const open=mk(['a1','a2','a3','a4'],true);
+  assert.equal((open.html.match(/Alliance · this week/g)||[]).length,4);assert.match(open.html,/aria-expanded="true"[^>]*>Hide</);
+  const one=mk(['a2'],false);
+  assert.doesNotMatch(one.html,/dd-wk-sum/,'a single alliance has no line of its own');assert.equal((one.html.match(/Alliance · this week/g)||[]).length,1);
 });

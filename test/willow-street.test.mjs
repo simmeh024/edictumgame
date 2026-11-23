@@ -13,11 +13,13 @@ const fn=name=>{const i=src.indexOf('function '+name+'('),j=src.indexOf('\n}\n',
 const literal=name=>{const m=src.match(new RegExp('const '+name+'\\s*=\\s*([^;]+);'));assert.ok(m,name);return m[1];};
 /* up to the next section, wherever later edicts or other sections are added after it */
 const SECTION=cut('/* ───────── Letters from Willow Street: one citizen','\n/* ───────── ');
+/* Act II's letters are numbered at the end of the script, after every edict that existed when they were written */
+const A2=cut('/* ───────── Letters from Willow Street, Act II: numbered after every edict before them','\n\n');
 const STAT_KEYS=JSON.parse(literal('STAT_KEYS').replace(/'/g,'"'));
 const BUDGET_KEYS=[...src.slice(src.indexOf('const BUDGET = ['),src.indexOf('];',src.indexOf('const BUDGET = ['))).matchAll(/\['([a-z]+)','/g)].map(m=>m[1]);
 const POLICY_KEYS=new Set([...src.slice(src.indexOf('const POLICIES = {'),src.indexOf('const CATS = [')).matchAll(/^\s*([a-zA-Z]+):\[/gm)].map(m=>m[1]));
 const PRETITLES=JSON.parse(literal('PRETITLES').replace(/'/g,'"'));
-const FAMS=['rep','crn','imp','sul','the','peo','col','bor'],OLD=40,MIN=60000;
+const FAMS=['rep','crn','imp','sul','the','peo','col','bor'],OLD=40,MIN=60000,N=16,ACT1=8;
 
 /* the section in a small game: real clock, real follow-ups, real holidays, real veto; answer() as the game's does it */
 function game(){
@@ -57,8 +59,9 @@ function game(){
     ${cut('function safeReq(is,n)','/* issues other players sent')}
     ${fn('fdFam')}
     ${SECTION}
+    ${A2}
     this.G={S,ISSUES,ISSUE_BY_ID,NORM_HOOKS,COMMIT_HOOKS,UNLOCK_SOURCES,toasts,syncInbox,answer,dismiss,commit,fill,awayStart:null,
-      WS_STORY,WS_AT,WS_IDS,WS_FACTS,WS_FAMS,WS_POL,WS_KEEP,wsCond,wsDsl,wsApply,wsVariant,wsLetter,wsOutcome,wsCtx,wsNorm,wsDue,wsLand,wsCtxNorm,wsOf,fdFam,setRuns:r=>{VIP_RUNS=r;}};`,ctx);
+      WS_STORY,WS_AT,WS_ACT1,WS_N,WS_IDS,WS_FACTS,WS_FAMS,WS_POL,WS_KEEP,WS_RW,wsCond,wsDsl,wsApply,wsVariant,wsLetter,wsOutcome,wsCtx,wsNorm,wsDue,wsLand,wsLandAt,wsMask,wsAnsN,wsCtxNorm,wsRealNorm,wsOf,fdFam,setRuns:r=>{VIP_RUNS=r;}};`,ctx);
   return ctx.G;
 }
 const G0=game();
@@ -79,27 +82,31 @@ function enact(G,o=0){let n=G.S.nation;for(let s=1;!n.inbox.some(x=>!/^ws-/.test
   G.answer(n.inbox.find(x=>!/^ws-/.test(x.id)&&x.id!=='chain-b').id,o);}
 const render=(G,c)=>{const L=G.wsLetter(c);return [L.to,...L.paras,L.sign].join('\n');};
 
-test('the eight letters are edicts of their own: numbered after every other edict, never drawn at random',()=>{
+test('the sixteen letters are edicts of their own: numbered after every other edict, never drawn at random',()=>{
   const G=game();
-  assert.deepEqual([...G.WS_IDS],['ws-1','ws-2','ws-3','ws-4','ws-5','ws-6','ws-7','ws-8']);
-  assert.deepEqual([...G.WS_AT],[5,10,25,50,100,250,500,1000]);
+  assert.deepEqual([...G.WS_IDS],Array.from({length:N},(x,k)=>'ws-'+(k+1)));
+  assert.deepEqual([...G.WS_AT],[5,10,25,50,100,250,500,550,600,650,700,750,800,850,900,950]);
+  assert.equal(G.WS_ACT1,ACT1);
   G.WS_IDS.forEach((id,k)=>{const is=G.ISSUE_BY_ID[id];assert.equal(is.no,OLD+2+k,'numbered after the others');assert.equal(is.fo,1,'only ever delivered by the story');assert.equal(is.o.length,3);});
   assert.equal(G.ISSUES.slice(0,OLD+1).every((x,i)=>x.no===i+1),true,'older numbers unchanged');
-  /* in the real game: after the last batch of edicts, before boot, and out of the random pool */
+  /* in the real game: Act I after the batch of edicts of its day, Act II after every edict there was when it was written
+     (test/edict-order.txt pins every number), and both out of the random pool */
   const ev=src.indexOf('for(const is of EV_ISSUES){'),ws=src.indexOf('/* ───────── Letters from Willow Street: one citizen');
   assert.ok(ev>0&&ws>ev,'the letters come after the last batch of edicts, so no number moves');
+  const a2=src.indexOf("\nif(typeof wsPush==='function')wsPush(WS_ACT1,WS_N);"),last=src.indexOf('for(const D of RS_DILEMMAS)');
+  assert.ok(last>0&&a2>last,'letters IX to XVI are numbered after the research dilemmas, the last edicts before them');
   assert.ok(/const ISSUES_RANDOM=ISSUES\.filter\(i=>!i\.fo\)/.test(src),'fo keeps an edict out of the random pool');
 });
 
-test('all 64 versions are complete: three answers each, known effects, facts, placeholders and conditions',()=>{
-  const G=game(),S=G.WS_STORY,PH=new Set(['N','D','C','Cs','L','CAP','A','As','SPORT','DISH','LANG','FIN','DEF','FOR','INT','WRK','HEA','CUL']);
+test('all 128 versions are complete: three answers each, known effects, facts, placeholders and conditions',()=>{
+  const G=game(),S=G.WS_STORY,PH=new Set(['N','D','C','Cs','L','CAP','A','As','SPORT','DISH','LANG','FIN','DEF','FOR','INT','WRK','HEA','CUL','CITY2','NEIGHBOUR','ALLIANCE']);
   assert.deepEqual(Object.keys(S.fam).sort(),[...FAMS].sort(),'every family has its arc');
-  const probe={b:'111',x:{},p:[],h:[],hf:[],f:'rep',g:''},textOk=(t,w)=>{
+  const probe={b:'111',x:{},p:[],h:[],hf:[],f:'rep',g:'',r:{}},textOk=(t,w)=>{
     for(const m of String(t).matchAll(/\[\[([^|\][]+)\|/g))assert.doesNotThrow(()=>G.wsCond(m[1],probe),w+': '+m[1]);
     for(const m of String(t).matchAll(/\{([^}]*)\}/g))assert.ok(PH.has(m[1])||(m[1]==='WSOLD'&&/trans/.test(w)),w+': {'+m[1]+'}');
     assert.equal((String(t).match(/\[\[/g)||[]).length,(String(t).match(/\]\]/g)||[]).length,w+': balanced');};
   let versions=0;const titles={};
-  for(const f of FAMS){const F=S.fam[f];assert.equal(F.ch.length,8,f);textOk(F.to,f);
+  for(const f of FAMS){const F=S.fam[f];assert.equal(F.ch.length,N,f);textOk(F.to,f);
     F.ch.forEach((ch,k)=>{const vs=Array.isArray(ch)?ch:[ch];if(Array.isArray(ch))assert.ok(!ch[ch.length-1].if,f+' '+k+' ends with an unconditional version');
       for(const v of vs){versions++;const w=f+' letter '+(k+1);titles[f+k]=titles[f+k]||v.t;textOk(v.q,w);textOk(v.t,w);
         assert.equal(v.o.length,3,w);
@@ -115,28 +122,36 @@ test('all 64 versions are complete: three answers each, known effects, facts, pl
             const m=/^(\w+)(?:<([\w/-]+)|@(\w+):([\w/-]+))?$/.exec(String(val));assert.ok(G.WS_FACTS[key]&&m&&G.WS_FACTS[key].includes(m[1]),ow+' fact '+key+'='+val);}
         });}
     });
-    for(const [k,key] of [[0,'lp'],[2,'bk'],[6,'ad']])for(const v of [].concat(F.ch[k]))v.o.forEach((o,i)=>assert.ok(o.s&&key in o.s,`${f} letter ${k+1} option ${i+1} records ${key}`));
+    /* every answer records what its letter decides: Act I's lamp, bakery and Ada; each Act II letter its own fact */
+    for(const [k,key] of [[0,'lp'],[2,'bk'],[6,'ad'],[8,'pb'],[9,'nl'],[10,'bw'],[11,'tb'],[12,'ac'],[13,'fl'],[14,'lw']])for(const v of [].concat(F.ch[k]))v.o.forEach((o,i)=>assert.ok(o.s&&key in o.s,`${f} letter ${k+1} option ${i+1} records ${key}`));
+    /* the names of the player's own game appear only where the letter checked that they exist */
+    for(const v of F.ch.slice(ACT1).flat())for(const t of [v.q,v.t,...v.o.flatMap(o=>[o.t,o.fx,o.r])]){
+      const bare=String(t).replace(/\[\[([^|\][]+)\|([^|\][]*)(?:\|([^|\][]*))?\]\]/g,'');assert.ok(!/\{(CITY2|NEIGHBOUR|ALLIANCE)\}/.test(bare),f+': a real name outside a condition');}
   }
-  assert.ok(versions>=64,'at least one version of each of the 64 letters');
-  for(const k of [0,1,2,3,4,5,6,7])assert.equal(new Set(FAMS.map(f=>titles[f+k])).size,8,'each family titles letter '+(k+1)+' its own way');
+  assert.ok(versions>=128,'at least one version of each of the 128 letters');
+  for(let k=0;k<ACT1;k++)assert.equal(new Set(FAMS.map(f=>titles[f+k])).size,8,'each family titles letter '+(k+1)+' its own way');
   assert.equal(titles.rep0,'A Light on Willow Street');assert.equal(titles.crn3,'By Appointment');assert.equal(titles.peo2,'The People’s Bakery');assert.equal(titles.bor7,'Any Other Business');
   /* the shared parts */
-  assert.equal(S.band.length,8);for(const b of S.band)for(const ax of ['c','e','p']){assert.equal(b[ax].length,3);b[ax].forEach(t=>textOk(t,'band'));}
+  assert.equal(S.band.length,N);for(const b of S.band)for(const ax of ['c','e','p']){assert.equal(b[ax].length,3);b[ax].forEach(t=>textOk(t,'band'));}
   for(const f of FAMS){assert.ok(S.trans[f].includes('{WSOLD}'),f+' transition names the old institution');assert.ok(S.house[f]);}
-  for(const [p,k,t] of S.pol){assert.ok(G.WS_POL.includes(p)&&POLICY_KEYS.has(p)&&k>=0&&k<8,p);textOk(t,'law '+p);}
-  assert.equal(S.dis.length,8);assert.equal(S.tail.length,3);
+  assert.ok(S.transAda.includes('{WSOLD}'));textOk(S.transAda,'transAda');
+  for(const [p,k,t] of S.pol){assert.ok(G.WS_POL.includes(p)&&POLICY_KEYS.has(p)&&k>=0&&k<N,p);textOk(t,'law '+p);}
+  assert.equal(S.dis.length,N);assert.equal(S.tail.length,3);assert.equal(S.tailAda.length,3);assert.equal(S.afterAda.length,2);
+  for(const d of S.dis.slice(ACT1))for(const [key,val] of Object.entries(d))assert.ok(G.WS_FACTS[key].includes(val),'unanswered '+key);
 });
 
 test('every family, all 27 freedom combinations and many remembered facts render as finished prose',()=>{
   const G=game(),R=(()=>{let a=11;return()=>{a=(a*1103515245+12345)%2147483648;return a/2147483648;};})(),keys=Object.keys(G.WS_FACTS);
-  for(const f of FAMS)for(let k=0;k<8;k++){
+  for(const f of FAMS)for(let k=0;k<N;k++){
     const seen=new Set();
     for(let b=0;b<27;b++){
       const bs=''+Math.floor(b/9)+Math.floor(b/3)%3+b%3,x={};for(const key of keys)if(R()<0.5)x[key]=G.WS_FACTS[key][Math.floor(R()*G.WS_FACTS[key].length)];x.tr=Math.floor(R()*7)-3;
-      const c={v:1,k,f,b:bs,p:b%3?[]:[...G.WS_POL],x,h:Array.from({length:k},(_,i)=>(b+i)%4-1),hf:Array.from({length:k},(_,i)=>FAMS[(b+i)%8]),g:b%2?FAMS[b%8]:''};
+      /* the player's own game, for Act II: some names and states, or none */
+      const r=G.wsRealNorm(R()<0.6?{city:'Lower Brindle',nb:'Vasconia',al:'The Amber League',war:R()<0.5?1:0,hunger:R()<0.3?1:0,plenty:R()<0.3?1:0,sp:R()<0.5?1:0}:{});
+      const c={v:1,k,f,b:bs,p:b%3?[]:[...G.WS_POL],x,h:Array.from({length:k},(_,i)=>(b+i)%4-1),hf:Array.from({length:k},(_,i)=>FAMS[(b+i)%8]),g:b%2?FAMS[b%8]:'',r};
       const t=render(G,c);seen.add(t);
       for(const s of [t,...G.wsVariant(c).o.flatMap((o,i)=>[G.wsDsl(o.t,c),G.wsDsl(o.fx,c),G.wsOutcome(c,i)])]){
-        assert.ok(!/\[\[|\]\]|\||\{WS|undefined|null/.test(s),`${f} ${k+1} ${bs}: ${s.slice(0,120)}`);
+        assert.ok(!/\[\[|\]\]|\||\{WS|\{CITY2|\{NEIGHBOUR|\{ALLIANCE|undefined|null/.test(s),`${f} ${k+1} ${bs}: ${s.slice(0,120)}`);
         assert.ok(!/ {2}|\s[,.;]/.test(s.replace(/\n/g,'')),`${f} ${k+1} spacing: ${s.slice(0,120)}`);}
       assert.ok(G.wsVariant(c).o.every((o,i)=>/[.!?”]$/.test(G.wsOutcome(c,i))),`${f} ${k+1} outcomes end with a full stop`);
     }
@@ -157,7 +172,7 @@ test('civil, economic and political freedom each change the letter, whatever the
 
 test('a letter arrives exactly at its milestone, never before, and only through an arrival slot',()=>{
   const G=game();
-  for(let k=0;k<8;k++){
+  for(let k=0;k<N;k++){
     const base=nation(G);base.ws.c=Array.from({length:k},()=>({o:0,f:'rep',b:'111',t:1,x:'done',n:'T'}));
     base.ws.e=G.WS_AT[k]-1;assert.equal(wsOn(after(G,base,3)).length,0,`letter ${k+1} waits at ${G.WS_AT[k]-1}`);
     base.ws.e=G.WS_AT[k];
@@ -165,8 +180,11 @@ test('a letter arrives exactly at its milestone, never before, and only through 
     const d=wsOn(after(G,base,1));assert.equal(d.length,1);assert.equal(d[0].id,'ws-'+(k+1),`letter ${k+1} at ${G.WS_AT[k]}`);
     assert.equal(d[0].ws.k,k);
   }
-  const done=nation(G);done.ws.c=Array.from({length:8},()=>({o:0,f:'rep',b:'111',t:1,x:'',n:''}));done.ws.e=5000;done.ws.d=1;
+  const done=nation(G);done.ws.c=Array.from({length:N},()=>({o:0,f:'rep',b:'111',t:1,x:'',n:''}));done.ws.e=5000;done.ws.d=1;
   assert.equal(wsOn(after(G,done,5)).length,0,'a finished story sends nothing more');
+  /* letter VIII now comes at 550, not 1,000 */
+  const seven=nation(G);seven.ws.c=Array.from({length:7},()=>({o:0,f:'rep',b:'111',t:1,x:'',n:''}));seven.ws.e=550;
+  assert.deepEqual(wsOn(after(G,seven,1)).map(x=>x.id),['ws-8']);
 });
 
 test('enacted edicts count once each; vetoes, letters and re-saves do not; the count outlives the capped history',()=>{
@@ -249,7 +267,7 @@ test('random lives: every answer and veto, in any order of governments, leads to
   const G=game(),R=(()=>{let a=3;return()=>{a=(a*1103515245+12345)%2147483648;return a/2147483648;};})(),pts=PRETITLES;
   for(let life=0;life<120;life++){
     let n=nation(G,{pretitle:pts[Math.floor(R()*pts.length)]});n.ws.e=1000;G.S.nation=n;let lastText='';
-    for(let k=0;k<8;k++){
+    for(let k=0;k<N;k++){
       const v=after(G,G.S.nation,1),ent=wsOn(v)[0];assert.equal(ent.id,'ws-'+(k+1));
       const t=G.fill('{WSQ}',v,ent);assert.ok(t.length>150&&!/\[\[|\]\]|\{/.test(t),t.slice(0,100));assert.notEqual(t,lastText);lastText=t;
       G.S.nation=v;const o=Math.floor(R()*4)-1;if(o<0)G.dismiss(ent.id);else G.answer(ent.id,o);
@@ -258,8 +276,10 @@ test('random lives: every answer and veto, in any order of governments, leads to
       /* between letters, a new government and new freedoms, sometimes */
       const m=JSON.parse(JSON.stringify(G.S.nation));if(R()<0.4)m.pretitle=pts[Math.floor(R()*pts.length)];for(const s of ['civil','econ','pol'])m.s[s]=Math.floor(R()*100);G.S.nation=m;
     }
-    const w=G.S.nation.ws;assert.equal(w.d,1,'complete after eight');assert.equal(wsOn(after(G,G.S.nation,3)).length,0,'and nothing more arrives');
-    assert.equal(G.wsLand(G.S.nation),5*w.c.filter(r=>r.o>=0).length);
+    const w=G.S.nation.ws;assert.equal(w.d,1,'complete after sixteen');assert.equal(w.n2,1,'told of Act II when it began');assert.equal(wsOn(after(G,G.S.nation,3)).length,0,'and nothing more arrives');
+    assert.equal(G.wsLand(G.S.nation),[...w.c].reduce((s,r,k)=>s+(r.o>=0?(k<ACT1?5:10):0),0),'5 land credits a letter in Act I, 10 in Act II');
+    assert.equal(G.S.nation.wsm,[...w.c].reduce((m,r,k)=>r.o>=0?m+2**k:m,0),'the shared bits say which letters were answered');
+    assert.equal(G.wsAnsN(G.S.nation),w.c.filter(r=>r.o>=0).length);
     const keep=G.UNLOCK_SOURCES[0].earned(G.S.nation);assert.deepEqual([...keep],[...w.c].map((r,k)=>r.o>=0?G.WS_KEEP[k]:'').filter(Boolean),'a keepsake for each answered letter');
   }
 });
@@ -297,8 +317,12 @@ test('stored stories are checked: legacy nations, damage, repeated loading, comp
   assert.deepEqual([...n.ws.c].map(r=>r.o),[-2,1]);assert.equal(n.ws.m,'r');assert.equal(n.ws.e,68,'both recovered letters are taken off the count');
   assert.deepEqual(wsOn(after(G,n,2)).map(x=>x.id),['ws-3']);
   /* a completed story stays complete */
-  n=nation(G,{ws:{v:1,e:1500,c:Array.from({length:8},(x,i)=>({o:i%2?-1:0,f:'bor',b:'012',t:i+1,x:'r'+i,n:'L'+i})),x:{st:'kept'},d:1}});
-  assert.equal(n.ws.d,1);assert.equal(n.ws.c.length,8);assert.equal(normalize(G,JSON.parse(JSON.stringify(n))).ws.d,1);
+  n=nation(G,{ws:{v:1,e:1500,c:Array.from({length:N},(x,i)=>({o:i%2?-1:0,f:'bor',b:'012',t:i+1,x:'r'+i,n:'L'+i})),x:{st:'kept'},d:1,n2:1}});
+  assert.equal(n.ws.d,1);assert.equal(n.ws.c.length,N);assert.equal(normalize(G,JSON.parse(JSON.stringify(n))).ws.d,1);
+  /* a story finished at eight letters, before Act II: it goes on, letter IX next */
+  n=nation(G,{ws:{v:1,e:1500,c:Array.from({length:ACT1},(x,i)=>({o:0,f:'rep',b:'111',t:i+1,x:'r'+i,n:'L'+i})),x:{st:'kept'},d:1}});
+  assert.equal(n.ws.d,undefined,'eight letters are no longer the end');assert.equal(n.ws.n2,undefined,'not yet told');
+  assert.deepEqual(wsOn(after(G,n,2)).map(x=>x.id),['ws-9']);
   /* a stale copy that resolves a letter already resolved changes nothing */
   const G2=game();let m=nation(G2);m.ws.e=10;G2.S.nation=after(G2,m,1);G2.answer('ws-1',0);
   const st=JSON.parse(JSON.stringify(G2.S.nation));st.answered.push({id:'ws-1',o:2,t:Date.now()+5,fx:'stale'});G2.commit(st);
@@ -311,13 +335,54 @@ test('land credits and keepsakes come once per answered letter, and other player
   G.commit(JSON.parse(JSON.stringify(G.S.nation)));assert.equal(G.S.nation.wsl,5,'saving again pays nothing more');
   /* another player's view of this nation has no private half: the shared count is trusted within its bounds */
   const pub=JSON.parse(JSON.stringify(G.S.nation));delete pub.ws;pub.inbox=[];
-  assert.equal(normalize(G,pub).wsl,5);pub.wsl=45;assert.equal(normalize(G,pub).wsl,undefined,'an impossible amount is dropped');
+  assert.equal(normalize(G,pub).wsl,5);assert.equal(normalize(G,pub).wsm,1,'and which letter it was');
+  for(const bad of [125,47,-5,'5'])assert.equal(normalize(G,{...pub,wsl:bad}).wsl,undefined,'an impossible amount is dropped: '+bad);
+  assert.equal(normalize(G,{...pub,wsl:120}).wsl,120,'all sixteen: 8 × 5 + 8 × 10');
+  for(const bad of [2**16,-1,1.5,'3'])assert.equal(normalize(G,{...pub,wsm:bad}).wsm,undefined,'impossible bits are dropped: '+bad);
+  /* letters answered, as achievements count them on any nation: the bits, or the land of a record from before Act II */
+  assert.equal(G.wsAnsN({wsm:0b1011}),3);assert.equal(G.wsAnsN({wsl:35}),7);assert.equal(G.wsAnsN({wsl:60}),8);assert.equal(G.wsAnsN({}),0);
   const opts=G.ISSUE_BY_ID['ws-1'].o;assert.ok(opts.every(o=>!Object.keys(o.e).length),'outside a decision the letter has no effects of its own');
+});
+
+test('Act II: ten land credits a letter, the letters of the nation’s own game, and Ada’s own voice at the end',()=>{
+  const G=game();let n=nation(G);n.ws.c=Array.from({length:ACT1},(x,i)=>({o:0,f:'rep',b:'111',t:i+1,x:'r',n:'L'}));n.ws.n2=1;n.ws.e=600;
+  n=normalize(G,n);G.S.nation=after(G,n,1);const ent=wsOn(G.S.nation)[0];assert.equal(ent.id,'ws-9');
+  assert.deepEqual({...ent.ws.r},{},'a game that cannot be read leaves the names out, and the letter keeps to its own words');
+  G.answer('ws-9',0);assert.equal(G.S.nation.wsl,40+10);assert.equal(G.S.nation.ws.x.pb!==undefined,true,'the answer records the post');
+  /* the frozen names are checked like everything else in a letter: bounded, no markup, known flags only */
+  const at=Date.now(),raw={v:1,k:9,f:'rep',b:'111',h:Array(9).fill(0),hf:Array(9).fill('rep'),x:{},p:[],g:'rep',
+    r:{city:'Port {N} [[x|y]]',nb:'V'.repeat(80),al:7,war:1,hunger:1,plenty:1,sp:true,bogus:1}};
+  const m=normalize(G,{...G.S.nation,ws:{...G.S.nation.ws,e:650},inbox:[{id:'ws-10',at,ws:raw}]}),e2=m.inbox.find(x=>x.id==='ws-10');
+  assert.ok(e2,'the letter stays on the desk');assert.deepEqual({...e2.ws.r},{city:'Port N xy',nb:'V'.repeat(40),war:1,hunger:1});
+  const c={...e2.ws,r:{city:'Lower Brindle',nb:'Vasconia',al:'The Amber League'}};
+  assert.equal(G.wsDsl('[[city|{CITY2}|elsewhere]], [[nb|{NEIGHBOUR}]] and [[al|{ALLIANCE}]]',c),'Lower Brindle, Vasconia and The Amber League');
+  assert.equal(G.wsDsl('[[city|{CITY2}|elsewhere]][[war| at war]][[!sp| no agency]]',{...c,r:{}}),'elsewhere no agency');
+  /* the sixteenth letter is Ada's: after an unanswered letter and a change of government she speaks of her mother */
+  const ada={v:1,k:N-1,f:'crn',b:'111',p:[],x:{tr:-1},h:[...Array(N-2).fill(0),-1],hf:Array(N-1).fill('rep'),g:'rep',r:{}};
+  const t=render(G,ada);assert.match(t,/Mum’s letters went to the Senate/);assert.match(t,/Mum’s last letter received no reply/);assert.doesNotMatch(t,/My last letter received no reply/);
+  G.S.nation=normalize(G,{...G.S.nation,ws:{...G.S.nation.ws,c:Array.from({length:N-1},(x,i)=>({o:0,f:'rep',b:'111',t:i+1,x:'r',n:'L'})),e:950},inbox:[]});
+  G.S.nation=after(G,G.S.nation,1);assert.deepEqual(wsOn(G.S.nation).map(x=>x.id),['ws-16']);G.dismiss('ws-16');
+  assert.match(G.toasts.pop(),/Ada Bell will not hear back/);assert.equal(G.S.nation.ws.d,1);
+});
+
+test('Act II is announced once: when letter VIII is resolved, or to a story that finished Act I before it existed',()=>{
+  const G=game(),hook=G.COMMIT_HOOKS[0],now=Date.now();
+  /* finished before: the next commit tells the player once, and the flag is saved */
+  let n=nation(G,{ws:{v:1,e:700,c:Array.from({length:ACT1},(x,i)=>({o:0,f:'rep',b:'111',t:i+1,x:'r',n:'L'})),x:{},d:1}});
+  let out=hook(n,JSON.parse(JSON.stringify(n)),now);assert.equal(out.length,1);assert.match(out[0],/Mara Bell has more to say/);assert.match(out[0],/600 enacted edicts/);
+  assert.equal(n.ws.n2,1);assert.equal(normalize(G,JSON.parse(JSON.stringify(n))).ws.n2,1,'kept through a save');
+  assert.deepEqual([...hook(n,JSON.parse(JSON.stringify(n)),now)],[],'and never again');
+  /* in the story as it is now: answering letter VIII says so itself, and the bridge note is not added */
+  n=nation(G);n.ws.c=Array.from({length:ACT1-1},(x,i)=>({o:0,f:'rep',b:'111',t:i+1,x:'r',n:'L'}));n.ws.e=550;G.S.nation=after(G,normalize(G,n),1);
+  const old=JSON.parse(JSON.stringify(G.S.nation)),m=JSON.parse(JSON.stringify(old));m.inbox=m.inbox.filter(x=>x.id!=='ws-8');m.answered.push({id:'ws-8',o:1,t:now,fx:'kept'});
+  out=hook(m,old,now);assert.equal(out.length,1);assert.match(out[0],/Act I is complete, with 8 of eight letters answered/);assert.equal(m.ws.n2,1);
+  /* a new nation that has not reached letter VIII hears nothing yet */
+  const fresh=nation(G);assert.deepEqual([...hook(fresh,JSON.parse(JSON.stringify(fresh)),now)],[]);
 });
 
 test('the shared and private halves: the story stays private, its land count is shared',()=>{
   const shim=readFileSync(new URL('../src/shim.js',import.meta.url),'utf8'),keys=shim.match(/\[('asmLocal'[\s\S]*?)\]\.forEach\(function \(k\) \{ NX_KEYS\[k\] = 1; \}\)/)[1];
-  assert.match(keys,/'ws'/);assert.doesNotMatch(keys,/'wsl'/);
+  assert.match(keys,/'ws'/);assert.doesNotMatch(keys,/'wsl'/);assert.doesNotMatch(keys,/'wsm'/);
 });
 
 test('the letters are cached with the other stories, and read the same after extraction',()=>{

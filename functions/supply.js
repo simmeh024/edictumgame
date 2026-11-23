@@ -3,7 +3,7 @@ import { Timestamp } from 'firebase-admin/firestore';
 import { eligibility, refuse, nationJSON } from './eligibility.js';
 /* Settings › Privacy › Who can reach me: a nation that takes none of a kind (rch[k] 'n') is kept to here too */
 const closed = (N, k) => !!(N && N.rch && typeof N.rch === 'object' && N.rch[k] === 'n');
-import { SC_DAY, SC_MAX, SC_MSG, SC_AGE, SC_OLD, SC_KEEP, SC_ID, SC_DOC, SC_SPONSOR, SC_SPONSOR_MS, scDay, scContents, scTotal } from './supply-rules.js';
+import { SC_DAY, SC_MAX, SC_MSG, SC_AGE, SC_OLD, SC_KEEP, SC_ID, SC_DOC, SC_SPONSOR, SC_SPONSOR_MS, SC_PAY, scDay, scContents, scTotal } from './supply-rules.js';
 
 /* Supply Caches between players, written only here (civic ops sc*; functions/supply-rules.js holds the rules).
      supply/{uid}_{id}  {f, fn, to, tn, reg, r, q, m, t, d, x, exp, o}: from f (its nation's name fn) to (tn), in region
@@ -16,11 +16,21 @@ import { SC_DAY, SC_MAX, SC_MSG, SC_AGE, SC_OLD, SC_KEEP, SC_ID, SC_DOC, SC_SPON
    with the request and is kept only here, never in the nation's record, which every nation of the region reads.
    Only a Registered Nation sends caches (a linked sign-in, as eligibility() checks; never a guest), and any nation
    receives them. The two nations read the cache (firestore.rules); the recipient opens it with scOpen, which marks it opened once,
-   and its game pays the contents only when this says it was the first opening. */
+   and its game pays the contents when this says to (pay): at the first opening, and at a later one while the nation's saved
+   record does not list the cache as paid (its private half's sco), for SC_PAY after the opening. Until 23 Nov 2026 only the
+   first opening paid: Zatra's answer to it was lost on a dropping connection, the game asked again, heard "not the first"
+   and paid nothing, so 100 timber and 200 goods from Elarion went nowhere. Another device of the same player that pays it
+   too cannot pay twice: the two saves race (rev), and the loser's opening is replayed onto the winner's record, which lists
+   it (game/edictum.html, rebaseActs and the Supply Caches commit hook). */
 const isUid = v => typeof v === 'string' && /^[\w-]{1,128}$/.test(v) && !v.startsWith('npc-');
 const body = (x, max) => typeof x === 'string' ? x.replace(/\r\n?/g, '\n').replace(/[\u0000-\u0009\u000b-\u001f\u007f]/g, ' ').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim().slice(0, max) : '';
 const nameOf = n => (n && typeof n.name === 'string' && n.name.trim().slice(0, 80)) || 'A nation';
 const regOf = e => e.n.reg || e.saved.get('reg') || '';
+/* the caches the nation's saved record lists as paid (sco, in the private half: src/shim.js NX_KEYS) */
+function paidOf(x) {
+  if (!x || !x.exists) return [];
+  try { const n = JSON.parse(x.get('j') || '{}'); return Array.isArray(n && n.sco) ? n.sco : []; } catch { return []; }
+}
 
 async function scSend(db, who, d) {
   const id = typeof d.id === 'string' && SC_ID.test(d.id) ? d.id : '';
@@ -57,12 +67,15 @@ async function scOpen(db, who, d) {
   const id = typeof d.id === 'string' && SC_DOC.test(d.id) ? d.id : '';
   if (!id) throw new HttpsError('invalid-argument', 'Choose a cache to open.');
   return db.runTransaction(async tx => {
-    await eligibility(tx, who, { linked: false, hidden: true });
+    const e = await eligibility(tx, who, { linked: false, hidden: true });
     const ref = db.doc('supply/' + id), s = await tx.get(ref), now = Date.now();
     if (!s.exists || s.get('to') !== who.uid || (Number(s.get('x')) || 0) < now) refuse('sc_gone', 'That Supply Cache is no longer there.');
     const o = Number(s.get('o')) || 0;
+    /* opened before: paid again only while it is fresh, opened by this nation (not by one dissolved before its founding),
+       and not among the caches its saved record was paid for (the record's age is its document's, never its own founded) */
+    const pay = !o || (now - o <= SC_PAY && o >= e.generation && !paidOf(await tx.get(db.doc('nationx/' + who.uid))).includes(id));
     if (!o) tx.update(ref, { o: now });
-    return { ok: true, first: !o, o: o || now, r: scContents(s.get('r')) || {}, f: s.get('f') || '', fn: s.get('fn') || '', m: s.get('m') || '', t: Number(s.get('t')) || 0 };
+    return { ok: true, first: !o, pay, o: o || now, r: scContents(s.get('r')) || {}, f: s.get('f') || '', fn: s.get('fn') || '', m: s.get('m') || '', t: Number(s.get('t')) || 0 };
   });
 }
 
