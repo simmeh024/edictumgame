@@ -109,7 +109,7 @@ test('the currency engine reads Productivity and Prosperity beyond 100 as the ga
 test('economy levels: kept on save, priced higher each level, counted past the building limit', () => {
   const ctx = vm.createContext({DAY, RES: ['food', 'timber', 'iron', 'oil', 'goods'], BUILDINGS: {market: {n: 'Market Hall', cost: {timber: 12, goods: 12}, h: 3}, exchange: {n: 'Stock Exchange', lead: 'free', cost: {timber: 20, iron: 15, goods: 45}, h: 8}, cbank: {n: 'Central Bank', cost: {timber: 25, iron: 20, goods: 40}, h: 10}},
     cabFx: () => ({cost: 1, build: 1}), ldrOf: n => (n && n.lead) || [], ldrWork: n => (n && n.lead) || [], Object, Math, Number});
-  vm.runInContext([slice('const EL_FX=', ';'), slice('const EL_BLD=', ';'), ...['paidClean', 'bCost', 'bHours', 'elExtras', 'elOn', 'elList', 'elLv', 'elMap', 'elCityAdd'].map(f => functions.get(f))].join('\n') +
+  vm.runInContext([slice('const EL_FX=', ';'), slice('const EL_BLD=', ';'), ...['bMaterialCost', 'paidClean', 'bCost', 'bHours', 'elExtras', 'elOn', 'elList', 'elLv', 'elMap', 'elCityAdd'].map(f => functions.get(f))].join('\n') +
     '\nthis.L={EL_FX,elExtras,elList,elLv,elMap,elCityAdd};', ctx);
   const L = ctx.L, now = Date.now();
   assert.deepEqual({...L.elExtras({k: 'market', el: 3})}, {el: 3});

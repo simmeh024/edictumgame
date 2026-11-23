@@ -24146,7 +24146,9 @@ function tradeView(){
    whoever holds the city hex: its founder, or whoever took it in battle. Computer nations have fixed
    cities generated from the map, so the world starts developed and conquest has prizes. */
 const CITY_DISTRICT=2,CITY_MIN_DIST=4,MILE_CITIES=14,MAX_CITIES=33,CQ_MAX=10,STOCK_CAP=400,CITY_SLOTS=4,CAP_SLOTS=6;
-const START_STOCK={food:60,timber:45,iron:25,oil:10,goods:40};
+const START_STOCK={food:60,timber:45,iron:25,oil:10,goods:60};
+/* Guaranteed daily stockpile income per active city, independent of buildings, consumption and spoilage. */
+const CITY_BASE_INCOME={food:2,timber:1,goods:1};
 const CITY_COST={food:30,timber:35,goods:20};
 const BLD_CATS=[['prod','Production'],['soc','Society'],['def','Defence'],['won','Wonders']];
 const BUILDINGS={
@@ -24203,7 +24205,7 @@ function bTierLine(k,t,ln){const T=bTier(k,t);return T?T.lines[bTierLineKey(k,t,
 /* the tier a building can be retooled to next, or 0 */
 function bTierNext(k,t){const to=Math.max(2,(t|0)+1);return bTier(k,to)?to:0;}
 /* the list price of a retool (no cabinet bonus): the most a kept price can be */
-function bTierList(k,l){const T=bTier(k,l);if(!T)return null;const c={};for(const r in T.cost)c[r]=Math.max(1,Math.round(T.cost[r]));return c;}
+function bTierList(k,l){const T=bTier(k,l);if(!T)return null;const c={};for(const r in T.cost)c[r]=Math.max(1,Math.round(T.cost[r]));return bMaterialCost(c);}
 /* what a building does at its tier: the building itself at tier I, its line laid over it above that (kept: cityState
    asks for every building in every city) */
 const bEffMemo=new Map();
@@ -24346,7 +24348,10 @@ function stockNow(n,now){
 }
 const roundStock=st=>Object.fromEntries(RES.map(r=>[r,Math.round(num0(st[r])*100)/100]));
 const fmtStock=v=>String(Math.floor(v+1e-6));
-function bCost(n,key){const B=BUILDINGS[key],k=cabFx(n).cost,o={};for(const r of RES)if(B.cost[r])o[r]=Math.max(1,Math.round(B.cost[r]*k));return o;}
+/* 2026-11-23: buildings and their upgrades ask 20% more food, timber and oil, rounded up once.
+   Upgrade calculations use the old base, then raise the final price after the timber-to-iron split. */
+function bMaterialCost(c){if(!c)return c;const o={...c};for(const r of ['food','timber','oil'])if(o[r]>0)o[r]=Math.ceil(o[r]*1.2-1e-9);return o;}
+function bCost(n,key,raw){const B=BUILDINGS[key],k=cabFx(n).cost,o={};for(const r of RES)if(B.cost[r])o[r]=Math.max(1,Math.round(B.cost[r]*k));return raw?o:bMaterialCost(o);}
 /* what was paid, kept on a building (p), a level being raised (lu.p) and walls going up (wu.p), so that a cancel gives
    back that and not today's price: the cabinet's cost bonus may have changed in between. Never more than the list price
    (max); work started before this was kept has none, and gets today's price as before. */
@@ -41645,7 +41650,7 @@ function spAutoClaim(B){
 }
 /* building on a tile */
 function spShip(B,col){const half=col&&col.blds.some(b=>b.k===(B.id==='moon'?'md':'os')&&b.d<=Date.now());const s=SP_SHIP[B.id];return {oil:Math.round(s.oil*(half?0.5:1)),h:s.h*(half?0.5:1),half};}
-function spCost(B,key,col){const D=SP_BLDS[B.id][key],sh=spShip(B,col),o=Object.assign({},D.cost);o.oil=(o.oil||0)+sh.oil;return o;}
+function spCost(B,key,col){const D=SP_BLDS[B.id][key],sh=spShip(B,col),o=Object.assign({},D.cost);o.oil=(o.oil||0)+sh.oil;return bMaterialCost(o);}
 function spHours(B,key,col){return SP_BLDS[B.id][key].h+spShip(B,col).h;}
 function spBuildProblem(B,c,key,col,now){
   const D=SP_BLDS[B.id][key],W=spWorld(B),C=W.byId[myId()];now=now||Date.now();if(!D)return 'Unknown building.';
@@ -64444,7 +64449,7 @@ function whSync(n,now){
 }
 function whRecord(ct){return cityList(ct.fn).find(c=>c.id===ct.id&&c.c===ct.c)?.b?.find(b=>b.k==='warehouse');}
 function whBusy(ct,now=Date.now()){const b=whRecord(ct),u=b&&whExtras(b).wu;return u&&u.d>now?u:null;}
-function whQuote(n,to){const base=bCost(n,'warehouse');return {cost:Object.fromEntries(Object.entries(base).map(([r,v])=>[r,Math.ceil(v*2**to*WH_UP_K-1e-9)])),hours:Math.round(WH_HOURS[to]*cabFx(n).build*10)/10};}
+function whQuote(n,to){const base=bCost(n,'warehouse',true);return {cost:bMaterialCost(Object.fromEntries(Object.entries(base).map(([r,v])=>[r,Math.ceil(v*2**to*WH_UP_K-1e-9)]))),hours:Math.round(WH_HOURS[to]*cabFx(n).build*10)/10};}
 function whUpgradeProblem(n,ct,st,now=Date.now()){
   if(!ct||ct.fid!==myId()||!ct.active||ct.hi!==territory().byId[myId()])return 'Only the city’s founder can upgrade a warehouse it currently holds.';
   const b=whRecord(ct);if(!b||b.d>now)return 'Complete the Warehouse first.';if(whBusy(ct,now))return 'A warehouse upgrade is already under way.';
@@ -64474,7 +64479,7 @@ function whRow(ct,b,mine,now,html){
 }
 function whSummary(n,now){const entries=whEntries(n).filter(e=>e.b.d<=now);return `<p class="hint wh-summary">Capacity: <b>${stockCap(n,now)} of every resource</b> · ${STOCK_CAP} base${entries.length?' + '+entries.length+' working '+(entries.length===1?'Warehouse':'Warehouses'):'. Build a Warehouse in each city to expand it.'}${n.policies?.warehouseRacks?' · racking +200':''}${n.policies?.warehouseArchive?' · archive reserve −200':''}. Resources already stored are retained if capacity falls; further production pauses for any resource over its limit.</p>`;}
 document.addEventListener('click',e=>{const el=e.target.closest('[data-act]');if(!el||!S.nation)return;if(el.dataset.act==='wh-upgrade')whUpgrade(el.dataset.id);if(el.dataset.act==='wh-cancel')whCancel(el.dataset.id);});
-HELP_EXT.push({k:'warehouses',t:'Warehouses and resource storage',body:()=>'<p>Your nation starts with room for 400 of each resource. One Warehouse may be built in every city, using one building slot. It adds 400 storage, then four upgrades add 800, 1,200, 2,000 and 3,000 more: each warehouse contributes 400, 1,200, 2,400, 4,400 or 7,400 capacity per resource. Warehouses in cities you hold add together.</p><p>Base construction costs 30 timber, 20 iron and 15 goods and takes four hours. Each upgrade doubles that base material cost. The four upgrade durations are 8, 16, 24 and 36 hours, before cabinet modifiers. Old capacity stays usable during work, and new capacity begins only at completion. The city cannot run other construction at the same time as an upgrade. Cancelling returns half the upgrade materials. Each final-tier completion awards its builder two land credits once.</p><p>Two warehouse edicts become eligible only after you hold a completed warehouse of your own. Standardised racking adds 200 national capacity per resource; reserving room for archives removes 200. Those policy adjustments apply once nationally while you hold a working warehouse. Losing or demolishing storage keeps existing resources; production resumes when the stock falls below its current capacity.</p>'});
+HELP_EXT.push({k:'warehouses',t:'Warehouses and resource storage',body:()=>'<p>Your nation starts with room for 400 of each resource. One Warehouse may be built in every city, using one building slot. It adds 400 storage, then four upgrades add 800, 1,200, 2,000 and 3,000 more: each warehouse contributes 400, 1,200, 2,400, 4,400 or 7,400 capacity per resource. Warehouses in cities you hold add together.</p><p>Base construction costs 36 timber, 20 iron and 15 goods and takes four hours. Each upgrade doubles that base material cost. The four upgrade durations are 8, 16, 24 and 36 hours, before cabinet modifiers. Old capacity stays usable during work, and new capacity begins only at completion. The city cannot run other construction at the same time as an upgrade. Cancelling returns half the upgrade materials. Each final-tier completion awards its builder two land credits once.</p><p>Two warehouse edicts become eligible only after you hold a completed warehouse of your own. Standardised racking adds 200 national capacity per resource; reserving room for archives removes 200. Those policy adjustments apply once nationally while you hold a working warehouse. Losing or demolishing storage keeps existing resources; production resumes when the stock falls below its current capacity.</p>'});
 
 
 /* ── navigation memory, search, long-page sections and actionable requirements ── */
@@ -76937,6 +76942,7 @@ stockRates=(f=>function(n){
   for(const r of RES){const fl=GB.SHARE*Math.max(0,E.prod[r][i]-E.exp[r][i]);if(fl>o[r])o[r]=fl;}
   o.food*=1-foodSpoilAt(E.T,i);
   if(n&&!n.npc){o.goods+=gbPopGoods(n);const st=n.stock||START_STOCK;for(const r of RES)if(isFinite(GB_MIN[r])&&num0(st[r])<GB_MIN[r]&&o[r]<GB.TRICKLE)o[r]=GB.TRICKLE;}
+  if(n&&!n.npc){const a=cityState(E.T).agg[i],count=a&&a.cities||0;for(const r in CITY_BASE_INCOME)o[r]+=count*CITY_BASE_INCOME[r];}
   return o;
 })(stockRates);
 
@@ -77001,6 +77007,7 @@ function rbdParts(n,r){
   if(r==='food'&&got>0){const f=foodSpoilAt(T,i),sp=got*f;if(sp>=0.05)stock.push([f<FOOD_SPOIL?`Spoils on the way (${spoilPct(f)}%, down from ${spoilPct(FOOD_SPOIL)}% with your Granary)`:`Spoils on the way (${spoilPct(f)}%; a Granary cuts it)`,-sp]);got-=sp;}
   if(r==='goods'&&!n.npc)add('Your population’s own goods',gbPopGoods(n));
   const st0=n.stock||START_STOCK;if(!n.npc&&isFinite(GB_MIN[r])&&num0(st0[r])<GB_MIN[r]&&got<GB.TRICKLE)add('State top-up while it is low',GB.TRICKLE-got);
+  if(!n.npc&&a&&CITY_BASE_INCOME[r])add(`City base income (${a.cities} active ${a.cities===1?'city':'cities'})`,a.cities*CITY_BASE_INCOME[r]);
   const tot=stockRates(n)[r];add('Other effects',tot-got);
   return {made,used,trade,stock,prod:E.prod[r][i],left,tot};
 }
@@ -78822,9 +78829,9 @@ function cxRefund(n,st,cost,now){for(const r of RES)st[r]=stockLimit(n,r,st[r]+M
 /* prices round up to whole units, less a hair of floating-point dust first (225 × 1.08 is 243.00000000000003: 243, not 244) */
 /* since 2026-11-17 (idea 6) 30% of an upgrade's timber price is asked in iron instead, so upgrades lean on iron: ugIron,
    kept on cxUpList's line so the tests that lift that line get it too */
-function cxUpList(k,to,m,tr){const U=CX_UG[to-1];m=m||(U&&U.cost);if(!BUILDINGS[k]||!m)return null;const T=tr>=2?bTier(k,tr):null,base=bCost(null,k),c={};for(const r in base)c[r]=Math.max(1,Math.ceil(base[r]*m*(T?T.ug:1)-1e-9));return ugIron(c);}function ugIron(c){const t=c.timber||0;if(t<2)return c;const x=Math.round(t*0.3);c.timber=t-x;c.iron=(c.iron||0)+x;return c;}
-function cxWallList(to){const W=CX_WALL[to];if(!W)return null;const c={};for(const r in W.cost)c[r]=Math.max(1,Math.round(W.cost[r]));return c;}
-function cxUpQuote(n,ct,k,to,tr){const U=CX_UG[to-1],T=tr>=2?bTier(k,tr):null,base=bCost(n,k),c={};for(const r in base)c[r]=Math.max(1,Math.ceil(base[r]*U.cost*(T?T.ug:1)-1e-9));return {cost:ugIron(c),hours:Math.max(0.1,Math.round(bHours(n,k)*U.h*(T?T.uh:1)*cxBuildK(ct)*10)/10)};}
+function cxUpList(k,to,m,tr){const U=CX_UG[to-1];m=m||(U&&U.cost);if(!BUILDINGS[k]||!m)return null;const T=tr>=2?bTier(k,tr):null,base=bCost(null,k,true),c={};for(const r in base)c[r]=Math.max(1,Math.ceil(base[r]*m*(T?T.ug:1)-1e-9));return bMaterialCost(ugIron(c));}function ugIron(c){const t=c.timber||0;if(t<2)return c;const x=Math.round(t*0.3);c.timber=t-x;c.iron=(c.iron||0)+x;return c;}
+function cxWallList(to){const W=CX_WALL[to];if(!W)return null;const c={};for(const r in W.cost)c[r]=Math.max(1,Math.round(W.cost[r]));return bMaterialCost(c);}
+function cxUpQuote(n,ct,k,to,tr){const U=CX_UG[to-1],T=tr>=2?bTier(k,tr):null,base=bCost(n,k,true),c={};for(const r in base)c[r]=Math.max(1,Math.ceil(base[r]*U.cost*(T?T.ug:1)-1e-9));return {cost:bMaterialCost(ugIron(c)),hours:Math.max(0.1,Math.round(bHours(n,k)*U.h*(T?T.uh:1)*cxBuildK(ct)*10)/10)};}
 function cxBusyLeft(b,now){const e=cxBldExtras(b),d=e.tu&&e.tu.d>now?e.tu.d:e.uu?e.uu.d:now;return fmtDur(Math.max(0,d-now));}
 function cxUpBusy(rec,now){return ((rec&&rec.b)||[]).find(b=>{if(!b||!cxUpgradable(b.k))return false;const e=cxBldExtras(b);return e.uu&&e.uu.d>now||e.tu&&e.tu.d>now;})||null;}
 function cxUpProblem(n,ct,k,st,now){
@@ -78847,7 +78854,7 @@ function cxUpCancel(cid,k){
   if(!e||!e.uu||e.uu.d<=now)return;const st=stockNow(S.nation,now);cxRefund(n,st,e.uu.p||cxUpQuote(S.nation,ct,k,e.uu.u,e.tr).cost,now);cxUgPut(b,{ug:e.ug});
   commit(n);S.cityMsg='';render();toast(`Work on the ${BUILDINGS[k].n} has stopped. Half the materials were saved.`);
 }
-function cxWallQuote(n,ct,to){const W=CX_WALL[to],f=cabFx(n),c={};for(const r in W.cost)c[r]=Math.max(1,Math.round(W.cost[r]*f.cost));return {cost:c,hours:Math.round(W.h*f.build*cxBuildK(ct)*10)/10};}
+function cxWallQuote(n,ct,to){const W=CX_WALL[to],f=cabFx(n),c={};for(const r in W.cost)c[r]=Math.max(1,Math.round(W.cost[r]*f.cost));return {cost:bMaterialCost(c),hours:Math.round(W.h*f.build*cxBuildK(ct)*10)/10};}
 function cxWallProblem(n,ct,st,now){
   const e=cxCityExtras(ct.rec);if(e.wu&&e.wu.d>now)return 'The masons are already at work.';
   const lv=cxWallLv(ct.rec,now);if(lv>=3)return 'The walls are as high as they go.';
@@ -79199,9 +79206,9 @@ document.addEventListener('click',e=>{
 const EL_FX=0.02,EL_COST=1.8,EL_GROW_C=1.3,EL_H=1.2,EL_GROW_H=1.12,EL_H_MAX=96;
 const EL_BLD={market:5,exchange:0,cbank:5};
 function elOn(k){return Object.hasOwn(EL_BLD,k)&&!!BUILDINGS[k];}
-function elList(k,l){const base=bCost(null,k),m=EL_COST*Math.pow(EL_GROW_C,l-1),c={};for(const r in base)c[r]=Math.max(1,Math.ceil(base[r]*m-1e-9));return c;}
-function elQuote(n,ct,k,l){const base=bCost(n,k),m=EL_COST*Math.pow(EL_GROW_C,l-1),c={};for(const r in base)c[r]=Math.max(1,Math.ceil(base[r]*m-1e-9));
-  return {cost:c,hours:Math.min(EL_H_MAX,Math.max(0.5,Math.round(bHours(n,k)*EL_H*Math.pow(EL_GROW_H,l-1)*cxBuildK(ct)*10)/10))};}
+function elList(k,l){const base=bCost(null,k,true),m=EL_COST*Math.pow(EL_GROW_C,l-1),c={};for(const r in base)c[r]=Math.max(1,Math.ceil(base[r]*m-1e-9));return bMaterialCost(c);}
+function elQuote(n,ct,k,l){const base=bCost(n,k,true),m=EL_COST*Math.pow(EL_GROW_C,l-1),c={};for(const r in base)c[r]=Math.max(1,Math.ceil(base[r]*m-1e-9));
+  return {cost:bMaterialCost(c),hours:Math.min(EL_H_MAX,Math.max(0.5,Math.round(bHours(n,k)*EL_H*Math.pow(EL_GROW_H,l-1)*cxBuildK(ct)*10)/10))};}
 function elLv(b,now){const e=elExtras(b);return e.eu&&e.eu.d<=now?e.eu.l:e.el||0;}
 function elMap(c,now){const o={};for(const b of (c&&c.b)||[])if(b&&b.d<=now&&(b.k==='market'||b.k==='exchange'||b.k==='cbank')){const l=elLv(b,now);if(l)o[b.k]=l;}return o;}
 /* the economy a city's levels add, for cityState: only from a building that works (a Stock Exchange needs its group) */
@@ -79253,7 +79260,7 @@ const tierA=s=>(/^[AEIOU]/i.test(s)?'an ':'a ')+s;
 /* "each costing twice as much and taking half as long again", from a tier's ug and uh */
 const tierUgWords=T=>`each costing ${T.ug===2?'twice':T.ug+' times'} as much and taking ${T.uh===1.5?'half as long again':T.uh+' times as long'}`;
 function tierBadge(k,tq){const L=bTierLine(k,tq.t,tq.ln);return `<span class="tier-b" role="img" aria-label="Tier ${TIER_ROMAN[tq.t]}" title="Tier ${TIER_ROMAN[tq.t]}${L?': '+esc(L.n)+', '+esc(tierA(BUILDINGS[k].n))+' retooled':''}">${TIER_ROMAN[tq.t]}</span>`;}
-function tierQuote(n,ct,k,to){const T=bTier(k,to),f=cabFx(n),c={};for(const r in T.cost)c[r]=Math.max(1,Math.round(T.cost[r]*f.cost));return {cost:c,hours:Math.max(0.1,Math.round(T.h*f.build*cxBuildK(ct)*10)/10)};}
+function tierQuote(n,ct,k,to){const T=bTier(k,to),f=cabFx(n),c={};for(const r in T.cost)c[r]=Math.max(1,Math.round(T.cost[r]*f.cost));return {cost:bMaterialCost(c),hours:Math.max(0.1,Math.round(T.h*f.build*cxBuildK(ct)*10)/10)};}
 function tierProblem(n,ct,k,st,now){
   const b=ct.rec&&ct.rec.b.find(x=>x.k===k);if(!b||b.d>now)return 'Finish the building first.';
   const to=bTierNext(k,cxTier(b,now).t);if(!to)return 'It is at its highest tier.';
