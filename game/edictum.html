@@ -7361,6 +7361,12 @@ html.ux-has-sections{--ux-index-height:54px}.ux-has-sections .flag-preview-row>.
 .dd-fold{padding-bottom:10px}
 .dd-fold .dd-h{margin-bottom:2px}
 .dd-fold .dd-l:empty{display:none}
+.stabs.dd-tabs{margin:0 0 6px}
+.dd-tabs .stab{padding:8px 12px}
+.dd-tabs .badge{min-width:20px;height:20px;padding:0 6px;font-size:11px;vertical-align:1px}
+.dd-none{margin:10px 0 4px}
+.dd-l:not(:empty)+.dd-none{display:none}
+.dd-l-wk .dd-t:first-child{margin-top:4px}
 .dd-fold .dd-x-row{margin-top:10px}
 .dd-gain{display:flex;flex-wrap:wrap;gap:4px 16px;align-items:baseline;margin:10px 0 2px;padding:8px 12px;border-radius:6px;background:color-mix(in srgb,var(--up) 10%,transparent);font-size:13.5px}
 .dd-gain .lbl{font:600 11px/1.4 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-2)}
@@ -48000,8 +48006,16 @@ const FR_UI={
 "Open the Board":"Ouvrir le Tableau",
 "Open alliance chat":"Ouvrir la discussion d’alliance",
 "Open the letter":"Ouvrir la lettre",
-"Open the Studios":"Ouvrir les Ateliers"
+"Open the Studios":"Ouvrir les Ateliers",
+"Nothing left for today.":"Plus rien pour aujourd’hui.",
+"Nothing running this week.":"Rien en cours cette semaine.",
+"Alliances · this week":"Alliances · cette semaine",
+"1 share waiting for you":"1 part vous attend"
 },p:[
+["{n1} alliance goals · {n2} reached","{n1} objectifs d’alliance · {n2} atteint{n2?s}"],
+["{n} shares waiting for you","{n} parts vous attendent"],
+["+{n1} of every resource, +{n2} land credits for each goal reached","+{n1} de chaque ressource, +{n2} crédits de terre pour chaque objectif atteint"],
+["{n} to do","{n} à faire"],
 ["Answer {n} edicts","Répondez à {n} édits"],
 ["Send {n} expeditions or fleeting finds","Envoyez {n} expéditions ou équipes vers des trouvailles éphémères"],
 ["Build {n} roads","Construisez {n} routes"],
@@ -65497,7 +65511,11 @@ function ddPing(k,key){
 }
 /* the desk card. Desk round two: progress bars; one swap a day; rewards as the nation's income makes them; a cleared desk
    folds to one line (S.ddOpen opens it), with any rare, legendary or judging task still open kept in view; and what
-   a save just paid is shown once, the rows that finished lit up and the stock counting up (DDJ, ddCount). */
+   a save just paid is shown once, the rows that finished lit up and the stock counting up (DDJ, ddCount).
+   Two sections, one at a time (2026-11-23, the owner's picks 1 and 4 of the readability ideas): Today (the three,
+   the rare task, the judging task) and This week (the legendary task, the new-to-you task, the region's goal and the
+   alliances' goals), each tab with the number still to do. S.ddTab keeps the choice for the session; until the player
+   picks, Today shows, or This week when Today has nothing left and the week has. */
 function ddCard(now){
   const n=S.nation;if(!n||n.npc||!ddOn())return '';
   const day=ddDay(now),D=n.dd&&!ddLater(day,n.dd.d)?n.dd:ddFresh(n,day),sk=stkDays(n),today=!!(n.stk&&!ddLater(day,n.stk.d)),wk=ddWeek(n,now),rt=ddRates(n),ro=S.mode==='readonly';
@@ -65517,18 +65535,33 @@ function ddCard(now){
   const gain=J?RES.map(r=>[r,Math.floor(num0(J.from[r])),Math.floor(num0(J.to[r]))]).filter(([r,f,t])=>t>f):[];
   const gainP=gain.length?`<p class="dd-gain"><span class="lbl">In store</span>${gain.map(([r,f,t])=>`<span class="dd-g">${esc(cap1(resName(r)))} <b data-dd-from="${f}" data-dd-to="${t}">${J.t?t:f}</b> <i>+${t-f}</i></span>`).join('')}</p>`:'';
   const nextAt=ddNextAt(now,D),reset=D.w&&!ro?(ddxReady(n,now)?'<div class="row dd-x-row"><button type="button" class="btn small-btn" data-act="dd-reset">Weekly reset: three new tasks now</button><span class="hint">Once every seven days: a fresh desk today, with its own land credit.</span></div>':fold?'':`<p class="hint">Weekly reset ready again in <b>${esc(fmtWait(ddxAt(n)+DDX_GAP-now))}</b>.</p>`):'';
-  return `<section class="dd${fold?' dd-fold':''}" aria-labelledby="dd-h"><div class="dd-h"><div><p class="eyebrow">Today’s desk</p><h2 class="stp-t" id="dd-h">${D.w?'All three done':'Three tasks for today'}${J&&J.k.includes('w')&&!J.t?'<span class="dd-stamp" aria-hidden="true">Cleared</span>':''}</h2></div><span class="hint">New tasks in <b data-live="ddnext" data-t="${nextAt}">${esc(fmtWait(nextAt-now))}</b>${D.w?` · <button type="button" class="linkish small" data-act="dd-fold" aria-expanded="${fold?'false':'true'}">${fold?'Show the desk':'Fold it away'}</button>`:''}</span></div>
-    <ol class="dd-l">${leg}${rows}${rare}${newRow}${wkRows(n,now,fold)}</ol>${gainP}
+  const R0=D.r||ddRare(n,D.d,D.q),W=wkWeek(n,now,fold);
+  const dayLeft=D.q.filter((q,i)=>!D.p[i]).length+(R0&&!R0.p?1:0),weekLeft=(L&&!L.p?1:0)+(N&&!N.p?1:0)+W.left;
+  const tab=S.ddTab==='day'||S.ddTab==='week'?S.ddTab:J&&!J.t&&(J.k.includes('l')||J.k.includes('n'))?'week':!dayLeft&&weekLeft?'week':'day';
+  const tabBtn=(k,l,c)=>`<button type="button" role="tab" class="stab${k===tab?' on':''}" id="dd-tab-${k}" data-act="dd-tab" data-t="${k}" aria-selected="${k===tab}" aria-controls="dd-pane" tabindex="${k===tab?0:-1}">${l}${c?` <span class="badge" aria-label="${c} to do">${c}</span>`:''}</button>`;
+  const pane=tab==='day'?`<ol class="dd-l dd-l-day">${rows}${rare}</ol><p class="hint dd-none">Nothing left for today.</p>
     ${fold?'':`<p class="dd-f">${D.w?(wk?'Your desk is clear: today’s two land credits are yours.':'Your desk is clear: today’s land credit is yours.'):wk?'Clear all three for <b>+2 land credits</b>, double in your first week.':'Clear all three for <b>+1 land credit</b>.'}</p>`}
-    ${reset}
+    ${reset}`:`<ol class="dd-l dd-l-wk">${leg}${newRow}${W.html}</ol>${leg||newRow||W.html?'':'<p class="hint dd-none">Nothing running this week.</p>'}`;
+  return `<section class="dd${fold?' dd-fold':''}" aria-labelledby="dd-h"><div class="dd-h"><div><p class="eyebrow">Today’s desk</p><h2 class="stp-t" id="dd-h">${D.w?'All three done':'Three tasks for today'}${J&&J.k.includes('w')&&!J.t?'<span class="dd-stamp" aria-hidden="true">Cleared</span>':''}</h2></div><span class="hint">New tasks in <b data-live="ddnext" data-t="${nextAt}">${esc(fmtWait(nextAt-now))}</b>${D.w?` · <button type="button" class="linkish small" data-act="dd-fold" aria-expanded="${fold?'false':'true'}">${fold?'Show the desk':'Fold it away'}</button>`:''}</span></div>
+    <div class="stabs dd-tabs" role="tablist" aria-label="Today’s desk">${tabBtn('day','Today',dayLeft)}${tabBtn('week','This week',weekLeft)}</div>
+    <div class="dd-pane" role="tabpanel" id="dd-pane" aria-labelledby="dd-tab-${tab}">${pane}</div>${gainP}
     <p class="hint dd-stk">${stkLine(n,sk,today)}</p></section>`;
 }
-/* the week's goals on the desk: one row for each of the nation's alliances and one for its region */
-function wkRows(n,now,fold){
-  if(!n||n.npc)return '';const W=wkKey(now),P=n.wgd&&n.wgd.w===W?n.wgd:null,end=weekStart(now)+7*864e5,out=[];
-  for(const G of wkAllies(n)){const g=wkGoal('al',G,W,n),paid=!!(P&&P.a.includes(G.id));if(fold&&paid)continue;out.push(wkRow('Alliance',G.name,g,paid,`${WK_T[g.k](g.g)} between you`,end,now));}
-  const R=wkRegion(n);if(R&&R.recs.length>=2){const g=wkGoal('rg',R,W,n),paid=!!(P&&P.r);if(!(fold&&paid))out.push(wkRow('Region',R.name,g,paid,`${WK_T[g.k](g.g)} together`,end,now));}
-  return out.join('');
+/* the week's goals on the desk, under This week: the region's, then one for each of the nation's alliances. Two
+   alliances or more fold into one line (2026-11-23, the owner's pick 7 of the readability ideas), with how many goals
+   there are and how many are reached; S.ddAl opens it for the session. {html, left: goals whose share is not yet paid} */
+function wkWeek(n,now,fold){
+  const out={html:'',left:0};if(!n||n.npc)return out;const W=wkKey(now),P=n.wgd&&n.wgd.w===W?n.wgd:null,end=weekStart(now)+7*864e5,h=[];
+  const R=wkRegion(n);if(R&&R.recs.length>=2){const g=wkGoal('rg',R,W,n),paid=!!(P&&P.r);if(!paid)out.left++;if(!(fold&&paid))h.push(wkRow('Region',R.name,g,paid,`${WK_T[g.k](g.g)} together`,end,now));}
+  const A=wkAllies(n).map(G=>{const g=wkGoal('al',G,W,n),paid=!!(P&&P.a.includes(G.id));return {G,g,paid};});
+  out.left+=A.filter(x=>!x.paid).length;
+  const rows=A.filter(x=>!(fold&&x.paid)).map(x=>wkRow('Alliance',x.G.name,x.g,x.paid,`${WK_T[x.g.k](x.g.g)} between you`,end,now));
+  if(A.length>=2){const open=!!S.ddAl,reached=A.filter(x=>x.g.done).length,wait=A.filter(x=>x.g.done&&x.g.mine>0&&!x.paid).length,all=A.every(x=>x.paid);
+    const f=A.reduce((s,x)=>s+clamp(x.g.c/x.g.g,0,1),0)/A.length;
+    h.push(`<li class="dd-t dd-wk dd-wk-sum${all?' done':''}"><span class="dd-i" aria-hidden="true"></span><span class="dd-x"><b><span class="dd-wk-tag">Alliances · this week</span> <span>${A.length} alliance goals · ${reached} reached</span></b><span class="hint">${wait?`<span>${wait===1?'1 share waiting for you':wait+' shares waiting for you'}</span> · `:''}<span>+${WK_GIFT} of every resource, +${WK_CR} land credits for each goal reached</span></span>${all?'':`<span class="bar dd-bar" aria-hidden="true"><i style="width:${Math.round(f*100)}%"></i></span>`}</span><button type="button" class="btn ghost small-btn" id="dd-al" data-act="dd-al" aria-expanded="${open}" aria-controls="dd-pane">${open?'Hide':'Show'}</button></li>`);
+    if(open)h.push(...rows);}
+  else h.push(...rows);
+  out.html=h.join('');return out;
 }
 function wkRow(tag,name,g,paid,what,end,now){
   const c=Math.min(g.c,g.g),ro=S.mode==='readonly';
@@ -65569,6 +65602,10 @@ go=(f=>function(v){if(DDJ.a&&DDJ.a.t)DDJ.a=null;return f.apply(this,arguments);}
 function ddLeft(n,now){try{if(!n||n.npc||!ddOn()||regBlocked())return 0;const day=ddDay(now),D=n.dd&&!ddLater(day,n.dd.d)?n.dd:null;if(!D)return 3;return D.w?0:D.q.filter((q,i)=>!D.p[i]).length;}catch(e){return 0;}}
 navBadges=(f=>function(){const b=f.apply(this,arguments),k=ddLeft(S.nation,Date.now());if(k)(b.issues=b.issues||[]).push({h:`<span class="badge badge-dd" aria-hidden="true">${k}</span>`,t:k===1?'1 desk task left today':k+' desk tasks left today'});return b;})(navBadges);
 navSigOf=(f=>function(){return f.apply(this,arguments)+'|dd'+ddLeft(S.nation,Date.now());})(navSigOf);
+document.addEventListener('keydown',e=>{const t=e.target&&e.target.closest&&e.target.closest('.dd-tabs [role="tab"]');if(!t)return;
+  const k=e.key==='ArrowRight'||e.key==='ArrowLeft'||e.key==='Home'||e.key==='End'?e.key:'';if(!k)return;e.preventDefault();
+  const to=k==='Home'?'day':k==='End'?'week':t.dataset.t==='day'?'week':'day';if(to===t.dataset.t)return;
+  S.ddTab=to;const nb=document.getElementById('dd-tab-'+to);if(nb)nb.focus({preventScroll:true});render();requestAnimationFrame(()=>{const b=document.getElementById('dd-tab-'+to);if(b)b.focus({preventScroll:true});});});
 issuesView=(f=>function(v,now){const h=f.apply(this,arguments),c=ddCard(now||Date.now());return c?h.replace('</header>','</header>'+c):h;})(issuesView);
 asmVote=(f=>function(){const r=f.apply(this,arguments);Promise.resolve(r).then(ok=>{if(ok)ddMark('vote');},()=>{});return r;})(asmVote);
 document.addEventListener('click',e=>{const el=e.target.closest('[data-act]');if(!el||!S.nation)return;const a=el.dataset.act;
@@ -65579,6 +65616,8 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-act]');if
       if(k==='mcl'){const x=(S.nation.inbox||[]).find(e=>mcK(e.id)>=0);if(x){edictOpen(x.id,x.at);return;}}
       if(k==='std')requestAnimationFrame(()=>requestAnimationFrame(()=>{const x=document.getElementById('cz-studios');if(x)x.scrollIntoView({block:'start'});}));}catch(e){}if(T.go[0]==='intel'){S.ibTab='ops';if(el.dataset.k==='gint')S.cvK='g';if(el.dataset.k==='spy')S.cvK='w';if(el.dataset.k==='bu')S.ibBuOpen=true;}go(T.go[0]);
     if(el.dataset.k==='xu')requestAnimationFrame(()=>{const x=document.getElementById('xu');if(x){x.open=true;x.scrollIntoView({block:'start'});}});if(el.dataset.k==='road'&&pgAvailable(S.nation,'map')){S.mpMode='transport';render();}return;}
+  if(a==='dd-tab'){S.ddTab=el.dataset.t==='week'?'week':'day';render();const t=S.ddTab;requestAnimationFrame(()=>{const b=document.getElementById('dd-tab-'+t);if(b)b.focus({preventScroll:true});});return;}
+  if(a==='dd-al'){S.ddAl=el.getAttribute('aria-expanded')!=='true';render();requestAnimationFrame(()=>{const b=document.querySelector('[data-act="dd-al"]');if(b)b.focus({preventScroll:true});});return;}
   if(a==='dd-fold'){S.ddOpen=el.getAttribute('aria-expanded')!=='true';render();requestAnimationFrame(()=>{const b=document.querySelector('[data-act="dd-fold"]');if(b)b.focus({preventScroll:true});});return;}
   if(a==='dd-swap'){const n=S.nation,now=Date.now(),i=+el.dataset.i;if(n.npc||!ddOn()||regBlocked()||S.mode==='readonly')return;
     const day=ddDay(now);if(!n.dd||ddLater(day,n.dd.d)||!ddSwapOk(n.dd,i))return;const nk=ddSwapPick(n,n.dd);if(!nk){toast('There is no other task to swap in today.');return;}
@@ -90762,7 +90801,7 @@ ddCard=(f=>function(now){const h=f.apply(this,arguments);try{const n=S.nation;if
   const D=n.dd&&!ddLater(ddDay(now),n.dd.d)?n.dd:null,F=D&&D.f?D.f:flcDeskOn(n)?{g:FLC_DESK.g,c:0,p:0}:null;if(!F||!F.p&&!F.c&&flcAllScored(n)||F.p&&h.includes('class="dd dd-fold"'))return h;
   const done=!!F.p,c=Math.min(F.g,F.c||0);
   const row=`<li class="dd-t dd-fc${done?' done':''}"><span class="dd-i" aria-hidden="true"></span><span class="dd-x"><b><span class="dd-fc-tag">Judging</span> Score ${F.g} flags in the flag competition</b><span class="hint">${done?'Done':`${c} of ${F.g}`} · +${FLC_DESK.gift.goods} goods, +${FLC_DESK.gift.iron} iron</span></span>${done?'':`<button type="button" class="btn ghost small-btn" data-act="go" data-v="flagcomp">Score flags</button>`}</li>`;
-  const i=h.indexOf('</ol>');return i<0?h:h.slice(0,i)+row+h.slice(i);}catch(e){return h;}})(ddCard);
+  const a=h.indexOf('dd-l-day');if(a<0)return h;const i=h.indexOf('</ol>',a);return i<0?h:h.slice(0,i)+row+h.slice(i);}catch(e){return h;}})(ddCard);
 HELP_EXT.push({k:'flagcomp',t:'The Flag Competition',body:n=>`<p>Every month the nations of every region meet in one flag competition, which opens on the ${FLC_RULES.START_DAY}th. For its first ${FLC_RULES.ENTER_DAYS} days you design a flag for the occasion on the Flag Competition page and enter it: it is not your national flag, which stays as it is, and it should not look like it, because the judging is blind.</p>
   <p>For the ${FLC_RULES.JUDGE_DAYS} days after that, every Registered Nation at least a day old may score the flags. Each is shown without a name, and gets one to five stars for ${list(FLC_RULES.CATS.map(c=>FLC_CAT[c][0].replace('?','').toLowerCase()))}. A flag’s score is the average its judges gave it, leaving out the kindest and the harshest once it has five. To stay in the running an entrant scores ${FLC_RULES.DUTY} flags, or every other flag when there are fewer. Judging pays in land as well: every ${FLC_RULES.JUDGE_PER} flags scored earn a land credit, ${FLC_RULES.JUDGE_LAND} at most, and after that a judge may score as many more as they like.</p>
   <p>The best flag wins ${FLC_RULES.PRIZES[0]} goods and a month of the Chancery Club, which begins when any membership its nation already has runs out. Second place wins ${FLC_RULES.PRIZES[1]} goods and third ${FLC_RULES.PRIZES[2]}. The winner wears a rosette beside its flag until the next podium, and every podium hangs in the Hall of Flags.</p>${n?`<p class="help-go"><button class="linkish small" data-act="go" data-v="flagcomp">Open the Flag Competition →</button></p>`:''}`});

@@ -247,14 +247,17 @@ try {
     n.founded = now - 30 * 864e5; n.ddl = { w, k: 'exp', g: 6, c: 2, p: 0, a: now - 3600e3, e: now - 3600e3 + 7 * 864e5 };
     n.dd.q = [['fleet', 1, 'timber', 'iron'], ['ugb', 1, 'oil', 'goods'], ['dig', 1, 'timber', 'goods']]; n.dd.c = [0, 0, 0]; n.dd.p = [0, 0, 0]; delete n.dd.w; });
   await k.go('issues');
+  /* the desk shows Today or This week, one at a time: the legendary task is the week's */
+  await k.act('dd-tab', { t: 'week' }); await sleep(300);
   check('desk: the legendary task heads the desk, with its time and its reward', await S(kp, () => { const r = document.querySelector('.dd .dd-leg'); return !!r && /Legendary/.test(r.textContent) && /Send 6 expeditions/.test(r.textContent) && /2 of 6/.test(r.textContent) && /left/.test(r.textContent) && /\+300 of every resource, \+15 land credits/.test(r.textContent); }));
+  await k.act('dd-tab', { t: 'day' }); await sleep(300);
   check('desk: the new everyday tasks', await S(kp, () => { const t = document.querySelector('.dd').textContent; return /Send a party to a fleeting find/.test(t) && /Upgrade a building in one of your cities/.test(t) && /Send out a field dig from the Museum/.test(t); }));
   await kp.evaluate(() => document.querySelector('.dd').scrollIntoView({ block: 'start' }));
   await shot(kp, 'desk-legendary', false);
   await k.act('dd-go', { k: 'dig' }); await sleep(500);
   check('desk: the field dig task opens the Museum’s digs', await S(kp, () => window.__game.S.view === 'museum' && window.__game.S.muHall === 'digs'));
   await k.edit(n => { n.ddl.e = Date.now() - 1000; n.ddl.a = n.ddl.e - 7 * 864e5; });
-  await k.go('issues');
+  await k.go('issues');await k.act('dd-tab', { t: 'week' }); await sleep(300);
   check('desk: once its seven days are up the legendary task is gone', await S(kp, () => !document.querySelector('.dd .dd-leg')));
   /* a legendary task done: its reward overflows the storage limit, and nothing more comes in while it is over */
   await k.edit(n => { const now = Date.now(); n.ddl = Object.assign({}, n.ddl, { k: 'exp', g: 1, c: 0, p: 0, a: now - 3600e3, e: now - 3600e3 + 7 * 864e5 }); delete n.ddl.d;
