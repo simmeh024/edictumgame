@@ -9915,6 +9915,10 @@ button[disabled] .gv-cost{opacity:.6}
 .xu-need.no::before{content:'✕'}
 .xu-need .linkish{color:var(--ink-2)}
 .xu-btn{min-height:38px;padding:8px 14px}
+.xu-pick{margin-top:8px}
+.xu-pick .tier-l li{grid-template-columns:minmax(0,1fr)}.xu-pick .tier-l li .btn{grid-column:1;grid-row:auto;justify-self:start;margin-top:4px}
+.xu-row.xu-t2 .xu-t b{display:inline-flex;align-items:center;gap:2px}
+.xp-alm{opacity:.82}.xp-alm .xp-glyph{opacity:.7}
 .xp-pill.gold{background:color-mix(in srgb,#d4a52a 18%,var(--sheet));border-color:color-mix(in srgb,#d4a52a 50%,var(--rule));color:var(--ink)}
 .xp-glyph.gold{background:color-mix(in srgb,#d4a52a 18%,var(--sheet));border-color:color-mix(in srgb,#d4a52a 50%,var(--rule));color:#a87a10}
 .xp-glyph.none{background:var(--sheet-2);border-color:var(--rule);color:var(--ink-3)}
@@ -25324,6 +25328,18 @@ function prvCredits(n){return PRV_CREDITS*Math.max(0,prvPeak(n)-1);}
    more than the most provinces a nation can hold (PRV_MAXL, 48: test/province-credits.test.mjs holds the two equal). */
 const PRV_PEAK_MAX=48;
 NORM_HOOKS.push((n,d)=>{const k=d&&d.prpk;if(Number.isInteger(k)&&k>0)n.prpk=Math.min(k,PRV_PEAK_MAX);});
+/* the outfitters (2026-11-23): every purple and gold block, tier I and tier II, is worth a land credit: 2 a track at tier I
+   gold, 4 at gold II, 28 in all. Counted from the blocks on record (and one whose time in the workshop is up), so blocks
+   fitted before this rule pay at once. A function declaration with its own numbers (XU_CR_TRACKS, the purple block at
+   4), as land credits are counted long before the outfitters' part of the script has run; test/outfit-tier2.test.mjs
+   keeps the tracks equal to XU's */
+function xuCredits(n){
+  try{if(!n||n.npc)return 0;const K=['gear','mules','depots','rations','nat','maps','swift'],u=n.xu||{},v=n.x2||{},L=n.xl||{},w=n.xuw,now=Date.now();let c=0;
+    for(const k of K){let a=u[k]|0,b=typeof L[k]==='string'?v[k]|0:0;
+      if(w&&w.k===k&&w.d<=now){if(w.x!==2)a=Math.max(a,w.u|0);else if(w.u>0&&typeof L[k]==='string')b=Math.max(b,w.u|0);}
+      a=Math.min(a,5);b=Math.min(b,5);c+=(a>=4)+(a>=5)+(b>=4)+(b>=5);}
+    return c;}catch(e){return 0;}
+}
 /* population marks: at 10, 20 … 100 million people a nation earns 2, 4 … 20 land credits (twice the tens), and every
    25 million after 100 million 2 more. Counted from the population now, like the milestones. */
 function popMarkCredits(p){if(!(p>=10-1e-9))return 0;let k=0;for(let m=10;m<=100&&p>=m-1e-9;m+=10)k+=m/5;if(p>=125-1e-9)k+=2*Math.floor((p-100+1e-9)/25);return k;}
@@ -25337,7 +25353,7 @@ function rdCredits(n){
     const t=Date.UTC(+m[1],+m[2]-1,+m[3],8);if(t>now||(f&&t+7*864e5<=f))continue;wk.add(m[1]+m[2]+m[3]);}
   return 5*wk.size;
 }
-function landEarned(n){const p=popNow(n);return Math.max(0,Math.max(0,budgetOf(p)-CORE_HEXES)+mileOf(n).bonus+(n&&n.npc?0:popMarkCredits(p))+(n.lcb||0)+achRankCredits(n)+achTierCredits(n)+prvCredits(n)+rdCredits(n)-(n.mvl||0));}
+function landEarned(n){const p=popNow(n);return Math.max(0,Math.max(0,budgetOf(p)-CORE_HEXES)+mileOf(n).bonus+(n&&n.npc?0:popMarkCredits(p))+(n.lcb||0)+achRankCredits(n)+achTierCredits(n)+prvCredits(n)+rdCredits(n)+xuCredits(n)-(n.mvl||0));}
 function landCredits(n){
   if(!n||!Array.isArray(n.claims)||cellOf(n.loc)<0)return 0;
   const T=territory(),i=T.byId[myId()];if(i===undefined)return 0;
@@ -27179,6 +27195,18 @@ const LOST_KINDS={
   observatory:{n:'Lost observatory',d:'an observatory nobody remembers building, pointed at a star nobody has named',dn:'the {X} Observatory',b:['hills','mountain'],e:{sci:5,edu:2},lost:1,lv:5,dc:18}
 };
 const LOST_ORDER=Object.keys(LOST_KINDS),LOST_PER=4;
+/* a kind of place in the plural, lower case: "pirate coves", "lost observatories", "hermits’ libraries" */
+function sitePl(nm){return String(nm).toLowerCase().replace(/’s /,'s’ ').replace(/([^aeiou])y$/,'$1ie')+'s';}
+/* five more, only for Old maps refitted as the Lost Atlas (tier II, "the outfitters, tier II" below): lv 6 to 10 are its
+   five tier II blocks (xuMapsLv). Seeded after every other site (below), so no site's index moves */
+const LOST2_KINDS={
+  whale:{n:'Whale graveyard',d:'a beach where the great whales come at the end, white with ribs as tall as houses',dn:'the {X} Bones',b:['islet'],e:{sci:3,tour:2,weird:1},stock:{oil:30},lost:1,lv:6,dc:16},
+  glass:{n:'Glass desert',d:'a desert of green glass, melted long ago by something nobody wants to name',dn:'the Glass Sands of {X}',b:['arid'],e:{sci:2,tour:3,weird:2},stock:{goods:40},lost:1,lv:7,dc:16},
+  crater:{n:'Crater lake',d:'a lake of impossible blue in the mouth of an old volcano',dn:'Lake {X}',b:['mountain','hills'],e:{tour:4,env:2,happy:1},lost:1,lv:8,dc:17},
+  stair:{n:'Giants’ stair',d:'a stair of stone columns, each step taller than a man, that leads nowhere at all',dn:'the {X} Stair',b:['hills','farmland','polder'],e:{tour:3,culture:2,weird:2},lost:1,lv:9,dc:17},
+  hermit:{n:'Hermit’s library',d:'a library in a hollow hill, kept for three hundred years by one hermit at a time',dn:'the Library of {X}',b:['forest','marsh'],e:{edu:3,culture:3,sci:2},lost:1,lv:10,dc:18}
+};
+const LOST2_ORDER=Object.keys(LOST2_KINDS);
 {
   /* in the order of a second hash mixed from the ordinary sites' own (no string is hashed twice), packed with the cell
      into one number so a typed sort does the work, and only the lowest quarter of it (thousands of cells for twenty
@@ -27202,11 +27230,25 @@ const LOST_ORDER=Object.keys(LOST_KINDS),LOST_PER=4;
   const B=SITE_CAND&&SITE_CAND[1]&&SITE_CAND[1].L;
   SITES.forEach((s,i)=>SITE_AT.set(s.c,i));
   if(B){for(const s of B)if(!SITE_AT.has(s.c)){SITE_AT.set(s.c,SITES.length);SITES.push(s);}SITE_FZ=B.map(s=>SITE_AT.get(s.c));}
+  /* the Lost Atlas's places (2026-11-23), after every site above so no index moves: from this grid's own draw (the last
+     of SITE_CAND), in the order of a third mix of its hashes, away from every site and computer capital */
+  {const D=SITE_CAND&&SITE_CAND.length?SITE_CAND[SITE_CAND.length-1]:null;
+  if(D){const K=LOST2_ORDER,cnt={},P=2097152,blk=new Uint8Array(MAP.N),vis=new Int32Array(MAP.N);let gen=0,put=0;
+    const mark=(c,r)=>{gen++;blk[c]=1;vis[c]=gen;let fr=[c];for(let d=0;d<r;d++){const nx=[];for(const x of fr)for(let k=0;k<6;k++){const j=MAP.nbr[x*6+k];if(j>=0&&vis[j]!==gen){vis[j]=gen;blk[j]=1;nx.push(j);}}fr=nx;}};
+    for(const st of SITES)mark(st.c,6);for(const c of Object.values(MAP.npcLoc))if(c>=0&&c<MAP.N)mark(c,5);
+    const ks=[];for(const e of D.cand){const m=Math.imul(e[1]^0x7f4a7c15,0xc2b2ae35)>>>0;if(m<0x40000000)ks.push(m*P+e[2]);}
+    const keys=Float64Array.from(ks).sort();
+    for(let q=0;q<keys.length&&put<K.length*LOST_PER;q++){
+      const m=Math.floor(keys[q]/P),i=keys[q]-m*P;if(blk[i]||SITE_AT.has(i))continue;
+      const isl=isIslet(i),bk=BIOME_KEY[BIOME[i]];
+      const fits=K.filter(x=>(cnt[x]||0)<LOST_PER&&(isl?LOST2_KINDS[x].b.includes('islet'):LOST2_KINDS[x].b.includes(bk)));if(!fits.length)continue;
+      const k=fits[m%fits.length];cnt[k]=(cnt[k]||0)+1;put++;SITE_AT.set(i,SITES.length);SITES.push({c:i,k,x:siteWord(m>>>3),lost:1});mark(i,6);
+    }}}
   SITE_CAND=null;
-  Object.assign(SITE_KINDS,LOST_KINDS);
+  Object.assign(SITE_KINDS,LOST_KINDS,LOST2_KINDS);
 }
 /* a site the player may see: every ordinary one; a lost place once found by anyone, or when your old maps show its kind */
-function xpSeen(si,n){const st=SITES[si];if(!st)return false;if(!st.lost)return true;if(discoveries().has(si))return true;n=n||S.nation;return !!n&&xuLv(n,'maps')>=SITE_KINDS[st.k].lv;}
+function xpSeen(si,n){const st=SITES[si];if(!st)return false;if(!st.lost)return true;if(discoveries().has(si))return true;n=n||S.nation;return !!n&&xuMapsLv(n)>=SITE_KINDS[st.k].lv;}
 
 /* ── the outfitters: upgrades to the explorers' kit, bought on the Expeditions page, one in the workshop at a time.
    Five blocks each, in the colours of a city building's upgrades and dearer each time. The first block is open to
@@ -27235,7 +27277,7 @@ const XU={
 };
 const XU_KEYS=Object.keys(XU),xuMax=k=>XU[k].max||5,XU_TOTAL=XU_KEYS.reduce((a,k)=>a+xuMax(k),0);
 /* blocks fitted, counting one whose time in the workshop is up before the save that writes it */
-function xuLv(n,k,now){if(!n||!XU[k])return 0;let L=(n.xu&&n.xu[k])|0;const w=n.xuw;if(w&&w.k===k&&w.d<=(now||Date.now()))L=Math.max(L,w.u|0);return clamp(L,0,xuMax(k));}
+function xuLv(n,k,now){if(!n||!XU[k])return 0;let L=(n.xu&&n.xu[k])|0;const w=n.xuw;if(w&&w.k===k&&w.x!==2&&w.d<=(now||Date.now()))L=Math.max(L,w.u|0);return clamp(L,0,xuMax(k));}
 const xuAll=(n,now)=>XU_KEYS.reduce((a,k)=>a+xuLv(n,k,now),0);
 function xuCost(k,i){const U=XU[k],m=(U.mul||XU_MUL)[i],o={};for(const r in U.base)o[r]=Math.max(1,Math.round(U.base[r]*m));return o;}
 const xuHours=(k,i)=>(XU[k].h||XU_H)[i];
@@ -27255,11 +27297,12 @@ function xuHave(n,req,now){
 /* the effects */
 const XU_TERR=[['farmland','polder','hills'],['forest','marsh'],['mountain'],['arid','islet']];
 function xuGear(n,tr){const L=xuLv(n,'gear');if(!L)return 0;const g=XU_TERR.findIndex(a=>a.includes(tr));return (g>=0&&g<Math.min(L,4)?1:0)+(L>=5?1:0);}
-const xuTimeK=n=>1-0.06*xuLv(n,'mules');
-const xuReach=n=>3*xuLv(n,'depots');
-const xuCostK=n=>1-0.08*xuLv(n,'rations');
-const xuCurio=n=>0.06*xuLv(n,'nat');
-function xuParty(n){const L=xuLv(n,'swift');return {t:L>=3?0.8:L>=1?0.9:1,cd:(L>=4?20:L>=2?25:30)*60000,roll:L>=5?1:0};}
+/* tier II (xb: the blocks of a line, "the outfitters, tier II" below) adds to some of them */
+const xuTimeK=n=>1-0.06*xuLv(n,'mules')-0.03*xb(n,'mules','camel');
+const xuReach=n=>3*xuLv(n,'depots')+2*xb(n,'depots','long')+xb(n,'depots','allied');
+const xuCostK=n=>1-0.08*xuLv(n,'rations')-0.04*xb(n,'rations','hard');
+const xuCurio=n=>0.06*xuLv(n,'nat')+0.03*xb(n,'nat','coll');
+function xuParty(n){const L=xuLv(n,'swift');return {t:(L>=3?0.8:L>=1?0.9:1)-0.04*xb(n,'swift','out'),cd:((L>=4?20:L>=2?25:30)-2*xb(n,'swift','turn'))*60000,roll:L>=5?1:0};}
 /* the blocks in words: what the block at index i adds, and what the track does now with L blocks */
 function xuLvText(k,i){
   switch(k){
@@ -27268,7 +27311,7 @@ function xuLvText(k,i){
     case 'depots':return `+${3*(i+1)} hexes of reach`;
     case 'rations':return `−${8*(i+1)}% food and oil per expedition`;
     case 'nat':return `${6*(i+1)}% chance of a curio on each first find`;
-    case 'maps':{const K=LOST_KINDS[LOST_ORDER[i]];return K?K.n.toLowerCase()+'s on your map':'';}
+    case 'maps':{const K=LOST_KINDS[LOST_ORDER[i]];return K?sitePl(K.n)+' on your map':'';}
     case 'swift':return ['fleeting parties travel 10% faster','parties rest 25 minutes, not 30','parties travel 20% faster','parties rest 20 minutes','+1 on every party’s roll'][i];
     case 'team':return 'two expeditions out at once';
   }
@@ -27278,7 +27321,7 @@ function xuNowText(n,k,L){
   if(!L)return 'Nothing yet.';
   switch(k){
     case 'gear':{const t=['farmland and hills','forest and marsh','the mountains','arid land and islets'].slice(0,Math.min(L,4));return `+1 roll in ${list(t)}${L>=5?', and +1 more everywhere':''}.`;}
-    case 'maps':return `Shows ${list(LOST_ORDER.slice(0,L).map(q=>LOST_KINDS[q].n.toLowerCase()+'s'))}.`;
+    case 'maps':return `Shows ${list(LOST_ORDER.slice(0,L).map(q=>sitePl(LOST_KINDS[q].n)))}.`;
     case 'swift':{const P=xuParty({xu:{swift:L}});return `Fleeting parties travel ${Math.round((1-P.t)*100)}% faster and rest ${P.cd/60000} minutes${P.roll?', with +1 on the roll':''}.`;}
     case 'team':return 'Two expeditions can be out at once.';
   }
@@ -27326,7 +27369,7 @@ function expParts(n,si,T){
 function expPlan(n,si){
   const T=territory(),mi=T.byId[myId()],st=SITES[si];if(mi===undefined)return {why:'Settle on the map first.'};
   /* the outfitters: rations make it cheaper, mules quicker (dc: a lost place has its own difficulty) */
-  const d=expDist(T,mi,st.c),ck=xuCostK(n),cost=Object.fromEntries(Object.entries(expCost(d)).map(([r,v])=>[r,Math.max(1,Math.round(v*ck))])),mins=Math.max(10,Math.round(expMinutes(d)*xuTimeK(n))),parts=expParts(n,si,T),mod=parts.reduce((a,p)=>a+p[1],0),dc=SITE_KINDS[st.k].dc||SITE_DC[siteTerr(si)]||10;
+  const d=xuDist(n,T,mi,st.c),ck=xuCostK(n),cost=Object.fromEntries(Object.entries(expCost(d)).map(([r,v])=>[r,Math.max(1,Math.round(v*ck))])),mins=Math.max(10,Math.round(expMinutes(d)*xuTimeK(n)*xuWayK(n,d))),parts=expParts(n,si,T),mod=parts.reduce((a,p)=>a+p[1],0),dc=SITE_KINDS[st.k].dc||SITE_DC[siteTerr(si)]||10,g=xuGreatAt(n);
   const o=T.owner[st.c],owner=o>=0&&o!==mi?T.list[o]:null,lack=lacking(cost,stockNow(n));
   let why='';
   if(discoveries().has(si)&&discoveries().get(si).id===myId())why='You discovered this yourself.';
@@ -27336,37 +27379,45 @@ function expPlan(n,si){
   else if(d>expRange(n))why=`Out of reach: ${d} hexes away, and your explorers can travel ${expRange(n)}.${pol(n).navalFleet?'':' A navy would add 15.'}`;
   else if(lack.length)why=`You need ${list(lack)} more.`;
   else if(owner&&warWith(owner.id).war)why=`You are at war with ${owner.n.name}, so your explorers cannot cross its land until there is peace.`;
-  return {d,cost,mins,parts,mod,dc,owner,why,T};
+  return {d,cost,mins,parts,mod,dc,g,owner,why,T};
 }
 function sendExpedition(si){
   const n0=S.nation;if(!n0||!SITES[si])return;
   const P=expPlan(n0,si);if(P.why){toast(P.why);return;}
   const team=expFree(n0),now=Date.now(),n=clone(n0),st=stockNow(n0,now);
   for(const r of RES)st[r]-=P.cost[r]||0;n.stock=roundStock(st);n.stockAt=now;n._stockSet=true;
-  n[team===2?'exp2':'exp']={s:si,t0:now,t1:now+P.mins*60000,r:1+Math.floor(Math.random()*20),m:P.mod,dc:P.dc,f:P.owner?P.owner.id:''};
+  n[team===2?'exp2':'exp']={s:si,t0:now,t1:now+P.mins*60000,r:1+Math.floor(Math.random()*20),m:P.mod,dc:P.dc,f:P.owner?P.owner.id:'',...(P.g===5?{g:5}:{}),c:{food:P.cost.food|0,oil:P.cost.oil|0}};
   commit(n);S.expShow=null;S.mapSite=null;render();
   toast(`${team===2?'Your second team':'The expedition'} has set out for ${siteLabel(si).replace(/^Rumoured /,'the rumoured ')}. It returns in ${fmtDur(P.mins*60000)}.`);
 }
 const EXP_TABLE=[['1','Lost in the wilds','lost'],['5 or more short','Came home empty-handed','lost'],['1 to 4 short','Found traces: +2 next time','traces'],['Level, or up to 5 over','Discovery','found'],['6 or more over, or a 20','Remarkable discovery','great']];
-function expOutcome(e){const eff=e.r+e.m;return e.r===1?'lost':e.r===20||eff>=e.dc+6?'great':eff>=e.dc?'found':eff>=e.dc-4?'traces':'lost';}
+/* g: how far over is remarkable, 6 (5 with Surveyors' Kit at gold II, stamped on the expedition when it sets out) */
+function expOutcome(e){const eff=e.r+e.m;return e.r===1?'lost':e.r===20||eff>=e.dc+(e.g===5?5:6)?'great':eff>=e.dc?'found':eff>=e.dc-4?'traces':'lost';}
 function resolveExp(n,e,now){
   const si=e.s,st=SITES[si],K=SITE_KINDS[st.k],o=expOutcome(e),R=discoveries(),prev=R.get(si),first=(o==='found'||o==='great')&&(!prev||prev.t>e.t1||(prev.t===e.t1&&prev.id===myId()));
-  const rep={s:si,r:e.r,m:e.m,dc:e.dc,o,first,by:prev&&!first?prev.name:'',notes:[]};
+  const rep={s:si,r:e.r,m:e.m,dc:e.dc,g:e.g,o,first,by:prev&&!first?prev.name:'',notes:[]};
   const owner=e.f?findNation(e.f):null,oname=owner?owner.n.name:'';
   const entry={s:si,t:e.t1,o,nm:''};if(first)entry.f=1;
   if(o==='found'||o==='great'){
     if(first){
-      const k=o==='great'?1.5:1,eff={};for(const [s,v] of Object.entries(K.e))eff[s]=Math.round(v*k*10)/10;applyEffects(n,eff);
-      if(K.stock){const sk=stockNow(n,now);for(const [r,v] of Object.entries(K.stock))sk[r]=stockLimit(n,r,sk[r]+v*k,sk[r]);n.stock=roundStock(sk);n.stockAt=now;n._stockSet=true;rep.notes.push(`The expedition brought back ${costText(Object.fromEntries(Object.entries(K.stock).map(([r,v])=>[r,Math.round(v*k)])))}.`);}
+      /* tier II at the outfitters: Surveyors' Kit (remarkable), Treasure Maps (lost places), Lecturers (the figures) and
+         Heavy Packs (the stock) bring more; a figure that falls (an oil seep's environment) falls only as before */
+      const k=o==='great'?1.5:1,F=xuFindK(n,K,o),eff={};rep.fk=F.e;for(const [s,v] of Object.entries(K.e))eff[s]=Math.round(v*(v>0?F.e:k)*10)/10;applyEffects(n,eff);
+      if(K.stock){const sk=stockNow(n,now);for(const [r,v] of Object.entries(K.stock))sk[r]=stockLimit(n,r,sk[r]+v*F.s,sk[r]);n.stock=roundStock(sk);n.stockAt=now;n._stockSet=true;rep.notes.push(`The expedition brought back ${costText(Object.fromEntries(Object.entries(K.stock).map(([r,v])=>[r,Math.round(v*F.s)])))}.`);}
+      xuNotes(n,si,now,rep);
       if(K.land||o==='great'){const want=(K.land||0)+(o==='great'?1:0),add=addBonusCredits(n,want);rep.notes.push(add?`${add===1?'A bonus land credit':add+' bonus land credits'} for the map.`:'No bonus land credit: your nation already holds the most bonus credits allowed.');}
       /* a curio for the Museum: always from a lost place, otherwise by the Field naturalists' chance */
       {const ch=K.lost?1:xuCurio(n);if(ch>0&&Math.random()<ch&&!(n.xcu||[]).includes(st.k)){n.xcu=(n.xcu||[]).concat(st.k);const it=typeof COL_BY_ID!=='undefined'&&COL_BY_ID['xc-'+st.k];rep.curio=st.k;rep.notes.push(`A curio for the Museum of Progress: ${it?it.n:'a souvenir of the find'}.`);}}
       const fo=ISSUES.find(i=>i.fo&&i.site===st.k);if(fo){n.chain=(n.chain||[]).filter(c=>c.id!==fo.id).concat({id:fo.id,at:now+2*3600e3,si});rep.notes.push('Word of the find is spreading. Expect the consequences on your desk within a couple of hours.');}
       n.log.unshift({t:now,k:'disc',a:String(si),fx:siteDefault(si)});
     }else if(!(n.disc||[]).some(x=>x.s===si&&(x.o==='found'||x.o==='great')))applyEffects(n,{tour:1,culture:1});else rep.notes.push('Your explorers had been here before, so nobody was much impressed.');
+    xuPacks(n,now,rep);
   }
-  if(o==='lost')applyEffects(n,{happy:-1});
-  if(owner){const hit=o==='lost'?-8:o==='traces'?-4:-3;n.gw={...(n.gw||{})};n.gw[e.f]=clamp((n.gw[e.f]||0)+hit,-GW_MAX,GW_MAX);rep.notes.push(`${oname} did not enjoy explorers tramping across its land: ${gwWord(n.gw[e.f]).toLowerCase()} (${hit} goodwill).`);if(!owner.npc)n.log.unshift({t:now,k:'incident',a:e.f,b:oname,fx:siteLabel(si)});}
+  /* Emergency Stores (tier II rations): a lost expedition gives back some of its food and oil, and from blue II nobody minds */
+  if(o==='lost'){xuStores(n,e,now,rep);if(!xuCalm(n))applyEffects(n,{happy:-1});}
+  if(owner){const hit=Math.round((o==='lost'?-8:o==='traces'?-4:-3)*xuGwK(n));
+    if(hit<0){n.gw={...(n.gw||{})};n.gw[e.f]=clamp((n.gw[e.f]||0)+hit,-GW_MAX,GW_MAX);rep.notes.push(`${oname} did not enjoy explorers tramping across its land: ${gwWord(n.gw[e.f]).toLowerCase()} (${hit} goodwill).`);if(!owner.npc)n.log.unshift({t:now,k:'incident',a:e.f,b:oname,fx:siteLabel(si)});}
+    else rep.notes.push(`Your envoys smoothed things over with ${oname}: no goodwill lost.`);}
   {const all=[entry].concat(n.disc||[]),firsts=all.filter(x=>x.f),rest=all.filter(x=>!x.f).slice(0,60);n.disc=all.filter(x=>x.f||rest.includes(x));}n.log=n.log.slice(0,60);
   return rep;
 }
@@ -27422,18 +27473,18 @@ function xpPath(k){return XP_P2D[k]||(XP_P2D[k]=new Path2D(XP_IC[k]||XP_IC.stone
 /* the outcomes in order, with their short names and the colour of their part of the bar */
 const XP_ORDER=['lost','traces','found','great'],XP_OUT={lost:['Lost','xp-z0'],traces:['Traces','xp-z1'],found:['Discovery','xp-z2'],great:['Remarkable','xp-z3']};
 /* the chance of each outcome for a d20 plus mod against dc, in whole percents (each face is 5%), and of finding it */
-function expOdds(mod,dc){const o={lost:0,traces:0,found:0,great:0};for(let r=1;r<=20;r++)o[expOutcome({r,m:mod,dc})]+=5;o.find=o.found+o.great;return o;}
+function expOdds(mod,dc,g){const o={lost:0,traces:0,found:0,great:0};for(let r=1;r<=20;r++)o[expOutcome({r,m:mod,dc,g})]+=5;o.find=o.found+o.great;return o;}
 /* the die's faces in runs of one outcome, lowest face first: [[outcome, faces]] */
-function expRuns(mod,dc){const out=[];for(let r=1;r<=20;r++){const k=expOutcome({r,m:mod,dc}),l=out[out.length-1];if(l&&l[0]===k)l[1]++;else out.push([k,1]);}return out;}
-function xpOddsHTML(mod,dc){
-  const o=expOdds(mod,dc),R=expRuns(mod,dc),K=XP_ORDER.filter(k=>o[k]),words=K.map(k=>`${XP_OUT[k][0].toLowerCase()} ${o[k]}%`);
+function expRuns(mod,dc,g){const out=[];for(let r=1;r<=20;r++){const k=expOutcome({r,m:mod,dc,g}),l=out[out.length-1];if(l&&l[0]===k)l[1]++;else out.push([k,1]);}return out;}
+function xpOddsHTML(mod,dc,g){
+  const o=expOdds(mod,dc,g),R=expRuns(mod,dc,g),K=XP_ORDER.filter(k=>o[k]),words=K.map(k=>`${XP_OUT[k][0].toLowerCase()} ${o[k]}%`);
   return `<div class="xp-odds"><span class="xp-pct">${o.find}%</span><span class="xp-bar" role="img" aria-label="${o.find}% to find it: ${words.join(', ')}">${R.map(([k,f])=>`<i class="${XP_OUT[k][1]}" style="flex-grow:${f}"></i>`).join('')}</span><span class="xp-pl">to find it</span><span class="xp-ot" aria-hidden="true">${K.map(k=>`${XP_OUT[k][0].toLowerCase()} ${o[k]}`).join(' · ')}</span></div>`;
 }
 /* what a first find brings: its effects on the census, goods and land; a remarkable find multiplies the effects and goods by 1.5 */
 const XP_SN={sci:'science',wealth:'prosperity',env:'environment',relig:'religion',weird:'weirdness',tour:'tourism',culture:'culture',happy:'happiness',health:'health'};
-function xpFinds(k,mult){
+function xpFinds(k,mult,neg){
   const K=SITE_KINDS[k],m=mult||1,out=[];if(!K)return out;
-  for(const [s,v] of Object.entries(K.e||{})){const x=Math.round(v*m*10)/10;if(!x)continue;out.push({t:(x>0?'+':'−')+fmtAmt(Math.abs(x))+' '+(XP_SN[s]||(STATS[s]?STATS[s].n.toLowerCase():s)),neg:x<0});}
+  for(const [s,v] of Object.entries(K.e||{})){const x=Math.round(v*(v<0&&neg?neg:m)*10)/10;if(!x)continue;out.push({t:(x>0?'+':'−')+fmtAmt(Math.abs(x))+' '+(XP_SN[s]||(STATS[s]?STATS[s].n.toLowerCase():s)),neg:x<0});}
   if(K.stock)for(const [r,v] of Object.entries(K.stock))out.push({t:Math.round(v*m)+' '+resName(r),r});
   if(K.land)out.push({t:K.land===1?'a land credit':K.land+' land credits',land:1});
   return out;
@@ -27483,7 +27534,7 @@ const xpPill=(t,cls)=>`<span class="xp-pill${cls?' '+cls:''}">${t}</span>`;
 const xpDur=ms=>fmtDur(ms).replace(/ /g,' ');
 /* the expedition's card: at base camp (with the best odds within reach), in the field, back home, or the report */
 /* the best rumour to send a free team to: the highest chance, then the nearest */
-function xpBest(plans){return plans.filter(x=>!x.P.why).map(x=>({...x,o:expOdds(x.P.mod,x.P.dc)})).sort((a,b)=>b.o.find-a.o.find||a.P.d-b.P.d)[0]||null;}
+function xpBest(plans){return plans.filter(x=>!x.P.why).map(x=>({...x,o:expOdds(x.P.mod,x.P.dc,x.P.g)})).sort((a,b)=>b.o.find-a.o.find||a.P.d-b.P.d)[0]||null;}
 const xpSendTo=b=>`<button class="btn" type="button" data-act="exp-send" data-s="${b.si}">Send to ${esc(xpThe(b.si).replace(/^the rumoured /,'the '))}</button>`;
 /* the expedition's card: the first team at base camp (with the best odds within reach), in the field, back home, or
    the report; and, once the outfitters have raised one, the second team underneath */
@@ -27494,7 +27545,7 @@ function xpExpCard(n,now,plans,line){
   if(n.exp){const e=n.exp,si=e.s;
     if(e.t1<=now){st=`<div class="xp-st">${xpSealed('xp-back')}<div class="xp-st-t"><p class="eyebrow xp-eb-s">Back home</p><h2 class="xp-h" id="xp-exp-h">The expedition to ${esc(xpThe(si))} has returned</h2><p class="xp-lede">Its leader is waiting with a sunburn and a notebook. The seal on the result is still unbroken.</p></div></div>`;
       more=`<div class="xp-acts"><button class="btn xp-btn-s" type="button" data-act="exp-report" data-t="1">Break the seal and hear the report</button></div>`;}
-    else{const T=territory(),mi=T.byId[myId()],d=mi===undefined?0:expDist(T,mi,SITES[si].c),p=clamp((now-e.t0)/Math.max(1,e.t1-e.t0),0,1),o=expOdds(e.m,e.dc),rv=xpRivalText(xpRivals(si,now),e.t1,now,false);
+    else{const T=territory(),mi=T.byId[myId()],d=mi===undefined?0:xuDist(n,T,mi,SITES[si].c),p=clamp((now-e.t0)/Math.max(1,e.t1-e.t0),0,1),o=expOdds(e.m,e.dc,e.g),rv=xpRivalText(xpRivals(si,now),e.t1,now,false);
       st=`<div class="xp-st">${xpSealed('')}<div class="xp-st-t"><p class="eyebrow xp-eb-a">In the field</p><h2 class="xp-h" id="xp-exp-h">Bound for ${esc(xpThe(si))}</h2><p class="xp-lede">Back in <b data-live="exp" data-t="${e.t1}">${fmtDur(e.t1-now)}</b>, at ${fmtTime(e.t1)}. The die was cast when they left, and the seal breaks when they come home.</p></div></div>`;
       more=xpRouteSVG(n,e,now,d)+`<div class="xp-pills">${xpPill(`<span data-live="xphx" data-s="${e.t0}" data-d="${e.t1}" data-hx="${d}">${xpHexes(p,d)}</span>`)}${xpPill(o.find+'% to find it','rew')}${xpPill(`d20 ${e.m>=0?'+':'−'} ${Math.abs(e.m)} against ${e.dc}`)}${rv?xpPill(esc(rv.t),rv.warn?'warn':'rew'):''}</div>`;}}
   else{
@@ -27533,11 +27584,11 @@ function xpReportHTML(rep,rolling){
   else if(rep.o==='traces')body=`They found signs of ${esc(K.d)}: a path, a sketch, a local who almost remembered. Your next expedition here rolls +2.`;
   else if(again)body=`Your explorers reached ${nm}, only to find it was discovered by ${esc(rep.by)} first. They signed the visitors’ book and bought a postcard. Tourism and culture rose slightly.`;
   else body=`Your explorers found ${esc(K.d)}${rep.o==='great'?', in astonishing condition':''}, and they were the first: the name is yours to give.`;
-  const fx=rep.first&&won?xpFinds(SITES[si].k,rep.o==='great'?1.5:1).filter(f=>!f.r&&!f.land):[];
+  const fx=rep.first&&won?xpFinds(SITES[si].k,rep.fk||(rep.o==='great'?1.5:1),rep.o==='great'?1.5:1).filter(f=>!f.r&&!f.land):[];
   const acts=`<div class="xp-acts">${rep.first&&won?`<button class="btn ghost" type="button" data-act="xp-card" data-s="${si}">Save the postcard</button>`:''}<button class="btn ghost" type="button" data-act="site-map" data-s="${si}">See it on the map</button><button class="btn ghost" type="button" data-act="xp-close">Close the report</button><span class="hint">Your explorers can set out again.</span></div>`;
   return `<div class="xp-rep xp-o-${tone}"><p class="xp-stamp" aria-hidden="true"><b>${esc(stamp)}</b><span>Society of Explorers</span></p>
     <div class="xp-st">${die}<div class="xp-st-t"><p class="eyebrow xp-eb-s">${rep.team===2?'The second team’s report':'The report'}</p><h2 class="xp-h" id="xp-exp-h">${head}</h2><p class="xp-rl">Rolled ${rep.r}${rep.m?` ${rep.m>0?'+':'−'} ${Math.abs(rep.m)} = ${eff}`:''} against difficulty ${rep.dc}</p></div></div>
-    <div id="exp-result" aria-live="polite">${xpTrack(expRuns(rep.m,rep.dc),k=>XP_OUT[k][1],rep.r,eff,k=>XP_OUT[k][0])}<p class="xp-rb">${body}</p>
+    <div id="exp-result" aria-live="polite">${xpTrack(expRuns(rep.m,rep.dc,rep.g),k=>XP_OUT[k][1],rep.r,eff,k=>XP_OUT[k][0])}<p class="xp-rb">${body}</p>
     ${fx.length?`<div class="xp-pills">${fx.map(f=>xpPill(esc(f.t),f.neg?'warn':'rew')).join('')}</div>`:''}${rep.notes.length?`<ul class="exp-notes">${rep.notes.map(t=>`<li>${esc(t)}</li>`).join('')}</ul>`:''}
     ${rep.first&&won?siteNameForm(si):''}${acts}</div></div>`;
 }
@@ -27558,7 +27609,7 @@ function xpRumour(n,si,P,now){
   const cost=RES.filter(r=>P.cost[r]).map(r=>`<span>${resIco(r,'s')}${P.cost[r]} ${esc(resName(r))}</span>`).join('');
   return `<li class="xp-item${lost?' xp-lost':''}${S.xpSel===id?' is-sel':''}" id="${xpItemId(id)}" tabindex="-1">${xpGlyph(st.k,lost?'gold':'')}<div class="xp-ib">
     <div class="xp-it"><div class="xp-tt">${lost?'<p class="eyebrow xp-eb-g">Lost place · shown by your old maps</p>':''}<h3>${esc(siteLabel(si))}</h3><p class="xp-meta">${esc(cap1(terrName(st.c).toLowerCase()))} on ${esc(landName(st.c))} · ${P.d} ${P.d===1?'hex':'hexes'} · back in ${xpDur(P.mins*60000)}${lost?` · difficulty ${P.dc}`:''}${P.owner?` · in ${esc(P.owner.n.name)}, which costs goodwill`:''}</p></div><div class="xp-go">${go}</div></div>
-    ${xpOddsHTML(P.mod,P.dc)}
+    ${xpOddsHTML(P.mod,P.dc,P.g)}
     <div class="xp-rw">${xpFinds(st.k).map(f=>xpPill(esc(f.t),f.neg?'warn':'rew')).join('')}${lost?xpPill('Its curio for the Museum','gold'):''}${xpPill('You name it','seal')}${wx?xpPill(esc(cap1(wx)),'warn'):''}${rv?xpPill(esc(rv.t),rv.warn?'warn':'rew'):''}<span class="xp-cost">${cost}</span></div></div></li>`;
 }
 /* how the roll works: the modifiers that apply everywhere, the ones that depend on the site, and the full tables */
@@ -27604,7 +27655,7 @@ function exploreView(now){
   /* the ten nearest rumours, and every lost place your old maps show */
   const all=SITES.map((s,si)=>si).filter(si=>!R.has(si)&&xpSeen(si,n)).map(si=>({si,P:expPlan(n,si)})).filter(x=>x.P.d<=rg+15).sort((a,b)=>a.P.d-b.P.d);
   const plans=all.filter(x=>SITES[x.si].lost).concat(all.filter(x=>!SITES[x.si].lost).slice(0,10)).sort((a,b)=>a.P.d-b.P.d),nLost=plans.filter(x=>SITES[x.si].lost).length;
-  const T=territory(),mi=T.byId[myId()],D=mi===undefined?null:flDist(T,mi),hid=D?SITES.map((s,si)=>si).filter(si=>SITES[si].lost&&!R.has(si)&&!xpSeen(si,n)&&D[SITES[si].c]>=0&&D[SITES[si].c]<=rg+15):[];
+  const T=territory(),mi=T.byId[myId()],D=mi===undefined?null:flDist(T,mi),hid=D?SITES.map((s,si)=>si).filter(si=>SITES[si].lost&&!R.has(si)&&!xpSeen(si,n)&&SITE_KINDS[SITES[si].k].lv<=(xuLine(n,'maps')==='lost'?10:5)&&D[SITES[si].c]>=0&&D[SITES[si].c]<=rg+15):[];
   const party=flPartyCard(n,t),fl=flDestList(n,t);
   const rum=plans.filter(x=>(!S.xpNear||!/^Out of reach/.test(x.P.why||''))&&(F!=='lost'||SITES[x.si].lost)),rumShown=S.xpMore?rum:rum.slice(0,6);
   const seg=(v,l)=>`<button type="button" class="xp-seg" data-act="xp-f" data-v="${v}" aria-pressed="${F===v}">${l}</button>`;
@@ -27613,7 +27664,7 @@ function exploreView(now){
     list+=rumShown.map(x=>xpRumour(n,x.si,x.P,now)).join('')||`<li class="xp-note">No undiscovered site lies within reach. ${esc(navyReach(n))}</li>`;
     if(rum.length>rumShown.length)list+=`<li class="xp-li-more"><button type="button" class="btn ghost" data-act="xp-more">Show ${rum.length-rumShown.length} more ${rum.length-rumShown.length===1?'rumour':'rumours'}</button></li>`;
     if(hid.length)list+=xpLostTeaser(n,hid);}
-  if(F!=='rum'&&F!=='lost'){list+=fl.near.join('');
+  if(F!=='rum'&&F!=='lost'){list+=flSoonHTML(n,t)+fl.near.join('');
     if(!fl.count)list+='<li class="xp-note">Nothing fleeting is about just now. Something new turns up every few hours.</li>';
     else if(!S.xpNear&&fl.far.length)list+=S.xpFar?fl.far.join('')+`<li class="xp-li-more"><button type="button" class="btn ghost" data-act="xp-far">Hide the fleeting finds out of reach</button></li>`:`<li class="xp-li-more"><button type="button" class="btn ghost" data-act="xp-far">Show ${fl.far.length} more fleeting ${fl.far.length===1?'find':'finds'} out of reach</button></li>`;
     else if(!fl.near.length)list+='<li class="xp-note">No fleeting find is within reach just now.</li>';}
@@ -27630,9 +27681,9 @@ function xpMapFig(n){
 }
 /* lost places within reach that your maps do not show yet: how many, and the block at the outfitters that shows the next kind */
 function xpLostTeaser(n,hid){
-  const L=xuLv(n,'maps'),kinds=[...new Set(hid.map(si=>SITES[si].k))].sort((a,b)=>SITE_KINDS[a].lv-SITE_KINDS[b].lv),q=L<5?XU.maps.req[L]:null,next=L<5?LOST_KINDS[LOST_ORDER[L]]:null;
+  const L=xuLv(n,'maps'),kinds=[...new Set(hid.map(si=>SITES[si].k))].sort((a,b)=>SITE_KINDS[a].lv-SITE_KINDS[b].lv),q=L<5?XU.maps.req[L]:null,next=L<5?LOST_KINDS[LOST_ORDER[L]]:null,b2=L>=5&&xuLine(n,'maps')==='lost'?xb(n,'maps','lost'):-1,next2=b2>=0&&b2<5?LOST2_KINDS[LOST2_ORDER[b2]]:null;
   return `<li class="xp-item xp-tease"><span class="xp-glyph none" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="${XU.maps.ic}"/></svg></span><div class="xp-ib"><h3>${hid.length===1?'A lost place lies':hid.length+' lost places lie'} within your reach</h3>
-    <p class="xp-meta">Your maps do not show ${hid.length===1?'it':'them'} yet: ${esc(list(kinds.map(k=>SITE_KINDS[k].n.toLowerCase())))}.${next?` Old maps ${XU_COL[L]} would show ${esc(next.n.toLowerCase())}s, and needs ${esc(xuReqText(q))}.`:''}</p>
+    <p class="xp-meta">Your maps do not show ${hid.length===1?'it':'them'} yet: ${esc(list(kinds.map(k=>SITE_KINDS[k].n.toLowerCase())))}.${next?` Old maps ${XU_COL[L]} would show ${esc(sitePl(next.n))}, and needs ${esc(xuReqText(q))}.`:next2?` The Lost Atlas’s ${XU_COL[b2]} II block would show ${esc(xuPl(LOST2_ORDER[b2]))}.`:''}</p>
     <div class="xp-rw"><button type="button" class="linkish small" data-act="xp-outfit">The outfitters</button><button type="button" class="linkish small" data-act="go" data-v="cities">Your cities</button></div></div></li>`;
 }
 /* the postcard of a find: a picture to keep, with the name its finder gave it */
@@ -27658,7 +27709,7 @@ async function xpPostcard(si){
 function sitePanel(si){
   const n=S.nation,st=SITES[si],K=SITE_KINDS[st.k],R=discoveries().get(si),P=expPlan(n,si);
   return `<p class="eyebrow">${R?'Discovery':'Rumour'}</p><h2 class="mp-h">${esc(siteLabel(si))}</h2><p class="muted">${esc(cap1(K.d))}${R?`. Discovered by ${esc(R.name)} on ${fmtDate(R.t)}.`:'. Nobody has found it yet.'}</p>
-    <dl class="mp-dl"><div><dt>Where</dt><dd>${esc(terrName(st.c))} on ${esc(landName(st.c))}</dd></div>${P.owner?`<div><dt>Held by</dt><dd>${esc(P.owner.n.name)}</dd></div>`:''}${P.d!=null?`<div><dt>Distance</dt><dd>${P.d} ${P.d===1?'hex':'hexes'}</dd></div><div><dt>Chance</dt><dd>${expOdds(P.mod,P.dc).find}% to find it <span class="hint">(d20 ${P.mod>=0?'+':'−'} ${Math.abs(P.mod)} against ${P.dc})</span></dd></div>${R?'':`<div><dt>Finds</dt><dd>${esc(list(xpFinds(st.k).map(f=>f.t)))}</dd></div>`}<div><dt>Cost</dt><dd>${esc(costText(P.cost))}</dd></div><div><dt>Journey</dt><dd>${fmtDur(P.mins*60000)}</dd></div>`:''}</dl>
+    <dl class="mp-dl"><div><dt>Where</dt><dd>${esc(terrName(st.c))} on ${esc(landName(st.c))}</dd></div>${P.owner?`<div><dt>Held by</dt><dd>${esc(P.owner.n.name)}</dd></div>`:''}${P.d!=null?`<div><dt>Distance</dt><dd>${P.d} ${P.d===1?'hex':'hexes'}</dd></div><div><dt>Chance</dt><dd>${expOdds(P.mod,P.dc,P.g).find}% to find it <span class="hint">(d20 ${P.mod>=0?'+':'−'} ${Math.abs(P.mod)} against ${P.dc})</span></dd></div>${R?'':`<div><dt>Finds</dt><dd>${esc(list(xpFinds(st.k).map(f=>f.t)))}</dd></div>`}<div><dt>Cost</dt><dd>${esc(costText(P.cost))}</dd></div><div><dt>Journey</dt><dd>${fmtDur(P.mins*60000)}</dd></div>`:''}</dl>
     ${!R&&!P.why?(r=>r?`<p class="hint" style="margin-top:10px">${esc(r.t)}.</p>`:'')(xpRivalText(xpRivals(si,Date.now()),Date.now()+P.mins*60000,Date.now(),true)):''}
     ${P.why?`<p class="hint" style="margin-top:10px">${esc(P.why)}</p>`:''}
     <div class="row" style="margin-top:14px">${P.why?'':`<button class="btn" data-act="exp-send" data-s="${si}">${R?'Send an expedition anyway':'Send an expedition'}</button>`}<button class="btn ghost" data-act="go" data-v="explore">Expeditions</button>${P.owner&&!P.owner.me?`<button class="btn ghost" data-act="map-select" data-id="${esc(P.owner.id)}">${esc(P.owner.n.name)}</button>`:''}<button class="btn ghost" data-act="map-desel">Close</button></div>`;
@@ -27824,7 +27875,7 @@ function normalizeWorld(d){
   const now=Date.now(),num=(v,f)=>typeof v==='number'&&isFinite(v)?v:f,siOk=v=>Number.isInteger(v)&&v>=0&&v<SITES.length;
   const ib=Array.isArray(d.inbox)?d.inbox.filter(x=>x&&ISSUE_BY_ID[x.id]&&x.cr!==1).slice(0,EDICT_KEEP).concat(d.inbox.filter(x=>x&&x.cr===1&&ISSUE_BY_ID[x.id]&&ISSUE_BY_ID[x.id].crs).slice(0,CRS_KEEP)):[];n.inbox.forEach((x,i)=>{if(ib[i]&&siOk(ib[i].si))x.si=ib[i].si;});
   const ch=Array.isArray(d.chain)?d.chain.filter(c=>c&&ISSUE_BY_ID[c.id]).slice(-12):[];n.chain.forEach((x,i)=>{if(ch[i]&&siOk(ch[i].si))x.si=ch[i].si;});
-  const ex=e=>e&&siOk(e.s)&&typeof e.t0==='number'&&typeof e.t1==='number'?{s:e.s,t0:e.t0,t1:e.t1,r:clamp(Math.round(num(e.r,10)),1,20),m:clamp(Math.round(num(e.m,0)),-10,20),dc:clamp(Math.round(num(e.dc,10)),1,30),f:typeof e.f==='string'?e.f.slice(0,60):''}:null;
+  const ex=e=>e&&siOk(e.s)&&typeof e.t0==='number'&&typeof e.t1==='number'?{s:e.s,t0:e.t0,t1:e.t1,r:clamp(Math.round(num(e.r,10)),1,20),m:clamp(Math.round(num(e.m,0)),-10,20),dc:clamp(Math.round(num(e.dc,10)),1,30),f:typeof e.f==='string'?e.f.slice(0,60):'',...(e.g===5?{g:5}:{}),...(e.c&&typeof e.c==='object'?{c:{food:clamp(Math.round(num(e.c.food,0)),0,999),oil:clamp(Math.round(num(e.c.oil,0)),0,999)}}:{})}:null;
   n.exp=ex(d.exp);n.exp2=ex(d.exp2);if(!n.exp2)delete n.exp2;
   n.disc=Array.isArray(d.disc)?d.disc.filter(x=>x&&siOk(x.s)&&typeof x.t==='number'&&['lost','traces','found','great'].includes(x.o)).slice(0,200).map(x=>{const o={s:x.s,t:x.t,o:x.o,nm:cleanName(x.nm)};if(x.f)o.f=1;return o;}):[];
   const m=d.mig;if(m&&typeof m==='object'){const nn=v=>clamp(num(v,0),0,1e6);n.mig={i:nn(m.i),o:nn(m.o),r:nn(m.r),si:nn(m.si),so:nn(m.so),src:typeof m.src==='string'?m.src.slice(0,60):'',dst:typeof m.dst==='string'?m.dst.slice(0,60):''};}else delete n.mig;
@@ -28005,7 +28056,7 @@ function spareOf(E,id,res){const j=E.T.byId[id];return j===undefined?0:Math.max(
 /* the credits earned at population p: everything landEarned counts at today's population, rank and province credits
    included (and the dig credits below), so the next credit's population is reckoned from the same total. Province credits
    were once left out here, and a nation with 25 provinces was told its next credit came at 286 million instead of 35. */
-function earnedAt(n,p){const r=milesReached(p);return Math.max(0,budgetOf(p)-CORE_HEXES)+r.reduce((s,m,i)=>s+mileCredit(n,i),0)+(n.lcb||0)+prvCredits(n)+rdCredits(n)+achRankCredits(n)+achTierCredits(n)-(n.mvl||0);}
+function earnedAt(n,p){const r=milesReached(p);return Math.max(0,budgetOf(p)-CORE_HEXES)+r.reduce((s,m,i)=>s+mileCredit(n,i),0)+(n.lcb||0)+prvCredits(n)+rdCredits(n)+achRankCredits(n)+achTierCredits(n)+xuCredits(n)-(n.mvl||0);}
 function nextCreditPop(n){
   const T=territory(),i=T.byId[myId()],used=i===undefined?0:claimsUsed(n,T,i),need=used+1,p0=popNow(n);
   if(earnedAt(n,p0)>=need)return p0;let lo=p0,hi=p0;
@@ -43160,10 +43211,10 @@ function flSpan(mode,h){return (mode==='l'?h:4*h)*FL_H;}
 /* the claims a nation holds, with each bonus and its start: from the shared claims in this region, or for parties
    sent from a region it has since left, from the place, tier and kind stamped on hearing the report */
 function flHeld(id,doc){
-  const out=[],E=flClaims().mine.get(id)||[];
-  for(const e of E){if(e.place===-1)continue;const K=flKindOf(e.site);out.push({key:e.site.key,kind:e.site.kind,a:e.a,place:e.place,first:!!e.first,tier:e.tier,clean:e.place===0,fx:e.place===0?FL_CONSOL:K.fx,mult:e.place===0?1:FL_TIERS[e.tier][1],site:e.site});}
+  const out=[],E=flClaims().mine.get(id)||[],X=xuFlK(doc||flDocOf(id)),fx=f=>X.h===1?f:f.map(([st,v,mode,h])=>[st,v,mode,h*X.h]);
+  for(const e of E){if(e.place===-1)continue;const K=flKindOf(e.site);out.push({key:e.site.key,kind:e.site.kind,a:e.a,place:e.place,first:!!e.first,tier:e.tier,clean:e.place===0,fx:fx(e.place===0?FL_CONSOL:K.fx),mult:e.place===0?1:FL_TIERS[e.tier][1]*X.m,site:e.site});}
   if(doc&&Array.isArray(doc.fl))for(const p of doc.fl){if(!flPartyOk(p)||!(p.p>=0)||typeof p.k!=='string'||p.k.split(':')[0]===REG.id)continue;const K=FL_KINDS[p.kd];if(!K)continue;
-    const cl=p.p===0,q=clamp(p.q|0,0,4);out.push({key:p.k,kind:p.kd,a:p.a,place:p.p,first:p.p===1,tier:cl?-1:q,clean:cl,fx:cl?FL_CONSOL:K.fx,mult:cl?1:FL_TIERS[q][1],site:null});}
+    const cl=p.p===0,q=clamp(p.q|0,0,4);out.push({key:p.k,kind:p.kd,a:p.a,place:p.p,first:p.p===1,tier:cl?-1:q,clean:cl,fx:fx(cl?FL_CONSOL:K.fx),mult:cl?1:FL_TIERS[q][1]*X.m,site:null});}
   return out;
 }
 /* every active bonus at time t: [{stat, v0, v, mode, h, a, end, kind, …}] */
@@ -43273,7 +43324,7 @@ function flParts(n,s,T,ta){
   if(p.mountainTroops&&MAP.T[s.c]>=3)out.push(['mountain troops',2]);
   if(cabTrait(n,'genius'))out.push(['a genius in the cabinet',1]);
   try{const o=wxOver(s.c,ta);if(o&&WX_TYPES[o.s.type].exp<0)out.push([(o.s.type==='storm'?'a storm':wxPhrase(o.s))+' over the site on arrival',WX_TYPES[o.s.type].exp]);}catch(e){}
-  const mi=T.byId[myId()],o=T.owner[s.c];if(o>=0&&o!==mi)out.push(['foreign soil',-1]);
+  const mi=T.byId[myId()],o=T.owner[s.c];if(o>=0&&o!==mi){out.push(['foreign soil',-1]);if(xb(n,'gear','envoy')>=3)out.push(['envoys’ kit',1]);}
   for(const q of XU_FLMOD(n))out.push(q);
   for(const h of EXP_MODS){if(h===FL_EXPMOD)continue;try{const r=h(n,-1,T);if(Array.isArray(r))for(const q of r)if(Array.isArray(q)&&typeof q[0]==='string'&&Number.isFinite(q[1])&&!/over the site/.test(q[0]))out.push([q[0],q[1]]);}catch(e){}}
   return out;
@@ -43283,7 +43334,7 @@ function flOut(n,t){return flParties(n).find(e=>e.a>t)||null;}
 function flReady(n,t){const P=flParties(n);if(!P.length)return 0;const last=Math.max(...P.map(e=>e.a)),cd=xuParty(n).cd;return last+cd>t?last+cd:0;}
 function flPlan(n,s,t){
   t=t==null?flNow():t;const T=territory(),mi=T.byId[myId()];if(mi===undefined)return {why:'Settle on the map first.'};
-  const D=flDist(T,mi),d=Math.max(0,D[s.c]),rg=flRange(n),mins=Math.max(10,Math.round(flMins(d,rg)*xuParty(n).t)),ta=t+mins*60000,cost=flCost(d),parts=flParts(n,s,T,ta),mod=parts.reduce((a,p)=>a+p[1],0);
+  const D=xuFlDist(n,T,mi),d=Math.max(0,D[s.c]),rg=flRange(n),mins=Math.max(10,Math.round(flMins(d,rg)*xuParty(n).t*xuWayK(n,d))),ta=t+mins*60000,cost=flCost(d),parts=flParts(n,s,T,ta),mod=parts.reduce((a,p)=>a+p[1],0);
   const o=T.owner[s.c],owner=o>=0&&o!==mi?T.list[o]:null,st=flState(s,t),P=(n&&n.fl)||[],me=myId();
   const ahead=st.list.filter(e=>e.id!==me&&e.place>=0&&e.a<=ta).length;
   let why='';const out=flOut(n,t),rd=flReady(n,t);
@@ -43302,8 +43353,8 @@ function flSend(key){
   const n0=S.nation,s=flByKey(key);if(!n0)return;if(!s){toast('That find has gone.');return;}
   const t=flNow(),P=flPlan(n0,s,t);if(P.why){toast(P.why);return;}
   const now=Date.now(),n=clone(n0),st=stockNow(n0,now);for(const r of RES)st[r]-=P.cost[r]||0;n.stock=roundStock(st);n.stockAt=now;n._stockSet=true;
-  n.fl=(n.fl||[]).concat({k:key,s:t,a:P.ta,r:1+hash(myId()+'|'+key+'|'+t)%20,m:P.mod}).slice(-FL_N);
-  let gw='';if(P.owner){n.gw=Object.assign({},n.gw||{});n.gw[P.owner.id]=clamp((n.gw[P.owner.id]||0)-2,-GW_MAX,GW_MAX);gw=` ${P.owner.n.name} is not thrilled to have your party tramping across its land: ${gwWord(n.gw[P.owner.id]).toLowerCase()} (−2 goodwill).`;}
+  n.fl=(n.fl||[]).concat({k:key,s:t,a:P.ta,r:xuCharm(n0,1+hash(myId()+'|'+key+'|'+t)%20,myId()+'|'+key+'|'+t),m:P.mod}).slice(-FL_N);
+  let gw='';const gh=Math.round(-2*xuGwK(n0));if(P.owner&&gh<0){n.gw=Object.assign({},n.gw||{});n.gw[P.owner.id]=clamp((n.gw[P.owner.id]||0)+gh,-GW_MAX,GW_MAX);gw=` ${P.owner.n.name} is not thrilled to have your party tramping across its land: ${gwWord(n.gw[P.owner.id]).toLowerCase()} (−${-gh} goodwill).`;}
   commit(n);S.flShow=null;render();
   toast(`Your party has set out for ${flKindOf(s).a} ${placePhrase(s.c)}. It arrives in ${fmtDur(P.mins*60000)}.${gw}`);
 }
@@ -43329,8 +43380,8 @@ function flHear(){
   rep.eff=p.r+p.m+(rep.first?2:0);
   const before=new Set(Object.keys((n0&&n0.coll)||{}));
   commit(n);
-  if(rep.place>=0){const K=FL_KINDS[rep.kind],fx=rep.place===0?FL_CONSOL:K?K.fx:[],k=rep.place===0?1:FL_TIERS[rep.tier][1];
-    for(const [st,v,mode,h] of fx){if(st==='rp'&&typeof btRP!=='function')continue;rep.notes.push(`${flFxText(st,v*k)}, ${mode==='h'?`halving every ${h} h until it is gone after ${4*h} h`:`fading to nothing over ${h} h`}.`);}}
+  if(rep.place>=0){const K=FL_KINDS[rep.kind],X=xuFlK(n),fx=rep.place===0?FL_CONSOL:K?K.fx:[],k=rep.place===0?1:FL_TIERS[rep.tier][1]*X.m;
+    for(const [st,v,mode,h0] of fx){const h=Math.round(h0*X.h*10)/10;if(st==='rp'&&typeof btRP!=='function')continue;rep.notes.push(`${flFxText(st,v*k)}, ${mode==='h'?`halving every ${h} h until it is gone after ${Math.round(4*h*10)/10} h`:`fading to nothing over ${h} h`}.`);}}
   const got=Object.keys((S.nation&&S.nation.coll)||{}).filter(id=>!before.has(id)&&/^fl-/.test(id)&&COL_BY_ID[id]);
   for(const id of got)rep.notes.push(`A souvenir for the Museum of Progress: ${colName(COL_BY_ID[id],S.nation)}.`);
   S.flShow=rep;S.flRolling=true;render();
@@ -43668,18 +43719,25 @@ function xpBldNote(key){
   const I=ibBldNote(key);if(I)out.push(I);
   return out.join(' ');
 }
-/* the workshop: one upgrade at a time; finished ones are written into n.xu on the next save */
-COMMIT_HOOKS.push((n,old,now)=>{const w=n&&n.xuw;if(w&&w.d<=(now||Date.now())&&XU[w.k]){n.xu=Object.assign({},n.xu||{});n.xu[w.k]=Math.max(n.xu[w.k]|0,clamp(w.u|0,1,xuMax(w.k)));n.xul={k:w.k,u:n.xu[w.k],t:w.d};delete n.xuw;}return [];});
+/* the workshop: one upgrade at a time; finished ones are written into n.xu (tier II: n.xl, n.x2) on the next save */
+COMMIT_HOOKS.push((n,old,now)=>{xuSettle(n,now||Date.now());return [];});
 NORM_HOOKS.push((n,d)=>{
   if(d&&d.xu&&typeof d.xu==='object'&&!Array.isArray(d.xu)){const o={};for(const k of XU_KEYS){const v=d.xu[k];if(Number.isInteger(v)&&v>0)o[k]=Math.min(v,xuMax(k));}if(Object.keys(o).length)n.xu=o;}
-  const w=d&&d.xuw;if(w&&XU[w.k]&&Number.isInteger(w.u)&&w.u>=1&&w.u<=xuMax(w.k)&&Number.isFinite(w.s)&&Number.isFinite(w.d)&&w.d>w.s&&w.d-w.s<=2*DAY){const o={k:w.k,u:w.u,s:w.s,d:w.d};const p=paidClean(w.p,xuCost(w.k,w.u-1));if(p)o.p=p;n.xuw=o;}
-  const l=d&&d.xul;if(l&&XU[l.k]&&Number.isInteger(l.u)&&Number.isFinite(l.t))n.xul={k:l.k,u:l.u,t:l.t};
+  const w=d&&d.xuw;if(w&&XU[w.k]&&Number.isFinite(w.s)&&Number.isFinite(w.d)&&w.d>w.s&&w.d-w.s<=2*DAY){
+    /* tier II (x 2): a block u 1-5 of the track's line, or the refit itself (u 0, ln the line chosen) */
+    if(w.x===2){if(XU2[w.k]&&Number.isInteger(w.u)&&w.u>=0&&w.u<=5&&(w.u>0||Object.hasOwn(XU2[w.k].lines,w.ln))){const o={k:w.k,u:w.u,s:w.s,d:w.d,x:2};if(!w.u)o.ln=w.ln;const p=paidClean(w.p,xuJobCost(o));if(p)o.p=p;n.xuw=o;}}
+    else if(Number.isInteger(w.u)&&w.u>=1&&w.u<=xuMax(w.k)){const o={k:w.k,u:w.u,s:w.s,d:w.d};const p=paidClean(w.p,xuCost(w.k,w.u-1));if(p)o.p=p;n.xuw=o;}}
+  const l=d&&d.xul;if(l&&XU[l.k]&&Number.isInteger(l.u)&&Number.isFinite(l.t)){n.xul={k:l.k,u:l.u,t:l.t};if(l.x===2&&XU2[l.k]){n.xul.x=2;if(!l.u&&Object.hasOwn(XU2[l.k].lines,l.ln))n.xul.ln=l.ln;}}
+  /* the lines chosen and their tier II blocks */
+  if(d&&d.xl&&typeof d.xl==='object'&&!Array.isArray(d.xl)){const o={},b={};for(const k of Object.keys(XU2)){const ln=d.xl[k];if(typeof ln!=='string'||!Object.hasOwn(XU2[k].lines,ln))continue;o[k]=ln;const v=d.x2&&d.x2[k];if(Number.isInteger(v)&&v>0)b[k]=Math.min(v,5);}
+    if(Object.keys(o).length)n.xl=o;if(Object.keys(b).length)n.x2=b;}
+  if(d&&Number.isInteger(d.xcr)&&d.xcr>0)n.xcr=Math.min(d.xcr,XU_CR_MAX);
   if(d&&Array.isArray(d.xcu)){const v=[...new Set(d.xcu.filter(k=>typeof k==='string'&&SITE_KINDS[k]))];if(v.length)n.xcu=v;}
 });
 /* why the next block of a track cannot go into the workshop now, or '' */
 function xuWhy(n,k,now){
   now=now||Date.now();const L=xuLv(n,k,now);if(L>=xuMax(k))return 'Every block is fitted.';
-  if(n.xuw&&n.xuw.d>now)return n.xuw.k===k?'This one is in the workshop.':`The workshop is busy with ${XU[n.xuw.k].n} for ${fmtDur(n.xuw.d-now)}.`;
+  if(n.xuw&&n.xuw.d>now)return n.xuw.k===k?'This one is in the workshop.':`The workshop is busy with ${xuJobName(n.xuw)} for ${fmtDur(n.xuw.d-now)}.`;
   const q=XU[k].req[L];if(q&&!xuHave(n,q,now))return `Needs ${xuReqText(q)} in one of your cities.`;
   const miss=lacking(xuCost(k,L),stockNow(n,now));if(miss.length)return `You need ${list(miss)} more.`;
   return '';
@@ -43687,20 +43745,20 @@ function xuWhy(n,k,now){
 function xuStart(k){
   const n0=S.nation,now=Date.now();if(!n0||!XU[k])return;const why=xuWhy(n0,k,now);if(why){toast(why);return;}
   const n=clone(n0),L=xuLv(n0,k,now),cost=xuCost(k,L),st=stockNow(n0,now),h=xuHours(k,L);
-  if(n.xuw&&n.xuw.d<=now){n.xu=Object.assign({},n.xu||{});n.xu[n.xuw.k]=Math.max(n.xu[n.xuw.k]|0,n.xuw.u);n.xul={k:n.xuw.k,u:n.xuw.u,t:n.xuw.d};}
+  xuSettle(n,now);
   for(const r of RES)st[r]-=cost[r]||0;n.stock=roundStock(st);n.stockAt=now;n._stockSet=true;
   n.xuw={k,u:L+1,s:now,d:now+h*3600e3,p:cost};commit(n);render();
   toast(`The outfitters have started on ${XU[k].n}, ${XU_COL[L]}. Ready in ${fmtDur(h*3600e3)}.`);
 }
 function xuCancel(){
-  const n0=S.nation,now=Date.now();if(!n0||!n0.xuw||n0.xuw.d<=now)return;const n=clone(n0),w=n.xuw,st=stockNow(n0,now),p=paidClean(w.p,xuCost(w.k,w.u-1))||xuCost(w.k,w.u-1);
+  const n0=S.nation,now=Date.now();if(!n0||!n0.xuw||n0.xuw.d<=now)return;const n=clone(n0),w=n.xuw,st=stockNow(n0,now),p=paidClean(w.p,xuJobCost(w))||xuJobCost(w);
   for(const r of RES)if(p[r])st[r]=stockLimit(n,r,st[r]+p[r],st[r]);n.stock=roundStock(st);n.stockAt=now;n._stockSet=true;delete n.xuw;commit(n);render();
-  toast(`${XU[w.k].n} is off the workbench, and its materials are back in the stockpile.`);
+  toast(`${cap1(xuJobName(w))} is off the workbench, and its materials are back in the stockpile.`);
 }
 /* the bell: an upgrade finished */
 NOTIF_SOURCES.push((n,now)=>{if(!n||n.npc)return [];const out=[],w=n.xuw,l=n.xul;
-  if(w&&w.d<=now&&now-w.d<3*DAY)out.push({t:w.d,k:'exp',kl:'Society of Explorers',txt:`The outfitters have finished ${XU[w.k].n}, ${XU_COL[w.u-1]}: ${xuLvText(w.k,w.u-1)}.`,go:'explore'});
-  else if(l&&XU[l.k]&&now-l.t<3*DAY&&now>=l.t)out.push({t:l.t,k:'exp',kl:'Society of Explorers',txt:`The outfitters have finished ${XU[l.k].n}, ${XU_COL[l.u-1]}: ${xuLvText(l.k,l.u-1)}.`,go:'explore'});
+  if(w&&w.d<=now&&now-w.d<3*DAY)out.push({t:w.d,k:'exp',kl:'Society of Explorers',txt:xuDoneText(n,w),go:'explore'});
+  else if(l&&XU[l.k]&&now-l.t<3*DAY&&now>=l.t)out.push({t:l.t,k:'exp',kl:'Society of Explorers',txt:xuDoneText(n,l),go:'explore'});
   return out;});
 /* fleeting parties: Swift parties travel faster and rest less, and at gold roll 1 higher */
 const XU_FLMOD=n=>xuParty(n).roll?[['swift parties',1]]:[];
@@ -43739,7 +43797,7 @@ UNLOCKS['t-naturalist']={k:'title',n:'the Naturalist',src:'set'};
 HELP_EXT.push({k:'outfitters',t:'The outfitters and lost places',body:n=>`<p><b>The outfitters</b>, on the Expeditions page, fit out your explorers. There are seven upgrades with five blocks each, in the colours of a city building’s upgrades (grey, green, blue, purple, gold), and a single block for a second team. Each block costs a little more and takes longer than the last, and one upgrade is in the workshop at a time; cancel it and the materials come back.</p>
 <p><b>Buildings open the better blocks.</b> The grey block is open to everyone. Each block after it needs a building in one of your cities, or that building upgraded far enough: ${esc(list(XU_KEYS.filter(k=>k!=='team').map(k=>XU[k].n+' ('+XU[k].req.map((q,i)=>q?XU_COL[i]+': '+xuReqText(q):'').filter(Boolean).join('; ')+')')))}; and a second team needs ${esc(xuReqText(XU.team.req[0]))}, which needs an Outfitters’ Guild and a Map Room. Every building that opens a block says so on the Cities page.</p>
 <p><b>What they do.</b> Trekking gear adds 1 to the roll in more and more kinds of land, and 1 more everywhere at gold. Pack mules cut 6% off the journey for each block, Supply depots add 3 hexes of reach (for fleeting parties too), and Light rations take 8% off the food and oil. Field naturalists give each first find a 6% chance for every block of bringing home a curio for the Museum. Swift parties make fleeting parties quicker and their rest shorter, and add 1 to their roll at gold.</p>
-<p><b>Lost places.</b> Each region also hides ${LOST_ORDER.length*LOST_PER} lost places of ${LOST_ORDER.length} kinds (${esc(list(LOST_ORDER.map(k=>LOST_KINDS[k].n.toLowerCase()+'s')))}), harder to find (difficulty ${Math.min(...LOST_ORDER.map(k=>LOST_KINDS[k].dc))} to ${Math.max(...LOST_ORDER.map(k=>LOST_KINDS[k].dc))}) and worth more. Nobody sees one until their old maps show its kind: Old maps’ grey block (which needs a Map Room) shows pirate coves, and each block after it one more kind. Once somebody has found one, it is on every map under the name its finder gave it, and its finder always brings home its curio.</p>`});
+<p><b>Lost places.</b> Each region also hides ${LOST_ORDER.length*LOST_PER} lost places of ${LOST_ORDER.length} kinds (${esc(list(LOST_ORDER.map(k=>sitePl(LOST_KINDS[k].n))))}), harder to find (difficulty ${Math.min(...LOST_ORDER.map(k=>LOST_KINDS[k].dc))} to ${Math.max(...LOST_ORDER.map(k=>LOST_KINDS[k].dc))}) and worth more. Nobody sees one until their old maps show its kind: Old maps’ grey block (which needs a Map Room) shows pirate coves, and each block after it one more kind. Once somebody has found one, it is on every map under the name its finder gave it, and its finder always brings home its curio.</p>`});
 /* the daily desk: whether today may ask for an upgrade (one whose next block the nation's buildings allow, with the
    workshop free), for a building or upgrade that opens a block, or for an expedition to a lost place */
 function xuDeskOk(n){const now=Date.now();if(n.xuw&&n.xuw.d>now)return false;return XU_KEYS.some(k=>{const L=xuLv(n,k,now);if(L>=xuMax(k))return false;const q=XU[k].req[L];return !q||!!xuHave(n,q,now);});}
@@ -43757,23 +43815,43 @@ function xuLostOk(n){if(!expFree(n))return false;const T=territory(),mi=T.byId[m
   return SITES.some((st,si)=>st.lost&&!R.has(si)&&xpSeen(si,n)&&D[st.c]>=0&&D[st.c]<=rg);}
 /* the outfitters' card, above the small map */
 function xpOutfitters(n,now){
-  const w=n.xuw&&n.xuw.d>now?n.xuw:null,have=xuAll(n,now),open=S.xuOpen!=null?S.xuOpen:!navNarrow();
+  const w=n.xuw&&n.xuw.d>now?n.xuw:null,have=xuAll(n,now),have2=xu2All(n,now),open=S.xuOpen!=null?S.xuOpen:!navNarrow(),cr=xuCredits(n);
   const sum=[];{const g=xuLv(n,'gear',now);if(g)sum.push(`+1 roll in ${[3,5,6,8][Math.min(g,4)-1]} kinds of land${g>=5?', +1 more everywhere':''}`);}
   for(const [k,f] of [['mules',L=>`−${6*L}% journey time`],['depots',L=>`+${3*L} hexes of reach`],['rations',L=>`−${8*L}% food and oil`],['nat',L=>`${6*L}% chance of a curio`],['maps',L=>`${L} ${L===1?'kind':'kinds'} of lost place`],['swift',()=>'quicker fleeting parties'],['team',()=>'a second team']]){const L=xuLv(n,k,now);if(L)sum.push(f(L));}
+  for(const k of XU2_KEYS){const ln=xuLine(n,k,now),b=xu2Lv(n,k,now);if(ln)sum.push(`${XU2[k].lines[ln].n}${b?`, ${b} of 5 tier II`:''}`);}
+  const crTag=i=>i>=3?' · +1 land credit':'';
   const rows=XU_KEYS.map(k=>{
-    const U=XU[k],L=xuLv(n,k,now),max=xuMax(k),wip=w&&w.k===k,nx=L<max?L:-1,q=nx>=0?U.req[nx]:null,hv=q?xuHave(n,q,now):{},why=nx>=0?xuWhy(n,k,now):'';
-    const blocks=Array.from({length:max},(_,i)=>`<i class="ugb-${XU_COL[i]}${i<L?' on':wip&&i===L?' wip':''}"></i>`).join('');
-    let need='';
-    if(nx>=0)need=!q?'<span class="xu-need ok">Open to everyone</span>':hv?`<span class="xu-need ok">Needs ${esc(xuReqText(q))}: ${esc(cityLabel(n,hv.c))} has one</span>`
-      :`<span class="xu-need no">Needs ${esc(xuReqText(q))}${q.k.every(b=>!bldUnlocked(n,b))?`, which opens at ${esc(fmtPopShort(Math.min(...q.k.map(bldUnlockAt))))} people`:''}. ${dlReqBtn(n,q)}</span>`;
-    const btn=nx<0?'':wip?'<span class="xp-pill sm">In the workshop</span>':`<button type="button" class="btn${why?' ghost':''} xu-btn" data-act="xu-up" data-k="${k}"${why?` aria-disabled="true" title="${esc(why)}"`:''}>Upgrade</button>`;
-    return `<li class="xu-row${L>=max?' done':''}"><span class="xu-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="${U.ic}"/></svg></span><div class="xu-b">
+    const U=XU[k],L=xuLv(n,k,now),max=xuMax(k),wip=w&&w.k===k,T2=XU2[k]&&L>=max,ln=T2?xuLine(n,k,now):'',b=ln?xu2Lv(n,k,now):0,refit=wip&&w.x===2&&!w.u;
+    const ic=`<span class="xu-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="${U.ic}"/></svg></span>`;
+    if(!T2){
+      const nx=L<max?L:-1,q=nx>=0?U.req[nx]:null,hv=q?xuHave(n,q,now):{},why=nx>=0?xuWhy(n,k,now):'';
+      const blocks=Array.from({length:max},(_,i)=>`<i class="ugb-${XU_COL[i]}${i<L?' on':wip&&i===L?' wip':''}"></i>`).join('');
+      let need='';
+      if(nx>=0)need=!q?'<span class="xu-need ok">Open to everyone</span>':hv?`<span class="xu-need ok">Needs ${esc(xuReqText(q))}: ${esc(cityLabel(n,hv.c))} has one</span>`
+        :`<span class="xu-need no">Needs ${esc(xuReqText(q))}${q.k.every(b=>!bldUnlocked(n,b))?`, which opens at ${esc(fmtPopShort(Math.min(...q.k.map(bldUnlockAt))))} people`:''}. ${dlReqBtn(n,q)}</span>`;
+      const btn=nx<0?'':wip?'<span class="xp-pill sm">In the workshop</span>':`<button type="button" class="btn${why?' ghost':''} xu-btn" data-act="xu-up" data-k="${k}"${why?` aria-disabled="true" title="${esc(why)}"`:''}>Upgrade</button>`;
+      return `<li class="xu-row${L>=max?' done':''}" data-k="${k}">${ic}<div class="xu-b">
       <div class="xu-t"><b>${esc(U.n)}</b><span class="ugb xu-blk" role="img" aria-label="${L} of ${max} ${max===1?'block':'blocks'}">${blocks}</span></div>
       ${L?`<p class="xu-now">${esc(xuNowText(n,k,L))}</p>`:''}
-      ${nx>=0?`<p class="xu-next">${esc(cap1(XU_COL[nx]))}: ${esc(xuLvText(k,nx))} · ${esc(costText(xuCost(k,nx)))} · ${xuHours(k,nx)} h</p><div class="xu-f">${need}${btn}</div>${/^You need/.test(why)?dlShortHTML(xuCost(k,nx),stockNow(n,now)):''}`:'<p class="xu-next">Every block fitted.</p>'}</div></li>`;}).join('');
-  const ws=w?`<div class="xu-ws"><div class="xu-ws-t"><span><b>In the workshop:</b> ${esc(XU[w.k].n)}, ${XU_COL[w.u-1]}</span><b data-live="exp" data-t="${w.d}">${fmtDur(w.d-now)}</b></div><span class="bar exp-bar"><i data-live="expbar" data-s="${w.s}" data-d="${w.d}" style="width:${clamp((now-w.s)/(w.d-w.s)*100,0,100).toFixed(1)}%"></i></span><div class="xu-ws-f"><span class="hint">One upgrade at a time.</span><button type="button" class="linkish small" data-act="xu-cancel">Cancel</button></div></div>`:'';
-  return `<details class="xu" id="xu"${open?' open':''}><summary><span class="eyebrow">The outfitters</span><span class="xp-ot">${have} of ${XU_TOTAL} blocks${w?' · one in the workshop':''}</span></summary>
-    <p class="xu-intro">Upgrade your explorers’ kit. The first block is open to everyone; better ones need the right buildings in your cities.</p>
+      ${nx>=0?`<p class="xu-next">${esc(cap1(XU_COL[nx]))}: ${esc(xuLvText(k,nx))} · ${esc(costText(xuCost(k,nx)))} · ${xuHours(k,nx)} h${max===5?crTag(nx):''}</p><div class="xu-f">${need}${btn}</div>${/^You need/.test(why)?dlShortHTML(xuCost(k,nx),stockNow(n,now)):''}`:'<p class="xu-next">Every block fitted.</p>'}</div></li>`;}
+    /* tier II: the refit's lines, then the line's five blocks */
+    const T=XU2[k],LN=ln?T.lines[ln]:null,why=xu2Why(n,k,now),short=/^You need/.test(why);
+    const blocks=ln?Array.from({length:5},(_,i)=>`<i class="ugb-${XU_COL[i]}${i<b?' on':wip&&w.x===2&&w.u===i+1?' wip':''}"></i>`).join(''):Array.from({length:5},(_,i)=>`<i class="ugb-${XU_COL[i]} on"></i>`).join('');
+    const head=`<div class="xu-t"><b>${esc(ln?LN.n:U.n)}${ln?` <span class="tier-b" role="img" aria-label="Tier II" title="Tier II: ${esc(U.n)} refitted as ${esc(LN.n)}">II</span>`:''}</b><span class="ugb xu-blk" role="img" aria-label="${ln?`${b} of 5 tier II blocks`:'5 of 5 blocks'}">${blocks}</span></div>`;
+    const now1=`<p class="xu-now">${esc(xuNowText(n,k,L))}${ln&&b?' '+esc(xu2NowText(k,ln,b)):''}</p>`;
+    let body='';
+    if(refit)body=`<p class="xu-next">Refitting as ${esc(T.lines[w.ln].n)}, tier II.</p><div class="xu-f"><span class="xu-need ok">${esc(T.n)}: its five blocks start when the refit is done</span><span class="xp-pill sm">In the workshop</span></div>`;
+    else if(!ln){const pk=S.xuPick===k,c=xu2Cost(k,-1);
+      body=`<p class="xu-next">Tier II: ${esc(T.n)} · ${esc(costText(c))} · ${XU2_REFIT_H} h · five more blocks follow</p><div class="xu-f"><span class="xu-need ok">All five blocks fitted</span><button type="button" class="btn xu-btn${why&&!short?' ghost':''}" data-act="xu-refit" data-k="${k}" aria-expanded="${pk}">${pk?'Not now':'Refit to tier II'}</button></div>`
+        +(pk?`<div class="tier-pick xu-pick" id="xu-pick-${k}" role="group" aria-label="What ${esc(U.n)} becomes"><p class="hint">Choose a line; the choice is for good. Its five tier II blocks then follow, each costing twice its tier I block and taking half as long again, and the track keeps everything it does now.${why&&!short?' '+esc(why):''}</p><ul class="tier-l">${Object.entries(T.lines).map(([lk,L])=>`<li><b>${esc(L.n)}</b><span class="hint">${esc(L.s)}</span><button type="button" class="btn small-btn" data-act="xu-fit" data-k="${k}" data-ln="${lk}"${why?` aria-disabled="true" title="${esc(why)}"`:''}>Refit as ${esc(L.n)}</button></li>`).join('')}</ul>${short?dlShortHTML(c,stockNow(n,now)):''}</div>`:'');}
+    else if(b<5){const c=xu2Cost(k,b),bw=wip&&w.x===2&&w.u===b+1;
+      const btn=bw?'<span class="xp-pill sm">In the workshop</span>':`<button type="button" class="btn${why?' ghost':''} xu-btn" data-act="xu-up2" data-k="${k}"${why?` aria-disabled="true" title="${esc(why)}"`:''}>Upgrade</button>`;
+      body=`<p class="xu-next">${esc(cap1(XU_COL[b]))} II: ${esc(xu2LvText(k,ln,b))} · ${esc(costText(c))} · ${xu2Hours(k,b)} h${crTag(b)}</p><div class="xu-f"><span class="xu-need ok">Tier II needs no building</span>${btn}</div>${short?dlShortHTML(c,stockNow(n,now)):''}`;}
+    else body='<p class="xu-next">Every block fitted, tier II too.</p>';
+    return `<li class="xu-row${ln?' xu-t2':''}${b>=5?' done':''}" data-k="${k}">${ic}<div class="xu-b">${head}${now1}${body}</div></li>`;}).join('');
+  const ws=w?`<div class="xu-ws"><div class="xu-ws-t"><span><b>In the workshop:</b> ${esc(xuJobName(w,n))}</span><b data-live="exp" data-t="${w.d}">${fmtDur(w.d-now)}</b></div><span class="bar exp-bar"><i data-live="expbar" data-s="${w.s}" data-d="${w.d}" style="width:${clamp((now-w.s)/(w.d-w.s)*100,0,100).toFixed(1)}%"></i></span><div class="xu-ws-f"><span class="hint">One upgrade at a time.</span><button type="button" class="linkish small" data-act="xu-cancel">Cancel</button></div></div>`:'';
+  return `<details class="xu" id="xu"${open?' open':''}><summary><span class="eyebrow">The outfitters</span><span class="xp-ot">${have} of ${XU_TOTAL} blocks${have2?` · ${have2} tier II`:''}${w?' · one in the workshop':''}</span></summary>
+    <p class="xu-intro">Upgrade your explorers’ kit. The first block is open to everyone; better ones need the right buildings in your cities. Every purple and gold block is worth a land credit${cr?` (${cr} so far)`:''}, and a track with all five can be refitted to tier II.</p>
     ${sum.length?`<div class="xp-pills">${sum.map(t=>xpPill(esc(t),'rew')).join('')}</div>`:''}${ws}<ul class="xu-list">${rows}</ul></details>`;
 }
 document.addEventListener('toggle',e=>{const el=e.target;if(el&&el.id==='xu')S.xuOpen=el.open;},true);
@@ -43781,7 +43859,247 @@ document.addEventListener('click',e=>{
   const el=e.target&&e.target.closest&&e.target.closest('[data-act^="xu-"]');if(!el)return;const a=el.dataset.act;
   if(a==='xu-up'){if(el.getAttribute('aria-disabled')==='true'){toast(el.title);return;}xuStart(el.dataset.k);return;}
   if(a==='xu-cancel'){xuCancel();return;}
+  /* tier II: open the lines (xu-refit), refit as one (xu-fit), the next block (xu-up2) */
+  if(a==='xu-refit'){const k=el.dataset.k;S.xuPick=S.xuPick===k?null:k;render();if(S.xuPick)setTimeout(()=>{const b=document.querySelector(`[data-act="xu-fit"][data-k="${CSS.escape(k)}"]`);if(b)try{b.focus({preventScroll:false});}catch(err){}},0);return;}
+  if(a==='xu-fit'){if(el.getAttribute('aria-disabled')==='true'){toast(el.title);return;}xu2Start(el.dataset.k,el.dataset.ln);return;}
+  if(a==='xu-up2'){if(el.getAttribute('aria-disabled')==='true'){toast(el.title);return;}xu2Start(el.dataset.k);return;}
 });
+/* ───────── the outfitters, tier II (23 November 2026) ─────────
+   A track with all five blocks can be refitted to tier II, in one of three lines chosen for good (as a Factory is
+   retooled, BTIER). The refit is a job in the workshop (XU2_REFIT_MUL times the track's base, XU2_REFIT_H hours), then
+   five more blocks, grey II to gold II, each costing XU2_UG times its tier I block and taking XU2_UH times as long. No
+   building is needed for them. Tier I's own effects stay; a line adds a little more of its own, block by block (xb).
+   Record: n.xl {track: line} (the refits done), n.x2 {track: blocks 1-5}; the workshop's n.xuw carries x 2 for a tier
+   II job, u 0 and ln for the refit itself; n.xul the same for the last one finished. Every purple and gold block, tier I
+   and tier II, is worth a land credit (xuCredits, next to the other land credits); n.xcr counts the ones the nation has
+   been told of. The second team has no tier II. */
+const XU2_UG=2,XU2_UH=1.5,XU2_REFIT_MUL=3,XU2_REFIT_H=12,XU_CR_MAX=28;
+const XU2={
+  gear:{n:'Expedition Kit',lines:{
+    path:{n:'Pathfinders’ Kit',s:'+1 roll at one kind of lost place for each block, from pirate coves to lost observatories.'},
+    envoy:{n:'Envoys’ Kit',s:'20% less goodwill lost on foreign land for each block, none at gold II. Foreign soil costs 1 less on the roll from blue II, nothing from gold II.'},
+    survey:{n:'Surveyors’ Kit',s:'Remarkable finds bring 10% more for each block. At gold II a find 5 over is remarkable, not 6.'}}},
+  mules:{n:'Caravan Trains',lines:{
+    camel:{n:'Camel Trains',s:'Journeys 3% quicker for each block, on top of the mules’ own.'},
+    packs:{n:'Heavy Packs',s:'Every expedition that finds something carries home 3 goods for each block, and a find’s own goods, food or oil are 5% more.'},
+    ponies:{n:'Pack Ponies',s:'Fleeting parties bring home 4% more for each block, within each bonus’s cap.'}}},
+  depots:{n:'Forward Camps',lines:{
+    long:{n:'Long Lines',s:'+2 hexes of reach for each block, for expeditions and fleeting parties.'},
+    allied:{n:'Allied Depots',s:'+1 hex of reach for each block. At gold II, distances count from your allies’ land too.'},
+    way:{n:'Way Stations',s:'Journeys of more than 30 hexes are 5% quicker for each block.'}}},
+  rations:{n:'Tinned Provisions',lines:{
+    hard:{n:'Hardtack',s:'4% less food and oil per expedition for each block, on top of the rations’ own.'},
+    pres:{n:'Preserves',s:'Fleeting parties’ bonuses last 5% longer for each block.'},
+    stores:{n:'Emergency Stores',s:'A lost expedition gives back 10% of its food and oil for each block. From blue II, losing one upsets nobody at home.'}}},
+  nat:{n:'Royal Society',lines:{
+    coll:{n:'Collectors',s:'3% more chance of a curio on each first find for each block.'},
+    notes:{n:'Field Notes',s:'Every first find gives your laboratory 1 Research Credit for each block.'},
+    lect:{n:'Lecturers',s:'First finds raise your figures 4% more for each block: culture, science, tourism and the rest.'}}},
+  maps:{n:'Forgotten Charts',lines:{
+    lost:{n:'Lost Atlas',s:'One new kind of lost place on your map for each block: whale graveyards, glass deserts, crater lakes, giants’ stairs and hermits’ libraries.'},
+    alm:{n:'Almanacs',s:'See fleeting finds 20 minutes before they appear, for each block.'},
+    treas:{n:'Treasure Maps',s:'Lost places give 10% more for each block.'}}},
+  swift:{n:'Flying Columns',lines:{
+    out:{n:'Outriders',s:'Fleeting parties travel 4% faster for each block, on top of the 20%.'},
+    turn:{n:'Quick Turnaround',s:'Parties rest 2 minutes less for each block, down to 10 minutes at gold II.'},
+    charm:{n:'Lucky Charms',s:'A party’s roll of 1 is rolled again at grey II, up to a roll of 5 at gold II; the better roll stands.'}}}
+};
+const XU2_KEYS=Object.keys(XU2);
+/* the line a track was refitted as ('' for none), counting a refit whose time is up before the save that writes it */
+function xuLine(n,k,now){
+  if(!n||!XU2[k])return '';const w=n.xuw;
+  if(w&&w.k===k&&w.x===2&&!w.u&&typeof w.ln==='string'&&Object.hasOwn(XU2[k].lines,w.ln)&&w.d<=(now||Date.now()))return w.ln;
+  const l=n.xl&&n.xl[k];return typeof l==='string'&&Object.hasOwn(XU2[k].lines,l)?l:'';
+}
+/* tier II blocks fitted, 0 to 5 */
+function xu2Lv(n,k,now){
+  if(!xuLine(n,k,now))return 0;let b=(n.x2&&n.x2[k])|0;const w=n.xuw;
+  if(w&&w.k===k&&w.x===2&&w.u>0&&w.d<=(now||Date.now()))b=Math.max(b,w.u|0);return clamp(b,0,5);
+}
+/* the blocks of one line: 0 when the track was refitted as another, or not at all */
+function xb(n,k,ln){return n&&n.xl||n&&n.xuw&&n.xuw.x===2?(xuLine(n,k)===ln?xu2Lv(n,k):0):0;}
+/* Old maps' reach into the lost places: its five blocks, then the Lost Atlas's five (LOST2_KINDS lv 6-10) */
+function xuMapsLv(n){return xuLv(n,'maps')+xb(n,'maps','lost');}
+const xu2All=(n,now)=>XU2_KEYS.reduce((a,k)=>a+xu2Lv(n,k,now),0);
+/* a tier II job's price and hours: i a block (0-4), or -1 for the refit */
+function xu2Cost(k,i){const U=XU[k],m=i<0?XU2_REFIT_MUL:(U.mul||XU_MUL)[i]*XU2_UG,o={};for(const r in U.base)o[r]=Math.max(1,Math.round(U.base[r]*m));return o;}
+function xu2Hours(k,i){return i<0?XU2_REFIT_H:Math.round((XU[k].h||XU_H)[i]*XU2_UH*10)/10;}
+function xuJobCost(w){return w&&w.x===2?xu2Cost(w.k,w.u>0?w.u-1:-1):xuCost(w.k,w.u-1);}
+/* a job in words: "Trekking gear, green", "the refit of Trekking gear as Envoys’ Kit", "Envoys’ Kit, purple II" */
+function xuJobName(w,n){
+  if(!w||!XU[w.k])return 'an upgrade';if(w.x!==2)return `${XU[w.k].n}, ${XU_COL[w.u-1]}`;
+  if(!w.u){const L=XU2[w.k]&&XU2[w.k].lines[w.ln];return `the refit of ${XU[w.k].n}${L?' as '+L.n:''}`;}
+  const ln=n?xuLine(n,w.k):'',L=ln&&XU2[w.k].lines[ln];return `${L?L.n:XU2[w.k].n}, ${XU_COL[w.u-1]} II`;
+}
+/* a finished job written into the record (the save's COMMIT_HOOKS, and before a new job starts) */
+function xuSettle(n,now){
+  const w=n&&n.xuw;if(!w||!(w.d<=now)||!XU[w.k])return;
+  if(w.x===2){const k=w.k;if(XU2[k]){
+    if(!w.u){if(Object.hasOwn(XU2[k].lines,w.ln)){n.xl=Object.assign({},n.xl||{},{[k]:w.ln});n.xul={k,u:0,t:w.d,x:2,ln:w.ln};}}
+    else if(xuLine(n,k,now)){n.x2=Object.assign({},n.x2||{});n.x2[k]=Math.max(n.x2[k]|0,clamp(w.u|0,1,5));n.xul={k,u:n.x2[k],t:w.d,x:2};}}}
+  else{n.xu=Object.assign({},n.xu||{});n.xu[w.k]=Math.max(n.xu[w.k]|0,clamp(w.u|0,1,xuMax(w.k)));n.xul={k:w.k,u:n.xu[w.k],t:w.d};}
+  delete n.xuw;
+}
+/* what tier II block i of a line adds, and what the line does with b blocks */
+const xuPl=k=>sitePl(LOST2_KINDS[k].n);
+function xu2LvText(k,ln,i){
+  const b=i+1;
+  switch(ln){
+    case 'path':{const K=LOST_KINDS[LOST_ORDER[i]];return K?`+1 roll at ${sitePl(K.n)}`:'';}
+    case 'envoy':return `${20*b}% less goodwill lost on foreign land${b===3?'; foreign soil costs 1 less on the roll':b===5?'; foreign soil costs nothing on the roll':''}`;
+    case 'survey':return `remarkable finds bring ${150+10*b}%${b===5?'; 5 over is remarkable':''}`;
+    case 'camel':return `−3% journey time, ${30+3*b}% in all`;
+    case 'packs':return `3 more goods from every find, and its own stock +5%`;
+    case 'ponies':return `fleeting parties bring home ${4*b}% more`;
+    case 'long':return `+2 hexes of reach, ${15+2*b} from depots in all`;
+    case 'allied':return `+1 hex of reach${b===5?', and distances count from your allies’ land':''}`;
+    case 'way':return `journeys over 30 hexes ${5*b}% quicker`;
+    case 'hard':return `−4% food and oil, ${40+4*b}% in all`;
+    case 'pres':return `fleeting bonuses last ${5*b}% longer`;
+    case 'stores':return `a lost expedition gives back ${10*b}% of its supplies${b===3?'; losing one upsets nobody':''}`;
+    case 'coll':return `${30+3*b}% chance of a curio`;
+    case 'notes':return `${b} Research ${b===1?'Credit':'Credits'} from every first find`;
+    case 'lect':return `first finds raise your figures ${4*b}% more`;
+    case 'lost':{const k2=LOST2_ORDER[i];return k2?xuPl(k2)+' on your map':'';}
+    case 'alm':return `fleeting finds show ${20*b} minutes early`;
+    case 'treas':return `lost places give ${10*b}% more`;
+    case 'out':return `fleeting parties travel ${20+4*b}% faster in all`;
+    case 'turn':return `parties rest ${20-2*b} minutes`;
+    case 'charm':return `a party’s roll of ${b===1?'1':'1 to '+b} is rolled again`;
+  }
+  return '';
+}
+function xu2NowText(k,ln,b){
+  if(!b)return 'No tier II blocks yet.';
+  switch(ln){
+    case 'path':return `+1 roll at ${list(LOST_ORDER.slice(0,b).map(q=>sitePl(LOST_KINDS[q].n)))}.`;
+    case 'envoy':return `${b>=5?'No goodwill':20*b+'% less goodwill'} lost on foreign land${b>=5?', and foreign soil costs nothing on the roll':b>=3?', and foreign soil costs 1 less on the roll':''}.`;
+    case 'lost':return `Shows ${list(LOST2_ORDER.slice(0,b).map(xuPl))}.`;
+    case 'charm':return `A party’s roll of ${b===1?'1':'1 to '+b} is rolled again, and the better roll stands.`;
+  }
+  return cap1(xu2LvText(k,ln,b-1))+'.';
+}
+/* the bell's words for a finished job, with the land credit a purple or gold block brings */
+function xuDoneText(n,w){
+  if(w.x===2){const L=XU2[w.k]&&(w.ln?XU2[w.k].lines[w.ln]:XU2[w.k].lines[xuLine(n,w.k)]);if(!L)return `The outfitters have finished work on ${XU[w.k].n}.`;
+    if(!w.u)return `The outfitters have refitted ${XU[w.k].n} as ${L.n}. Its five tier II blocks can begin.`;
+    return `The outfitters have finished ${L.n}, ${XU_COL[w.u-1]} II: ${xu2LvText(w.k,w.ln||xuLine(n,w.k),w.u-1)}.${w.u>=4?' And a land credit for the map.':''}`;}
+  return `The outfitters have finished ${XU[w.k].n}, ${XU_COL[w.u-1]}: ${xuLvText(w.k,w.u-1)}.${w.u>=4&&xuMax(w.k)===5?' And a land credit for the map.':''}`;
+}
+/* why a track's next tier II job (the refit, or its next block) cannot go into the workshop now, or '' */
+function xu2Why(n,k,now){
+  now=now||Date.now();if(!XU2[k])return 'This upgrade has no tier II.';if(xuLv(n,k,now)<5)return 'Fit all five blocks first.';
+  const ln=xuLine(n,k,now),b=xu2Lv(n,k,now);if(ln&&b>=5)return 'Every block is fitted, tier II too.';
+  const w=n.xuw&&n.xuw.d>now?n.xuw:null;if(w)return w.k===k?'This one is in the workshop.':`The workshop is busy with ${xuJobName(w,n)} for ${fmtDur(w.d-now)}.`;
+  const miss=lacking(xu2Cost(k,ln?b:-1),stockNow(n,now));if(miss.length)return `You need ${list(miss)} more.`;
+  return '';
+}
+/* the refit as a line (ln), or the next tier II block (no ln) */
+function xu2Start(k,ln){
+  const n0=S.nation,now=Date.now();if(!n0||!XU2[k])return;const cur=xuLine(n0,k,now);
+  if(ln?(cur||!Object.hasOwn(XU2[k].lines,ln)):!cur)return;
+  const why=xu2Why(n0,k,now);if(why){toast(why);return;}
+  const n=clone(n0),b=xu2Lv(n0,k,now),i=ln?-1:b,cost=xu2Cost(k,i),h=xu2Hours(k,i),st=stockNow(n0,now);
+  xuSettle(n,now);for(const r of RES)st[r]-=cost[r]||0;n.stock=roundStock(st);n.stockAt=now;n._stockSet=true;
+  n.xuw={k,u:ln?0:b+1,s:now,d:now+h*3600e3,p:cost,x:2};if(ln)n.xuw.ln=ln;S.xuPick=null;commit(n);render();
+  toast(ln?`The outfitters have started refitting ${XU[k].n} as ${XU2[k].lines[ln].n}. Ready in ${fmtDur(h*3600e3)}.`:`The outfitters have started on ${XU2[k].lines[cur].n}, ${XU_COL[b]} II. Ready in ${fmtDur(h*3600e3)}.`);
+}
+
+/* ── the effects (the expedition and fleeting-party code asks these) ── */
+/* Envoys' Kit: the share of goodwill still lost on foreign land */
+function xuGwK(n){return 1-0.2*xb(n,'gear','envoy');}
+/* Surveyors' Kit: how far over is remarkable (stamped on the expedition as it sets out) */
+function xuGreatAt(n){return xb(n,'gear','survey')>=5?5:6;}
+/* a first find's multipliers: e for the figures that rise, s for the stock it brings. Remarkable (with the Surveyors'
+   Kit), a lost place (Treasure Maps), Lecturers (the figures) and Heavy Packs (the stock) */
+function xuFindK(n,K,o){
+  const g=o==='great'?1.5+0.1*xb(n,'gear','survey'):1,l=K&&K.lost?1+0.1*xb(n,'maps','treas'):1;
+  return {e:Math.round(g*l*(1+0.04*xb(n,'nat','lect'))*1000)/1000,s:Math.round(g*l*(1+0.05*xb(n,'mules','packs'))*1000)/1000};
+}
+/* Heavy Packs: goods from every expedition that finds something, first or not */
+function xuPacks(n,now,rep){
+  const b=xb(n,'mules','packs');if(!b)return;const v=3*b,sk=stockNow(n,now);sk.goods=stockLimit(n,'goods',sk.goods+v,sk.goods);
+  n.stock=roundStock(sk);n.stockAt=now;n._stockSet=true;rep.notes.push(`Heavy Packs: the mules carried home ${v} goods.`);
+}
+/* Emergency Stores: a lost expedition's food and oil, in part (its price is stamped on it as it sets out, c) */
+function xuStores(n,e,now,rep){
+  const b=xb(n,'rations','stores'),c=e&&e.c;if(!b||!c)return;const sk=stockNow(n,now),back={};
+  for(const r of ['food','oil']){const v=Math.floor((c[r]|0)*0.1*b);if(v>0){back[r]=v;sk[r]=stockLimit(n,r,sk[r]+v,sk[r]);}}
+  if(Object.keys(back).length){n.stock=roundStock(sk);n.stockAt=now;n._stockSet=true;rep.notes.push(`Emergency Stores: ${costText(back)} came home unused.`);}
+}
+const xuCalm=n=>xb(n,'rations','stores')>=3;
+/* Field Notes: Research Credits for the laboratory from a first find (the server allows them: functions/research-rules.js
+   rsFieldNotes, from the first finds a save adds) */
+function xuNotes(n,si,now,rep){
+  const b=xb(n,'nat','notes');if(!b)return;
+  try{const p=typeof rsOf==='function'?rsOf(n):null;if(!p||!p.i){rep.notes.push('Field Notes: your explorers’ notebooks wait for a laboratory to read them.');return;}
+    if(typeof rsAccrue==='function')rsAccrue(n,now);p.re=Math.round(((+p.re||0)+b)*100)/100;if(typeof rsLog==='function')rsLog(n,'fn',si,b,now);
+    rep.notes.push(`Field Notes: ${b} Research ${b===1?'Credit':'Credits'} for the laboratory.`);}catch(e){}
+}
+/* Way Stations: a long journey's time */
+function xuWayK(n,d){return d>30?1-0.05*xb(n,'depots','way'):1;}
+/* Allied Depots at gold II: distances from the nation's land or any ally's (every alliance it belongs to) */
+function xuAllies(){try{const me=myId(),o=new Set();for(const A of alliancesOf(me))for(const m of A.members||[])if(m!==me)o.add(m);return [...o];}catch(e){return [];}}
+let xuDM={T:null,k:'',d:null};
+function xuFlDist(n,T,mi){
+  if(!(xb(n,'depots','allied')>=5))return flDist(T,mi);
+  const A=xuAllies().map(id=>T.byId[id]).filter(j=>j!==undefined&&j!==mi);if(!A.length)return flDist(T,mi);
+  const key=mi+'|'+A.join(',');if(xuDM.T===T&&xuDM.k===key&&xuDM.d)return xuDM.d;
+  const N=MAP.N,d=new Int16Array(N).fill(-1),q=new Int32Array(N),own=new Set([mi,...A]);let h=0,tl=0;
+  for(let c=0;c<N;c++)if(own.has(T.owner[c])){d[c]=0;q[tl++]=c;}
+  while(h<tl){const c=q[h++],v=d[c]+1;for(let k=0;k<6;k++){const j=MAP.nbr[c*6+k];if(j>=0&&d[j]<0){d[j]=v;q[tl++]=j;}}}
+  xuDM={T,k:key,d};return d;
+}
+function xuDist(n,T,mi,cell){const d=expDist(T,mi,cell);if(!(xb(n,'depots','allied')>=5))return d;const a=xuFlDist(n,T,mi)[cell];return a>=0&&a<d?a:d;}
+/* Lucky Charms: a party's low roll rolled again, from its own seed, and the better stands */
+function xuCharm(n,r,seed){const b=xb(n,'swift','charm');if(!b||r>b)return r;return Math.max(r,1+hash(seed+'|charm')%20);}
+/* Pack Ponies (m, the haul) and Preserves (h, how long it lasts), for a party's bonuses as every viewer works them out */
+function xuFlK(n){return {m:1+0.04*xb(n,'mules','ponies'),h:1+0.05*xb(n,'rations','pres')};}
+/* Almanacs: the fleeting finds that appear within the forecast, soonest first */
+function xuAlmMs(n){return 20*60000*xb(n,'maps','alm');}
+function flSoon(n,t){const ms=xuAlmMs(n);if(!ms)return [];return flSpawns(t+1,t+ms).filter(s=>s.b>t&&s.c>=0);}
+function flSoonHTML(n,t){
+  const L=flSoon(n,t);if(!L.length)return '';const T=territory(),mi=T.byId[myId()],D=mi===undefined?null:xuFlDist(n,T,mi),rg=flRange(n);
+  return L.slice(0,4).map(s=>{const K=flKindOf(s),d=D?Math.max(0,D[s.c]):null;
+    return `<li class="xp-item xp-fl xp-alm"><span class="xp-glyph" aria-hidden="true">${flIconSVG(s,'fl-svg')}</span><div class="xp-ib"><div class="xp-it"><div class="xp-tt"><h3>${esc(K.n)} ${xpPill('Almanac','sm')}</h3><p class="xp-meta">${esc(cap1(terrName(s.c).toLowerCase()))} on ${esc(landName(s.c))}${d!=null?` · ${d} ${d===1?'hex':'hexes'}${d>rg?', out of reach':''}`:''} · appears in <b data-live="exp" data-t="${s.b}">${fmtDur(s.b-t)}</b></p></div></div></div></li>`;}).join('');
+}
+/* Pathfinders' Kit and Envoys' Kit on an expedition's roll */
+EXP_MODS.push((n,si,T)=>{
+  if(!n||!(si>=0))return [];const st=SITES[si];if(!st)return [];const out=[];
+  const p=xb(n,'gear','path');if(p&&st.lost){const i=LOST_ORDER.indexOf(st.k);if(i>=0&&i<p)out.push(['pathfinders’ kit',1]);}
+  const v=xb(n,'gear','envoy');if(v>=3&&T){const mi=T.byId[myId()],o=T.owner[st.c];if(o>=0&&o!==mi)out.push(['envoys’ kit',v>=5?2:1]);}
+  return out;
+});
+/* the land credits the outfitters pay, told once each (the first time: the back pay for blocks fitted before) */
+COMMIT_HOOKS.push((n,old,now)=>{
+  if(!n||n.npc)return [];const c=xuCredits(n),t=n.xcr|0;if(c<=t)return [];n.xcr=Math.min(c,XU_CR_MAX);const add=c-t;
+  return [t?`${add===1?'A land credit':add+' land credits'} from the outfitters, for a purple or gold block. Spend ${add===1?'it':'them'} on the map.`
+    :`The Land Office pays ${add===1?'a land credit':add+' land credits'} for your outfitters’ purple and gold blocks, one for each. Spend ${add===1?'it':'them'} on the map.`];
+});
+/* the daily desk may ask for a tier II job too */
+xuDeskOk=(f=>function(n){if(f.apply(this,arguments))return true;try{const now=Date.now();if(n.xuw&&n.xuw.d>now)return false;return XU2_KEYS.some(k=>xuLv(n,k,now)>=5&&!(xuLine(n,k,now)&&xu2Lv(n,k,now)>=5));}catch(e){return false;}})(xuDeskOk);
+/* the Museum: a curio from each of the Lost Atlas's places (brought home from a lost place, always) */
+UNLOCKS['t-chartmaker']={k:'title',n:'the Chartmaker',src:'set'};
+{const xc=k=>colF(n=>Array.isArray(n&&n.xcu)&&n.xcu.includes(k)),H=k=>`A curio from a lost place you discovered first: ${LOST2_KINDS[k].n.toLowerCase()}.`;
+  const s={id:'curios2',n:'Curios of the Lost Atlas',d:'Strange things from the places only the Lost Atlas shows, one from each kind your explorers found first.',u:['t-chartmaker'],fx:{culture:1,sci:1},items:[
+  ['xc-whale','A Whale’s Ear Bone','fossil','#D9D2C0','r','From the whale graveyard. Hold it to your ear and you hear the sea, and a faint, offended humming.',H('whale'),xc('whale')],
+  ['xc-glass','A Lump of Desert Glass','crystal','#5FA36A','r','Green, smooth and warm, from the glass desert. The jeweller who valued it would only say “hm”.',H('glass'),xc('glass')],
+  ['xc-crater','A Bottle of Crater Blue','bottle','#2F7FB8','r','Water from the crater lake, still blue in the bottle, which water is not supposed to be.',H('crater'),xc('crater')],
+  ['xc-stair','A Giant’s Bootprint, in Plaster','tablet','#6E6A64','l','Taken from the top step of the giants’ stair. The boot was a size 61.',H('stair'),xc('stair')],
+  ['xc-hermit','The Hermit’s Overdue Book','scroll','#7A4A2A','l','Borrowed from the hermit’s library and three hundred years overdue. The fine is being negotiated.',H('hermit'),xc('hermit')]]};
+  COL_SETS.push(s);COL_SET_BY_ID[s.id]=s;s.items=s.items.map(([id,nm,g,c,r,l,h,q])=>{const a={id,set:s.id,n:nm,g,c,r,l,h,q};COL_ITEMS.push(a);COL_BY_ID[id]=a;return a;});}
+/* the map's glyphs for them */
+Object.assign(XP_IC,{
+  whale:'M3 17c3-1 4-4 9-4s6 3 9 4M6 13.5v3.5M9 12.5v4.5M12 12v5M15 12.5v4.5M18 13.5v3.5M3 20h18',
+  glass:'M3 20h18M5 20l3-6 3 3 3-7 3 5 2-2 2 7M14 10l1-3',
+  crater:'M2 18l5-9 3 3h4l3-3 5 9zM8 15c2 1 6 1 8 0',
+  stair:'M3 20h18M4 20v-3h4v-3h4v-3h4V8h4v12',
+  hermit:'M4 20V8l8-5 8 5v12M8 20v-9h8v9M10 13h4M10 16h4'
+});
+/* How to play: tier II and the land credits, after the outfitters' own section */
+{const h=HELP_EXT.find(x=>x.k==='outfitters');if(h){const f=h.body;h.body=n=>f(n)+`<p><b>Tier II.</b> A track with all five blocks can be refitted to tier II, in one of three lines; the choice is for good. The refit takes ${XU2_REFIT_H} hours in the workshop, and five more blocks follow (grey II to gold II), each costing twice its tier I block and taking half as long again. No building is needed for them. The track keeps everything tier I gave it, and the line adds a little more of its own: ${esc(XU2_KEYS.map(k=>XU[k].n+' becomes '+XU2[k].n+' ('+Object.values(XU2[k].lines).map(L=>L.n).join(', ')+')').join('; '))}.</p>
+<p><b>Land credits.</b> Every purple and gold block at the outfitters, tier I and tier II, is worth a land credit: two for each track at gold, four at gold II, ${XU_CR_MAX} in all. Blocks fitted before this rule were paid at once.</p>
+<p><b>The Lost Atlas.</b> Old maps refitted as the Lost Atlas show ${LOST2_ORDER.length} more kinds of lost place, one for each tier II block: ${esc(list(LOST2_ORDER.map(xuPl)))}. Each region hides about ${LOST_PER} of each. They are harder still (difficulty ${Math.min(...LOST2_ORDER.map(k=>LOST2_KINDS[k].dc))} to ${Math.max(...LOST2_ORDER.map(k=>LOST2_KINDS[k].dc))}), and each brings home a curio for the Museum.</p>`;}}
 
 /* ───────── Round 11, K: city populations, and building blocks that grow with them ─────────
    Every city has its own population. A nation's cities hold its urban share (the almanac's “living in
@@ -84317,7 +84635,7 @@ mapBox=(f=>function(kind){const h=f.apply(this,arguments),n=S.nation;if(kind!=='
 
 /* the browser tests' window into the game: test/lib.mjs sets EDICTUM_PROBE before the page loads (a
    player's own browser can reach all of this anyway) */
-if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({RPATCH,SC:()=>scProbe(),WR3:()=>({CQ_ISSUES,cqFall,cqDue,cqTake,cityFounded,cqBuildings,openMapAt,WAR3_ISSUES,wr3WarsSection,wr3BattleCard,wr3MapData,wr3Econ,wr3Close,wr3VetDue,wr3WindToggle,wr3MunOn,wr3Reserve,wr3Factors,wr3On}),WR2:()=>({wrFallenCard,WR,WAR_GOALS,WAR2_ISSUES,wrSiege,wrSiegesOn,wrFallsAt,myFall,wrSiegeWhy,wrCapExposed,wrUnrest,wrWarsOf,wrPopFx,wrTribute,wrForts,wrFortify,wrSurrender,wrSiegeStart,wrRise,wrCarry,wrEdictDue,wrSafe,wrNotice,territory,frontier,economy,warControls,targetPanel,armyBlock,warNotice,warWith,pairWar,nationView,rgnOverview,hxCard}),HELPX:()=>({HLP,HELP_CH,HELP_SUM,HELP_FOR,GLOSS,helpFind,helpIndex,helpSecList,helpForYou,helpChapters,rgcCmd,rgcCardOf,rgcCardHTML,admhHs,admhHsCount}),MTP:()=>({MTP,MTP_PAD,TBMP_SCALE,redrawMaps,mapScale,viewOf}),SCR:()=>({scrOf,scrClean,scrDef,scrFamOf,scrEdParse,scrGlyphs,scrLay,scrChars,scrSVG,scrLine,scrCard,scrCharterSVG,scrFmt,scrFor,dmRich,dmPlain,scrDmWith,SCR_FAM,SCR_ABC,SCS}),BDX:()=>bdProbe(),LDX:()=>ldProbe(),FLY:()=>({flagSVG,fgSplit,fgFused}),RD:()=>rdProbe(),JV:()=>jvProbe(),M100P:()=>({M100,M100_N,M100_MC,M100_MCN,m100Bits,m100Got,m100In,m100Due,m100Count,m100Show,m100Open,ctgMcOk,nationColor,czShOk,czShieldPath,unlocksOf,czPatSVG,xsMax}),M200P:()=>({M200,M200_N,M200_MC,M200_MCN,M200_U,m200Bits,m200Got,m200In,m200Due,m200Count,m200Show,m200Open,ctgMcOk,nationColor,czShOk,czShieldPath,unlocksOf,czPatSVG,czStampArt,czFrameArt,czCharge,czFramed,flagSVG,xsMax,ACH_BY_ID,achEarnedIds}),WTN:()=>({WN,wbMap,wnKind,wnWaters,wnSync,wnAt,wnRename,wnReset,wnNameProblem,wnTaken,wnPanel,wnLabels,lakeMap,isLake,cellAt,WN_REACH,WTN_MAX,REG,RV,rvData,hexDist,territory,MAP,HEX_W,updateMapPanel,logLine}),RVN:()=>({RV,rvData,rvSync,rvKey,rvHeld,rvStretch,rvMost,rvEdgeHolder,rvAt,rvNameAt,rvLabelAt,rvParts,rvRename,rvReset,rvNameProblem,rvTidy,rvLabel,rvnPanel,logLine,RVN_MAX,RVN_LEN,updateMapPanel,hexDist,HEX_W,REG}),CP2:()=>({BLD_ICO,bldIco,bldLead,cxDefTotal,cxOrder,qjBuilding,BUILDINGS}),PRVC:()=>({cxPrvOf,cxPrvSeatTrial,cxOvwCols,prvSeat,prvMine,prvOfCell,prvSetAut,prvAppoint,PRV}),NPX:()=>({fbTrend,fbYesterday,heroLead,heroOpen,opOf,OPEN_TO,hnOf,hnFill,hnLine,nbSection,ppWho,ppWhoHTML,ppHash,ppCarried,economy,territory,bordersOf,fillDeal,findNation,clsHide,MAP,hexDist,STAT_KEYS,popNow,myId}),PT:()=>ptProbe(),LTH:()=>lthProbe(),DAM:()=>damProbe(),CHAT:()=>({RGC,RGW,RGF,tab:rgcTab(),count:rgcCount(),region:rgcUnread(),world:rgwUnread(),named:rgwNamedUnread(),fr:rgwUnread(RGF),frNamed:rgwNamedUnread(RGF),frOn:rgfOn(),hidden:document.hidden}),UXP2:()=>({edictDesk,edictStep,edictOpen,fill,ISSUE_BY_ID,ACH,keysOpen,dmOthers,dmPickList,stGroups,stTabLast,navRecent,vhData,VH_KEY,VH_AFTER,QJ_DO,qjItems:q=>navQjItems(q),NAV_REC_KEY,ST_KEY}),HID:()=>({HIDN,hidMask,iAmHidden,frontier,mapPanel,warControls}),WG:()=>({wgTakers,wgForField,wgForPick,warGiveHex,warGive,occupiedFrom,attack,offerPeace,declareWar,collectConquests,dedupeConq}),WAKE:()=>({dormFresh,dormQuiet,dormWelcome,moveTo,RSTAT,REGIONS,REG,regDisabled}),HMB:()=>({RCTRL,hmBake,hmAutoFlag,fxDraw,capHolder,FX_DEF,DEF_FLAG,hmRle,hmLiveNorm,hmMapNorm,hmSel,hmRegions,hmBlocked,hmEngaged:()=>hmEngaged,HM,REG,MAP}),LAND:()=>({landWait,capLift,capWrong,capNote,raceKnown,RACE,worldHeardAt:()=>worldHeardAt,landQ:()=>S.landQ,landQueued,fdSites:(n,T)=>fdSites(n,T)}),BG:{gain:bldGain,html:bldGainHtml},IB:()=>({agRoster,agPick,agStatus,heatOf,cvRoll,cvKey,cvBlock,cvOdds,buLv,buGap,buAll,BU,BU_KEYS,ibFile,ibWanted,ibChatter,HEAT_MAX,DD_TASKS,DD_LEG,findNation,allNations,cvProtected}),VL:()=>({VL_SECS,VL_DEF,CLS,CLS_OPS,CLS_READ,vlOrder,clsOf,clsRaw,clsMax,clsSeen,clsHide,clsRead,vlSave,findNation}),IFC:()=>({plan:ifcPlan,works:ifcWorks,line:ifcLine,tab:ifcTab}),XP:()=>({BUILDINGS,XU,XU_KEYS,XU_TOTAL,LOST_KINDS,LOST_ORDER,xuLv,xuWhy,xuHave,xuStart,xuCost,xuGear,xpSeen,expFree,xpTeamOpen,nationBuilt,expBackTeam,SITES,SITE_KINDS,expPlan,expOdds,expRuns,expRange,flRange,flAlive,flPlan,flDebug,flNow,discoveries,sendExpedition,hearReport,xpRoute,xpRivals,xpRivalText,xpFinds,flOdds,territory}),SVC:()=>({SVC,SVC_N,SVC_V,SVC_NEED,svcPlan,svcOpen,svcDig,svcShort,svcRoll,svcAmt,svcDayOf,svcRoom,svcNext}),FLC:()=>({FLC,FLC_RULES,FLC_CAT,flcId,flcTimes,flcPhase,flcPrev,flcView,flcLoad,flcChamp,flcTodo,flcClaims,flcLand,flcStreak,flcAllDone,flcSeen,flcDuty,flcDeskOn,flcDraftPush,FCA}),LK:{lakeMap,isLake,claimLand,lakeShore,fillHeld,LAKE_MAX,LAKE_A,freeCell,claimFrontier,blockPlan,autoPlan,terrCount,placePhrase,claimWhy,swapCheck,inspectPanel,writeClaims,landCredits:n=>landCredits(n)},PST:()=>({PST,PST_LOOKS,PST_SHAPES,PST_SIZES,pstBar,pstKm,pstView,pstBox,pstPlace,pstKeyOf,pstRender,pstShow,pstHide,pstLocked,pstOffered,pstSizeOffered,pstPrintK,pstSealId,pstPhys,pstCrc}),DIG:()=>({DIG_SETS,DIG_FIRST,DIG_POOL,DIG_SITES,DIG_LEN,DIG_EVENTS,DIG_SCH,digSet,digHeld,digDone,digRew,digCredits,digOrder,digActive,digRetired,digOpenedAt,digPlan,digSend,digOpen,digChoose,digMod,digEvent,digPity,digGround,digInvites,digJoin,digJointOn,digGiftsIn,digTake,digGiveSpare,digSellSpare,digHire,digRegionFinds,digFirsts,landEarned:n=>landEarned(n),REG,REGIONS,COL_BY_ID}),MW:()=>({mwOf,mwPoints,mwVisitors,mwTakings,mwExhibit,mwExhibitItems,mwRanking,mwWorn,mwSlots,mwOnShow,COL_BY_ID,COL_ITEMS,DIG_SETS,MW_FLOORS}),GM:()=>({gamesResults,edOf,b1Now,gevWhy,baseScores,entryOf,medalsIn,gamesRecords,gamesCeremony,unlocksOf,myId,formOf,GAME_EVENTS,clone,commit}),GM2:()=>({GAMES_V2,GTAC,TRAIN_PTS,TRAIN_MAX,BOY_GW,edOf,edStart,entryOf,gamesHost,gamesBids,edEvents,edDrawn,gmSwapOf,gmMascOf,gmChatLines,gmChatLine,gmTrCost,gevWhy,formOf,gamesResults,dspBuild,dspNoOf,c3MyBid,gcerSeen,stockNow,stockCap,canFeature,myId,clone,commit}),GB:()=>({IRON_DEP,IRON_DEP_YIELD,CELL_RES,MAP_T:MAP.T,mapAt:c=>{centerMain(c,NEAR_Z*1.6);},stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,FOOD_SPOIL,FOOD_EAT,FOOD_TIERS,FOOD_LAND,foodTier,TIMBER_BURN,foodGrowth,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({dspShown,dspRegShown,dspRegs,dspPic,dspLocator,dspHtDefs,pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),ASMX:()=>({ASMX,ASMX_TABS,asmBookAt,asmState,asmArcLoad,REG}),RGNX:()=>({RGN,RGN_PAGE,notifItems,ONL,onlRefresh}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals,seatsOf,alliancesOf,alMineAll,alClashes,alFest,alWornOf,alGuardsOf,alSeatsFor,allianceOf,AL_TY_UI,alStripHTML,alArmsSVG,alArmsAuto,alPzKeys,alMoCheck,alOpenPage,alWeekData,alLvOpens}),TYX:()=>({TY,TY_RULES,TY_K,tyOf,tyList,tyWarBlock,tyIncoming,affinity,alPactLive,alRelationsHTML,econOf,armyPower,armyRaw,attackMult,readyMs,drWords,drNote,drBroken,relationCard}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,npcIdeaNow,npcDealFor,npcAsk,npcReply,npcVerdict,npcTradeTalk,dealSlots,maxDeals,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,achTierCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC,step:rcStepCheck,head:rcHead,sponsoring:rcSponsoring,qr:qrMatrix,card:rcCardDraw,invCap:rcInvCap,free:rcFreeLand,STEPS:RC_STEPS,UNL:RC_UNLOCKS}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend,card:n=>tutCard(n),phase:n=>tutPhase(n),picks:(n,ph)=>tutPicks(n,ph),group:(n,k)=>tutGroup(n,tutL(k)),hid:n=>tutHid(n)},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours,
+if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({RPATCH,SC:()=>scProbe(),WR3:()=>({CQ_ISSUES,cqFall,cqDue,cqTake,cityFounded,cqBuildings,openMapAt,WAR3_ISSUES,wr3WarsSection,wr3BattleCard,wr3MapData,wr3Econ,wr3Close,wr3VetDue,wr3WindToggle,wr3MunOn,wr3Reserve,wr3Factors,wr3On}),WR2:()=>({wrFallenCard,WR,WAR_GOALS,WAR2_ISSUES,wrSiege,wrSiegesOn,wrFallsAt,myFall,wrSiegeWhy,wrCapExposed,wrUnrest,wrWarsOf,wrPopFx,wrTribute,wrForts,wrFortify,wrSurrender,wrSiegeStart,wrRise,wrCarry,wrEdictDue,wrSafe,wrNotice,territory,frontier,economy,warControls,targetPanel,armyBlock,warNotice,warWith,pairWar,nationView,rgnOverview,hxCard}),HELPX:()=>({HLP,HELP_CH,HELP_SUM,HELP_FOR,GLOSS,helpFind,helpIndex,helpSecList,helpForYou,helpChapters,rgcCmd,rgcCardOf,rgcCardHTML,admhHs,admhHsCount}),MTP:()=>({MTP,MTP_PAD,TBMP_SCALE,redrawMaps,mapScale,viewOf}),SCR:()=>({scrOf,scrClean,scrDef,scrFamOf,scrEdParse,scrGlyphs,scrLay,scrChars,scrSVG,scrLine,scrCard,scrCharterSVG,scrFmt,scrFor,dmRich,dmPlain,scrDmWith,SCR_FAM,SCR_ABC,SCS}),BDX:()=>bdProbe(),LDX:()=>ldProbe(),FLY:()=>({flagSVG,fgSplit,fgFused}),RD:()=>rdProbe(),JV:()=>jvProbe(),M100P:()=>({M100,M100_N,M100_MC,M100_MCN,m100Bits,m100Got,m100In,m100Due,m100Count,m100Show,m100Open,ctgMcOk,nationColor,czShOk,czShieldPath,unlocksOf,czPatSVG,xsMax}),M200P:()=>({M200,M200_N,M200_MC,M200_MCN,M200_U,m200Bits,m200Got,m200In,m200Due,m200Count,m200Show,m200Open,ctgMcOk,nationColor,czShOk,czShieldPath,unlocksOf,czPatSVG,czStampArt,czFrameArt,czCharge,czFramed,flagSVG,xsMax,ACH_BY_ID,achEarnedIds}),WTN:()=>({WN,wbMap,wnKind,wnWaters,wnSync,wnAt,wnRename,wnReset,wnNameProblem,wnTaken,wnPanel,wnLabels,lakeMap,isLake,cellAt,WN_REACH,WTN_MAX,REG,RV,rvData,hexDist,territory,MAP,HEX_W,updateMapPanel,logLine}),RVN:()=>({RV,rvData,rvSync,rvKey,rvHeld,rvStretch,rvMost,rvEdgeHolder,rvAt,rvNameAt,rvLabelAt,rvParts,rvRename,rvReset,rvNameProblem,rvTidy,rvLabel,rvnPanel,logLine,RVN_MAX,RVN_LEN,updateMapPanel,hexDist,HEX_W,REG}),CP2:()=>({BLD_ICO,bldIco,bldLead,cxDefTotal,cxOrder,qjBuilding,BUILDINGS}),PRVC:()=>({cxPrvOf,cxPrvSeatTrial,cxOvwCols,prvSeat,prvMine,prvOfCell,prvSetAut,prvAppoint,PRV}),NPX:()=>({fbTrend,fbYesterday,heroLead,heroOpen,opOf,OPEN_TO,hnOf,hnFill,hnLine,nbSection,ppWho,ppWhoHTML,ppHash,ppCarried,economy,territory,bordersOf,fillDeal,findNation,clsHide,MAP,hexDist,STAT_KEYS,popNow,myId}),PT:()=>ptProbe(),LTH:()=>lthProbe(),DAM:()=>damProbe(),CHAT:()=>({RGC,RGW,RGF,tab:rgcTab(),count:rgcCount(),region:rgcUnread(),world:rgwUnread(),named:rgwNamedUnread(),fr:rgwUnread(RGF),frNamed:rgwNamedUnread(RGF),frOn:rgfOn(),hidden:document.hidden}),UXP2:()=>({edictDesk,edictStep,edictOpen,fill,ISSUE_BY_ID,ACH,keysOpen,dmOthers,dmPickList,stGroups,stTabLast,navRecent,vhData,VH_KEY,VH_AFTER,QJ_DO,qjItems:q=>navQjItems(q),NAV_REC_KEY,ST_KEY}),HID:()=>({HIDN,hidMask,iAmHidden,frontier,mapPanel,warControls}),WG:()=>({wgTakers,wgForField,wgForPick,warGiveHex,warGive,occupiedFrom,attack,offerPeace,declareWar,collectConquests,dedupeConq}),WAKE:()=>({dormFresh,dormQuiet,dormWelcome,moveTo,RSTAT,REGIONS,REG,regDisabled}),HMB:()=>({RCTRL,hmBake,hmAutoFlag,fxDraw,capHolder,FX_DEF,DEF_FLAG,hmRle,hmLiveNorm,hmMapNorm,hmSel,hmRegions,hmBlocked,hmEngaged:()=>hmEngaged,HM,REG,MAP}),LAND:()=>({landWait,capLift,capWrong,capNote,raceKnown,RACE,worldHeardAt:()=>worldHeardAt,landQ:()=>S.landQ,landQueued,fdSites:(n,T)=>fdSites(n,T)}),BG:{gain:bldGain,html:bldGainHtml},IB:()=>({agRoster,agPick,agStatus,heatOf,cvRoll,cvKey,cvBlock,cvOdds,buLv,buGap,buAll,BU,BU_KEYS,ibFile,ibWanted,ibChatter,HEAT_MAX,DD_TASKS,DD_LEG,findNation,allNations,cvProtected}),VL:()=>({VL_SECS,VL_DEF,CLS,CLS_OPS,CLS_READ,vlOrder,clsOf,clsRaw,clsMax,clsSeen,clsHide,clsRead,vlSave,findNation}),IFC:()=>({plan:ifcPlan,works:ifcWorks,line:ifcLine,tab:ifcTab}),XP:()=>({BUILDINGS,XU,XU_KEYS,XU_TOTAL,LOST_KINDS,LOST_ORDER,XU2,XU2_KEYS,LOST2_KINDS,LOST2_ORDER,xuLine,xu2Lv,xb,xu2Cost,xu2Hours,xu2Why,xu2Start,xuCredits,xuMapsLv,xuFlK,xuFindK,xuParty,xuTimeK,xuReach,xuCostK,xuCurio,flSoon,landEarned,xuLv,xuWhy,xuHave,xuStart,xuCost,xuGear,xpSeen,expFree,xpTeamOpen,nationBuilt,expBackTeam,SITES,SITE_KINDS,expPlan,expOdds,expRuns,expRange,flRange,flAlive,flPlan,flDebug,flNow,discoveries,sendExpedition,hearReport,xpRoute,xpRivals,xpRivalText,xpFinds,flOdds,territory}),SVC:()=>({SVC,SVC_N,SVC_V,SVC_NEED,svcPlan,svcOpen,svcDig,svcShort,svcRoll,svcAmt,svcDayOf,svcRoom,svcNext}),FLC:()=>({FLC,FLC_RULES,FLC_CAT,flcId,flcTimes,flcPhase,flcPrev,flcView,flcLoad,flcChamp,flcTodo,flcClaims,flcLand,flcStreak,flcAllDone,flcSeen,flcDuty,flcDeskOn,flcDraftPush,FCA}),LK:{lakeMap,isLake,claimLand,lakeShore,fillHeld,LAKE_MAX,LAKE_A,freeCell,claimFrontier,blockPlan,autoPlan,terrCount,placePhrase,claimWhy,swapCheck,inspectPanel,writeClaims,landCredits:n=>landCredits(n)},PST:()=>({PST,PST_LOOKS,PST_SHAPES,PST_SIZES,pstBar,pstKm,pstView,pstBox,pstPlace,pstKeyOf,pstRender,pstShow,pstHide,pstLocked,pstOffered,pstSizeOffered,pstPrintK,pstSealId,pstPhys,pstCrc}),DIG:()=>({DIG_SETS,DIG_FIRST,DIG_POOL,DIG_SITES,DIG_LEN,DIG_EVENTS,DIG_SCH,digSet,digHeld,digDone,digRew,digCredits,digOrder,digActive,digRetired,digOpenedAt,digPlan,digSend,digOpen,digChoose,digMod,digEvent,digPity,digGround,digInvites,digJoin,digJointOn,digGiftsIn,digTake,digGiveSpare,digSellSpare,digHire,digRegionFinds,digFirsts,landEarned:n=>landEarned(n),REG,REGIONS,COL_BY_ID}),MW:()=>({mwOf,mwPoints,mwVisitors,mwTakings,mwExhibit,mwExhibitItems,mwRanking,mwWorn,mwSlots,mwOnShow,COL_BY_ID,COL_ITEMS,DIG_SETS,MW_FLOORS}),GM:()=>({gamesResults,edOf,b1Now,gevWhy,baseScores,entryOf,medalsIn,gamesRecords,gamesCeremony,unlocksOf,myId,formOf,GAME_EVENTS,clone,commit}),GM2:()=>({GAMES_V2,GTAC,TRAIN_PTS,TRAIN_MAX,BOY_GW,edOf,edStart,entryOf,gamesHost,gamesBids,edEvents,edDrawn,gmSwapOf,gmMascOf,gmChatLines,gmChatLine,gmTrCost,gevWhy,formOf,gamesResults,dspBuild,dspNoOf,c3MyBid,gcerSeen,stockNow,stockCap,canFeature,myId,clone,commit}),GB:()=>({IRON_DEP,IRON_DEP_YIELD,CELL_RES,MAP_T:MAP.T,mapAt:c=>{centerMain(c,NEAR_Z*1.6);},stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,FOOD_SPOIL,FOOD_EAT,FOOD_TIERS,FOOD_LAND,foodTier,TIMBER_BURN,foodGrowth,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({dspShown,dspRegShown,dspRegs,dspPic,dspLocator,dspHtDefs,pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),ASMX:()=>({ASMX,ASMX_TABS,asmBookAt,asmState,asmArcLoad,REG}),RGNX:()=>({RGN,RGN_PAGE,notifItems,ONL,onlRefresh}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals,seatsOf,alliancesOf,alMineAll,alClashes,alFest,alWornOf,alGuardsOf,alSeatsFor,allianceOf,AL_TY_UI,alStripHTML,alArmsSVG,alArmsAuto,alPzKeys,alMoCheck,alOpenPage,alWeekData,alLvOpens}),TYX:()=>({TY,TY_RULES,TY_K,tyOf,tyList,tyWarBlock,tyIncoming,affinity,alPactLive,alRelationsHTML,econOf,armyPower,armyRaw,attackMult,readyMs,drWords,drNote,drBroken,relationCard}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,npcIdeaNow,npcDealFor,npcAsk,npcReply,npcVerdict,npcTradeTalk,dealSlots,maxDeals,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,achTierCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC,step:rcStepCheck,head:rcHead,sponsoring:rcSponsoring,qr:qrMatrix,card:rcCardDraw,invCap:rcInvCap,free:rcFreeLand,STEPS:RC_STEPS,UNL:RC_UNLOCKS}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend,card:n=>tutCard(n),phase:n=>tutPhase(n),picks:(n,ph)=>tutPicks(n,ph),group:(n,k)=>tutGroup(n,tutL(k)),hid:n=>tutHid(n)},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours,
   SV:MC_SV,XS:MC_XS,QUEUE:MC_QUEUE,DISH:MC_DISH,FINDS:MC_FINDS,CHART_MS:MC_CHART_MS,repSecs:mcRepSecs,repKind:mcRepKind,fold:mcFold,lane:mcLane,dish:mcDish,
   finds:mcFinds,findAt:mcFindAt,bits:mcBitsList,charted:mcCharted,chartedNow:mcChartedNow,unqueue:mcUnqueue,dishBuild:mcDishBuild,bringHome:mcBringHome,
   secSite:mcSecSite,prefOk:mcPrefOk,prefTile:mcPrefTile,setPref:mcSetPref,startProblem:mcStartProblem,wfKey:mcWfKey,osKey:mcOsKey},WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR,bell:now=>notifItems(now||Date.now())},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},TIER:()=>({BTIER,bEff,bTier,bTierNext,bTierLine,tierQuote,tierProblem,cxTier,cxTrMap,tierSettle,tierReady,cxGoldNow,cxUpQuote,cxUpList,cxUps}),CX:{upgradable:cxUpgradable,mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState,UG:CX_UG,LV:CX_LV,ups:cxUps,upMap:cxUpMap,extras:cxBldExtras,quote:cxUpQuote},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo,unlockTarget,unlockShow,unlockFresh,unlockQueue,ULK,UNLOCKS,unlocksOf,toast:m=>toast(m)},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{coinBackSVG:cuCoinBackSVG,noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,coinSVG:cuCoinSVG,guide:cuGuideHTML,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,drawMap,sfKey,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ACH_RANKS_V1,ID_BD,achVal,achCtx,achEvalNew,achState,stockRates:n=>stockRates(n),achPoints,achRank,achRankOf,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,flagNorm:(f,n)=>flagNorm(f,n),flagSVG:(f,l)=>flagSVG(f,l),mapTip:id=>{const T=mapTerr('main'),i=T.list.findIndex(x=>x.id===id);if(i<0)return '';const cell=Array.prototype.indexOf.call(T.owner,i);return MAP_TIP.map(h=>{try{return h({kind:'main',cell,cv:null,x:0,y:0});}catch(e){return '';}}).filter(x=>typeof x==='string').join(' | ');},cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
@@ -99771,7 +100089,7 @@ function rsChHTML(n,id,now){
   return `<div class="rs-ch${c&&c.d?' done':''}">${rsChSVG(id,c&&c.d?N:s,N)}<p class="lbl">Tier ${roman(C.t)} · ${N} stages</p><b>${esc(C.n)}</b><p class="hint">${esc(C.d)} ${esc(rsFxParts(C.fx).join(', '))}.</p>${body}</div>`;
 }
 /* ── Scientific record ── */
-const RS_REC_K={all:null,d:['d','s'],b:['b','x','i','f','p','g','rz'],c:['c','cs','cb'],a:['a','l','lc','m','pj']};
+const RS_REC_K={all:null,d:['d','s'],b:['b','x','i','f','p','g','fn','rz'],c:['c','cs','cb'],a:['a','l','lc','m','pj']};
 function rsRecWords(n,e){
   const [t,k,a,b]=e,r=RS[a];
   switch(k){
@@ -99782,6 +100100,7 @@ function rsRecWords(n,e){
     case 'rz':return ['Destroyed',a?`${a} destroyed the laboratory. The archives were saved.`:String(b||'The laboratory must be rebuilt.')];
     case 'b':return ['Construction',`${RS_LAB[a]?RS_LAB[a][0]:'A stage'} was finished.`];
     case 'g':return ['Grant',`The Founding Research Grant: ${b} Research Credits.`];
+    case 'fn':return ['Field notes',`Your explorers’ notes from ${Number.isInteger(a)&&SITES[a]?siteName(a):'a first find'}: ${b} Research ${b===1?'Credit':'Credits'}.`];
     case 'x':return ['Expansion',`A stage of ${rsInstName(n,a)} was finished (${b}).`];
     case 'i':return ['Institution',`${cap1(rsInstName(n,a))} opened its doors.`];
     case 'cb':return ['Grand Challenge',`Work began on ${RS_CH[a]?RS_CH[a].n:'a Grand Challenge'}.`];

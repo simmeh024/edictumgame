@@ -11,6 +11,8 @@
      q   studies under way [[index, start, end, paid, halved]], one per track, for technologies of tier V and above
      ap  credits pledged to an alliance's research project [{t, a, q}]
      gr  the one-off grants received ('f': the Founding Research Grant)
+   Field Notes (the outfitters' Field naturalists refitted at tier II, 2026-11-23) add credits for each first find a save
+   adds (rsFieldNotes), as many as the line's tier II blocks.
    functions/civic.js (permit) calls rsSettle on every save before it approves it, by the server's clock:
      - research is never lost: a technology, study or credit the saved record held stays;
      - credits earned grow no faster than the most the record's own figures allow (rsRateMax: its Science &
@@ -42,6 +44,16 @@ export const RS_INST_BONUS = [0, 10, 20, 35, 50, 75, 110, 155, 230];
 /* one-off grants, each received once: f the Founding Research Grant at the inauguration, a to d answers to Letters from the
    Laboratory (the game's RS_GRANTS) */
 export const RS_GRANTS = { f: 12, a: 15, b: 20, c: 30, d: 40 };
+/* Field Notes: credits for each first find a save adds (n.disc entries marked f, beyond the saved record's), as many as
+   the line's tier II blocks (n.xl.nat 'notes', n.x2.nat 1 to 5), for at most RS_FN_MAX finds in one save */
+export const RS_FN_MAX = 3;
+export function rsFieldNotes(n, before) {
+  if (!n || !n.xl || n.xl.nat !== 'notes') return 0;
+  const b = Math.max(0, Math.min(5, Math.floor(num(n.x2 && n.x2.nat))));
+  if (!b) return 0;
+  const firsts = d => (Array.isArray(d && d.disc) ? d.disc : []).filter(e => e && e.f && (e.o === 'found' || e.o === 'great')).length;
+  return b * Math.max(0, Math.min(RS_FN_MAX, firsts(n) - firsts(before)));
+}
 /* what a save's clock may be ahead of the server's, and what rounding may leave over */
 export const RS_SKEW = 120000, RS_EPS = 0.5;
 /* technologies of another track a technology needs (lower tiers only), the Grand Challenge one needs, and the
@@ -247,6 +259,8 @@ export function rsSettle(n, before, now, savedAt) {
   let gr = B ? B.gr : '';
   let grant = 0;
   for (const g of Object.keys(RS_GRANTS)) if (N.gr.includes(g) && !gr.includes(g) && (N.i > 0 || (B && B.i > 0))) { gr += g; grant += RS_GRANTS[g]; }
+  /* Field Notes, for a laboratory already open in the saved record */
+  if (B && B.i > 0) grant += rsFieldNotes(n, before);
   let i0 = B && B.i > 0 ? B.i : N.i > 0 ? Math.max(N.i, t0 - RS_SKEW) : 0;
   if (i0 > now + RS_SKEW) i0 = 0;
   const ra = Math.min(Math.max(N.ra, B ? B.ra : 0), now + RS_SKEW);
