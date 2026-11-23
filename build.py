@@ -63,6 +63,21 @@ PERF_EDITS = [
      'url:a.name&&self.edictumPerfUrl(a.name),'),
 ]
 APP_MARK = '<div id="app"></div>'
+# The rivers' fingerprint. A page keeps the river network it made in the browser (game/edictum.html, rvStore) and takes it
+# again only under a key that begins with this: a hash of the source the network comes from, its own section, rvBuildIt,
+# the map's generators (as scripts/bake-maps.mjs cuts them) and the helpers they use. So a change to any of them has
+# every page make its network afresh, once.
+RV_MARK = "/*RV_SIG*/''"
+RV_SOURCE = [
+    ('/* ───────── Round 10, A: rivers and lakes', '\nlet RV=null'),
+    ('function* rvBuildIt(', '\n/* Kept between visits'),
+    ('const LEG={', '/* a stable key for per-hex randomness'),
+    ('/* hex geometry for a grid', '/* older Meridian records (map version 2)'),
+    ('const HEX_R=10,', '\nconst MAP=bakedMap()'),
+    ('function hash(str){', '\n'),
+    ('function rng(seed){', '\n'),
+    ('const clamp = ', '\n'),
+]
 BUILD_MARK = '__EDICTUM_BUILD__'  # the page's own build, filled in once the page is complete
 # (package, its CSS files, the family name the game's styles use)
 FONTS = [
@@ -258,6 +273,18 @@ def home_copy(script):
     }
 
 
+def rv_sig(script):
+    """The rivers' fingerprint (RV_MARK): 12 hex digits of the hash of the source in RV_SOURCE."""
+    parts = []
+    for a, b in RV_SOURCE:
+        i = script.find(a)
+        j = script.find(b, i + len(a)) if i >= 0 else -1
+        if i < 0 or j < 0:
+            fail('the game no longer has "%s" … "%s" for the rivers\' fingerprint; update RV_SOURCE in build.py' % (a, b.strip()))
+        parts.append(script[i:j])
+    return hashlib.sha256('\n'.join(parts).encode('utf-8')).hexdigest()[:12]
+
+
 def inline_js(path, minify):
     js = esbuild(read(path), 'js', minify)
     if '</script' in js.lower():
@@ -434,6 +461,9 @@ def main():
         fail('the game no longer marks where the shop catalogue goes (/*SHOP_CATALOGUE*/null)')
     catalogue = json.loads(read(os.path.join(ROOT, 'functions', 'shop-catalogue.json')))
     script = script.replace('/*SHOP_CATALOGUE*/null', json.dumps(catalogue, ensure_ascii=False, separators=(',', ':')))
+    if script.count(RV_MARK) != 1:
+        fail('the game no longer marks the rivers\' fingerprint once (%s)' % RV_MARK)
+    script = script.replace(RV_MARK, "'%s'" % rv_sig(script))
     # the French for the everyday screens (FR_MORE): a file of its own, which only a page in French downloads
     # (game_loader), so the rest of the world does not fetch it with the game
     fr_url = None

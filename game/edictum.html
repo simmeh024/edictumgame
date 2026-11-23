@@ -201,6 +201,22 @@ textarea.input{resize:vertical;min-height:84px;line-height:1.5}
 @media (max-width:640px){.nb-row{grid-template-columns:auto minmax(0,1fr)}.nb-c{grid-column:2;justify-content:flex-start}}
 .pp-who{margin-top:8px;font-size:14px;line-height:1.5}
 .section{margin-top:44px}
+/* Only the part of a long page near the window is laid out (2026-11-23). A page's sections further away keep a
+   placeholder of their last height (content-visibility), so the Nation page, some eleven thousand pixels tall on a
+   phone, lays out its first screens rather than all of it when it opens and each time it is drawn again, which took a
+   phone two thirds of a second. The overflow margin lets focus rings, shadows and anything else that reaches a little
+   past a section's edge show as before; a browser without it lays every section out as it always did. The containment
+   would also hold a map put full screen (position: fixed) inside its section, so while one is (html.map-full-open) every
+   section is laid out as before; the game's other pop-ups are put on the body, outside the sections. Code that asks
+   whether something is shown asks checkVisibility() first (uxShown), which needs no layout. A page put back where the
+   reader had it gets the heights it had then (cvHold), with the scroll anchoring held off for that scroll (html.cv-still),
+   or, without them, every section laid out (html.cv-full: cvFull). */
+@supports (content-visibility:auto) and (overflow-clip-margin:1px){
+  .main .wrap>section.section,.main .wrap>.nation-grid{content-visibility:auto;contain-intrinsic-size:auto 600px;overflow-clip-margin:40px}
+  html.cv-full .main .wrap>section.section,html.cv-full .main .wrap>.nation-grid,
+  html.map-full-open .main .wrap>section.section,html.map-full-open .main .wrap>.nation-grid{content-visibility:visible}
+  html.cv-still{overflow-anchor:none}
+}
 .legis{list-style:none;padding:0;margin:0}
 .legis li{display:grid;grid-template-columns:110px minmax(0,1fr);gap:16px;padding:12px 0;border-top:1px solid var(--rule)}
 .legis .when{font:500 12px/1.6 var(--f-mono);color:var(--ink-3)}
@@ -26299,6 +26315,18 @@ function notifCount(now){const n=S.nation;if(!n)return 0;const {pin,ev}=notifIte
 const NOTIF_K={land:'Land office',trade:'Board of Trade',alli:'Foreign office',war:'War office',lost:'War office',games:'Games',gres:'Games',host:'Games',hostwin:'Games',mile:'Milestone',mile0:'Milestone',peace:'War office',conq:'War office',tradeend:'Board of Trade',aladmit:'Foreign office',caught:'Intelligence',build:'Ministry of Works',msg:'Message',cede:'Foreign office',hand:'War office',shared:'Foreign office',exp:'Society of Explorers',incident:'Foreign office',aljoin:'Foreign office',alleave:'Foreign office',aldisband:'Foreign office',alremove:'Foreign office',alwar:'War office',tradeno:'Board of Trade',reply:'Foreign office',autoland:'Land office',npcwar:'War office',retire:'Cabinet',npcleft:'Foreign office'};
 const BELL_SVG='<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M12 3a6 6 0 0 0-6 6v3.6L4.3 15.5A1 1 0 0 0 5.2 17h13.6a1 1 0 0 0 .9-1.5L18 12.6V9a6 6 0 0 0-6-6Zm0 18a2.6 2.6 0 0 0 2.5-2h-5a2.6 2.6 0 0 0 2.5 2Z" fill="currentColor"/></svg>';
 function bellButton(now){const c=notifCount(now);return `<button class="bell${S.notifOpen?' on':''}" data-act="notif" aria-expanded="${!!S.notifOpen}" aria-label="Notifications${c?', '+c+' new':''}">${BELL_SVG}<span class="bell-n"${c?'':' hidden'}>${c>99?'99+':c}</span></button>`;}
+/* The bell's number comes a moment after the first page of a load (2026-11-23). Working it out (notifItems) reads every
+   nation's news, the trade offers, the alliances and the cities' works, about a fifth of a second on a phone, and the
+   first page waited for it. That first page shows the bell without its number, and refreshBell puts the number in, in
+   place, once the page is up (unless a page drawn meanwhile already has it); every later page works it out as before. */
+var BELL1=BELL1||{early:true,full:false};  /* var: render() may run before this point of the script has */
+function bellFirst(now){
+  if(!BELL1)BELL1={early:true,full:false};
+  if(!BELL1.early||S.notifOpen){BELL1.early=false;BELL1.full=true;return bellButton(now);}BELL1.early=false;
+  const later=()=>{if(!BELL1.full)try{refreshBell(Date.now());}catch(e){}};
+  if(window.requestIdleCallback)requestIdleCallback(later,{timeout:1000});else setTimeout(later,200);
+  return `<button class="bell" data-act="notif" aria-expanded="false" aria-label="Notifications">${BELL_SVG}<span class="bell-n" hidden></span></button>`;
+}
 function notifPanel(now){
   if(!S.notifOpen)return '';
   const {pin,ev}=notifItems(now),prev=S.notifPrev||0;
@@ -30564,6 +30592,24 @@ function achLeaders(cur){
   const pl=allNations().filter(y=>!y.npc).map(y=>({y,p:achPoints(y.n),c:achEarnedIds(y.n).length})).sort((a,b)=>b.p-a.p||b.c-a.c||(a.y.n.name<b.y.n.name?-1:1));
   return `<ol class="ach-lb">${pl.map((q,i)=>`<li class="${q.y.me?'me':''}${q.y.id===cur?' cur':''}"><span class="ach-lb-i num">${i+1}</span><span class="ach-lb-n"><span class="mflag">${flagSVG(q.y.n.flag,'Flag of '+q.y.n.name)}</span><span>${nationLink(q.y.id,q.y.n.name,q.y.me)}<span class="ach-lb-r">${esc(achRankOf(q.y.n,q.p).name)} · ${q.c} ${q.c===1?'achievement':'achievements'}</span></span></span><span class="ach-lb-p num">${fmt0(q.p)}</span></li>`).join('')}</ol>${pl.length<2?`<p class="hint" style="margin-top:8px">Other players’ nations join this table when you play in the shared region.</p>`:''}`;
 }
+/* The register fills in after the page shows (2026-11-23). "Everything" lists every achievement's card, about 11,000
+   elements, and each visit to the page built them all before it could show: a third of a second on a phone. The page
+   now shows with its first groups' cards and the other groups' headings, and the rest are drawn one group at a time in
+   idle moments just after (achFillNext), each exactly as the page itself draws it, so the next drawing finds nothing to
+   change. A group once drawn stays drawn while the reader stays on the page with the same register, category and
+   filter (ACHF.done); printing draws the rest at once. */
+const ACH_FILL_FIRST=24;
+const ACHF={sig:'',done:new Set(),todo:new Map(),job:0};
+function achFillOne(){
+  const el=document.querySelector('#main [data-ach-fill]');if(!el)return false;
+  const k=el.dataset.achFill,f=ACHF.todo.get(k),grid=el.querySelector(':scope>.ach-grid');
+  if(f&&grid){grid.innerHTML=f();ACHF.done.add(k);ACHF.todo.delete(k);}el.removeAttribute('data-ach-fill');return true;
+}
+function achFillNext(){ACHF.job=0;if(achFillOne())achFillSoon();}
+function achFillSoon(){if(ACHF.job||!document.querySelector('#main [data-ach-fill]'))return;ACHF.job=window.requestIdleCallback?requestIdleCallback(achFillNext,{timeout:300}):setTimeout(achFillNext,30);}
+/* the rest at once: for printing, and for a jump to a card not drawn yet (uxJump: search, an unlock's link) */
+function achFillAll(){while(achFillOne());}
+window.addEventListener('beforeprint',achFillAll);
 
 /* ───────── the Achievements page ───────── */
 VIEWS_EXT.achievements=now=>{
@@ -30598,7 +30644,16 @@ VIEWS_EXT.achievements=now=>{
     ${ACH_CATS.filter(([k])=>rows.some(q=>q.a.c===k)).map(([k,l])=>{const cr=rows.filter(q=>q.a.c===k),e=cr.filter(q=>q.on).length;return `<button class="ach-cat${cat===k?' on':''}" data-act="ach-cat" data-c="${k}" aria-pressed="${cat===k}">${achIco(k,'ach-cico')}<span class="ach-cat-n">${esc(l)}</span><span class="ach-cat-c num">${e}/${cr.length}</span><span class="bar"><i style="width:${(e/cr.length*100).toFixed(1)}%"></i></span></button>`;}).join('')}</div></section>`;
   const tabs=`<div class="stabs ach-tabs" role="group" aria-label="Filter">${[['all','All'],['earned','Earned'],['prog','In progress'],['locked','Locked']].map(([k,l])=>`<button class="stab${F===k?' on':''}" data-act="ach-f" data-f="${k}" aria-pressed="${F===k}">${l} <span class="ach-tc num">${cnt[k]}</span></button>`).join('')}</div>`;
   const ctx={me:!!x.me,mine,rar:rar.cnt,players:rar.players};
-  const groups=(cat==='all'?ACH_CATS.map(([k])=>k):[cat]).map(k=>{const g=shown.filter(q=>q.a.c===k);if(!g.length)return '';return `<section class="ach-group">${cat==='all'?`<h3 class="ach-gh">${achIco(k,'ach-gico')}${esc(ACH_CAT[k])}<span class="hint num">${rows.filter(q=>q.a.c===k&&q.on).length} of ${rows.filter(q=>q.a.c===k).length} earned</span></h3>`:''}<div class="ach-grid">${g.map(q=>achCard(q,ctx)).join('')}</div></section>`;}).join('');
+  /* "Everything": the first groups at once, the others' cards in idle moments just after (achFillNext). A page entered
+     afresh, or another register or filter, starts again with only the first groups */
+  const lazy=cat==='all',sig=x.id+'|'+F;
+  if(!lazy)ACHF.sig='';else{if(ACHF.sig!==sig||RENDER_LAST.route!==rpRoute()){ACHF.sig=sig;ACHF.done.clear();}ACHF.todo.clear();}
+  let early=0;
+  const groups=(cat==='all'?ACH_CATS.map(([k])=>k):[cat]).map(k=>{const g=shown.filter(q=>q.a.c===k);if(!g.length)return '';
+    const cards=()=>g.map(q=>achCard(q,ctx)).join(''),now_=!lazy||ACHF.done.has(k)||early<ACH_FILL_FIRST;
+    if(lazy){if(now_){early+=g.length;ACHF.done.add(k);}else ACHF.todo.set(k,cards);}
+    return `<section class="ach-group"${now_?'':` data-ach-fill="${k}"`}>${cat==='all'?`<h3 class="ach-gh">${achIco(k,'ach-gico')}${esc(ACH_CAT[k])}<span class="hint num">${rows.filter(q=>q.a.c===k&&q.on).length} of ${rows.filter(q=>q.a.c===k).length} earned</span></h3>`:''}<div class="ach-grid">${now_?cards():''}</div></section>`;}).join('');
+  if(lazy&&ACHF.todo.size)setTimeout(achFillSoon,0);
   const list_=`<section class="section" id="ach-list"><h2 class="h2">${cat==='all'?'The register':esc(ACH_CAT[cat])}</h2>${tabs}${groups||`<div class="empty"><p class="empty-h">Nothing here</p><p>${F==='earned'?'None of these has been earned yet.':F==='prog'?'Nothing in this category is under way yet.':'Everything here is either earned or under way.'}</p></div>`}</section>`;
   const lb=`<section class="section"><h2 class="h2">Prestige table</h2><p class="muted" style="margin-bottom:14px">Player nations of ${REGION}, by prestige. Computer nations do not keep a register; they consider themselves above it.</p>${achLeaders(x.id)}</section>`;
   return `${head}${panel}${strips}${cats}${list_}${lb}`;
@@ -37399,12 +37454,47 @@ function* rvBuildIt(G,R){const X=yield* rvGenIt(G,R);const A=yield* rvAssembleIt
   /* a region that grew: the charted map's rivers made on the charted map (rvChartOf, rvJoin) */
   const G0=yield* rvChartIt(G);yield;const X0=yield* rvGenIt(G0,R);const A0=yield* rvAssembleIt(X0,R);yield;
   const J=yield* rvJoinIt(G,A,A0);J.X=X;return J;}
+/* Kept between visits (2026-11-23). The network is the same on every page of a region until the code that makes it or
+   the region's map changes, yet each page made it afresh, and at once: the bell and the cities' figures ask for it
+   before the first page shows, which cost a phone about half a second of every load. A network made here is kept in
+   this browser's IndexedDB (edictum-cache, beside the relief: rvStore) under rvCacheKey(): the fingerprint of the code
+   that makes it (RV_SIG, which build.py works out from the source of this section, rvBuildIt and the map's own
+   generators, so a change to any of them makes a new key) and of everything it is made from (the region, and checksums
+   of the terrain, coasts, landmasses and computer capitals it reads). src/stub.js reads it while the game's scripts
+   download (window.__edictum.rv); rvRun takes it, whole, only when its key is this page's, and otherwise makes the
+   network as before and keeps it for the next page. A source run unbuilt (the tests' cuts) has RV_SIG ''. */
+const RV_SIG=/*RV_SIG*/'';
+function rvSum(a){if(!a)return '-';let h=2166136261;for(let i=0;i<a.length;i++)h=Math.imul(h^(a[i]|0),16777619);return (h>>>0).toString(36)+'.'+a.length;}
+let rvCK=null;
+function rvCacheKey(){
+  if(rvCK)return rvCK;const M=MAP;let reg='';try{reg=hash(JSON.stringify(REG)).toString(36);}catch(e){}
+  return rvCK=['rv1',RV_SIG,REG.id,M.N,M.COLS,M.ROWS,CHART_COLS+'x'+CHART_ROWS,rvSum(MAP_T0),rvSum(M.coast),rvSum(M.leg),rvSum(M.chart),rvSum(M.comp),
+    (M.comps||[]).map(c=>c.size).join('.'),hash(JSON.stringify(M.npcLoc||{})).toString(36),reg].join('|');
+}
+/* the network kept by an earlier page, if it is this page's: what rvAssemble (or rvJoin) gave, as it gave it */
+function rvCached(){
+  const E=window.__edictum,c=E&&E.rv;if(E)E.rv=null;const N=MAP.N;
+  if(!c||c.k!==rvCacheKey()||!Array.isArray(c.list)||!Array.isArray(c.lakes)||!(c.at instanceof Map)||!(c.lake instanceof Set)||!(c.lakeAt instanceof Map)||
+    !(c.E6 instanceof Int32Array)||c.E6.length!==N*6||!(c.bonus instanceof Float32Array)||c.bonus.length!==N||!(c.bank instanceof Int8Array)||c.bank.length!==N)return null;
+  const A={list:c.list,lakes:c.lakes,at:c.at,lake:c.lake,lakeAt:c.lakeAt,E6:c.E6,bonus:c.bonus,bank:c.bank,R:REG};if(c.fz instanceof Map)A.fz=c.fz;return A;
+}
+/* a copy taken at once (rvFinish goes on to add the names' keys and the lakes' outlines to the network), kept when the
+   database is ready; the region it is for goes in localStorage, so the stub knows which to read */
+function rvStore(A){
+  if(typeof structuredClone!=='function'||!window.indexedDB)return;let v;
+  try{v=structuredClone({k:rvCacheKey(),list:A.list,lakes:A.lakes,at:A.at,lake:A.lake,lakeAt:A.lakeAt,E6:A.E6,bonus:A.bonus,bank:A.bank,...(A.fz?{fz:A.fz}:{})});}catch(e){return;}
+  rlfDB().then(db=>{const t=db.transaction('kv','readwrite');t.objectStore('kv').put(v,'rv:'+REG.id);t.oncomplete=()=>{try{localStorage.setItem('edictum.rv',REG.id);}catch(e){}};}).catch(()=>{});
+}
 /* run the job for about `budget` ms (0: to the end); a job of 40 to 60 ms in all (twice that in a region that grew,
-   which makes the charted map's rivers as well), in steps of under 15 */
+   which makes the charted map's rivers as well), in steps of under 15. A network kept by an earlier page is taken
+   instead when there is one (rvCached): A.cached is then how long taking it took, in ms */
 function rvRun(budget){
-  if(rvTried)return RV;if(!rvJob)rvJob=rvBuildIt({...MAP,T:MAP_T0},REG);const t0=performance.now();let A=null;
+  if(rvTried)return RV;
+  if(!rvJob){const t0=performance.now(),C=rvCached();if(C){rvTried=true;C.ms=0;C.slices=0;C.longest=0;C.steps=[];C.cached=+(performance.now()-t0).toFixed(1);rvFinish(C);return RV;}
+    rvJob=rvBuildIt({...MAP,T:MAP_T0},REG);}
+  const t0=performance.now();let A=null;
   try{for(;;){const ts=performance.now(),r=rvJob.next();rvSteps.push(+(performance.now()-ts).toFixed(1));if(r.done){A=r.value;break;}if(budget&&performance.now()-t0>budget)break;}}catch(e){rvJob=null;rvTried=true;return null;}
-  const dt=performance.now()-t0;rvWork+=dt;rvSlices++;if(dt>rvLong)rvLong=dt;if(!A)return null;rvJob=null;rvTried=true;A.ms=rvWork;A.slices=rvSlices;A.longest=rvLong;A.steps=rvSteps;rvFinish(A);return RV;
+  const dt=performance.now()-t0;rvWork+=dt;rvSlices++;if(dt>rvLong)rvLong=dt;if(!A)return null;rvJob=null;rvTried=true;A.ms=rvWork;A.slices=rvSlices;A.longest=rvLong;A.steps=rvSteps;rvStore(A);rvFinish(A);return RV;
 }
 function rvData(){return rvTried?RV:rvRun(0);}
 let rvQ=false;
@@ -37413,6 +37503,8 @@ function rvIdle(){rvQ=false;if(rvTried)return;rvRun(4);if(!rvTried){rvQ=true;set
 function rvReady(){if(rvTried)return RV;if(!rvQ){rvQ=true;setTimeout(rvIdle,0);}return null;}
 function rvFinish(A){
   RV=A;setTimeout(redrawMaps,0);
+  /* a copy the stub reads too late for this page is not needed */
+  const E=window.__edictum;if(E){E.rv=null;E.rvDone=true;}
   /* fertile valleys: the food bonus becomes part of each hex's yield, so the economy, the cities and the hex panel see it */
   for(let i=0;i<MAP.N;i++)if(RV.bonus[i])CELL_RES.food[i]+=RV.bonus[i]*FOOD_LAND;
   econMemo.v=null;cityMemo.v=null;
@@ -52042,7 +52134,35 @@ function drawMap(cv,P){
   if(!draft)mapPrewarm(cv);
 }
 const pendingDraw=new Set();
-function schedule(cv){if(pendingDraw.has(cv))return;pendingDraw.add(cv);requestAnimationFrame(()=>{pendingDraw.delete(cv);if(!cv.isConnected)return;if(mapMoving(cv))mapMotionFrame(cv);else drawMap(cv);});}
+function schedule(cv){if(pendingDraw.has(cv))return;pendingDraw.add(cv);requestAnimationFrame(()=>{pendingDraw.delete(cv);if(!cv.isConnected)return;
+  const near=cv._near||cv._warm>performance.now();cv._near=0;if(mapMoving(cv))mapMotionFrame(cv);else if(!near&&mapFar(cv))mapNear(cv);else drawMap(cv);});}
+/* A map more than a screen away from the window is drawn when it comes within a screen of it (2026-11-23). On a phone
+   the Nation page's map lies some six screens down, and its picture, drawn before the page could first be shown and
+   again as its relief, sea and lettering came in, held the page back by half a second and kept it busy for a second
+   more. mapFar() asks the layout the page has just been given (and takes a map in a section the browser is not laying
+   out, content-visibility, as far without asking); mapNear() watches the canvas and asks for its picture once it is near
+   (cv._near: drawn then, wherever the browser has the section). A map with no size (in a closed fold) is drawn as
+   before, which does nothing until it has one.
+   That picture also made what the World map then reuses: the region's terrain picture, the terrain round the nation,
+   the sea and the relief. Without it the first visit to the map made them itself, a second slower on a phone. So while
+   that terrain picture is not made yet, the first map put off is drawn anyway once the page has settled, in an idle
+   moment (MAP_WARM), and drawn again, as before, as the sea and the relief come in over the next seconds (cv._warm). */
+let mapIO=null;const MAP_WARM={on:false};
+function mapFar(cv){
+  if(!window.IntersectionObserver)return false;
+  if(cv.checkVisibility&&cv.checkVisibility()&&!cv.checkVisibility({contentVisibilityAuto:true}))return true;
+  const r=cv.getBoundingClientRect(),vh=window.innerHeight||0,vw=window.innerWidth||0;if(!r.width||!r.height||!vh)return false;
+  return r.bottom<-vh||r.top>2*vh||r.right<-vw||r.left>2*vw;
+}
+function mapNow(cv){if(cv._far&&mapIO)mapIO.unobserve(cv);cv._far=0;if(!cv.isConnected)return;cv._near=1;schedule(cv);}
+function mapNear(cv){
+  if(!mapIO)mapIO=new IntersectionObserver(es=>{for(const e of es){const c=e.target;if(!c.isConnected){mapIO.unobserve(c);c._far=0;continue;}
+    if(e.isIntersecting)mapNow(c);}},{rootMargin:'100% 100% 100% 100%'});
+  if(!cv._far){cv._far=1;mapIO.observe(cv);}
+  if(!tbmp&&!MAP_WARM.on){MAP_WARM.on=true;
+    const idle=f=>window.requestIdleCallback?requestIdleCallback(f,{timeout:2000}):setTimeout(f,0);
+    setTimeout(()=>idle(()=>{MAP_WARM.on=false;if(!tbmp&&cv._far&&cv.isConnected){cv._warm=performance.now()+10000;mapNow(cv);}}),1200);}
+}
 
 /* ── map motion ──
    While the map is dragged, pinched, wheeled or animated, frames are cut from a plate: the view drawn once
@@ -52135,7 +52255,7 @@ function redrawMaps(){document.querySelectorAll('canvas.map-cv').forEach(schedul
    set by drawMap). */
 let mapRO=null;const mapObs=new Set();
 function initMaps(){
-  for(const cv of mapObs)if(!cv.isConnected){mapObs.delete(cv);if(mapRO)mapRO.unobserve(cv);}
+  for(const cv of mapObs)if(!cv.isConnected){mapObs.delete(cv);if(mapRO)mapRO.unobserve(cv);if(mapIO&&cv._far){mapIO.unobserve(cv);cv._far=0;}}
   const cvs=document.querySelectorAll('canvas.map-cv');mtpTidy();if(!cvs.length)return;
   if(!mapRO&&window.ResizeObserver)mapRO=new ResizeObserver(es=>es.forEach(e=>{const cv=e.target;if(cv.isConnected&&cv._sz!==cv.clientWidth+'x'+cv.clientHeight)schedule(cv);}));
   cvs.forEach(cv=>{bindMap(cv);if(mapRO&&!mapObs.has(cv)){mapObs.add(cv);mapRO.observe(cv);}schedule(cv);});
@@ -56661,7 +56781,7 @@ function shell(){
   return `<div class="layout${navCls()}"><button type="button" class="skip-link" data-act="nav-skip">Skip to content</button>
   <aside class="side">
     <div class="side-top">
-      <div class="brand-row"><div class="brand"><span class="wordmark">Edictum</span><span class="brand-sub">Region of ${REGION}</span></div><div class="brand-actions">${OBS?'':bellButton(now)}${uxSearchButton()}${rgcButton()}</div></div>
+      <div class="brand-row"><div class="brand"><span class="wordmark">Edictum</span><span class="brand-sub">Region of ${REGION}</span></div><div class="brand-actions">${OBS?'':bellFirst(now)}${uxSearchButton()}${rgcButton()}</div></div>
       ${OBS?obsWho():`<div class="side-who"><button class="side-nation" data-act="go" data-v="nation" aria-label="Your nation: ${esc(fullName(n))}">
         <span class="side-flag">${flagSVG(n.flag,'Flag of '+n.name)}</span>
         <span class="side-name"><span class="side-pre">The ${esc(n.pretitle)} of</span><span class="side-nm">${esc(n.name)}</span>${czSide(n)}</span>
@@ -59419,11 +59539,14 @@ function render(){if(fxRender())return;
   if(same===RENDER_LAST.k&&!uxPlan&&!rewardJump&&app.firstChild&&RENDER_LAST.app===app.firstChild){RENDER_LAST.skips++;return;}
   const navK=navBefore();
   const route=rpRoute();
+  let fresh=true;const held=y0>0&&route===RENDER_LAST.route&&pageTranslated()?cvMeasure():null;
   if(pageTranslated()){dismantle(app);RENDER_LAST.tr++;app.innerHTML=html;}
   /* idWatch (the cards' sheen) listens for #app's own children, which a patch keeps: it is told here */
-  else if(route===RENDER_LAST.route&&app.firstChild&&renderPatch(app,html)){try{idWatch();}catch(e){}}
+  else if(route===RENDER_LAST.route&&app.firstChild&&renderPatch(app,html)){fresh=false;try{idWatch();}catch(e){}}
   else app.innerHTML=html;
   RENDER_LAST.k=same;RENDER_LAST.app=app.firstChild;RENDER_LAST.route=route;
+  /* a page drawn afresh to be put back where the reader had it: in the shape it had (cvHold), or laid out in full */
+  if(fresh&&y0>0){if(held){cvHold(held);cvStill();}else cvFull();}
   navAfter(navK);
   if(fidFocus){const el=document.getElementById(fidFocus);if(el&&el!==ae){try{if(fidTab&&!el.hasAttribute('tabindex'))el.setAttribute('tabindex','-1');el.focus({preventScroll:true});if(sel&&el.setSelectionRange)el.setSelectionRange(sel[0],sel[1]);
     /* a new copy of a field with no caret to set (a number field): the caret goes after what is in it, where the typing was */
@@ -59787,6 +59910,15 @@ window.addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(drawAllGuil
 try{window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{drawAllGuill();redrawMaps();});}catch(e){}
 new MutationObserver(()=>{drawAllGuill();redrawMaps();}).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
 if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{drawAllGuill();redrawMaps();});
+/* The typefaces the first page used, for the next load (2026-11-23). Beyond the two build.py preloads, a page's faces
+   (the figures' IBM Plex Mono, the edicts' Cinzel, a passport's script) were asked for only when the page was first laid
+   out, and the whole page was laid out again when they came: about a third of a second on a phone, every load. Noted
+   here once the first page has settled (not later: a face only another page used would be fetched for nothing), and
+   asked for by src/stub.js at the start of the next load, from the browser's cache. */
+setTimeout(()=>{try{if(!S.nation||!document.fonts)return;const out=[];
+  for(const f of document.fonts){if(f.status!=='loaded')continue;const fam=String(f.family).replace(/^["']|["']$/g,'').replace(/["\\]/g,'');if(!fam)continue;
+    const d=`${f.style==='italic'?'italic ':''}${String(f.weight).split(' ')[0]} 16px "${fam}"`;if(!out.includes(d))out.push(d);}
+  localStorage.setItem('edictum.fonts',JSON.stringify(out.slice(0,12)));}catch(e){}},6000);
 
 /* automatic land: the tick ends here only when land was claimed (that commit draws the page). A nation with credits it
    cannot spend (boxed in, no harbour reach, or a full land record) carries on with the rest of the tick, and asks
@@ -63590,7 +63722,7 @@ function uxCleanData(raw){
   for(const key of ['pages','entries'])if(raw[key]&&typeof raw[key]==='object')for(const [id,v] of Object.entries(raw[key]).slice(-80)){
     if(id.length>180||!v||typeof v!=='object'||typeof v.view!=='string'||v.view.length>60||typeof v.route!=='string'||v.route.length>160||!Number.isFinite(v.y)||v.y<0||v.y>1000000)continue;
     const fields={};for(const k of Object.hasOwn(UX_FIELDS,v.view)?UX_FIELDS[v.view]:[])if(Object.hasOwn(v.fields||{},k)){const val=uxCleanField(k,v.fields[k]);if(val!==undefined)fields[k]=val;}
-    out[key][id]={route:v.route,view:v.view,y:v.y,fields,...(v.pp&&typeof v.pp==='object'?{pp:{tab:['book','design','arrange'].includes(v.pp.tab)?v.pp.tab:'book',dtab:['c','g','s'].includes(v.pp.dtab)?v.pp.dtab:'c',at:Number.isInteger(v.pp.at)?clamp(v.pp.at,0,19):0}}:{})};
+    out[key][id]={route:v.route,view:v.view,y:v.y,fields,...(cvHeightsOk(v.h)?{h:v.h.map(p=>[p[0],Math.round(p[1]*100)/100,p[2]])}:{}),...(v.pp&&typeof v.pp==='object'?{pp:{tab:['book','design','arrange'].includes(v.pp.tab)?v.pp.tab:'book',dtab:['c','g','s'].includes(v.pp.dtab)?v.pp.dtab:'c',at:Number.isInteger(v.pp.at)?clamp(v.pp.at,0,19):0}}:{})};
   }
   if(raw.folds&&typeof raw.folds==='object')for(const [k,v] of Object.entries(raw.folds).slice(-300))if(k.length<200&&typeof v==='boolean')out.folds[k]=v;
   return out;
@@ -63602,11 +63734,13 @@ function uxInit(){
 function uxPersist(){if(!UXP.scope)return;try{UXP.data=uxCleanData(UXP.data);sessionStorage.setItem('edictum.ux:'+UXP.scope,JSON.stringify(UXP.data));}catch(e){}}
 function uxSnapshot(){
   const fields={};for(const k of UX_FIELDS[S.view]||[])if(S[k]!==undefined)try{fields[k]=clone(S[k]);}catch(e){}
-  return {route:uxKey(),view:S.view,y:Math.max(0,window.scrollY||0),fields,...(S.view==='passport'?{pp:{tab:PP.tab,dtab:PP.dtab,at:PP.at}}:{})};
+  const h=cvMeasure();
+  return {route:uxKey(),view:S.view,y:Math.max(0,window.scrollY||0),fields,...(h?{h}:{}),...(S.view==='passport'?{pp:{tab:PP.tab,dtab:PP.dtab,at:PP.at}}:{})};
 }
 function uxCapture(){
   if(!S.nation||uxScope()!==UXP.scope||!UXP.route||UXP.restoring)return;
-  const snap=uxKey()===UXP.route?uxSnapshot():{...UXP.snapshot,y:Math.max(0,window.scrollY||0)};if(!snap?.route)return;
+  /* the page is still the one left (its view may have changed already): its place and the shape of its sections now */
+  const h=uxKey()===UXP.route?null:cvMeasure(),snap=uxKey()===UXP.route?uxSnapshot():{...UXP.snapshot,y:Math.max(0,window.scrollY||0),...(h?{h}:{})};if(!snap?.route)return;
   UXP.data.pages[snap.route]=snap;if(UXP.entry)UXP.data.entries[UXP.entry]=snap;UXP.snapshot=snap;uxPersist();
 }
 function uxBeforeNavigation(v){
@@ -63621,29 +63755,56 @@ function uxEntry(){
 }
 function uxPrepare(rewardJump){
   uxInit();if(!S.nation){navQjClose(false);document.documentElement.classList.remove('ux-has-sections');return null;}const route=uxKey(),changed=route!==UXP.route||UXP.pop||UXP.navigating;UXP.navigating=false;
-  UXP.ignoreDetails=true;if(!changed)return null;if(UXP.route&&!UXP.pop)uxCapture();
+  UXP.ignoreDetails=true;if(!changed)return null;if(UXP.route&&!UXP.pop)uxCapture();cvHold(null);
   UXP.restoring=false;++UXP.generation;const entry=uxEntry(),saved=rewardJump?null:(UXP.pop&&UXP.data.entries[entry]?.route===route?UXP.data.entries[entry]:UXP.data.pages[route]);UXP.pop=false;
   if(saved){for(const k of UX_FIELDS[S.view]||[])if(Object.hasOwn(saved.fields,k))S[k]=clone(saved.fields[k]);if(S.view==='passport'&&saved.pp)Object.assign(PP,saved.pp);}
   if(UXP.intent?.view===S.view)Object.assign(S,UXP.intent.fields);UXP.intent=null;
   if(S.view==='cities'&&S.cityOpen&&!cityList(S.nation).some(c=>c.id===S.cityOpen))S.cityOpen=null;
   if(S.view==='map'&&S.mapCell!=null&&(!Number.isInteger(S.mapCell)||S.mapCell<0||S.mapCell>=MAP.N))S.mapCell=null;
   const explicit=UXP.pending;if(explicit?.view===S.view){explicit.setup?.();UXP.pending=null;}
-  return {route:uxKey(),entry,y:explicit?0:saved?.y||0,explicit};
+  return {route:uxKey(),entry,y:explicit?0:saved?.y||0,explicit,h:explicit?null:saved?.h||null};
 }
+/* A page put back where the reader had it: a return to it, Back, or a page drawn afresh while scrolled, as under a
+   browser's translation (2026-11-23). A long page's sections far from the window are laid out only when they come near
+   (content-visibility), and in a page just drawn those above the point to go back to would hold only a placeholder's
+   height: the reader would land somewhere else. So each such section's height when the reader left the page (laid out,
+   or the placeholder it then had) is kept in the page's snapshot (uxSnapshot's h: [child index, px, its classes]) and put
+   back as the sections' placeholders before the scroll (cvHold: a style of its own, which a page drawn again in place
+   keeps; a section takes its height only in the same place and with the same classes). The page then has the shape the
+   reader left it in, and lays out no more than it would have. A snapshot without heights (from an older build) has every
+   section laid out for that one scroll instead (cvFull), the far ones let go again two frames later, their heights then
+   remembered by the browser. var: render() may run before this point of the script has. */
+function cvMeasure(){let w=null;try{w=document.querySelector('#main>.wrap');}catch(e){}if(!w)return null;const out=[];let i=0;
+  for(const s of w.children){if(s.matches('section.section,.nation-grid'))out.push([i,Math.round(s.getBoundingClientRect().height*100)/100,[...s.classList].filter(c=>/^[a-z][\w-]*$/i.test(c)&&!/^ux-/.test(c)).join('.')]);i++;}
+  return out.length?out:null;}
+function cvHeightsOk(h){return Array.isArray(h)&&h.length<=80&&h.every(p=>Array.isArray(p)&&p.length===3&&Number.isInteger(p[0])&&p[0]>=0&&p[0]<400&&Number.isFinite(p[1])&&p[1]>=0&&p[1]<500000&&typeof p[2]==='string'&&/^[a-z][\w.-]{0,160}$/i.test(p[2]));}
+function cvHold(h){let st=document.getElementById('cv-hold');
+  if(!cvHeightsOk(h)||!h.length){if(st)st.remove();return;}
+  if(!st){st=document.createElement('style');st.id='cv-hold';document.head.appendChild(st);}
+  st.textContent=h.map(([i,px,c])=>`#main>.wrap>:nth-child(${i+1}).${c}{contain-intrinsic-size:auto ${px}px}`).join('');}
+/* and, the page's shape put back exactly, the browser's scroll anchoring held off for the scroll: as the section in view
+   is laid out it moved the reader a few pixels each time (html.cv-still) */
+var cvStillN=0;
+function cvStill(){const R=document.documentElement,n=++cvStillN;R.classList.add('cv-still');requestAnimationFrame(()=>requestAnimationFrame(()=>{if(n===cvStillN)R.classList.remove('cv-still');}));}
+var cvFullN=0;
+function cvFull(){const R=document.documentElement,n=++cvFullN;R.classList.add('cv-full');requestAnimationFrame(()=>requestAnimationFrame(()=>{if(n===cvFullN)R.classList.remove('cv-full');}));}
 function uxAfter(plan,rewardJump,focus){
   if(!S.nation)return;uxInit();uxSections();uxDetails();uxAddUnlocks();uxResourceNotice();setTimeout(()=>{UXP.ignoreDetails=false;},0);
   const route=uxKey();UXP.route=route;UXP.entry=plan?.entry||uxEntry();UXP.snapshot=uxSnapshot();
   if(!plan&&!rewardJump&&focus?.id&&(!document.activeElement||document.activeElement===document.body)){const el=document.getElementById(focus.id);if(el){if(focus.tab!=null)el.setAttribute('tabindex',focus.tab);el.focus({preventScroll:true});}}
   if(!plan||rewardJump||rewardRoute(location.hash))return;const gen=++UXP.generation;UXP.restoring=true;
   requestAnimationFrame(()=>{if(gen!==UXP.generation||uxKey()!==route)return;UXP.restoring=false;
-    if(plan.explicit?.target){if(!uxJump(plan.explicit.target))window.scrollTo({top:0,left:0,behavior:'instant'});}else window.scrollTo({top:plan.y,left:0,behavior:'instant'});uxCapture();});
+    if(plan.explicit?.target){if(!uxJump(plan.explicit.target))window.scrollTo({top:0,left:0,behavior:'instant'});}else{if(plan.y>0){if(plan.h){cvHold(plan.h);cvStill();}else cvFull();}window.scrollTo({top:plan.y,left:0,behavior:'instant'});}uxCapture();});
 }
 function uxHashView(hash){const m=/^visit\/([\w-]{1,60})$/.exec(hash);if(m){S.visit=m[1];return 'visit';}
   const nw=/^devnews\/([A-Za-z0-9]{20})$/.exec(hash);if(nw){NW.focus=nw[1];NW.oneErr='';return 'devnews';}return HASH_VIEW[hash]||hash;}
 function uxOpen(view,setup,target){uxCapture();UXP.pending={view,setup,target};go(view);}
 function uxVisit(id){if(id===myId()){go('nation');return;}uxCapture();S.visit=id;uxOpen('visit',()=>{S.visit=id;},'.hero');}
 function uxJump(target){
-  const el=typeof target==='string'?document.querySelector(target):target;if(!el)return false;let nativeChanged=false;
+  let el=typeof target==='string'?document.querySelector(target):target;
+  /* a card of the Achievements register not drawn yet (it fills in just after the page): the register is drawn first */
+  if(!el&&typeof target==='string'&&document.querySelector('#main [data-ach-fill]')){achFillAll();el=document.querySelector(target);}
+  if(!el)return false;let nativeChanged=false;
   for(let p=el;p&&p!==document.body;p=p.parentElement){if(p.tagName==='DETAILS'){p.open=true;UXP.data.folds[uxDetailKey(p)]=false;nativeChanged=true;}if(p.classList?.contains('ux-folded'))uxFold(p,false);if(p.classList?.contains('help-sec')&&!p.classList.contains('hs-open'))helpOpenSec(p.dataset.k);}if(nativeChanged)uxPersist();
   /* Entrance animations translate the column and its cards. Scroll to their layout position so
      the target stays below the sticky navigation after those cosmetic translations finish. */
@@ -63700,10 +63861,14 @@ function uxFold(host,closed,persist=true){
   host.classList.toggle('ux-folded',closed);const b=host.querySelector(':scope>.ux-section-heading .ux-fold-toggle');if(b){b.setAttribute('aria-expanded',String(!closed));b.textContent=closed?'Expand':'Collapse';}
   if(persist){UXP.data.folds[host.dataset.uxSection]=closed;uxPersist();}
 }
+/* whether an element is shown (has boxes), as el.getClientRects().length tells it, without laying out a section the
+   browser is skipping (content-visibility): checkVisibility() reads only the styles, and is true only where there are
+   boxes; where it is false (display none, or in a closed fold, which still has boxes) the boxes are counted as before */
+function uxShown(el){return !!(el.checkVisibility&&el.checkVisibility())||el.getClientRects().length>0;}
 function uxSections(){
   document.documentElement.classList.remove('ux-has-sections');
   const root=document.querySelector('#main>.wrap');if(!root||!['nation','stats','cities','trade','passport','museum'].includes(S.view))return;
-  const candidates=[...root.querySelectorAll('h2,fieldset>legend')].filter(h=>!h.closest('dialog,[role="dialog"],.ux-sections,.pg-charter,.pg-first,.account-link-card')&&h.getClientRects().length),rows=[],seen=new Set();
+  const candidates=[...root.querySelectorAll('h2,fieldset>legend')].filter(h=>!h.closest('dialog,[role="dialog"],.ux-sections,.pg-charter,.pg-first,.account-link-card')&&uxShown(h)),rows=[],seen=new Set();
   for(const h of candidates){const copy=h.cloneNode(true);copy.querySelectorAll('.fs-n,.ux-fold-toggle').forEach(e=>e.remove());const title=copy.textContent.trim();if(!title||title.length>100)continue;const host=h.parentElement;
     if(host===root||host.closest('.city,.bld,.opts,.mu-tiles')||seen.has(host))continue;seen.add(host);rows.push({h,host,title});if(rows.length>=24)break;}
   if(rows.length<3)return;

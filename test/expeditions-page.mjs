@@ -81,8 +81,10 @@ try {
   check('the chance agrees with the odds of the die', await S(page, () => { const X = window.__game.XP(), li = document.querySelector('.xp-list .xp-item:not(.xp-fl):not(.xp-tease)'), si = +li.id.replace('xp-i-s', ''), P = X.expPlan(window.__game.S.nation, si); return li.querySelector('.xp-pct').textContent === X.expOdds(P.mod, P.dc).find + '%'; }));
   check('no rumour is shown more than once', await S(page, () => { const ids = [...document.querySelectorAll('.xp-item')].map(x => x.id); return ids.length === new Set(ids).size; }));
   check('the page has no sideways scroll', await noOverflow(page));
-  /* the small map: drawn with its markers */
+  /* the small map: drawn with its markers (a map more than a screen down the page is drawn as it comes near) */
+  await S(page, () => document.querySelector('canvas[data-xp]')?.scrollIntoView({ block: 'center' }));
   check('the small map draws its markers', !!(await until(() => S(page, () => { const c = document.querySelector('canvas[data-xp]'); return c && c._xp && c._xp.length > 0; }))));
+  await S(page, () => window.scrollTo(0, 0));
   await shot(page, 'desktop-base');
   /* the filters */
   await d.act('xp-f', { v: 'rum' });
