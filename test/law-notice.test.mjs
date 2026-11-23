@@ -28,7 +28,7 @@ const plain=v=>JSON.parse(JSON.stringify(v));
 test('the People’s Bank and an independent central bank may stand together; the other pairs still cannot',()=>{
   const {X}=sandbox(),pairs=plain(X.POLICY_CONFLICTS).map(p=>p.join('+'));
   assert(!pairs.includes('centralBankIndependence+peoplesBank')&&!pairs.includes('peoplesBank+centralBankIndependence'));
-  assert.equal(pairs.length,27);for(const p of ['openScience+classifiedResearch','surveillance+dataPrivacy','oilDrilling+fossilPhaseOut','censorship+whistleblowerProtection','openBorders+borderWall'])assert(pairs.includes(p),p);
+  assert.equal(pairs.length,29);for(const p of ['openScience+classifiedResearch','surveillance+dataPrivacy','oilDrilling+fossilPhaseOut','censorship+whistleblowerProtection','openBorders+borderWall'])assert(pairs.includes(p),p);
   assert.deepEqual(plain(X.lawsEnded({policies:{centralBankIndependence:true}},{p:{peoplesBank:1}})),[],'the People’s Bank ends nothing now');
   assert(/\+ \(I\.cbi \? 12 : 0\) - \(I\.pbank \? 8 : 0\)/.test(readFileSync(new URL('../jobs/fx/engine.mjs',import.meta.url),'utf8')),'the currency job scores both at once');
   assert(source.includes("+(p.centralBankIndependence?12:0)-(p.peoplesBank?8:0)"),'and so does the game');

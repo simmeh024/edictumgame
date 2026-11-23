@@ -21,8 +21,10 @@
      - a new technology must follow its prerequisites and its tier's gates, and be paid for: credits spent must grow
        by at least its price less the most any discount allows (RS_DISC_MAX); one of tier V or above must come from a
        study the saved record already held, finished by the server's time;
-     - a study must start no earlier than the saved record, last its full time (half with emergency funding), and be
-       paid for when it starts;
+     - a study must start no earlier than the saved record, last at least RS_Q_MIN of its full time (emergency funding
+       halves what is left of it, and the research edicts make studies shorter or longer: RS_Q_MIN and RS_Q_MAX bound
+       what all of them together may do), and be paid for when it starts; a study held may end sooner or later within
+       those bounds, never before RS_Q_MIN of its full time from its start;
      - the institution rises one level at a time, and only as far as the research allows.
    What the save asked that the rules do not allow is taken back, and rsSettle says what it kept: the game takes that
    back too (edictum:saved, detail.rs). */
@@ -164,9 +166,9 @@ export function rsLevelMax(b) {
 export function rsTechRc(b) { let s = 0; for (const [i, v] of Object.entries(RS_RC)) if (rsHas(b, +i)) s += v; return s; }
 /* the base daily credits: 10, a point for every 5 of Science & Technology (0 to 100), the institution and the
    technologies; the most a record may earn adds the research buildings' RS_BLD_RC_MAX, and international cooperation
-   (RS_INTL_MAX) and the nation's own boosts (RS_DOM_MAX) on top */
+   (RS_INTL_MAX), the nation's own boosts (RS_DOM_MAX) and its research edicts and laws (RS_ED_MAX) on top */
 export const rsBase = (sci, lab, techRc) => 10 + Math.floor(Math.max(0, Math.min(100, num(sci))) / 5) + (RS_INST_BONUS[Math.max(0, Math.min(8, lab | 0))] || 0) + num(techRc);
-export const rsRateMax = (sci, lab, techRc) => (rsBase(sci, lab, techRc) + RS_BLD_RC_MAX) * (1 + RS_INTL_MAX + RS_DOM_MAX);
+export const rsRateMax = (sci, lab, techRc) => (rsBase(sci, lab, techRc) + RS_BLD_RC_MAX) * (1 + RS_INTL_MAX + RS_DOM_MAX + RS_ED_MAX);
 /* the readiness research gives a record: {rcut: the share by which a point returns sooner, extra: points held} */
 export function rsWar(rec) {
   const p = rec && rec.nrp, b = rsBits(p && p.k);
@@ -219,21 +221,25 @@ export function rsSettle(n, before, now, savedAt) {
   let lab = N.l;
   if (lab > lB + 1 || lab > Math.max(lB, rsLevelMax(bN))) { lab = lB; ok = false; }
   if (lab < lB) { lab = lB; ok = false; }
-  /* studies: those held stay (or finish), new ones start after the saved record, for their full time, paid */
+  /* studies: those held stay (or finish), new ones start after the saved record, for their time, paid. A study's end
+     may move (emergency funding, the research edicts), never to before RS_Q_MIN of its full time from its start, nor
+     past RS_Q_MAX of it (or its saved end, if that is later) */
   const qB = B ? B.q : [], qN = [];
   let need = 0;
   const known = new Uint8Array(bB);
   for (const e of N.q) {
     const old = qB.find(o => sameQ(o, e));
     if (old) {
-      const half = e[4] && !old[4], u = half ? Math.max(e[2], old[1] + (old[2] - old[1]) / 2) : old[2];
-      qN.push([old[0], old[1], u, old[3], old[4] || (half ? 1 : 0)]);
-      if (half ? e[2] < u - 1 : e[2] !== old[2]) ok = false;
+      const full = rsHours(old[0]) * HOUR, lo = Math.min(old[2], old[1] + full * RS_Q_MIN), hi = Math.max(old[2], old[1] + full * RS_Q_MAX);
+      const u = Math.min(hi, Math.max(lo, e[2]));
+      qN.push([old[0], old[1], u, old[3], old[4] || (e[4] ? 1 : 0)]);
+      if (Math.abs(u - e[2]) > 1) ok = false;
       continue;
     }
-    const i = e[0], dur = rsHours(i) * HOUR * (e[4] ? 0.5 : 1);
-    if (dur <= 0 || e[1] < t0 - RS_SKEW || e[1] > now + RS_SKEW || e[2] - e[1] < dur - RS_SKEW || e[3] + RS_EPS < rsMinPay(i) || qN.some(o => rsTrack(o[0]) === rsTrack(i)) || !rsOpen(i, known, Math.max(lab, lB), null)) { ok = false; continue; }
-    qN.push(e); need += e[3];
+    const i = e[0], full = rsHours(i) * HOUR;
+    if (full <= 0 || e[1] < t0 - RS_SKEW || e[1] > now + RS_SKEW || e[2] - e[1] < full * RS_Q_MIN - RS_SKEW || e[3] + RS_EPS < rsMinPay(i) || qN.some(o => rsTrack(o[0]) === rsTrack(i)) || !rsOpen(i, known, Math.max(lab, lB), null)) { ok = false; continue; }
+    if (e[2] - e[1] > full * RS_Q_MAX + RS_SKEW) { qN.push([e[0], e[1], e[1] + full * RS_Q_MAX, e[3], e[4]]); ok = false; } else qN.push(e);
+    need += e[3];
   }
   /* new technologies, in order: their prerequisites and gates met, a later tier's from a study finished by now */
   const acc = new Uint8Array(bB);
@@ -285,6 +291,9 @@ export function rsSettle(n, before, now, savedAt) {
    Science Park 3, and a site in the university quarter 2), and the nation's own boost (a commissioned report) the rate
    may carry beyond international cooperation */
 export const RS_BLD_RC_MAX = 7, RS_DOM_MAX = 0.15;
+/* the research edicts (game: "research edicts", RS_RULES edMax, qMin, qMax): what their boosts and the research laws
+   may add to the credits together, and the shortest and longest a study may be made, as shares of its full time */
+export const RS_ED_MAX = 0.3, RS_Q_MIN = 0.5, RS_Q_MAX = 3;
 /* an alliance's research project, one at a time: p (a programme of its type) or g (its Grand Challenge, from alliance
    level 4). need: credits a member alliance gathers (per player member, within lo..hi), cap: the most one member may
    give, cost: from the treasury when it begins, days: how long its discount lasts for the members who gave */

@@ -56,7 +56,7 @@ test('three edicts, after the 50th, 150th and 500th decision, never drawn at ran
   /* then the National Research Programme's (research.test.mjs), and nothing after those */
   const rsAt = code.indexOf('/* ───────── the National Research Programme (22 November 2026)'), rsP = code.indexOf('ISSUES.push(', vet + 20);
   assert.ok(rsAt > vet && rsP > rsAt, 'then the research edicts');
-  assert.equal(code.indexOf('ISSUES.push(', code.indexOf('/* ───────── military buildings (22 November 2026)')), -1, 'and nothing after those');
+  {const rse=code.indexOf('/* ───────── research edicts (23 November 2026)'),nx=code.indexOf('ISSUES.push(', code.indexOf('/* ───────── military buildings (22 November 2026)'));assert.ok(rse>0&&nx>rse,'and nothing after those but the research edicts (research-edicts.test.mjs)');}
   assert.match(fs.readFileSync(new URL('../scripts/split-content.mjs', import.meta.url), 'utf8'), /'ISL_ISSUES'/);
   for (const is of L) {
     assert.match(is.id, /^isl-[a-z-]+$/);

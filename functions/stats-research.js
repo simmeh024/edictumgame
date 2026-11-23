@@ -18,7 +18,7 @@ const pct = (a, p) => { if (!a.length) return 0; const s = a.slice().sort((x, y)
 /* the game's own figures: the petition after RS_AT enacted edicts, again RS_AGAIN after a veto (game: RS_AT, RS_AGAIN) */
 export const RS_AT = 60, RS_AGAIN = 5;
 /* the laws research brings (game: POLICIES, "the National Research Programme") */
-export const RS_LAWS = ['openScience', 'classifiedResearch', 'researchEthics', 'healthCoop', 'sciExchange', 'tradeStandards', 'natureConvention', 'researchFund', 'nuclearSafety', 'armsControl'];
+export const RS_LAWS = ['openScience', 'classifiedResearch', 'researchEthics', 'healthCoop', 'sciExchange', 'tradeStandards', 'natureConvention', 'researchFund', 'nuclearSafety', 'armsControl', 'researchTenure', 'scienceAusterity', 'peerReview', 'fastTrackScience'];
 /* Where a nation stands, in the order a nation goes through it:
      early    – fewer than RS_AT enacted edicts: no petition yet
      vetoed   – it set the petition aside; it comes back RS_AGAIN enacted edicts later

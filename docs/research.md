@@ -199,6 +199,19 @@ for a week, fortnightly) and support for national innovation (2, Science & Techn
   shift, nuclear power, a space agency). Laws that need a technology first come through them (surveillance, data
   protection, a cashless economy, a basic income, a space programme).
 - **Laws**: Open Science, Classified Research and a Research Ethics Board, each with an effect on research.
+- **Research edicts** (`RSV_ISSUES`, ids `rsv-*`, 23 November 2026): sixty edicts, only once the laboratory is open,
+  each of which speeds research up or slows it down, and says so on its options. Thirty-eight dilemmas (one chooses
+  the track to put first), ten gambles (a loss has its own research effect) and four stories of three (a comet, two
+  feuding professors, a new wing, a child prodigy). Four only come while a study is under way, and name it. The
+  effects ride in an option's `e`: `rcb [pct, days]` Research Credits a day, `rcp [pct, days, track?]` prices,
+  `rqn pct` the time left on every study under way, `rqs [pct, days, track?]` studies begun in the next days,
+  `rcx -days` credits spent (so many days' worth). Four laws do it for as long as they stand: the Research Tenure Act
+  (credits +5%), the Science Austerity Act (−10%), the Peer Review Act (studies 15% longer, research 5% cheaper) and
+  the Fast-Track Science Act (studies 15% shorter); neither pair can stand together. Together, edicts and laws add at
+  most 30% to the credits (`RS_RULES.edMax`); a study is never shorter than half its time (`qMin`) nor longer than
+  three times it (`qMax`). The result says what changed; the Research page's overview lists the edicts at work, and
+  its credits a day show their share. Credits are counted piece by piece between the moments a boost begins and ends
+  (`rseEarn`), so a boost that ends between two saves counts for the hours it ran.
 - **The Assembly**: seven scientific conventions (international health cooperation, scientific exchange, trade
   standardisation, environmental protection, international research funding, nuclear safety, arms control),
   proposed only by a nation that has researched their technology (`RS_ASM_REQ`); passed strong, each makes its law.
@@ -294,6 +307,7 @@ owner plays (`rsLoDue`): it is as of the owner's last save. Tests: `test/stats-r
 | `ch` | Grand Challenges `{id: {s, g, u, h, d}}` |
 | `ap` | RC pledged to alliance projects `[{t, a, q}]` |
 | `lc`, `dc`, `rp` | licences taken, a research committee, a science report |
+| `ed` | research edicts at work `[{k: c credits / p price / q study time, v: share (+ faster or cheaper), a, u: from and until, t: a track or none, id: the edict}]` (the last 12) |
 
 `n.rsd`, shared: laboratories this nation destroyed, `[{d: their nation, c: the hex, t: when}]` (the last 10).
 
@@ -315,8 +329,10 @@ server's clock before it signs the save:
   1 to 5), once the saved record's laboratory is open (`rsFieldNotes`);
 - a new technology must follow its prerequisites and gates and be paid for (spent grows by at least its price less
   25%); one of Tier V or above must come from a study the saved record already held, finished by the server's time;
-- a study must start after the saved record, last its full time (half with emergency funding) and be paid when it
-  starts;
+- a study must start after the saved record, last at least half its full time (`RS_Q_MIN`: emergency funding and the
+  research edicts together never take more) and be paid when it starts; a study held may end sooner or later, never
+  before half its full time from its start nor after three times it (`RS_Q_MAX`);
+- the research edicts and laws may add `RS_ED_MAX` (30%) to the credits on top of every other boost;
 - the institution rises one level at a time, only as far as the research allows;
 - a pledge to an alliance must be paid for.
 
@@ -340,5 +356,11 @@ and the only new listener is a player's own licences.
   dark: the petition at 75, a veto and its return, the menu, founding, five stages, the grant, three discoveries,
   a day away, the tree's eras and locks, a study, the Grand Challenges, the record and the first letter; no sideways
   scroll on any tab on a phone.
+- `test/research-edicts.test.mjs` (in `npm run test:fx`): the sixty edicts (ids, topics, effects within bounds, gambles,
+  stories, appended last), the four laws and their conflicts, the game's bounds agreeing with the server's, the
+  server's new study and credit bounds, and the effects' arithmetic on its own.
+- `test/research-edicts.mjs` (`npm run test:research-edicts`, CI group 6): in the browser, desktop light and phone dark:
+  the options' research lines, a boost, a study hurried and held up, studies begun quicker, a law and its rival, a
+  track first, credits spent, a gamble, the Research page's edicts at work, and all 180 options ruled without an error.
 - `test/civic.test.mjs` (emulators): the permit's settle, an alliance research project, licences.
   `test/rules.test.mjs`: licences readable only by the two nations.
