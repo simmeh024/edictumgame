@@ -44,7 +44,7 @@ await B.fill('#rgc-x', 'Hello from the south! Anyone trading furs?'); await B.pr
 check('it shows in the writer’s World tab', await until(async () => (await shown(B)).includes('Hello from the south! Anyone trading furs?')));
 const w1 = await until(async () => (await lines()).find(l => /trading furs/.test(l.x || '')), 15000);
 check('the server keeps it in the world chat with its author, region and flag', !!w1 && w1.a === uidB && w1.nm === 'Chatterly' && w1.rg === regB && !!w1.fl, JSON.stringify(w1));
-check('beside the name, the writer’s own region', /\S/.test(await text(B, `#rgc-list .rgc-l[data-id="${w1?.id}"] .rgc-from`)));
+check('in the writer’s own region the line names no region', await until(async () => !!(await B.$(`#rgc-list .rgc-l[data-id="${w1?.id}"] .rgc-lh`))) && !(await B.$(`#rgc-list .rgc-l[data-id="${w1?.id}"] .rgc-from`)));
 await B.click('#rgc-tab-region');
 check('it is not in the region chat', await until(async () => await B.getAttribute('#rgc-tab-region', 'aria-selected') === 'true' && !(await shown(B)).some(x => /trading furs/.test(x))));
 await B.click('#rgc-tab-world');
@@ -60,9 +60,14 @@ check('the Chat button does not count a world line that does not name the nation
 await openChat(F); await F.click('#rgc-tab-world');
 const li1 = `#rgc-list .rgc-l[data-id="${w1?.id}"]`;
 check('it reads there with the writer’s flag, name and region', await until(async () => (await shown(F)).includes('Hello from the south! Anyone trading furs?'))
-  && !!(await F.$(li1 + ' .rgc-lh .mflag svg')) && (await text(F, li1 + ' .rgc-nm')) === 'Chatterly' && (await text(F, li1 + ' .rgc-from')).length > 2
+  && !!(await F.$(li1 + ' .rgc-lh .mflag svg')) && (await text(F, li1 + ' .rgc-nm')) === 'Chatterly' && /^of \S/.test(await text(F, li1 + ' .rgc-from'))
   && !/Frostmarch/.test(await text(F, li1 + ' .rgc-from')), await text(F, li1));
-check('a nation of another region has no link to its page', !(await F.$(li1 + ' button.rgc-nm')));
+const regTxt = (await text(F, li1 + ' .rgc-from')).replace(/^of /, '');
+await F.click(li1 + ' button.rgc-nm');
+check('its name opens a card naming its region, with no link to its page', await until(async () => (await text(F, li1 + ' .rgc-nc .rgc-nc-l')).includes('Region ' + regTxt))
+  && !/\(yours\)/.test(await text(F, li1 + ' .rgc-nc')) && !(await F.$(li1 + ' [data-act="visit"]')), await text(F, li1 + ' .rgc-nc'));
+await F.click(li1 + ' .rgc-nc [data-rgc="nc"]');
+check('its Close button puts the card away', await until(async () => !(await F.$(li1 + ' .rgc-nc'))));
 check('looking at the tab clears its count', await until(async () => !(await F.$('#rgc-tab-world .rgc-tn'))));
 
 /* ── 4. @ and answers across regions ── */

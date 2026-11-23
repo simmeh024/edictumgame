@@ -75,7 +75,12 @@ check('the reader sees it with the writer’s flag, name and time', await until(
 check('the line naming the reader is marked, the name highlighted', !!(await C.$('#rgc-list .rgc-l.named mark')) && (await text(C, '#rgc-list .rgc-l.named mark')) === 'Quillmark');
 check('a first look at the chat has no divider: every line is new', !(await C.$('#rgc-list .rgc-new')));
 check('opening the drawer clears the count', await until(async () => await C.$eval('.rgc-btn .rgc-n', n => n.hidden)));
-check('the writer’s own name is not a link; another’s opens its page', !(await B.$('#rgc-list .rgc-l.me button.rgc-nm')) && !!(await C.$(`#rgc-list button.rgc-nm[data-act="visit"][data-id="${uidB}"]`)));
+check('the writer’s own name is not a button; another’s opens its card', !(await B.$('#rgc-list .rgc-l.me button.rgc-nm')) && !(await C.$('#rgc-list button.rgc-nm[data-act="visit"]')) && !!(await C.$(`#rgc-list button.rgc-nm[data-rgc="nc"][data-id="${uidB}"]`)));
+await C.click(`#rgc-list button.rgc-nm[data-id="${uidB}"]`);
+check('the card names the nation and its region, its page a click away', await until(async () => /Chatterly/.test(await text(C, '#rgc-list .rgc-nc .rgc-nc-h')) && /Region \S.* \(yours\)/.test(await text(C, '#rgc-list .rgc-nc .rgc-nc-l')) && !!(await C.$(`#rgc-list .rgc-nc [data-act="visit"][data-id="${uidB}"]`)))
+  && await C.getAttribute(`#rgc-list button.rgc-nm[data-id="${uidB}"]`, 'aria-expanded') === 'true', await text(C, '#rgc-list .rgc-nc'));
+await C.keyboard.press('Escape');
+check('Escape closes the card, not the drawer, and the name keeps the focus', await until(async () => !(await C.$('#rgc-list .rgc-nc'))) && !!(await C.$('#rgc-dock:not([hidden])')) && await C.evaluate(() => !!document.activeElement?.matches('#rgc-list button.rgc-nm')));
 
 /* ── 3. pacing, repeats, runs ── */
 await sleep(1700);
@@ -194,9 +199,12 @@ check('the audit log keeps who removed what', await until(async () => (await res
 await sleep(1700);
 await say(A, 'Welcome, everyone. Be kind.');
 check('a staff line carries the staff mark', await until(async () => /Edictum staff/.test(await B.$$eval('#rgc-list .rgc-l', l => l.map(li => li.textContent).join(' | ')))) && (await lines()).some(l => l.x === 'Welcome, everyone. Be kind.' && l.st === 'admin'));
+check('as a small round badge first among the marks, the name in the staff colour', await B.$eval(`#rgc-list .rgc-lh:has(button[data-id="${uidA}"])`, h => {
+  const b = h.querySelector('.rgc-mk > .staff-pill.ic:first-child'), n = h.querySelector('.rgc-nm');
+  return !!b && b.getBoundingClientRect().width <= 20 && n.classList.contains('rl-st') && getComputedStyle(n).color === getComputedStyle(b).backgroundColor; }).catch(() => false));
 
 /* ── 9. a phone: the button floats above the tab bar, steps up over the save bar and hides while typing; the drawer
-   fills the screen; a nation's name opens its page ── */
+   fills the screen; a nation's name opens its card, and the card its page ── */
 await nav(P, 'settings'); await P.click('#sg-tab-chat'); await P.click('#rgcs-p-f');
 check('on a phone the button floats above the tab bar, on the right', await until(async () => { const f = await fabAt(P); return f && f.shown && f.r === 16 && f.tab != null && Math.abs(f.t + f.w - (f.tab - 12)) <= 1; }), JSON.stringify(await fabAt(P)));
 await P.evaluate(() => G.UX.toast('A notice while the chat button floats above the tab bar.'));
@@ -218,7 +226,10 @@ await until(async () => (await shown(P)).includes('Welcome, everyone. Be kind.')
 check('the page has no sideways scroll with the drawer open', await P.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
 check('the floating button hides under the drawer', !(await fabAt(P)).shown);
 await P.click(`#rgc-list button.rgc-nm[data-id="${uidA}"]`);
-check('a nation’s name opens its page and the drawer steps aside', await until(async () => await P.evaluate(() => G.S.view) === 'visit' && !!(await P.$('#rgc-dock[hidden]'))));
+check('on a phone, a nation’s name opens its card, which spells out the staff mark', await until(async () => /A member of the Edictum team/.test(await text(P, '#rgc-list .rgc-nc'))), await text(P, '#rgc-list .rgc-nc'));
+check('the card fits the screen', await P.$eval('#rgc-list .rgc-nc', c => c.getBoundingClientRect().right <= innerWidth && c.scrollWidth <= c.clientWidth + 1));
+await P.click(`#rgc-list .rgc-nc [data-act="visit"][data-id="${uidA}"]`);
+check('its Open its page opens the page and the drawer steps aside', await until(async () => await P.evaluate(() => G.S.view) === 'visit' && !!(await P.$('#rgc-dock[hidden]'))));
 
 /* ── 10. Settings › Chat: where the button sits, dragging it, and turning the chat off ── */
 if (await C.$('#rgc-dock:not([hidden])')) await C.click('#rgc-dock [data-rgc="close"]');

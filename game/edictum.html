@@ -10009,7 +10009,22 @@ button[disabled] .gv-cost{opacity:.6}
 .rgc-nofl{background:var(--track)}
 .rgc-nm{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;color:var(--ink)}
 button.rgc-nm{text-align:left}
+/* the name, where it writes from and its marks: the name keeps its room, and the region and the marks give way first.
+   A mark that does not fit drops out whole (the marks wrap, and only their first row shows); the name's card spells
+   them all out */
+.rgc-lw{display:flex;align-items:center;gap:7px;flex:0 1 auto;min-width:0;overflow:hidden;padding:2px;margin:-2px}
+.rgc-lw .rgc-nm{flex:0 0 auto;max-width:100%}
+.rgc-mk{display:flex;flex-wrap:wrap;align-items:center;column-gap:7px;row-gap:30px;flex:0 4 auto;min-width:0;height:20px;padding:0 2px;overflow:hidden}
+/* an empty first item, so even the first mark drops out whole rather than showing half of itself */
+.rgc-mk::before{content:'';width:0;margin-right:-7px}
+/* staff, moderators and ambassadors: the name in the role's colour, and the role's mark as a small round badge */
+.rgc-nm.rl-st{color:var(--stamp)}
+.rgc-nm.rl-mod{color:color-mix(in srgb,#1f7a46 65%,var(--ink))}
+.rgc-nm.rl-amb{color:color-mix(in srgb,#1d5fa8 65%,var(--ink))}
 .rgc-lh .staff-pill{padding:2px 7px 2px 6px;font-size:9.5px}
+.rgc-lh .staff-pill.ic{width:18px;height:18px;padding:0;justify-content:center;border-radius:50%}
+.rgc-lh .staff-pill.ic svg{width:10px;height:12px}
+.rgc-lh .staff-pill.amb.ic svg{width:11px;height:11px}
 .rgc-lh time{flex:none;font:500 11px/1 var(--f-mono);color:var(--ink-3)}
 .rgc-xw{position:relative;display:flex;align-items:flex-start;gap:4px;padding-left:31px}
 .rgc-rt{position:absolute;left:0;top:3px;width:30px;font:500 10px/1.2 var(--f-mono);color:var(--ink-3);opacity:0}
@@ -10070,6 +10085,18 @@ button.rgc-nm{text-align:left}
 .rgc-role{cursor:pointer;border:0;font:inherit}
 .rgc-wn{font-size:11.5px;color:var(--ink-2);margin-left:4px}
 .rgc-who p{margin:6px 0}.rgc-who ul{margin:6px 0;padding-left:18px}.rgc-who li{margin:3px 0}
+/* a nation's card, from its name in a line: who it is, its region, and every mark beside its name in words */
+.rgc-nc-h{display:flex;align-items:center;gap:10px;margin:0 0 8px}
+.rgc-nc-h .mflag{width:36px}
+.rgc-nc-t{display:flex;flex-direction:column;min-width:0}
+.rgc-nc-t b{overflow-wrap:anywhere}
+.rgc-nc-t .hint{font-size:12px}
+.rgc-nc-l{display:grid;gap:6px;margin:0;padding:0;list-style:none}
+.rgc-nc-l li{display:flex;align-items:center;gap:8px;font-size:12.5px;line-height:1.35;color:var(--ink-2)}
+.rgc-nc-l li>span:last-child{min-width:0}
+.rgc-nc-m{flex:none;display:inline-flex;align-items:center;justify-content:center;min-width:22px}
+.rgc-nc-m .founder-pill.sm{margin-left:0}
+.rgc-nc-pin{width:14px;height:14px;color:var(--ink-3)}
 .rgc-mute label{display:block;margin:8px 0 3px;font-size:12.5px;color:var(--ink-2)}
 .rgc-mute .input{width:100%}
 .rgc-mute .rgc-mwipe{display:flex;gap:6px;align-items:center;margin-top:8px}
@@ -10145,9 +10172,8 @@ button.rgc-nm{text-align:left}
 .rgc-al{flex:none;padding:0 5px;border-radius:3px;background:color-mix(in srgb,var(--alc) 18%,var(--sheet));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--alc) 55%,transparent);color:var(--ink);font:600 10px/16px var(--f-mono);letter-spacing:.04em}
 .rgc-al.al-tg{font-size:11px;line-height:18px}
 .rgc-lh .founder-pill{flex:none;padding:1px 7px 1px 6px;font-size:9.5px}
-/* the world chat: the region a nation writes from, beside its name */
-.rgc-from{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 6px;border-radius:999px;background:var(--sheet-2);color:var(--ink-2);font:500 10.5px/17px var(--f-body)}
-.rgc-from.home{color:var(--ink-3)}
+/* the world chat: the region a nation writes from, a quiet "of Meridian" after its name (none for the reader's own) */
+.rgc-from{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink-3);font:400 12px/1.3 var(--f-body)}
 .acx-rg{font-size:12px}
 .rgc-l.ally .rgc-x{white-space:pre-wrap}
 .rgc-hap{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;align-items:start;padding:8px 6px;border-bottom:1px solid var(--rule);font-size:13.5px;line-height:1.45}
@@ -90004,7 +90030,7 @@ document.addEventListener('keydown',e=>{
    localStorage per region) and where the divider stands while the drawer is open (mark), lines on their way (pend),
    the open line menu and the question it asks (ask). */
 const RGC_SHOW=60,RGC_TEXT=300,RGC_RUN=5*60000,RGC_RETRY=30000,RGC_FRESH=5*60000,RGC_GUEST=10;
-const RGC={reg:'',list:[],top:0,unsub:null,err:'',retry:0,fails:0,seen:0,mark:0,markTop:0,open:false,busy:false,msg:'',menu:'',ask:null,who:'',pend:[],ready:false,toastAt:0,dock:null,foot:'',stick:true,draft:'',sil:null,silAt:0,gt:[],gw:0,pic:null,picErr:''};
+const RGC={reg:'',list:[],top:0,unsub:null,err:'',retry:0,fails:0,seen:0,mark:0,markTop:0,open:false,busy:false,msg:'',menu:'',ask:null,who:'',nc:'',pend:[],ready:false,toastAt:0,dock:null,foot:'',stick:true,draft:'',sil:null,silAt:0,gt:[],gw:0,pic:null,picErr:''};
 /* the world chat (functions/regionchat.js, RC_WORLD): one more channel, rchat/world/chat, which the nations of every
    region read and write in, on the drawer's World tab. RGW keeps its lines as RGC keeps the region's (on: 'world' while it
    listens), the last line read (localStorage edictum.rgc.world), where its divider stands (looked: the tab was looked at
@@ -90263,6 +90289,33 @@ function rgcAsk(m,nm,mine){
     :mine?'Delete this line? It goes for everyone.':`Remove this line by <b>${esc(nm)}</b>? It goes for everyone, and the audit log keeps it.`;
   return `<div class="rgc-ask" role="alert"><p>${t}</p><div class="row"><button type="button" class="btn small danger solid" data-rgc="${blk?'block':'del'}" data-id="${esc(m.id)}">${blk?'Block':mine?'Delete':'Remove'}</button><button type="button" class="btn ghost small" data-rgc="ask-no">Cancel</button></div></div>`;
 }
+/* a role's pill (staff, moderator, ambassador) as a small round badge beside a name, its words kept for screen readers */
+const rgcRoleIc=p=>p.replace('class="staff-pill','class="staff-pill ic').replace(/<\/svg>([^<]+)<\/span>$/,'</svg><span class="sr">$1</span></span>');
+/* a nation's card, opened from its name in a line: its flag, name and full style, its region, and each mark beside its
+   name in words (each mark's own title says what it is, so a new kind of mark is spelled out here too), with its page a
+   click away for a nation of this region */
+const RGC_PIN='<svg class="rgc-nc-pin" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.3A4.7 4.7 0 0 0 3.3 6c0 3.5 4.7 8.7 4.7 8.7s4.7-5.2 4.7-8.7A4.7 4.7 0 0 0 8 1.3Z" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="8" cy="6" r="1.7" fill="currentColor"/></svg>';
+function rgcNcMarks(h){
+  const out=[];if(!h||typeof document==='undefined')return out;
+  const t=document.createElement('template');t.innerHTML=h;
+  for(const el of [...t.content.children]){
+    const tip=String(el.getAttribute('title')||el.getAttribute('aria-label')||'').replace(/\s*Select to learn more\.?\s*$/,'').trim();if(!tip)continue;
+    /* the mark is a picture here, the words beside it say it: nothing to hover, focus or press */
+    for(const a of ['title','aria-label','role','tabindex','data-fno','data-mine'])el.removeAttribute(a);el.setAttribute('aria-hidden','true');
+    out.push([el.outerHTML,tip]);
+  }
+  return out;
+}
+function rgcNcHTML(m,x,nm,rg,mk){
+  const i=esc(m.id),R=REG_BY_ID[rg],wf=!x&&m.fl?rgwFlag(m.fl,nm):'',page=!!x&&!x.npc;
+  const rows=(R?[[RGC_PIN,`<span>Region</span> <b>${esc(R.name)}</b>${rg===REG.id?' <span class="hint">(yours)</span>':''}`]]:[]).concat(rgcNcMarks(mk).map(([h,t])=>[h,esc(t)]));
+  let sub='';try{sub=x?fullName(x.n):'';}catch(e){}
+  return `<div class="rgc-ask rgc-nc" role="group" aria-label="${esc(nm)}">
+    <p class="rgc-nc-h"><span class="mflag${x||wf?'':' rgc-nofl'}">${x?flagSVG(x.n.flag,'Flag of '+nm):wf}</span><span class="rgc-nc-t"><b>${esc(nm)}</b>${sub&&sub!==nm?`<span class="hint">${esc(sub)}</span>`:''}</span></p>
+    ${rows.length?`<ul class="rgc-nc-l">${rows.map(([h,t])=>`<li><span class="rgc-nc-m">${h}</span><span>${t}</span></li>`).join('')}</ul>`:''}
+    <div class="row">${page?`<button type="button" class="btn small" data-act="visit" data-id="${esc(m.a)}">Open its page</button>`:''}<button type="button" class="btn ghost small" data-rgc="nc" data-l="${i}">Close</button></div></div>`;
+}
+for(const [k,v] of Object.entries({'Open its page':'Voir sa page','(yours)':'(la vôtre)'}))if(!(k in FR_UI))FR_UI[k]=v;
 function rgcLine(m,run,by,me,mod,memo){
   if(m.sys==='all')return rgcCastLine(m,me,mod);
   if(m.sys==='games')return gmChatLine(m);
@@ -90272,11 +90325,16 @@ function rgcLine(m,run,by,me,mod,memo){
   const ally=!!m.ally,i=esc(m.id),wd=!!m.w;
   const x=m.tm?null:by.get(m.a),mine=m.a===me&&!m.tm,nm=m.tm?'Edictum team':x?x.n.name:m.nm,named=!mine&&(rgcNames(m.x)||!!(m.mn&&m.mn[me])||!!(m.r&&m.r.a===me)),when=`${fmtDate(m.t)}, ${fmtTime(m.t)}`;
   /* the world chat: a nation of another region shows the flag and marks its line carries, and its region */
-  const wf=wd&&!x&&!m.tm&&m.fl?rgwFlag(m.fl,nm):'',from=wd&&!m.tm?rgwFrom(m.rg||(x?REG.id:'')):'';
-  const who=m.tm?`<b class="rgc-nm rgc-team">${esc(nm)}</b>`:mine?`<b class="rgc-nm">${esc(nm)}</b>`:x&&!x.npc?`<button type="button" class="linkish rgc-nm" data-act="visit" data-id="${esc(m.a)}">${esc(nm)}</button>`:`<b class="rgc-nm">${esc(nm)}</b>`;
-  const pill=m.tm?rgcRolePill(m):m.st==='mod'||isModId(m.a)?MOD_PILL:m.st==='admin'||isStaff(m.a)?STAFF_PILL:isAmbId(m.a)?AMB_PILL:'';
+  const wf=wd&&!x&&!m.tm&&m.fl?rgwFlag(m.fl,nm):'',rg=wd&&!m.tm?m.rg||(x?REG.id:''):'',from=rg&&rg!==REG.id?rgwFrom(rg):'';
+  /* a role (staff, moderator, ambassador) colours the name, and its mark comes first among the marks, as a small badge */
+  const rl=m.tm?'':m.st==='mod'||isModId(m.a)?'mod':m.st==='admin'||isStaff(m.a)?'st':isAmbId(m.a)?'amb':'';
+  const pill=m.tm?rgcRolePill(m):rl==='mod'?MOD_PILL:rl==='st'?STAFF_PILL:rl==='amb'?AMB_PILL:'';
+  const marks=x&&!x.npc?rgcBadges(x,memo):wd&&!m.tm?rgwBadges(m):'',mk=m.tm?'':(pill?rgcRoleIc(pill):'')+marks;
+  /* another nation's name opens its card (rgcNcHTML), where every mark is spelled out and its page is a click away */
+  const nc=!mine&&!m.tm,ncOpen=nc&&!run&&RGC.nc===m.id,nmc='rgc-nm'+(rl?' rl-'+rl:'');
+  const who=m.tm?`<b class="rgc-nm rgc-team">${esc(nm)}</b>`:nc?`<button type="button" class="linkish ${nmc}" data-rgc="nc" data-id="${esc(m.a)}" data-l="${i}" aria-expanded="${ncOpen}">${esc(nm)}</button>`:`<b class="${nmc}">${esc(nm)}</b>`;
   const fl=m.tm?`<span class="mflag sm rgc-tmfl" aria-hidden="true">${RGC_TEAM_SVG}</span>`:`<span class="mflag sm${x||wf?'':' rgc-nofl'}">${x?flagSVG(x.n.flag,'Flag of '+nm):wf}</span>`;
-  const head=run?'':`<p class="rgc-lh">${fl}${who}${x&&!x.npc?rgcBadges(x,memo):wd&&!m.tm?rgwBadges(m):''}${pill}${from}<time datetime="${new Date(m.t).toISOString()}" title="${esc(when)}">${esc(fmtTime(m.t))}</time></p>`;
+  const head=run?'':`<p class="rgc-lh">${fl}<span class="rgc-lw">${who}${from}${mk?`<span class="rgc-mk">${mk}</span>`:''}${m.tm?pill:''}</span><time datetime="${new Date(m.t).toISOString()}" title="${esc(when)}">${esc(fmtTime(m.t))}</time></p>`;
   const staff=m.tm||!!m.st||isStaff(m.a);
   let can;
   if(ally){const A=rgcAllyOn();can={del:mine||!!(A&&alCan(A,me,'o'))};}
@@ -90289,7 +90347,7 @@ function rgcLine(m,run,by,me,mod,memo){
     +(can.mute?`<button type="button" role="menuitem" data-rgc="mute-ask" data-id="${i}">Silence ${esc(nm)}…</button>`:'')
     +(can.del?`<button type="button" role="menuitem" class="rgc-danger" data-rgc="${ally?'ally-del':'del-ask'}" data-id="${i}">${mine?'Delete':'Remove the line'}</button>`:'');
   const menu=items?`<div class="rgc-mw"><button type="button" class="rgc-more" data-rgc="menu" data-id="${i}" aria-expanded="${open}" aria-haspopup="menu" aria-label="Options for this line by ${esc(nm)}"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="5.5" cy="12" r="1.7" fill="currentColor"/><circle cx="12" cy="12" r="1.7" fill="currentColor"/><circle cx="18.5" cy="12" r="1.7" fill="currentColor"/></svg></button>${open?`<div class="rgc-menu" role="menu">${items}</div>`:''}</div>`:'';
-  return `<li class="rgc-l${run?' run':''}${mine?' me':''}${named?' named':''}${ally?' ally':''}${RGC.goto===m.id?' flash':''}" data-id="${i}">${head}${!ally&&m.r?rgcQuote(m.r):''}<div class="rgc-xw">${run?`<time class="rgc-rt" datetime="${new Date(m.t).toISOString()}" title="${esc(when)}">${esc(fmtTime(m.t))}</time>`:''}${rgcBody(m,nm)}${menu}</div>${ally?'':rgcRxs(m,me)}${RGC.ask&&RGC.ask.id===m.id?rgcAsk(m,nm,mine):''}${RGC.who===m.id?rgcTeamWho():''}</li>`;
+  return `<li class="rgc-l${run?' run':''}${mine?' me':''}${named?' named':''}${ally?' ally':''}${RGC.goto===m.id?' flash':''}" data-id="${i}">${head}${!ally&&m.r?rgcQuote(m.r):''}<div class="rgc-xw">${run?`<time class="rgc-rt" datetime="${new Date(m.t).toISOString()}" title="${esc(when)}">${esc(fmtTime(m.t))}</time>`:''}${rgcBody(m,nm)}${menu}</div>${ally?'':rgcRxs(m,me)}${RGC.ask&&RGC.ask.id===m.id?rgcAsk(m,nm,mine):''}${RGC.who===m.id?rgcTeamWho():''}${ncOpen?rgcNcHTML(m,x,nm,rg||(x?REG.id:ally?'':RGC.reg||REG.id),pill+marks):''}</li>`;
 }
 /* a new nation's welcome line (sys 'found': functions/regionchat.js, rcHello), drawn as an announcement: its flag and
    name, "has been founded, welcome to #Region!" and, for a week, a Welcome button that starts a line greeting it (Say
@@ -90504,7 +90562,9 @@ document.addEventListener('click',e=>{
   const t=e.target,el=t.closest&&t.closest('[data-rgc]');
   if(!el){
     if(RGC.menu&&!(t.closest&&t.closest('.rgc-mw'))){RGC.menu='';rgcPaint();}
-    /* on a phone the drawer covers the page: a nation's name opens its page, so the drawer steps aside */
+    /* a nation's card has done its work once its page opens */
+    if(RGC.nc&&t.closest&&t.closest('#rgc-dock .rgc-nc [data-act="visit"]'))RGC.nc='';
+    /* on a phone the drawer covers the page: a nation's page, opened from its card, so the drawer steps aside */
     if(RGC.open&&t.closest&&t.closest('#rgc-dock [data-act="visit"],#rgc-dock [data-act="acct-open"],#rgc-dock [data-act="account-compare"]')&&navNarrow())rgcOpen(false,true);
     return;
   }
@@ -90515,6 +90575,9 @@ document.addEventListener('click',e=>{
   else if(a==='settings'){if(navNarrow())rgcOpen(false,true);uxOpen('settings',null,'#set-chat-btn');}
   else if(a==='jump'){RGC.stick=true;rgcPaint();}
   else if(a==='team-who'){RGC.who=RGC.who===id?'':id;rgcPaint();}
+  else if(a==='nc'){const l=el.dataset.l||'';RGC.nc=RGC.nc===l?'':l;rgcPaint();
+    const b=document.querySelector(`#rgc-list .rgc-nm[data-l="${CSS.escape(l)}"]`),c=RGC.nc&&document.querySelector('#rgc-list .rgc-nc');
+    if(b)b.focus({preventScroll:true});if(c)c.scrollIntoView({block:'nearest'});}
   else if(a==='menu'){RGC.menu=RGC.menu===id?'':id;RGC.ask=null;rgcPaint();if(!RGC.menu){const b=document.querySelector(`#rgc-list .rgc-more[data-id="${CSS.escape(id)}"]`);if(b)b.focus();}}
   else if(a==='report'&&m){RGC.menu='';rgcPaint();rgcReport(m);}
   else if((a==='block-ask'||a==='del-ask')&&m){RGC.menu='';RGC.ask={k:a==='block-ask'?'block':'del',id};rgcPaint();const b=document.querySelector('#rgc-list .rgc-ask .btn');if(b)b.focus({preventScroll:true});}
@@ -90543,6 +90606,8 @@ document.addEventListener('keydown',e=>{
   if(t&&t.id==='rgc-x'&&e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();rgcSend();return;}
   if(e.key!=='Escape'||document.querySelector('dialog[open]'))return;
   if(RGC.ask||RGC.menu){const k=(RGC.ask&&RGC.ask.id)||RGC.menu;RGC.ask=null;RGC.menu='';rgcPaint();const b=k&&document.querySelector(`#rgc-list .rgc-more[data-id="${CSS.escape(k)}"]`);if(b)b.focus();e.preventDefault();return;}
+  /* a nation's card closes first, and its name keeps the focus */
+  if(RGC.nc&&document.querySelector('#rgc-list .rgc-nc')){const l=RGC.nc;RGC.nc='';rgcPaint();const b=document.querySelector(`#rgc-list .rgc-nm[data-l="${CSS.escape(l)}"]`);if(b)b.focus();e.preventDefault();return;}
   /* from inside the drawer, or with nothing focused (a line just blocked or deleted), or on a phone, where it covers the page */
   if(RGC.dock&&(RGC.dock.contains(t)||(!t||t===document.body)&&!document.documentElement.classList.contains('rgc-docked')||navNarrow())){e.preventDefault();rgcOpen(false);}
 });
@@ -90695,7 +90760,8 @@ function rgwBadges(m){
 }
 function rgwFlagOf(fl){let f=NW_FLAGS.get(fl);if(f===undefined){f=null;try{const o=JSON.parse(fl);if(o&&typeof o==='object'&&!Array.isArray(o))f=o;}catch(e){}NW_FLAGS.set(fl,f);}return f;}
 function rgwFlag(fl,nm){const f=rgwFlagOf(fl);if(!f)return '';try{return flagSVG(f,'Flag of '+nm);}catch(e){return '';}}
-function rgwFrom(rg){const R=REG_BY_ID[rg];return R?`<span class="rgc-from${rg===REG.id?' home':''}" title="${esc(rg===REG.id?'Your region':'A nation of '+(R.the||R.name))}">${esc(R.name)}</span>`:'';}
+/* "of Meridian", quietly after the name (rgcLine leaves it out for the reader's own region) */
+function rgwFrom(rg){const R=REG_BY_ID[rg];return R?`<span class="rgc-from" title="${esc('A nation of '+(R.the||R.name))}"><span data-no-tr>${uiLang()==='fr'?'de':'of'}</span> ${esc(R.name)}</span>`:'';}
 function rgwRank(){try{return Math.max(0,achRankOf(S.nation).i|0);}catch(e){return 0;}}
 /* who @ offers: the region's nations, and on a shared chat's tab the nations that wrote there lately as well */
 function rgcMnPool(){
