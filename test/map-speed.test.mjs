@@ -59,7 +59,7 @@ test('a page drawn asks each map for one picture in the next frame; the observer
   assert.ok(!/drawMap\(/.test(im),'no picture drawn at once');assert.ok(!/disconnect\(\)/.test(im),'the observer is not made again');
   assert.match(im,/cvs\.forEach\(cv=>\{bindMap\(cv\);if\(mapRO&&!mapObs\.has\(cv\)\)\{mapObs\.add\(cv\);mapRO\.observe\(cv\);\}schedule\(cv\);\}\);/);
   assert.match(im,/cv\._sz!==cv\.clientWidth\+'x'\+cv\.clientHeight\)schedule\(cv\)/,'a resize still draws');
-  assert.match(im,/if\(!cv\.isConnected\)\{mapObs\.delete\(cv\);if\(mapRO\)mapRO\.unobserve\(cv\);\}/,'canvases gone from the page are let go');
+  assert.match(im,/if\(!cv\.isConnected\)\{mapObs\.delete\(cv\);if\(mapRO\)mapRO\.unobserve\(cv\);if\(mapIO&&cv\._far\)\{mapIO\.unobserve\(cv\);cv\._far=0;\}\}/,'canvases gone from the page are let go, by both observers');
   assert.match(game,/if\(!cw\|\|!ch\)return;if\(!P\)cv\._sz=cw\+'x'\+ch;/,'drawMap notes the size it drew at');
 });
 
