@@ -271,7 +271,7 @@ await until(async () => (await lines()).some(l => l.x === 'Selling cheap iron!')
 await A.keyboard.press('Escape'); await openChat(C);
 await A.click('.side-who .adm-pill'); await A.click('.adm-nav [data-v="admin-chat"]');
 check('the admin portal has a Region chats page under Moderation', await until(async () => /Region chats/.test(await text(A, '.adm-main h1')) && /Region chats/.test(await text(A, '.adm-nav-group[aria-label="Moderation"]'))));
-check('it lists the world chat and the French chat, then the regions, busiest first, with their newest line', await until(async () => (await A.getAttribute('#acx-regs li:first-child .acx-reg', 'data-v')) === 'world' && (await A.getAttribute('#acx-regs li:nth-child(2) .acx-reg', 'data-v')) === 'fr' && /Selling cheap iron!/.test(await text(A, '#acx-regs li:nth-child(3)')) && (await A.$$('#acx-regs .acx-reg')).length > 20));
+check('it lists the world chat, the French chat and the ambassadors’ chat, then the regions, busiest first, with their newest line', await until(async () => (await A.getAttribute('#acx-regs li:first-child .acx-reg', 'data-v')) === 'world' && (await A.getAttribute('#acx-regs li:nth-child(2) .acx-reg', 'data-v')) === 'fr' && (await A.getAttribute('#acx-regs li:nth-child(3) .acx-reg', 'data-v')) === 'amb' && /Selling cheap iron!/.test(await text(A, '#acx-regs li:nth-child(4)')) && (await A.$$('#acx-regs .acx-reg')).length > 20));
 check('the admin’s region is open, with its chat as it happens', await until(async () => /Selling cheap iron!/.test(await text(A, '#acx-log'))) && !!(await A.$('#acx-regs .acx-reg.on[aria-current="true"]')));
 await A.fill('#acx-x', 'Maintenance tonight at 22:00 UTC.'); await A.press('#acx-x', 'Enter');
 check('staff write as the Edictum team, and the region reads it at once', await until(async () => (await shown(B)).includes('Maintenance tonight at 22:00 UTC.'), 15000));
@@ -398,7 +398,24 @@ check('docked, the page makes room for the drawer', await until(() => A.evaluate
 check('docked, the drawer stays as the pages change', (await nav(A, 'cities'), await A.isVisible('#rgc-dock')));
 await A.click('[data-rgc="dock"]');
 check('and floats over the page again', await until(() => A.evaluate(() => !document.documentElement.classList.contains('rgc-docked') && getComputedStyle(document.body).paddingRight === '0px')));
+// full screen within the tab: the drawer fills the window, its lines in a readable column, and Escape ends it first
+check('the drawer offers full screen beside the dock button', await A.isVisible('[data-rgc="full"]') && await A.evaluate(() => { const f = document.querySelector('[data-rgc="full"]'); return f.previousElementSibling?.dataset.rgc === 'dock' && f.getAttribute('aria-pressed') === 'false'; }));
+await A.click('[data-rgc="dock"]');
+await A.click('[data-rgc="full"]');
+check('full screen, the drawer fills the tab', await until(() => A.evaluate(() => { const r = document.getElementById('rgc-dock').getBoundingClientRect(); return document.documentElement.classList.contains('rgc-full') && r.left === 0 && Math.round(r.width) === Math.round(innerWidth) && Math.round(r.height) === Math.round(innerHeight); })));
+check('full screen, the page does not make room for a docked drawer, and the dock button steps aside', await A.evaluate(() => !document.documentElement.classList.contains('rgc-docked') && getComputedStyle(document.body).paddingRight === '0px' && !document.querySelector('[data-rgc="dock"]').getClientRects().length));
+check('full screen, the lines keep a readable width', await A.evaluate(() => document.getElementById('rgc-list').getBoundingClientRect().width <= 900 && document.querySelector('[data-rgc="full"]').getAttribute('aria-pressed') === 'true' && document.querySelector('[data-rgc="full"]').title === 'Leave full screen (Esc)'));
+await A.evaluate(() => G.UX.toast('A notice while the chat fills the tab.'));
+check('full screen, a notice stands above the writing box', await until(() => A.evaluate(() => { const t = document.getElementById('toast'), f = document.getElementById('rgc-foot'); return !!t && !t.hidden && t.getBoundingClientRect().bottom <= f.getBoundingClientRect().top; })));
+await A.click('[data-rgc="close"]');
+await openChat(A);
+check('closed and opened again, the drawer is still full screen', await until(() => A.evaluate(() => document.documentElement.classList.contains('rgc-full'))));
+await A.evaluate(() => (document.getElementById('rgc-x') || document.querySelector('[data-rgc="close"]')).focus());
+await A.keyboard.press('Escape');
+check('Escape leaves full screen and the drawer docks again', await until(() => A.evaluate(() => !document.documentElement.classList.contains('rgc-full') && document.documentElement.classList.contains('rgc-docked') && !document.getElementById('rgc-dock').hidden && document.getElementById('rgc-dock').getBoundingClientRect().width === 400)));
+await A.click('[data-rgc="dock"]');
 check('a phone has no dock button', (await openChat(P), !(await P.isVisible('[data-rgc="dock"]'))));
+check('nor a full screen button, its drawer filling the screen already', !(await P.isVisible('[data-rgc="full"]')));
 // the tutorial: Say hi in the region chat
 check('Say hi in the region chat is a step of the tutorial, done by a first line', await until(() => B.evaluate(() => (G.S.nation.tut?.lc || []).includes('rch')), 20000));
 

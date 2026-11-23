@@ -93,6 +93,11 @@ for (let k = 0; k < 2; k++) {
   check('a new size draws it again', r2.n >= 1, r2);
   const sz = await page.evaluate(() => { const c = document.querySelector('canvas.map-cv[data-map="main"]'); return [c._sz, c.clientWidth + 'x' + c.clientHeight]; });
   check('drawn at the size it has', sz[0] === sz[1], sz);
+  /* A new size can be followed by a second layout, the page settling around the new width, which resizes the canvas
+     again a moment later and so draws it again (the ResizeObserver's own picture, with no change to the page). On a
+     slow CI machine that picture landed after the second above and was counted here as {n:1, ch:0} (23 November 2026).
+     So the map is first let come to rest: no picture for 600 ms. */
+  await until(async () => { const a = await draws(); await sleep(600); return a === await draws(); }, 8000);
   const r3 = await drawn(async () => {}, 1000);
   check('and then left alone', r3.n <= r3.ch, r3);
 }

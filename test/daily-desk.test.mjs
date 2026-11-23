@@ -21,9 +21,10 @@ function desk(over={}){
     allNations:()=>[{me:true},{me:false}],cellOf:v=>Number.isInteger(v)?v:-1,asmState:()=>null,asmMemberAt:()=>true,pgAvailable:()=>false,
     cityList:n=>n.cities||[],landCredits:()=>0,landEarned:()=>BASE,earnedAt:()=>BASE,stockNow:n=>({...n.stock}),stockLimit:(n,r,v)=>Math.min(400,v),
     num0:v=>Number.isFinite(v)?v:0,roundStock:s=>({...s}),resName:r=>r,czHas:(o,k)=>Object.hasOwn(o,k),
-    BUILDINGS:{farm:{n:'Farm Estates'},sawmill:{n:'Sawmill'},market:{n:'Market Hall'}},...over});
+    BUILDINGS:{farm:{n:'Farm Estates'},sawmill:{n:'Sawmill'},market:{n:'Market Hall'}},RES:['food','timber','iron','oil','goods'],UNLOCKS:{},
+    weekStart:t=>{const d=new Date(t),w=(d.getUTCDay()+6)%7,s=Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate()-w,8);return s>t?s-7*864e5:s;},...over});
   vm.runInContext(fn('hash')+'\n'+fn('rng')+'\n'+fn('tallyOf')+'\n'+source.slice(start,end)+
-    '\nthis.T={ddRoll,ddRare,ddDay,ddFresh,ddxReady,ddDelta,ddWeekOf,ddLegAt,ddLegRoll,ddLegOn,DD_LEG,DD_TASKS,DD_RARE,STK_UNLOCKS,earned:n=>landEarned(n),src:UNLOCK_SOURCES,notes:(n,t)=>NOTIF_SOURCES.flatMap(h=>h(n,t))};',ctx);
+    '\nthis.T={ddRoll,ddRare,ddDay,ddFresh,ddxReady,ddDelta,ddWeekOf,ddLegAt,ddLegRoll,ddLegOn,DD_LEG,DD_TASKS,DD_RARE,STK_UNLOCKS,ddSwapPick,ddSwapOk,ddAmt,wkKey,wkOf,wkGoal,wkMax,WK_PER,WK_REG,DDJ,DD_EVER,ddNewRoll,earned:n=>landEarned(n),src:UNLOCK_SOURCES,notes:(n,t)=>NOTIF_SOURCES.flatMap(h=>h(n,t))};',ctx);
   return {...ctx.T,
     save(n,old,now=NOW){const out=[];for(const h of ctx.COMMIT_HOOKS){const m=h(n,old,now);if(m)out.push(...m);}return out;},
     reload(n){const d=JSON.parse(JSON.stringify(n)),o={...d};for(const k of ['dd','ddc','ddr','stk','ffb'])delete o[k];for(const h of ctx.NORM_HOOKS)h(o,d);return o;}};
@@ -135,6 +136,8 @@ test('the browser tests can turn the desk off, leaving presence and the first bu
   const D=desk({window:{EDICTUM_NO_DESK:true}});let n=nation();
   const [m,old]=next(n,x=>{x.tly.iss=9;x.tly.dm=4;});const notes=D.save(m,old);
   eq(m.dd,undefined);assert.equal(m.stock.timber,20);assert.equal(m.stk.n,1);assert.ok(notes.every(t=>!/Desk task/.test(t)));
+  // nor is a task new to the nation drawn or paid: drawn by the seed, it threw out a suite's counts (fx-e2e, 2026-11-23)
+  eq(m.ddn,undefined);eq(m.ddnc,undefined);assert.ok(notes.every(t=>!/Something new/.test(t)));
 });
 
 test('saved records keep only well-formed desks, counts and builds',()=>{
@@ -269,6 +272,30 @@ test('the expedition task counts parties sent to fleeting finds as well',()=>{
   assert.ok(notes.some(t=>/^Rare task done: Send 2 expeditions or fleeting finds\. .*\+15 goods and \+3 land credits/.test(t)),notes.join(' | '));
 });
 
+test('on the desks of 23 and 24 Nov 2026 the expedition task catches up with the fleeting-finds task',()=>{
+  const D=desk(more()),T23=new Date(2026,10,23,12).getTime(),T25=new Date(2026,10,25,12).getTime();
+  const deskOf=(t,q0,c0,p0,r)=>({d:D.ddDay(t),q:[q0,['dm',1,'oil','goods'],['visit',1,'timber','goods']],c:[c0,0,0],p:[p0,0,0],r});
+  /* the reported desk: a party sent before the switch moved the rare task on, not the expedition task */
+  let n=nation({fl:[{k:'a',s:1}]});n.dd=deskOf(T23,['exp',2,'goods','oil'],0,0,{k:'fleet',g:3,c:1,p:0});
+  let [a,o]=next(n,x=>{x.fl.push({k:'b',s:2});});let notes=D.save(a,o,T23);
+  assert.equal(a.dd.r.c,2,'the rare task counts the new party');assert.equal(a.dd.c[0],2,'the expedition task counts it and catches up');
+  assert.equal(a.dd.p[0],1,'and is done');assert.ok(notes.some(t=>/^Desk task done: Send 2 expeditions or fleeting finds\./.test(t)),notes.join(' | '));
+  /* a save with nothing new is enough */
+  n=nation({fl:[{k:'a',s:1}]});n.dd=deskOf(T23,['exp',2,'goods','oil'],1,0,{k:'fleet',g:3,c:2,p:0});
+  [a,o]=next(n,x=>{});D.save(a,o,T23);assert.equal(a.dd.c[0],2);assert.equal(a.dd.p[0],1);assert.equal(a.dd.r.c,2,'the rare task stays where it was');
+  /* a rare expedition task catches up with a fleeting-finds task among the three, done or not */
+  n=nation({fl:[{k:'a',s:1}]});n.dd=deskOf(T23,['fleet',1,'goods','oil'],1,1,{k:'exp',g:3,c:0,p:0});
+  [a,o]=next(n,x=>{});D.save(a,o,T23);assert.equal(a.dd.r.c,1);assert.equal(a.dd.r.p,0);
+  [a,o]=next(a,x=>{x.fl.push({k:'b',s:2});});D.save(a,o,T23);assert.equal(a.dd.r.c,2,'then counts on from there, not twice');
+  /* never past what the fleeting-finds task counted, and never down */
+  n=nation({fl:[]});n.dd=deskOf(T23,['exp',3,'goods','oil'],2,0,{k:'fleet',g:3,c:1,p:0});
+  [a,o]=next(n,x=>{});D.save(a,o,T23);assert.equal(a.dd.c[0],2);assert.equal(a.dd.r.c,1);
+  /* later desks count as they always do */
+  n=nation({fl:[{k:'a',s:1}]});n.dd=deskOf(T25,['exp',2,'goods','oil'],1,0,{k:'fleet',g:3,c:2,p:0});
+  [a,o]=next(n,x=>{});D.save(a,o,T25);assert.equal(a.dd.c[0],1,'a desk of 25 Nov is left alone');
+  [a,o]=next(a,x=>{x.fl.push({k:'b',s:2});});D.save(a,o,T25);assert.equal(a.dd.c[0],2);assert.equal(a.dd.r.c,3);
+});
+
 test('a task with two survey caches never asks for more caches than the day has',()=>{
   const D=desk({...more(true),ddSvcLeft:()=>1,svcOpen:()=>[[1]]}),n=nation();
   for(const day of days(120)){const q=D.ddRoll(n,day).find(x=>x[0]==='svc');if(q)assert.equal(q[1],1,day);}
@@ -293,7 +320,7 @@ test('it appears at the first save after its moment, with a note and a bell, and
   let [m,old]=next(n,()=>{});const t0=W.t+1;if(t0<a){D.save(m,old,t0);assert.equal(m.ddl,undefined,'nothing to see before its moment');}
   [m,old]=next(m,()=>{});const notes=D.save(m,old,a+1000);
   assert.ok(m.ddl&&m.ddl.w===W.k&&m.ddl.a===a,'it is on the desk');assert.ok(notes.some(t=>/^A legendary task is on your desk: /.test(t)&&/\+15 land credits and 300 of every resource/.test(t)));
-  assert.equal(D.notes(m,a+2000).length,1,'and in the bell');
+  assert.equal(D.notes(m,a+2000).filter(x=>/legendary/.test(x.txt)).length,1,'and in the bell');
   const k=m.ddl.k;[m,old]=next(m,()=>{});assert.ok(!D.save(m,old,a+3000).some(t=>/legendary task is on/.test(t)),'only once');assert.equal(m.ddl.k,k);
 });
 
@@ -308,7 +335,7 @@ test('done in time it pays 15 land credits and 300 of every resource, even above
   assert.equal(D.earned(m)-before,15,'15 land credits');
   assert.ok((m.ddk||[]).includes('iss'),'the kind of task is on record');
   [m,old]=next(m,x=>{x.tly.iss+=5;});D.save(m,old,a+3000);assert.equal(m.ddlc,1,'it pays once');
-  assert.equal(D.notes(m,a+4000).length,0,'no bell once it is done');
+  assert.equal(D.notes(m,a+4000).filter(x=>/legendary/.test(x.txt)).length,0,'no bell once it is done');
   const back=D.reload(m);assert.equal(back.ddl.p,1);assert.equal(back.ddlc,1);
 });
 
@@ -334,6 +361,7 @@ test('none in a nation’s first week',()=>{
 test('the desk’s new achievements, with one obsidian',()=>{
   const A=[...source.matchAll(/achDef\('found','((?:desk|obs-desk)[a-z0-9-]*)','([bsgpxo])'/g)].map(m=>[m[1],m[2]]);
   assert.deepEqual(A,[['desk-compass','b'],['desk-kinds12','s'],['desk-rare10','s'],['desk-rare50','g'],['desk-leg1','g'],['desk-leg5','p'],['desk-leg25','o'],
+    ['desk-swap1','b'],['desk-swap25','s'],['desk-ally1','s'],['desk-ally10','g'],['desk-region1','s'],['desk-region10','g'],['desk-kinds20','g'],['desk-new1','b'],['desk-new10','s'],   // desk round two, 23 November 2026
     ['desk-rare200','p']]);   // the last with the high tiers of 12 November 2026
   /* its own id: 'obs-desk' is Two Years at the Desk, and a shared id marked both as earned */
   assert.match(source,/achDef\('found','desk-leg25','o','Myth and Minutes','Finish 25 legendary desk tasks\.',25,x=>ddlcOf\(x\.n\),\{sec:OBS_HINT\}\);/);
@@ -376,4 +404,114 @@ test('income adds nothing to a resource over the limit, and fills the others up 
   const out=ctx.f({},{food:700,timber:100,iron:390,oil:0,goods:0},0,DAY,{food:50,timber:50,iron:50,oil:0,goods:0});
   assert.equal(out.food,700,'over the limit: no income, and nothing taken away');
   assert.equal(out.timber,150);assert.equal(out.iron,400,'up to the limit and no further');
+});
+
+// ── desk round two: one swap a day, rewards that grow with the nation, the weekly goals ──
+test('one swap a day: a task not on the desk, drawn from the seed and the day, keeping the row’s resources',()=>{
+  const D=desk(more(true)),n=nation();n.dd=fixedDesk(D);n.dd.r={k:'claim',g:3,c:0,p:0};
+  const a=D.ddSwapPick(n,n.dd);assert.ok(a&&D.DD_TASKS[a[0]],'a task');eq(a,D.ddSwapPick(n,n.dd),'fixed by seed and day');
+  assert.ok(!['iss','dm','visit','claim'].includes(a[0]),'none of the desk’s own');const T=D.DD_TASKS[a[0]];assert.ok(!T.rare&&!T.legend);
+  assert.ok(a[1]>=T.r[0]&&a[1]<=T.r[1]);
+  assert.ok(D.ddSwapOk(n.dd,0));n.dd.s=1;assert.ok(!D.ddSwapOk(n.dd,0),'once a day');
+  const back=D.reload({...n,dd:{...n.dd,s:1}});assert.equal(back.dd.s,1,'the swap is kept');
+  assert.equal(D.reload({...n,dd:{...n.dd,s:7}}).dd.s,undefined,'a row that is not there is dropped');
+  const m=nation();m.dd=fixedDesk(D);m.dd.p=[1,0,0];assert.ok(!D.ddSwapOk(m.dd,0),'not a task already done');
+  m.dd.p=[1,1,1];m.dd.w=1;assert.ok(!D.ddSwapOk(m.dd,1),'not on a cleared desk');
+});
+
+test('rewards grow with the nation: a quarter of a day’s income for a task, never less than before',()=>{
+  const rates={timber:400,iron:100,oil:0,food:8,goods:30};
+  const D=desk({S:{nation:{name:'Deskland'}},stockRates:()=>rates});
+  assert.equal(D.ddAmt({name:'Deskland'},'timber',3,.25),100);assert.equal(D.ddAmt({name:'Deskland'},'oil',3,.25),3,'never less than the old amount');
+  assert.equal(D.ddAmt({name:'Deskland'},'food',3,.25),3);
+  let [a,old]=next(nation({dd:fixedDesk(D)}),x=>{x.tly.iss=7;});a.stk={n:1,d:D.ddDay(NOW)};const notes=D.save(a,old);
+  assert.equal(a.dd.p[0],1);assert.ok(notes.some(t=>/Desk task done: Answer 2 edicts\. \+100 timber and \+25 iron\./.test(t)),notes.join(' | '));
+  assert.equal(a.stock.timber,120);assert.equal(a.stock.iron,45);
+  assert.ok(D.DDJ.a&&D.DDJ.a.k.includes('q0'),'the desk remembers what it just paid');assert.equal(D.DDJ.a.from.timber,20);assert.equal(D.DDJ.a.to.timber,120);
+  const small=desk();[a,old]=next(nation({dd:fixedDesk(small)}),x=>{x.tly.iss=7;});const n2=small.save(a,old);
+  assert.ok(n2.some(t=>/\+3 timber and \+5 iron/.test(t)),'with no income known, the old amounts');
+});
+
+test('the week’s count: what each save adds, kept in the record and held to what a week can hold',()=>{
+  const D=desk(more()),W=D.wkKey(NOW);assert.match(W,/^\d{4}-\d{2}-\d{2}$/);
+  let [a,old]=next(nation(),x=>{x.tly.iss+=3;x.fl=[{k:'b',s:2}];});D.save(a,old);
+  eq(a.wkc,{w:W,iss:3,exp:1});
+  [a,old]=next(a,x=>{x.tly.iss+=2;});D.save(a,old);assert.equal(a.wkc.iss,5);
+  assert.equal(D.wkOf(a,'iss',W),5);assert.equal(D.wkOf(a,'iss','2026-01-05'),0,'another week counts nothing');
+  assert.equal(D.wkOf({freq:30,wkc:{w:W,iss:99999}},'iss',W),D.wkMax({freq:30},'iss'),'held to what a week can hold');
+  eq(D.reload({wkc:{w:W,iss:4,exp:-2,nap:3}}).wkc,{w:W,iss:4});assert.equal(D.reload({wkc:{w:'soon',iss:4}}).wkc,undefined);
+});
+
+test('an alliance’s goal: summed over its members, paid once to each member that added to it',()=>{
+  const W0=new Date(2026,9,30,12).getTime(),me=nation(),other={name:'Otherland',freq:30},third={name:'Thirdland',freq:30};
+  const world={o:other,t:third};
+  const D=desk({...more(),myId:()=>'me',S:{world},NPC_SET:new Set(),alMineAll:()=>[{id:'al1',name:'The Pact',members:['me','o','t']}],allNations:()=>[]});
+  const W=D.wkKey(W0),G={id:'al1',recs:[me,other,third]},g=D.wkGoal('al',G,W,me);
+  assert.ok(D.WK_PER[g.k]);assert.equal(g.g,D.WK_PER[g.k]*3,'the target grows with the members');eq(D.wkGoal('al',G,W,me),g,'fixed for the week');
+  const kind=g.k;
+  other.wkc={w:W,[kind]:g.g-1};
+  const act=x=>{if(kind==='iss'||kind==='claim')x.tly[kind]=(x.tly[kind]||0)+1;else if(kind==='exp')x.fl=[{k:'z',s:9}];else if(kind==='build')x.cities[0].b.push({k:'farm',s:1,d:2});else x.tly.deal=(x.tly.deal||0)+1;};
+  let [a,old]=next(me,act);
+  const notes=D.save(a,old,W0);
+  assert.ok(notes.some(t=>/^The Pact reached its goal for the week: \+20 of every resource and \+2 land credits\./.test(t)),notes.join(' | '));
+  assert.equal(a.wga,1);eq(a.wgd,{w:W,a:['al1'],r:0});assert.equal(D.earned(a)-D.earned(me),2,'two land credits');
+  [a,old]=next(a,x=>{});D.save(a,old,W0+1000);assert.equal(a.wga,1,'paid once a week');
+  const lazy=nation({name:'Lazyland'});[a,old]=next(lazy,x=>{});const n2=D.save(a,old,W0);assert.ok(!n2.some(t=>/reached its goal/.test(t)),'nothing for a member that added nothing');
+});
+
+test('presence milestones: land credits that double at 7, 14, 30, 60 and 100 days, each with a design of its own',()=>{
+  const D=desk(),at=k=>nation({stk:{n:k,d:'2026-10-29'}});
+  const cr=k=>D.earned(at(k))-BASE;
+  eq([1,6,7,13,14,29,30,59,60,99,100,400].map(cr),[0,0,1,1,3,3,7,7,15,15,31,31]);
+  const src=D.src[1];eq(src.earned(at(30)),['ls-vigil','m-fortnight','s-present']);eq(src.earned(at(6)),[]);
+  assert.match(src.how('pn-beacon'),/^Day 100 of presence: .*100 different days\. It brings \+16 land credits too\.$/);assert.equal(src.how('s-indigo'),null);
+  let [a,old]=next(at(6),x=>{x.tly.iss+=1;});const notes=D.save(a,old);assert.equal(a.stk.n,7);
+  assert.ok(notes.some(t=>/^Day 7 of your presence: \+1 land credit and the Vigil wax seal/.test(t)),notes.join(' | '));
+});
+
+test('a new desk is in the bell once, at the moment it was drawn',()=>{
+  const D=desk();let [a,old]=next(nation(),x=>{});D.save(a,old);
+  assert.equal(a.dd.t,NOW,'the draw time is kept');eq(D.reload(a).dd.t,NOW);
+  const b=D.notes(a,NOW+1000).filter(x=>/^A new desk: /.test(x.txt));assert.equal(b.length,1);assert.equal(b[0].t,NOW);assert.equal(b[0].go,'issues');
+  a.dd.w=1;assert.equal(D.notes(a,NOW+2000).filter(x=>/^A new desk/.test(x.txt)).length,0,'not once the desk is clear');
+});
+
+test('the newer parts of the game on the desk: what each save adds is counted',()=>{
+  const D=desk(more()),old=nation({tly:{iss:5,claim:2,cbof:1,'asm:mk':0,alch:2,ldoff:0}});
+  let n=structuredClone(old);n.tly.cbof=2;assert.equal(D.ddDelta(n,old,'tb'),1,'a trade offer on the Board');
+  n=structuredClone(old);n.tly['asm:mk']=1;assert.equal(D.ddDelta(n,old,'mk'),1,'a motion to commend or condemn');
+  n=structuredClone(old);n.tly.alch=4;assert.equal(D.ddDelta(n,old,'alc'),2,'two lines in the alliance’s chat');
+  n=structuredClone(old);n.tly.ldoff=1;assert.equal(D.ddDelta(n,old,'ld'),1,'a land deal proposed');
+  for(const k of ['rs','gtr','ld','tb','mk','alc','mcl','std'])assert.ok(D.DD_TASKS[k]&&D.DD_TASKS[k].go&&D.DD_TASKS[k].t(1),k);
+});
+
+test('something new each week: a kind the nation has never done, drawn by seed and week, paid once',()=>{
+  const D=desk({...more(true),ddRsOk:()=>false}),W=D.wkKey(NOW);
+  const fresh=nation({tly:{iss:5,claim:0}}),k=D.ddNewRoll(fresh,W);assert.ok(k&&D.DD_EVER[k],'a kind with a check');assert.equal(D.DD_EVER[k](fresh),false,'never done');
+  assert.equal(k,D.ddNewRoll(fresh,W),'fixed for the week');
+  let [a,old]=next(fresh,x=>{});D.save(a,old);eq(a.ddn,{w:W,k,c:0,p:0},'drawn at the week’s first save');
+  const hit={claim:x=>{x.tly.claim=1;},exp:x=>{x.exp={s:1,t0:NOW,t1:NOW+1};},dig:x=>{x.dig=[{s:1,t0:2}];},svc:x=>{x.tly.svc=1;x.svc={d:5,c:[[1,'food',3,1]]};},
+    xu:x=>{x.xuw={k:'gear',u:1,s:NOW,d:NOW+1};}}[k];
+  if(hit){const before=D.earned(a);[a,old]=next(a,hit);const notes=D.save(a,old);assert.equal(a.ddn.p,1);assert.equal(a.ddnc,1);
+    assert.ok(notes.some(t=>/^Something new, done: .*\+25 of every resource and \+2 land credits\./.test(t)),notes.join(' | '));assert.equal(D.earned(a)-before,2);
+    [a,old]=next(a,hit);D.save(a,old);assert.equal(a.ddnc,1,'once');}
+  eq(D.reload({ddn:{w:W,k:'nap',c:0,p:0}}).ddn,undefined);eq(D.reload({ddn:{w:W,k:'',c:0,p:0}}).ddn,{w:W,k:'',c:0,p:0},'a week with nothing new to offer is kept');
+});
+
+// ── the desk's This week section: the region's goal, and two alliances or more folded into one line ──
+test('This week: two alliances or more fold into one line, which opens to show each goal',()=>{
+  const goals={rg:{k:'iss',g:100,c:20,mine:3,done:false},a1:{k:'iss',g:10,c:10,mine:1,done:true},a2:{k:'exp',g:9,c:3,mine:0,done:false},a3:{k:'claim',g:39,c:0,mine:0,done:false},a4:{k:'claim',g:12,c:2,mine:0,done:false}};
+  const mk=(allies,ddAl)=>{const ctx=vm.createContext({S:{ddAl,mode:'world'},esc:x=>String(x),fmtWait:()=>'6 days',clamp:(v,a,b)=>Math.max(a,Math.min(b,v)),WK_GIFT:20,WK_CR:2,
+      WK_T:{iss:g=>`answer ${g} edicts`,exp:g=>`send ${g} expeditions`,claim:g=>`claim ${g} hexes`},wkKey:()=>'2026-11-23',weekStart:()=>0,
+      wkRegion:()=>({id:'reg',name:'Meridian Reach',recs:[{},{}]}),wkAllies:()=>allies.map(id=>({id,name:'Alliance '+id,recs:[]})),wkGoal:(sc,G)=>goals[sc==='rg'?'rg':G.id]});
+    vm.runInContext(fn('wkRow')+'\n'+fn('wkWeek')+'\nthis.f=wkWeek;',ctx);return ctx.f({name:'Deskland',wgd:{w:'2026-11-23',a:[],r:0}},1000,false);};
+  const shut=mk(['a1','a2','a3','a4'],false);
+  assert.match(shut.html,/Region · this week/);assert.match(shut.html,/dd-wk-sum/);assert.match(shut.html,/4 alliance goals · 1 reached/);
+  assert.match(shut.html,/1 share waiting for you/);assert.match(shut.html,/aria-expanded="false"[^>]*>Show</);
+  assert.equal((shut.html.match(/Alliance · this week/g)||[]).length,0,'each alliance’s goal waits behind the line');
+  assert.equal(shut.left,5,'the region’s goal and four alliances’ still to be paid');
+  const open=mk(['a1','a2','a3','a4'],true);
+  assert.equal((open.html.match(/Alliance · this week/g)||[]).length,4);assert.match(open.html,/aria-expanded="true"[^>]*>Hide</);
+  const one=mk(['a2'],false);
+  assert.doesNotMatch(one.html,/dd-wk-sum/,'a single alliance has no line of its own');assert.equal((one.html.match(/Alliance · this week/g)||[]).length,1);
 });

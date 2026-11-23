@@ -11,7 +11,9 @@ const html=readFileSync(new URL('../game/edictum.html',import.meta.url),'utf8'),
 const cut=(a,b)=>{const i=src.indexOf(a),j=src.indexOf(b,i+a.length);assert.ok(i>=0&&j>i,'section '+a);return src.slice(i,j);};
 const fn=name=>{const i=src.indexOf('function '+name+'('),j=src.indexOf('\n}\n',i);assert.ok(i>=0&&j>i,name);return src.slice(i,j+2);};
 const literal=name=>{const m=src.match(new RegExp('const '+name+'\\s*=\\s*([^;]+);'));assert.ok(m,name);return m[1];};
-const WS=cut('/* ───────── Letters from Willow Street: one citizen','\n/* ───────── ');
+const WS=cut('/* ───────── Letters from Willow Street: one citizen','\n/* ───────── ')+'\n'+cut('/* ───────── Letters from Willow Street, Act II: numbered after every edict before them','\n\n');
+/* Willow Street's milestones, as the game has them */
+const WS_AT=JSON.parse(literal('WS_AT').split(',WS_ACT1')[0]);
 const MC=cut('/* ───────── Letters from Mission Control:','\n/* ───────── Mission Control on the Space page');
 const UI=cut('/* ───────── Mission Control on the Space page','\n/* ───────── ');
 const lineOf=(s,start)=>{const i=s.indexOf(start);assert.ok(i>=0,start);return s.slice(i,s.indexOf('\n',i));};
@@ -87,7 +89,7 @@ function normalize(G,d){const n=JSON.parse(JSON.stringify(d));n.inbox=(d.inbox||
 function after(G,n,slots){const m=JSON.parse(JSON.stringify(n));m.issueClock=Date.now()-slots*m.freq*MIN-1000;return G.syncInbox(m,Date.now());}
 const isMc=x=>/^mc-\d/.test(x.id),mcOn=n=>[...n.inbox].filter(isMc),J=x=>JSON.parse(JSON.stringify(x));
 /* a nation that has enacted e edicts, with Willow Street's letters up to date so none of them is due */
-function ready(G,e=MC0,over={}){const n=nation(G,over);if(!n.mc.p)n.mc.p={o:0,t:Date.now()-30*DAY};n.ws.e=e;n.ws.c=[5,10,25,50,100,250,500,1000].filter(a=>a<=e).map(()=>({o:0,f:'rep',b:'111',t:1,x:'',n:''}));if(n.ws.c.length>=8)n.ws.d=1;return n;}
+function ready(G,e=MC0,over={}){const n=nation(G,over);if(!n.mc.p)n.mc.p={o:0,t:Date.now()-30*DAY};n.ws.e=e;n.ws.c=WS_AT.filter(a=>a<=e).map(()=>({o:0,f:'rep',b:'111',t:1,x:'',n:''}));if(n.ws.c.length>=WS_AT.length)n.ws.d=1;return n;}
 const MC0=G0.MC_AT;
 /* the agency, with a mission flown (s and d in the past) */
 function agency(n,tm='flt',flown={}){const now=Date.now();n.mc.a={nm:'Testorian Space Agency',t:now-30*DAY,f:tm,tm:{sci:now-30*DAY,flt:now-30*DAY,eng:now-30*DAY}};

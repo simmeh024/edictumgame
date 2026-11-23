@@ -114,7 +114,11 @@ await A.click('[data-act="mp-net-build"]');await saved();const afterBuild=await 
 // the first road also finishes the tutorial's "Link two cities by road" in the same save: its gift is not part of the cost
 const tutGift=await A.evaluate(([a,b])=>{const was=new Set((a.tut&&a.tut.lc)||[]),now=(b.tut&&b.tut.lc)||[],g={};
   for(const L of G.TUTL.lists)for(const s of L.tasks)if(!was.has(s.k)&&now.includes(s.k))for(const [r,v] of Object.entries(s.gift||{}))g[r]=(g[r]||0)+v;return g;},[beforeBuild,afterBuild]);
-check('building a road spends the quoted resources once',Object.entries(preview.cost).every(([r,v])=>Math.abs(beforeBuild.stock[r]-afterBuild.stock[r]+(tutGift[r]||0)-v)<.2),JSON.stringify({before:beforeBuild.stock,after:afterBuild.stock,cost:preview.cost,tutGift}));
+/* and the store holds only so much (stockCap): with timber already full, the cost out and the gift in leave it full,
+   not 18 over (CI, 23 November 2026: {before timber 400, after 400, cost 2, gift 20}). Goods, with no gift, still
+   show the cost spent exactly once. */
+const capBuild=await A.evaluate(()=>G.WH.stockCap(G.S.nation));
+check('building a road spends the quoted resources once',Object.entries(preview.cost).every(([r,v])=>Math.abs(afterBuild.stock[r]-Math.min(capBuild,beforeBuild.stock[r]-v+(tutGift[r]||0)))<.2),JSON.stringify({before:beforeBuild.stock,after:afterBuild.stock,cost:preview.cost,tutGift,cap:capBuild}));
 check('transport connections persist in the shared half',!!(await nationDoc(uid)).shared.infra?.length);
 check('unfinished transport gives no early production bonus',await A.evaluate(()=>{const T=G.territory();return !(G.MD.cityState(T).byCell.get(G.S.nation.cities[0].c).transportBonus);}));
 await open(A);await nav(A,'map');await A.click('.mp-map-toolbar [data-v="transport"]');
