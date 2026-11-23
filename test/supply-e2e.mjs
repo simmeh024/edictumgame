@@ -2,7 +2,7 @@
 // mix with a message; the materials leave the sender's stockpile, the server files the cache, and the other nation opens
 // it on the Diplomacy page's Gifts tab: a crate whose contents go into its stockpile once, with the message. Only a Registered
 // Nation (a linked sign-in) sends, and any nation, guests too, receives; three a day; a nation sends from a day after its founding; a cache the server
-// refuses comes back.
+// refuses comes back. An opening whose answer is lost on the way back pays when it is opened again, or later with Collect.
 import { BASE, player, open, found, until, check, finish, text, nav, restListAdmin, clearEmulators, sleep, register, OUT } from './lib.mjs';
 import path from 'node:path';
 await clearEmulators();
@@ -116,6 +116,41 @@ check('three caches filed today', await until(async () => (await docs()).filter(
 await visit(A, uidB); await A.click('[data-act="sc-send-open"]');
 check('a fourth is refused until the day ends', /You have sent 3 Supply Caches today/.test(await why(A, uidB)) && await toastHas(A, /You have sent 3 Supply Caches today/) && await A.evaluate(() => !document.getElementById('sc-dlg')));
 check('Full Manifest is earned', await until(() => A.evaluate(() => !!(G.S.nation.ach && G.S.nation.ach['dip-scday'])), 20000));
+
+// the answer to an opening lost on the way back (Zatra, 23 Nov 2026): the server marks the cache opened, but the page hears
+// nothing. Opened again it pays, and one left shut waits under Not received yet with Collect.
+check('the two caches reach the recipient', await until(() => B.evaluate(() => G.SC().scWaiting(Date.now()).length === 2), 30000));
+const lose = () => B.evaluate(() => { window.__scDrop = 1; if (window.__scFetch) return; const f = window.__scFetch = window.fetch;
+  window.fetch = async (u, o) => { const r = await f(u, o); if (window.__scDrop > 0 && /\/civic$/.test(String(u)) && /"op":"scOpen"/.test(String(o && o.body))) { window.__scDrop--; throw new TypeError('Failed to fetch'); } return r; }; });
+const paid = id => B.evaluate(id => G.SC().scPaid(G.S.nation).includes(id), id);
+const opened = () => B.evaluate(() => (G.S.nation.tly || {}).sco || 0);
+const [lost1, lost2] = await B.evaluate(() => G.SC().scWaiting(Date.now()).map(c => c.id));
+await nav(B, 'diplomacy'); await B.click('#dp-tab-gifts'); await B.waitForSelector('#sc-sec');
+const t0 = await opened();
+await lose();
+await B.click(`[data-act="sc-crate"][data-id="${lost1}"]`); await B.waitForSelector('#sc-crate #scc-box');
+await B.click('#scc-box');
+check('an answer lost: the crate says the server could not be reached, and stays shut', await until(async () => /could not be reached/.test(await text(B, '#scc-err')), 20000) && await B.evaluate(() => !document.getElementById('sc-crate').classList.contains('open')));
+check('the server marked it opened all the same, and nothing was paid', await until(async () => (await docs()).some(d => d.id === lost1 && d.o > 0), 15000) && !(await paid(lost1)));
+await B.click('#scc-box');
+check('opened again, it opens', await until(() => B.evaluate(() => document.getElementById('sc-crate')?.classList.contains('open')), 20000));
+check('and pays: a "+" for what went in, the cache listed as paid, counted once', /\+\d/.test(await text(B, '#scc-items')) && !/opened before/.test(await text(B, '#scc-note')) && await paid(lost1) && (await opened()) === t0 + 1, await text(B, '#sc-crate'));
+await B.click('#scc-ok');
+await lose();
+await B.click(`[data-act="sc-crate"][data-id="${lost2}"]`); await B.waitForSelector('#sc-crate #scc-box');
+await B.click('#scc-box');
+check('a second lost answer', await until(async () => /could not be reached/.test(await text(B, '#scc-err')), 20000) && !(await paid(lost2)));
+await B.click('#scc-later');
+check('waits under Not received yet, with Collect', await until(async () => /Not received yet/.test(await text(B, '#sc-sec')) && /^Collect$/.test(await text(B, `#sc-sec [data-act="sc-crate"][data-id="${lost2}"]`).catch(() => '')), 20000), await text(B, '#sc-sec'));
+check('a minute on, a notice says it did not arrive', await toastHas(B, /did not reach your stores when it was opened\. Collect them on the Gifts tab/));
+check('and the bell and the tab count it', await B.evaluate(() => G.NEWS.bell().ev.some(x => x.k === 'supply' && /did not reach your stores/.test(x.txt))) && await until(async () => /\d/.test(await text(B, '#dp-tab-gifts')), 15000));
+await B.click(`#sc-sec [data-act="sc-crate"][data-id="${lost2}"]`); await B.waitForSelector('#sc-crate #scc-box');
+check('the crate says it did not reach the stores', /did not reach your stores/.test(await text(B, '#sc-crate')) && (await B.getAttribute('#scc-box', 'aria-label')) === 'Collect the cache');
+await B.click('#scc-box');
+check('Collect opens it and pays', await until(() => B.evaluate(() => document.getElementById('sc-crate')?.classList.contains('open')), 20000) && /\+\d/.test(await text(B, '#scc-items')) && await paid(lost2) && (await opened()) === t0 + 2);
+await B.click('#scc-ok');
+check('it moves to Opened', await until(async () => !/Not received yet/.test(await text(B, '#sc-sec')) && /Opened/.test(await text(B, '#sc-sec')), 20000));
+check('once the save that lists it lands, the server no longer pays it', await until(async () => (await B.evaluate(id => window.claude.use('civic').then(c => c.request({ op: 'scOpen', id })), lost2)).pay === false, 30000));
 
 // a cache the server refuses comes back (one packed for a nation not in the region)
 const before = await stock(A);

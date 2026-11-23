@@ -44,7 +44,8 @@ test('the game and the server share the rules: 3 caches a day, 300 materials eac
   assert.deepEqual(plain(G.SC_RULES.res), R.SC_RES);
   assert.equal(G.SC_RULES.day, R.SC_DAY); assert.equal(G.SC_RULES.max, R.SC_MAX); assert.equal(G.SC_RULES.msg, R.SC_MSG);
   assert.equal(G.SC_RULES.age, R.SC_AGE); assert.equal(G.SC_RULES.old, R.SC_OLD); assert.equal(G.SC_RULES.keep, R.SC_KEEP);
-  assert.equal(G.SC_RULES.sponsor, R.SC_SPONSOR); assert.equal(G.SC_RULES.sponsorMs, R.SC_SPONSOR_MS);
+  assert.equal(G.SC_RULES.sponsor, R.SC_SPONSOR); assert.equal(G.SC_RULES.sponsorMs, R.SC_SPONSOR_MS); assert.equal(G.SC_RULES.pay, R.SC_PAY);
+  assert.equal(R.SC_PAY, 7 * DAY);
   assert.equal(G.SC_ID.source, R.SC_ID.source); assert.equal(G.SC_DOC.source, R.SC_DOC.source);
   assert.equal(R.SC_DAY, 3); assert.equal(R.SC_MAX, 300);
   assert.deepEqual(R.SC_RES, plain(vm.runInNewContext(line('const RES=').replace(/^const RES=/, '').replace(/;$/, ''))));
@@ -129,6 +130,38 @@ test('opening pays once, up to what the stores hold', () => {
   assert.equal(n.stock.food, 540);
 });
 
+test('a cache opened whose answer was lost waits to be collected: a week after the opening, by this nation, not while it opens', () => {
+  /* Zatra, 23 Nov 2026: the server marked Elarion's cache opened, the answer never came back, and the game paid nothing */
+  const G = game(), now = Date.UTC(2026, 10, 23, 17, 10), founded = now - 30 * DAY;
+  const c = (id, o, extra = {}) => [id, { id, f: 'elarion', fn: 'Elarion', to: 'alice', r: { goods: 200, timber: 100 }, q: 300, m: '', t: now - 3600e3, x: now + 20 * DAY, o, ...extra }];
+  G.S.nation = { name: 'Zatra', founded, sco: ['e_paid0001'] };
+  G.SC.in = new Map([
+    c('e_lost0001', now - 5 * 60e3),               // opened five minutes ago, never paid
+    c('e_just0001', now - 30e3),                   // opened half a minute ago: listed, but no notice yet
+    c('e_paid0001', now - 10 * 60e3),              // opened and paid
+    c('e_shut0001', 0),                            // not opened: waiting
+    c('e_week0001', now - 8 * DAY),                // opened over a week ago
+    c('e_prev0001', founded - DAY),                // opened by a nation before this one's founding
+    c('e_gone0001', now - 60e3, { x: now - 1 }),   // past its 30 days
+    c('e_busy0001', now - 2 * 60e3),               // being opened this moment
+  ]);
+  G.SC.crateBusy = true; G.SC.crate = 'e_busy0001';
+  assert.deepEqual(plain(G.scUnpaid(now).map(x => x.id)), ['e_just0001', 'e_lost0001']);
+  assert.deepEqual(plain(G.scUnpaid(now, true).map(x => x.id)), ['e_lost0001']);
+  assert.deepEqual(plain(G.scWaiting(now).map(x => x.id)), ['e_shut0001']);
+  G.SC.crateBusy = false;
+  assert.ok(G.scUnpaid(now).some(x => x.id === 'e_busy0001'), 'once the opening is over, it is listed too');
+  // paid at last (the commit hook), it is no longer owed
+  const n = { ...G.S.nation, stock: { goods: 6, timber: 440 }, tly: {} };
+  n._scp = { id: 'e_lost0001', r: { goods: 200, timber: 100 }, f: 'elarion' }; run(G, n, now);
+  assert.equal(n.stock.goods, 206); assert.equal(n.stock.timber, 540);
+  G.S.nation = n;
+  assert.ok(!G.scUnpaid(now).some(x => x.id === 'e_lost0001'));
+  // a second payment of the same cache (another device's opening, replayed onto this record) pays nothing
+  n._scp = { id: 'e_lost0001', r: { goods: 200, timber: 100 }, f: 'elarion' }; run(G, n, now + 1000);
+  assert.equal(n.stock.goods, 206); assert.equal(n.tly.sco, 1);
+});
+
 test('filed caches go once their day is over; one not filed stays until it is', () => {
   const G = game(), now = Date.UTC(2026, 10, 14, 23, 50), n = nation();
   n._sc = { id: 'dddddd01', to: 'bob', r: { goods: 10 } }; run(G, n, now);
@@ -177,7 +210,10 @@ test('only a Registered Nation sends caches (a linked sign-in, never a guest); a
 
 test('the wiring: a button on the nation page, the Gifts tab, the probe, the private half, the rules and the server', () => {
   assert.ok(src.includes("${!x.npc&&!x.me&&!x.prev&&x.id!==S.uid&&S.mode==='world'?`<button class=\"btn ghost\" data-act=\"sc-send-open\" data-id=\"${esc(x.id)}\">Send Supply Cache${scLinked()?'':'<span class=\"sc-lock\" title=\"For Registered Nations\"> 🔒</span>'}</button>`:''}"), 'the nation page button, for another player only, locked for guests');
-  assert.match(src, /gifts:gfIncoming\(\)\.filter\(g=>!g\.reply\)\.length\+scWaiting\(now\)\.length/);
+  assert.match(src, /gifts:gfIncoming\(\)\.filter\(g=>!g\.reply\)\.length\+scWaiting\(now\)\.length\+scUnpaid\(now,true\)\.length/);
+  /* opening pays at the first opening or when the server says the saved record never listed it, never from a tab that plays nothing */
+  assert.ok(src.includes("pay=res.first||res.pay===true;let got=null;\n  if(pay&&!scPaid(S.nation).includes(id)){"), 'the crate pays on pay');
+  assert.ok(src.includes("if(PV||tabPassive){if(err)err.textContent='Nothing can be opened from this tab.';return;}"), 'not from a passive tab');
   assert.match(src, /EDICTUM_PROBE\(\{RPATCH,SC:\(\)=>scProbe\(\),/);
   assert.match(shim, /NX_KEYS\.sco = 1;/);
   assert.match(rules, /match \/supply\/\{id\} \{\s*\n\s*allow read: if isAdmin\(\) \|\| signedIn\(\) && \(resource\.data\.to == request\.auth\.uid \|\| resource\.data\.f == request\.auth\.uid\);\s*\n\s*\}/);

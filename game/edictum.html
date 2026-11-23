@@ -7961,6 +7961,7 @@ span.nw-tag{cursor:default}
 .sc-items{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin:8px 0 12px}
 .sc-items>div{min-width:76px;padding:10px 8px;border:1px solid rgba(176,141,60,.45);border-radius:6px;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:13px}
 .sc-items b{font-size:16px}.sc-items small{opacity:.75;font-size:11px}
+.sc-items>.sc-was{opacity:.6;border-style:dashed}
 .sc-note{margin:0 0 12px;padding:10px 14px;border-left:3px solid #b08d3c;background:var(--sheet-2);text-align:left}
 .sc-note p{margin:0;font-style:italic;white-space:pre-wrap;overflow-wrap:anywhere}
 .sc-note footer{margin-top:6px;font-size:12px;opacity:.75}
@@ -72363,11 +72364,12 @@ HELP_EXT.push({k:'gifts',t:'Diplomatic gifts',body:()=>`<p>From any nation’s p
    (functions/supply.js, a civic op) then files it as supply/{uid}_{id} with the message, which is kept only there,
    never in the record. k=1 once it is filed; a cache the server refuses for good (SC_BACK) comes back to the stockpile.
    The recipient's game listens for the caches addressed to it (SC.in) and shows them on the Diplomacy page's Gifts tab,
-   in the bell and on the menu; scOpen marks one opened, and the contents are paid only on that first opening (n.sco,
-   the private half, keeps the ids paid). Tallies for the achievements: scs caches sent, scq materials sent, scfull,
+   in the bell and on the menu; scOpen marks one opened, and the contents are paid at that first opening (n.sco,
+   the private half, keeps the ids paid), or at a later one while the saved record does not list it as paid (scOpen's
+   pay, for SC_RULES.pay after the opening: the answer to the first opening lost on the way back, scUnpaid). Tallies for the achievements: scs caches sent, scq materials sent, scfull,
    scmix, scmsg, scday (a day's every cache), sct:<uid> the nations sent to, sco caches opened, scf:<uid> the nations
    received from, scmut a cache to a nation that sent one (or from one sent to). */
-const SC_RULES={res:['food','timber','iron','oil','goods'],day:3,max:300,msg:200,age:86400000,old:604800000,keep:2592000000,sponsor:1,sponsorMs:1209600000};
+const SC_RULES={res:['food','timber','iron','oil','goods'],day:3,max:300,msg:200,age:86400000,old:604800000,keep:2592000000,sponsor:1,sponsorMs:1209600000,pay:604800000};
 const SC_ID=/^[a-z0-9]{6,16}$/,SC_DOC=/^[\w-]{1,128}_[a-z0-9]{6,16}$/,SC_KEYS=20;
 /* the server's refusals that are final: the cache's materials come back */
 const SC_BACK=new Set(['registration_required','sc_young','sc_day','sc_bad','sc_target','sc_old']);
@@ -72482,7 +72484,7 @@ function scTick(){
     else if(r==='sent'&&SC.waited.has(e.id)){SC.waited.delete(e.id);toast(`Your Supply Cache is on its way to ${nameOf(e.to)}.`);}
   }).catch(()=>{}).finally(()=>{SC.busy='';});
 }
-setInterval(()=>{try{scTick();}catch(e){}},10000);
+setInterval(()=>{try{scTick();}catch(e){}try{scUnpaidNote();}catch(e){}},10000);
 
 /* the caches sent to this nation and by it, as the server keeps them */
 function scNorm(id,d){
@@ -72503,6 +72505,23 @@ window.addEventListener('edictum:saved',()=>{try{scConnect();}catch(e){}});
 function scPaint(){try{NVX.ver++;}catch(e){}if(S.view==='diplomacy'&&!(typeof alTyping==='function'&&alTyping()))quietRender();}
 /* the caches waiting to be opened */
 function scWaiting(now){const n=S.nation;if(!n)return [];now=now||Date.now();const paid=scPaid(n);return [...SC.in.values()].filter(c=>!c.o&&c.x>now&&!paid.includes(c.id)).sort((a,b)=>b.t-a.t);}
+/* the caches opened whose contents never reached this nation: the answer to the opening was lost on the way back (a
+   connection that dropped; Zatra, 23 Nov 2026), so the game never paid them. They wait under "Not received yet" for
+   SC_RULES.pay after the opening, which the server pays as well (scOpen's pay): those opened since this nation's founding,
+   not the one being opened this moment. late: only those opened over SC_GRACE ago, for the notices and counts (on another
+   of the player's devices, the save that lists one as paid takes a few seconds to arrive) */
+const SC_GRACE=60000;
+function scUnpaid(now,late){const n=S.nation;if(!n)return [];now=now||Date.now();const paid=scPaid(n),f=Number(n.founded)||0;
+  return [...SC.in.values()].filter(c=>c.o&&c.x>now&&!paid.includes(c.id)&&now-c.o<SC_RULES.pay&&c.o>=f&&!(SC.crateBusy&&SC.crate===c.id)&&(!late||now-c.o>SC_GRACE)).sort((a,b)=>b.o-a.o);}
+/* a notice, once for each, that one did not arrive */
+function scUnpaidNote(){
+  const me=S.uid;if(!me||!S.nation||OBS||PV||tabPassive||S.mode!=='world'||!SC.inReady)return;const k='edictum.sc.unpaid.'+me;let seen=[];
+  try{seen=JSON.parse(localStorage.getItem(k)||'[]');}catch(e){}if(!Array.isArray(seen))seen=[];
+  const fresh=scUnpaid(Date.now(),true).filter(c=>!seen.includes(c.id));if(!fresh.length)return;
+  try{localStorage.setItem(k,JSON.stringify(seen.concat(fresh.map(c=>c.id)).slice(-100)));}catch(e){}
+  toast({m:fresh.length===1?`The materials in ${scFrom(fresh[0])}’s Supply Cache did not reach your stores when it was opened. Collect them on the Gifts tab.`:`${fresh.length} Supply Caches you opened did not reach your stores. Collect them on the Gifts tab.`,go:{v:'diplomacy',l:fresh.length===1?'Collect the cache':'Collect the caches'}});
+  scPaint();
+}
 /* a cache that arrived since this device last looked: a notice */
 function scArrived(){
   const me=S.uid;if(!me||!S.nation||OBS)return;const k='edictum.sc.seen.'+me;let seen=[];
@@ -72586,9 +72605,9 @@ function scCrateShow(id){
   SC.crate=id;SC.crateBack=document.activeElement;
   const room=scRoomNote(c),o=document.createElement('div');o.id='sc-crate';o.className='m50-bg sc-bg';
   o.innerHTML=`<div class="m50 sc-crate" role="dialog" aria-modal="true" aria-labelledby="scc-h"><p class="eyebrow">Supply Cache</p>
-    <h2 class="h2" id="scc-h">From ${esc(scFrom(c))}</h2><p>${fmt0(c.q)} materials, sent ${esc(rel(c.t))}.</p>
-    <button type="button" class="sc-box" id="scc-box" aria-label="Open the cache"><span class="sc-body"><span class="sc-stencil">Supply</span></span><span class="sc-lid"></span></button>
-    <p class="hint m50-tap">Click the crate to open it</p>${room?`<p class="hint sc-room m50-tap">${esc(room)}</p>`:''}
+    <h2 class="h2" id="scc-h">From ${esc(scFrom(c))}</h2><p>${fmt0(c.q)} materials, sent ${esc(rel(c.t))}.${c.o?` You opened it ${esc(rel(c.o))}, but they did not reach your stores.`:''}</p>
+    <button type="button" class="sc-box" id="scc-box" aria-label="${c.o?'Collect the cache':'Open the cache'}"><span class="sc-body"><span class="sc-stencil">Supply</span></span><span class="sc-lid"></span></button>
+    <p class="hint m50-tap">${c.o?'Click the crate to collect them':'Click the crate to open it'}</p>${room?`<p class="hint sc-room m50-tap">${esc(room)}</p>`:''}
     <p class="hint sc-cerr" id="scc-err" role="alert"></p>
     <div class="m50-got"><div class="sc-items" id="scc-items"></div><div id="scc-note"></div>
       <div class="row sc-row"><button type="button" class="btn" id="scc-ok">Done</button>${findNation(c.f)?`<button type="button" class="btn ghost" id="scc-thank" data-act="dm-open" data-id="${esc(c.f)}">Write back</button>`:''}</div></div>
@@ -72599,22 +72618,29 @@ async function scCrateOpen(){
   const id=SC.crate,c=SC.in.get(id),o=document.getElementById('sc-crate');if(!c||!o||SC.crateBusy||o.classList.contains('open'))return;
   const err=document.getElementById('scc-err');if(err)err.textContent='';
   if(OBS||S.mode!=='world'){if(err)err.textContent='Supply Caches need the online game.';return;}
+  /* a tab that plays nothing commits nothing, so it would mark the cache opened and pay nothing */
+  if(PV||tabPassive){if(err)err.textContent='Nothing can be opened from this tab.';return;}
   SC.crateBusy=true;o.classList.add('busy');let res=null;
   try{res=await alReq({op:'scOpen',id});}catch(e){const el=document.getElementById('scc-err');if(el)el.textContent=alErrText(e);}
   finally{SC.crateBusy=false;o.classList.remove('busy');}
   if(!res||!res.ok)return;
-  const r=scContents(res.r)||c.r;let got=null;
-  if(res.first&&!scPaid(S.nation).includes(id)){
+  /* paid at the first opening, and at a later one the server says never reached the saved record (pay: the answer to an
+     earlier opening was lost on the way back); this nation's own list of those paid (sco) keeps it to once */
+  const r=scContents(res.r)||c.r,pay=res.first||res.pay===true;let got=null;
+  if(pay&&!scPaid(S.nation).includes(id)){
     SC.got=null;const n=clone(S.nation);n._scp={id,r,f:res.f||c.f};commit(n);got=SC.got;SC.got=null;scRecount();try{saveSoon();}catch(e){}
-    try{window.edictumStat&&window.edictumStat('supply_cache_open',{q:scTotal(r)});}catch(e){}
+    try{window.edictumStat&&window.edictumStat(res.first?'supply_cache_open':'supply_cache_collect',{q:scTotal(r)});}catch(e){}
   }
+  const had=scPaid(S.nation).includes(id);
   const live=SC.in.get(id);if(live)live.o=res.o||Date.now();
   const box=document.getElementById('sc-crate');if(!box)return;
   const lost=got?Object.entries(r).filter(([k,v])=>num0(got[k])+1e-6<v):[];
-  document.getElementById('scc-items').innerHTML=Object.entries(r).map(([k,v])=>`<div>${resIco(k)}<b>+${fmtAmt(got?num0(got[k]):v)}</b><small>${esc(resName(k))}</small></div>`).join('');
+  /* a "+" only for what went into the stores: an opening that paid nothing shows what the cache held, set apart */
+  document.getElementById('scc-items').innerHTML=Object.entries(r).map(([k,v])=>`<div${got?'':' class="sc-was"'}>${resIco(k)}<b>${got?'+'+fmtAmt(num0(got[k])):fmtAmt(v)}</b><small>${esc(resName(k))}</small></div>`).join('');
   document.getElementById('scc-note').innerHTML=(res.m?`<blockquote class="sc-note"><p>${esc(res.m)}</p><footer>${esc(scFrom(c))}</footer></blockquote>`:'')
     +(lost.length?`<p class="hint">Your stores were full: ${esc(list(lost.map(([k,v])=>fmt0(Math.round(v-num0(got[k])))+' '+resName(k))))} did not fit.</p>`:'')
-    +(!got?`<p class="hint">This cache was opened before${res.o?', on '+esc(fmtDate(res.o)):''}.</p>`:'');
+    +(got?'':pay&&!had?'<p class="hint">Its materials could not be added in this tab. They wait on the Gifts tab, under Not received yet.</p>'
+      :`<p class="hint">This cache was opened before${res.o?', on '+esc(fmtDate(res.o)):''}${had?', and its materials went into your stores then':''}.</p>`);
   box.classList.add('open');const l=document.getElementById('scc-later');if(l)l.remove();
   for(let i=0;i<18;i++){const cf=document.createElement('i');cf.className='m50-cf';cf.style.cssText=`--x:${Math.round(Math.random()*280-140)}px;--y:${Math.round(-70-Math.random()*150)}px;--r:${Math.round(Math.random()*720)}deg;background:${['#A8763E','#E2B13C','#7D8A99','#5A6BD6','#C0567A'][i%5]}`;box.querySelector('.m50').appendChild(cf);}
   setTimeout(()=>{const b=document.getElementById('scc-ok');if(b)b.focus();},650);
@@ -72640,29 +72666,33 @@ document.addEventListener('keydown',e=>{if(e.key!=='Escape')return;
 
 /* the Diplomacy page's Gifts tab: caches to open, opened and sent (the ones to open come first) */
 function scSection(now){
-  const n=S.nation;if(!n)return '';const wait=scWaiting(now),left=scLeft(n,now),me=myId(),paid=scPaid(n);
-  const opened=[...SC.in.values()].filter(c=>c.o||paid.includes(c.id)).sort((a,b)=>(b.o||b.t)-(a.o||a.t)).slice(0,8);
+  const n=S.nation;if(!n)return '';const wait=scWaiting(now),unpaid=scUnpaid(now),owed=new Set(unpaid.map(c=>c.id)),left=scLeft(n,now),me=myId(),paid=scPaid(n);
+  const opened=[...SC.in.values()].filter(c=>(c.o||paid.includes(c.id))&&!owed.has(c.id)).sort((a,b)=>(b.o||b.t)-(a.o||a.t)).slice(0,8);
   const sent=[...SC.out.values()].sort((a,b)=>b.t-a.t).slice(0,10),pend=scSent(n).filter(e=>!e.k&&!SC.out.has(me+'_'+e.id));
   const who=(id,nm)=>{const x=findNation(id);return x?nationLink(x.id,x.n.name,x.me):esc(nm);};
   const flag=id=>{const x=findNation(id);return `<span class="sc-fl">${x?flagSVG(x.n.flag,''):''}</span>`;};
   const row=(id,nm,r,extra)=>`<li class="sc-li">${flag(id)}<span class="sc-b"><b>${who(id,nm)}</b><span class="sc-its">${scItems(r)}</span>${extra}</span></li>`;
-  return `<section class="section sc-sec" id="sc-sec" aria-labelledby="sc-h2"><h2 class="h2" id="sc-h2">Supply Caches${wait.length?` <span class="chip">${wait.length} to open</span>`:''}</h2>
+  return `<section class="section sc-sec" id="sc-sec" aria-labelledby="sc-h2"><h2 class="h2" id="sc-h2">Supply Caches${wait.length?` <span class="chip">${wait.length} to open</span>`:''}${unpaid.length?` <span class="chip">${unpaid.length} to collect</span>`:''}</h2>
     ${!scLinked()?`<p class="hint">Registered Nations send Supply Caches from any player’s nation page: up to ${SC_RULES.max} materials in any mix, with a message, ${SC_RULES.day} a day. Anyone can receive and open them. <button type="button" class="linkish small" data-act="acct-open">Link a sign-in</button></p>`:`<p class="hint">Send a Supply Cache from any player’s nation page: up to ${SC_RULES.max} materials in any mix, with a message, ${SC_RULES.day} a day. ${now<scReadyAt(n)?`Your nation can send them a day after its founding, from ${esc(fmtTime(scReadyAt(n)))}${scDay(scReadyAt(n))!==scDay(now)?' tomorrow':''}.`:left?`You can send ${left} more today.`:`You have sent today’s ${SC_RULES.day}; more from ${esc(fmtTime(scNextDay(now)))}.`}</p>`}
     ${wait.length?`<h3 class="sub-h">Waiting to be opened</h3><ul class="sc-l">${wait.map(c=>`<li class="sc-li">${flag(c.f)}<span class="sc-b"><b>${who(c.f,c.fn)}</b><span>${fmt0(c.q)} materials${c.m?' and a message':''}</span><span class="hint">Sent ${esc(rel(c.t))} · waits until ${esc(fmtDate(c.x))}</span></span><button type="button" class="btn sm" data-act="sc-crate" data-id="${esc(c.id)}">Open</button></li>`).join('')}</ul>`:''}
+    ${unpaid.length?`<h3 class="sub-h">Not received yet</h3><p class="hint">Opened, but the materials did not reach your stores: the connection dropped as the cache opened. Collect them within ${SC_RULES.pay/DAY} days of the opening.</p><ul class="sc-l">${unpaid.map(c=>`<li class="sc-li">${flag(c.f)}<span class="sc-b"><b>${who(c.f,c.fn)}</b><span class="sc-its">${scItems(c.r)}</span><span class="hint">Opened ${esc(rel(c.o))} · collect by ${esc(fmtDate(c.o+SC_RULES.pay))}</span></span><button type="button" class="btn sm" data-act="sc-crate" data-id="${esc(c.id)}">Collect</button></li>`).join('')}</ul>`:''}
     ${opened.length?`<h3 class="sub-h">Opened</h3><ul class="sc-l">${opened.map(c=>row(c.f,c.fn,c.r,`${c.m?`<q class="sc-msg">${esc(c.m)}</q>`:''}<span class="hint">Sent ${esc(rel(c.t))}</span>`)).join('')}</ul>`:''}
     ${pend.length||sent.length?`<h3 class="sub-h">Sent</h3><ul class="sc-l">${pend.map(e=>row(e.to,nameOf(e.to),e.r,'<span class="hint">On its way: it is sent as soon as your nation is saved.</span>')).join('')}${sent.map(c=>row(c.to,c.tn,c.r,`<span class="hint">Sent ${esc(rel(c.t))} · ${c.o?'opened '+esc(rel(c.o)):'not opened yet'}</span>`)).join('')}</ul>`:''}
-    ${!wait.length&&!opened.length&&!pend.length&&!sent.length?'<p class="hint">Caches sent to you, and those you send, appear here.</p>':''}</section>`;
+    ${!wait.length&&!unpaid.length&&!opened.length&&!pend.length&&!sent.length?'<p class="hint">Caches sent to you, and those you send, appear here.</p>':''}</section>`;
 }
-dpGifts=(f=>function(now){const h=f.apply(this,arguments);now=now||Date.now();let s='';try{s=scSection(now);}catch(e){}return scWaiting(now).length?s+h:h+s;})(dpGifts);
+dpGifts=(f=>function(now){const h=f.apply(this,arguments);now=now||Date.now();let s='';try{s=scSection(now);}catch(e){}return scWaiting(now).length||scUnpaid(now).length?s+h:h+s;})(dpGifts);
 /* on the menu, and in the bell (both open the Gifts tab) */
-nvxCompute=(f=>function(n,now){const out=f.apply(this,arguments);try{const k=scWaiting(now).length;
-  if(k>0){const x=out.diplomacy||(out.diplomacy={k:0,w:[],at:[],e:0,d:0}),w=k===1?'a Supply Cache to open':k+' Supply Caches to open';x.k+=k;x.w.push(w);x.at.push({sel:'.dp-tabs [data-v="gifts"]',k,w});}}catch(e){}return out;})(nvxCompute);
+nvxCompute=(f=>function(n,now){const out=f.apply(this,arguments);try{
+  const add=(k,w)=>{if(k<1)return;const x=out.diplomacy||(out.diplomacy={k:0,w:[],at:[],e:0,d:0});x.k+=k;x.w.push(w);x.at.push({sel:'.dp-tabs [data-v="gifts"]',k,w});};
+  const k=scWaiting(now).length,u=scUnpaid(now,true).length;
+  add(k,k===1?'a Supply Cache to open':k+' Supply Caches to open');add(u,u===1?'a Supply Cache to collect':u+' Supply Caches to collect');}catch(e){}return out;})(nvxCompute);
 NOTIF_SOURCES.push((n,now)=>{if(!S.nation||n!==S.nation)return [];const out=[];
   for(const c of scWaiting(now))out.push({t:c.t,k:'supply',kl:'Supply Caches',txt:`${scFrom(c)} sent you a Supply Cache of ${fmt0(c.q)} materials${c.m?' with a message':''}. Open it on the Gifts tab.`,go:'diplomacy'});
+  for(const c of scUnpaid(now,true))out.push({t:c.o,k:'supply',kl:'Supply Caches',txt:`The ${fmt0(c.q)} materials in ${scFrom(c)}’s Supply Cache did not reach your stores when it was opened. Collect them on the Gifts tab.`,go:'diplomacy'});
   for(const c of SC.out.values())if(c.o&&now-c.o<7*DAY){const x=findNation(c.to);out.push({t:c.o,k:'supply',kl:'Supply Caches',txt:`${x?x.n.name:c.tn} opened your Supply Cache of ${fmt0(c.q)} materials.`,go:'diplomacy'});}
   return out.slice(0,10);});
 document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-act="nt-go"][data-v="diplomacy"],.toast-go[data-v="diplomacy"]');if(!el)return;
-  const k=el.querySelector('.nt-k');if(k&&/^Supply Caches/.test(k.textContent)||el.classList.contains('toast-go')&&/^Open the cache/.test(el.textContent))AL.tab='gifts';},true);
+  const k=el.querySelector('.nt-k');if(k&&/^Supply Caches/.test(k.textContent)||el.classList.contains('toast-go')&&/^(Open|Collect) the cache/.test(el.textContent))AL.tab='gifts';},true);
 
 /* the achievements, under Diplomacy */
 achDef('dip','dip-sc1','b','Special Delivery','Send your first Supply Cache to another player.',1,x=>aT(x,'scs'));
@@ -72683,10 +72713,10 @@ achDef('dip','dip-scin50','g','Never Wanting','Open fifty Supply Caches.',50,x=>
 achDef('dip','dip-scfrom','s','Friends in Every Port','Open Supply Caches from five different nations.',5,x=>aKeys(x,'scf:'));
 achDef('dip','dip-scmut','s','Mutual Aid','Send a Supply Cache to a nation that sent you one.',1,x=>aT(x,'scmut'));
 HELP_EXT.push({k:'supply',t:'Supply Caches',body:()=>`<p>Registered Nations (with a linked Google, Discord or email sign-in) can send Supply Caches; any nation, guests too, can receive them. On another player’s nation page, <b>Send Supply Cache</b> packs up to ${SC_RULES.max} materials from your stockpile in any mix (all ${SC_RULES.max} of one resource, or some of each), with a message of up to ${SC_RULES.msg} characters if you like. You can send ${SC_RULES.day} caches a day (the day ends at midnight UTC) to the players of your region, from a day after your nation was founded.</p>
-  <p>The materials leave your stockpile at once. The cache waits ${SC_RULES.keep/DAY} days for the other nation to open it on the Diplomacy page’s Gifts tab, where they read your message. What does not fit in their stores is lost, so a nation with full stores can open it later. You both see whether it was opened.</p>
+  <p>The materials leave your stockpile at once. The cache waits ${SC_RULES.keep/DAY} days for the other nation to open it on the Diplomacy page’s Gifts tab, where they read your message. What does not fit in their stores is lost, so a nation with full stores can open it later. You both see whether it was opened. Should the connection drop as a cache opens, so that its materials do not arrive, it waits on the Gifts tab under <b>Not received yet</b>: collect it there within ${SC_RULES.pay/DAY} days.</p>
   <p>Sending and opening caches earns achievements under Diplomacy.</p>`});
 /* the browser tests' window (EDICTUM_PROBE, SC) */
-function scProbe(){return {linked:()=>scLinked(),SC_LINK,SC,SC_RULES,scContents,scSent,scPaid,scLeft,scToday,scWhyNot,scWaiting,scDlgShow,scSendNow,scFile,scCrateShow,scCrateOpen,scSection,scDay,scTick};}
+function scProbe(){return {linked:()=>scLinked(),SC_LINK,SC,SC_RULES,scContents,scSent,scPaid,scLeft,scToday,scWhyNot,scWaiting,scUnpaid,scUnpaidNote,scDlgShow,scSendNow,scFile,scCrateShow,scCrateOpen,scSection,scDay,scTick};}
 
 /* ───────── fifty edicts about the museum, and five about the edicts themselves ─────────
    Numbered after the Great Statue's six, so no older number moves. Museum life (admission, sponsors, guards,
@@ -87211,7 +87241,7 @@ function alJoinHTML(ty,now){
 function dpView(now){
   now=now||Date.now();const t=DP_TABS.some(x=>x[0]===AL.tab)?AL.tab:'overview',me=myId();
   const badge={alliance:(()=>{let k=0;const P=politics();for(const B of P.al.values())if(B.srv&&B.invited.includes(me)&&!B.members.includes(me))k++;for(const A of alMineAll())if(A.srv)k+=alTyBadge(A);return k+alClashes().length;})(),
-    wars:enemies().length+alCalls(now).filter(c=>!c.ans).length,gifts:gfIncoming().filter(g=>!g.reply).length+scWaiting(now).length,treaties:tyIncoming().length+bdWaiting(me,now).length,ventures:jvIncoming(now).length,land:ldBadge(now)};
+    wars:enemies().length+alCalls(now).filter(c=>!c.ans).length,gifts:gfIncoming().filter(g=>!g.reply).length+scWaiting(now).length+scUnpaid(now,true).length,treaties:tyIncoming().length+bdWaiting(me,now).length,ventures:jvIncoming(now).length,land:ldBadge(now)};
   const tabs=`<div class="gv-tabs dp-tabs" role="tablist" aria-label="Diplomacy">${DP_TABS.map(([k,l])=>`<button type="button" role="tab" id="dp-tab-${k}" class="gv-tab dp-tab${k===t?' on':''}" data-act="dp-tab" data-v="${k}" aria-selected="${k===t}" aria-controls="dp-p-${k}" tabindex="${k===t?0:-1}">${l}${badge[k]?` <span class="gv-tab-n">${badge[k]}</span>`:''}</button>`).join('')}</div>`;
   const pane=(k,h)=>`<section class="dp-pane" id="dp-p-${k}" role="tabpanel" aria-labelledby="dp-tab-${k}" data-dp="${k}">${h}</section>`;
   const safe=f=>{try{return f();}catch(e){return `<div class="empty"><p class="empty-h">This part could not be drawn</p><p>${esc(e.message)}</p></div>`;}};
