@@ -2,7 +2,8 @@
 // "Draw the border on the map", the painter, a fair split, a buffer, a sea hex) and sends it; the other draws it again
 // and sends it back (a counter-proposal); the first accepts, so it is in force: on both Treaties tabs, the map's key, the
 // Assembly's register and as a card in the region chat. A hex swap is offered and accepted, and each side cedes its own
-// hex. Last, a claim on the other's side asks first and, claimed anyway, breaks the agreement, costing goodwill.
+// hex. Then a claim on the other's side asks first and, claimed anyway, breaks the agreement, costing goodwill. Last, a
+// second proposal is found from the Diplomacy page's waiting list and declined, and its sender is told.
 import { OUT, check, finish, until, player, open, found, nav, text, register, establish, clearEmulators, restListAdmin, errors } from './lib.mjs';
 await clearEmulators();
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -114,5 +115,49 @@ if (cross != null && onFront && await A.evaluate(() => G.BDX().credits()) > 0) {
   check('claimed anyway, the agreement is broken by it', await until(async () => await stOf() === 'broken' && field(await one(), 'by')?.stringValue === ua, 15000), await A.evaluate(() => G.S.mapMsg || ''));
   check('and goodwill with the other side is lost', await until(async () => await A.evaluate(ub => (G.S.nation.gw || {})[ub] || 0, ub) <= gw0 - 10, 8000));
 } else check('a frontier hex on their side, and a credit to claim it', false, JSON.stringify({ cross, onFront, credits: await A.evaluate(() => G.BDX().credits()) }));
+// a second proposal (23 Nov 2026: a player asked whether border proposals had been removed, as neither side could find
+// one still waiting). The server keeps the map it was drawn on and refuses a page on an older one; the other side finds
+// it in the Diplomacy page's waiting list, counted on the Treaties tab, and "See it" lands on its card; declined, it is
+// kept as void and its sender is told.
+await openTreaties(A);
+await A.click(`input[name="bd-pick"][value="${ub}"]`);
+await until(async () => !!await A.$('[data-act="bd-draw"]:not([disabled])'), 5000);
+await A.click('[data-act="bd-draw"]');
+await until(async () => /Draw the border with Easterlund/.test(await text(A, '.bd-ed')), 10000);
+const two = await A.evaluate(([ua, ub]) => { const X = G.BDX(), a = X.free(ua, 3), b = X.free(ub, 8).filter(c => !a.includes(c)); return { a: a.slice(0, 2), b: b.slice(0, 2) }; }, [ua, ub]);
+const shape = { p: [ua, ub], s: { [ua]: two.a.slice(0, 1), [ub]: two.b.slice(0, 1) }, buf: [], dur: 30 };
+const errOf = d => A.evaluate(async d => { try { await G.BDX().ask('bdOffer', d); return 'accepted'; } catch (e) { return String((e && e.message) || e); } }, d);
+check('a page on an older map than the nations is refused', /older map/.test(await errOf({ ...shape, mv: 1 })));
+check('a page that sends no map is told to reload', /Reload the page/.test(await errOf(shape)));
+await A.evaluate(({ two, ua, ub }) => { const X = G.BDX(); for (const c of two.a) X.paint(c, ua); for (const c of two.b) X.paint(c, ub); }, { two, ua, ub });
+await A.click('[data-act="bd-send"]');
+const offered = async () => (await borders()).find(d => field(d, 'st')?.stringValue === 'offered');
+check('sent, with the map it was drawn on', await until(async () => !!await offered(), 10000) && Number(field(await offered(), 'cv')?.integerValue) === await A.evaluate(() => G.S.nation.loc.m));
+const bid = ((await offered())?.name || '').split('/').pop();
+/* the bell's notices about it, as the page shows them */
+const bellNotes = async (p, id) => {
+  if (!await p.$('.notif-pop')) await p.click('.bell');
+  await until(async () => !!await p.$('.notif-pop'), 5000);
+  const out = await p.evaluate(id => [...document.querySelectorAll('.notif-pop .nt')].filter(b => b.dataset.dl === 'bd:' + id).map(b => b.textContent.replace(/\s+/g, ' ').trim()), id);
+  await p.click('.bell'); await until(async () => !await p.$('.notif-pop'), 5000);
+  return out;
+};
+await nav(B, 'diplomacy');
+check('the other side finds it in what waits on the Diplomacy page', await until(async () => /Westerlund proposes a border agreement/.test(await text(B, '.dp-wait')), 10000), await text(B, '.dp-wait'));
+check('and counted on the Treaties tab', await until(async () => await text(B, '#dp-tab-treaties .gv-tab-n') === '1', 5000), await text(B, '#dp-tab-treaties'));
+check('the bell links to it', await until(async () => (await bellNotes(B, bid)).some(x => /Westerlund proposes a border agreement/.test(x)), 8000));
+await B.click(`.dp-wait [data-dl="bd:${bid}"]`);
+check('"See it" opens the Treaties tab on its card', await until(async () => await B.evaluate(id => {
+  const el = document.getElementById('bd-c-' + id), tab = document.getElementById('dp-tab-treaties');
+  if (!el || !tab || tab.getAttribute('aria-selected') !== 'true') return false; const r = el.getBoundingClientRect(); return r.bottom > 0 && r.top < innerHeight;
+}, bid), 10000));
+await B.screenshot({ path: OUT + '/borders-waiting.png' });
+await B.evaluate(id => document.querySelector(`#bd-c-${id} [data-act="bd-no"]`).click(), bid);
+const doc2 = async () => (await borders()).find(d => d.name.endsWith('/' + bid));
+check('declined: kept, as void, saying who declined it', await until(async () => { const d = await doc2(); return field(d, 'st')?.stringValue === 'void' && field(d, 'why')?.stringValue === 'declined' && field(d, 'by')?.stringValue === ub; }, 10000));
+check('and no longer waiting for an answer', await until(async () => !/proposes a border agreement/.test(await text(B, '.dp-wait')) && !await text(B, '#dp-tab-treaties .gv-tab-n'), 8000));
+check('its sender hears of it in the bell', await until(async () => (await bellNotes(A, bid)).some(x => /Easterlund declined your border proposal/.test(x)), 10000));
+await openTreaties(A);
+check('and on the Treaties tab', await until(async () => /Easterlund declined your border proposal/.test(await text(A, '.bd-told')), 8000), await text(A, '.bd-sec'));
 check('no page errors', !errors.length, errors.slice(0, 5).join(' | '));
 await finish();
