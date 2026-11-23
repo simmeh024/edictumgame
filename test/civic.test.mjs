@@ -1622,6 +1622,56 @@ test('French chat: a second chat every region shares, its lines marked as the wo
   await assert.rejects(civic(m,{op:'rcReact',reg:'es',id:t.id,k:'hear'}),e=>e.status==='INVALID_ARGUMENT');
 });
 
+test('Ambassadors’ chat: only ambassadors and staff write and react there; marked and paced as a shared chat; a mention names only ambassadors and staff and pushes to #chat/amb; stood down, refused at once; removal reaches it',async()=>{
+  const amb=await player(true),amb2=await player(true,false,'frostmarch'),mod=await player(true),r=await player(true);
+  const sleep=ms=>new Promise(res=>setTimeout(res,ms));
+  await auth.setCustomUserClaims(amb.uid,{amb:true});await auth.setCustomUserClaims(amb2.uid,{amb:true});await auth.setCustomUserClaims(mod.uid,{mod:true});
+  await db.doc('ambassadors/'+amb.uid).set({t:1});await db.doc('ambassadors/'+amb2.uid).set({t:1});await db.doc('staff/'+mod.uid).set({t:1,m:true});
+  // a player neither writes nor reacts there
+  await assert.rejects(civic(r,{op:'rcPost',reg:'amb',x:'Let me in'}),e=>e.status==='PERMISSION_DENIED'&&/ambassadors’ chat/.test(e.message));
+  const a=await civic(amb,{op:'rcPost',reg:'amb',x:'Hello, fellow ambassadors.',rk:2});
+  assert.equal(a.reg,'amb');
+  const L=(await db.doc('rchat/amb/chat/'+a.id).get()).data();
+  assert.equal(L.a,amb.uid);assert.equal(L.x,'Hello, fellow ambassadors.');assert.equal(L.rg,'meridian');assert.equal(L.rk,2);assert.ok(L.exp.toMillis()>Date.now()+29*DAY);
+  assert.equal((await db.doc('rchat/world/chat/'+a.id).get()).exists,false,'not in the world chat');
+  await assert.rejects(civic(r,{op:'rcReact',reg:'amb',id:a.id,k:'hear'}),e=>e.status==='PERMISSION_DENIED');
+  // paced on its own
+  const pace=(await db.doc('rcPace/'+amb.uid).get()).data();assert.equal(pace.b,L.t);assert.ok(pace.bh);assert.equal(pace.w,undefined);
+  await sleep(1600);
+  assert.equal((await civic(amb,{op:'rcPost',reg:'world',x:'Hello, fellow ambassadors.'})).reg,'world','the world chat takes the same words');
+  // from another region: an answer that names a moderator and a player; the moderator is told, by a push to #chat/amb too,
+  // the player (who cannot read it) is not, and their name stays plain words
+  await db.doc('pushSubs/'+mod.uid).set({s:[{e:'https://push.example/amb',k:{p256dh:'p',auth:'a'},at:Date.now()}]});
+  const c=await civic(amb2,{op:'rcPost',reg:'amb',re:a.id,mn:[mod.uid,r.uid],x:`@${mod.uid} could you look at @${r.uid}?`});
+  const C=(await db.doc('rchat/amb/chat/'+c.id).get()).data();
+  assert.equal(C.rg,'frostmarch');assert.equal(C.r.id,a.id);assert.deepEqual(C.mn,{[mod.uid]:mod.uid});
+  const told=async u=>(await db.collection('mentions/'+u+'/m').get()).docs.map(d=>d.data());
+  const tm=await told(mod.uid);assert.equal(tm.length,1);assert.equal(tm[0].reg,'amb');assert.equal(tm[0].rc,c.id);
+  assert.equal((await told(r.uid)).length,0,'a player cannot read the line, so is not told');
+  assert.equal((await told(amb.uid))[0].reg,'amb','the ambassador answered is told');
+  const out=(await db.collection('pushOutbox').where('to','==',mod.uid).get()).docs.map(d=>d.data());
+  assert.equal(out.length,1);assert.match(out[0].payload.title,/mentioned you in the ambassadors’ chat/);assert.equal(out[0].payload.url,'/#chat/amb');
+  // staff write and react there; the team too
+  await civic(mod,{op:'rcReact',reg:'amb',id:c.id,k:'thanks'});
+  assert.deepEqual((await db.doc('rchat/amb/chat/'+c.id).get()).get('rv'),{[mod.uid]:'thanks'});
+  const ml=await civic(mod,{op:'rcPost',reg:'amb',x:'On it.'});assert.equal((await db.doc('rchat/amb/chat/'+ml.id).get()).get('st'),'mod');
+  const admin=await player(true);await auth.setCustomUserClaims(admin.uid,{admin:true});
+  const t=await civic(admin,{op:'rcPost',team:true,reg:'amb',x:'Thank you all for helping.'});
+  assert.equal((await db.doc('rchat/amb/chat/'+t.id).get()).get('tm'),true);
+  // stood down (the claim gone), the next line is refused at once
+  await auth.setCustomUserClaims(amb2.uid,{});
+  await sleep(4100);
+  await assert.rejects(civic(amb2,{op:'rcPost',reg:'amb',x:'Still here?'}),e=>e.status==='PERMISSION_DENIED');
+  await assert.rejects(civic(amb2,{op:'rcReact',reg:'amb',id:a.id,k:'hear'}),e=>e.status==='PERMISSION_DENIED');
+  // removing: staff anyone's, audited as the ambassadors' chat's; the Reports queue removes a line (rc:amb:<line>)
+  await civic(mod,{op:'rcDelete',reg:'amb',id:c.id});assert.equal((await db.doc('rchat/amb/chat/'+c.id).get()).exists,false);
+  const au=(await db.collection('adminAudit').where('line','==',c.id).get()).docs[0];
+  assert.equal(au.get('reg'),'amb');assert.equal(au.get('reason'),'Removed from the ambassadors’ chat');
+  const console2=await sign('signInWithCustomToken',{token:await auth.createCustomToken(admin.uid,{admin:true})});
+  await call(console2,'adminConsole',{op:'moderate',action:'delete_post',target:'rc:amb:'+a.id,reg:'meridian',reason:'Spam or advertising'});
+  assert.equal((await db.doc('rchat/amb/chat/'+a.id).get()).exists,false);
+});
+
 test('A commendation or a condemnation names one nation of the region, checked at the backend',async()=>{
   const reg='jadeterraces', a=await player(true,true,reg), b=await player(true,true,reg), c=await player(true,true,reg);
   const x=JSON.parse(fs.readFileSync(new URL('../functions/civic-data.json',import.meta.url),'utf8')).regions.find(r=>r.id===reg).npcs[0];
