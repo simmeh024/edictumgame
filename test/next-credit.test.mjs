@@ -34,7 +34,7 @@ function game(used){
     ${block('function rdCredits(n){','\n}')}
     ${line('function earnedAt(n,p){')}
     ${block('function nextCreditPop(n){','\n}')}
-    function achRankCredits(){return 0;}function achTierCredits(){return 0;}function xuCredits(){return 0;}
+    function achRankCredits(){return 0;}function achTierCredits(){return 0;}function xuCredits(){return 0;}function buCredits(){return 0;}
     function territory(){return {byId:{me:0}};}function myId(){return 'me';}function claimsUsed(){return USED;}function popNow(n){return n.pop;}
     let USED=0;this.G={nextCreditPop,earnedAt,setUsed:k=>{USED=k;}};`,ctx);
   return ctx.G;
