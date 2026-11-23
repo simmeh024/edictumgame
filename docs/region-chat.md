@@ -11,10 +11,17 @@ A live chat for each region: the nations of a region talk to each other in short
   the page (unsaved changes, the shop's basket, the map's panel on a phone), moves beside the open drawer on a wide
   screen, and on a phone hides under the drawer and while the player types in the page. Notices step aside for it.
 - **The drawer.** It opens on the right of any page (the whole screen on a phone) and shows the newest 60 lines of
-  the region: each with its nation's flag, name (a link to its page) and time, the Edictum staff mark for staff, a
-  divider for each day and a "New" divider before the first line not yet read when the drawer opened. Lines by one
-  nation within five minutes run together under one heading. The header says how many nations of the region are
-  online (the same count as the green dots on the Region page).
+  the region: each with its nation's flag, name, marks and time, a divider for each day and a "New" divider before the
+  first line not yet read when the drawer opened. Lines by one nation within five minutes run together under one
+  heading. The header says how many nations of the region are online (the same count as the green dots on the Region
+  page).
+- **A line's heading** (23 November 2026). The name keeps its room: the region (in a shared chat) and the marks beside
+  it (rank, alliance, Founding Supporter, Chancery seal, flag champion) give way first, and a mark that does not fit
+  drops out whole rather than squeezing the name. Staff, moderators and ambassadors show their role as a small round
+  badge, first among the marks, with the name in the role's colour (the role's words stay there for screen readers).
+  Another nation's name opens its card in the line: its flag, name and full style, its region, and each mark beside
+  its name in words, with **Open its page** for a nation of this region; Escape, Close or the name again puts it away.
+  The player's own name is plain.
 - **Writing.** Every nation writes lines of up to 300 characters: Enter sends. A line shows at once as
   "Sending…" and is replaced by the server's copy. A guest (a nation with no linked sign-in) writes 10 lines in any
   hour: under the box the drawer says how many are left ("Guests can send 10 lines an hour: 7 are left."), and once
@@ -79,10 +86,11 @@ A live chat for each region: the nations of a region talk to each other in short
   chat does works there too: writing (300 characters, Enter sends), runs, the day and New dividers, answers, reactions,
   reporting, blocking, deleting one's own line, staff removal and silences, an admin's pictures, and the writing box keeps
   its own draft and answer. Guests write there within the same 10 lines an hour as in the region chat.
-- **Who wrote it**: each line shows its nation's flag, name and badges and, beside them, its region. A nation of the
-  player's own region is drawn from the region's data, as in the region chat, with its name a link to its page; one of
-  another region from what its line carries (the server stamps its region, flag, rank, alliance and Founding Supporter
-  mark on the line), with no link.
+- **Who wrote it**: each line shows its nation's flag, name and badges and, for a nation of another region, a quiet
+  "of Greywater" after the name (none for the player's own region). A nation of the player's own region is drawn from
+  the region's data, as in the region chat, and its card opens its page; one of another region from what its line
+  carries (the server stamps its region, flag, rank, alliance and Founding Supporter mark on the line), and its card
+  has no page to open.
 - **Counts**: the World tab counts its new lines. The Chat button counts only the world lines that mention the player's
   nation, name it or answer it, so a busy world chat does not keep the button lit; those also show a notice ("Frostia
   mentioned Chatterly in the world chat."), a bell entry that opens the World tab at the line, and a push notification
