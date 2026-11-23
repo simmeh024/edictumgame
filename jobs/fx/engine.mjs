@@ -65,10 +65,11 @@ export function industries(n) {
 export function npcBudget(s) {
   return { admin: 4 + s.corrupt / 12, defence: 2 + s.mil / 6, edu: 2 + s.edu / 8, env: 1 + s.env / 10, health: 2 + s.health / 8, commerce: 2 + s.econ / 12, aid: 1 + (100 - s.mil) / 30, law: 2 + s.safety / 12, transport: 2 + s.env / 20 + s.equal / 20, equality: 1 + s.equal / 10, spirit: 0.5 + s.relig / 10, welfare: 1 + s.equal / 10 + s.tax / 20 };
 }
-// sizeRate and the 0.29 cap: copies of the game's (game/edictum.html, RATE_TOP): a young nation's boom under 15 million,
-// a slowdown above 100 million
+// sizeRate, newRate and the 0.29 cap: copies of the game's (game/edictum.html, RATE_TOP): a young nation's boom under
+// 15 million, 5% more for the first 3 days after founding, a slowdown above 100 million
 function sizeRate(p) { p = Math.max(0.1, +p || 0); return (1 + Math.min(1, Math.max(0, (15 - p) / 10))) / (1 + 0.8 * Math.max(0, Math.log10(p / 100))); }
-function rateOf(n) { const s = n.s; return Math.min(0.29, 0.06 * (0.55 + s.health / 250 + s.safety / 400 + s.happy / 400 + s.wealth / 500) * (n.gm || 1) * (1 - Math.max(0, s.tax - 50) / 150) * sizeRate(n.pop)); }
+function newRate(n, now) { const f = +(n && n.founded) || 0; return f > 0 && (now || Date.now()) - f < 3 * 864e5 ? 1.05 : 1; }
+function rateOf(n, now) { const s = n.s; return Math.min(0.29, 0.06 * (0.55 + s.health / 250 + s.safety / 400 + s.happy / 400 + s.wealth / 500) * (n.gm || 1) * (1 - Math.max(0, s.tax - 50) / 150) * sizeRate(n.pop) * newRate(n, now)); }
 function logistic(P0, K, r, dt) { return P0 <= K ? K / (1 + (K - P0) / P0 * Math.exp(-r * dt)) : K + (P0 - K) * Math.exp(-0.02 * dt); }
 
 /* ── reading a record safely ───────────────────────────────────────────── */
@@ -227,7 +228,7 @@ export function indicators(id, rec, now, ctx) {
   let pop;
   if (npc) pop = npcPopAt(rec, now, ctx);
   else {
-    const P0 = Math.max(0.1, num(rec.pop, 5)), dt = Math.max(0, now - num(rec.popAt, now)) / DAY, K = num(rec.pk, 0) || Math.max(50, P0 * 1.5), r = num(rec.pr, 0) || rateOf({ s, gm: num(rec.gm, 1), pop: P0 });
+    const P0 = Math.max(0.1, num(rec.pop, 5)), dt = Math.max(0, now - num(rec.popAt, now)) / DAY, K = num(rec.pk, 0) || Math.max(50, P0 * 1.5), r = num(rec.pr, 0) || rateOf({ s, gm: num(rec.gm, 1), pop: P0, founded: num(rec.founded, 0) }, num(rec.popAt, now));
     /* pwl: the share a nation at war loses a day (the game's warLoss, war round two), for 30 days at most */
     const wl = clamp(num(rec.pwl, 0), 0, 0.2);
     pop = Math.max(0.1, logistic(P0, K, r, Math.min(dt, 3650)) * (wl > 0 ? Math.exp(-wl * Math.min(dt, 30)) : 1));
