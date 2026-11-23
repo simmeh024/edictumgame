@@ -134,10 +134,18 @@ await A.click('[data-act="bd-send"]');
 const offered = async () => (await borders()).find(d => field(d, 'st')?.stringValue === 'offered');
 check('sent, with the map it was drawn on', await until(async () => !!await offered(), 10000) && Number(field(await offered(), 'cv')?.integerValue) === await A.evaluate(() => G.S.nation.loc.m));
 const bid = ((await offered())?.name || '').split('/').pop();
+/* the bell's notices about it, as the page shows them */
+const bellNotes = async (p, id) => {
+  if (!await p.$('.notif-pop')) await p.click('.bell');
+  await until(async () => !!await p.$('.notif-pop'), 5000);
+  const out = await p.evaluate(id => [...document.querySelectorAll('.notif-pop .nt')].filter(b => b.dataset.dl === 'bd:' + id).map(b => b.textContent.replace(/\s+/g, ' ').trim()), id);
+  await p.click('.bell'); await until(async () => !await p.$('.notif-pop'), 5000);
+  return out;
+};
 await nav(B, 'diplomacy');
 check('the other side finds it in what waits on the Diplomacy page', await until(async () => /Westerlund proposes a border agreement/.test(await text(B, '.dp-wait')), 10000), await text(B, '.dp-wait'));
 check('and counted on the Treaties tab', await until(async () => await text(B, '#dp-tab-treaties .gv-tab-n') === '1', 5000), await text(B, '#dp-tab-treaties'));
-check('the bell links to it', await B.evaluate(id => G.notifItems(Date.now()).ev.some(x => x.dl === 'bd:' + id), bid));
+check('the bell links to it', await until(async () => (await bellNotes(B, bid)).some(x => /Westerlund proposes a border agreement/.test(x)), 8000));
 await B.click(`.dp-wait [data-dl="bd:${bid}"]`);
 check('"See it" opens the Treaties tab on its card', await until(async () => await B.evaluate(id => {
   const el = document.getElementById('bd-c-' + id), tab = document.getElementById('dp-tab-treaties');
@@ -148,7 +156,7 @@ await B.evaluate(id => document.querySelector(`#bd-c-${id} [data-act="bd-no"]`).
 const doc2 = async () => (await borders()).find(d => d.name.endsWith('/' + bid));
 check('declined: kept, as void, saying who declined it', await until(async () => { const d = await doc2(); return field(d, 'st')?.stringValue === 'void' && field(d, 'why')?.stringValue === 'declined' && field(d, 'by')?.stringValue === ub; }, 10000));
 check('and no longer waiting for an answer', await until(async () => !/proposes a border agreement/.test(await text(B, '.dp-wait')) && !await text(B, '#dp-tab-treaties .gv-tab-n'), 8000));
-check('its sender hears of it in the bell', await until(async () => await A.evaluate(id => G.notifItems(Date.now()).ev.some(x => x.dl === 'bd:' + id && /Easterlund declined your border proposal/.test(x.txt)), bid), 10000));
+check('its sender hears of it in the bell', await until(async () => (await bellNotes(A, bid)).some(x => /Easterlund declined your border proposal/.test(x)), 10000));
 await openTreaties(A);
 check('and on the Treaties tab', await until(async () => /Easterlund declined your border proposal/.test(await text(A, '.bd-told')), 8000), await text(A, '.bd-sec'));
 check('no page errors', !errors.length, errors.slice(0, 5).join(' | '));
