@@ -65020,6 +65020,18 @@ function ddDelta(n,old,k){
   if(k==='covc')return tl('cov:clean');
   return 0;
 }
+/* A catch-up for the desks of 23 and 24 Nov 2026: the expedition task began counting fleeting finds on 23 Nov at 15:57Z
+   (and only once a tab ran that build), so a party sent before then moved the fleeting-finds task on and not the
+   expedition task. On those desks the expedition task is brought up to the fleeting-finds task's count (the parties it
+   counted are expeditions-or-fleeting-finds too). dv: the parties this save adds. The legendary task is left alone: it
+   counts from when it appeared. This can go once those desks are over. */
+const DD_FL_CATCH='2026-11-24';
+function ddFleetFloor(D,dv){
+  if(!D||typeof D.d!=='string'||D.d>DD_FL_CATCH)return 0;let m=0;
+  D.q.forEach(([k,g],i)=>{if(k==='fleet')m=Math.max(m,D.p[i]?(D.c[i]||0):Math.min(g,(D.c[i]||0)+dv));});
+  const R=D.r;if(R&&R.k==='fleet')m=Math.max(m,R.p?(R.c||0):Math.min(R.g,(R.c||0)+dv));
+  return m;
+}
 const stkDays=n=>n&&n.stk&&Number.isInteger(n.stk.n)?n.stk.n:0;
 /* the allowance follows the stock down, and goes when nothing is over the limit */
 COMMIT_HOOKS.push((n,old,now)=>{if(!n||!n.xs)return [];const a=Math.min(xsOf(n),xsOver(n,stockNow(n,now),now));if(a>0)n.xs=a;else delete n.xs;return [];});
@@ -65038,15 +65050,16 @@ COMMIT_HOOKS.push((n,old,now)=>{
   const base=old&&old.name===n.name&&old.tly&&typeof old.tly==='object'?old:null;
   const gift=(r,v)=>{const st=stockNow(n,now);st[r]=stockLimit(n,r,num0(st[r])+v,st[r]);n.stock=roundStock(st);n.stockAt=now;};
   if(ddOn()){if(!n.dd||ddLater(day,n.dd.d))n.dd=ddFresh(n,day);
-  const D=n.dd;if(!D.r){const r0=ddRare(n,D.d,D.q);if(r0)D.r=r0;}D.q.forEach(([k,goal,ra,rb],i)=>{
-    if(D.p[i])return;const dv=k==='visit'||k==='vote'?(mark===k?1:0):base?Math.max(0,ddDelta(n,base,k)):0;
+  const D=n.dd;if(!D.r){const r0=ddRare(n,D.d,D.q);if(r0)D.r=r0;}const flF=ddFleetFloor(D,base?Math.max(0,ddDelta(n,base,'fleet')):0);D.q.forEach(([k,goal,ra,rb],i)=>{
+    if(D.p[i])return;let dv=k==='visit'||k==='vote'?(mark===k?1:0):base?Math.max(0,ddDelta(n,base,k)):0;
+    if(k==='exp'&&flF>(D.c[i]||0)+dv)dv=flF-(D.c[i]||0);
     if(dv)D.c[i]=Math.min(goal,(D.c[i]||0)+dv);
     if(D.c[i]>=goal){D.p[i]=1;ddKind(n,k);try{gbBump(n,'ddt',1,now);}catch(e){}gift(ra,ddGift(ra));gift(rb,ddGift(rb));out.push(`Desk task done: ${DD_TASKS[k].t(goal)}. +${ddGift(ra)} ${resName(ra)} and +${ddGift(rb)} ${resName(rb)}.`);}
   });
   if(D.p.every(Boolean)&&!D.w){D.w=1;n.ddc=(Number.isInteger(n.ddc)?n.ddc:0)+1;for(const r in DD_CLEAR)gift(r,DD_CLEAR[r]);out.push(`A clear desk: +${DD_CLEAR.iron} iron and +${DD_CLEAR.goods} goods.`);
     if(ddWeek(n,now)){n.ddw=Math.min(DD_WEEK_MAX,ddwOf(n)+1);out.push('Today’s desk is clear: +2 land credits in your first week, to spend on the map.');}
     else out.push('Today’s desk is clear: +1 land credit to spend on the map.');}
-  const R=D.r;if(R&&!R.p){const dv=base?Math.max(0,ddDelta(n,base,R.k)):0;if(dv)R.c=Math.min(R.g,(R.c||0)+dv);
+  const R=D.r;if(R&&!R.p){let dv=base?Math.max(0,ddDelta(n,base,R.k)):0;if(R.k==='exp'&&flF>(R.c||0)+dv)dv=flF-(R.c||0);if(dv)R.c=Math.min(R.g,(R.c||0)+dv);
     if(R.c>=R.g){R.p=1;n.ddr=ddrOf(n)+1;ddKind(n,R.k);for(const r in DD_RARE_GIFT)gift(r,DD_RARE_GIFT[r]);try{gbBump(n,'ddr',1,now);}catch(e){}
       out.push(`Rare task done: ${DD_TASKS[R.k].t(R.g)}. ${ddRareGift().join(', ')} and +${DD_RARE_CR} land credits.`);}}
   /* the legendary task: it appears when its moment comes (late, after the last one, if that one was still open), and
