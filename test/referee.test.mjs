@@ -296,7 +296,7 @@ test('a siege needs a war of conquest; the final assault waits a day, and a vict
   const g = await guest(), foe = await guest(), now = Date.now(), founded = now - 30 * 86400000;
   await nation(g.uid, {}, 1000);
   /* the other side declared a war of conquest on g: g may besiege its capital in turn (a guest fights back freely) */
-  await nation(foe.uid, { founded, name: 'Vesad', capital: 'Adler', wars: { [g.uid]: { t: now - 30 * 3600000, g: 'c' } } }, 1);
+  await nation(foe.uid, { founded, name: 'Vesad', capital: 'Adler', pretitle: 'Grand Duchy', leader: 'Duchess', motto: 'Salt and patience', pop: 12.345, cities: [{ c: 50 }, { c: 52 }], ach: { a: 1, b: 2, c: 3 }, flag: { p: 'chief', c: ['#E5722A', '#FFFFFF', '#152450'], e: 'none', ec: '#152450' }, wars: { [g.uid]: { t: now - 30 * 3600000, g: 'c' } } }, 1);
   await assert.rejects(siege(g, { d: NPC, c: 5 }), e => e.status === 'INVALID_ARGUMENT', 'never a computer nation');
   const s = await siege(g, { d: foe.uid, c: 50 });
   assert.equal(s.ok, true);assert.equal(s.doc.st, 'on');assert.equal(s.doc.c, 50);assert.equal(s.doc.df, founded);assert.equal(s.doc.cn, 'Adler');
@@ -312,6 +312,9 @@ test('a siege needs a war of conquest; the final assault waits a day, and a vict
   const f = (await read('sieges/' + s.id)).fields;
   assert.equal(f.st.stringValue, 'fell');assert.ok(Number(f.ft.integerValue) > 0);
   assert.ok(f.foes.arrayValue.values.some(v => v.stringValue === g.uid), 'the besieger is among the fallen nation\'s enemies');
+  /* what the nation was, for its monument on every map (game/edictum.html, monuments to fallen nations) */
+  assert.deepEqual({ ...r.doc.m, fl: r.doc.m.fl.p }, { pre: 'Grand Duchy', ld: 'Duchess', ru: '', mo: 'Salt and patience', dem: '', cur: '', ani: '', fl: 'chief', mc: '', pop: 12.35, ct: 2, ach: 3, dec: 0 });
+  assert.equal(f.m.mapValue.fields.mo.stringValue, 'Salt and patience', 'kept with the fall');
   assert.deepEqual(await siege(g, { d: foe.uid, c: 50 }), { ok: false, why: 'gone' }, 'a fallen nation cannot be besieged again');
 });
 test('no siege in a border war or a raid, against a nation risen again or in its grace, or after a surrender', async () => {
