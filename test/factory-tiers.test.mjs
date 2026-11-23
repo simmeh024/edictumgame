@@ -30,6 +30,7 @@ function load(){
   ctx.achParts=(c,id,t,n,d,p,o)=>{ctx.defs[id]={c,id,t,n,d,p,...(o||{})};};
   vm.createContext(ctx);
   vm.runInContext([
+    line('function bMaterialCost('),
     cut('/* ── building tiers (2026-11-16)','const NEED_TXT='),
     line('const resName='),line('const fmtAmt='),
     cut('/* the five upgrade blocks','const CX_WALL='),
@@ -49,8 +50,8 @@ const nation=(o={})=>({id:'me',n:{policies:o.pol||{},gov:[]}});
 const city=(o={})=>({id:o.id||'c1',nm:o.nm||'Ashford',active:true,hi:0,dist:[0,1,2],done:o.done||['factory'],prog:[],ug:o.ug||{},tr:o.tr||{},mk:1,mood:60});
 const world=cities=>{const T={list:[nation()]};G.territory=()=>T;G.cityState=()=>({all:cities});return T;};
 
-/* since 2026-11-17 30% of an upgrade's timber is asked in iron instead (ugIron): the prices below are the timber-only ones, moved */
-const ug=c=>{c={...c};const t=c.timber||0;if(t>=2){const x=Math.round(t*0.3);c.timber=t-x;c.iron=(c.iron||0)+x;}return c;};
+/* since 2026-11-17 30% of an upgrade's timber is asked in iron instead (ugIron): the prices below are the timber-only ones, moved, then food/timber/oil receive the 2026-11-23 surcharge */
+const ug=c=>{c={...c};const t=c.timber||0;if(t>=2){const x=Math.round(t*0.3);c.timber=t-x;c.iron=(c.iron||0)+x;}for(const r of ['food','timber','oil'])if(c[r])c[r]=Math.ceil(c[r]*1.2-1e-9);return c;};
 test('the Factory has tier II, Industrial Works, in three lines',()=>{
   const T=G.BTIER.factory[2];
   assert.equal(T.n,'Industrial Works');
@@ -64,7 +65,7 @@ test('the Factory has tier II, Industrial Works, in three lines',()=>{
   assert.equal(G.CX_LV[5]*6,12,'a gold Factory makes 12, where an Assembly Plant starts');
   assert.equal(G.bTierNext('factory',1),2);assert.equal(G.bTierNext('factory',0),2);
   assert.equal(G.bTierNext('factory',2),0,'no tier III yet');assert.equal(G.bTierNext('farm',1),0,'only the Factory so far');
-  deq(G.bTierList('factory',2),{timber:180,iron:80,oil:40,goods:30});
+  deq(G.bTierList('factory',2),{timber:216,iron:80,oil:48,goods:30});
 });
 
 test('what a building does at its tier: its line laid over it, kept',()=>{
@@ -83,7 +84,7 @@ test('the record keeps the tier, the line and a retool under way, and nothing it
   deq(G.cxBldExtras(bld('factory',0,{tr:1.5})),{});
   deq(G.cxBldExtras(bld('factory',0,{tr:2,ln:'Bad Line!'})),{tr:2},'a line that is not a key is dropped');
   const tu={l:2,ln:'clean',s:NOW,d:NOW+DAY,p:{timber:999,iron:80,goods:30}};
-  deq(G.cxBldExtras(bld('factory',5,{tu})),{ug:5,tu:{l:2,ln:'clean',s:NOW,d:NOW+DAY,p:{timber:180,iron:80,goods:30}}},'kept, the price capped at the list price');
+  deq(G.cxBldExtras(bld('factory',5,{tu})),{ug:5,tu:{l:2,ln:'clean',s:NOW,d:NOW+DAY,p:{timber:216,iron:80,goods:30}}},'kept, the price capped at the list price');
   deq(G.cxBldExtras(bld('factory',4,{tu})),{ug:4},'only from all five blocks');
   deq(G.cxBldExtras(bld('factory',5,{tr:2,tu})),{ug:5,tr:2},'only to the tier above');
   deq(G.cxBldExtras(bld('factory',5,{tu:{...tu,d:NOW+8*DAY}})),{ug:5},'never longer than a week');

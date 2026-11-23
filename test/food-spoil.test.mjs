@@ -27,7 +27,7 @@ function load({prod,dem,gran}){
     BUILDINGS:{mine:{cost:{timber:20,food:10}},well:{cost:{timber:10,iron:5,oil:0}}},MILESTONES:[{p:6,b:['mine']}],popNow:()=>0,Math,
     DC_GLYPH:{},nbCity(a,ct){a.seen=(a.seen||0)+1;}};
   vm.createContext(ctx);
-  vm.runInContext([line('const FOOD_SPOIL='),line('const GRANARY_LEFT='),line('function foodSpoilAt('),line('const spoilPct='),line('const num0='),
+  vm.runInContext([line('const CITY_BASE_INCOME='),line('const FOOD_SPOIL='),line('const GRANARY_LEFT='),line('function foodSpoilAt('),line('const spoilPct='),line('const num0='),
     line('function stockRates('),through('const GB={','const granaryLine=')].join('\n').replace(/^const /gm,'var '),ctx);
   return ctx;
 }
