@@ -270,6 +270,30 @@ test('the expedition task counts parties sent to fleeting finds as well',()=>{
   assert.ok(notes.some(t=>/^Rare task done: Send 2 expeditions or fleeting finds\. .*\+15 goods and \+3 land credits/.test(t)),notes.join(' | '));
 });
 
+test('on the desks of 23 and 24 Nov 2026 the expedition task catches up with the fleeting-finds task',()=>{
+  const D=desk(more()),T23=new Date(2026,10,23,12).getTime(),T25=new Date(2026,10,25,12).getTime();
+  const deskOf=(t,q0,c0,p0,r)=>({d:D.ddDay(t),q:[q0,['dm',1,'oil','goods'],['visit',1,'timber','goods']],c:[c0,0,0],p:[p0,0,0],r});
+  /* the reported desk: a party sent before the switch moved the rare task on, not the expedition task */
+  let n=nation({fl:[{k:'a',s:1}]});n.dd=deskOf(T23,['exp',2,'goods','oil'],0,0,{k:'fleet',g:3,c:1,p:0});
+  let [a,o]=next(n,x=>{x.fl.push({k:'b',s:2});});let notes=D.save(a,o,T23);
+  assert.equal(a.dd.r.c,2,'the rare task counts the new party');assert.equal(a.dd.c[0],2,'the expedition task counts it and catches up');
+  assert.equal(a.dd.p[0],1,'and is done');assert.ok(notes.some(t=>/^Desk task done: Send 2 expeditions or fleeting finds\./.test(t)),notes.join(' | '));
+  /* a save with nothing new is enough */
+  n=nation({fl:[{k:'a',s:1}]});n.dd=deskOf(T23,['exp',2,'goods','oil'],1,0,{k:'fleet',g:3,c:2,p:0});
+  [a,o]=next(n,x=>{});D.save(a,o,T23);assert.equal(a.dd.c[0],2);assert.equal(a.dd.p[0],1);assert.equal(a.dd.r.c,2,'the rare task stays where it was');
+  /* a rare expedition task catches up with a fleeting-finds task among the three, done or not */
+  n=nation({fl:[{k:'a',s:1}]});n.dd=deskOf(T23,['fleet',1,'goods','oil'],1,1,{k:'exp',g:3,c:0,p:0});
+  [a,o]=next(n,x=>{});D.save(a,o,T23);assert.equal(a.dd.r.c,1);assert.equal(a.dd.r.p,0);
+  [a,o]=next(a,x=>{x.fl.push({k:'b',s:2});});D.save(a,o,T23);assert.equal(a.dd.r.c,2,'then counts on from there, not twice');
+  /* never past what the fleeting-finds task counted, and never down */
+  n=nation({fl:[]});n.dd=deskOf(T23,['exp',3,'goods','oil'],2,0,{k:'fleet',g:3,c:1,p:0});
+  [a,o]=next(n,x=>{});D.save(a,o,T23);assert.equal(a.dd.c[0],2);assert.equal(a.dd.r.c,1);
+  /* later desks count as they always do */
+  n=nation({fl:[{k:'a',s:1}]});n.dd=deskOf(T25,['exp',2,'goods','oil'],1,0,{k:'fleet',g:3,c:2,p:0});
+  [a,o]=next(n,x=>{});D.save(a,o,T25);assert.equal(a.dd.c[0],1,'a desk of 25 Nov is left alone');
+  [a,o]=next(a,x=>{x.fl.push({k:'b',s:2});});D.save(a,o,T25);assert.equal(a.dd.c[0],2);assert.equal(a.dd.r.c,3);
+});
+
 test('a task with two survey caches never asks for more caches than the day has',()=>{
   const D=desk({...more(true),ddSvcLeft:()=>1,svcOpen:()=>[[1]]}),n=nation();
   for(const day of days(120)){const q=D.ddRoll(n,day).find(x=>x[0]==='svc');if(q)assert.equal(q[1],1,day);}

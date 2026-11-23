@@ -1796,7 +1796,10 @@ html.map-full-open,html.map-full-open body{overflow:hidden}
 .wr3-rep{padding:10px 0;border-top:1px solid var(--rule)}.wr3-rep-h{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.wr3-rep .hint{margin:4px 0}.wr3-dl{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,170px),1fr));gap:4px 14px;margin:6px 0 0}.wr3-dl dt{font-size:.78rem;color:var(--ink-2)}.wr3-dl dd{margin:0;font-weight:600}
 .wr3-vet{margin:8px 0;font-style:italic}
 .lg-wr3{display:inline-block;width:14px;height:14px;vertical-align:-2px;margin-right:4px;border-radius:2px}.lg-wr3-siege{border:2px dashed var(--down);border-radius:50%}.lg-wr3-fort{background:var(--sheet);border:1.5px solid var(--accent);border-radius:2px 2px 7px 7px}.lg-wr3-bt{background:linear-gradient(45deg,transparent 42%,var(--down) 42% 58%,transparent 58%),linear-gradient(-45deg,transparent 42%,var(--down) 42% 58%,transparent 58%)}.lg-wr3-raid{background:rgba(60,60,60,.45)}.lg-wr3-ruin{background:linear-gradient(var(--ink),var(--ink)) bottom/100% 30% no-repeat,linear-gradient(var(--ink),var(--ink)) 20% 0/25% 75% no-repeat;opacity:.8}.lg-wr3-mem{background:#b8892b;clip-path:polygon(50% 0,72% 18%,75% 85%,100% 85%,100% 100%,0 100%,0 85%,25% 85%,28% 18%)}
-.wr-ruin{margin-top:14px;padding-top:10px;border-top:1px solid var(--rule)}.wr-tp{color:var(--down)}.wr-safe{margin:0 0 6px}
+.wr-ruin{margin-top:14px;padding-top:10px;border-top:1px solid var(--rule)}
+.mon-card{margin-top:14px;padding-top:10px;border-top:1px solid var(--rule)}.mon-h{display:flex;align-items:center;gap:10px;margin:4px 0 6px}.mon-flag svg{display:block;width:42px;height:28px;border:1px solid var(--rule);border-radius:2px}
+.mon-insc{font-family:var(--serif,Georgia,serif);font-style:italic;margin:0 0 8px;line-height:1.45}.mon-dl{display:grid;grid-template-columns:auto 1fr;gap:2px 12px;margin:0;font-size:13px}.mon-dl div{display:contents}.mon-dl dt{color:var(--ink-3,#666)}.mon-dl dd{margin:0}
+.mon-old{margin:4px 0 0;padding-left:18px;font-size:13px}.mon-card.mon-first{border:1.5px solid #c9971f;border-radius:8px;padding:12px 14px;background:linear-gradient(180deg,rgba(255,214,102,.16),rgba(255,214,102,0) 70%)}.mon-first .eyebrow{color:#8a6510}[data-theme="dark"] .mon-first .eyebrow{color:#e2b13c}@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .mon-first .eyebrow{color:#e2b13c}}.wr-tp{color:var(--down)}.wr-safe{margin:0 0 6px}
 .pip{display:inline-block;width:10px;height:10px;border-radius:50%;border:1.5px solid var(--ink-3)}
 .pip.on{background:var(--accent);border-color:var(--accent)}
 .chip.war{border-color:var(--down);color:var(--down)}
@@ -21992,6 +21995,9 @@ const ISSUES = [
  {t:'“No more novelty cakes in government buildings,” says office manager Pauline Grubb. “Round, square or rectangular only, and no fuses.”',e:{safety:1,civil:-1,happy:-2,weird:3},fx:'cakes in {D} government buildings must be round, square or rectangular, and may not have fuses'},
  {t:'“Bill the baker for the four hours,” suggests tax office director Clement Stowe. “And Bob, for having a name like that.”',e:{econ:1,happy:-1,weird:2},fx:'the baker of a bomb-shaped birthday cake was billed for four hours of bomb squad time, and so was Bob'}]},
 ];
+/* An issue's number is its place in ISSUES, and records keep the numbers of the issues they have seen (n.iseen), so
+   every new issue goes after the last ISSUES.push in this file, never into this list or an earlier section's
+   (test/edict-order.test.mjs; issRenumber puts right the one time it went wrong). */
 ISSUES.forEach((x,i)=>{x.no=i+1;});
 const ISSUE_BY_ID = Object.fromEntries(ISSUES.map(x=>[x.id,x]));
 
@@ -23234,7 +23240,7 @@ async function attack(){
   else if(win){const e=w?{c:cell,t,w,d:en.id}:{c:cell,t,d:en.id};if(seal)e.s=seal;if(seal2)e.s2=seal2;if(typeof refSig(e)==='string')REF.ok.set(refK(myId(),e),true);n.gw={...(n.gw||{}),[en.id]:clamp(((n.gw||{})[en.id]||0)-3,-GW_MAX,GW_MAX)};n.conq.push(e);n.log.unshift({t:now,k:'conq',a:en.id,b:en.n.name,fx:landName(cell),c:cell});
     const gv=wgForPick(T,cell,bi);
     if(gv){n.bx=(n.bx||[]).concat({c:cell,t:t+1,to:gv.id,fr:myId(),wr:1});n.log.unshift({t:now,k:'hand',a:gv.id,b:gv.n.name,fx:landName(cell),c:cell});msgs.push(`Victory. Your forces took a hex ${placePhrase(cell)} from ${en.n.name} and handed it to ${gv.n.name}.`);}
-    else if(fell){n.log.unshift({t:now+1,k:'sack',a:en.id,b:en.n.name,fx:en.n.capital||''});msgs.push(`Victory. ${en.n.capital||'Their capital'} has fallen, and with it ${en.n.name}. Its land taken in war is yours to keep.`);}
+    else if(fell){n.log.unshift({t:now+1,k:'csack',a:en.id,b:en.n.name,fx:en.n.capital||''});msgs.push(`Victory. ${en.n.capital||'Their capital'} has fallen, and with it ${en.n.name}. Its land taken in war is yours to keep.`);}
     else msgs.push(`Victory. Your forces took a hex ${placePhrase(cell)} from ${en.n.name}.`);}
   else msgs.push(`${en.n.name} held the line. Your attack was repelled.`);
   if(pe<od.p-0.005)msgs.push(`The referee put your chance at ${Math.round(pe*100)}%, not ${Math.round(od.p*100)}%: it goes by both armies as last saved.`);
@@ -29134,7 +29140,7 @@ function helpBody(n){
       <h3 class="help-h3">The cost of war</h3>
       <p>A war uses food, timber, iron, oil and goods every day, on top of what the nation needs in peacetime, and each war costs more than the last: two at once cost nearly three times one, three cost five times. Every occupied city needs a garrison. Short of materials, cities grow restless and produce less, and a city at war whose mood falls under ${STRIKE_AT} goes on strike and produces nothing. War also slows population growth, and several wars at once, hunger and war weariness make the population shrink. Weariness builds every day at war, and faster with more wars, wars of conquest and land lost; at 100 the government sues for peace on current lines with every enemy. While cities complain or strike, war edicts land on your desk until there is peace.</p>
       <h3 class="help-h3">Seeing the war</h3>
-      <p>Tick War under the map’s layers to see sieges with their countdown, the ruins of fallen capitals, fortified hexes, hexes fought over in the last day, raided hexes and war memorials. After each attack a battle report shows the dice, the odds the referee used and everything that counted.</p>
+      <p>Tick War under the map’s layers to see sieges with their countdown, fortified hexes, hexes fought over in the last day, raided hexes and war memorials. Wherever a capital fell, a monument to its nation stands on the map whatever layers are ticked: click it to read about the nation that fell. After each attack a battle report shows the dice, the odds the referee used and everything that counted.</p>
       <h3 class="help-h3">War reports</h3>
       <p>When a war ends, its report goes into the Wars section of your Nation page, which visitors can read too: how long it lasted and how it ended, battles fought and won, hexes taken and lost, the materials its upkeep took and the people it cost.</p>
       <h3 class="help-h3">War industry</h3>
@@ -33961,6 +33967,34 @@ NORM_HOOKS.push((n,d)=>{
   let prev=0;days=days.map(x=>prev=Math.max(prev,Math.min(top,x|0)));
   n.isd=issPack(days);
 });
+/* Seen numbers from before the Great Dam (23 Nov 2026). n.iseen keeps issue numbers, so a new issue may only ever be
+   added after every other (test/edict-order.test.mjs). The Great Dam's four follow-ups (PR #425, live 17 November
+   15:25 UTC) went in before the museum's issues instead, and every issue from number 2052 to 2831 moved four places on:
+   a number recorded earlier now named the issue four places before the one seen. Issues a nation had answered looked
+   unseen and came back long before their 30 days, while others were held back. Once per record (n.isv), entries dated
+   before that day move four places on as well. An entry dated that day moves too, unless n.answered shows its issue
+   under the new number answered that day (a page reloaded after the build); later entries were numbered by the new
+   list. A nation founded after the build never had the old numbers. */
+const ISS_MOVE={a:2052,b:2831,by:4,day:issDay(Date.UTC(2026,10,17)),live:Date.UTC(2026,10,17,15,26)};
+function issRenumber(n,d){
+  const had=!!d&&d.isv===1;n.isv=1;
+  if(had||!d||!Array.isArray(d.iseen)||!(+n.founded<ISS_MOVE.live))return false;
+  const ids=n.iseen||[],days=issDays(n),M=ISS_MOVE;
+  const sameDay=new Set((n.answered||[]).filter(a=>a&&issDay(a.t)===M.day).map(a=>a.id));
+  let moved=0;
+  const out=ids.map((no,k)=>{
+    if(no<M.a||no>M.b||days[k]>M.day)return no;
+    if(days[k]===M.day){const is=ISSUES[no-1];if(is&&sameDay.has(is.id))return no;}
+    moved++;return no+M.by;
+  });
+  if(!moved)return false;
+  /* a number now listed twice keeps its later place (the issue seen again since) */
+  const last=new Map();out.forEach((no,k)=>last.set(no,k));
+  const keep=out.map((no,k)=>last.get(no)===k);
+  n.iseen=out.filter((no,k)=>keep[k]);n.isd=issPack(days.filter((x,k)=>keep[k]));
+  return true;
+}
+NORM_HOOKS.push((n,d)=>{issRenumber(n,d);});
 function issHelp(){
   const w=['','once','twice','three times','four times','five times','six times','seven times','eight times','nine times','ten times'][HOT_W]||HOT_W+' times';
   return `<p>An edict you have answered or dismissed stays away for at least ${ISSUE_REPEAT_DAYS} days. Edicts you have never seen come first, then the ones you saw longest ago. Only a nation that has seen every available edict in the past ${ISSUE_REPEAT_DAYS} days gets one back sooner, and then it is the one it saw longest ago.${ISSUE_HOT.size?` Newer edicts on artificial intelligence, robots, medicine, young people and social media are ${w} as likely to be drawn as the rest.`:''}</p>`;
@@ -52967,6 +53001,8 @@ function mapShowTip(cv,e,tip,head,sub){
 }
 function mapClick(cv,cell,ev){
   const kind=cv.dataset.map,tip=cv.parentElement&&cv.parentElement.querySelector('.map-tip');if(tip)tip.hidden=true;
+  /* a monument to a fallen nation tells of it whoever holds its hex, observing too (monuments to fallen nations) */
+  if(kind==='main')try{monPick(cell);}catch(e){}
   /* observing (OBS), a click on the main map only selects the nation that holds the hex */
   if(OBS&&kind==='main'){const T=territory(),o=cell>=0?T.owner[cell]:-1;S.mapSite=null;S.mapSel=o>=0?T.list[o].id:null;updateMapPanel();schedule(cv);return;}
   if(MAP_CLICK.length){const xy=ev?mapPos(cv,ev):[NaN,NaN];for(const h of MAP_CLICK){let took=false;try{took=!!h({cv,kind,cell,x:xy[0],y:xy[1]});}catch(_){}if(took){updateMapPanel();schedule(cv);return;}}}
@@ -57685,7 +57721,11 @@ function edictPinButton(x,n,detail=false){
 }
 function edictChange(id,at,kind){
   if(!S.nation)return false;
-  const n=clone(syncInbox(S.nation,Date.now())),x=n.inbox.find(x=>x.id===id&&(at==null||at===''||String(x.at)===String(at)));
+  /* the occurrence asked for; or, for an edict this draw of the desk added and the record does not hold yet, the one of
+     that id: such an edict may carry a different arrival time on each draw (the capital taken did, 23 Nov 2026, and its
+     card would not open). One the record holds is matched only by its own time, so a stale card never touches a repeat */
+  const held=(S.nation.inbox||[]).some(y=>y&&y.id===id);
+  const n=clone(syncInbox(S.nation,Date.now())),x=n.inbox.find(x=>x.id===id&&(at==null||at===''||String(x.at)===String(at)))||(held?null:n.inbox.find(x=>x.id===id));
   if(!x)return false;
   if(kind==='read'){if(x.read)return true;x.read=1;}else if(kind==='pin'){if(x.pin)delete x.pin;else x.pin=1;}else return false;
   commit(n);saveSoon();return true;
@@ -65267,6 +65307,18 @@ function ddDelta(n,old,k){
   if(k==='std'){try{return ['flag','arms','script','notes'].filter(x=>sdrBase[x](n)!==sdrBase[x](old)).length;}catch(e){return 0;}}
   return 0;
 }
+/* A catch-up for the desks of 23 and 24 Nov 2026: the expedition task began counting fleeting finds on 23 Nov at 15:57Z
+   (and only once a tab ran that build), so a party sent before then moved the fleeting-finds task on and not the
+   expedition task. On those desks the expedition task is brought up to the fleeting-finds task's count (the parties it
+   counted are expeditions-or-fleeting-finds too). dv: the parties this save adds. The legendary task is left alone: it
+   counts from when it appeared. This can go once those desks are over. */
+const DD_FL_CATCH='2026-11-24';
+function ddFleetFloor(D,dv){
+  if(!D||typeof D.d!=='string'||D.d>DD_FL_CATCH)return 0;let m=0;
+  D.q.forEach(([k,g],i)=>{if(k==='fleet')m=Math.max(m,D.p[i]?(D.c[i]||0):Math.min(g,(D.c[i]||0)+dv));});
+  const R=D.r;if(R&&R.k==='fleet')m=Math.max(m,R.p?(R.c||0):Math.min(R.g,(R.c||0)+dv));
+  return m;
+}
 const stkDays=n=>n&&n.stk&&Number.isInteger(n.stk.n)?n.stk.n:0;
 /* the allowance follows the stock down, and goes when nothing is over the limit */
 COMMIT_HOOKS.push((n,old,now)=>{if(!n||!n.xs)return [];const a=Math.min(xsOf(n),xsOver(n,stockNow(n,now),now));if(a>0)n.xs=a;else delete n.xs;return [];});
@@ -65307,15 +65359,16 @@ COMMIT_HOOKS.push((n,old,now)=>{
   let G0=null,rt0=null;const just=[],RT=()=>rt0||(rt0=ddRates(n)),snap=()=>{if(!G0)G0=roundStock(stockNow(n,now));};
   const gift=(r,v)=>{snap();const st=stockNow(n,now);st[r]=stockLimit(n,r,num0(st[r])+v,st[r]);n.stock=roundStock(st);n.stockAt=now;};
   if(ddOn()){if(!n.dd||ddLater(day,n.dd.d)){n.dd=ddFresh(n,day);n.dd.t=now;}
-  const D=n.dd;if(!D.r){const r0=ddRare(n,D.d,D.q);if(r0)D.r=r0;}D.q.forEach(([k,goal,ra,rb],i)=>{
-    if(D.p[i])return;const dv=k==='visit'||k==='vote'?(mark===k?1:0):base?Math.max(0,ddDelta(n,base,k)):0;
+  const D=n.dd;if(!D.r){const r0=ddRare(n,D.d,D.q);if(r0)D.r=r0;}const flF=ddFleetFloor(D,base?Math.max(0,ddDelta(n,base,'fleet')):0);D.q.forEach(([k,goal,ra,rb],i)=>{
+    if(D.p[i])return;let dv=k==='visit'||k==='vote'?(mark===k?1:0):base?Math.max(0,ddDelta(n,base,k)):0;
+    if(k==='exp'&&flF>(D.c[i]||0)+dv)dv=flF-(D.c[i]||0);
     if(dv)D.c[i]=Math.min(goal,(D.c[i]||0)+dv);
     if(D.c[i]>=goal){D.p[i]=1;ddKind(n,k);try{gbBump(n,'ddt',1,now);}catch(e){}const g=[[ra,ddAmt(n,ra,ddGift(ra),DD_SHARE.t,RT())],[rb,ddAmt(n,rb,ddGift(rb),DD_SHARE.t,RT())]];for(const [r,v] of g)gift(r,v);just.push('q'+i);out.push(`Desk task done: ${DD_TASKS[k].t(goal)}. ${ddGiftTxt(g,1)}.`);}
   });
   if(D.p.every(Boolean)&&!D.w){D.w=1;n.ddc=(Number.isInteger(n.ddc)?n.ddc:0)+1;const g=Object.keys(DD_CLEAR).map(r=>[r,ddAmt(n,r,DD_CLEAR[r],DD_SHARE.c,RT())]);for(const [r,v] of g)gift(r,v);just.push('w');out.push(`A clear desk: ${ddGiftTxt(g,1)}.`);
     if(ddWeek(n,now)){n.ddw=Math.min(DD_WEEK_MAX,ddwOf(n)+1);out.push('Today’s desk is clear: +2 land credits in your first week, to spend on the map.');}
     else out.push('Today’s desk is clear: +1 land credit to spend on the map.');}
-  const R=D.r;if(R&&!R.p){const dv=base?Math.max(0,ddDelta(n,base,R.k)):0;if(dv)R.c=Math.min(R.g,(R.c||0)+dv);
+  const R=D.r;if(R&&!R.p){let dv=base?Math.max(0,ddDelta(n,base,R.k)):0;if(R.k==='exp'&&flF>(R.c||0)+dv)dv=flF-(R.c||0);if(dv)R.c=Math.min(R.g,(R.c||0)+dv);
     if(R.c>=R.g){R.p=1;n.ddr=ddrOf(n)+1;ddKind(n,R.k);const g=ddRareGift(n,RT());for(const [r,v] of g)gift(r,v);try{gbBump(n,'ddr',1,now);}catch(e){}just.push('r');
       out.push(`Rare task done: ${DD_TASKS[R.k].t(R.g)}. ${ddGiftTxt(g)} and +${DD_RARE_CR} land credits.`);}}
   /* the legendary task: it appears when its moment comes (late, after the last one, if that one was still open), and
@@ -85108,7 +85161,7 @@ mapBox=(f=>function(kind){const h=f.apply(this,arguments),n=S.nation;if(kind!=='
 
 /* the browser tests' window into the game: test/lib.mjs sets EDICTUM_PROBE before the page loads (a
    player's own browser can reach all of this anyway) */
-if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({RPATCH,SC:()=>scProbe(),WR3:()=>({CQ_ISSUES,cqFall,cqDue,cqTake,cityFounded,cqBuildings,openMapAt,WAR3_ISSUES,wr3WarsSection,wr3BattleCard,wr3MapData,wr3Econ,wr3Close,wr3VetDue,wr3WindToggle,wr3MunOn,wr3Reserve,wr3Factors,wr3On}),WR2:()=>({wrFallenCard,WR,WAR_GOALS,WAR2_ISSUES,wrSiege,wrSiegesOn,wrFallsAt,myFall,wrSiegeWhy,wrCapExposed,wrUnrest,wrWarsOf,wrPopFx,wrTribute,wrForts,wrFortify,wrSurrender,wrSiegeStart,wrRise,wrCarry,wrEdictDue,wrSafe,wrNotice,territory,frontier,economy,warControls,targetPanel,armyBlock,warNotice,warWith,pairWar,nationView,rgnOverview,hxCard}),HELPX:()=>({HLP,HELP_CH,HELP_SUM,HELP_FOR,GLOSS,helpFind,helpIndex,helpSecList,helpForYou,helpChapters,rgcCmd,rgcCardOf,rgcCardHTML,admhHs,admhHsCount}),MTP:()=>({MTP,MTP_PAD,TBMP_SCALE,redrawMaps,mapScale,viewOf}),SCR:()=>({scrOf,scrClean,scrDef,scrFamOf,scrEdParse,scrGlyphs,scrLay,scrChars,scrSVG,scrLine,scrCard,scrCharterSVG,scrFmt,scrFor,dmRich,dmPlain,scrDmWith,SCR_FAM,SCR_ABC,SCS}),BDX:()=>bdProbe(),LDX:()=>ldProbe(),FLY:()=>({flagSVG,fgSplit,fgFused}),RD:()=>rdProbe(),JV:()=>jvProbe(),M100P:()=>({M100,M100_N,M100_MC,M100_MCN,m100Bits,m100Got,m100In,m100Due,m100Count,m100Show,m100Open,ctgMcOk,nationColor,czShOk,czShieldPath,unlocksOf,czPatSVG,xsMax}),M200P:()=>({M200,M200_N,M200_MC,M200_MCN,M200_U,m200Bits,m200Got,m200In,m200Due,m200Count,m200Show,m200Open,ctgMcOk,nationColor,czShOk,czShieldPath,unlocksOf,czPatSVG,czStampArt,czFrameArt,czCharge,czFramed,flagSVG,xsMax,ACH_BY_ID,achEarnedIds}),WTN:()=>({WN,wbMap,wnKind,wnWaters,wnSync,wnAt,wnRename,wnReset,wnNameProblem,wnTaken,wnPanel,wnLabels,lakeMap,isLake,cellAt,WN_REACH,WTN_MAX,REG,RV,rvData,hexDist,territory,MAP,HEX_W,updateMapPanel,logLine}),RVN:()=>({RV,rvData,rvSync,rvKey,rvHeld,rvStretch,rvMost,rvEdgeHolder,rvAt,rvNameAt,rvLabelAt,rvParts,rvRename,rvReset,rvNameProblem,rvTidy,rvLabel,rvnPanel,logLine,RVN_MAX,RVN_LEN,updateMapPanel,hexDist,HEX_W,REG}),CP2:()=>({BLD_ICO,bldIco,bldLead,cxDefTotal,cxOrder,qjBuilding,BUILDINGS}),PRVC:()=>({cxPrvOf,cxPrvSeatTrial,cxOvwCols,prvSeat,prvMine,prvOfCell,prvSetAut,prvAppoint,PRV}),NPX:()=>({fbTrend,fbYesterday,heroLead,heroOpen,opOf,OPEN_TO,hnOf,hnFill,hnLine,nbSection,ppWho,ppWhoHTML,ppHash,ppCarried,economy,territory,bordersOf,fillDeal,findNation,clsHide,MAP,hexDist,STAT_KEYS,popNow,myId}),PT:()=>ptProbe(),LTH:()=>lthProbe(),DAM:()=>damProbe(),CHAT:()=>({RGC,RGW,RGF,tab:rgcTab(),count:rgcCount(),region:rgcUnread(),world:rgwUnread(),named:rgwNamedUnread(),fr:rgwUnread(RGF),frNamed:rgwNamedUnread(RGF),frOn:rgfOn(),hidden:document.hidden}),UXP2:()=>({edictDesk,edictStep,edictOpen,fill,ISSUE_BY_ID,ACH,keysOpen,dmOthers,dmPickList,stGroups,stTabLast,navRecent,vhData,VH_KEY,VH_AFTER,QJ_DO,qjItems:q=>navQjItems(q),NAV_REC_KEY,ST_KEY}),HID:()=>({HIDN,hidMask,iAmHidden,frontier,mapPanel,warControls}),WG:()=>({wgTakers,wgForField,wgForPick,warGiveHex,warGive,occupiedFrom,attack,offerPeace,declareWar,collectConquests,dedupeConq}),WAKE:()=>({dormFresh,dormQuiet,dormWelcome,moveTo,RSTAT,REGIONS,REG,regDisabled}),HMB:()=>({RCTRL,hmBake,hmAutoFlag,fxDraw,capHolder,FX_DEF,DEF_FLAG,hmRle,hmLiveNorm,hmMapNorm,hmSel,hmRegions,hmBlocked,hmEngaged:()=>hmEngaged,HM,REG,MAP}),LAND:()=>({landWait,capLift,capWrong,capNote,raceKnown,RACE,worldHeardAt:()=>worldHeardAt,landQ:()=>S.landQ,landQueued,fdSites:(n,T)=>fdSites(n,T)}),BG:{gain:bldGain,html:bldGainHtml},IB:()=>({agRoster,agPick,agStatus,heatOf,cvRoll,cvKey,cvBlock,cvOdds,buLv,buGap,buAll,BU,BU_KEYS,ibFile,ibWanted,ibChatter,HEAT_MAX,DD_TASKS,DD_LEG,findNation,allNations,cvProtected}),VL:()=>({VL_SECS,VL_DEF,CLS,CLS_OPS,CLS_READ,vlOrder,clsOf,clsRaw,clsMax,clsSeen,clsHide,clsRead,vlSave,findNation}),IFC:()=>({plan:ifcPlan,works:ifcWorks,line:ifcLine,tab:ifcTab}),XP:()=>({BUILDINGS,XU,XU_KEYS,XU_TOTAL,LOST_KINDS,LOST_ORDER,XU2,XU2_KEYS,LOST2_KINDS,LOST2_ORDER,xuLine,xu2Lv,xb,xu2Cost,xu2Hours,xu2Why,xu2Start,xuCredits,xuMapsLv,xuFlK,xuFindK,xuParty,xuTimeK,xuReach,xuCostK,xuCurio,flSoon,landEarned,xuLv,xuWhy,xuHave,xuStart,xuCost,xuGear,xpSeen,expFree,xpTeamOpen,nationBuilt,expBackTeam,SITES,SITE_KINDS,expPlan,expOdds,expRuns,expRange,flRange,flAlive,flPlan,flDebug,flNow,discoveries,sendExpedition,hearReport,xpRoute,xpRivals,xpRivalText,xpFinds,flOdds,territory}),SVC:()=>({SVC,SVC_N,SVC_V,SVC_NEED,svcPlan,svcOpen,svcDig,svcShort,svcRoll,svcAmt,svcDayOf,svcRoom,svcNext}),FLC:()=>({FLC,FLC_RULES,FLC_CAT,flcId,flcTimes,flcPhase,flcPrev,flcView,flcLoad,flcChamp,flcTodo,flcClaims,flcLand,flcStreak,flcAllDone,flcSeen,flcDuty,flcDeskOn,flcDraftPush,FCA}),LK:{lakeMap,isLake,claimLand,lakeShore,fillHeld,LAKE_MAX,LAKE_A,freeCell,claimFrontier,blockPlan,autoPlan,terrCount,placePhrase,claimWhy,swapCheck,inspectPanel,writeClaims,landCredits:n=>landCredits(n)},PST:()=>({PST,PST_LOOKS,PST_SHAPES,PST_SIZES,pstBar,pstKm,pstView,pstBox,pstPlace,pstKeyOf,pstRender,pstShow,pstHide,pstLocked,pstOffered,pstSizeOffered,pstPrintK,pstSealId,pstPhys,pstCrc}),DIG:()=>({DIG_SETS,DIG_FIRST,DIG_POOL,DIG_SITES,DIG_LEN,DIG_EVENTS,DIG_SCH,digSet,digHeld,digDone,digRew,digCredits,digOrder,digActive,digRetired,digOpenedAt,digPlan,digSend,digOpen,digChoose,digMod,digEvent,digPity,digGround,digInvites,digJoin,digJointOn,digGiftsIn,digTake,digGiveSpare,digSellSpare,digHire,digRegionFinds,digFirsts,landEarned:n=>landEarned(n),REG,REGIONS,COL_BY_ID}),MW:()=>({mwOf,mwPoints,mwVisitors,mwTakings,mwExhibit,mwExhibitItems,mwRanking,mwWorn,mwSlots,mwOnShow,COL_BY_ID,COL_ITEMS,DIG_SETS,MW_FLOORS}),GM:()=>({gamesResults,edOf,b1Now,gevWhy,baseScores,entryOf,medalsIn,gamesRecords,gamesCeremony,unlocksOf,myId,formOf,GAME_EVENTS,clone,commit}),GM2:()=>({GAMES_V2,GTAC,TRAIN_PTS,TRAIN_MAX,BOY_GW,edOf,edStart,entryOf,gamesHost,gamesBids,edEvents,edDrawn,gmSwapOf,gmMascOf,gmChatLines,gmChatLine,gmTrCost,gevWhy,formOf,gamesResults,dspBuild,dspNoOf,c3MyBid,gcerSeen,stockNow,stockCap,canFeature,myId,clone,commit}),GB:()=>({IRON_DEP,IRON_DEP_YIELD,CELL_RES,MAP_T:MAP.T,mapAt:c=>{centerMain(c,NEAR_Z*1.6);},stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,FOOD_SPOIL,FOOD_EAT,FOOD_TIERS,FOOD_LAND,foodTier,TIMBER_BURN,foodGrowth,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({dspShown,dspRegShown,dspRegs,dspPic,dspLocator,dspHtDefs,pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),ASMX:()=>({ASMX,ASMX_TABS,asmBookAt,asmState,asmArcLoad,REG}),RGNX:()=>({RGN,RGN_PAGE,notifItems,ONL,onlRefresh}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals,seatsOf,alliancesOf,alMineAll,alClashes,alFest,alWornOf,alGuardsOf,alSeatsFor,allianceOf,AL_TY_UI,alStripHTML,alArmsSVG,alArmsAuto,alPzKeys,alMoCheck,alOpenPage,alWeekData,alLvOpens}),TYX:()=>({TY,TY_RULES,TY_K,tyOf,tyList,tyWarBlock,tyIncoming,affinity,alPactLive,alRelationsHTML,econOf,armyPower,armyRaw,attackMult,readyMs,drWords,drNote,drBroken,relationCard}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,npcIdeaNow,npcDealFor,npcAsk,npcReply,npcVerdict,npcTradeTalk,dealSlots,maxDeals,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,achTierCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC,step:rcStepCheck,head:rcHead,sponsoring:rcSponsoring,qr:qrMatrix,card:rcCardDraw,invCap:rcInvCap,free:rcFreeLand,STEPS:RC_STEPS,UNL:RC_UNLOCKS}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend,card:n=>tutCard(n),phase:n=>tutPhase(n),picks:(n,ph)=>tutPicks(n,ph),group:(n,k)=>tutGroup(n,tutL(k)),hid:n=>tutHid(n)},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours,
+if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({RPATCH,SC:()=>scProbe(),WR3:()=>({CQ_ISSUES,cqFall,cqFalls,cqPairs,cqFallOf,cqAct,wrSackFix,MON_FIRST,monSites,monCard,monInfo,monIsFirst,monNorm,monRisen,cqDue,cqTake,cityFounded,cqBuildings,openMapAt,WAR3_ISSUES,wr3WarsSection,wr3BattleCard,wr3MapData,wr3Econ,wr3Close,wr3VetDue,wr3WindToggle,wr3MunOn,wr3Reserve,wr3Factors,wr3On}),WR2:()=>({wrFallenCard,WR,WAR_GOALS,WAR2_ISSUES,wrSiege,wrSiegesOn,wrFallsAt,myFall,wrSiegeWhy,wrCapExposed,wrUnrest,wrWarsOf,wrPopFx,wrTribute,wrForts,wrFortify,wrSurrender,wrSiegeStart,wrRise,wrCarry,wrEdictDue,wrSafe,wrNotice,territory,frontier,economy,warControls,targetPanel,armyBlock,warNotice,warWith,pairWar,nationView,rgnOverview,hxCard}),HELPX:()=>({HLP,HELP_CH,HELP_SUM,HELP_FOR,GLOSS,helpFind,helpIndex,helpSecList,helpForYou,helpChapters,rgcCmd,rgcCardOf,rgcCardHTML,admhHs,admhHsCount}),MTP:()=>({MTP,MTP_PAD,TBMP_SCALE,redrawMaps,mapScale,viewOf}),SCR:()=>({scrOf,scrClean,scrDef,scrFamOf,scrEdParse,scrGlyphs,scrLay,scrChars,scrSVG,scrLine,scrCard,scrCharterSVG,scrFmt,scrFor,dmRich,dmPlain,scrDmWith,SCR_FAM,SCR_ABC,SCS}),BDX:()=>bdProbe(),LDX:()=>ldProbe(),FLY:()=>({flagSVG,fgSplit,fgFused}),RD:()=>rdProbe(),JV:()=>jvProbe(),M100P:()=>({M100,M100_N,M100_MC,M100_MCN,m100Bits,m100Got,m100In,m100Due,m100Count,m100Show,m100Open,ctgMcOk,nationColor,czShOk,czShieldPath,unlocksOf,czPatSVG,xsMax}),M200P:()=>({M200,M200_N,M200_MC,M200_MCN,M200_U,m200Bits,m200Got,m200In,m200Due,m200Count,m200Show,m200Open,ctgMcOk,nationColor,czShOk,czShieldPath,unlocksOf,czPatSVG,czStampArt,czFrameArt,czCharge,czFramed,flagSVG,xsMax,ACH_BY_ID,achEarnedIds}),WTN:()=>({WN,wbMap,wnKind,wnWaters,wnSync,wnAt,wnRename,wnReset,wnNameProblem,wnTaken,wnPanel,wnLabels,lakeMap,isLake,cellAt,WN_REACH,WTN_MAX,REG,RV,rvData,hexDist,territory,MAP,HEX_W,updateMapPanel,logLine}),RVN:()=>({RV,rvData,rvSync,rvKey,rvHeld,rvStretch,rvMost,rvEdgeHolder,rvAt,rvNameAt,rvLabelAt,rvParts,rvRename,rvReset,rvNameProblem,rvTidy,rvLabel,rvnPanel,logLine,RVN_MAX,RVN_LEN,updateMapPanel,hexDist,HEX_W,REG}),CP2:()=>({BLD_ICO,bldIco,bldLead,cxDefTotal,cxOrder,qjBuilding,BUILDINGS}),PRVC:()=>({cxPrvOf,cxPrvSeatTrial,cxOvwCols,prvSeat,prvMine,prvOfCell,prvSetAut,prvAppoint,PRV}),NPX:()=>({fbTrend,fbYesterday,heroLead,heroOpen,opOf,OPEN_TO,hnOf,hnFill,hnLine,nbSection,ppWho,ppWhoHTML,ppHash,ppCarried,economy,territory,bordersOf,fillDeal,findNation,clsHide,MAP,hexDist,STAT_KEYS,popNow,myId}),PT:()=>ptProbe(),LTH:()=>lthProbe(),DAM:()=>damProbe(),CHAT:()=>({RGC,RGW,RGF,tab:rgcTab(),count:rgcCount(),region:rgcUnread(),world:rgwUnread(),named:rgwNamedUnread(),fr:rgwUnread(RGF),frNamed:rgwNamedUnread(RGF),frOn:rgfOn(),hidden:document.hidden}),UXP2:()=>({edictDesk,edictStep,edictOpen,fill,ISSUE_BY_ID,ACH,keysOpen,dmOthers,dmPickList,stGroups,stTabLast,navRecent,vhData,VH_KEY,VH_AFTER,QJ_DO,qjItems:q=>navQjItems(q),NAV_REC_KEY,ST_KEY}),HID:()=>({HIDN,hidMask,iAmHidden,frontier,mapPanel,warControls}),WG:()=>({wgTakers,wgForField,wgForPick,warGiveHex,warGive,occupiedFrom,attack,offerPeace,declareWar,collectConquests,dedupeConq}),WAKE:()=>({dormFresh,dormQuiet,dormWelcome,moveTo,RSTAT,REGIONS,REG,regDisabled}),HMB:()=>({RCTRL,hmBake,hmAutoFlag,fxDraw,capHolder,FX_DEF,DEF_FLAG,hmRle,hmLiveNorm,hmMapNorm,hmSel,hmRegions,hmBlocked,hmEngaged:()=>hmEngaged,HM,REG,MAP}),LAND:()=>({landWait,capLift,capWrong,capNote,raceKnown,RACE,worldHeardAt:()=>worldHeardAt,landQ:()=>S.landQ,landQueued,fdSites:(n,T)=>fdSites(n,T)}),BG:{gain:bldGain,html:bldGainHtml},IB:()=>({agRoster,agPick,agStatus,heatOf,cvRoll,cvKey,cvBlock,cvOdds,buLv,buGap,buAll,BU,BU_KEYS,ibFile,ibWanted,ibChatter,HEAT_MAX,DD_TASKS,DD_LEG,findNation,allNations,cvProtected}),VL:()=>({VL_SECS,VL_DEF,CLS,CLS_OPS,CLS_READ,vlOrder,clsOf,clsRaw,clsMax,clsSeen,clsHide,clsRead,vlSave,findNation}),IFC:()=>({plan:ifcPlan,works:ifcWorks,line:ifcLine,tab:ifcTab}),XP:()=>({BUILDINGS,XU,XU_KEYS,XU_TOTAL,LOST_KINDS,LOST_ORDER,XU2,XU2_KEYS,LOST2_KINDS,LOST2_ORDER,xuLine,xu2Lv,xb,xu2Cost,xu2Hours,xu2Why,xu2Start,xuCredits,xuMapsLv,xuFlK,xuFindK,xuParty,xuTimeK,xuReach,xuCostK,xuCurio,flSoon,landEarned,xuLv,xuWhy,xuHave,xuStart,xuCost,xuGear,xpSeen,expFree,xpTeamOpen,nationBuilt,expBackTeam,SITES,SITE_KINDS,expPlan,expOdds,expRuns,expRange,flRange,flAlive,flPlan,flDebug,flNow,discoveries,sendExpedition,hearReport,xpRoute,xpRivals,xpRivalText,xpFinds,flOdds,territory}),SVC:()=>({SVC,SVC_N,SVC_V,SVC_NEED,svcPlan,svcOpen,svcDig,svcShort,svcRoll,svcAmt,svcDayOf,svcRoom,svcNext}),FLC:()=>({FLC,FLC_RULES,FLC_CAT,flcId,flcTimes,flcPhase,flcPrev,flcView,flcLoad,flcChamp,flcTodo,flcClaims,flcLand,flcStreak,flcAllDone,flcSeen,flcDuty,flcDeskOn,flcDraftPush,FCA}),LK:{lakeMap,isLake,claimLand,lakeShore,fillHeld,LAKE_MAX,LAKE_A,freeCell,claimFrontier,blockPlan,autoPlan,terrCount,placePhrase,claimWhy,swapCheck,inspectPanel,writeClaims,landCredits:n=>landCredits(n)},PST:()=>({PST,PST_LOOKS,PST_SHAPES,PST_SIZES,pstBar,pstKm,pstView,pstBox,pstPlace,pstKeyOf,pstRender,pstShow,pstHide,pstLocked,pstOffered,pstSizeOffered,pstPrintK,pstSealId,pstPhys,pstCrc}),DIG:()=>({DIG_SETS,DIG_FIRST,DIG_POOL,DIG_SITES,DIG_LEN,DIG_EVENTS,DIG_SCH,digSet,digHeld,digDone,digRew,digCredits,digOrder,digActive,digRetired,digOpenedAt,digPlan,digSend,digOpen,digChoose,digMod,digEvent,digPity,digGround,digInvites,digJoin,digJointOn,digGiftsIn,digTake,digGiveSpare,digSellSpare,digHire,digRegionFinds,digFirsts,landEarned:n=>landEarned(n),REG,REGIONS,COL_BY_ID}),MW:()=>({mwOf,mwPoints,mwVisitors,mwTakings,mwExhibit,mwExhibitItems,mwRanking,mwWorn,mwSlots,mwOnShow,COL_BY_ID,COL_ITEMS,DIG_SETS,MW_FLOORS}),GM:()=>({gamesResults,edOf,b1Now,gevWhy,baseScores,entryOf,medalsIn,gamesRecords,gamesCeremony,unlocksOf,myId,formOf,GAME_EVENTS,clone,commit}),GM2:()=>({GAMES_V2,GTAC,TRAIN_PTS,TRAIN_MAX,BOY_GW,edOf,edStart,entryOf,gamesHost,gamesBids,edEvents,edDrawn,gmSwapOf,gmMascOf,gmChatLines,gmChatLine,gmTrCost,gevWhy,formOf,gamesResults,dspBuild,dspNoOf,c3MyBid,gcerSeen,stockNow,stockCap,canFeature,myId,clone,commit}),GB:()=>({IRON_DEP,IRON_DEP_YIELD,CELL_RES,MAP_T:MAP.T,mapAt:c=>{centerMain(c,NEAR_Z*1.6);},stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,FOOD_SPOIL,FOOD_EAT,FOOD_TIERS,FOOD_LAND,foodTier,TIMBER_BURN,foodGrowth,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({dspShown,dspRegShown,dspRegs,dspPic,dspLocator,dspHtDefs,pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),ASMX:()=>({ASMX,ASMX_TABS,asmBookAt,asmState,asmArcLoad,REG}),RGNX:()=>({RGN,RGN_PAGE,notifItems,ONL,onlRefresh}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals,seatsOf,alliancesOf,alMineAll,alClashes,alFest,alWornOf,alGuardsOf,alSeatsFor,allianceOf,AL_TY_UI,alStripHTML,alArmsSVG,alArmsAuto,alPzKeys,alMoCheck,alOpenPage,alWeekData,alLvOpens}),TYX:()=>({TY,TY_RULES,TY_K,tyOf,tyList,tyWarBlock,tyIncoming,affinity,alPactLive,alRelationsHTML,econOf,armyPower,armyRaw,attackMult,readyMs,drWords,drNote,drBroken,relationCard}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,npcIdeaNow,npcDealFor,npcAsk,npcReply,npcVerdict,npcTradeTalk,dealSlots,maxDeals,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,achTierCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC,step:rcStepCheck,head:rcHead,sponsoring:rcSponsoring,qr:qrMatrix,card:rcCardDraw,invCap:rcInvCap,free:rcFreeLand,STEPS:RC_STEPS,UNL:RC_UNLOCKS}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend,card:n=>tutCard(n),phase:n=>tutPhase(n),picks:(n,ph)=>tutPicks(n,ph),group:(n,k)=>tutGroup(n,tutL(k)),hid:n=>tutHid(n)},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours,
   SV:MC_SV,XS:MC_XS,QUEUE:MC_QUEUE,DISH:MC_DISH,FINDS:MC_FINDS,CHART_MS:MC_CHART_MS,repSecs:mcRepSecs,repKind:mcRepKind,fold:mcFold,lane:mcLane,dish:mcDish,
   finds:mcFinds,findAt:mcFindAt,bits:mcBitsList,charted:mcCharted,chartedNow:mcChartedNow,unqueue:mcUnqueue,dishBuild:mcDishBuild,bringHome:mcBringHome,
   secSite:mcSecSite,prefOk:mcPrefOk,prefTile:mcPrefTile,setPref:mcSetPref,startProblem:mcStartProblem,wfKey:mcWfKey,osKey:mcOsKey},WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR,bell:now=>notifItems(now||Date.now())},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},TIER:()=>({BTIER,bEff,bTier,bTierNext,bTierLine,tierQuote,tierProblem,cxTier,cxTrMap,tierSettle,tierReady,cxGoldNow,cxUpQuote,cxUpList,cxUps,mktSlots,mktSlotsOf,maxDeals,bldAggOf}),CX:{upgradable:cxUpgradable,mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState,UG:CX_UG,LV:CX_LV,ups:cxUps,upMap:cxUpMap,extras:cxBldExtras,quote:cxUpQuote},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo,unlockTarget,unlockShow,unlockFresh,unlockQueue,ULK,UNLOCKS,unlocksOf,toast:m=>toast(m)},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{coinBackSVG:cuCoinBackSVG,noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,coinSVG:cuCoinSVG,guide:cuGuideHTML,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,drawMap,sfKey,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ACH_RANKS_V1,ID_BD,achVal,achCtx,achEvalNew,achState,stockRates:n=>stockRates(n),achPoints,achRank,achRankOf,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,flagNorm:(f,n)=>flagNorm(f,n),flagSVG:(f,l)=>flagSVG(f,l),mapTip:id=>{const T=mapTerr('main'),i=T.list.findIndex(x=>x.id===id);if(i<0)return '';const cell=Array.prototype.indexOf.call(T.owner,i);return MAP_TIP.map(h=>{try{return h({kind:'main',cell,cv:null,x:0,y:0});}catch(e){return '';}}).filter(x=>typeof x==='string').join(' | ');},cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
@@ -97341,7 +97394,7 @@ rgcCardHTML=(f=>function(c,m,nm){
 function wrNorm(id,d){
   if(!d||typeof d.a!=='string'||typeof d.d!=='string'||!Number.isInteger(d.c))return null;
   return {id,a:d.a,d:d.d,c:d.c,t:+d.t||0,st:d.st==='fell'?'fell':'on',ft:+d.ft||0,an:String(d.an||'').slice(0,40),dn:String(d.dn||'').slice(0,40),df:+d.df||0,
-    cn:String(d.cn||'').slice(0,40),reg:String(d.reg||''),foes:Array.isArray(d.foes)?d.foes.filter(x=>typeof x==='string').slice(0,40):[]};
+    cn:String(d.cn||'').slice(0,40),reg:String(d.reg||''),foes:Array.isArray(d.foes)?d.foes.filter(x=>typeof x==='string').slice(0,40):[],m:monNorm(d.m)};
 }
 function wrConnect(){if(hmQuiet())return;
   if(!S.db||S.mode!=='world'&&!(OBS&&S.obsOn))return;
@@ -97851,30 +97904,45 @@ armyBlock=(f=>function(T,mi){
 /* ── the record: log lines, the bell, the region's happenings ── */
 logLine=(f=>function(l,n,id){
   if(l&&l.k==='siege')return `${n&&n.name||'The nation'} laid siege to ${l.fx||'the capital'}, the capital of ${l.b}.`;
-  if(l&&l.k==='sack')return `${n&&n.name||'The nation'} took ${l.fx||'the capital'} after a siege, and ${l.b} fell.`;
+  if(l&&l.k==='csack')return `${n&&n.name||'The nation'} took ${l.fx||'the capital'} after a siege, and ${l.b} fell.`;
   if(l&&l.k==='surr')return `${n&&n.name||'The nation'} surrendered to ${l.b}.`;
   if(l&&l.k==='grace')return `Enemies took ${l.a==='1'?'a hex':l.a+' hexes'} while the government was away; the people rallied.`;
   if(l&&l.k==='raid')return `${n&&n.name||'The nation'} raided ${l.b} ${l.fx?'on '+l.fx:''}.`;
   if(l&&(l.k==='wwpeace'||l.k==='sue'))return `${l.k==='wwpeace'?'Worn down by war, ':''}${n&&n.name||'The nation'} sued for peace on current lines with ${l.b||'its enemies'}.`;
   if(l&&l.k==='fallen')return `${n&&n.name||'The nation'} was founded by the survivors of ${l.a||'a fallen nation'}${l.b?', which fell to '+l.b:''}.`;
   return f.apply(this,arguments);})(logLine);
-Object.assign(ST_LOG,{siege:['war','Laid siege to {b}’s capital, {fx}'],sack:['war','Took {fx}, the capital of {b}, which fell'],surr:['war','Surrendered to {b}'],grace:['war','Rallied after losing {a} hexes while away'],
+Object.assign(ST_LOG,{siege:['war','Laid siege to {b}’s capital, {fx}'],csack:['war','Took {fx}, the capital of {b}, which fell'],surr:['war','Surrendered to {b}'],grace:['war','Rallied after losing {a} hexes while away'],
   raid:['war','Raided {b} on {fx}'],wwpeace:['war','Sued for peace, worn down by war'],sue:['war','Sued for peace with {b}'],fallen:['land','Rose again from the fall of {a}']});
-Object.assign(NOTIF_K,{siege:'War office',sack:'War office',surr:'War office',grace:'War office',raid:'War office'});
+Object.assign(NOTIF_K,{siege:'War office',csack:'War office',surr:'War office',grace:'War office',raid:'War office'});
+/* a capital taken was logged as 'sack' until 23 November 2026, the kind a sacked minister has always had: the Dispatch
+   read "X sacks its <the fallen nation's id>", the cabinet's record counted the fall as a sacking, a sacked minister's
+   line said a capital had fallen, and sacking a minister earned The Fall of a Capital. Such a line names the fallen
+   nation (a minister's names the office), and is a 'csack' now, in every record as it is read */
+const WR_PF_TITLES=new Set(PORTFOLIOS.map(p=>p[2]));
+function wrSackFix(l){return !!l&&l.k==='sack'&&!WR_PF_TITLES.has(l.a)&&(!!l.fx||!/\s/.test(String(l.a||'')));}
+NORM_HOOKS.push(n=>{if(Array.isArray(n.log))for(const l of n.log)if(wrSackFix(l))l.k='csack';});
+/* an edition filed with such a story keeps it in the archive: read, it tells what happened ("{N}’s <id>, {B}, has been
+   dismissed" names the fallen nation where the office should be) */
+dspThawSt=(f=>function(s){
+  const r=f.apply(this,arguments);if(!r||!/:sack$/.test(r.k))return r;
+  const m=/^(.+?)’s? ([A-Za-z0-9]{16,}), (.+?), has been dismissed\./.exec(r.b||'');if(!m)return r;
+  return {...r,sec:'world',kick:'War',h:`${m[1]} takes the capital of ${m[3]}`,b:`${m[1]} has taken the capital of ${m[3]} after a siege, and ${m[3]} has fallen.`,go:'map'};
+})(dspThawSt);
 HAP_SOURCES.push((x,now)=>{
-  const out=[];for(const F of wrFallsAt(null)){if(now-F.ft>30*DAY)continue;out.push({t:F.ft,txt:`${F.dn} fell: the army of ${F.an} took its capital, ${F.cn||'its capital'}, after a siege.`});}
+  const out=[];for(const F of wrFallsAt(null)){if(now-F.ft>30*DAY)continue;out.push({t:F.ft,txt:monIsFirst(F)?`${F.dn}, the nation of Edictum’s first player, fell: the army of ${F.an} took its capital, ${F.cn||'its capital'}, after a siege. The First Flame burns where it stood.`:`${F.dn} fell: the army of ${F.an} took its capital, ${F.cn||'its capital'}, after a siege. A monument stands where it stood.`});}
   return out;
 });
 /* the region page: the fallen nations */
 function wrFallenCard(){
   const FL=wrFallsAt(null).slice().reverse().slice(0,8);if(!FL.length)return '';
-  return `<section class="rgn-card" aria-labelledby="rgn-fallen-h"><p class="eyebrow">In memoriam</p><h2 class="h3" id="rgn-fallen-h">Fallen nations</h2><ul class="wr-fl-list">${FL.map(F=>`<li><b>${esc(F.dn||'A nation')}</b> fell to ${esc(F.an||'an enemy')} on ${esc(fmtDate(F.ft))}${F.cn?`. Its capital, ${esc(F.cn)}, lies in ruins`:''}.</li>`).join('')}</ul></section>`;
+  return `<section class="rgn-card" aria-labelledby="rgn-fallen-h"><p class="eyebrow">In memoriam</p><h2 class="h3" id="rgn-fallen-h">Fallen nations</h2><ul class="wr-fl-list">${FL.map(F=>`<li><b>${esc(F.dn||'A nation')}</b> fell to ${esc(F.an||'an enemy')} on ${esc(fmtDate(F.ft))}${F.cn?`. ${monIsFirst(F)?'The First Flame, the monument to the first nation, burns':'A monument stands'} where its capital, ${esc(F.cn)}, stood`:''}.</li>`).join('')}</ul></section>`;
 }
 rgnOverview=(f=>function(){let h=f.apply(this,arguments);try{const c=wrFallenCard();if(c)h=h.replace('<div class="rgn-cards">','<div class="rgn-cards">'+c);}catch(e){}return h;})(rgnOverview);
 /* the Dispatch: the fall of a nation is front-page news */
 DISPATCH_SOURCES.push(ctx=>{
   if(!ctx||(ctx.reg&&ctx.reg!==REG.id))return [];const out=[];
   for(const F of wrFallsAt(null)){if(!(F.ft>=ctx.from&&F.ft<ctx.to))continue;
+    if(monIsFirst(F)){out.push({t:F.ft,sec:'front',h:`The first nation has fallen: ${F.dn}`,b:`After a day under siege, the army of ${F.an} stormed ${F.cn||'the capital'}, and ${F.dn}, the nation of Edictum’s first player, founded before any border was drawn, is no more. Where its capital stood, a column of white stone now carries a flame that is never to go out: the First Flame, the only monument of its kind in the world.`,who:[F.a],w:10,k:'fall:'+F.id});continue;}
     out.push({t:F.ft,sec:'front',h:`The fall of ${F.dn}`,b:`After a day under siege, the army of ${F.an} stormed ${F.cn||'the capital'} and the government of ${F.dn} is no more. Its land taken in war now flies the flag of its conquerors. Survivors are said to be gathering, and talk of rising again.`,who:[F.a],w:9,k:'fall:'+F.id});}
   return out;
 });
@@ -97883,7 +97951,7 @@ function wrFelLine(n){const f=n&&n.fel;if(!f)return '';return `<p class="wr-fel"
 hxCard=(f=>function(x){let h=f.apply(this,arguments);try{if(h&&x&&x.n&&x.n.fel)h=h.replace('</h3>','</h3>'+wrFelLine(x.n));}catch(e){}return h;})(hxCard);
 
 /* ── achievements ── */
-achDef('war','war-sack','g','The Fall of a Capital','Take an enemy capital after a siege.',1,x=>aT(x,'log:sack'),{sec:'Some walls are only a matter of time.'});
+achDef('war','war-sack','g','The Fall of a Capital','Take an enemy capital after a siege.',1,x=>aT(x,'log:csack'),{sec:'Some walls are only a matter of time.'});
 achDef('war','war-fallen','b','Ashes and Embers','Rise again after your capital fell.',1,x=>x.n&&x.n.fel?1:0,{sec:'Every nation falls in the end. Not every nation gets up.'});
 achDef('war','war-phoenix','g','Phoenix','Rise again after your fall and grow to 10 million people.',1,x=>x.n&&x.n.fel&&popNow(x.n,x.now)>=10?1:0,{sec:'From the ashes.'});
 achDef('war','war-surr','b','Live to Fight Another Day','Surrender under siege.',1,x=>aT(x,'log:surr'),{sec:'Discretion, valour, and so on.'});
@@ -97900,9 +97968,7 @@ targetPanel=(f=>function(T,cell,reach){
   }catch(e){}
   return h;
 })(targetPanel);
-/* the ruins of a fallen capital, on the map's panel */
-MAP_PANEL.push(ctx=>{const c=ctx.cell;if(c==null||S.mode!=='world')return '';const F=wrFallsAt(null).filter(f=>f.c===c).pop();if(!F)return '';
-  return `<div class="wr-ruin"><p class="eyebrow">Ruins</p><p class="mp-note">The ruins of ${esc(F.cn||'a capital')}, capital of ${esc(F.dn||'a fallen nation')} until the army of ${esc(F.an||'an enemy')} took it on ${esc(fmtDate(F.ft))}.</p></div>`;});
+/* the ruins of a fallen capital, on the map's panel: its monument's card (monuments to fallen nations, below) */
 /* a nation risen again may not be declared on; one in its grace may not be attacked */
 declareWar=(f=>function(id){
   const x=findNation(id),now=Date.now();
@@ -98161,9 +98227,9 @@ MAP_PANEL_TOP.push(()=>{try{return wr3BattleCard();}catch(e){return '';}});
 
 /* ── the war on the map ── */
 function wr3On(){return mapOpt('war',true)!==false;}
-MAP_CONTROLS.push(()=>`<label class="mig-tog mfx-tog wr3-tog" title="Sieges, ruins, fortified hexes, the last day's battles, raided hexes and war memorials"><input type="checkbox" data-wr3map${wr3On()?' checked':''}> War</label>`);
+MAP_CONTROLS.push(()=>`<label class="mig-tog mfx-tog wr3-tog" title="Sieges, fortified hexes, the last day's battles, raided hexes and war memorials"><input type="checkbox" data-wr3map${wr3On()?' checked':''}> War</label>`);
 document.addEventListener('change',e=>{const el=e.target;if(!el||!el.dataset||!('wr3map' in el.dataset))return;setMapOpt('war',!!el.checked);});
-MAP_LEGEND.push(()=>wr3On()?`<span class="lg"><i class="lg-wr3 lg-wr3-siege"></i>Siege</span><span class="lg"><i class="lg-wr3 lg-wr3-fort"></i>Fortified hex</span><span class="lg"><i class="lg-wr3 lg-wr3-bt"></i>Fought over today</span><span class="lg"><i class="lg-wr3 lg-wr3-raid"></i>Raided</span><span class="lg"><i class="lg-wr3 lg-wr3-ruin"></i>Ruins</span><span class="lg"><i class="lg-wr3 lg-wr3-mem"></i>War memorial</span>`:'');
+MAP_LEGEND.push(()=>wr3On()?`<span class="lg"><i class="lg-wr3 lg-wr3-siege"></i>Siege</span><span class="lg"><i class="lg-wr3 lg-wr3-fort"></i>Fortified hex</span><span class="lg"><i class="lg-wr3 lg-wr3-bt"></i>Fought over today</span><span class="lg"><i class="lg-wr3 lg-wr3-raid"></i>Raided</span><span class="lg"><i class="lg-wr3 lg-wr3-mem"></i>War memorial</span>`:'');
 let wr3ColMemo={k:'',v:null};
 function wr3Cols(){const k=document.documentElement.dataset.theme||'';if(wr3ColMemo.k===k+'|'&&wr3ColMemo.v)return wr3ColMemo.v;const C=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();wr3ColMemo={k:k+'|',v:{down:C('--down')||'#b3261e',ink:C('--ink')||'#222',sheet:C('--sheet')||'#fff',accent:C('--accent')||'#1d6b5f',gold:'#b8892b'}};return wr3ColMemo.v;}
 /* what the layer shows, worked out once a minute (or when the records change) */
@@ -98186,14 +98252,12 @@ MAP_LAYERS.push({stage:'over',kinds:['main','visit'],draw:M=>{
 }});
 function wr3Shield(g,x,y,r,c){g.beginPath();g.moveTo(x,y-r);g.lineTo(x+r*0.85,y-r*0.55);g.quadraticCurveTo(x+r*0.8,y+r*0.6,x,y+r);g.quadraticCurveTo(x-r*0.8,y+r*0.6,x-r*0.85,y-r*0.55);g.closePath();g.fillStyle=c.sheet;g.fill();g.lineWidth=1.4;g.strokeStyle=c.accent;g.stroke();g.beginPath();g.moveTo(x,y-r*0.55);g.lineTo(x,y+r*0.6);g.stroke();}
 function wr3Swords(g,x,y,r,c){g.save();g.translate(x,y);g.strokeStyle=c.down;g.lineWidth=1.6;g.lineCap='round';for(const s of [1,-1]){g.beginPath();g.moveTo(-r*s,-r);g.lineTo(r*s,r);g.stroke();g.beginPath();g.moveTo(-r*s*0.35+r*s*0.25,r*0.35+r*0.25);g.lineTo(r*s*0.35+r*s*0.25,-r*0.35+r*0.25);g.stroke();}g.restore();}
-function wr3Ruin(g,x,y,r,c){g.save();g.translate(x,y);g.fillStyle=c.ink;g.globalAlpha=0.85;g.fillRect(-r,r*0.55,r*2,r*0.35);g.fillRect(-r*0.75,-r*0.5,r*0.38,r*1.05);g.fillRect(r*0.35,-r*0.1,r*0.38,r*0.65);g.beginPath();g.moveTo(-r*0.85,-r*0.5);g.lineTo(-r*0.2,-r*0.75);g.lineTo(-r*0.2,-r*0.5);g.fill();g.restore();}
 function wr3Obelisk(g,x,y,r,c){g.save();g.translate(x,y);g.beginPath();g.moveTo(0,-r*1.2);g.lineTo(r*0.4,-r*0.8);g.lineTo(r*0.45,r*0.8);g.lineTo(-r*0.45,r*0.8);g.lineTo(-r*0.4,-r*0.8);g.closePath();g.fillStyle=c.gold;g.fill();g.lineWidth=1;g.strokeStyle=c.ink;g.stroke();g.fillStyle=c.ink;g.fillRect(-r*0.75,r*0.8,r*1.5,r*0.3);g.restore();}
 MAP_LAYERS.push({stage:'top',kinds:['main','visit'],draw:M=>{
   if(!wr3On()||!M.T)return;const D=wr3MapData(M.T),g=M.g,c=wr3Cols(),z=Math.max(5,Math.min(11,M.s*HEX_R*0.45)),now=Date.now();
   for(const f of D.forts){const [x,y]=M.scr(f);if(M.off(x,y))continue;wr3Shield(g,x+z*0.6,y-z*0.4,z*0.75,c);}
   for(const f of D.fought){const [x,y]=M.scr(f);if(M.off(x,y))continue;wr3Swords(g,x,y,z*0.6,c);}
   for(const m of D.mems){const [x,y]=M.scr(m.c);if(M.off(x,y))continue;wr3Obelisk(g,x-z*1.3,y+z*0.2,z*0.7,c);}
-  for(const r of D.ruins){const [x,y]=M.scr(r.c);if(M.off(x,y))continue;wr3Ruin(g,x,y,z*0.8,c);if(M.s*HEX_R>=14){g.font='italic 600 11px '+MAP_FONT;g.textAlign='center';g.fillStyle=c.ink;g.fillText('Ruins of '+r.nm,x,y+z*1.9);}}
   for(const s of D.sieges){const [x,y]=M.scr(s.c);if(M.off(x,y))continue;const R=Math.max(18,M.s*HEX_R*1.6);
     g.save();g.setLineDash([5,4]);g.lineWidth=2.2;g.strokeStyle=c.down;g.beginPath();g.arc(x,y,R,0,Math.PI*2);g.stroke();g.restore();
     const left=s.at-now,txt=left>0?`Siege · assault in ${fmtDur(left)}`:'Siege · assault now';g.font='600 11.5px '+MAP_FONT;const tw=g.measureText(txt).width;
@@ -98324,8 +98388,10 @@ function wr3VetDue(n,now){
   if(n.inbox.some(x=>x&&(x.id==='wr-home'||x.id==='wr-memorial')))return null;
   const L=(Array.isArray(n.wrp)?n.wrp:[]).filter(r=>r.t1>(+n.vck||0)&&r.a>=3);if(!L.length)return null;
   const r=L[L.length-1],asked=(n.answered||[]).filter(a=>a.t>r.t1);
-  if(!asked.some(a=>a.id==='wr-home'))return {id:'wr-home',at:now,war:r};
-  if(!asked.some(a=>a.id==='wr-memorial')&&(r.p>=0.05||r.ls>=1||r.a>=10)&&now-asked.find(a=>a.id==='wr-home').t>12*3600000)return {id:'wr-memorial',at:now,war:r};
+  /* each arrives at the moment it became due, the same on every draw of the desk (at now, its card would not open) */
+  if(!asked.some(a=>a.id==='wr-home'))return {id:'wr-home',at:Math.min(now,r.t1||now),war:r};
+  const home=asked.find(a=>a.id==='wr-home');
+  if(!asked.some(a=>a.id==='wr-memorial')&&(r.p>=0.05||r.ls>=1||r.a>=10)&&now-home.t>12*3600000)return {id:'wr-memorial',at:home.t+12*3600000,war:r};
   return null;
 }
 syncInbox=(f=>function(n,now){
@@ -98370,28 +98436,78 @@ document.addEventListener('click',e=>{
 const CQ_UNSETTLED=14*DAY,CQ_MOOD=-10;
 /* the cities that count against the cap: those founded, not captured (cityCount counts them all) */
 function cityFounded(n){return cityList(n).filter(c=>!c.cq).length;}
-/* the capital this nation took whose fate it has not decided yet, the oldest first */
-function cqFall(n){
-  if(!n||S.mode!=='world')return null;const me=myId(),done=new Set(Array.isArray(n.cqd)?n.cqd:[]);
-  return wrFallsAt(null).find(F=>F.a===me&&!done.has(F.id)&&F.ft>=(n.founded||0))||null;
+/* 23 November 2026, the owner: the edict about the ruins could not be opened, and two capitals' edicts could not stack.
+   It arrived at Date.now(), a new time on every draw of the desk, so the card asked to open an edict the next draw no
+   longer had; and one waited for the other. Now each capital taken has its own edict, all on the desk together (as
+   room allows), each one of the fifteen not already there, and each arrives at the moment its capital fell (F.ft): the
+   same on every draw, and the desk keeps it, so an edict knows its capital by its arrival time. An edict drawn before
+   (at some other moment) stands for the oldest capital no other edict on the desk is about. What the edict decides,
+   answered or vetoed, decides that capital (cqAct, CQ_NOW). */
+const CQ_SET=new Set(CQ_ISSUES.map(i=>i.id));
+/* the capitals this nation took whose fate it has not decided yet, the oldest first */
+function cqFalls(n){
+  if(!n||S.mode!=='world')return [];const me=myId(),done=new Set(Array.isArray(n.cqd)?n.cqd:[]);
+  return wrFallsAt(null).filter(F=>F.a===me&&!done.has(F.id)&&F.ft>=(n.founded||0));
 }
+function cqFall(n){return cqFalls(n)[0]||null;}
+/* the capital-taken edicts on the desk, each with the capital it is about (or null) */
+function cqPairs(n,FL){
+  FL=FL||cqFalls(n);const E=(Array.isArray(n&&n.inbox)?n.inbox:[]).filter(x=>x&&CQ_SET.has(x.id)),used=new Set(),out=new Map();
+  for(const x of E){const F=FL.find(F=>F.ft===x.at&&!used.has(F.id));if(F){used.add(F.id);out.set(x,F);}}
+  for(const x of E)if(!out.has(x)){const F=FL.find(F=>!used.has(F.id))||null;if(F)used.add(F.id);out.set(x,F);}
+  return out;
+}
+/* the capital the edict x is about */
+function cqFallOf(n,x){
+  const FL=cqFalls(n);if(!x)return FL[0]||null;
+  const F=FL.find(F=>F.ft===x.at);if(F)return F;
+  for(const [y,G] of cqPairs(n,FL))if(y.id===x.id)return G;
+  return FL[0]||null;
+}
+/* the edicts due: one for each capital taken that no edict on the desk is about, oldest first */
 function cqDue(n,now){
-  if(OBS||!n||n.npc||!Array.isArray(n.inbox)||S.mode!=='world')return null;
-  if(n.inbox.some(x=>x&&CQ_ISSUES.some(i=>i.id===x.id)))return null;
-  const F=cqFall(n);if(!F)return null;
-  /* a different one for each capital: the fall's own draw among those not decided in the last month */
-  const recent=new Set((n.answered||[]).filter(a=>now-(+a.t||0)<30*DAY).map(a=>a.id)),L=CQ_ISSUES.filter(i=>!recent.has(i.id)),pool=L.length?L:CQ_ISSUES;
-  return {id:pool[hash(F.id)%pool.length].id,at:now};
+  if(OBS||!n||n.npc||!Array.isArray(n.inbox)||S.mode!=='world')return [];
+  const FL=cqFalls(n);if(!FL.length)return [];
+  const P=cqPairs(n,FL),have=new Set([...P.values()].filter(Boolean).map(F=>F.id)),taken=new Set([...P.keys()].map(x=>x.id));
+  const recent=new Set((n.answered||[]).filter(a=>now-(+a.t||0)<30*DAY).map(a=>a.id)),out=[];
+  for(const F of FL){
+    if(have.has(F.id))continue;
+    /* a different one for each capital: the fall's own draw among those not on the desk, nor decided in the last month */
+    const free=CQ_ISSUES.filter(i=>!taken.has(i.id)),L=free.filter(i=>!recent.has(i.id)),pool=L.length?L:free;if(!pool.length)break;
+    const id=pool[hash(F.id)%pool.length].id;taken.add(id);out.push({id,at:F.ft});
+  }
+  return out;
 }
 syncInbox=(f=>function(n,now){
-  const m=f.apply(this,arguments);let due=null;try{if(m&&Array.isArray(m.inbox)&&deskN(m.inbox)<EDICT_KEEP)due=cqDue(m,now);}catch(e){console.warn('capital taken',e);}if(!due)return m;
-  const out=m===n?clone(m):m;out.inbox.push(due);return out;
+  const m=f.apply(this,arguments);let due=[];try{if(m&&Array.isArray(m.inbox)&&deskN(m.inbox)<EDICT_KEEP)due=cqDue(m,now);}catch(e){console.warn('capital taken',e);}if(!due.length)return m;
+  const out=m===n?clone(m):m;for(const x of due)if(deskN(out.inbox)<EDICT_KEEP)out.inbox.push(x);return out;
 })(syncInbox);
-/* {FALLCAP} and {FALLEN}: the capital this edict is about, and its nation */
-fill=(f=>function(s,n){
-  if(typeof s==='string'&&(s.includes('{FALLCAP}')||s.includes('{FALLEN}'))){const F=cqFall(n||S.nation)||wrFallsAt(null).filter(x=>x.a===myId()).pop();s=s.split('{FALLCAP}').join((F&&F.cn)||'the fallen capital').split('{FALLEN}').join((F&&F.dn)||'the fallen nation');}
+/* {FALLCAP} and {FALLEN}: the capital the edict on the desk (x) is about, and its nation */
+fill=(f=>function(s,n,x){
+  if(typeof s==='string'&&(s.includes('{FALLCAP}')||s.includes('{FALLEN}'))){const N=n||S.nation,F=(x&&CQ_SET.has(x.id)?cqFallOf(N,x):cqFall(N))||wrFallsAt(null).filter(y=>y.a===myId()).pop();s=s.split('{FALLCAP}').join((F&&F.cn)||'the fallen capital').split('{FALLEN}').join((F&&F.dn)||'the fallen nation');}
   return f.apply(this,[s,...[].slice.call(arguments,1)]);
 })(fill);
+/* the edict being answered or vetoed, and its capital: answer() and dismiss() know only the edict's id */
+let CQ_NOW=null;
+function cqAct(id){
+  if(!CQ_SET.has(id)||!S.nation)return null;
+  try{const v=syncInbox(S.nation,Date.now()),x=v.inbox.find(y=>y.id===id);return x?{id,F:cqFallOf(v,x)}:null;}catch(e){return null;}
+}
+answer=(f=>function(id){const a=cqAct(id);if(!a)return f.apply(this,arguments);const was=CQ_NOW;CQ_NOW=a;try{return f.apply(this,arguments);}finally{CQ_NOW=was;}})(answer);
+dismiss=(f=>function(id){const a=cqAct(id);if(!a)return f.apply(this,arguments);const was=CQ_NOW;CQ_NOW=a;try{return f.apply(this,arguments);}finally{CQ_NOW=was;}})(dismiss);
+/* answered or vetoed, the capital's fate is decided: every motion, also one that names no fate (the ruins stay as they
+   stand), and a veto; before, such a motion brought another edict about the same capital at once */
+COMMIT_HOOKS.push(n=>{
+  const a=CQ_NOW;if(!a||!a.F||!n||n.npc||!Array.isArray(n.inbox)||n.inbox.some(x=>x&&x.id===a.id))return [];
+  const L=Array.isArray(n.cqd)?n.cqd:[];if(!L.includes(a.F.id))n.cqd=L.concat(a.F.id).slice(-20);return [];
+});
+/* the ruins on the map, when their fate waits on this nation's desk: a way to the edict */
+MAP_PANEL.push(ctx=>{
+  const c=ctx.cell;if(c==null||S.mode!=='world'||!S.nation||OBS||!cqFalls(S.nation).some(F=>F.c===c))return '';
+  try{const v=syncInbox(S.nation,Date.now());for(const [x,F] of cqPairs(v))if(F&&F.c===c)
+    return `<div class="row"><button type="button" class="btn ghost sm" data-act="open" data-id="${esc(x.id)}" data-at="${x.at}">Decide the fate of ${esc(F.cn||'the capital')} →</button></div>`;}catch(e){}
+  return '';
+});
 /* the fallen capital's finished buildings, from its nation's record while it still stands (no wonders) */
 function cqBuildings(F,now){
   const D=docOf(F.d);if(!D||(F.df&&(D.founded||0)!==F.df))return [];
@@ -98415,11 +98531,11 @@ function cqTake(n,F,how,keepB,now){
 function cqGoodwill(n,k){const gw={...(n.gw||{})};for(const y of allNations()){if(y.me||y.npc)continue;gw[y.id]=clamp((gw[y.id]||0)+k,-GW_MAX,GW_MAX);}n.gw=gw;}
 applyEffects=(f=>function(n,e){
   if(e&&n&&!n.npc&&('cqc' in e||'cqb' in e||'cqr' in e||'gwall' in e)){
-    e=Object.assign({},e);const now=Date.now(),F=cqFall(n);
+    e=Object.assign({},e);const now=Date.now(),F=CQ_NOW?CQ_NOW.F:cqFall(n);
     if(e.gwall)cqGoodwill(n,e.gwall);
     if(F){
       if(e.cqc){const why=cqTake(n,F,e.cqc,!!e.cqb,now);if(why)setTimeout(()=>toast(why),50);}
-      n.cqd=(Array.isArray(n.cqd)?n.cqd:[]).concat(F.id).slice(-20);
+      const L=Array.isArray(n.cqd)?n.cqd:[];if(!L.includes(F.id))n.cqd=L.concat(F.id).slice(-20);
     }
     delete e.cqc;delete e.cqb;delete e.cqr;delete e.gwall;
   }
@@ -98432,6 +98548,144 @@ cxMood=(f=>function(ct,now){
   try{const c=ct.rec;if(c&&c.cq&&now-(+c.t||0)<CQ_UNSETTLED){m.parts.push([CQ_MOOD,`Taken from ${c.cq}, not yet settled`]);let v=55;for(const [d] of m.parts)v+=d;m.v=clamp(Math.round(v),0,100);}}catch(e){}
   return m;
 })(cxMood);
+/* ───────── monuments to fallen nations (23 November 2026) ─────────
+   The owner: "design an unique monument for Moradora when their capital falls, other nations that fall also have a
+   smaller monument, visible on the map and players can click on it and find out info about the old nation. Moradora is
+   the first player ever of the game so deserves special recognition." The nation is Moradara (MON_FIRST), founded on
+   30 October 2026: the first player's, after the owner's own.
+   Wherever a capital fell, a monument stands on its hex on every map of the region (the main map and a visit), whatever
+   layers are ticked: a small stone stele banded in the fallen nation's colour, named beside it from mid zoom. They take
+   the place of the War layer's ruins. Moradara's first fall raises the First Flame instead, the only monument of its
+   kind: a fluted column of white stone on three steps, hung with a laurel wreath, a flame in a gold bowl on top, in a
+   halo of light, its name always shown. A hover names it (the map's tip); a click (the map's panel) tells of the nation
+   that fell: its flag, type of state, leader and motto, when it was founded and when it fell and to whom, how long it
+   lasted, its people, cities, achievements and edicts decided, and whether its people rose again. What it was is kept
+   with its fall by the referee (sieges/<id>.m: functions/war-rules.js, memorial); for a fall from before then, its
+   record while it still stands as it fell. The region's happenings, its Fallen nations card and the Dispatch's front
+   page tell of the First Flame too. */
+const MON_FIRST={id:'vSaJNbKeUzO1NqwCR5gWHey5zn92',nm:'Moradara'};
+const MON_STONE='#ddd6c6',MON_MARBLE='#f4efe2',MON_GOLD='#c9971f';
+/* what the referee kept, read as the game reads any record: short strings and counts, the flag drawn through flagNorm */
+function monNorm(m){
+  if(!m||typeof m!=='object'||Array.isArray(m))return null;
+  const s=(v,k)=>typeof v==='string'?v.replace(/[\u0000-\u001f\u007f]/g,' ').trim().slice(0,k):'',k=v=>typeof v==='number'&&isFinite(v)&&v>=0?v:0;
+  return {pre:s(m.pre,40),ld:s(m.ld,40),ru:s(m.ru,40),mo:s(m.mo,80),dem:s(m.dem,40),cur:s(m.cur,30),ani:s(m.ani,30),fl:m.fl&&typeof m.fl==='object'&&!Array.isArray(m.fl)?m.fl:null,
+    mc:s(m.mc,9),pop:k(m.pop),ct:Math.floor(k(m.ct)),ach:Math.floor(k(m.ach)),dec:Math.floor(k(m.dec))};
+}
+/* the fall that raises the First Flame: Moradara's first */
+function monIsFirst(F){if(!F||F.d!==MON_FIRST.id)return false;const f=wrFallsAt(null).find(x=>x.d===MON_FIRST.id);return !!f&&f.id===F.id;}
+/* the fallen nation's record, while it stands as it fell (its player has not founded a nation again) */
+function monRec(F){
+  const D=F.d===myId()?S.nation:(S.world&&S.world[F.d])||(DORM.w&&DORM.w[F.d])||null;
+  return D&&!D.npc&&D.name&&(!F.df||(+D.founded||0)===F.df)?D:null;
+}
+/* what the nation was: kept with its fall, or read from its record */
+function monInfo(F){
+  if(!F)return null;if(F.m)return F.m;const n=monRec(F);if(!n)return null;
+  return {pre:n.pretitle||'',ld:n.leader||'',ru:n.ruler||'',mo:n.motto||'',dem:n.demonym||'',cur:n.currency||'',ani:n.animal||'',fl:n.flag||null,mc:n.mapc||'',
+    pop:+n.pop||0,ct:cityList(n).length,ach:achEarnedIds(n).length,dec:decisions(n)};
+}
+/* its people since: a nation founded again on the same account, here or in another region */
+function monRisen(F){
+  const R=F.d===myId()?S.nation:(S.world&&S.world[F.d])||(DORM.w&&DORM.w[F.d])||null;
+  if(R&&!R.npc&&(+R.founded||0)>F.ft)return `Its people rose again as ${R.name||'a new nation'} on ${fmtDate(R.founded)}.`;
+  const A=(S.worldAll&&S.worldAll[F.d])||(DORM.all&&DORM.all[F.d])||null;
+  if(A&&A.reg&&A.reg!==(F.reg||REG.id))return `Its people rose again as ${A.name||'a new nation'} in ${regName(A.reg)}.`;
+  return '';
+}
+/* the monuments: one for each hex where a capital fell, the newest fall (or the First Flame's) standing for it */
+let monMemo={FL:null,id:'',v:[]};
+function monSites(){
+  const FL=wrFallsAt(null);if(monMemo.FL===FL&&monMemo.id===MON_FIRST.id)return monMemo.v;
+  const by=new Map();
+  for(const F of FL){const s=by.get(F.c)||{c:F.c,falls:[],first:null};s.falls.push(F);if(monIsFirst(F))s.first=F;by.set(F.c,s);}
+  monMemo={FL,id:MON_FIRST.id,v:[...by.values()]};return monMemo.v;
+}
+function monLead(s){return s.first||s.falls[s.falls.length-1];}
+function monColor(I){return safeColor(I&&I.mc,'')||(I&&I.fl?mapColor(I.fl):'')||'#8a8378';}
+function monDark(c){const m=/^#?([0-9a-f]{6})$/i.exec(String(c&&c.sheet||'').trim());if(!m)return false;const v=parseInt(m[1],16);return (v>>16)*0.3+((v>>8)&255)*0.59+(v&255)*0.11<128;}
+/* a stele: a round-topped stone on a plinth, banded in the nation's colour, three lines of names cut into it */
+function monStele(g,x,y,r,band,c){
+  g.save();g.translate(x,y);g.lineJoin='round';g.lineWidth=1;g.strokeStyle=c.ink;g.fillStyle=MON_STONE;
+  g.beginPath();g.rect(-r*0.85,r*0.45,r*1.7,r*0.38);g.fill();g.stroke();
+  g.beginPath();g.moveTo(-r*0.52,r*0.45);g.lineTo(-r*0.52,-r*0.75);g.arc(0,-r*0.75,r*0.52,Math.PI,0);g.lineTo(r*0.52,r*0.45);g.closePath();g.fill();g.stroke();
+  g.fillStyle=band;g.fillRect(-r*0.52+0.5,-r*0.62,r*1.04-1,r*0.3);
+  g.globalAlpha=0.45;g.beginPath();for(const yy of [-0.08,0.12,0.3]){g.moveTo(-r*0.28,r*yy);g.lineTo(r*0.28,r*yy);}g.stroke();
+  g.restore();
+}
+/* the First Flame: a halo; three steps with a gold star; a fluted, tapering column hung with a laurel wreath; a gold
+   capital and bowl; the flame */
+function monFlame(g,x,y,z,c){
+  const s=z*1.25;g.save();g.translate(x,y);g.lineJoin='round';g.lineWidth=1;
+  const halo=g.createRadialGradient(0,-s*2,s*0.2,0,-s*2,s*2.7);halo.addColorStop(0,'rgba(255,205,90,.55)');halo.addColorStop(1,'rgba(255,205,90,0)');
+  g.fillStyle=halo;g.beginPath();g.arc(0,-s*2,s*2.7,0,Math.PI*2);g.fill();
+  g.strokeStyle=c.ink;g.fillStyle=MON_MARBLE;
+  for(const [w,yy] of [[2.3,0.62],[1.8,0.38],[1.3,0.14]]){g.beginPath();g.rect(-s*w/2,s*yy,s*w,s*0.24);g.fill();g.stroke();}
+  g.fillStyle=MON_GOLD;g.beginPath();for(let k=0;k<10;k++){const a=-Math.PI/2+k*Math.PI/5,rr=k%2?s*0.05:s*0.11;g.lineTo(Math.cos(a)*rr,s*0.74+Math.sin(a)*rr);}g.closePath();g.fill();
+  g.fillStyle=MON_MARBLE;g.beginPath();g.moveTo(-s*0.34,s*0.14);g.lineTo(-s*0.27,-s*2.1);g.lineTo(s*0.27,-s*2.1);g.lineTo(s*0.34,s*0.14);g.closePath();g.fill();g.stroke();
+  g.strokeStyle='#cfc4aa';g.beginPath();for(const f of [-0.14,0,0.14]){g.moveTo(s*f*1.1,s*0.1);g.lineTo(s*f*0.85,-s*2.05);}g.stroke();
+  g.fillStyle='#6f8f3a';for(const sd of [-1,1])for(let i=0;i<5;i++){const a=Math.PI/2+sd*(0.4+i*0.5),lx=Math.cos(a)*s*0.4,ly=-s*0.95+Math.sin(a)*s*0.3;g.beginPath();g.ellipse(lx,ly,s*0.12,s*0.055,a+Math.PI/2,0,Math.PI*2);g.fill();}
+  g.strokeStyle=c.ink;g.fillStyle=MON_GOLD;g.beginPath();g.rect(-s*0.4,-s*2.28,s*0.8,s*0.18);g.fill();g.stroke();
+  g.beginPath();g.ellipse(0,-s*2.44,s*0.44,s*0.17,0,0,Math.PI);g.closePath();g.fill();g.stroke();
+  const fl=g.createLinearGradient(0,-s*3.35,0,-s*2.42);fl.addColorStop(0,'#fff2a8');fl.addColorStop(0.5,'#ffb52e');fl.addColorStop(1,'#e2531c');
+  g.fillStyle=fl;g.beginPath();g.moveTo(-s*0.3,-s*2.44);g.bezierCurveTo(-s*0.44,-s*2.8,-s*0.05,-s*2.95,0,-s*3.35);g.bezierCurveTo(s*0.08,-s*3.0,s*0.46,-s*2.85,s*0.3,-s*2.44);g.closePath();g.fill();
+  g.strokeStyle='#8a6510';g.lineWidth=0.8;g.stroke();
+  g.restore();
+}
+function monLabel(g,txt,x,y,font,fill,c){g.font=font;g.textAlign='center';g.lineJoin='round';g.lineWidth=3;g.strokeStyle=c.sheet;g.strokeText(txt,x,y);g.fillStyle=fill;g.fillText(txt,x,y);}
+MAP_LAYERS.push({stage:'top',kinds:['main','visit'],draw:M=>{
+  if(!M.T)return;const L=monSites();if(!L.length)return;
+  const g=M.g,c=wr3Cols(),z=Math.max(5,Math.min(11,M.s*HEX_R*0.45)),gold=monDark(c)?'#f0c85a':'#7d5c0e';let CS=null;
+  for(const s of L){
+    const [x0,y0]=M.scr(s.c);if(M.off(x0,y0))continue;
+    if(!CS)try{CS=cityState(M.T);}catch(e){CS={byCell:new Map()};}
+    /* beside a city standing on the hex (one taken over, say): up and to the left of its badge, clear of its spokes
+       and its name, with the monument's own name above it */
+    const city=!!(CS.byCell&&CS.byCell.has(s.c)),F=monLead(s),k=Math.max(6,Math.min(30,M.s*HEX_R)),x=city?x0-k*0.95:x0,y=city?y0-k*0.7:y0;
+    /* the First Flame: larger, and named at every zoom */
+    if(s.first){const zf=Math.max(7,Math.min(13,M.s*HEX_R*0.5)),yb=city?y-zf*1.08:y+zf*0.2,sub=M.s*HEX_R>=8;monFlame(g,x,yb,zf,c);
+      if(city){const top=yb-zf*4.2;monLabel(g,F.dn,x,top-(sub?18:6),'italic 700 12px '+MAP_FONT,gold,c);if(sub)monLabel(g,'the first nation',x,top-6,'600 10px '+MAP_FONT,c.ink,c);}
+      else{const lb=yb+zf*1.08+13;monLabel(g,F.dn,x,lb,'italic 700 12px '+MAP_FONT,gold,c);if(sub)monLabel(g,'the first nation',x,lb+12,'600 10px '+MAP_FONT,c.ink,c);}
+      continue;}
+    const r=Math.max(6.5,z),yb=city?y-r*0.8:y;monStele(g,x,yb,r,monColor(monInfo(F)),c);
+    if(M.s*HEX_R>=14)monLabel(g,'Monument to '+F.dn,x,city?yb-r*1.27-6:yb+r*0.83+12,'italic 600 11px '+MAP_FONT,c.ink,c);
+  }
+}});
+MAP_TIP.push(ctx=>{
+  if(!(ctx.cell>=0)||!(ctx.kind==='main'||ctx.kind==='visit'))return null;const s=monSites().find(x=>x.c===ctx.cell);if(!s)return null;const F=monLead(s);
+  return s.first?`The First Flame, monument to ${F.dn}, the first nation`:`Monument to ${F.dn}, fallen ${fmtDate(F.ft)}`;
+});
+/* the card: the nation that fell, as its monument tells it */
+function monCard(s){
+  const F=monLead(s),I=monInfo(F)||{},first=s.first===F,days=F.df&&F.ft>F.df?Math.max(1,Math.round((F.ft-F.df)/DAY)):0;
+  let flag='';try{if(I.fl)flag=`<span class="mon-flag">${flagSVG(flagNorm(I.fl),'Flag of '+F.dn)}</span>`;}catch(e){}
+  const title=I.pre?`The ${I.pre} of ${F.dn}`:F.dn,lasted=days?`${days} ${days===1?'day':'days'}`:'';
+  const insc=first?`Before there were borders, treaties or wars, there was ${F.dn}, the nation of Edictum’s first player${F.df?`, founded on ${fmtDate(F.df)}`:''}. Its capital, ${F.cn||'its capital'}, stood here${lasted?` for ${lasted}`:''}, until the army of ${F.an||'an enemy'} took it on ${fmtDate(F.ft)}. The flame on this column burns for as long as Edictum lasts.`
+    :`Here stood ${F.cn||'the capital'}, capital of ${F.dn}${lasted?` for ${lasted}`:''}, until the army of ${F.an||'an enemy'} took it after a siege on ${fmtDate(F.ft)}.`;
+  const rows=[['Founded',F.df?fmtDate(F.df):''],['Fell',fmtDate(F.ft)+(F.an?`, to ${F.an}`:'')],['Lasted',lasted],['Capital',F.cn],['Leader',[I.ld,I.ru].filter(Boolean).join(' ')],
+    ['Motto',I.mo?`“${I.mo}”`:''],['People',I.pop?fmtPop(I.pop):''],['Cities',I.ct?String(I.ct):''],['Achievements',I.ach?String(I.ach):''],['Edicts decided',I.dec?String(I.dec):''],
+    ['Its people',I.dem?plural(I.dem):''],['Currency',I.cur||'']].filter(r=>r[1]);
+  const R=monRisen(F),older=s.falls.filter(x=>x!==F).map(x=>`<li>${esc(x.dn)}, which fell to ${esc(x.an||'an enemy')} on ${esc(fmtDate(x.ft))}</li>`).join('');
+  return `<div class="mon-card${first?' mon-first':''}" data-mon="${F.c}"><p class="eyebrow">${first?'The First Flame · the monument to the first nation':'A monument to a fallen nation'}</p>
+    <div class="mon-h">${flag}<b>${esc(title)}</b></div><p class="mon-insc">${esc(insc)}</p>
+    ${rows.length?`<dl class="mon-dl">${rows.map(([k,v])=>`<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>`:''}
+    ${R?`<p class="hint">${esc(R)}</p>`:''}${older?`<p class="eyebrow">Also fallen here</p><ul class="mon-old">${older}</ul>`:''}</div>`;
+}
+/* the card: on the hex the panel is about, or the monument clicked on another nation's land (the panel then is about
+   that nation: S.monCell keeps the selection the click made, and the card goes once the panel is about anything else) */
+function monPick(cell){
+  const s=cell>=0?monSites().find(x=>x.c===cell):null;if(!s){S.monCell=null;return;}
+  const T=territory(),o=T.owner[cell];S.monCell={c:cell,sel:o>=0&&!T.list[o].me?T.list[o].id:null};
+}
+MAP_PANEL.push(ctx=>{
+  const m=S.monCell,c=ctx.cell!=null?ctx.cell:m&&m.sel===ctx.sel?m.c:null;if(c==null)return '';
+  const s=monSites().find(x=>x.c===c);return s?monCard(s):'';
+});
+MAP_LEGEND.push(()=>{
+  const L=monSites();if(!L.length)return '';
+  return `<span class="lg"><svg width="12" height="16" viewBox="0 0 12 16" aria-hidden="true"><rect x="1" y="12" width="10" height="3" fill="${MON_STONE}" stroke="currentColor" stroke-width=".8"/><path d="M3 12V5a3 3 0 0 1 6 0v7Z" fill="${MON_STONE}" stroke="currentColor" stroke-width=".8"/><rect x="3.4" y="5.2" width="5.2" height="1.8" fill="#b8443a"/></svg>Monument to a fallen nation</span>`
+    +(L.some(s=>s.first)?`<span class="lg"><svg width="12" height="18" viewBox="0 0 12 18" aria-hidden="true"><rect x="1" y="15" width="10" height="2.5" fill="${MON_MARBLE}" stroke="currentColor" stroke-width=".7"/><path d="M4.2 15l.5-9.5h2.6l.5 9.5Z" fill="${MON_MARBLE}" stroke="currentColor" stroke-width=".7"/><rect x="3.8" y="4.6" width="4.4" height="1.2" fill="${MON_GOLD}"/><path d="M4.6 4.5C4 2.8 5.6 2.2 6 .5c.5 1.6 2 2.3 1.4 4Z" fill="#ffb52e"/></svg>The First Flame</span>`:'');
+});
 /* ───────── works done (WD): the bell tells of every work the builders finish, not only new buildings ─────────
    A building's upgrade, a retool, an economy level and a city's walls are written into the record (settled) by the
    first save after they finish (the COMMIT_HOOKS above), and the moment they finished goes with it; a Warehouse's tier

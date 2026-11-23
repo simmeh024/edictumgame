@@ -38,19 +38,92 @@ test('fifteen edicts, each its own story and choices, most of them offering to t
   assert.match(readFileSync(new URL('../scripts/split-content.mjs', import.meta.url), 'utf8'), /'WAR3_ISSUES','CQ_ISSUES'/);
 });
 
-test('one edict for each capital taken, chosen by the capital and not repeated within a month', () => {
-  const now = 1e12, falls = [{ id: 'a_v_1', a: 'me', d: 'v', ft: now - DAY, cn: 'Adler', dn: 'Vesad' }, { id: 'a_w_2', a: 'me', d: 'w', ft: now - 2 * DAY }, { id: 'x_y', a: 'x', d: 'y', ft: now }];
+const CQ_FNS = ['cqFalls', 'cqFall', 'cqPairs', 'cqFallOf', 'cqDue'];
+function cqCtx(falls) {
   const ctx = vm.createContext({ DAY, OBS: false, S: { mode: 'world' }, myId: () => 'me', wrFallsAt: () => falls, hash: s => { let h = 0; for (const ch of s) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return h; } });
-  vm.runInContext(vars(LIST) + '\n' + ['cqFall', 'cqDue'].map(fn).join('\n'), ctx);
+  vm.runInContext(vars(LIST) + '\n' + vars(cut('const CQ_SET=', '\n')) + '\n' + CQ_FNS.map(fn).join('\n'), ctx);
+  return ctx;
+}
+
+test('one edict for each capital taken, all on the desk together, each its own and not repeated within a month', () => {
+  const now = 1e12, falls = [{ id: 'a_w_2', a: 'me', d: 'w', ft: now - 2 * DAY, cn: 'Bevton', dn: 'Wessex' }, { id: 'a_v_1', a: 'me', d: 'v', ft: now - DAY, cn: 'Adler', dn: 'Vesad' }, { id: 'x_y', a: 'x', d: 'y', ft: now }];
+  const ctx = cqCtx(falls);
   const n = { founded: 1, inbox: [], answered: [] };
-  assert.equal(ctx.cqFall(n).id, 'a_v_1', 'the first capital taken not yet decided');
-  const d = ctx.cqDue(n, now);assert.ok(ctx.CQ_ISSUES.some(i => i.id === d.id));
-  assert.equal(ctx.cqDue({ ...n, inbox: [{ id: d.id }] }, now), null, 'one at a time');
-  assert.equal(ctx.cqFall({ ...n, cqd: ['a_v_1'] }).id, 'a_w_2', 'once decided, the next');
-  assert.equal(ctx.cqDue({ ...n, cqd: ['a_v_1', 'a_w_2'] }, now), null, 'none for a capital another nation took');
+  assert.equal(ctx.cqFall(n).id, 'a_w_2', 'the first capital taken not yet decided');
+  const d = J(ctx.cqDue(n, now));
+  assert.equal(d.length, 2, 'both capitals at once, none for a capital another nation took');
+  assert.notEqual(d[0].id, d[1].id, 'a different edict for each');
+  assert.ok(d.every(x => ctx.CQ_ISSUES.some(i => i.id === x.id)));
+  assert.deepEqual(d.map(x => x.at), [now - 2 * DAY, now - DAY], 'each arrives when its capital fell: the same on every draw');
+  assert.deepEqual(J(ctx.cqDue(n, now + 3600e3)), d, 'drawn again an hour later, the very same edicts');
+  assert.deepEqual(J(ctx.cqDue({ ...n, inbox: [d[0]] }, now)), [d[1]], 'one on the desk: only the other is due');
+  assert.deepEqual(J(ctx.cqDue({ ...n, inbox: d }, now)), [], 'both on the desk: nothing more');
+  const both = { ...n, inbox: d };
+  assert.equal(ctx.cqFallOf(both, d[0]).cn, 'Bevton', 'each edict knows its own capital');assert.equal(ctx.cqFallOf(both, d[1]).cn, 'Adler');
+  assert.equal(ctx.cqFallOf(n, d[1]).cn, 'Adler', 'also before the desk is saved');
+  /* an edict drawn by the old code, at some other moment: it stands for the oldest capital, and the other is due beside it */
+  const old = { ...n, inbox: [{ id: 'cq-keys', at: now - 5000 }] };
+  assert.equal(ctx.cqFallOf(old, old.inbox[0]).cn, 'Bevton');
+  const od = J(ctx.cqDue(old, now));assert.equal(od.length, 1);assert.equal(od[0].at, now - DAY);assert.notEqual(od[0].id, 'cq-keys', 'not the edict already there');
+  assert.deepEqual(J(ctx.cqDue({ ...n, cqd: ['a_w_2'] }, now)).map(x => x.at), [now - DAY], 'once decided, only the next');
+  assert.deepEqual(J(ctx.cqDue({ ...n, cqd: ['a_v_1', 'a_w_2'] }, now)), [], 'none once all are decided');
   assert.equal(ctx.cqFall({ ...n, founded: now }), null, 'none from before the nation was founded again');
-  const ids = ctx.CQ_ISSUES.map(i => i.id), recent = ids.filter(id => id !== 'cq-salt').map(id => ({ id, t: now - DAY }));
-  assert.equal(ctx.cqDue({ ...n, answered: recent }, now).id, 'cq-salt', 'not one decided in the last month');
+  const ids = ctx.CQ_ISSUES.map(i => i.id), recent = ids.filter(id => id !== 'cq-salt' && id !== 'cq-fire').map(id => ({ id, t: now - DAY }));
+  assert.deepEqual(J(ctx.cqDue({ ...n, answered: recent }, now)).map(x => x.id).sort(), ['cq-fire', 'cq-salt'], 'not one decided in the last month');
+});
+
+test('the desk keeps the capital edict, and its card opens (it arrived at Date.now(), a new time on each draw)', () => {
+  assert.match(src, /\{id:'wr-home',at:Math\.min\(now,r\.t1\|\|now\),war:r\}/, 'Coming Home arrives when the war ended');
+  assert.match(src, /return \{id:'wr-memorial',at:home\.t\+12\*3600000,war:r\}/, 'and the memorial when it became due');
+  assert.doesNotMatch(cut('function cqDue(n,now){', '\nsyncInbox=(f=>'), /at:now/);
+  const E = fn('edictChange');
+  assert.match(E, /\|\|\(held\?null:n\.inbox\.find\(x=>x\.id===id\)\);/, 'an edict this draw added, asked for by another arrival time, is still the one of that id');
+  let saved = null;
+  const ctx = vm.createContext({ S: { nation: { inbox: [] } }, clone: J, commit: n => { saved = n; }, saveSoon: () => {}, Date,
+    syncInbox: (n, now) => ({ ...n, inbox: [{ id: 'cq-keys', at: now }] }) });
+  vm.runInContext(E, ctx);
+  assert.equal(ctx.edictChange('cq-keys', '12345', 'read'), true, 'opened');
+  assert.equal(saved.inbox[0].read, 1, 'and kept on the desk, read');
+  saved = null;ctx.S.nation = { inbox: [{ id: 'cq-keys', at: 1 }] };
+  assert.equal(ctx.edictChange('cq-keys', '12345', 'read'), false, 'one the record holds answers only to its own time (a stale card)');assert.equal(saved, null);
+});
+
+test('answered or vetoed, the edict decides its own capital, whatever the motion', () => {
+  const W = cut('let CQ_NOW=null;', '\n/* the ruins on the map');
+  const falls = [{ id: 'f1', a: 'me', d: 'w', ft: 100, cn: 'Bevton' }, { id: 'f2', a: 'me', d: 'v', ft: 200, cn: 'Adler' }];
+  const ctx = cqCtx(falls), hooks = [];
+  Object.assign(ctx, { COMMIT_HOOKS: hooks, S: { mode: 'world', nation: { founded: 1, answered: [], inbox: [{ id: 'cq-keys', at: 100 }, { id: 'cq-fire', at: 200 }] } } });
+  ctx.syncInbox = n => n;
+  let seen = null;
+  ctx.answer = (id) => { seen = J(ctx.CQ_NOW); const n = J(ctx.S.nation);n.inbox = n.inbox.filter(x => x.id !== id);for (const h of hooks) h(n);ctx.S.nation = n; };
+  ctx.dismiss = ctx.answer;
+  vm.runInContext(vars(W), ctx);
+  ctx.answer('cq-fire', 2);
+  assert.equal(seen.F.id, 'f2', 'the edict about Adler, answered first, is about Adler');
+  assert.deepEqual(J(ctx.S.nation.cqd), ['f2'], 'a motion that names no fate decides it too');
+  assert.equal(ctx.CQ_NOW, null);
+  ctx.dismiss('cq-keys');
+  assert.deepEqual(J(ctx.S.nation.cqd), ['f2', 'f1'], 'and so does a veto');
+  ctx.answer('fs-other');assert.equal(seen, null, 'other edicts are left alone');
+});
+
+test('the Dispatch: a capital taken is a csack, never a minister sacked ("X sacks its <id>")', () => {
+  assert.match(src, /n\.log\.unshift\(\{t:now\+1,k:'csack',a:en\.id,b:en\.n\.name,fx:en\.n\.capital\|\|''\}\)/);
+  assert.match(src, /'Take an enemy capital after a siege\.',1,x=>aT\(x,'log:csack'\)/, 'The Fall of a Capital, not for sacking a minister');
+  assert.match(src, /ST_LOG,\{siege:\['war','Laid siege to \{b\}’s capital, \{fx\}'\],csack:/);
+  assert.doesNotMatch(cut('/* ── the record: log lines, the bell, the region', '/* a capital taken was logged as'), /k==='sack'|[{,]sack:/, 'the war section no longer takes the minister\'s kind');
+  const ctx = vm.createContext({ PORTFOLIOS: [['fin', 'Finance', 'Finance Minister'], ['def', 'Defence', 'Defence Minister']], NORM_HOOKS: [], dspThawSt: s => s });
+  vm.runInContext(vars(cut('const WR_PF_TITLES=', '\nHAP_SOURCES.push(')), ctx);
+  const n = { log: [{ k: 'sack', a: 'Hu6o1S740hbEi4ZSiwLBYtuTgyk1', b: 'Vesad', fx: 'Adler' }, { k: 'sack', a: 'Hu6o1S740hbEi4ZSiwLBYtuTgyk1', b: 'Vesad', fx: '' }, { k: 'sack', a: 'Finance Minister', b: 'Ada Lin', fx: '' }, { k: 'sack', a: 'Minister of Moods', b: 'Bo', fx: '' }, { k: 'war', a: 'x', fx: 'y' }] };
+  for (const h of ctx.NORM_HOOKS) h(n);
+  assert.deepEqual(n.log.map(l => l.k), ['csack', 'csack', 'sack', 'sack', 'war'], 'old capital lines move over, ministers stay');
+  /* an edition already filed with the story: read, it tells of the fall */
+  const filed = { k: 'l:abc:1700000000000:sack', sec: 'politics', kick: 'Cabinet', go: 'government', h: 'The Wandering Isles sacks its Hu6o1S740hbEi4ZSiwLBYtuTgyk1', b: 'The Wandering Isles’s Hu6o1S740hbEi4ZSiwLBYtuTgyk1, Vesad, has been dismissed. Colleagues say they had seen it coming since the incident with the stapler.' };
+  const t = ctx.dspThawSt(filed);
+  assert.equal(t.h, 'The Wandering Isles takes the capital of Vesad');assert.equal(t.kick, 'War');assert.equal(t.sec, 'world');assert.equal(t.go, 'map');
+  assert.match(t.b, /^The Wandering Isles has taken the capital of Vesad after a siege, and Vesad has fallen\.$/);
+  const real = { ...filed, h: 'Axetere sacks its Finance Minister', b: 'Axetere’s Finance Minister, Ada Lin, has been dismissed. Colleagues say.' };
+  assert.equal(ctx.dspThawSt(real), real, 'a minister sacked stays a minister sacked');
 });
 
 test('taken over as a city: on the capital\'s hex, its name or New {CAP}, its finished buildings but no wonder', () => {
@@ -93,11 +166,14 @@ test('a captured city counts for nothing against the cities a nation may found',
 
 test('the decision: goodwill with the region, and the capital marked decided', () => {
   const W = cut('applyEffects=(f=>function(n,e){\n  if(e&&n&&!n.npc&&(\'cqc\' in e', '})(applyEffects);') + '})(applyEffects);';
-  let taken = null;const ctx = vm.createContext({ Date, setTimeout: f => f(), toast: () => {}, applyEffects: (n, e) => ({ n, e }), cqFall: () => ({ id: 'f1' }), cqTake: (n, F, how, b) => { taken = [how, b]; return ''; } });
+  let taken = null;const ctx = vm.createContext({ CQ_NOW: null, Date, setTimeout: f => f(), toast: () => {}, applyEffects: (n, e) => ({ n, e }), cqFall: () => ({ id: 'f1' }), cqTake: (n, F, how, b) => { taken = [how, b]; return ''; } });
   vm.runInContext(fn('cqGoodwill').replace('function cqGoodwill', 'function _g') + '\nvar cqGoodwill=(n,k)=>{n.gw={x:k};};\n' + W, ctx);
   const n = {}, r = ctx.applyEffects(n, { culture: 2, cqc: 'new', cqb: 1, gwall: 4 });
   assert.deepEqual(J(taken), ['new', true]);assert.deepEqual(J(n.cqd), ['f1']);assert.deepEqual(J(n.gw), { x: 4 });
   assert.deepEqual(J(r.e), { culture: 2 }, 'the rest goes on as usual');
+  ctx.CQ_NOW = { id: 'cq-keys', F: { id: 'f2' } };ctx.applyEffects(n, { cqc: 'keep' });
+  assert.deepEqual(J(n.cqd), ['f1', 'f2'], 'the capital of the edict being answered, not the oldest');
+  ctx.applyEffects(n, { cqc: 'keep' });assert.deepEqual(J(n.cqd), ['f1', 'f2'], 'once');
 });
 
 test('the city cap as it always was: one city for each that people, land and buildings bring, 33 at most (tripled for a few minutes on 22 Nov 2026, then set back)', () => {
