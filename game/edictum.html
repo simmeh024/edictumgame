@@ -7361,6 +7361,12 @@ html.ux-has-sections{--ux-index-height:54px}.ux-has-sections .flag-preview-row>.
 .dd-fold{padding-bottom:10px}
 .dd-fold .dd-h{margin-bottom:2px}
 .dd-fold .dd-l:empty{display:none}
+.stabs.dd-tabs{margin:0 0 6px}
+.dd-tabs .stab{padding:8px 12px}
+.dd-tabs .badge{min-width:20px;height:20px;padding:0 6px;font-size:11px;vertical-align:1px}
+.dd-none{margin:10px 0 4px}
+.dd-l:not(:empty)+.dd-none{display:none}
+.dd-l-wk .dd-t:first-child{margin-top:4px}
 .dd-fold .dd-x-row{margin-top:10px}
 .dd-gain{display:flex;flex-wrap:wrap;gap:4px 16px;align-items:baseline;margin:10px 0 2px;padding:8px 12px;border-radius:6px;background:color-mix(in srgb,var(--up) 10%,transparent);font-size:13.5px}
 .dd-gain .lbl{font:600 11px/1.4 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-2)}
@@ -7955,6 +7961,7 @@ span.nw-tag{cursor:default}
 .sc-items{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin:8px 0 12px}
 .sc-items>div{min-width:76px;padding:10px 8px;border:1px solid rgba(176,141,60,.45);border-radius:6px;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:13px}
 .sc-items b{font-size:16px}.sc-items small{opacity:.75;font-size:11px}
+.sc-items>.sc-was{opacity:.6;border-style:dashed}
 .sc-note{margin:0 0 12px;padding:10px 14px;border-left:3px solid #b08d3c;background:var(--sheet-2);text-align:left}
 .sc-note p{margin:0;font-style:italic;white-space:pre-wrap;overflow-wrap:anywhere}
 .sc-note footer{margin-top:6px;font-size:12px;opacity:.75}
@@ -10200,6 +10207,9 @@ button.rgc-nm{text-align:left}
 .al-tg-in{width:7.5em;font-family:var(--f-mono);text-transform:uppercase;letter-spacing:.08em}
 .al-tg-in::placeholder{text-transform:none}
 .rgc-tl{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* the Ambassadors tab's mark: the ambassador's blue globe, as on their pill */
+.rgc-amk{flex:none;display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:#1d5fa8;color:#fff}
+.rgc-amk svg{width:10px;height:10px}
 .rgc-tn{flex:none;min-width:17px;height:17px;padding:0 4px;border-radius:9px;background:var(--accent);color:var(--accent-ink);font:700 10.5px/17px var(--f-mono);text-align:center}
 .rgc-q{display:block;max-width:100%;margin:1px 0 2px 31px;padding:2px 8px;border:0;border-left:2px solid var(--rule-2);background:var(--sheet-2);color:var(--ink-2);font-size:12.5px;line-height:1.4;text-align:left;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-radius:0 4px 4px 0}
 .rgc-q:hover{border-left-color:var(--accent);color:var(--ink)}
@@ -25353,7 +25363,7 @@ function mileUnlocks(m,n){
 function growthSection(n){
   const M=mileOf(n),nx=M.next,prev=[...M.reached].pop()||{p:0},pct=nx?clamp((M.pop-prev.p)/(nx.p-prev.p)*100,0,100):100;
   return `<section class="section"><h2 class="h2">Growth</h2>
-    <div class="mile-now"><div><p class="eyebrow">${esc(M.title)}</p><p class="mile-pop"><span data-live="pop">${fmtPop(M.pop)}</span> people</p><p class="hint">${M.reached.length} of ${MILESTONES.length} milestones reached · ${esc(growthText(n))}</p>${sizeNote(M.pop)}${n.pk?`<p class="hint">Land, cities, buildings and food can support about ${fmtPop(n.pk)}.</p>`:''}</div>
+    <div class="mile-now"><div><p class="eyebrow">${esc(M.title)}</p><p class="mile-pop"><span data-live="pop">${fmtPop(M.pop)}</span> people</p><p class="hint">${M.reached.length} of ${MILESTONES.length} milestones reached · ${esc(growthText(n))}</p>${newNote(n)}${sizeNote(M.pop)}${n.pk?`<p class="hint">Land, cities, buildings and food can support about ${fmtPop(n.pk)}.</p>`:''}</div>
       ${nx?`<div class="mile-next"><p class="lbl">Next milestone: ${fmtPopShort(nx.p)}</p><span class="bar"><i style="width:${pct.toFixed(1)}%"></i></span><p>${esc(cap1(list(mileUnlocks(nx,n))))}${nx.t?`, and the rank of ${esc(nx.t)}`:''}.</p></div>`:`<div class="mile-next"><p>Every milestone reached. ${esc(n.name)} is a ${esc(M.title)}.</p></div>`}</div>
     ${gcLimitsCard(n)}
     ${mileList(M.pop,m=>{const done=M.pop>=m.p-1e-9;return `<li class="${done?'done':''}"><span class="ms-p">${done?'<span class="tick" aria-label="Reached">✓</span>':''}${fmtPopShort(m.p)}</span><span class="ms-u">${esc(cap1(list(mileUnlocks(m,n))))}${m.t?` <span class="chip">${esc(m.t)}</span>`:''}</span></li>`;})}${mileMore(M.pop)}
@@ -28017,11 +28027,16 @@ const NPC_ROOM={'npc-karvesk':1.35,'npc-vellmark':1.4,'npc-tarrow':1.5,'npc-bren
    rest of the rate it is taken from the population at each save (growthSnap). jobs/fx/engine.mjs keeps a copy.
    RATE_TOP: a boosted rate stays under ln 1.35 = 0.300, the most firestore.rules (grows) and the population-for-age
    check let a nation grow in a day, and under RATE_MAX, however long it goes unsaved. Without the boom the rate tops
-   out near 0.158 (every stat at 100, growth ×1.6), so the cap only ever trims the boom. */
-const GROW_BOOM=2,BOOM_FROM=5,BOOM_TO=15,GROW_DAMP=0.8,DAMP_FROM=100,RATE_TOP=0.29;
+   out near 0.158 (every stat at 100, growth ×1.6), so the cap only ever trims the boom.
+   A new nation (2026-11-23): growth 5% faster for the first 3 days after n.founded, on top of the boom and inside the
+   cap. Like the rest of the rate it is taken at each save, so a nation that last saved inside the 3 days keeps the
+   bonus until its next save. Computer nations (founded 0) never get it. */
+const GROW_BOOM=2,BOOM_FROM=5,BOOM_TO=15,GROW_DAMP=0.8,DAMP_FROM=100,RATE_TOP=0.29,NEW_BOOST=1.05,NEW_DAYS=3;
 function sizeRate(p){p=Math.max(0.1,+p||0);return (1+(GROW_BOOM-1)*Math.min(1,Math.max(0,(BOOM_TO-p)/(BOOM_TO-BOOM_FROM))))/(1+GROW_DAMP*Math.max(0,Math.log10(p/DAMP_FROM)));}
+function newRate(n,now){const f=+(n&&n.founded)||0;return f>0&&(now||Date.now())-f<NEW_DAYS*864e5?NEW_BOOST:1;}
+function newNote(n,now){now=now||Date.now();if(newRate(n,now)===1)return '';const h=Math.max(1,Math.ceil((+n.founded+NEW_DAYS*864e5-now)/36e5));return `<p class="hint">A new nation: growing ${Math.round((NEW_BOOST-1)*100)}% faster for ${h} more hour${h===1?'':'s'}.</p>`;}
 function sizeNote(p){const f=sizeRate(p);return f>1.005?`<p class="hint">A young nation: growing ${fmt1(f)}× as fast until ${fmtPopShort(BOOM_TO)} people.</p>`:f<0.995?`<p class="hint">At this size, growth runs at ${Math.round(f*100)}% of its usual pace.</p>`:'';}
-function rateOf(n){const s=n.s;return Math.min(RATE_TOP,0.06*(0.55+s.health/250+s.safety/400+s.happy/400+s.wealth/500)*(n.gm||1)*(1-Math.max(0,s.tax-50)/150)*sizeRate(n.pop));}
+function rateOf(n,now){const s=n.s;return Math.min(RATE_TOP,0.06*(0.55+s.health/250+s.safety/400+s.happy/400+s.wealth/500)*(n.gm||1)*(1-Math.max(0,s.tax-50)/150)*sizeRate(n.pop)*newRate(n,now));}
 function npcPop(n,now){const P0=n.pop,K=P0*(NPC_ROOM[n.id]||1.5),t=Math.max(0,(now||Date.now())-NPC_EPOCH)/DAY;return K/(1+(K-P0)/P0*Math.exp(-0.012*t));}
 function logistic(P0,K,r,dt){return P0<=K?K/(1+(K-P0)/P0*Math.exp(-r*dt)):K+(P0-K)*Math.exp(-0.02*dt);}
 function popNow(n,now){
@@ -29108,7 +29123,7 @@ function helpBody(n){
       <p><b>Gambles.</b> Some motions show their odds, such as “Two in three: the levee holds”. Choose one and the result page rolls a number from 1 to 100: at the odds or under, it comes off and goes better than a safe motion would; above, it goes worse. Each roll is fixed when the edict arrives, so trying again later changes nothing. Settings › Display turns the sound of a decision on or off.</p>${G(go('issues','Open edicts'))}`,
     time:`<p>Everything happens in real time. A year of game time passes every ${yrDays===1?'day':yrDays+' days'}, so leaders and ministers grow a year older every ${yrDays} days, and the statistics count years the same way. Computer nations pass one law a day. Buildings, expeditions, readiness and spies all recover or finish on the clock, whether or not you are playing.</p>`,
     pop:`<p>Your population grows along a curve towards what your land can support, its capacity. Capacity comes from the land you hold: reclaimed land and farmland support the most people, mountains the fewest. Each city adds room for about 6 million more and each building about 1 million, and the total rises with science and health and falls when food runs short. On top of that, capacity creeps up a little every day while Science and Health average more than ${DN_FROM}, by up to ${(DN_DAY*100).toFixed(1)}% a day, so a nation that has filled its land still grows. Late buildings (Vertical Farms, the Arcology, Orbital Habitats and the Orbital Elevator) add room for hundreds of millions to billions more, and when free land runs out your engineers can reclaim land from the sea.${n&&n.pk?` Right now ${esc(n.name)} can support about ${fmtPop(n.pk)}.`:''}</p>
-      <p>How fast you grow depends on health, safety, happiness and wealth, on food, hospitals, housing and your Minister of Health and Education. Income tax above 50% slows growth. Size matters too: a young nation grows up to twice as fast until it reaches ${fmtPopShort(BOOM_TO)} people, and above ${fmtPopShort(DAMP_FROM)} growth gradually slows, to about half its pace near 2 billion. Above capacity, the population slowly shrinks. Migration adds or takes people on top.</p>
+      <p>How fast you grow depends on health, safety, happiness and wealth, on food, hospitals, housing and your Minister of Health and Education. Income tax above 50% slows growth. Size matters too: a young nation grows up to twice as fast until it reaches ${fmtPopShort(BOOM_TO)} people (and ${Math.round((NEW_BOOST-1)*100)}% faster again for its first ${NEW_DAYS} days), and above ${fmtPopShort(DAMP_FROM)} growth gradually slows, to about half its pace near 2 billion. Above capacity, the population slowly shrinks. Migration adds or takes people on top.</p>
       <p>At set populations you reach milestones. They unlock buildings, more cities and bonus land credits, declaring war (at ${fp('war')}), founding alliances (at ${fp('alli')}) and bidding to host the Games (at ${fp('host')}). The Growth section of your Nation page lists them all.</p>`,
     world:`<p>The known world has ${REGIONS.length} regions, from ${esc(REGIONS[1]?REGIONS[1].the:'')} to ${esc(REGIONS[REGIONS.length-1].the)}, each with its own lands, climate and ${'computer-run nations'}. You live in ${esc(REG.the)}. The World page shows every region, its nations and how many players live there.</p>
       <p>You can move your nation to another region. Your people, laws, cabinet, treasury, history, honours and museum come with you. Your land starts again: you choose a new capital on arrival and begin with the core of ${CORE_HEXES} hexes, and three quarters of the land credits you have earned can be spent again there: a quarter is lost in the move. Other cities stay behind, and half of their building materials come with you; your capital’s buildings are rebuilt at the new capital. Wars end, and alliances and trade deals lapse. After a move you must wait 14 days before the next.</p>${G(go('world','Open the World page'))}`,
@@ -48019,8 +48034,16 @@ const FR_UI={
 "Open the Board":"Ouvrir le Tableau",
 "Open alliance chat":"Ouvrir la discussion d’alliance",
 "Open the letter":"Ouvrir la lettre",
-"Open the Studios":"Ouvrir les Ateliers"
+"Open the Studios":"Ouvrir les Ateliers",
+"Nothing left for today.":"Plus rien pour aujourd’hui.",
+"Nothing running this week.":"Rien en cours cette semaine.",
+"Alliances · this week":"Alliances · cette semaine",
+"1 share waiting for you":"1 part vous attend"
 },p:[
+["{n1} alliance goals · {n2} reached","{n1} objectifs d’alliance · {n2} atteint{n2?s}"],
+["{n} shares waiting for you","{n} parts vous attendent"],
+["+{n1} of every resource, +{n2} land credits for each goal reached","+{n1} de chaque ressource, +{n2} crédits de terre pour chaque objectif atteint"],
+["{n} to do","{n} à faire"],
 ["Answer {n} edicts","Répondez à {n} édits"],
 ["Send {n} expeditions or fleeting finds","Envoyez {n} expéditions ou équipes vers des trouvailles éphémères"],
 ["Build {n} roads","Construisez {n} routes"],
@@ -48196,6 +48219,8 @@ const FR_UI={
 ["opened its Museum of Progress, with {n} artefacts on display.","a ouvert son Musée du Progrès, avec {n} objets exposés."],
 ["Settle {x} on the map. Your capital becomes your first city.","Installez {x} sur la carte. Votre capitale devient votre première ville."],
 ["A young nation: growing {n1}× as fast until {n2} million people.","Une jeune nation : croissance {n1} fois plus rapide jusqu’à {n2} million{n2?s} d’habitants."],
+["A new nation: growing {n1}% faster for {n2} more hours.","Une nouvelle nation : croissance {n1} % plus rapide pendant encore {n2} heures."],
+["A new nation: growing {n1}% faster for {n2} more hour.","Une nouvelle nation : croissance {n1} % plus rapide pendant encore {n2} heure."],
 ["Step done: {t}. {n1} land credits and {n2} {t2}. Spend them on the map.","Étape terminée : {t}. {n1} crédits de terre et {n2} {t2}. Dépensez-les sur la carte."],
 ["The Hall of Arms and Treaties, room VI: {n1} wars, {n2} treaties","La Salle des armes et des traités, salle VI : {n1} guerre{n1?s}, {n2} traité{n2?s}"],
 ["The name {x} is permanent. Everything else can change here.","Le nom {x} est définitif. Tout le reste peut être modifié ici."],
@@ -60808,7 +60833,7 @@ function adminView(v='admin'){
 }
 /* What a reported thing is called, for the chip above a ticket and the words in its confirmation */
 const admRepKind=r=>{const p=r.post||'';return r.kind!=='post'?(r.kind==='letter'?'Letter':'Nation')
-  :/^news:/.test(p)?'News comment':/^cb:/.test(p)?'Community Board':/^ad:/.test(p)?'Classified ad':/^flk:/.test(p)?'Flock peep':/^rc:world:/.test(p)?'World chat':/^rc:fr:/.test(p)?'French chat':/^rc:/.test(p)?'Region chat':'Post';};
+  :/^news:/.test(p)?'News comment':/^cb:/.test(p)?'Community Board':/^ad:/.test(p)?'Classified ad':/^flk:/.test(p)?'Flock peep':/^rc:world:/.test(p)?'World chat':/^rc:fr:/.test(p)?'French chat':/^rc:amb:/.test(p)?'Ambassadors’ chat':/^rc:/.test(p)?'Region chat':'Post';};
 const admRepThing=r=>{const p=r.post||'';return /^news:/.test(p)?'news comment':/^cb:/.test(p)?'Community Board message':/^ad:/.test(p)?'classified advertisement':/^flk:/.test(p)?'Flock peep':/^rc:world:/.test(p)?'world chat line':/^rc:fr:/.test(p)?'French chat line':/^rc:/.test(p)?'region chat line':'post';};
 /* The report queue, one case per nation. Several players reporting the same nation is one decision, not five, so the
    tickets about it stand together and the nation's actions are taken once; closing the case closes all of them. The
@@ -64535,8 +64560,19 @@ function uxJump(target){
   for(let p=el;p&&p!==document.body;p=p.parentElement){if(p.tagName==='DETAILS'){p.open=true;UXP.data.folds[uxDetailKey(p)]=false;nativeChanged=true;}if(p.classList?.contains('ux-folded'))uxFold(p,false);if(p.classList?.contains('help-sec')&&!p.classList.contains('hs-open'))helpOpenSec(p.dataset.k);}if(nativeChanged)uxPersist();
   /* Entrance animations translate the column and its cards. Scroll to their layout position so
      the target stays below the sticky navigation after those cosmetic translations finish. */
-  const y=uxJumpY(el);window.scrollTo({top:y,left:0,behavior:'instant'});
+  cvOpen(el);const y=uxJumpY(el);window.scrollTo({top:y,left:0,behavior:'instant'});
   if(!/^(INPUT|SELECT|BUTTON|A)$/.test(el.tagName))el.setAttribute('tabindex','-1');el.focus({preventScroll:true});uxHold(el,typeof target==='string'?target:'');return true;
+}
+/* A target inside a section not laid out yet (content-visibility: a 600 px placeholder) used to move after the jump:
+   the section laid out to its real height under the reader, and the browser's scroll anchoring, holding on to the
+   section below it, carried the page on by the difference, which uxHold took for the reader's own scroll (2026-11-23:
+   the milestones link left the list 800 px above the window). So the sections around the target are laid out before
+   it is measured, and let go two frames later, the browser then remembering their heights; the anchor is then inside
+   the target's section, and sections above it that lay out later leave the target where it is. */
+function cvOpen(el){
+  for(let p=el.parentElement;p&&p!==document.body;p=p.parentElement){let cv='';try{cv=getComputedStyle(p).contentVisibility;}catch(e){}
+    if(cv!=='auto'||p.style.contentVisibility)continue;p.style.contentVisibility='visible';
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{p.style.removeProperty('content-visibility');}));}
 }
 function uxJumpY(el){let top=0;for(let node=el;node;node=node.offsetParent)top+=node.offsetTop+(node.offsetParent?.clientTop||0);
   const offset=navNarrow()?145:75;return Math.max(0,Number.isFinite(top)?top-offset:el.getBoundingClientRect().top+window.scrollY-offset);}
@@ -65518,7 +65554,11 @@ function ddPing(k,key){
 }
 /* the desk card. Desk round two: progress bars; one swap a day; rewards as the nation's income makes them; a cleared desk
    folds to one line (S.ddOpen opens it), with any rare, legendary or judging task still open kept in view; and what
-   a save just paid is shown once, the rows that finished lit up and the stock counting up (DDJ, ddCount). */
+   a save just paid is shown once, the rows that finished lit up and the stock counting up (DDJ, ddCount).
+   Two sections, one at a time (2026-11-23, the owner's picks 1 and 4 of the readability ideas): Today (the three,
+   the rare task, the judging task) and This week (the legendary task, the new-to-you task, the region's goal and the
+   alliances' goals), each tab with the number still to do. S.ddTab keeps the choice for the session; until the player
+   picks, Today shows, or This week when Today has nothing left and the week has. */
 function ddCard(now){
   const n=S.nation;if(!n||n.npc||!ddOn())return '';
   const day=ddDay(now),D=n.dd&&!ddLater(day,n.dd.d)?n.dd:ddFresh(n,day),sk=stkDays(n),today=!!(n.stk&&!ddLater(day,n.stk.d)),wk=ddWeek(n,now),rt=ddRates(n),ro=S.mode==='readonly';
@@ -65538,18 +65578,33 @@ function ddCard(now){
   const gain=J?RES.map(r=>[r,Math.floor(num0(J.from[r])),Math.floor(num0(J.to[r]))]).filter(([r,f,t])=>t>f):[];
   const gainP=gain.length?`<p class="dd-gain"><span class="lbl">In store</span>${gain.map(([r,f,t])=>`<span class="dd-g">${esc(cap1(resName(r)))} <b data-dd-from="${f}" data-dd-to="${t}">${J.t?t:f}</b> <i>+${t-f}</i></span>`).join('')}</p>`:'';
   const nextAt=ddNextAt(now,D),reset=D.w&&!ro?(ddxReady(n,now)?'<div class="row dd-x-row"><button type="button" class="btn small-btn" data-act="dd-reset">Weekly reset: three new tasks now</button><span class="hint">Once every seven days: a fresh desk today, with its own land credit.</span></div>':fold?'':`<p class="hint">Weekly reset ready again in <b>${esc(fmtWait(ddxAt(n)+DDX_GAP-now))}</b>.</p>`):'';
-  return `<section class="dd${fold?' dd-fold':''}" aria-labelledby="dd-h"><div class="dd-h"><div><p class="eyebrow">Today’s desk</p><h2 class="stp-t" id="dd-h">${D.w?'All three done':'Three tasks for today'}${J&&J.k.includes('w')&&!J.t?'<span class="dd-stamp" aria-hidden="true">Cleared</span>':''}</h2></div><span class="hint">New tasks in <b data-live="ddnext" data-t="${nextAt}">${esc(fmtWait(nextAt-now))}</b>${D.w?` · <button type="button" class="linkish small" data-act="dd-fold" aria-expanded="${fold?'false':'true'}">${fold?'Show the desk':'Fold it away'}</button>`:''}</span></div>
-    <ol class="dd-l">${leg}${rows}${rare}${newRow}${wkRows(n,now,fold)}</ol>${gainP}
+  const R0=D.r||ddRare(n,D.d,D.q),W=wkWeek(n,now,fold);
+  const dayLeft=D.q.filter((q,i)=>!D.p[i]).length+(R0&&!R0.p?1:0),weekLeft=(L&&!L.p?1:0)+(N&&!N.p?1:0)+W.left;
+  const tab=S.ddTab==='day'||S.ddTab==='week'?S.ddTab:J&&!J.t&&(J.k.includes('l')||J.k.includes('n'))?'week':!dayLeft&&weekLeft?'week':'day';
+  const tabBtn=(k,l,c)=>`<button type="button" role="tab" class="stab${k===tab?' on':''}" id="dd-tab-${k}" data-act="dd-tab" data-t="${k}" aria-selected="${k===tab}" aria-controls="dd-pane" tabindex="${k===tab?0:-1}">${l}${c?` <span class="badge" aria-label="${c} to do">${c}</span>`:''}</button>`;
+  const pane=tab==='day'?`<ol class="dd-l dd-l-day">${rows}${rare}</ol><p class="hint dd-none">Nothing left for today.</p>
     ${fold?'':`<p class="dd-f">${D.w?(wk?'Your desk is clear: today’s two land credits are yours.':'Your desk is clear: today’s land credit is yours.'):wk?'Clear all three for <b>+2 land credits</b>, double in your first week.':'Clear all three for <b>+1 land credit</b>.'}</p>`}
-    ${reset}
+    ${reset}`:`<ol class="dd-l dd-l-wk">${leg}${newRow}${W.html}</ol>${leg||newRow||W.html?'':'<p class="hint dd-none">Nothing running this week.</p>'}`;
+  return `<section class="dd${fold?' dd-fold':''}" aria-labelledby="dd-h"><div class="dd-h"><div><p class="eyebrow">Today’s desk</p><h2 class="stp-t" id="dd-h">${D.w?'All three done':'Three tasks for today'}${J&&J.k.includes('w')&&!J.t?'<span class="dd-stamp" aria-hidden="true">Cleared</span>':''}</h2></div><span class="hint">New tasks in <b data-live="ddnext" data-t="${nextAt}">${esc(fmtWait(nextAt-now))}</b>${D.w?` · <button type="button" class="linkish small" data-act="dd-fold" aria-expanded="${fold?'false':'true'}">${fold?'Show the desk':'Fold it away'}</button>`:''}</span></div>
+    <div class="stabs dd-tabs" role="tablist" aria-label="Today’s desk">${tabBtn('day','Today',dayLeft)}${tabBtn('week','This week',weekLeft)}</div>
+    <div class="dd-pane" role="tabpanel" id="dd-pane" aria-labelledby="dd-tab-${tab}">${pane}</div>${gainP}
     <p class="hint dd-stk">${stkLine(n,sk,today)}</p></section>`;
 }
-/* the week's goals on the desk: one row for each of the nation's alliances and one for its region */
-function wkRows(n,now,fold){
-  if(!n||n.npc)return '';const W=wkKey(now),P=n.wgd&&n.wgd.w===W?n.wgd:null,end=weekStart(now)+7*864e5,out=[];
-  for(const G of wkAllies(n)){const g=wkGoal('al',G,W,n),paid=!!(P&&P.a.includes(G.id));if(fold&&paid)continue;out.push(wkRow('Alliance',G.name,g,paid,`${WK_T[g.k](g.g)} between you`,end,now));}
-  const R=wkRegion(n);if(R&&R.recs.length>=2){const g=wkGoal('rg',R,W,n),paid=!!(P&&P.r);if(!(fold&&paid))out.push(wkRow('Region',R.name,g,paid,`${WK_T[g.k](g.g)} together`,end,now));}
-  return out.join('');
+/* the week's goals on the desk, under This week: the region's, then one for each of the nation's alliances. Two
+   alliances or more fold into one line (2026-11-23, the owner's pick 7 of the readability ideas), with how many goals
+   there are and how many are reached; S.ddAl opens it for the session. {html, left: goals whose share is not yet paid} */
+function wkWeek(n,now,fold){
+  const out={html:'',left:0};if(!n||n.npc)return out;const W=wkKey(now),P=n.wgd&&n.wgd.w===W?n.wgd:null,end=weekStart(now)+7*864e5,h=[];
+  const R=wkRegion(n);if(R&&R.recs.length>=2){const g=wkGoal('rg',R,W,n),paid=!!(P&&P.r);if(!paid)out.left++;if(!(fold&&paid))h.push(wkRow('Region',R.name,g,paid,`${WK_T[g.k](g.g)} together`,end,now));}
+  const A=wkAllies(n).map(G=>{const g=wkGoal('al',G,W,n),paid=!!(P&&P.a.includes(G.id));return {G,g,paid};});
+  out.left+=A.filter(x=>!x.paid).length;
+  const rows=A.filter(x=>!(fold&&x.paid)).map(x=>wkRow('Alliance',x.G.name,x.g,x.paid,`${WK_T[x.g.k](x.g.g)} between you`,end,now));
+  if(A.length>=2){const open=!!S.ddAl,reached=A.filter(x=>x.g.done).length,wait=A.filter(x=>x.g.done&&x.g.mine>0&&!x.paid).length,all=A.every(x=>x.paid);
+    const f=A.reduce((s,x)=>s+clamp(x.g.c/x.g.g,0,1),0)/A.length;
+    h.push(`<li class="dd-t dd-wk dd-wk-sum${all?' done':''}"><span class="dd-i" aria-hidden="true"></span><span class="dd-x"><b><span class="dd-wk-tag">Alliances · this week</span> <span>${A.length} alliance goals · ${reached} reached</span></b><span class="hint">${wait?`<span>${wait===1?'1 share waiting for you':wait+' shares waiting for you'}</span> · `:''}<span>+${WK_GIFT} of every resource, +${WK_CR} land credits for each goal reached</span></span>${all?'':`<span class="bar dd-bar" aria-hidden="true"><i style="width:${Math.round(f*100)}%"></i></span>`}</span><button type="button" class="btn ghost small-btn" id="dd-al" data-act="dd-al" aria-expanded="${open}" aria-controls="dd-pane">${open?'Hide':'Show'}</button></li>`);
+    if(open)h.push(...rows);}
+  else h.push(...rows);
+  out.html=h.join('');return out;
 }
 function wkRow(tag,name,g,paid,what,end,now){
   const c=Math.min(g.c,g.g),ro=S.mode==='readonly';
@@ -65590,6 +65645,10 @@ go=(f=>function(v){if(DDJ.a&&DDJ.a.t)DDJ.a=null;return f.apply(this,arguments);}
 function ddLeft(n,now){try{if(!n||n.npc||!ddOn()||regBlocked())return 0;const day=ddDay(now),D=n.dd&&!ddLater(day,n.dd.d)?n.dd:null;if(!D)return 3;return D.w?0:D.q.filter((q,i)=>!D.p[i]).length;}catch(e){return 0;}}
 navBadges=(f=>function(){const b=f.apply(this,arguments),k=ddLeft(S.nation,Date.now());if(k)(b.issues=b.issues||[]).push({h:`<span class="badge badge-dd" aria-hidden="true">${k}</span>`,t:k===1?'1 desk task left today':k+' desk tasks left today'});return b;})(navBadges);
 navSigOf=(f=>function(){return f.apply(this,arguments)+'|dd'+ddLeft(S.nation,Date.now());})(navSigOf);
+document.addEventListener('keydown',e=>{const t=e.target&&e.target.closest&&e.target.closest('.dd-tabs [role="tab"]');if(!t)return;
+  const k=e.key==='ArrowRight'||e.key==='ArrowLeft'||e.key==='Home'||e.key==='End'?e.key:'';if(!k)return;e.preventDefault();
+  const to=k==='Home'?'day':k==='End'?'week':t.dataset.t==='day'?'week':'day';if(to===t.dataset.t)return;
+  S.ddTab=to;const nb=document.getElementById('dd-tab-'+to);if(nb)nb.focus({preventScroll:true});render();requestAnimationFrame(()=>{const b=document.getElementById('dd-tab-'+to);if(b)b.focus({preventScroll:true});});});
 issuesView=(f=>function(v,now){const h=f.apply(this,arguments),c=ddCard(now||Date.now());return c?h.replace('</header>','</header>'+c):h;})(issuesView);
 asmVote=(f=>function(){const r=f.apply(this,arguments);Promise.resolve(r).then(ok=>{if(ok)ddMark('vote');},()=>{});return r;})(asmVote);
 document.addEventListener('click',e=>{const el=e.target.closest('[data-act]');if(!el||!S.nation)return;const a=el.dataset.act;
@@ -65600,6 +65659,8 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-act]');if
       if(k==='mcl'){const x=(S.nation.inbox||[]).find(e=>mcK(e.id)>=0);if(x){edictOpen(x.id,x.at);return;}}
       if(k==='std')requestAnimationFrame(()=>requestAnimationFrame(()=>{const x=document.getElementById('cz-studios');if(x)x.scrollIntoView({block:'start'});}));}catch(e){}if(T.go[0]==='intel'){S.ibTab='ops';if(el.dataset.k==='gint')S.cvK='g';if(el.dataset.k==='spy')S.cvK='w';if(el.dataset.k==='bu')S.ibBuOpen=true;}go(T.go[0]);
     if(el.dataset.k==='xu')requestAnimationFrame(()=>{const x=document.getElementById('xu');if(x){x.open=true;x.scrollIntoView({block:'start'});}});if(el.dataset.k==='road'&&pgAvailable(S.nation,'map')){S.mpMode='transport';render();}return;}
+  if(a==='dd-tab'){S.ddTab=el.dataset.t==='week'?'week':'day';render();const t=S.ddTab;requestAnimationFrame(()=>{const b=document.getElementById('dd-tab-'+t);if(b)b.focus({preventScroll:true});});return;}
+  if(a==='dd-al'){S.ddAl=el.getAttribute('aria-expanded')!=='true';render();requestAnimationFrame(()=>{const b=document.querySelector('[data-act="dd-al"]');if(b)b.focus({preventScroll:true});});return;}
   if(a==='dd-fold'){S.ddOpen=el.getAttribute('aria-expanded')!=='true';render();requestAnimationFrame(()=>{const b=document.querySelector('[data-act="dd-fold"]');if(b)b.focus({preventScroll:true});});return;}
   if(a==='dd-swap'){const n=S.nation,now=Date.now(),i=+el.dataset.i;if(n.npc||!ddOn()||regBlocked()||S.mode==='readonly')return;
     const day=ddDay(now);if(!n.dd||ddLater(day,n.dd.d)||!ddSwapOk(n.dd,i))return;const nk=ddSwapPick(n,n.dd);if(!nk){toast('There is no other task to swap in today.');return;}
@@ -72327,11 +72388,12 @@ HELP_EXT.push({k:'gifts',t:'Diplomatic gifts',body:()=>`<p>From any nation’s p
    (functions/supply.js, a civic op) then files it as supply/{uid}_{id} with the message, which is kept only there,
    never in the record. k=1 once it is filed; a cache the server refuses for good (SC_BACK) comes back to the stockpile.
    The recipient's game listens for the caches addressed to it (SC.in) and shows them on the Diplomacy page's Gifts tab,
-   in the bell and on the menu; scOpen marks one opened, and the contents are paid only on that first opening (n.sco,
-   the private half, keeps the ids paid). Tallies for the achievements: scs caches sent, scq materials sent, scfull,
+   in the bell and on the menu; scOpen marks one opened, and the contents are paid at that first opening (n.sco,
+   the private half, keeps the ids paid), or at a later one while the saved record does not list it as paid (scOpen's
+   pay, for SC_RULES.pay after the opening: the answer to the first opening lost on the way back, scUnpaid). Tallies for the achievements: scs caches sent, scq materials sent, scfull,
    scmix, scmsg, scday (a day's every cache), sct:<uid> the nations sent to, sco caches opened, scf:<uid> the nations
    received from, scmut a cache to a nation that sent one (or from one sent to). */
-const SC_RULES={res:['food','timber','iron','oil','goods'],day:3,max:300,msg:200,age:86400000,old:604800000,keep:2592000000,sponsor:1,sponsorMs:1209600000};
+const SC_RULES={res:['food','timber','iron','oil','goods'],day:3,max:300,msg:200,age:86400000,old:604800000,keep:2592000000,sponsor:1,sponsorMs:1209600000,pay:604800000};
 const SC_ID=/^[a-z0-9]{6,16}$/,SC_DOC=/^[\w-]{1,128}_[a-z0-9]{6,16}$/,SC_KEYS=20;
 /* the server's refusals that are final: the cache's materials come back */
 const SC_BACK=new Set(['registration_required','sc_young','sc_day','sc_bad','sc_target','sc_old']);
@@ -72446,7 +72508,7 @@ function scTick(){
     else if(r==='sent'&&SC.waited.has(e.id)){SC.waited.delete(e.id);toast(`Your Supply Cache is on its way to ${nameOf(e.to)}.`);}
   }).catch(()=>{}).finally(()=>{SC.busy='';});
 }
-setInterval(()=>{try{scTick();}catch(e){}},10000);
+setInterval(()=>{try{scTick();}catch(e){}try{scUnpaidNote();}catch(e){}},10000);
 
 /* the caches sent to this nation and by it, as the server keeps them */
 function scNorm(id,d){
@@ -72467,6 +72529,23 @@ window.addEventListener('edictum:saved',()=>{try{scConnect();}catch(e){}});
 function scPaint(){try{NVX.ver++;}catch(e){}if(S.view==='diplomacy'&&!(typeof alTyping==='function'&&alTyping()))quietRender();}
 /* the caches waiting to be opened */
 function scWaiting(now){const n=S.nation;if(!n)return [];now=now||Date.now();const paid=scPaid(n);return [...SC.in.values()].filter(c=>!c.o&&c.x>now&&!paid.includes(c.id)).sort((a,b)=>b.t-a.t);}
+/* the caches opened whose contents never reached this nation: the answer to the opening was lost on the way back (a
+   connection that dropped; Zatra, 23 Nov 2026), so the game never paid them. They wait under "Not received yet" for
+   SC_RULES.pay after the opening, which the server pays as well (scOpen's pay): those opened since this nation's founding,
+   not the one being opened this moment. late: only those opened over SC_GRACE ago, for the notices and counts (on another
+   of the player's devices, the save that lists one as paid takes a few seconds to arrive) */
+const SC_GRACE=60000;
+function scUnpaid(now,late){const n=S.nation;if(!n)return [];now=now||Date.now();const paid=scPaid(n),f=Number(n.founded)||0;
+  return [...SC.in.values()].filter(c=>c.o&&c.x>now&&!paid.includes(c.id)&&now-c.o<SC_RULES.pay&&c.o>=f&&!(SC.crateBusy&&SC.crate===c.id)&&(!late||now-c.o>SC_GRACE)).sort((a,b)=>b.o-a.o);}
+/* a notice, once for each, that one did not arrive */
+function scUnpaidNote(){
+  const me=S.uid;if(!me||!S.nation||OBS||PV||tabPassive||S.mode!=='world'||!SC.inReady)return;const k='edictum.sc.unpaid.'+me;let seen=[];
+  try{seen=JSON.parse(localStorage.getItem(k)||'[]');}catch(e){}if(!Array.isArray(seen))seen=[];
+  const fresh=scUnpaid(Date.now(),true).filter(c=>!seen.includes(c.id));if(!fresh.length)return;
+  try{localStorage.setItem(k,JSON.stringify(seen.concat(fresh.map(c=>c.id)).slice(-100)));}catch(e){}
+  toast({m:fresh.length===1?`The materials in ${scFrom(fresh[0])}’s Supply Cache did not reach your stores when it was opened. Collect them on the Gifts tab.`:`${fresh.length} Supply Caches you opened did not reach your stores. Collect them on the Gifts tab.`,go:{v:'diplomacy',l:fresh.length===1?'Collect the cache':'Collect the caches'}});
+  scPaint();
+}
 /* a cache that arrived since this device last looked: a notice */
 function scArrived(){
   const me=S.uid;if(!me||!S.nation||OBS)return;const k='edictum.sc.seen.'+me;let seen=[];
@@ -72550,9 +72629,9 @@ function scCrateShow(id){
   SC.crate=id;SC.crateBack=document.activeElement;
   const room=scRoomNote(c),o=document.createElement('div');o.id='sc-crate';o.className='m50-bg sc-bg';
   o.innerHTML=`<div class="m50 sc-crate" role="dialog" aria-modal="true" aria-labelledby="scc-h"><p class="eyebrow">Supply Cache</p>
-    <h2 class="h2" id="scc-h">From ${esc(scFrom(c))}</h2><p>${fmt0(c.q)} materials, sent ${esc(rel(c.t))}.</p>
-    <button type="button" class="sc-box" id="scc-box" aria-label="Open the cache"><span class="sc-body"><span class="sc-stencil">Supply</span></span><span class="sc-lid"></span></button>
-    <p class="hint m50-tap">Click the crate to open it</p>${room?`<p class="hint sc-room m50-tap">${esc(room)}</p>`:''}
+    <h2 class="h2" id="scc-h">From ${esc(scFrom(c))}</h2><p>${fmt0(c.q)} materials, sent ${esc(rel(c.t))}.${c.o?` You opened it ${esc(rel(c.o))}, but they did not reach your stores.`:''}</p>
+    <button type="button" class="sc-box" id="scc-box" aria-label="${c.o?'Collect the cache':'Open the cache'}"><span class="sc-body"><span class="sc-stencil">Supply</span></span><span class="sc-lid"></span></button>
+    <p class="hint m50-tap">${c.o?'Click the crate to collect them':'Click the crate to open it'}</p>${room?`<p class="hint sc-room m50-tap">${esc(room)}</p>`:''}
     <p class="hint sc-cerr" id="scc-err" role="alert"></p>
     <div class="m50-got"><div class="sc-items" id="scc-items"></div><div id="scc-note"></div>
       <div class="row sc-row"><button type="button" class="btn" id="scc-ok">Done</button>${findNation(c.f)?`<button type="button" class="btn ghost" id="scc-thank" data-act="dm-open" data-id="${esc(c.f)}">Write back</button>`:''}</div></div>
@@ -72563,22 +72642,29 @@ async function scCrateOpen(){
   const id=SC.crate,c=SC.in.get(id),o=document.getElementById('sc-crate');if(!c||!o||SC.crateBusy||o.classList.contains('open'))return;
   const err=document.getElementById('scc-err');if(err)err.textContent='';
   if(OBS||S.mode!=='world'){if(err)err.textContent='Supply Caches need the online game.';return;}
+  /* a tab that plays nothing commits nothing, so it would mark the cache opened and pay nothing */
+  if(PV||tabPassive){if(err)err.textContent='Nothing can be opened from this tab.';return;}
   SC.crateBusy=true;o.classList.add('busy');let res=null;
   try{res=await alReq({op:'scOpen',id});}catch(e){const el=document.getElementById('scc-err');if(el)el.textContent=alErrText(e);}
   finally{SC.crateBusy=false;o.classList.remove('busy');}
   if(!res||!res.ok)return;
-  const r=scContents(res.r)||c.r;let got=null;
-  if(res.first&&!scPaid(S.nation).includes(id)){
+  /* paid at the first opening, and at a later one the server says never reached the saved record (pay: the answer to an
+     earlier opening was lost on the way back); this nation's own list of those paid (sco) keeps it to once */
+  const r=scContents(res.r)||c.r,pay=res.first||res.pay===true;let got=null;
+  if(pay&&!scPaid(S.nation).includes(id)){
     SC.got=null;const n=clone(S.nation);n._scp={id,r,f:res.f||c.f};commit(n);got=SC.got;SC.got=null;scRecount();try{saveSoon();}catch(e){}
-    try{window.edictumStat&&window.edictumStat('supply_cache_open',{q:scTotal(r)});}catch(e){}
+    try{window.edictumStat&&window.edictumStat(res.first?'supply_cache_open':'supply_cache_collect',{q:scTotal(r)});}catch(e){}
   }
+  const had=scPaid(S.nation).includes(id);
   const live=SC.in.get(id);if(live)live.o=res.o||Date.now();
   const box=document.getElementById('sc-crate');if(!box)return;
   const lost=got?Object.entries(r).filter(([k,v])=>num0(got[k])+1e-6<v):[];
-  document.getElementById('scc-items').innerHTML=Object.entries(r).map(([k,v])=>`<div>${resIco(k)}<b>+${fmtAmt(got?num0(got[k]):v)}</b><small>${esc(resName(k))}</small></div>`).join('');
+  /* a "+" only for what went into the stores: an opening that paid nothing shows what the cache held, set apart */
+  document.getElementById('scc-items').innerHTML=Object.entries(r).map(([k,v])=>`<div${got?'':' class="sc-was"'}>${resIco(k)}<b>${got?'+'+fmtAmt(num0(got[k])):fmtAmt(v)}</b><small>${esc(resName(k))}</small></div>`).join('');
   document.getElementById('scc-note').innerHTML=(res.m?`<blockquote class="sc-note"><p>${esc(res.m)}</p><footer>${esc(scFrom(c))}</footer></blockquote>`:'')
     +(lost.length?`<p class="hint">Your stores were full: ${esc(list(lost.map(([k,v])=>fmt0(Math.round(v-num0(got[k])))+' '+resName(k))))} did not fit.</p>`:'')
-    +(!got?`<p class="hint">This cache was opened before${res.o?', on '+esc(fmtDate(res.o)):''}.</p>`:'');
+    +(got?'':pay&&!had?'<p class="hint">Its materials could not be added in this tab. They wait on the Gifts tab, under Not received yet.</p>'
+      :`<p class="hint">This cache was opened before${res.o?', on '+esc(fmtDate(res.o)):''}${had?', and its materials went into your stores then':''}.</p>`);
   box.classList.add('open');const l=document.getElementById('scc-later');if(l)l.remove();
   for(let i=0;i<18;i++){const cf=document.createElement('i');cf.className='m50-cf';cf.style.cssText=`--x:${Math.round(Math.random()*280-140)}px;--y:${Math.round(-70-Math.random()*150)}px;--r:${Math.round(Math.random()*720)}deg;background:${['#A8763E','#E2B13C','#7D8A99','#5A6BD6','#C0567A'][i%5]}`;box.querySelector('.m50').appendChild(cf);}
   setTimeout(()=>{const b=document.getElementById('scc-ok');if(b)b.focus();},650);
@@ -72604,29 +72690,33 @@ document.addEventListener('keydown',e=>{if(e.key!=='Escape')return;
 
 /* the Diplomacy page's Gifts tab: caches to open, opened and sent (the ones to open come first) */
 function scSection(now){
-  const n=S.nation;if(!n)return '';const wait=scWaiting(now),left=scLeft(n,now),me=myId(),paid=scPaid(n);
-  const opened=[...SC.in.values()].filter(c=>c.o||paid.includes(c.id)).sort((a,b)=>(b.o||b.t)-(a.o||a.t)).slice(0,8);
+  const n=S.nation;if(!n)return '';const wait=scWaiting(now),unpaid=scUnpaid(now),owed=new Set(unpaid.map(c=>c.id)),left=scLeft(n,now),me=myId(),paid=scPaid(n);
+  const opened=[...SC.in.values()].filter(c=>(c.o||paid.includes(c.id))&&!owed.has(c.id)).sort((a,b)=>(b.o||b.t)-(a.o||a.t)).slice(0,8);
   const sent=[...SC.out.values()].sort((a,b)=>b.t-a.t).slice(0,10),pend=scSent(n).filter(e=>!e.k&&!SC.out.has(me+'_'+e.id));
   const who=(id,nm)=>{const x=findNation(id);return x?nationLink(x.id,x.n.name,x.me):esc(nm);};
   const flag=id=>{const x=findNation(id);return `<span class="sc-fl">${x?flagSVG(x.n.flag,''):''}</span>`;};
   const row=(id,nm,r,extra)=>`<li class="sc-li">${flag(id)}<span class="sc-b"><b>${who(id,nm)}</b><span class="sc-its">${scItems(r)}</span>${extra}</span></li>`;
-  return `<section class="section sc-sec" id="sc-sec" aria-labelledby="sc-h2"><h2 class="h2" id="sc-h2">Supply Caches${wait.length?` <span class="chip">${wait.length} to open</span>`:''}</h2>
+  return `<section class="section sc-sec" id="sc-sec" aria-labelledby="sc-h2"><h2 class="h2" id="sc-h2">Supply Caches${wait.length?` <span class="chip">${wait.length} to open</span>`:''}${unpaid.length?` <span class="chip">${unpaid.length} to collect</span>`:''}</h2>
     ${!scLinked()?`<p class="hint">Registered Nations send Supply Caches from any player’s nation page: up to ${SC_RULES.max} materials in any mix, with a message, ${SC_RULES.day} a day. Anyone can receive and open them. <button type="button" class="linkish small" data-act="acct-open">Link a sign-in</button></p>`:`<p class="hint">Send a Supply Cache from any player’s nation page: up to ${SC_RULES.max} materials in any mix, with a message, ${SC_RULES.day} a day. ${now<scReadyAt(n)?`Your nation can send them a day after its founding, from ${esc(fmtTime(scReadyAt(n)))}${scDay(scReadyAt(n))!==scDay(now)?' tomorrow':''}.`:left?`You can send ${left} more today.`:`You have sent today’s ${SC_RULES.day}; more from ${esc(fmtTime(scNextDay(now)))}.`}</p>`}
     ${wait.length?`<h3 class="sub-h">Waiting to be opened</h3><ul class="sc-l">${wait.map(c=>`<li class="sc-li">${flag(c.f)}<span class="sc-b"><b>${who(c.f,c.fn)}</b><span>${fmt0(c.q)} materials${c.m?' and a message':''}</span><span class="hint">Sent ${esc(rel(c.t))} · waits until ${esc(fmtDate(c.x))}</span></span><button type="button" class="btn sm" data-act="sc-crate" data-id="${esc(c.id)}">Open</button></li>`).join('')}</ul>`:''}
+    ${unpaid.length?`<h3 class="sub-h">Not received yet</h3><p class="hint">Opened, but the materials did not reach your stores: the connection dropped as the cache opened. Collect them within ${SC_RULES.pay/DAY} days of the opening.</p><ul class="sc-l">${unpaid.map(c=>`<li class="sc-li">${flag(c.f)}<span class="sc-b"><b>${who(c.f,c.fn)}</b><span class="sc-its">${scItems(c.r)}</span><span class="hint">Opened ${esc(rel(c.o))} · collect by ${esc(fmtDate(c.o+SC_RULES.pay))}</span></span><button type="button" class="btn sm" data-act="sc-crate" data-id="${esc(c.id)}">Collect</button></li>`).join('')}</ul>`:''}
     ${opened.length?`<h3 class="sub-h">Opened</h3><ul class="sc-l">${opened.map(c=>row(c.f,c.fn,c.r,`${c.m?`<q class="sc-msg">${esc(c.m)}</q>`:''}<span class="hint">Sent ${esc(rel(c.t))}</span>`)).join('')}</ul>`:''}
     ${pend.length||sent.length?`<h3 class="sub-h">Sent</h3><ul class="sc-l">${pend.map(e=>row(e.to,nameOf(e.to),e.r,'<span class="hint">On its way: it is sent as soon as your nation is saved.</span>')).join('')}${sent.map(c=>row(c.to,c.tn,c.r,`<span class="hint">Sent ${esc(rel(c.t))} · ${c.o?'opened '+esc(rel(c.o)):'not opened yet'}</span>`)).join('')}</ul>`:''}
-    ${!wait.length&&!opened.length&&!pend.length&&!sent.length?'<p class="hint">Caches sent to you, and those you send, appear here.</p>':''}</section>`;
+    ${!wait.length&&!unpaid.length&&!opened.length&&!pend.length&&!sent.length?'<p class="hint">Caches sent to you, and those you send, appear here.</p>':''}</section>`;
 }
-dpGifts=(f=>function(now){const h=f.apply(this,arguments);now=now||Date.now();let s='';try{s=scSection(now);}catch(e){}return scWaiting(now).length?s+h:h+s;})(dpGifts);
+dpGifts=(f=>function(now){const h=f.apply(this,arguments);now=now||Date.now();let s='';try{s=scSection(now);}catch(e){}return scWaiting(now).length||scUnpaid(now).length?s+h:h+s;})(dpGifts);
 /* on the menu, and in the bell (both open the Gifts tab) */
-nvxCompute=(f=>function(n,now){const out=f.apply(this,arguments);try{const k=scWaiting(now).length;
-  if(k>0){const x=out.diplomacy||(out.diplomacy={k:0,w:[],at:[],e:0,d:0}),w=k===1?'a Supply Cache to open':k+' Supply Caches to open';x.k+=k;x.w.push(w);x.at.push({sel:'.dp-tabs [data-v="gifts"]',k,w});}}catch(e){}return out;})(nvxCompute);
+nvxCompute=(f=>function(n,now){const out=f.apply(this,arguments);try{
+  const add=(k,w)=>{if(k<1)return;const x=out.diplomacy||(out.diplomacy={k:0,w:[],at:[],e:0,d:0});x.k+=k;x.w.push(w);x.at.push({sel:'.dp-tabs [data-v="gifts"]',k,w});};
+  const k=scWaiting(now).length,u=scUnpaid(now,true).length;
+  add(k,k===1?'a Supply Cache to open':k+' Supply Caches to open');add(u,u===1?'a Supply Cache to collect':u+' Supply Caches to collect');}catch(e){}return out;})(nvxCompute);
 NOTIF_SOURCES.push((n,now)=>{if(!S.nation||n!==S.nation)return [];const out=[];
   for(const c of scWaiting(now))out.push({t:c.t,k:'supply',kl:'Supply Caches',txt:`${scFrom(c)} sent you a Supply Cache of ${fmt0(c.q)} materials${c.m?' with a message':''}. Open it on the Gifts tab.`,go:'diplomacy'});
+  for(const c of scUnpaid(now,true))out.push({t:c.o,k:'supply',kl:'Supply Caches',txt:`The ${fmt0(c.q)} materials in ${scFrom(c)}’s Supply Cache did not reach your stores when it was opened. Collect them on the Gifts tab.`,go:'diplomacy'});
   for(const c of SC.out.values())if(c.o&&now-c.o<7*DAY){const x=findNation(c.to);out.push({t:c.o,k:'supply',kl:'Supply Caches',txt:`${x?x.n.name:c.tn} opened your Supply Cache of ${fmt0(c.q)} materials.`,go:'diplomacy'});}
   return out.slice(0,10);});
 document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-act="nt-go"][data-v="diplomacy"],.toast-go[data-v="diplomacy"]');if(!el)return;
-  const k=el.querySelector('.nt-k');if(k&&/^Supply Caches/.test(k.textContent)||el.classList.contains('toast-go')&&/^Open the cache/.test(el.textContent))AL.tab='gifts';},true);
+  const k=el.querySelector('.nt-k');if(k&&/^Supply Caches/.test(k.textContent)||el.classList.contains('toast-go')&&/^(Open|Collect) the cache/.test(el.textContent))AL.tab='gifts';},true);
 
 /* the achievements, under Diplomacy */
 achDef('dip','dip-sc1','b','Special Delivery','Send your first Supply Cache to another player.',1,x=>aT(x,'scs'));
@@ -72647,10 +72737,10 @@ achDef('dip','dip-scin50','g','Never Wanting','Open fifty Supply Caches.',50,x=>
 achDef('dip','dip-scfrom','s','Friends in Every Port','Open Supply Caches from five different nations.',5,x=>aKeys(x,'scf:'));
 achDef('dip','dip-scmut','s','Mutual Aid','Send a Supply Cache to a nation that sent you one.',1,x=>aT(x,'scmut'));
 HELP_EXT.push({k:'supply',t:'Supply Caches',body:()=>`<p>Registered Nations (with a linked Google, Discord or email sign-in) can send Supply Caches; any nation, guests too, can receive them. On another player’s nation page, <b>Send Supply Cache</b> packs up to ${SC_RULES.max} materials from your stockpile in any mix (all ${SC_RULES.max} of one resource, or some of each), with a message of up to ${SC_RULES.msg} characters if you like. You can send ${SC_RULES.day} caches a day (the day ends at midnight UTC) to the players of your region, from a day after your nation was founded.</p>
-  <p>The materials leave your stockpile at once. The cache waits ${SC_RULES.keep/DAY} days for the other nation to open it on the Diplomacy page’s Gifts tab, where they read your message. What does not fit in their stores is lost, so a nation with full stores can open it later. You both see whether it was opened.</p>
+  <p>The materials leave your stockpile at once. The cache waits ${SC_RULES.keep/DAY} days for the other nation to open it on the Diplomacy page’s Gifts tab, where they read your message. What does not fit in their stores is lost, so a nation with full stores can open it later. You both see whether it was opened. Should the connection drop as a cache opens, so that its materials do not arrive, it waits on the Gifts tab under <b>Not received yet</b>: collect it there within ${SC_RULES.pay/DAY} days.</p>
   <p>Sending and opening caches earns achievements under Diplomacy.</p>`});
 /* the browser tests' window (EDICTUM_PROBE, SC) */
-function scProbe(){return {linked:()=>scLinked(),SC_LINK,SC,SC_RULES,scContents,scSent,scPaid,scLeft,scToday,scWhyNot,scWaiting,scDlgShow,scSendNow,scFile,scCrateShow,scCrateOpen,scSection,scDay,scTick};}
+function scProbe(){return {linked:()=>scLinked(),SC_LINK,SC,SC_RULES,scContents,scSent,scPaid,scLeft,scToday,scWhyNot,scWaiting,scUnpaid,scUnpaidNote,scDlgShow,scSendNow,scFile,scCrateShow,scCrateOpen,scSection,scDay,scTick};}
 
 /* ───────── fifty edicts about the museum, and five about the edicts themselves ─────────
    Numbered after the Great Statue's six, so no older number moves. Museum life (admission, sponsors, guards,
@@ -85182,7 +85272,7 @@ mapBox=(f=>function(kind){const h=f.apply(this,arguments),n=S.nation;if(kind!=='
 
 /* the browser tests' window into the game: test/lib.mjs sets EDICTUM_PROBE before the page loads (a
    player's own browser can reach all of this anyway) */
-if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({RPATCH,SC:()=>scProbe(),WR3:()=>({CQ_ISSUES,cqFall,cqFalls,cqPairs,cqFallOf,cqAct,wrSackFix,MON_FIRST,monSites,monCard,monInfo,monIsFirst,monNorm,monRisen,cqDue,cqTake,cityFounded,cqBuildings,openMapAt,WAR3_ISSUES,wr3WarsSection,wr3BattleCard,wr3MapData,wr3Econ,wr3Close,wr3VetDue,wr3WindToggle,wr3MunOn,wr3Reserve,wr3Factors,wr3On}),WR2:()=>({wrFallenCard,WR,WAR_GOALS,WAR2_ISSUES,wrSiege,wrSiegesOn,wrFallsAt,myFall,wrSiegeWhy,wrCapExposed,wrUnrest,wrWarsOf,wrPopFx,wrTribute,wrForts,wrFortify,wrSurrender,wrSiegeStart,wrRise,wrCarry,wrEdictDue,wrSafe,wrNotice,territory,frontier,economy,warControls,targetPanel,armyBlock,warNotice,warWith,pairWar,nationView,rgnOverview,hxCard}),HELPX:()=>({HLP,HELP_CH,HELP_SUM,HELP_FOR,GLOSS,helpFind,helpIndex,helpSecList,helpForYou,helpChapters,rgcCmd,rgcCardOf,rgcCardHTML,admhHs,admhHsCount}),MTP:()=>({MTP,MTP_PAD,TBMP_SCALE,redrawMaps,mapScale,viewOf}),SCR:()=>({scrOf,scrClean,scrDef,scrFamOf,scrEdParse,scrGlyphs,scrLay,scrChars,scrSVG,scrLine,scrCard,scrCharterSVG,scrFmt,scrFor,dmRich,dmPlain,scrDmWith,SCR_FAM,SCR_ABC,SCS}),BDX:()=>bdProbe(),LDX:()=>ldProbe(),FLY:()=>({flagSVG,fgSplit,fgFused}),RD:()=>rdProbe(),JV:()=>jvProbe(),M100P:()=>({M100,M100_N,M100_MC,M100_MCN,m100Bits,m100Got,m100In,m100Due,m100Count,m100Show,m100Open,ctgMcOk,nationColor,czShOk,czShieldPath,unlocksOf,czPatSVG,xsMax}),M200P:()=>({M200,M200_N,M200_MC,M200_MCN,M200_U,m200Bits,m200Got,m200In,m200Due,m200Count,m200Show,m200Open,ctgMcOk,nationColor,czShOk,czShieldPath,unlocksOf,czPatSVG,czStampArt,czFrameArt,czCharge,czFramed,flagSVG,xsMax,ACH_BY_ID,achEarnedIds}),WTN:()=>({WN,wbMap,wnKind,wnWaters,wnSync,wnAt,wnRename,wnReset,wnNameProblem,wnTaken,wnPanel,wnLabels,lakeMap,isLake,cellAt,WN_REACH,WTN_MAX,REG,RV,rvData,hexDist,territory,MAP,HEX_W,updateMapPanel,logLine}),RVN:()=>({RV,rvData,rvSync,rvKey,rvHeld,rvStretch,rvMost,rvEdgeHolder,rvAt,rvNameAt,rvLabelAt,rvParts,rvRename,rvReset,rvNameProblem,rvTidy,rvLabel,rvnPanel,logLine,RVN_MAX,RVN_LEN,updateMapPanel,hexDist,HEX_W,REG}),CP2:()=>({BLD_ICO,bldIco,bldLead,cxDefTotal,cxOrder,qjBuilding,BUILDINGS}),PRVC:()=>({cxPrvOf,cxPrvSeatTrial,cxOvwCols,prvSeat,prvMine,prvOfCell,prvSetAut,prvAppoint,PRV}),NPX:()=>({fbTrend,fbYesterday,heroLead,heroOpen,opOf,OPEN_TO,hnOf,hnFill,hnLine,nbSection,ppWho,ppWhoHTML,ppHash,ppCarried,economy,territory,bordersOf,fillDeal,findNation,clsHide,MAP,hexDist,STAT_KEYS,popNow,myId}),PT:()=>ptProbe(),LTH:()=>lthProbe(),DAM:()=>damProbe(),CHAT:()=>({RGC,RGW,RGF,tab:rgcTab(),count:rgcCount(),region:rgcUnread(),world:rgwUnread(),named:rgwNamedUnread(),fr:rgwUnread(RGF),frNamed:rgwNamedUnread(RGF),frOn:rgfOn(),hidden:document.hidden}),UXP2:()=>({edictDesk,edictStep,edictOpen,fill,ISSUE_BY_ID,ACH,keysOpen,dmOthers,dmPickList,stGroups,stTabLast,navRecent,vhData,VH_KEY,VH_AFTER,QJ_DO,qjItems:q=>navQjItems(q),NAV_REC_KEY,ST_KEY}),HID:()=>({HIDN,hidMask,iAmHidden,frontier,mapPanel,warControls}),WG:()=>({wgTakers,wgForField,wgForPick,warGiveHex,warGive,occupiedFrom,attack,offerPeace,declareWar,collectConquests,dedupeConq}),WAKE:()=>({dormFresh,dormQuiet,dormWelcome,moveTo,RSTAT,REGIONS,REG,regDisabled}),HMB:()=>({RCTRL,hmBake,hmAutoFlag,fxDraw,capHolder,FX_DEF,DEF_FLAG,hmRle,hmLiveNorm,hmMapNorm,hmSel,hmRegions,hmBlocked,hmEngaged:()=>hmEngaged,HM,REG,MAP}),LAND:()=>({landWait,capLift,capWrong,capNote,raceKnown,RACE,worldHeardAt:()=>worldHeardAt,landQ:()=>S.landQ,landQueued,fdSites:(n,T)=>fdSites(n,T)}),BG:{gain:bldGain,html:bldGainHtml},IB:()=>({agRoster,agPick,agStatus,heatOf,cvRoll,cvKey,cvBlock,cvOdds,buLv,buGap,buAll,BU,BU_KEYS,ibFile,ibWanted,ibChatter,HEAT_MAX,DD_TASKS,DD_LEG,findNation,allNations,cvProtected}),VL:()=>({VL_SECS,VL_DEF,CLS,CLS_OPS,CLS_READ,vlOrder,clsOf,clsRaw,clsMax,clsSeen,clsHide,clsRead,vlSave,findNation}),IFC:()=>({plan:ifcPlan,works:ifcWorks,line:ifcLine,tab:ifcTab}),XP:()=>({BUILDINGS,XU,XU_KEYS,XU_TOTAL,LOST_KINDS,LOST_ORDER,XU2,XU2_KEYS,LOST2_KINDS,LOST2_ORDER,xuLine,xu2Lv,xb,xu2Cost,xu2Hours,xu2Why,xu2Start,xuCredits,xuMapsLv,xuFlK,xuFindK,xuParty,xuTimeK,xuReach,xuCostK,xuCurio,flSoon,landEarned,xuLv,xuWhy,xuHave,xuStart,xuCost,xuGear,xpSeen,expFree,xpTeamOpen,nationBuilt,expBackTeam,SITES,SITE_KINDS,expPlan,expOdds,expRuns,expRange,flRange,flAlive,flPlan,flDebug,flNow,discoveries,sendExpedition,hearReport,xpRoute,xpRivals,xpRivalText,xpFinds,flOdds,territory}),SVC:()=>({SVC,SVC_N,SVC_V,SVC_NEED,svcPlan,svcOpen,svcDig,svcShort,svcRoll,svcAmt,svcDayOf,svcRoom,svcNext}),FLC:()=>({FLC,FLC_RULES,FLC_CAT,flcId,flcTimes,flcPhase,flcPrev,flcView,flcLoad,flcChamp,flcTodo,flcClaims,flcLand,flcStreak,flcAllDone,flcSeen,flcDuty,flcDeskOn,flcDraftPush,FCA}),LK:{lakeMap,isLake,claimLand,lakeShore,fillHeld,LAKE_MAX,LAKE_A,freeCell,claimFrontier,blockPlan,autoPlan,terrCount,placePhrase,claimWhy,swapCheck,inspectPanel,writeClaims,landCredits:n=>landCredits(n)},PST:()=>({PST,PST_LOOKS,PST_SHAPES,PST_SIZES,pstBar,pstKm,pstView,pstBox,pstPlace,pstKeyOf,pstRender,pstShow,pstHide,pstLocked,pstOffered,pstSizeOffered,pstPrintK,pstSealId,pstPhys,pstCrc}),DIG:()=>({DIG_SETS,DIG_FIRST,DIG_POOL,DIG_SITES,DIG_LEN,DIG_EVENTS,DIG_SCH,digSet,digHeld,digDone,digRew,digCredits,digOrder,digActive,digRetired,digOpenedAt,digPlan,digSend,digOpen,digChoose,digMod,digEvent,digPity,digGround,digInvites,digJoin,digJointOn,digGiftsIn,digTake,digGiveSpare,digSellSpare,digHire,digRegionFinds,digFirsts,landEarned:n=>landEarned(n),REG,REGIONS,COL_BY_ID}),MW:()=>({mwOf,mwPoints,mwVisitors,mwTakings,mwExhibit,mwExhibitItems,mwRanking,mwWorn,mwSlots,mwOnShow,COL_BY_ID,COL_ITEMS,DIG_SETS,MW_FLOORS}),GM:()=>({gamesResults,edOf,b1Now,gevWhy,baseScores,entryOf,medalsIn,gamesRecords,gamesCeremony,unlocksOf,myId,formOf,GAME_EVENTS,clone,commit}),GM2:()=>({GAMES_V2,GTAC,TRAIN_PTS,TRAIN_MAX,BOY_GW,edOf,edStart,entryOf,gamesHost,gamesBids,edEvents,edDrawn,gmSwapOf,gmMascOf,gmChatLines,gmChatLine,gmTrCost,gevWhy,formOf,gamesResults,dspBuild,dspNoOf,c3MyBid,gcerSeen,stockNow,stockCap,canFeature,myId,clone,commit}),GB:()=>({IRON_DEP,IRON_DEP_YIELD,CELL_RES,MAP_T:MAP.T,mapAt:c=>{centerMain(c,NEAR_Z*1.6);},stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,FOOD_SPOIL,FOOD_EAT,FOOD_TIERS,FOOD_LAND,foodTier,TIMBER_BURN,foodGrowth,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({dspShown,dspRegShown,dspRegs,dspPic,dspLocator,dspHtDefs,pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),ASMX:()=>({ASMX,ASMX_TABS,asmBookAt,asmState,asmArcLoad,REG}),RGNX:()=>({RGN,RGN_PAGE,notifItems,ONL,onlRefresh}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals,seatsOf,alliancesOf,alMineAll,alClashes,alFest,alWornOf,alGuardsOf,alSeatsFor,allianceOf,AL_TY_UI,alStripHTML,alArmsSVG,alArmsAuto,alPzKeys,alMoCheck,alOpenPage,alWeekData,alLvOpens}),TYX:()=>({TY,TY_RULES,TY_K,tyOf,tyList,tyWarBlock,tyIncoming,affinity,alPactLive,alRelationsHTML,econOf,armyPower,armyRaw,attackMult,readyMs,drWords,drNote,drBroken,relationCard}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,npcIdeaNow,npcDealFor,npcAsk,npcReply,npcVerdict,npcTradeTalk,dealSlots,maxDeals,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,achTierCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC,step:rcStepCheck,head:rcHead,sponsoring:rcSponsoring,qr:qrMatrix,card:rcCardDraw,invCap:rcInvCap,free:rcFreeLand,STEPS:RC_STEPS,UNL:RC_UNLOCKS}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend,card:n=>tutCard(n),phase:n=>tutPhase(n),picks:(n,ph)=>tutPicks(n,ph),group:(n,k)=>tutGroup(n,tutL(k)),hid:n=>tutHid(n)},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours,
+if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({RPATCH,SC:()=>scProbe(),WR3:()=>({CQ_ISSUES,cqFall,cqFalls,cqPairs,cqFallOf,cqAct,wrSackFix,MON_FIRST,monSites,monCard,monInfo,monIsFirst,monNorm,monRisen,cqDue,cqTake,cityFounded,cqBuildings,openMapAt,WAR3_ISSUES,wr3WarsSection,wr3BattleCard,wr3MapData,wr3Econ,wr3Close,wr3VetDue,wr3WindToggle,wr3MunOn,wr3Reserve,wr3Factors,wr3On}),WR2:()=>({wrFallenCard,WR,WAR_GOALS,WAR2_ISSUES,wrSiege,wrSiegesOn,wrFallsAt,myFall,wrSiegeWhy,wrCapExposed,wrUnrest,wrWarsOf,wrPopFx,wrTribute,wrForts,wrFortify,wrSurrender,wrSiegeStart,wrRise,wrCarry,wrEdictDue,wrSafe,wrNotice,territory,frontier,economy,warControls,targetPanel,armyBlock,warNotice,warWith,pairWar,nationView,rgnOverview,hxCard}),HELPX:()=>({HLP,HELP_CH,HELP_SUM,HELP_FOR,GLOSS,helpFind,helpIndex,helpSecList,helpForYou,helpChapters,rgcCmd,rgcCardOf,rgcCardHTML,admhHs,admhHsCount}),MTP:()=>({MTP,MTP_PAD,TBMP_SCALE,redrawMaps,mapScale,viewOf}),SCR:()=>({scrOf,scrClean,scrDef,scrFamOf,scrEdParse,scrGlyphs,scrLay,scrChars,scrSVG,scrLine,scrCard,scrCharterSVG,scrFmt,scrFor,dmRich,dmPlain,scrDmWith,SCR_FAM,SCR_ABC,SCS}),BDX:()=>bdProbe(),LDX:()=>ldProbe(),FLY:()=>({flagSVG,fgSplit,fgFused}),RD:()=>rdProbe(),JV:()=>jvProbe(),M100P:()=>({M100,M100_N,M100_MC,M100_MCN,m100Bits,m100Got,m100In,m100Due,m100Count,m100Show,m100Open,ctgMcOk,nationColor,czShOk,czShieldPath,unlocksOf,czPatSVG,xsMax}),M200P:()=>({M200,M200_N,M200_MC,M200_MCN,M200_U,m200Bits,m200Got,m200In,m200Due,m200Count,m200Show,m200Open,ctgMcOk,nationColor,czShOk,czShieldPath,unlocksOf,czPatSVG,czStampArt,czFrameArt,czCharge,czFramed,flagSVG,xsMax,ACH_BY_ID,achEarnedIds}),WTN:()=>({WN,wbMap,wnKind,wnWaters,wnSync,wnAt,wnRename,wnReset,wnNameProblem,wnTaken,wnPanel,wnLabels,lakeMap,isLake,cellAt,WN_REACH,WTN_MAX,REG,RV,rvData,hexDist,territory,MAP,HEX_W,updateMapPanel,logLine}),RVN:()=>({RV,rvData,rvSync,rvKey,rvHeld,rvStretch,rvMost,rvEdgeHolder,rvAt,rvNameAt,rvLabelAt,rvParts,rvRename,rvReset,rvNameProblem,rvTidy,rvLabel,rvnPanel,logLine,RVN_MAX,RVN_LEN,updateMapPanel,hexDist,HEX_W,REG}),CP2:()=>({BLD_ICO,bldIco,bldLead,cxDefTotal,cxOrder,qjBuilding,BUILDINGS}),PRVC:()=>({cxPrvOf,cxPrvSeatTrial,cxOvwCols,prvSeat,prvMine,prvOfCell,prvSetAut,prvAppoint,PRV}),NPX:()=>({fbTrend,fbYesterday,heroLead,heroOpen,opOf,OPEN_TO,hnOf,hnFill,hnLine,nbSection,ppWho,ppWhoHTML,ppHash,ppCarried,economy,territory,bordersOf,fillDeal,findNation,clsHide,MAP,hexDist,STAT_KEYS,popNow,myId}),PT:()=>ptProbe(),LTH:()=>lthProbe(),DAM:()=>damProbe(),CHAT:()=>({RGC,RGW,RGF,RGA,tab:rgcTab(),count:rgcCount(),region:rgcUnread(),world:rgwUnread(),named:rgwNamedUnread(),fr:rgwUnread(RGF),frNamed:rgwNamedUnread(RGF),frOn:rgfOn(),amb:rgwUnread(RGA),ambOn:rgaOn(),tabs:rgcTabs().map(x=>x[0]),hidden:document.hidden}),UXP2:()=>({edictDesk,edictStep,edictOpen,fill,ISSUE_BY_ID,ACH,keysOpen,dmOthers,dmPickList,stGroups,stTabLast,navRecent,vhData,VH_KEY,VH_AFTER,QJ_DO,qjItems:q=>navQjItems(q),NAV_REC_KEY,ST_KEY}),HID:()=>({HIDN,hidMask,iAmHidden,frontier,mapPanel,warControls}),WG:()=>({wgTakers,wgForField,wgForPick,warGiveHex,warGive,occupiedFrom,attack,offerPeace,declareWar,collectConquests,dedupeConq}),WAKE:()=>({dormFresh,dormQuiet,dormWelcome,moveTo,RSTAT,REGIONS,REG,regDisabled}),HMB:()=>({RCTRL,hmBake,hmAutoFlag,fxDraw,capHolder,FX_DEF,DEF_FLAG,hmRle,hmLiveNorm,hmMapNorm,hmSel,hmRegions,hmBlocked,hmEngaged:()=>hmEngaged,HM,REG,MAP}),LAND:()=>({landWait,capLift,capWrong,capNote,raceKnown,RACE,worldHeardAt:()=>worldHeardAt,landQ:()=>S.landQ,landQueued,fdSites:(n,T)=>fdSites(n,T)}),BG:{gain:bldGain,html:bldGainHtml},IB:()=>({agRoster,agPick,agStatus,heatOf,cvRoll,cvKey,cvBlock,cvOdds,buLv,buGap,buAll,BU,BU_KEYS,ibFile,ibWanted,ibChatter,HEAT_MAX,DD_TASKS,DD_LEG,findNation,allNations,cvProtected}),VL:()=>({VL_SECS,VL_DEF,CLS,CLS_OPS,CLS_READ,vlOrder,clsOf,clsRaw,clsMax,clsSeen,clsHide,clsRead,vlSave,findNation}),IFC:()=>({plan:ifcPlan,works:ifcWorks,line:ifcLine,tab:ifcTab}),XP:()=>({BUILDINGS,XU,XU_KEYS,XU_TOTAL,LOST_KINDS,LOST_ORDER,XU2,XU2_KEYS,LOST2_KINDS,LOST2_ORDER,xuLine,xu2Lv,xb,xu2Cost,xu2Hours,xu2Why,xu2Start,xuCredits,xuMapsLv,xuFlK,xuFindK,xuParty,xuTimeK,xuReach,xuCostK,xuCurio,flSoon,landEarned,xuLv,xuWhy,xuHave,xuStart,xuCost,xuGear,xpSeen,expFree,xpTeamOpen,nationBuilt,expBackTeam,SITES,SITE_KINDS,expPlan,expOdds,expRuns,expRange,flRange,flAlive,flPlan,flDebug,flNow,discoveries,sendExpedition,hearReport,xpRoute,xpRivals,xpRivalText,xpFinds,flOdds,territory}),SVC:()=>({SVC,SVC_N,SVC_V,SVC_NEED,svcPlan,svcOpen,svcDig,svcShort,svcRoll,svcAmt,svcDayOf,svcRoom,svcNext}),FLC:()=>({FLC,FLC_RULES,FLC_CAT,flcId,flcTimes,flcPhase,flcPrev,flcView,flcLoad,flcChamp,flcTodo,flcClaims,flcLand,flcStreak,flcAllDone,flcSeen,flcDuty,flcDeskOn,flcDraftPush,FCA}),LK:{lakeMap,isLake,claimLand,lakeShore,fillHeld,LAKE_MAX,LAKE_A,freeCell,claimFrontier,blockPlan,autoPlan,terrCount,placePhrase,claimWhy,swapCheck,inspectPanel,writeClaims,landCredits:n=>landCredits(n)},PST:()=>({PST,PST_LOOKS,PST_SHAPES,PST_SIZES,pstBar,pstKm,pstView,pstBox,pstPlace,pstKeyOf,pstRender,pstShow,pstHide,pstLocked,pstOffered,pstSizeOffered,pstPrintK,pstSealId,pstPhys,pstCrc}),DIG:()=>({DIG_SETS,DIG_FIRST,DIG_POOL,DIG_SITES,DIG_LEN,DIG_EVENTS,DIG_SCH,digSet,digHeld,digDone,digRew,digCredits,digOrder,digActive,digRetired,digOpenedAt,digPlan,digSend,digOpen,digChoose,digMod,digEvent,digPity,digGround,digInvites,digJoin,digJointOn,digGiftsIn,digTake,digGiveSpare,digSellSpare,digHire,digRegionFinds,digFirsts,landEarned:n=>landEarned(n),REG,REGIONS,COL_BY_ID}),MW:()=>({mwOf,mwPoints,mwVisitors,mwTakings,mwExhibit,mwExhibitItems,mwRanking,mwWorn,mwSlots,mwOnShow,COL_BY_ID,COL_ITEMS,DIG_SETS,MW_FLOORS}),GM:()=>({gamesResults,edOf,b1Now,gevWhy,baseScores,entryOf,medalsIn,gamesRecords,gamesCeremony,unlocksOf,myId,formOf,GAME_EVENTS,clone,commit}),GM2:()=>({GAMES_V2,GTAC,TRAIN_PTS,TRAIN_MAX,BOY_GW,edOf,edStart,entryOf,gamesHost,gamesBids,edEvents,edDrawn,gmSwapOf,gmMascOf,gmChatLines,gmChatLine,gmTrCost,gevWhy,formOf,gamesResults,dspBuild,dspNoOf,c3MyBid,gcerSeen,stockNow,stockCap,canFeature,myId,clone,commit}),GB:()=>({IRON_DEP,IRON_DEP_YIELD,CELL_RES,MAP_T:MAP.T,mapAt:c=>{centerMain(c,NEAR_Z*1.6);},stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,FOOD_SPOIL,FOOD_EAT,FOOD_TIERS,FOOD_LAND,foodTier,TIMBER_BURN,foodGrowth,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({dspShown,dspRegShown,dspRegs,dspPic,dspLocator,dspHtDefs,pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),ASMX:()=>({ASMX,ASMX_TABS,asmBookAt,asmState,asmArcLoad,REG}),RGNX:()=>({RGN,RGN_PAGE,notifItems,ONL,onlRefresh}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals,seatsOf,alliancesOf,alMineAll,alClashes,alFest,alWornOf,alGuardsOf,alSeatsFor,allianceOf,AL_TY_UI,alStripHTML,alArmsSVG,alArmsAuto,alPzKeys,alMoCheck,alOpenPage,alWeekData,alLvOpens}),TYX:()=>({TY,TY_RULES,TY_K,tyOf,tyList,tyWarBlock,tyIncoming,affinity,alPactLive,alRelationsHTML,econOf,armyPower,armyRaw,attackMult,readyMs,drWords,drNote,drBroken,relationCard}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,npcIdeaNow,npcDealFor,npcAsk,npcReply,npcVerdict,npcTradeTalk,dealSlots,maxDeals,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,achTierCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC,step:rcStepCheck,head:rcHead,sponsoring:rcSponsoring,qr:qrMatrix,card:rcCardDraw,invCap:rcInvCap,free:rcFreeLand,STEPS:RC_STEPS,UNL:RC_UNLOCKS}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend,card:n=>tutCard(n),phase:n=>tutPhase(n),picks:(n,ph)=>tutPicks(n,ph),group:(n,k)=>tutGroup(n,tutL(k)),hid:n=>tutHid(n)},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours,
   SV:MC_SV,XS:MC_XS,QUEUE:MC_QUEUE,DISH:MC_DISH,FINDS:MC_FINDS,CHART_MS:MC_CHART_MS,repSecs:mcRepSecs,repKind:mcRepKind,fold:mcFold,lane:mcLane,dish:mcDish,
   finds:mcFinds,findAt:mcFindAt,bits:mcBitsList,charted:mcCharted,chartedNow:mcChartedNow,unqueue:mcUnqueue,dishBuild:mcDishBuild,bringHome:mcBringHome,
   secSite:mcSecSite,prefOk:mcPrefOk,prefTile:mcPrefTile,setPref:mcSetPref,startProblem:mcStartProblem,wfKey:mcWfKey,osKey:mcOsKey},WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR,bell:now=>notifItems(now||Date.now())},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},TIER:()=>({BTIER,bEff,bTier,bTierNext,bTierLine,tierQuote,tierProblem,cxTier,cxTrMap,tierSettle,tierReady,cxGoldNow,cxUpQuote,cxUpList,cxUps,mktSlots,mktSlotsOf,maxDeals,bldAggOf}),CX:{upgradable:cxUpgradable,mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState,UG:CX_UG,LV:CX_LV,ups:cxUps,upMap:cxUpMap,extras:cxBldExtras,quote:cxUpQuote},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo,unlockTarget,unlockShow,unlockFresh,unlockQueue,ULK,UNLOCKS,unlocksOf,toast:m=>toast(m)},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{coinBackSVG:cuCoinBackSVG,noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,coinSVG:cuCoinSVG,guide:cuGuideHTML,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,drawMap,sfKey,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ACH_RANKS_V1,ID_BD,achVal,achCtx,achEvalNew,achState,stockRates:n=>stockRates(n),achPoints,achRank,achRankOf,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,flagNorm:(f,n)=>flagNorm(f,n),flagSVG:(f,l)=>flagSVG(f,l),mapTip:id=>{const T=mapTerr('main'),i=T.list.findIndex(x=>x.id===id);if(i<0)return '';const cell=Array.prototype.indexOf.call(T.owner,i);return MAP_TIP.map(h=>{try{return h({kind:'main',cell,cv:null,x:0,y:0});}catch(e){return '';}}).filter(x=>typeof x==='string').join(' | ');},cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
@@ -87175,7 +87265,7 @@ function alJoinHTML(ty,now){
 function dpView(now){
   now=now||Date.now();const t=DP_TABS.some(x=>x[0]===AL.tab)?AL.tab:'overview',me=myId();
   const badge={alliance:(()=>{let k=0;const P=politics();for(const B of P.al.values())if(B.srv&&B.invited.includes(me)&&!B.members.includes(me))k++;for(const A of alMineAll())if(A.srv)k+=alTyBadge(A);return k+alClashes().length;})(),
-    wars:enemies().length+alCalls(now).filter(c=>!c.ans).length,gifts:gfIncoming().filter(g=>!g.reply).length+scWaiting(now).length,treaties:tyIncoming().length+bdWaiting(me,now).length,ventures:jvIncoming(now).length,land:ldBadge(now)};
+    wars:enemies().length+alCalls(now).filter(c=>!c.ans).length,gifts:gfIncoming().filter(g=>!g.reply).length+scWaiting(now).length+scUnpaid(now,true).length,treaties:tyIncoming().length+bdWaiting(me,now).length,ventures:jvIncoming(now).length,land:ldBadge(now)};
   const tabs=`<div class="gv-tabs dp-tabs" role="tablist" aria-label="Diplomacy">${DP_TABS.map(([k,l])=>`<button type="button" role="tab" id="dp-tab-${k}" class="gv-tab dp-tab${k===t?' on':''}" data-act="dp-tab" data-v="${k}" aria-selected="${k===t}" aria-controls="dp-p-${k}" tabindex="${k===t?0:-1}">${l}${badge[k]?` <span class="gv-tab-n">${badge[k]}</span>`:''}</button>`).join('')}</div>`;
   const pane=(k,h)=>`<section class="dp-pane" id="dp-p-${k}" role="tabpanel" aria-labelledby="dp-tab-${k}" data-dp="${k}">${h}</section>`;
   const safe=f=>{try{return f();}catch(e){return `<div class="empty"><p class="empty-h">This part could not be drawn</p><p>${esc(e.message)}</p></div>`;}};
@@ -90783,7 +90873,7 @@ ddCard=(f=>function(now){const h=f.apply(this,arguments);try{const n=S.nation;if
   const D=n.dd&&!ddLater(ddDay(now),n.dd.d)?n.dd:null,F=D&&D.f?D.f:flcDeskOn(n)?{g:FLC_DESK.g,c:0,p:0}:null;if(!F||!F.p&&!F.c&&flcAllScored(n)||F.p&&h.includes('class="dd dd-fold"'))return h;
   const done=!!F.p,c=Math.min(F.g,F.c||0);
   const row=`<li class="dd-t dd-fc${done?' done':''}"><span class="dd-i" aria-hidden="true"></span><span class="dd-x"><b><span class="dd-fc-tag">Judging</span> Score ${F.g} flags in the flag competition</b><span class="hint">${done?'Done':`${c} of ${F.g}`} · +${FLC_DESK.gift.goods} goods, +${FLC_DESK.gift.iron} iron</span></span>${done?'':`<button type="button" class="btn ghost small-btn" data-act="go" data-v="flagcomp">Score flags</button>`}</li>`;
-  const i=h.indexOf('</ol>');return i<0?h:h.slice(0,i)+row+h.slice(i);}catch(e){return h;}})(ddCard);
+  const a=h.indexOf('dd-l-day');if(a<0)return h;const i=h.indexOf('</ol>',a);return i<0?h:h.slice(0,i)+row+h.slice(i);}catch(e){return h;}})(ddCard);
 HELP_EXT.push({k:'flagcomp',t:'The Flag Competition',body:n=>`<p>Every month the nations of every region meet in one flag competition, which opens on the ${FLC_RULES.START_DAY}th. For its first ${FLC_RULES.ENTER_DAYS} days you design a flag for the occasion on the Flag Competition page and enter it: it is not your national flag, which stays as it is, and it should not look like it, because the judging is blind.</p>
   <p>For the ${FLC_RULES.JUDGE_DAYS} days after that, every Registered Nation at least a day old may score the flags. Each is shown without a name, and gets one to five stars for ${list(FLC_RULES.CATS.map(c=>FLC_CAT[c][0].replace('?','').toLowerCase()))}. A flag’s score is the average its judges gave it, leaving out the kindest and the harshest once it has five. To stay in the running an entrant scores ${FLC_RULES.DUTY} flags, or every other flag when there are fewer. Judging pays in land as well: every ${FLC_RULES.JUDGE_PER} flags scored earn a land credit, ${FLC_RULES.JUDGE_LAND} at most, and after that a judge may score as many more as they like.</p>
   <p>The best flag wins ${FLC_RULES.PRIZES[0]} goods and a month of the Chancery Club, which begins when any membership its nation already has runs out. Second place wins ${FLC_RULES.PRIZES[1]} goods and third ${FLC_RULES.PRIZES[2]}. The winner wears a rosette beside its flag until the next podium, and every podium hangs in the Hall of Flags.</p>${n?`<p class="help-go"><button class="linkish small" data-act="go" data-v="flagcomp">Open the Flag Competition →</button></p>`:''}`});
@@ -90986,7 +91076,12 @@ const RGW={reg:'world',on:'',list:[],top:0,unsub:null,err:'',retry:0,fails:0,see
    what its tab, header, intro and writing box say (the French chat's in French when the interface is); its the and The
    name it inside the game's English sentences (notices, errors), so they stay English in either language. */
 const RGF={reg:'fr',on:'',list:[],top:0,unsub:null,err:'',retry:0,fails:0,seen:0,mark:0,markTop:0,looked:false,ready:false,pend:[],draft:'',re:null};
-const RGS=[RGW,RGF];
+/* the ambassadors' chat (functions/regionchat.js, RC_AMB; 2026-11-23): a closed chat, rchat/amb/chat, for the Edictum
+   Ambassadors and staff (moderators and admins) alone, kept as the world chat is (RGA; localStorage edictum.rgc.amb). Its
+   tab, Ambassadors, shows only to them (rgaMay), and the Chat button counts every new line there, not only those naming
+   the player, as it is a small room. A mention there offers only ambassadors and staff, as no one else reads it. */
+const RGA={reg:'amb',on:'',list:[],top:0,unsub:null,err:'',retry:0,fails:0,seen:0,mark:0,markTop:0,looked:false,ready:false,pend:[],draft:'',re:null};
+const RGS=[RGW,RGF,RGA];
 RGW.tx=()=>({tab:'World',eye:'World chat',head:'Every region',the:'the world chat',The:'The world chat',lbl:'Write to every region',ph:'Write to every region…',
   intro:'The nations of every region read this chat. Be kind. Type @ to mention a nation; a line’s menu answers it, reacts to it, reports it or blocks its nation.',
   empty:'No lines yet. Say hello to every region.',sub:'The nations of every region, in one chat',subN:k=>`${k} regions talking today`});
@@ -90997,6 +91092,9 @@ RGF.tx=()=>uiLang()==='fr'
   :{tab:'Français',eye:'French chat',head:'En français',the:'the French chat',The:'The French chat',lbl:'Write to the French chat',ph:'Write in French…',
     intro:'The nations that play in French talk here, from every region. Write in French, and be kind. Type @ to mention a nation; a line’s menu answers it, reacts to it, reports it or blocks its nation.',
     empty:'No lines yet. Say bonjour to every region.',sub:'The nations of every region, in French',subN:k=>`${k} regions talking today`};
+RGA.tx=()=>({tab:'Ambassadors',eye:'Ambassadors’ chat',head:'Ambassadors and staff',the:'the ambassadors’ chat',The:'The ambassadors’ chat',lbl:'Write to the ambassadors and staff',ph:'Write to the ambassadors…',
+  intro:'Only Edictum Ambassadors, moderators and the team read this chat. Talk over help questions, players who need a hand and ideas for the game. Type @ to mention an ambassador or a member of staff; a line’s menu answers it or reacts to it.',
+  empty:'No lines yet. Say hello to the other ambassadors.',sub:'Edictum Ambassadors, moderators and the team',subN:()=>'Edictum Ambassadors, moderators and the team'});
 /* the shared chat a tab or a line's ch names, or null */
 const rgsOf=k=>RGS.find(C=>C.reg===k)||null;
 /* the Edictum team's mark, in place of a flag on the lines the team signs */
@@ -91090,7 +91188,11 @@ function rgwOn(){return rgcOn()&&(OBS||!S.nation||dmx(S.nation).rw!==0);}
 /* the Français tab wanted: turned on in Settings › Chat (dmx.rf 1), or the interface in French and not turned off */
 function rgfWant(n){const v=n&&!OBS?dmx(n).rf:undefined;return v===1||v!==0&&uiLang()==='fr';}
 function rgfOn(){return rgcOn()&&rgfWant(S.nation);}
-const rgsOn=C=>C===RGF?rgfOn():rgwOn();
+/* the Ambassadors tab: an ambassador (the live ambassadors list once it is heard, so one appointed or stood down a moment
+   ago is right at once, as the rules read that list) or staff */
+function rgaMay(){if(PV)return false;if(S.isOwner||S.isMod)return true;const me=myId();return !!me&&(S.ambs instanceof Set?S.ambs.has(me):!!S.isAmb);}
+function rgaOn(){return rgcOn()&&rgaMay();}
+const rgsOn=C=>C===RGF?rgfOn():C===RGA?rgaOn():rgwOn();
 function rgwConnect(C){
   C=C||RGW;const k=C.reg,on=rgsOn(C)&&!(sgSaverOn()&&!RGC.open)?k:'',now=Date.now();
   if(C.on===on&&(C.unsub||!on||now<C.retry))return;
@@ -91601,6 +91703,7 @@ function rgcIsAl(k){return k==='ally'||/^ally-/.test(k);}
    The name is the player's own words, so the French interface leaves it alone (data-no-tr). */
 const RGC_AL_MAX=14;
 function rgcTabLabel(k,l,tg,ty){
+  if(k==='amb'){const g=/<svg[\s\S]*<\/svg>/.exec(AMB_PILL);return `<span class="rgc-amk" aria-hidden="true">${g?g[0]:''}</span>${l}`;}
   if(!rgcIsAl(k))return l;
   const U=ty&&AL_TY_UI[ty],nm=String(l||'').trim()||'Alliance',tip=`${esc(nm)} · ${U?esc(U.n.toLowerCase()):'alliance'} chat`;
   const mk=U?alTyMark(ty,'',true):'',sr=U?`<span class="u-sr">, ${esc(U.n.toLowerCase())}</span>`:'';
@@ -91611,7 +91714,7 @@ function rgcTab(){if(!rgcTabs().some(x=>x[0]===RGC.tab))RGC.tab='region';return 
 function rgcAllyUnread(){try{return rgcAllyOn()?alChatUnread():0;}catch(e){return 0;}}
 /* the Chat button counts the Region tab, every alliance tab, and the shared chats' lines that name the player */
 function rgcAllyAllUnread(){try{return rgcAllyOn()?rgcAllyAll().reduce((k,B)=>k+alChatUnreadOf(B),0):0;}catch(e){return 0;}}
-function rgcCount(){return rgcUnread()+rgcAllyAllUnread()+RGS.reduce((k,C)=>k+rgwNamedUnread(C),0);}
+function rgcCount(){return rgcUnread()+rgcAllyAllUnread()+RGS.reduce((k,C)=>k+(C===RGA?rgwUnread(C):rgwNamedUnread(C)),0);}
 function rgcAllyLines(){const C=AL.chat;return (C&&C.list||[]).map(m=>({id:m.id,a:m.a,nm:m.nm,x:m.x,t:m.t,st:'',ally:true}));}
 /* the alliance channel's listener (alChatConnect) calls this with every snapshot */
 function rgcAllyHeard(){if(RGC.open&&rgcTab()==='ally'){if(!document.hidden)try{alChatSeen();}catch(e){}rgcPaint();}rgcBadge();}
@@ -91713,6 +91816,7 @@ function rgcMnPool(){
   const me=myId(),out=allNations().filter(x=>!x.npc&&!x.me&&x.id!==me).map(x=>({id:x.id,nm:x.n.name,fl:x.n.flag})),W=rgsOf(rgcTab());
   if(W){const have=new Set(out.map(o=>o.id));
     for(let i=W.list.length-1;i>=0;i--){const m=W.list[i];if(m.tm||m.a===me||have.has(m.a))continue;have.add(m.a);out.push({id:m.a,nm:m.nm,fl:m.fl?rgwFlagOf(m.fl):null});}}
+  if(W===RGA)return out.filter(o=>isAmbId(o.id)||isStaff(o.id));
   return out;
 }
 /* @mentions: the word being typed after an @ offers the region's nations; the server keeps those named after an @ */
@@ -91775,6 +91879,7 @@ window.addEventListener('resize',()=>{if(RGC.open)rgcTabsArrows();});
 function rgcGoto(id,ch){
   /* ch: the chat the line is in ('region' or a shared chat's id); none: the tab shown, when it is one */
   const want=ch||(rgsOf(rgcTab())?rgcTab():'region'),W=rgsOf(want);
+  if(W===RGA&&!rgaOn()){toast('Only Edictum Ambassadors and staff read the ambassadors’ chat.');return;}
   if(W&&!rgsOn(W)){toast(`Turn on ${W.tx().the} in Settings › Chat to read that line.`);return;}
   const t=W?want:'region';
   RGC.goto=id;if(rgcTab()!==t){RGC.tab=t;rgcLS('edictum.rgc.tab',t);RGC.menu='';RGC.ask=null;if(W&&RGC.open)rgwLook(W);}
@@ -91822,7 +91927,7 @@ document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closes
 document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-act="nt-go"][data-rc]');if(!el)return;
   const g=/^([a-z]{2,40})\/([A-Za-z0-9]{20})$/.exec(el.dataset.rc);if(!g)return;setTimeout(()=>{if(rgcOn())rgcGoto(g[2],rgsOf(g[1])?g[1]:'region');},0);},true);
 NOTIF_SOURCES.push((n,now)=>(CB.mnAll||[]).filter(m=>m.k==='chat'&&typeof m.rc==='string'&&/^[A-Za-z0-9]{20}$/.test(m.rc)&&now-m.t<30*DAY).map(m=>({t:m.t,k:'mention',kl:'Mention',go:S.view||'nation',rc:m.reg+'/'+m.rc,
-  txt:`${String(m.nm||'A nation').slice(0,80)} ${m.rp?'answered you':'mentioned you'} in ${m.reg==='fr'?'the French chat':m.reg==='world'?'the world chat':'the region chat'}: ${String(m.x||'').slice(0,120)}`})));
+  txt:`${String(m.nm||'A nation').slice(0,80)} ${m.rp?'answered you':'mentioned you'} in ${m.reg==='amb'?'the ambassadors’ chat':m.reg==='fr'?'the French chat':m.reg==='world'?'the world chat':'the region chat'}: ${String(m.x||'').slice(0,120)}`})));
 document.addEventListener('mousedown',e=>{const li=e.target.closest&&e.target.closest('#rgc-mn li');if(!li)return;e.preventDefault();const ta=document.getElementById('rgc-x');if(ta)rgcMnPick(ta,Number(li.dataset.k));});
 document.addEventListener('focusout',e=>{if(e.target&&e.target.id==='rgc-x')setTimeout(()=>{const ta=document.getElementById('rgc-x');if(ta&&document.activeElement!==ta)rgcMnShow(ta);},0);});
 document.addEventListener('input',e=>{const el=e.target;if(!el)return;if(el.id==='rgc-x')rgcMnShow(el);else if(el.id==='rgc-ax'){const A=rgcAllyOn();if(A)RGC.adraft[A.id]=el.value;rgcGrow(el);if(RGC.amsg){RGC.amsg='';rgcFoot();}}});
@@ -91840,8 +91945,8 @@ document.addEventListener('keydown',e=>{
     rgcSetTab(T[e.key==='Home'?0:e.key==='End'?L-1:(i+(e.key==='ArrowRight'?1:L-1))%L],true);}
 },true);
 /* #chat (a push notification's link) opens the drawer once the game is in the region */
-uxHashView=(f=>function(h){if(h==='chat'||h==='chat/world'||h==='chat/fr'){RGC.want=h==='chat'?true:h.slice(5);return S.view&&S.view!=='chat'?S.view:'nation';}return f.apply(this,arguments);})(uxHashView);
-if(location.hash==='#chat')RGC.want=true;else if(location.hash==='#chat/world'||location.hash==='#chat/fr')RGC.want=location.hash.slice(6);
+uxHashView=(f=>function(h){if(h==='chat'||h==='chat/world'||h==='chat/fr'||h==='chat/amb'){RGC.want=h==='chat'?true:h.slice(5);return S.view&&S.view!=='chat'?S.view:'nation';}return f.apply(this,arguments);})(uxHashView);
+if(location.hash==='#chat')RGC.want=true;else if(location.hash==='#chat/world'||location.hash==='#chat/fr'||location.hash==='#chat/amb')RGC.want=location.hash.slice(6);
 setInterval(()=>{try{
   if(RGC.want&&rgcOn()){const w=RGC.want,W=rgsOf(w);RGC.want=false;if(W&&rgsOn(W)){RGC.tab=w;rgcLS('edictum.rgc.tab',w);}rgcOpen(true);}
   if(RGC.open&&!document.hidden){if(rgcTab()==='haps'){if(Date.now()-RGC.hapMemo.at>30000)rgcPaint();}else if(rgcWhoSig()!==RGC.whoSig)rgcPaint();else rgcTabsPaint();}
@@ -92182,7 +92287,9 @@ document.addEventListener('drop',e=>{const pre=rgcDropAt(e.target);if(!pre)retur
 const ACX_WORLD={id:'world',name:'World chat',the:'the world chat',chip:'Every region'};
 /* the French chat (RC_FR): staff read it here whatever their language, as they read the world chat */
 const ACX_FR={id:'fr',name:'French chat',the:'the French chat',chip:'In French'};
-const ACX_SHARED=[ACX_WORLD,ACX_FR],acxShared=id=>ACX_SHARED.find(R=>R.id===id)||null;
+/* the ambassadors' chat (RC_AMB): the Edictum Ambassadors and staff alone */
+const ACX_AMB={id:'amb',name:'Ambassadors’ chat',the:'the ambassadors’ chat',chip:'Ambassadors and staff'};
+const ACX_SHARED=[ACX_WORLD,ACX_FR,ACX_AMB],acxShared=id=>ACX_SHARED.find(R=>R.id===id)||null;
 const ACX_SHOW=100,ACX_HOURS=[[1,'1 hour'],[24,'24 hours'],[168,'7 days'],[720,'30 days'],[0,'Until lifted']];
 const ACX={reg:'',last:null,lbusy:false,lerr:'',lseq:0,list:[],ready:false,unsub:null,lsReg:'',err:'',x:'',busy:false,msg:'',mute:null,ask:null,mutes:null,mbusy:false,merr:'',pic:null,picErr:'',
   cx:'',cask:false,cbusy:false,cmsg:''};

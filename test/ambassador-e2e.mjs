@@ -81,6 +81,23 @@ check('silencing says so', await until(async () => /Chatterly is silenced in the
 check('the server keeps the silence, marked as an ambassador’s', await until(async () => { const s = (await restListAdmin('rcMute')).find(d => d.id === uidB); return !!s && s.fields.amb?.booleanValue === true && s.fields.by?.stringValue === uidM && s.fields.why?.stringValue === 'Rudeness'; }));
 check('the player’s lines stay', !!(await lineOf(M, 'Hello from Chatterly!')));
 
+/* ── 4b. the ambassadors' chat: a tab of its own, for ambassadors and staff alone ── */
+const tabsOf = p => p.evaluate(() => G.CHAT().tabs);
+const AMB_LINE = 'A player in this region asked about borders.';
+check('the ambassador has an Ambassadors tab', await until(async () => (await tabsOf(M)).includes('amb') && (await text(M, '#rgc-tab-amb')).startsWith('Ambassadors'), 15000), JSON.stringify(await tabsOf(M)));
+check('the admin has it too', await until(async () => (await tabsOf(A)).includes('amb'), 15000), JSON.stringify(await tabsOf(A)));
+check('a player has none', !(await tabsOf(B)).includes('amb'), JSON.stringify(await tabsOf(B)));
+await M.click('#rgc-tab-amb');
+check('its header and intro say who reads it', await until(async () => (await text(M, '.rgc-ht .eyebrow')) === 'Ambassadors’ chat' && /Only Edictum Ambassadors, moderators and the team read this chat/.test(await text(M, '#rgc-list .rgc-intro'))), await text(M, '#rgc-dock'));
+await M.fill('#rgc-x', AMB_LINE); await M.press('#rgc-x', 'Enter');
+check('the ambassador’s line shows in the ambassadors’ chat', await until(async () => !!(await lineOf(M, AMB_LINE)), 15000));
+check('the server keeps it there, not in the region chat', await until(async () => (await restListAdmin('rchat/amb/chat')).some(d => d.fields.x?.stringValue === AMB_LINE))
+  && !(await restListAdmin(`rchat/${reg}/chat`)).some(d => d.fields.x?.stringValue === AMB_LINE));
+check('the admin reads it, and their Chat button counts it', await until(() => A.evaluate(x => G.CHAT().RGA.list.some(m => m.x === x) && G.CHAT().amb >= 1, AMB_LINE), 15000));
+check('the player never hears it', !(await B.evaluate(x => G.CHAT().RGA.list.some(m => m.x === x) || !!G.CHAT().RGA.on, AMB_LINE)));
+await M.screenshot({ path: OUT + '/ambassador-chat-tab.png' });
+await M.click('#rgc-tab-region');
+
 /* ── 5. the silenced player is told an ambassador did it ── */
 await openChat(B); await reopenChat(B);
 check('the silenced player sees it was an ambassador, and why', await until(async () => /An ambassador has silenced you in the region chat until .+\. Reason: Rudeness\./.test(await text(B, '#rgc-foot')) && !(await B.$('#rgc-x')), 15000), await text(B, '#rgc-foot'));
@@ -90,4 +107,5 @@ await A.click(`[data-act="admin-ambrole"][data-v="off"][data-id="${uidM}"]`);
 check('standing down says so', await until(async () => /No longer an ambassador\./.test(await text(A, '.adm-detail')), 15000));
 check('the line loses its pill', await until(async () => (await pillOn(B, 'Envoy here.')) === null, 15000));
 check('the list no longer has them', !(await restListAdmin('ambassadors')).some(d => d.id === uidM));
+check('and their Ambassadors tab goes at once', await until(async () => !(await tabsOf(M)).includes('amb'), 15000), JSON.stringify(await tabsOf(M)));
 await finish();

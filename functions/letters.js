@@ -60,8 +60,8 @@ async function choices(db, uid) {
    is not in the game (functions/regionchat.js): a push notification, at most one every 10 minutes for each player
    (rcNote/{uid}, server-only), unless they blocked the writer or turned the chat, or its mention notices, off (dmx.rc,
    dmx.rcn; the World tab, dmx.rw, for a world chat line; the French tab, dmx.rf 0, for a French chat line). It never
-   says what the line says. ch: the shared chat's id ('world', 'fr'; true is the world chat), or nothing for a region's */
-const CHAT_WHERE = { world: 'the world chat', fr: 'the French chat' };
+   says what the line says. ch: the shared chat's id ('world', 'fr', 'amb'; true is the world chat), or nothing for a region's */
+const CHAT_WHERE = { world: 'the world chat', fr: 'the French chat', amb: 'the ambassadors’ chat' };
 export async function pushChatMention(db, to, by, name, reply, ch = '') {
   const chan = ch === true ? 'world' : CHAT_WHERE[ch] ? ch : '';
   const now = Date.now(), ref = db.doc('rcNote/' + to), s = await ref.get();

@@ -109,6 +109,23 @@ A live chat for each region: the nations of a region talk to each other in short
   Remove, Silence… (whose "remove its lines of the last 24 hours" then means the world chat) and Inspect. A report of a world
   line reads "World chat" in the Reports queue and is filed as `rc:world:<line>` under its writer's region.
 
+## Ambassadors' chat
+
+- **The Ambassadors tab** (after World and Français, with the ambassador's blue globe): a closed chat, `rchat/amb/chat`,
+  for the Edictum Ambassadors, moderators and admins alone, to talk over help questions, players who need a hand and
+  ideas for the game. Players never see the tab, and the rules refuse them its lines.
+- **Who**: an ambassador (the `amb` claim on the server; `ambassadors/{uid}` in the rules and, once heard, in the game, so
+  an appointment or a stand-down in the portal takes effect at once) or staff (`admin` or `mod`). Everyone else's line or
+  reaction is refused (`rcMayUse`, permission-denied).
+- It works as the world chat does: lines carry the writer's region, flag, rank, alliance and Founding Supporter mark;
+  answers, reactions, reporting, deleting one's own line, staff removal (audited as "Removed from the ambassadors’ chat")
+  and team lines. It is paced on its own (`rcPace` `b`, `bh`).
+- **Counts**: the Chat button counts every new line there, not only those naming the player, as it is a small room.
+- **@mentions** offer, and the server keeps, only ambassadors and staff (`ambassadors/{uid}` or `staff/{uid}`): no one
+  else could read the line. A mention is told in the bell and by a push to `/#chat/amb`.
+- **Admin portal › Region chats** lists **Ambassadors’ chat** third, after the French chat. A reported line reads
+  "Ambassadors’ chat" in the Reports queue (`rc:amb:<line>`).
+
 ## Staff tools
 
 - **Admin portal › Moderation › Region chats** (`#admin-chat`, admins): every region, busiest first, with its newest
