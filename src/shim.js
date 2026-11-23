@@ -221,6 +221,8 @@
   /* the National Research Programme's scientific record, letters and mandate initiatives (nrx); its technologies,
      credits and laboratory (nrp) stay shared, since the save permit, the referee and the currency job read them */
   NX_KEYS.nrx = 1;
+  /* the mark that the seen edicts' numbers were put right after the Great Dam moved them (game/edictum.html, issRenumber) */
+  NX_KEYS.isv = 1;
   /* fields this build's game kept without knowing them (a newer build's: game/edictum.html, normalize, d._fk) go to the
      private half, so a newer build's private field never turns public by way of an older tab; _fk itself is not saved */
   function splitNation(d) {
