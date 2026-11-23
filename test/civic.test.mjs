@@ -889,6 +889,22 @@ test('Supply Caches: a Registered Nation’s cache its saved record holds is fil
   const o2 = await civic(b, { op: 'scOpen', id });
   assert.equal(o2.first, false); assert.equal(o2.o, o1.o);
   assert.equal((await db.doc('supply/' + id).get()).get('o'), o1.o);
+  /* the first opening's answer lost on the way back (Zatra, 23 Nov 2026): asked again, the server says to pay while the
+     saved record (its private half's sco) does not list the cache as paid */
+  assert.equal(o1.pay, true); assert.equal(o2.pay, true);
+  await db.doc('nationx/' + b.uid).set({ j: JSON.stringify({ sco: [id] }), t: now });
+  assert.equal((await civic(b, { op: 'scOpen', id })).pay, false);
+  await db.doc('nationx/' + b.uid).set({ j: JSON.stringify({ sco: ['other_aaaa0001'] }), t: now });
+  assert.equal((await civic(b, { op: 'scOpen', id })).pay, true);
+  // not a week after the opening, nor for one opened before this record was made (a nation dissolved and founded again)
+  await db.doc('supply/' + id).update({ o: Date.now() - 8 * DAY });
+  const late = await civic(b, { op: 'scOpen', id });
+  assert.equal(late.first, false); assert.equal(late.pay, false);
+  const made = (await db.doc('nations/' + b.uid).get()).createTime.toMillis();
+  await db.doc('supply/' + id).update({ o: made - 1000 });
+  assert.equal((await civic(b, { op: 'scOpen', id })).pay, false);
+  await db.doc('supply/' + id).update({ o: o1.o });
+  assert.equal((await civic(b, { op: 'scOpen', id })).pay, true);
   // a deleted account takes the caches it sent and received with it
   await db.doc('nations/' + b.uid).delete(); await account(b, { op: 'close' });
   assert.equal((await db.collection('supply').where('to', '==', b.uid).get()).size, 0);
