@@ -29239,6 +29239,8 @@ NORM_HOOKS.push((n,d)=>{if(Number.isInteger(d.mlk)&&d.mlk>=0&&d.mlk<=MILESTONES.
    value each census figure has reached. A record without a tally is counted from what it still holds. */
 const TALLY_MAX=900,TALLY_TARGET_KINDS=new Set(['war','conq','lost','peace','trade','aladmit','caught','cede','hand','take','shared','reply','npcwar','tradeend','incident']);
 function tallyOf(n,k){return (n&&n.tly&&n.tly[k])||0;}
+/* an edict that involves a neighbour: one that needs one (nbx, worked out from its text and effects) or a migration edict */
+function nbIssue(is){return !!is&&(!!is.nbx||!!is.mx);}
 function tallyFirst(n,k){return (n&&n.tlf&&n.tlf[k])||0;}
 function tallyRange(n,k){const r=n&&n.tlx&&n.tlx[k];return r?{min:r[0],max:r[1]}:{min:n&&n.s?n.s[k]:0,max:n&&n.s?n.s[k]:0};}
 function tallyScan(n,old,now){
@@ -29259,7 +29261,11 @@ function tallyScan(n,old,now){
    const ds=d=>d.t+'|'+d.r,od=sigs(old&&old.asm&&old.asm.d,ds);for(const d of (n.asm&&n.asm.d)||[])if(d.on&&!od.has(ds(d)))bump('asm:del',d.t);}
   /* decisions, by topic */
   const asig=a=>a.t+'|'+a.id,oldA=sigs(old&&old.answered,asig);
-  for(const a of n.answered||[]){if(oldA.has(asig(a)))continue;const is=ISSUE_BY_ID[a.id];const isp=/^(pgt|fwk|scd)-/.test(a.id)?a.id.slice(0,3):'';if(a.o<0){bump('dismiss',a.t);if(isp==='scd')bump('dismiss:scd',a.t);continue;}bump('iss',a.t);if(isp)bump('isp:'+isp,a.t);{const d=new Date(a.t);if(d.getMonth()===0&&d.getDate()===1)bump('iss:ny',a.t);}if(is){bump('iss:'+is.c,a.t);if(is.fo)bump('iss:chain',a.t);if(is.nb||is.mx)bump('iss:nb',a.t);crsTally(a,is,old,T,bump,put);}}
+  for(const a of n.answered||[]){if(oldA.has(asig(a)))continue;const is=ISSUE_BY_ID[a.id];const isp=/^(pgt|fwk|scd)-/.test(a.id)?a.id.slice(0,3):'';if(a.o<0){bump('dismiss',a.t);if(isp==='scd')bump('dismiss:scd',a.t);continue;}bump('iss',a.t);if(isp)bump('isp:'+isp,a.t);{const d=new Date(a.t);if(d.getMonth()===0&&d.getDate()===1)bump('iss:ny',a.t);}if(is){bump('iss:'+is.c,a.t);if(is.fo)bump('iss:chain',a.t);if(nbIssue(is))bump('iss:nb',a.t);crsTally(a,is,old,T,bump,put);}}
+  /* until 23 Nov 2026 only the migration edicts counted as involving a neighbour (the test read is.nb, which no edict
+     has): once, the neighbour edicts still among the last 80 decisions are counted, after the new ones above so none
+     is counted twice */
+  if(!T['fix:nb']){put('fix:nb',1);const k=(n.answered||[]).filter(a=>a&&a.o>=0&&nbIssue(ISSUE_BY_ID[a.id])).length;if(k>(T['iss:nb']||0)){put('iss:nb',k);if(!F['iss:nb'])F['iss:nb']=now;}}
   /* spies */
   const isig=r=>r.t+'|'+r.tg+'|'+r.k,oldI=sigs(old&&old.intel,isig);
   for(const r of n.intel||[]){if(oldI.has(isig(r)))continue;bump('spy',r.t);bump('spy:'+r.k,r.t);}
@@ -56586,6 +56592,8 @@ async function connect(){
     if(S.nation&&S.nation._dirty){carried=true;if(S.mode==='world')queueRemote();}}
   ownWaitEnd();
   publishSync();
+  /* the nation's own save is read (or could not be): what waits for it may be put in now (ppvApply) */
+  S.ownIn=true;
   civicRefresh();
   /* Three listeners: this region's nations in full; every region's Moon, Mars and belt data (space/,
      only nations that have any); this region's board. Nothing else of other regions is downloaded:
@@ -62891,6 +62899,7 @@ COMMIT_HOOKS.push(n=>{
 
 /* ── collecting: opening another nation's page stamps its entry stamp into your passport ── */
 function ppCollect(id){
+  if(OBS){ppvNote(id);return;}
   const me=S.nation;if(!me||!id||S.mode==='readonly'||PP.tried.has(id))return;
   PP.tried.add(id);
   if(id===myId())return;const x=findNation(id);if(!x||x.me||!x.n||!x.n.name)return;
@@ -62902,7 +62911,43 @@ function ppCollect(id){
   PP.just=id;commit(m);render();
   toast(`Stamped: the entry stamp of ${x.n.name} is on page ${roman(at[0]+1)} of your passport.`);
 }
-render=(f=>function(){const r=f.apply(this,arguments);if(S.view==='visit'&&S.visit&&S.nation&&!PP.tried.has(S.visit)){const id=S.visit;setTimeout(()=>{if(S.view==='visit'&&S.visit===id)ppCollect(id);},500);}return r;})(render);
+render=(f=>function(){const r=f.apply(this,arguments);if(S.view==='visit'&&S.visit&&S.nation&&!PP.tried.has(S.visit)){const id=S.visit;setTimeout(()=>{if(S.view==='visit'&&S.visit===id)ppCollect(id);},500);}if(PP.vDue&&!OBS)setTimeout(ppvApply,0);return r;})(render);
+
+/* ── visiting another region (World page, obsEnter): the tab holds a stand-in nation that nothing saves, so the entry
+   stamps of the nations whose pages are opened there wait in this browser, per account, and go into the passport once
+   the nation's own tab is home with its save read (S.ownIn), or at once in a home tab already open (the storage event).
+   Each keeps the region it was collected in, which is how a passport carries stamps from two regions and more. Staff
+   observing (obsWord 'Observing') collect none. ── */
+const PPV_KEY='edictum.ppv.';PP.vDue=!OBS;
+function ppvKey(){return S.uid?PPV_KEY+S.uid:'';}
+function ppvRead(){const k=ppvKey();if(!k)return [];try{const a=JSON.parse(localStorage.getItem(k)||'[]');return Array.isArray(a)?a.filter(e=>Array.isArray(e)&&typeof e[0]==='string'&&/^[\w:.-]{1,80}$/.test(e[0])&&Array.isArray(e[1])).slice(-PP_MAX):[];}catch(e){return [];}}
+/* the stamps already in the passport, as this browser's copy of the nation has them (read once a visit) */
+function ppvHeld(){if(PP.vh)return PP.vh;let v={};try{const d=JSON.parse(localStorage.getItem(LS_KEY)||'null');if(d&&d.pp&&d.pp.v&&typeof d.pp.v==='object'&&!Array.isArray(d.pp.v))v=d.pp.v;}catch(e){}return PP.vh={ids:new Set(Object.keys(v)),n:Object.keys(v).length};}
+function ppvNote(id){
+  if(!OBS||!id||!S.obsOn||!S.uid||obsWord()!=='Visiting'||PP.tried.has(id))return;
+  const x=findNation(id);if(!x||!x.n||!x.n.name)return;   /* the region not in yet: tried again at the next render */
+  PP.tried.add(id);
+  const q=ppvRead(),h=ppvHeld();if(id===S.uid||h.ids.has(id)||q.some(e=>e[0]===id))return;
+  if(h.n+q.length>=PP_MAX){toast(`Your passport is full. Make room under Passport, Arrange, at home to collect the stamp of ${x.n.name}.`);return;}
+  const s=ppDesign(x.n).s;q.push([id,[czText(x.n.name,60),REG_BY_ID[x.n.reg]?x.n.reg:REG.id,Date.now(),s.sh,s.bd,s.ink,s.ic,s.t1,s.t2,s.fn]]);
+  try{localStorage.setItem(ppvKey(),JSON.stringify(q));}catch(e){return;}
+  toast(`Stamped at the border: the entry stamp of ${x.n.name} goes into your passport when you return to your nation.`);
+}
+function ppvApply(){
+  const me=S.nation;if(OBS||PV||tabPassive||S.mode!=='world'||!S.ownIn||!me||!me.name||me.npc||regBlocked())return;
+  PP.vDue=false;const q=ppvRead();if(!q.length)return;
+  const m=clone(me);m.pp=ppClean(m.pp)||ppClean({});const got=[],left=[];
+  for(const [id,v] of q){if(id===myId()||m.pp.v[id])continue;const at=ppCount(m)<PP_MAX&&ppFree(m.pp.p);if(!at){left.push([id,v]);continue;}m.pp.v[id]=v;m.pp.p[at[0]][at[1]]=id;got.push(id);}
+  m.pp=ppClean(m.pp);
+  try{if(left.length)localStorage.setItem(ppvKey(),JSON.stringify(left));else localStorage.removeItem(ppvKey());}catch(e){}
+  const put=got.filter(id=>m.pp.v[id]);
+  if(left.length)setTimeout(()=>toast(`Your passport is full: ${left.length===1?'one stamp':left.length+' stamps'} from your travels ${left.length===1?'waits':'wait'} until you make room under Passport, Arrange.`),0);
+  if(!put.length)return;
+  commit(m);render();
+  const regs=[...new Set(put.map(id=>regName(m.pp.v[id][1])))];
+  toast(put.length===1?`Stamped on your travels: the entry stamp of ${m.pp.v[put[0]][0]}, from ${regs[0]}, is in your passport.`:`Stamped on your travels: ${put.length} entry stamps from ${list(regs)} are in your passport.`);
+}
+window.addEventListener('storage',e=>{if(OBS||!e.key||e.key!==ppvKey())return;PP.vDue=true;setTimeout(ppvApply,0);});
 
 /* ── achievements and the museum ── */
 ACH_CATS.splice(ACH_CATS.length-1,0,['pass','Passport & travel']);ACH_CAT.pass='Passport & travel';
@@ -62922,7 +62967,7 @@ ACH_CATS.splice(ACH_CATS.length-1,0,['pass','Passport & travel']);ACH_CAT.pass='
   P('pass-pl10','s','Among Equals','Collect the stamps of 10 nations run by players.',10,x=>ppStats(x.n).pl,'pe-temple');
   P('pass-pl50','g','The Senate Floor','Collect the stamps of 50 nations run by players.',50,x=>ppStats(x.n).pl,'po-laurel');
   P('pass-npc','s','Know the Neighbourhood','Collect the stamp of every computer nation in your region.',x=>NPC_NATIONS.length,x=>ppStats(x.n).here,'pg-columns');
-  P('pass-reg2','s','Border Crossings','Carry stamps from two regions.',2,x=>ppStats(x.n).reg,'pg-map');
+  P('pass-reg2','s','Border Crossings','Carry stamps from two regions: visit another from the World page and open a nation’s page there.',2,x=>ppStats(x.n).reg,'pg-map');
   P('pass-reg5','g','Cosmopolitan','Carry stamps from five regions.',5,x=>ppStats(x.n).reg,'pf-rose');
   P('pass-day','b','Whistle-stop Tour','Collect five stamps in one day.',5,x=>ppStats(x.n).day,'pb-twin');
   P('pass-own','b','Bespoke','Design the entry stamp other nations collect from you.',1,x=>ppStats(x.n).ds&4?1:0,'pb-dots');
@@ -76354,7 +76399,7 @@ function obsExit(){
 }
 /* connect() has confirmed the admin: the region's pages may be drawn */
 function obsConnected(){S.obsOn=true;}
-function obsBar(){return `<div class="obs-bar" role="region" aria-label="${obsWord()==='Observing'?'Observer mode':'Visiting another region'}"><p><b>${obsWord()} ${esc(REG.name)}</b> — read-only${obsWord()==='Observing'?'':'. Your nation stays at home'}</p><button type="button" class="btn small" data-act="obs-exit">Return to my nation</button></div>`;}
+function obsBar(){return `<div class="obs-bar" role="region" aria-label="${obsWord()==='Observing'?'Observer mode':'Visiting another region'}"><p><b>${obsWord()} ${esc(REG.name)}</b> — read-only${obsWord()==='Observing'?'':'. Your nation stays at home. Open a nation’s page to collect its entry stamp'}</p><button type="button" class="btn small" data-act="obs-exit">Return to my nation</button></div>`;}
 function obsWho(){return `<div class="side-who obs-who"><span class="side-name"><span class="side-pre">${obsWord()}, read-only</span><span class="side-nm">${esc(REG.name)}</span></span>${S.isOwner?'<a class="adm-pill" href="#admin" data-act="admin-open" title="Open the admin portal">Admin</a>':''}</div>`;}
 /* the ways in: the World page's region (anyone who may, obsCan), the admin portal's region, and a nation of another
    region (obsVisitBtn, the admins') */
