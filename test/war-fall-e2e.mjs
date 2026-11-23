@@ -41,6 +41,8 @@ check('A fortifies a hex for 12 hours, spending readiness', fort.f && fort.f[for
 /* the sieges: laid through the referee */
 const capOf = (p, id) => p.evaluate(id => { const T = G.WR2().territory(), i = T.byId[id]; return i === undefined ? -1 : T.list[i].cap; }, id);
 const siege = (d, c) => A.evaluate(async ([d, c]) => { const api = await window.claude.use('referee'); return api.siege({ d, c }); }, [d, c]);
+/* both capitals as A's page knows them (on a busy machine the region's records can arrive after the declarations) */
+await until(async () => await capOf(A, ub) >= 0 && await capOf(A, uc) >= 0, 20000);
 const cb = await capOf(A, ub), cc = await capOf(A, uc);
 const sB = await siege(ub, cb), sC = await siege(uc, cc);
 check('the referee lays both sieges', sB.ok && sC.ok && sB.doc.st === 'on' && sC.doc.c === cc, [sB, sC]);
@@ -77,7 +79,7 @@ await A.evaluate(id => { const n = G.clone(G.S.nation); n.wst = { ...n.wst, [id]
 let won = null;
 for (let i = 0; i < 6 && !(won && won.win); i++) won = await A.evaluate(async ([d, c]) => (await (await window.claude.use('referee')).battle({ d, c, p: 0.95, cap: 1 })), [uc, cc]);
 check('the final assault takes the capital, and C falls', won && won.win && won.fell, won);
-await A.evaluate(([d, c, s, s2, t]) => { const n = G.clone(G.S.nation); n.conq = (n.conq || []).concat({ c, t, d, s, s2 }); n.log.unshift({ t: Date.now(), k: 'sack', a: d, b: 'Vesad', fx: '' }); G.commit(n); }, [uc, cc, won.s, won.s2, won.t]);
+await A.evaluate(([d, c, s, s2, t]) => { const n = G.clone(G.S.nation); n.conq = (n.conq || []).concat({ c, t, d, s, s2 }); n.log.unshift({ t: Date.now(), k: 'csack', a: d, b: 'Vesad', fx: '' }); G.commit(n); }, [uc, cc, won.s, won.s2, won.t]);
 const falls = await restListAdmin('sieges');
 check('the siege is marked fallen', falls.some(d => d.id === sC.id && d.fields.st.stringValue === 'fell'));
 check('C leaves A\'s map, and its capital is A\'s', await until(() => A.evaluate(([id, c]) => { const T = G.WR2().territory(); return T.byId[id] === undefined && T.owner[c] === T.byId[G.S.uid] && T.spoil.get(c) === id; }, [uc, cc]), 20000));
@@ -94,6 +96,15 @@ check('its veterans come home: the Coming Home edict lands on the desk', await u
 const cqd = await A.evaluate(() => { const d = G.syncInbox(G.S.nation, Date.now()).inbox.find(x => G.WR3().CQ_ISSUES.some(i => i.id === x.id)); return d ? d.id : null; });
 check('a capital-taken edict lands on A’s desk', !!cqd, cqd);
 if (cqd) {
+  /* its card on the desk opens it (23 Nov 2026: it arrived at Date.now(), a new time on each draw of the desk, so the card
+     asked for an edict no later draw had, and nothing opened); so does Coming Home's */
+  const toDesk = () => A.evaluate(() => { G.S.openIssue = null; G.S.result = null; location.hash = '#edicts'; G.render(); });
+  const openCard = async id => { await toDesk(); await until(() => A.$(`.issue-card[data-id="${id}"]`), 10000); await sleep(300); await A.click(`.issue-card[data-id="${id}"]`).catch(() => {}); return until(() => A.evaluate(id => G.S.openIssue === id, id), 10000); };
+  check('Coming Home opens from its card', await openCard('wr-home'));
+  const fcn = await A.evaluate(id => (G.WR2().wrFallsAt(null).find(f => f.d === id) || {}).cn || '', uc);
+  check('the capital-taken edict opens from its card, naming the capital', await openCard(cqd) && await until(() => A.evaluate(cn => !!cn && (document.querySelector('.paper.edict')?.textContent || '').includes(cn) && !/the fallen capital/.test(document.querySelector('.paper.edict')?.textContent || ''), fcn), 5000), fcn);
+  check('and the desk keeps it, read', await until(() => A.evaluate(id => G.S.nation.inbox.some(x => x.id === id && x.read === 1), cqd), 5000));
+  await toDesk();
   const oi = await A.evaluate(id => G.WR3().CQ_ISSUES.find(i => i.id === id).o.findIndex(o => o.e.cqc), cqd);
   const before = await A.evaluate(() => ({ all: G.S.nation.cities.length, founded: G.WR3().cityFounded(G.S.nation) }));
   await A.evaluate(([id, o]) => G.answer(id, o), [cqd, oi]);
@@ -107,6 +118,36 @@ if (cqd) {
 }
 check('the war layer shows the ruins', await A.evaluate(c => G.WR3().wr3MapData(G.WR2().territory()).ruins.some(r => r.c === c), cc));
 check('the sack is A\'s achievement', await until(() => A.evaluate(() => !!(G.S.nation.ach || {})['war-sack']), 15000));
+check('the fall is logged as a capital taken, not a minister sacked (the Dispatch read "Axetere sacks its <id>")', await A.evaluate(() => G.S.nation.log.some(l => l.k === 'csack') && !G.S.nation.log.some(l => l.k === 'sack')));
+
+/* monuments to fallen nations: the referee kept what Vesad was with its fall; a monument stands where its capital fell,
+   and a click on it tells of the nation, also to a player who does not hold the hex. The First Flame is drawn here for
+   Vesad by naming it the first nation for a moment (the real one is Moradara's) */
+const sm = (await restListAdmin('sieges')).find(d => d.id === sC.id), mf = sm && sm.fields.m && sm.fields.m.mapValue.fields;
+check('the referee kept what Vesad was with its fall', !!mf && typeof mf.pre.stringValue === 'string' && Number(mf.ct.integerValue) >= 1 && !!mf.fl.mapValue, JSON.stringify(mf || null).slice(0, 300));
+const showCell = async (p, c, z = 5) => {
+  await p.evaluate(() => { G.S.openIssue = null; G.S.result = null; location.hash = '#map'; });
+  await until(() => p.evaluate(() => G.S.view === 'map'), 8000);
+  await p.evaluate(([c, z]) => { G.MD.centerMain(c, z); G.render(); }, [c, z]);
+  const cv = p.locator('canvas[data-map="main"]'); await cv.scrollIntoViewIfNeeded();
+  await p.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
+  const pos = await p.evaluate(c => { const cv = document.querySelector('canvas[data-map="main"]'), v = G.MD.viewOf('main', cv), s = G.MD.mapScale(cv, v); return { x: cv.clientWidth / 2 + (G.MAP.cx[c] - v.cx) * s, y: cv.clientHeight / 2 + (G.MAP.cy[c] - v.cy) * s }; }, c);
+  return { cv, pos };
+};
+const monText = p => p.evaluate(() => (document.querySelector('#map-panel .mon-card') || {}).textContent || '').then(plain);
+check('a monument stands on Vesad’s old capital', await until(() => A.evaluate(c => G.WR3().monSites().some(s => s.c === c), cc), 15000));
+{ const { cv, pos } = await showCell(A, cc, 14); await cv.click({ position: pos }); await sleep(500);
+  const t = await monText(A);
+  check('A clicks it: the card tells of the nation that fell', /A monument to a fallen nation/.test(t) && /Here stood .*capital of Vesad/.test(t) && /Fell\s*\d.*to Axetere/.test(t) && /Cities\s*\d/.test(t), t);
+  await cv.screenshot({ path: OUT + '/monument-map.png' }).catch(() => {});await A.locator('#map-panel').screenshot({ path: OUT + '/monument-card.png' }).catch(() => {}); }
+{ const { cv, pos } = await showCell(B, cc); await cv.click({ position: pos }); await sleep(500);
+  check('B, who does not hold the hex, clicks it and reads the same card', /Here stood .*capital of Vesad/.test(await monText(B)), await monText(B)); }
+{ const real = await A.evaluate(id => { const M = G.WR3().MON_FIRST, was = M.id; M.id = id; return was; }, uc);
+  const { cv, pos } = await showCell(A, cc, 14); await cv.click({ position: pos }); await sleep(500);
+  const t = await monText(A);
+  check('the First Flame: its own card for the first nation', /The First Flame · the monument to the first nation/.test(t) && /Before there were borders, treaties or wars, there was Vesad/.test(t) && await A.evaluate(() => !!document.querySelector('#map-panel .mon-card.mon-first')), t);
+  await cv.screenshot({ path: OUT + '/first-flame-map.png' }).catch(() => {});await A.locator('#map-panel').screenshot({ path: OUT + '/first-flame-card.png' }).catch(() => {});
+  await A.evaluate(id => { G.WR3().MON_FIRST.id = id; G.render(); }, real); }
 
 /* C's player sees the fall, and rises again */
 check('C sees the fallen screen', await until(async () => /Vesad has fallen/.test(plain(await C.evaluate(() => G.WR2().nationView()))), 20000));

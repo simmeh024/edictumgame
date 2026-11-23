@@ -56,3 +56,18 @@ export function milReady(rec, now) {
 }
 /* a point's time with the cut, rounded as the game rounds it (after a training pact's) */
 export const milMs = (ms, cut) => cut > 0 ? Math.round(ms * (1 - cut)) : ms;
+
+/* what a fallen nation was, kept with its fall (sieges/<id>.m) for the monument every game draws where its capital stood
+   (game/edictum.html, "monuments to fallen nations"): its record goes once its player founds a nation again. Short
+   strings, a few counts, and its flag as it flew (a flag too big to keep is kept without its layers) */
+export function memorial(n) {
+  n = n && typeof n === 'object' ? n : {};
+  const s = (v, k = 40) => typeof v === 'string' ? v.slice(0, k) : '';
+  const f = n.flag && typeof n.flag === 'object' && !Array.isArray(n.flag) ? n.flag : {};
+  let fl = f;
+  try { if (JSON.stringify(f).length > 4000) fl = { p: s(f.p), c: Array.isArray(f.c) ? f.c.slice(0, 3).map(x => s(x, 9)) : [], e: s(f.e), ec: s(f.ec, 9) }; } catch (e) { fl = {}; }
+  const count = v => Array.isArray(v) ? v.length : v && typeof v === 'object' ? Object.keys(v).length : 0;
+  const dec = Number.isInteger(n.dec) ? n.dec : Array.isArray(n.answered) ? n.answered.filter(a => a && a.o >= 0).length : 0;
+  return { pre: s(n.pretitle), ld: s(n.leader), ru: s(n.ruler), mo: s(n.motto, 80), dem: s(n.demonym), cur: s(n.currency, 30), ani: s(n.animal, 30),
+    fl, mc: s(n.mapc, 9), pop: Math.round(num(+n.pop) * 100) / 100, ct: count(n.cities), ach: count(n.ach), dec };
+}
