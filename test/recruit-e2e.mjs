@@ -76,8 +76,9 @@ const keep = await B.evaluate(() => { const o = localStorage.getItem('edictum.re
 const unsteered = await dists();
 await B.evaluate(o => { localStorage.setItem('edictum.recruitBy.v1', o); G.S.fdSites = null; }, keep);
 const mean = a => a.reduce((s, x) => s + x, 0) / Math.max(1, a.length);
-/* the nearest pin is close; one that needs hills goes where the hills are, so not every pin can be */
-check('the advisors’ pins are near the recruiter’s capital', near.length >= 2 && Math.min(...near) <= 20 && mean(near) < mean(unsteered), JSON.stringify({ near, unsteered }));
+/* Recruiting biases the available legal sites toward the recruiter; occupied land, terrain and capital spacing
+   can leave no legal site within 20 hexes. Both the closest pin and the overall set must improve on the control. */
+check('the advisors’ pins are nearer the recruiter’s capital than the unsteered sites', near.length >= 2 && unsteered.length >= 2 && Math.min(...near) < Math.min(...unsteered) && mean(near) < mean(unsteered), JSON.stringify({ near, unsteered }));
 check('a Guest Nation sees the two steps on its Nation page', await until(async () => { await nav(B, 'nation'); return /Recruitland invited you/.test(await text(B, '.rc-gc').catch(() => '')) && /Link a sign-in account/.test(await text(B, '.rc-gc').catch(() => '')); }, 30000));
 await B.screenshot({ path: OUT + '/recruit-guest-steps.png' });
 check('and keeps the link, unpaid', await B.evaluate(() => G.RC().pending()) === uidA && await B.evaluate(() => !G.S.nation.rcb) && (await restListAdmin('recruits')).length === 0);
