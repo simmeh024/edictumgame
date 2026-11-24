@@ -1458,3 +1458,12 @@ test('technology licences (rsLic): only the two nations read one, and nobody wri
   await assertFails(env.authenticatedContext('bob').firestore().doc('rsLic/bob_2').update({ st: 'active' }));
   await assertFails(env.authenticatedContext('alice').firestore().doc('rsLic/alice_9').set({ p: ['alice'], f: 'alice', to: 'alice', i: 9, st: 'active' }));
 });
+
+/* land credits granted by the staff (functions/admin.js, landCredits): the player's own game reads them, nobody writes */
+test('a staff grant of land credits is read by its player alone and written by nobody', async () => {
+  await env.withSecurityRulesDisabled(ctx => ctx.firestore().doc('lcGrant/alice').set({ g: [{ id: 'x', k: 3, t: 1, why: 'refund' }] }));
+  await assertSucceeds(as('alice').doc('lcGrant/alice').get());
+  await assertFails(as('bob').doc('lcGrant/alice').get());
+  await assertFails(anon().doc('lcGrant/alice').get());
+  for (const db of [as('alice'), as('bob'), as('mod', { admin: true })]) await assertFails(db.doc('lcGrant/alice').set({ g: [{ id: 'y', k: 20, t: 2, why: 'mine' }] }));
+});

@@ -23,7 +23,7 @@ function fn(name) {
 }
 const line = k => { const i = src.indexOf('\n' + k) + 1; assert.ok(i > 0, `source has ${k}`); return src.slice(i, src.indexOf('\n', i)); };
 const DAY = 864e5, H = 3600000, J = v => JSON.parse(JSON.stringify(v));
-const SEC = cut('/* ───────── the capital moves, and captured cities (24 November 2026)', '/* ───────── works done (WD)');
+const SEC = cut('/* ───────── the capital moves, and captured cities (24 November 2026)', '/* ───────── land credits from the staff');
 const CCL = (() => { const c = vm.createContext({}); vm.runInContext(vars(cut('const CC_ISSUES=[', '\n/* numbered after every other edict')), c); return c.CC_ISSUES; })();
 
 /* ── the referee ── */

@@ -226,6 +226,17 @@ check('Take back takes a given pack away, and says the player is told', await un
 check('the player is told on screen and by a second letter', await until(async () => /The Edictum team has taken back the Mayan Pack/.test(await toasts(B)) && /We have taken back the Mayan Pack/.test(await teamLetters()), 45000), await toasts(B));
 check('neither letter gives the admin’s reason', !/Contest prize|Test over/.test(await teamLetters()));
 check('and the pack is theirs no more', await until(() => B.evaluate(() => { const d = G.SHOP.SHOP.doc; return !!d && !(d.owns && d.owns.mayapack); })));
+// Land credits (24 Nov 2026): an admin grants some from the player's page; the player's game adds them once
+const lc0 = await B.evaluate(() => G.S.nation.lcb || 0);
+await A.fill('#admin-lc-k', '3'); await A.click(`[data-act="admin-lc"][data-id="${uidB}"]`);
+check('granting land credits asks for a reason first', await until(async () => /Write a reason first/.test(await detail())) && !(await restListAdmin('lcGrant')).some(d => d.id === uidB));
+await A.fill('#admin-lc-why', 'Refund for land a bug freed'); await A.click(`[data-act="admin-lc"][data-id="${uidB}"]`);
+check('the page says they are granted, and lists the grant', await until(async () => /3 land credits granted/.test(await detail()) && /3 on .*Refund for land a bug freed/.test(await detail()), 20000), await detail());
+check('the player’s game adds them once, with a line in its record', await until(() => B.evaluate(lc0 => (G.S.nation.lcb || 0) === lc0 + 3 && (G.S.nation.log || []).some(l => l.k === 'lcgift' && l.a === '3' && /Refund/.test(l.fx)), lc0), 30000),
+  await B.evaluate(() => ({ lcb: G.S.nation.lcb, log: (G.S.nation.log || []).slice(0, 2) })));
+await B.evaluate(() => window.EDICTUM_PROBE.LCG().lcgApply());
+check('and never twice', await B.evaluate(lc0 => (G.S.nation.lcb || 0) === lc0 + 3 && (G.S.nation.lcgd || []).length === 1, lc0));
+check('the audit log keeps the grant and its reason', await until(async () => (await restListAdmin('adminAudit')).some(d => d.fields.action?.stringValue === 'land_credits_given' && d.fields.target?.stringValue === uidB && /3 land credits: Refund/.test(d.fields.reason?.stringValue || '')), 15000));
 await nav(B, 'messages'); await B.click('.conv-list [data-id="office-team"]');
 check('Messages shows the Edictum Team’s letters, as the team’s and not the region’s office', await until(async () => /The Edictum Team/.test(await text(B, '.thread-h')) && /The people who make Edictum/.test(await text(B, '.thread-h')) && /We have taken back the Mayan Pack/.test(await text(B, '.thread')) && /writes only to you/.test(await text(B, '.dm-note'))), await text(B, '.thread-h'));
 await B.screenshot({ path: OUT + '/player-team-letters.png', fullPage: true });

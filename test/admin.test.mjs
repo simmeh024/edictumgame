@@ -756,3 +756,24 @@ test('a nation deleted with its account is listed by name only, with no copy, an
   assert.ok(row && row.name === 'Farewellia' && row.account === 'deleted' && row.now === null, 'the line stays once the account is gone: ' + JSON.stringify(row));
   await assert.rejects(call(a, { op: 'restore', id: row.id }), e => e.status === 'FAILED_PRECONDITION' && /deleted with its account/.test(e.message));
 });
+/* land credits from the staff (24 Nov 2026): an admin grants them with a reason, audited; only that player reads them */
+test('an admin grants a player land credits, audited, and the player page lists them', async () => {
+  const a = await user(true), p = await user(); await seed(p.uid, 'Creditland');
+  assert.deepEqual((await call(a, { op: 'player', uid: p.uid })).lcg, [], 'none yet');
+  await assert.rejects(call(p, { op: 'landCredits', uid: p.uid, k: 3, reason: 'Me' }), e => e.status === 'PERMISSION_DENIED', 'not by a player');
+  await assert.rejects(call(a, { op: 'landCredits', uid: p.uid, k: 3 }), e => e.status === 'INVALID_ARGUMENT', 'a reason first');
+  for (const k of [0, 21, 1.5, '3', -2]) await assert.rejects(call(a, { op: 'landCredits', uid: p.uid, k, reason: 'Odd' }), e => e.status === 'INVALID_ARGUMENT', String(k));
+  const fresh = await user();
+  await assert.rejects(call(a, { op: 'landCredits', uid: fresh.uid, k: 3, reason: 'No nation' }), e => e.status === 'NOT_FOUND', 'only to a nation');
+  const r = await call(a, { op: 'landCredits', uid: p.uid, k: 3, reason: 'Refund for land a bug freed' });
+  assert.equal(r.lcg.length, 1);assert.equal(r.lcg[0].k, 3);assert.equal(r.lcg[0].why, 'Refund for land a bug freed');assert.ok(r.lcg[0].id && r.lcg[0].t > 0);
+  assert.equal(r.lcg[0].by, undefined, 'the player’s copy does not say which admin');
+  const r2 = await call(a, { op: 'landCredits', uid: p.uid, k: 1, reason: 'And one more' });
+  assert.deepEqual(r2.lcg.map(g => g.k), [3, 1]);
+  assert.deepEqual((await call(a, { op: 'player', uid: p.uid })).lcg.map(g => g.why), ['Refund for land a bug freed', 'And one more']);
+  const doc = (await get('lcGrant/' + p.uid)).fields.g.arrayValue.values.map(v => +v.mapValue.fields.k.integerValue);
+  assert.deepEqual(doc, [3, 1]);
+  const log = (await call(a, { op: 'audit', target: p.uid })).events;
+  assert.ok(log.some(e => e.action === 'land_credits_given' && e.name === 'Creditland' && e.reason === '3 land credits: Refund for land a bug freed' && e.outcome === 'completed'));
+  assert.ok(log.some(e => e.action === 'land_credits_given' && e.reason === '1 land credit: And one more'));
+});
