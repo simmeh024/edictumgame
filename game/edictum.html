@@ -10083,6 +10083,12 @@ button.rgc-nm{text-align:left}
    them all out */
 .rgc-lw{display:flex;align-items:center;gap:7px;flex:0 1 auto;min-width:0;overflow:hidden;padding:2px;margin:-2px}
 .rgc-lw .rgc-nm{flex:0 0 auto;max-width:100%}
+.chat-delegate-slot{display:inline-flex;flex:none;vertical-align:middle}
+.chat-delegate-slot:not(:empty){margin-inline:4px;width:18px;height:18px}
+.chat-delegate{display:inline-flex;width:18px;height:18px;flex:none;color:color-mix(in srgb,var(--delegate-color) 82%,var(--ink))}
+.chat-delegate svg{display:block;width:100%;height:100%}
+.rgc-lw .chat-delegate-slot:not(:empty){margin:0}
+.rgc-lw:has(.chat-delegate) .rgc-nm{max-width:calc(100% - 24px)}
 .rgc-mk{display:flex;flex-wrap:wrap;align-items:center;column-gap:7px;row-gap:30px;flex:0 4 auto;min-width:0;height:20px;padding:0 2px;overflow:hidden}
 /* an empty first item, so even the first mark drops out whole rather than showing half of itself */
 .rgc-mk::before{content:'';width:0;margin-right:-7px}
@@ -26278,7 +26284,7 @@ function dmAttOpen(a,m,peer,E){
 const dmDayLabel=t=>{const d=new Date(t),s=new Date();s.setHours(0,0,0,0);const y=new Date(s.getTime()-DAY);return t>=s.getTime()?'Today':t>=y.getTime()?'Yesterday':fmtDate(t);};
 const dmClock=t=>{try{return new Date(t).toLocaleString('en-GB',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});}catch(e){return '';}};
 /* the founder's brass dot beside a correspondent's name, as on their page (only what the server vouches for) */
-function dmFounder(id){try{if(isOffice(id))return '';const x=findNation(id);return x&&typeof shopBadge==='function'?shopBadge(x.n,1):'';}catch(e){return '';}}
+function dmFounder(id){try{if(isOffice(id)||dmIsGroup(id))return '';const x=findNation(id);return chatDelegateBadge(id)+(x&&typeof shopBadge==='function'?shopBadge(x.n,1):'');}catch(e){return '';}}
 function dmFace(id){if(isOffice(id))return OFFICES[id].seal;if(dmIsGroup(id))return `<span class="dm-grp" aria-hidden="true">${/^al:/.test(id)?'⚑':(dmGroupMeta(id).m.length||'·')}</span>`;const x=dmFind(id);return x?flagSVG(x.n.flag,'Flag of '+x.n.name):'';}
 const dmKind=id=>isOffice(id)?'offices':dmIsGroup(id)?'groups':NPC_SET.has(id)?'computer':'players';
 /* the sender's stationery (Customise › Stationery): paper, a wax seal, a signature; anyone else's only if they hold it */
@@ -26339,7 +26345,7 @@ function messagesView(){
     const status=m.b?' · Not delivered: this nation does not accept your letters':m.h==='cap'?` · Waiting for a reply: you have written ${DM_CAP} letters in a row`:m.h==='day'?' · Waits until tomorrow: 150 letters a day':m.q?(Array.isArray(m.to)?` · Delivered to ${(m.qd||[]).length} of ${m.to.length}`:' · Not sent yet'):m===lastMine&&peerSeen>=m.t?' · Seen':'';
     const note=m.k&&DM_NOTES[m.k]?`<p class="dm-note-h">${esc(DM_NOTES[m.k][0])}</p>`:'';
     const quote=m.r?`<blockquote class="dm-q">${esc(dmPlain(m.r.x))}</blockquote>`:'';
-    const who=grp&&!m.mine?`<span class="bub-who">${esc(nameOf(m.from))}${dmFounder(m.from)}</span>`:'';
+    const who=grp&&!m.mine?`<span class="bub-who">${esc(nameOf(m.from))}${dmFounder(m.from)}</span>`:!m.npc&&!isOffice(m.from)?chatDelegateBadge(m.mine?me:m.from):'';
     const tools=po?'':`<span class="bub-tools">${m.q&&m.mine?`<button type="button" class="linkish small" data-act="dm-withdraw" data-t="${m.t}">Withdraw</button>`:`<button type="button" class="linkish small" data-act="dm-reply" data-t="${m.t}" data-from="${esc(m.from)}">Reply</button>`}${!m.mine&&!m.npc&&!isOffice(m.from)&&S.mode==='world'?`<button type="button" class="linkish small" data-act="dm-report" data-t="${m.t}" data-from="${esc(m.from)}">Report</button>`:''}</span>`;
     return `${sep}<li class="bub${m.mine?' mine':''}${st?' staff':''}${P.lp?' '+lpClass(P.lp):''}${m.k?' note':''}${P.lm?' has-pm':''}"${lpGlyph(P.lp)}>${P.lm?dmStamp(m.mine?me:m.from,P.lm,m.t):''}${st?'<span class="bub-staff">Edictum staff</span>':''}${who}${note}${quote}${m.npc||isOffice(m.from)?`<p>${esc(m.x)}</p>`:`<div class="dm-x">${scrDmWith(m.mine?me:m.from,()=>dmRich(m.x))}</div>`}${m.a?dmAttCard(m.a,m.from,m.mine,peer):''}${dmSign(m.mine?me:m.from,m.npc?'':P.lg)}${m.npc?'':scrSig(m.mine?me:m.from)}${dmWax(m.mine?me:m.from,P.ls)}<span class="bub-t" title="${esc(dmClock(m.t))}">${rel(m.t)}${status}</span>${tools}</li>`;
   }).join('');
@@ -26372,7 +26378,7 @@ function messagesView(){
       <ol class="bubs" data-stick="dm:${esc(peer)}">${more}${bubbles}</ol><p class="hint dm-note">${esc(po.note||'Offices write to every nation of the region at once, and do not answer letters. Choose which offices write to you in Settings › Letters.')}</p>`:'';
   const gm=grp?dmGroupMeta(peer):null;
   const head=grp?`<div class="thread-h"><button class="linkish small dm-back" data-act="dm-back">← All conversations</button><span class="mflag">${dmFace(peer)}</span><b>${esc(nameOf(peer))}</b><span class="chip">${/^al:/.test(peer)?'Alliance':'Group'}</span>${dmLabelPills(peer)}<span class="hint dm-members">${esc(list(gm.m.filter(id=>id!==me).map(id=>nameOf(id))))} and you</span>${menu}</div>`
-    :px?`<div class="thread-h"><button class="linkish small dm-back" data-act="dm-back">← All conversations</button><span class="mflag">${flagSVG(px.n.flag,'Flag of '+px.n.name)}</span><b>${esc(px.n.name)}</b>${px.far?`<span class="chip">${esc(xnRegName(px.id))}</span>`:''}${px.npc?'<span class="chip">Computer-run</span>':''}${pst?STAFF_PILL:''}${dmLabelPills(peer)}<button class="linkish small" data-act="visit" data-id="${esc(px.id)}">View nation</button>${menu}</div>`:'';
+    :px?`<div class="thread-h"><button class="linkish small dm-back" data-act="dm-back">← All conversations</button><span class="mflag">${flagSVG(px.n.flag,'Flag of '+px.n.name)}</span><b>${esc(px.n.name)}</b>${chatDelegateBadge(peer)}${px.far?`<span class="chip">${esc(xnRegName(px.id))}</span>`:''}${px.npc?'<span class="chip">Computer-run</span>':''}${pst?STAFF_PILL:''}${dmLabelPills(peer)}<button class="linkish small" data-act="visit" data-id="${esc(px.id)}">View nation</button>${menu}</div>`:'';
   const filters=`<div class="dm-filters" role="group" aria-label="Show">${DM_FILTERS.map(([k,l])=>`<button type="button" class="chip-btn${F===k?' on':''}" data-act="dm-filter" data-v="${k}" aria-pressed="${F===k}">${l}</button>`).join('')}</div>`
     +`<div class="dm-lbf"><div class="dm-filters dm-lbs" role="group" aria-label="Labels">${DM_LABELS.map(([k,l])=>{const c=[...th.keys()].filter(id=>dmLabels(id).includes(k)).length;return `<button type="button" class="chip-btn dm-lbc dm-lb-${k}${LF===k?' on':''}" data-act="dm-lfilter" data-v="${k}" aria-pressed="${LF===k}"><i class="dm-dot dm-lb-${k}" aria-hidden="true"></i>${l}${c?`<span class="dm-lbn">${c}</span>`:''}</button>`;}).join('')}</div>`
     +`<label class="dm-af"><span class="hint">With</span><select class="input" id="dm-af" aria-label="Show the conversations whose letters carry">${DM_AF.map(([k,l])=>`<option value="${k}"${AF===k?' selected':''}>${l}</option>`).join('')}</select></label></div>`;
@@ -57572,6 +57578,57 @@ function staffPillOf(id){return isModId(id)?MOD_PILL:STAFF_PILL;}
 function isAmbId(id){return !!id&&((id===S.uid&&!!S.isAmb&&!PV)||!!(S.ambs&&S.ambs.has(id)));}
 /* the pill beside a nation's name: staff first, then an ambassador's */
 function rolePillOf(id){return isStaff(id)?staffPillOf(id):isAmbId(id)?AMB_PILL:'';}
+/* A bare Assembly seat, in its region's colour. These colours are stable across every chat and theme.
+   Office is read from the protected server records, never from a posted line or public nation JSON. */
+const CHAT_DEL_COLORS={meridian:'#7760ad',frostmarch:'#438ca9',northernpale:'#728da6',driftlands:'#688c7f',silentmoors:'#8c749a',wildwood:'#527544',saffron:'#b4852d',hollow:'#98774e',ashen:'#a36962',ironsteppe:'#8c8050',gilded:'#a79238',verdantbasin:'#34865b',coralreach:'#c46d7b',emberisles:'#bf663c',lanterncoast:'#ad754a',jadeterraces:'#328b7b',highcrags:'#7e839b',cloudspine:'#7d93ba',obsidianrim:'#625a7b',ambershallows:'#c28f43',sunkenkingdoms:'#3e7f86',mistral:'#4b9aa1',stormwrack:'#4e687e',longvalley:'#8c9b43',greywater:'#6e807c',scatteredcrown:'#a25d84',terra:'#688ab5'};
+const CHAT_DEL={cache:new Map(),pending:new Set(),busy:false,timer:0,uid:'',db:null};
+function chatDelegateReset(){
+  if(CHAT_DEL.uid===S.uid&&CHAT_DEL.db===S.db)return;
+  CHAT_DEL.uid=S.uid;CHAT_DEL.db=S.db;CHAT_DEL.cache.clear();CHAT_DEL.pending.clear();
+}
+function chatDelegateMark(id){
+  const entry=CHAT_DEL.cache.get(id),reg=entry&&entry.until>Date.now()?entry.reg:'',R=REG_BY_ID[reg],color=CHAT_DEL_COLORS[reg];
+  if(!R||!color)return '';
+  const label='WA Delegate · '+R.name;
+  return `<span class="chat-delegate" style="--delegate-color:${color}" role="img" aria-label="${esc(label)}" title="${esc(label)}"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 12V3.5A1.5 1.5 0 0 1 6.5 2h7A1.5 1.5 0 0 1 15 3.5V12M2.5 8.5V13h15V8.5M5 13v5M15 13v5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="square"/></svg></span>`;
+}
+function chatDelegateNeed(id){
+  chatDelegateReset();
+  if(!id||!S.db||S.mode==='local'||!S.uid||!/^[-\w]{1,128}$/.test(id)||NPC_SET.has(id)||isOffice(id)||dmIsGroup(id))return;
+  const entry=CHAT_DEL.cache.get(id);if(entry&&entry.until>Date.now())return;
+  CHAT_DEL.pending.add(id);
+  if(!CHAT_DEL.busy&&!CHAT_DEL.timer)CHAT_DEL.timer=setTimeout(chatDelegateLoad,0);
+}
+function chatDelegateBadge(id){
+  chatDelegateNeed(id);
+  return `<span class="chat-delegate-slot" data-chat-delegate="${esc(id)}">${chatDelegateMark(id)}</span>`;
+}
+function chatDelegatePaint(){
+  chatDelegateReset();
+  for(const slot of document.querySelectorAll('[data-chat-delegate]')){
+    if(!slot.getClientRects().length)continue;
+    const id=slot.dataset.chatDelegate,h=chatDelegateMark(id);if(slot.innerHTML!==h)slot.innerHTML=h;
+    chatDelegateNeed(id);
+  }
+}
+async function chatDelegateLoad(){
+  CHAT_DEL.timer=0;chatDelegateReset();if(CHAT_DEL.busy||!CHAT_DEL.pending.size)return;
+  const ids=[...CHAT_DEL.pending].slice(0,80),uid=S.uid,db=S.db;
+  for(const id of ids)CHAT_DEL.pending.delete(id);CHAT_DEL.busy=true;
+  try{
+    const api=await window.claude.use('civic');if(!api)throw new Error('offline');
+    const result=await api.request({op:'chatDelegates',ids});
+    if(uid!==S.uid||db!==S.db)return;
+    const until=Date.now()+60000;
+    for(const id of ids){const reg=result&&result.badges&&result.badges[id];CHAT_DEL.cache.set(id,{reg:REG_BY_ID[reg]?reg:'',until});}
+  }catch(e){if(uid===S.uid&&db===S.db)for(const id of ids)CHAT_DEL.cache.set(id,{reg:'',until:Date.now()+60000});}
+  finally{
+    for(const id of ids)CHAT_DEL.pending.delete(id);
+    CHAT_DEL.busy=false;chatDelegatePaint();
+    if(CHAT_DEL.pending.size&&!CHAT_DEL.timer)CHAT_DEL.timer=setTimeout(chatDelegateLoad,0);
+  }
+}
+setInterval(()=>{if(!document.hidden)chatDelegatePaint();},15000);
 function portalOk(v){return !!S.isOwner||!!S.isMod&&MOD_VIEWS.includes(v);}
 /* a moderator's portal: the queue of what needs them, the reports, every region's chat, and the player behind a report
    (functions/admin.js, modPlayer: the nation and its history, never the account behind it) */
@@ -78539,7 +78596,7 @@ function obsChat(A){
   const C=AL.chat;if(C.aid!==A.id)return '<p class="hint" role="status">Opening the channel…</p>';
   if(C.err)return `<p class="err">${esc(C.err)}</p>`;
   if(!C.list.length)return '<p class="hint">No messages in this channel yet.</p>';
-  return `<ol class="al-chat" data-stick="alo:${esc(A.id)}">${C.list.map(m=>`<li class="al-msg"><p class="al-msg-h"><b>${nationLink(m.a,findNation(m.a)?findNation(m.a).n.name:m.nm,false)}</b><span class="hint">${esc(rel(m.t))}</span></p><p class="al-msg-x">${esc(m.x)}</p></li>`).join('')}</ol>`;
+  return `<ol class="al-chat" data-stick="alo:${esc(A.id)}">${C.list.map(m=>`<li class="al-msg"><p class="al-msg-h"><b>${nationLink(m.a,findNation(m.a)?findNation(m.a).n.name:m.nm,false)}</b>${chatDelegateBadge(m.a)}<span class="hint">${esc(rel(m.t))}</span></p><p class="al-msg-x">${esc(m.x)}</p></li>`).join('')}</ol>`;
 }
 alPageView=(f=>function(){const h=f.apply(this,arguments);if(!obsStaff())return h;const A=politics().al.get(AL.view);if(!A||!A.srv)return h;
   try{alChatConnect();}catch(e){}
@@ -88204,7 +88261,7 @@ function alNextLeader(A){const D=A.doc;return Object.entries(D.mem).filter(([id]
 function alChannelHTML(A){
   const C=AL.chat,me=myId(),mod=alCan(A,me,'o'),reg=civicRegistered(),U=AL_TY_UI[A.doc.ty]||AL_TY_UI.def,now=Date.now();
   const role=id=>{const r=alRoleOf(A,id);return r==='ld'||r==='o'?r:'';};
-  const msg=m=>{const r=role(m.a);return `<li class="al-msg${m.a===me?' me':''}${r?' al-r-'+r:''}"><p class="al-msg-h"><b>${m.a===me?'You':nationLink(m.a,findNation(m.a)?findNation(m.a).n.name:m.nm,false)}</b>${r?`<span class="al-msg-r">${r==='ld'?alGlyph('leader'):''}${esc(r==='ld'?U.lead:U.off)}</span>`:''}<span class="hint">${esc(rel(m.t))}</span>${m.a===me||mod?`<button type="button" class="linkish small" data-act="dp-chat-del" data-id="${esc(m.id)}" aria-label="Delete this message">Delete</button>`:''}</p><p class="al-msg-x">${esc(m.x).replace(/\n/g,'<br>')}</p></li>`;};
+  const msg=m=>{const r=role(m.a);return `<li class="al-msg${m.a===me?' me':''}${r?' al-r-'+r:''}"><p class="al-msg-h"><b>${m.a===me?'You':nationLink(m.a,findNation(m.a)?findNation(m.a).n.name:m.nm,false)}</b>${chatDelegateBadge(m.a)}${r?`<span class="al-msg-r">${r==='ld'?alGlyph('leader'):''}${esc(r==='ld'?U.lead:U.off)}</span>`:''}<span class="hint">${esc(rel(m.t))}</span>${m.a===me||mod?`<button type="button" class="linkish small" data-act="dp-chat-del" data-id="${esc(m.id)}" aria-label="Delete this message">Delete</button>`:''}</p><p class="al-msg-x">${esc(m.x).replace(/\n/g,'<br>')}</p></li>`;};
   const ev=alEvents(A,alEvSince(C.list,now)).map(e=>({t:e.t,e}));
   const list=C.list.map(m=>({t:m.t,m})).concat(ev).sort((a,b)=>a.t-b.t).map(o=>o.m?msg(o.m):alEvLI(o.e)).join('');
   return `${alChanHead(A)}${A.doc.ty==='def'?alHornHTML(now,'ch'):''}<p class="hint">Only members of ${esc(A.name)} can read this channel. Its events stand between the messages.</p>${C.err?`<p class="err">${esc(C.err)}</p>`:''}
@@ -92537,7 +92594,7 @@ function rgcLine(m,run,by,me,mod,memo){
   const nc=!mine&&!m.tm,ncOpen=nc&&!run&&RGC.nc===m.id,nmc='rgc-nm'+(rl?' rl-'+rl:'');
   const who=m.tm?`<b class="rgc-nm rgc-team">${esc(nm)}</b>`:nc?`<button type="button" class="linkish ${nmc}" data-rgc="nc" data-id="${esc(m.a)}" data-l="${i}" aria-expanded="${ncOpen}">${esc(nm)}</button>`:`<b class="${nmc}">${esc(nm)}</b>`;
   const fl=m.tm?`<span class="mflag sm rgc-tmfl" aria-hidden="true">${RGC_TEAM_SVG}</span>`:`<span class="mflag sm${x||wf?'':' rgc-nofl'}">${x?flagSVG(x.n.flag,'Flag of '+nm):wf}</span>`;
-  const head=run?'':`<p class="rgc-lh">${fl}<span class="rgc-lw">${who}${from}${mk?`<span class="rgc-mk">${mk}</span>`:''}${m.tm?pill:''}</span><time datetime="${new Date(m.t).toISOString()}" title="${esc(when)}">${esc(fmtTime(m.t))}</time></p>`;
+  const head=run?'':`<p class="rgc-lh">${fl}<span class="rgc-lw">${who}${m.tm?'':chatDelegateBadge(m.a)}${from}${mk?`<span class="rgc-mk">${mk}</span>`:''}${m.tm?pill:''}</span><time datetime="${new Date(m.t).toISOString()}" title="${esc(when)}">${esc(fmtTime(m.t))}</time></p>`;
   const staff=m.tm||!!m.st||isStaff(m.a);
   let can;
   if(ally){const A=rgcAllyOn();can={del:mine||!!(A&&alCan(A,me,'o'))};}
@@ -92550,7 +92607,7 @@ function rgcLine(m,run,by,me,mod,memo){
     +(can.mute?`<button type="button" role="menuitem" data-rgc="mute-ask" data-id="${i}">Silence ${esc(nm)}…</button>`:'')
     +(can.del?`<button type="button" role="menuitem" class="rgc-danger" data-rgc="${ally?'ally-del':'del-ask'}" data-id="${i}">${mine?'Delete':'Remove the line'}</button>`:'');
   const menu=items?`<div class="rgc-mw"><button type="button" class="rgc-more" data-rgc="menu" data-id="${i}" aria-expanded="${open}" aria-haspopup="menu" aria-label="Options for this line by ${esc(nm)}"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="5.5" cy="12" r="1.7" fill="currentColor"/><circle cx="12" cy="12" r="1.7" fill="currentColor"/><circle cx="18.5" cy="12" r="1.7" fill="currentColor"/></svg></button>${open?`<div class="rgc-menu" role="menu">${items}</div>`:''}</div>`:'';
-  return `<li class="rgc-l${run?' run':''}${mine?' me':''}${named?' named':''}${ally?' ally':''}${RGC.goto===m.id?' flash':''}" data-id="${i}">${head}${!ally&&m.r?rgcQuote(m.r):''}<div class="rgc-xw">${run?`<time class="rgc-rt" datetime="${new Date(m.t).toISOString()}" title="${esc(when)}">${esc(fmtTime(m.t))}</time>`:''}${rgcBody(m,nm)}${menu}</div>${ally?'':rgcRxs(m,me)}${RGC.ask&&RGC.ask.id===m.id?rgcAsk(m,nm,mine):''}${RGC.who===m.id?rgcTeamWho():''}${ncOpen?rgcNcHTML(m,x,nm,rg||(x?REG.id:ally?'':RGC.reg||REG.id),pill+marks):''}</li>`;
+  return `<li class="rgc-l${run?' run':''}${mine?' me':''}${named?' named':''}${ally?' ally':''}${RGC.goto===m.id?' flash':''}" data-id="${i}">${head}${!ally&&m.r?rgcQuote(m.r):''}<div class="rgc-xw">${run?`<time class="rgc-rt" datetime="${new Date(m.t).toISOString()}" title="${esc(when)}">${esc(fmtTime(m.t))}</time>`:''}${rgcBody(m,nm)}${menu}</div>${ally?'':rgcRxs(m,me)}${RGC.ask&&RGC.ask.id===m.id?rgcAsk(m,nm,mine):''}${RGC.who===m.id?rgcTeamWho():''}${ncOpen?rgcNcHTML(m,x,nm,rg||(x?REG.id:ally?'':RGC.reg||REG.id),pill+chatDelegateMark(m.a)+marks):''}</li>`;
 }
 /* a new nation's welcome line (sys 'found': functions/regionchat.js, rcHello), drawn as an announcement: its flag and
    name, "has been founded, welcome to #Region!" and, for a week, a Welcome button that starts a line greeting it (Say
@@ -93318,7 +93375,7 @@ function rgcCardHTML(c,m,nm){
   if(c.k==='rank'){const R=ACH_RANKS[Math.min(c.i,ACH_RANKS.length-1)];return `<div class="rgc-cd"><p class="rgc-cd-t">Rank of ${esc(nm)}</p><p class="rgc-cd-big">${esc(R[1])}</p>${rows([['Points',fmt0(c.p)],['Achievements',fmt0(c.n)]])}</div>`;}
   const x=allNations().find(o=>o.id===c.id||(o.me&&c.id===S.uid)),R=ACH_RANKS[Math.min(c.i,ACH_RANKS.length-1)];
   const name=x&&!x.me?`<button type="button" class="linkish" data-act="visit" data-id="${esc(c.id)}">${esc(c.nm)}</button>`:esc(c.nm);
-  return `<div class="rgc-cd"><p class="rgc-cd-t">Nation card</p><p class="rgc-cd-big">${x?`<span class="mflag sm">${flagSVG(x.n.flag,'Flag of '+c.nm)}</span>`:''}${name}${rolePillOf(c.id)}</p>${rows([['People',esc(fmtPop(c.pop))],['Cities',fmt0(c.ci)],['Land',fmt0(c.hx)+' hexes'],['Rank',esc(R[1])],...(c.al?[['Alliance',esc(c.al)]]:[])])}</div>`;
+  return `<div class="rgc-cd"><p class="rgc-cd-t">Nation card</p><p class="rgc-cd-big">${x?`<span class="mflag sm">${flagSVG(x.n.flag,'Flag of '+c.nm)}</span>`:''}${name}${chatDelegateBadge(c.id)}${rolePillOf(c.id)}</p>${rows([['People',esc(fmtPop(c.pop))],['Cities',fmt0(c.ci)],['Land',fmt0(c.hx)+' hexes'],['Rank',esc(R[1])],...(c.al?[['Alliance',esc(c.al)]]:[])])}</div>`;
 }
 function rgcBody(m,nm){
   if(m.cd)return rgcCardHTML(m.cd,m,nm);
@@ -93505,7 +93562,7 @@ function acxLogHTML(){
     const acts=ask&&ACX.ask.all?`<button type="button" class="btn danger small" data-act="acx-uncast-yes" data-id="${esc(m.id)}">Remove everywhere</button><button type="button" class="btn ghost small" data-act="acx-ask-no">Keep</button>`
       :ask?`<button type="button" class="btn danger small" data-act="acx-del-yes" data-id="${esc(m.id)}">Remove it</button><button type="button" class="btn ghost small" data-act="acx-ask-no">Keep</button>`
       :`<button type="button" class="linkish small" data-act="acx-del" data-id="${esc(m.id)}">${all?'Remove here':'Remove'}</button>${all?`<button type="button" class="linkish small" data-act="acx-uncast" data-id="${esc(m.id)}">Remove from every region</button>`:''}${staff?'':`<button type="button" class="linkish small" data-act="acx-mute-ask" data-id="${esc(m.id)}">Silence…</button><button type="button" class="linkish small" data-act="admin-inspect" data-id="${esc(m.a)}">Inspect</button>`}`;
-    return d+`<li class="acx-l${m.tm?' tm':''}" data-id="${esc(m.id)}"><time class="acx-t" datetime="${new Date(m.t).toISOString()}" title="${esc(fmtDate(m.t)+', '+fmtTime(m.t))}">${esc(fmtTime(m.t))}</time><span class="acx-w"><b>${esc(m.nm)}</b>${m.rg&&acxShared(ACX.reg)?` <span class="hint acx-rg">${esc(regName(m.rg))}</span>`:''}${pill}${sil.has(m.a)&&!staff?' <span class="chip acx-sil">Silenced</span>':''}</span><span class="acx-x">${esc(m.x)}${m.im?rgcPicHTML(m.im,`data-pic="open" data-box="acx" data-id="${esc(m.id)}"`,m.tm?'Edictum team':m.nm,true):''}</span><span class="acx-b">${acts}</span></li>`;
+    return d+`<li class="acx-l${m.tm?' tm':''}" data-id="${esc(m.id)}"><time class="acx-t" datetime="${new Date(m.t).toISOString()}" title="${esc(fmtDate(m.t)+', '+fmtTime(m.t))}">${esc(fmtTime(m.t))}</time><span class="acx-w"><b>${esc(m.nm)}</b>${m.tm?'':chatDelegateBadge(m.a)}${m.rg&&acxShared(ACX.reg)?` <span class="hint acx-rg">${esc(regName(m.rg))}</span>`:''}${pill}${sil.has(m.a)&&!staff?' <span class="chip acx-sil">Silenced</span>':''}</span><span class="acx-x">${esc(m.x)}${m.im?rgcPicHTML(m.im,`data-pic="open" data-box="acx" data-id="${esc(m.id)}"`,m.tm?'Edictum team':m.nm,true):''}</span><span class="acx-b">${acts}</span></li>`;
   }).join('');
 }
 /* the chat and the region list again, in place */
