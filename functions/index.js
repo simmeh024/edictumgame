@@ -23,6 +23,11 @@
      and at most SIEGE_MAX ago on hex c, and the war still on ('siege', 'war', 'surr', 'grace' otherwise). Won, the
      siege is marked fallen (st 'fell', ft, foes: the fallen nation's enemies), d is told, and the answer carries
      fell: true with the siege's id and doc. Every game then takes the fallen nation off its map (territory).
+     Since 24 November 2026 a nation with another city does not fall with its capital: the government moves to its
+     biggest city (functions/war-rules.js, successor; occ: the ids of d's cities the attacker's game sees held by
+     another nation) and the war goes on. The siege is still marked fallen, with ni and nn (the new capital's city id and
+     name), ci (the city id of the capital taken) and cb (its finished buildings, for the attacker who keeps it), no foes
+     and no m; d is told the capital moved. Every game moves the capital (territory, the records as read).
 
    Storage (only this code writes it; see firestore.rules):
      referee/key            {priv, pub, at}: the signing key, made on first use; nobody else reads it
@@ -52,7 +57,7 @@ import { pace, ipRule } from './pace.js';
 import { trId, trLive, trVoid, trReadyMs, TR_FX, TR_RECORD } from './treaty-rules.js';
 import { alRelLive } from './alliance-rules.js';
 import { warWord } from './letters.js';
-import { warOf, shielded, num, SIEGE_MS, SIEGE_MAX, milReady, milMs, memorial } from './war-rules.js';
+import { warOf, shielded, num, SIEGE_MS, SIEGE_MAX, milReady, milMs, memorial, successor, builtKeys } from './war-rules.js';
 
 initializeApp();
 const db = getFirestore();
@@ -124,6 +129,8 @@ async function battle(uid, data) {
     const [me, st, ban, ...rest] = await tx.getAll(...refs);
     /* the final assault on a capital: this nation's sieges of d */
     const sieges = data.cap === 1 && !npc ? await tx.get(db.collection('sieges').where('a', '==', uid).where('d', '==', d)) : null;
+    /* and every siege of d by anyone: the capitals it lost before, which its next capital cannot be */
+    const besieged = data.cap === 1 && !npc ? await tx.get(db.collection('sieges').where('d', '==', d)) : null;
     const ixs = await tx.getAll(...[uid, ...help].map(id => db.doc('allyOf/' + id))), alliances = ixs.map(ixDef);
     /* a non-aggression pact or joint military training between the two (functions/treaties.js), and the defender's
        alliance (for a pact between the two alliances, functions/alliances.js) */
@@ -195,12 +202,25 @@ async function battle(uid, data) {
     const sign = text => crypto.sign('sha256', Buffer.from(text), { key, dsaEncoding: 'ieee-p1363' }).toString('base64url');
     if (win) { out.s = sign(sealText(uid, c, now, w)); out.s2 = sign(sealText2(uid, c, now, w, d)); }
     if (win && sg) {
-      /* the capital has fallen: the siege says so, with the fallen nation's enemies, whose conquests stay theirs, and
-         what the nation was (m), for its monument */
-      const them = record(foe), foes = [...new Set([uid, ...Object.keys(them.wars || {}).filter(isId)])].slice(0, 40);
-      const doc = { ...sg.data(), st: 'fell', ft: now, foes, m: memorial(them) };
+      const them = record(foe), df = num(them.founded);
+      /* the capitals it lost before (moves of this nation as founded now), oldest first */
+      const prior = besieged.docs.map(s => s.data()).filter(x => x.st === 'fell' && typeof x.ni === 'string' && num(x.df) === df).sort((a, b) => num(a.ft) - num(b.ft));
+      const occ = Array.isArray(data.occ) ? data.occ.filter(x => typeof x === 'string' && x.length <= 16).slice(0, 40) : [];
+      const next = successor(them, { prior, occ, now });
+      let doc;
+      if (next) {
+        /* the capital has fallen, and the government moves to its biggest city: the war goes on */
+        const cs = Array.isArray(them.cities) ? them.cities : [], ci = prior.length ? prior[prior.length - 1].ni : String((cs[0] && cs[0].id) || 'cap');
+        doc = { ...sg.data(), st: 'fell', ft: now, ni: next.id.slice(0, 16), nn: str(next.nm), ci: String(ci).slice(0, 16), cb: builtKeys(cs.find(c => c && c.id === ci), now) };
+        Object.assign(out, { fell: true, id: sg.id, doc, _word: { kind: 'moved', to: d, by: str(mine.name), nation: str(them.name), capital: str(sg.get('cn') || them.capital), nn: doc.nn } });
+      } else {
+        /* the capital has fallen, and with it the nation: the siege says so, with the fallen nation's enemies, whose
+           conquests stay theirs, and what the nation was (m), for its monument */
+        const foes = [...new Set([uid, ...Object.keys(them.wars || {}).filter(isId)])].slice(0, 40);
+        doc = { ...sg.data(), st: 'fell', ft: now, foes, m: memorial(them) };
+        Object.assign(out, { fell: true, id: sg.id, doc, _word: { to: d, by: str(mine.name), nation: str(them.name), capital: str(sg.get('cn') || them.capital) } });
+      }
       tx.set(sg.ref, doc);
-      Object.assign(out, { fell: true, id: sg.id, doc, _word: { to: d, by: str(mine.name), nation: str(them.name), capital: str(them.capital) } });
     }
     const prev = st.exists ? st.data() : {};
     tx.set(armyRef, { r: rd.r - 1, at: rd.r >= rd.max ? now : rd.at + rd.g * rd.ms, n: (prev.n || 0) + 1, w: (prev.w || 0) + (win ? 1 : 0), last: now });
@@ -217,7 +237,8 @@ async function siege(uid, data) {
     throw new HttpsError('invalid-argument', 'A siege needs a nation and its capital.');
   const r = await db.runTransaction(async tx => {
     const [me, foe, ban, modMe, modFoe] = await tx.getAll(db.doc('nations/' + uid), db.doc('nations/' + d), db.doc('bans/' + uid), db.doc('mod/' + uid), db.doc('mod/' + d));
-    const q = await tx.get(db.collection('sieges').where('a', '==', uid).where('d', '==', d));
+    /* every siege of d, by anyone: a fall that ended it, the capitals it moved to since, and this nation's own siege */
+    const q = await tx.get(db.collection('sieges').where('d', '==', d));
     if (ban.exists) return { ok: false, why: 'banned' };
     if (!me.exists) return { ok: false, why: 'nation' };
     if (modMe.get('hidden') === true || modFoe.get('hidden') === true) return { ok: false, why: 'hidden' };
@@ -231,13 +252,18 @@ async function siege(uid, data) {
     if (!w || w.surr || w.g !== 'c' || w.offA) return { ok: false, why: 'war' };
     if (shielded(them, now)) return { ok: false, why: 'grace' };
     const df = num(them.founded);
+    let moved = null;
     for (const s of q.docs) {
       const x = s.data();
       if (num(x.df) !== df) continue;
-      if (x.st === 'fell') return { ok: false, why: 'gone' };
-      if (x.st === 'on' && now - num(x.t) <= SIEGE_MAX) return { ok: true, t: x.t, id: s.id, doc: x, again: true };
+      /* fallen with its last capital: gone; a capital it lost before (ni: where the government moved) is no bar */
+      if (x.st === 'fell') { if (typeof x.ni !== 'string') return { ok: false, why: 'gone' }; if (!moved || num(x.ft) > num(moved.ft)) moved = x; continue; }
+      /* this nation's siege of the same capital, still standing */
+      if (x.a === uid && x.st === 'on' && x.c === c && now - num(x.t) <= SIEGE_MAX) return { ok: true, t: x.t, id: s.id, doc: x, again: true };
     }
-    const id = `${uid}_${d}_${now}`, doc = { reg: myReg, a: uid, d, c, t: now, st: 'on', an: str(mine.name), dn: str(them.name), df, cn: str(them.capital) };
+    /* the capital's name: the city the government last moved to, while its record still names the old one */
+    const cn = str((moved && moved.nn) || them.capital);
+    const id = `${uid}_${d}_${now}`, doc = { reg: myReg, a: uid, d, c, t: now, st: 'on', an: str(mine.name), dn: str(them.name), df, cn };
     tx.set(db.doc('sieges/' + id), doc);
     return { ok: true, t: now, id, doc, _word: { to: d, by: doc.an, nation: doc.dn, capital: doc.cn, at: now + SIEGE_MS } };
   });
@@ -275,7 +301,7 @@ export const referee = onCall({ region: REGION, maxInstances: 20, cpu: 1, memory
   if (data.op === 'battle') {
     pace([['rb:' + uid, 60, 1], ...ipRule(req, 'ri', 300, 10)]);
     const r = await battle(uid, data);
-    if (r && r._word) { const w = r._word; delete r._word; try { await warWord(db, w.to, 'fell', w); } catch (e) { /* told in the game anyway */ } }
+    if (r && r._word) { const w = r._word; delete r._word; try { await warWord(db, w.to, w.kind || 'fell', w); } catch (e) { /* told in the game anyway */ } }
     return r;
   }
   if (data.op === 'siege') { pace([['rs:' + uid, 10, 1 / 60]]); return siege(uid, data); }

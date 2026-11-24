@@ -317,6 +317,28 @@ test('a siege needs a war of conquest; the final assault waits a day, and a vict
   assert.equal(f.m.mapValue.fields.mo.stringValue, 'Salt and patience', 'kept with the fall');
   assert.deepEqual(await siege(g, { d: foe.uid, c: 50 }), { ok: false, why: 'gone' }, 'a fallen nation cannot be besieged again');
 });
+/* the capital moves (24 Nov 2026): a nation with another city does not fall with its capital */
+test('a capital that falls while its nation has another city: the government moves to the biggest, and the war goes on', async () => {
+  const g = await guest(), foe = await guest(), now = Date.now(), founded = now - 30 * 86400000;
+  await nation(g.uid, {}, 1000);
+  await nation(foe.uid, { founded, name: 'Vesad', capital: 'Adler', wars: { [g.uid]: { t: now - 30 * 3600000, g: 'c' } },
+    cities: [{ id: 'cap', c: 60, b: [{ k: 'farm', d: 1 }] }, { id: 'b', c: 64, nm: 'Brill', t: 5, b: [{ k: 'farm', d: 1 }, { k: 'market', d: 1 }] }, { id: 'c', c: 66, nm: 'Corve', t: 4, b: [{ k: 'farm', d: 1 }] }] }, 1);
+  const day = id => doc('sieges/' + id + '?updateMask.fieldPaths=t', { method: 'PATCH', body: JSON.stringify({ fields: { t: { integerValue: String(Date.now() - 25 * 3600000) } } }) });
+  const take = async (c, occ) => { let r;for (let i = 0; i < 6 && !(r && r.win); i++) r = await battle(g, { d: foe.uid, c, cap: 1, ...(occ ? { occ } : {}) });return r; };
+  const s = await siege(g, { d: foe.uid, c: 60 });await day(s.id);
+  const r = await take(60);
+  assert.equal(r.fell, true, JSON.stringify(r));assert.equal(r.doc.ni, 'b', 'Brill: two buildings to Corve’s one');assert.equal(r.doc.nn, 'Brill');
+  assert.equal(r.doc.ci, 'cap');assert.deepEqual(r.doc.cb, ['farm'], 'what stood in the capital taken');
+  assert.equal(r.doc.m, undefined, 'no monument: the nation stands');assert.equal(r.doc.foes, undefined);
+  /* a new siege of the new capital, named for it; the capital lost is no bar */
+  const s2 = await siege(g, { d: foe.uid, c: 64 });
+  assert.equal(s2.ok, true);assert.notEqual(s2.id, s.id);assert.equal(s2.again, undefined);assert.equal(s2.doc.cn, 'Brill');
+  await day(s2.id);
+  /* the attacker's game sees Corve held by another nation: the last capital falls, and the nation with it */
+  const r2 = await take(64, ['c']);
+  assert.equal(r2.fell, true);assert.equal(r2.doc.ni, undefined);assert.ok(r2.doc.m && r2.doc.foes, 'its monument and its enemies');
+  assert.deepEqual(await siege(g, { d: foe.uid, c: 66 }), { ok: false, why: 'gone' }, 'fallen with its last capital');
+});
 test('no siege in a border war or a raid, against a nation risen again or in its grace, or after a surrender', async () => {
   const g = await guest(), now = Date.now(), mk = async rec => { const f = await guest(); await nation(f.uid, rec, 1); return f; };
   await nation(g.uid, {}, 1000);

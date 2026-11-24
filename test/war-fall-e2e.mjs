@@ -3,6 +3,9 @@
 // sieges), B is told and surrenders (the war ends, a 14-day truce, tribute), C holds out and falls in the final assault a
 // day later: C leaves the map, its player sees the fallen screen and rises again in the same region, with what it
 // earned, 3 land credits and a week in which nobody may attack it; the region remembers the fall.
+// Then D, a nation of three cities (24 Nov 2026, the capital moves): A takes a city of D in battle and keeps it in the
+// captured city's edict; A takes D's capital and D's government moves to its biggest city left, the war going on; A
+// takes that one too, and D falls.
 // The sieges are laid through the referee from A's page, as wrSiegeStart does once a capital stands alone, and a day
 // is skipped by moving the siege's start back (the Firestore emulator takes "Bearer owner" past the rules).
 import { check, finish, until, player, open, found, register, nationDoc, errors, clearEmulators, restListAdmin, OUT, sleep, FS_HOST, PROJECT } from './lib.mjs';
@@ -175,5 +178,78 @@ check('Ashes and Embers', await until(() => C.evaluate(() => !!(G.S.nation.ach |
 check('saved so', await until(async () => { const d = await nationDoc(uc); return d?.rec?.fel?.nm === 'Vesad' && d.rec.shd > Date.now(); }, 15000));
 check('A may not declare war on it this week', await until(async () => /has risen again from its fall/.test(await box(A, uc)), 20000), await box(A, uc));
 await A.screenshot({ path: OUT + '/war-fall-a.png' }).catch(() => {});
+
+/* ── the capital moves, and captured cities (24 Nov 2026) ──
+   D has three cities: its capital, Brill (two buildings) and Corve (one). A takes Corve in battle and keeps it in the
+   captured city's edict, and Corve leaves D's record. A's first final assault takes D's capital: D does not fall, its
+   government moves to Brill, the bigger city left, and the war goes on. A second siege, of Brill, D's last city, and D
+   falls with it. */
+const D = await player('wr-d', { vp }); const ud = await open(D); await found(D, 'Dornia');
+const dCells = await until(() => D.evaluate(() => { const T = G.WR2().territory(), di = T.byId[G.S.uid];if (di === undefined) return null;
+  const cap = T.list[di].cap, out = [];for (let i = 0; i < T.owner.length && out.length < 2; i++) if (T.owner[i] === di && i !== cap && G.MAP.T[i] >= 2) out.push(i);return out.length === 2 ? out : null; }), 20000);
+check('(D has land for two more cities)', !!dCells, dCells);
+const [cBrill, cCorve] = dCells || [];
+await D.evaluate(([b, c]) => { const n = G.clone(G.S.nation), t = Date.now() - 5 * 864e5;
+  n.cities = (n.cities || []).concat({ id: 'db', c: b, nm: 'Brill', t, b: [{ k: 'farm', s: t, d: t + 1 }, { k: 'market', s: t, d: t + 1 }] }, { id: 'dc', c, nm: 'Corve', t: t + 1000, b: [{ k: 'farm', s: t, d: t + 1 }] });G.commit(n); }, dCells);
+check('D has three cities', await until(async () => { const d = await nationDoc(ud); return (d?.rec?.cities || []).length === 3; }, 15000));
+await A.evaluate(d => { const n = G.clone(G.S.nation), t = Date.now(); n.wars = { ...(n.wars || {}), [d]: { t, g: 'c' } }; G.commit(n); }, ud);
+check('A goes to war with D, for conquest', await until(() => A.evaluate(id => G.WR2().warWith(id).war, ud), 20000));
+const admin = (path, fields) => fetch(`http://${FS_HOST}/v1/projects/${PROJECT}/databases/(default)/documents/${path}?${Object.keys(fields).map(k => 'updateMask.fieldPaths=' + k).join('&')}`,
+  { method: 'PATCH', headers: { 'content-type': 'application/json', authorization: 'Bearer owner' }, body: JSON.stringify({ fields }) });
+/* A's army is ready for every battle here (its readiness was spent on Vesad) */
+const fight = async (d, c, x = {}) => { let w = null;
+  for (let i = 0; i < 6 && !(w && w.win); i++) { await admin('armies/' + ua, { r: { integerValue: '7' }, at: { integerValue: String(Date.now()) } });
+    w = await A.evaluate(async ([d, c, x]) => (await (await window.claude.use('referee')).battle({ d, c, p: 0.95, ...x })), [d, c, x]); }
+  return w; };
+/* a hex won, saved as attack() saves it */
+const takeHex = (c, w, k) => A.evaluate(([d, c, s, s2, t, k]) => { const n = G.clone(G.S.nation);n.conq = (n.conq || []).concat({ c, t, d, s, s2 });if (k) n.log.unshift({ t: Date.now(), k, a: d, b: 'Dornia', fx: '' });G.commit(n); }, [ud, c, w.s, w.s2, w.t, k || '']);
+check('(the probe has the capital moves)', await A.evaluate(() => !!window.EDICTUM_PROBE.CMV));
+
+/* a city taken in war: its fate on A's desk */
+const wc = await fight(ud, cCorve);
+check('A takes Corve in battle', !!(wc && wc.win), wc);
+await takeHex(cCorve, wc);
+check('A holds Corve, a city of D, as land taken in war', await until(() => A.evaluate(c => { const T = G.WR2().territory(); return T.owner[c] === T.byId[G.S.uid] && T.occ[c] === 1; }, cCorve), 20000));
+const ccE = await until(() => A.evaluate(c => { const v = G.syncInbox(G.S.nation, Date.now());for (const [x, C] of window.EDICTUM_PROBE.CMV().ccPairs(v)) if (C && C.c === c) return x.id;return null; }, cCorve), 20000);
+check('an edict about Corve’s fate lands on A’s desk', !!ccE, ccE);
+check('it names the city and the nation it was taken from', await A.evaluate(id => { const v = G.syncInbox(G.S.nation, Date.now()), x = v.inbox.find(y => y.id === id), C = window.EDICTUM_PROBE.CMV().ccCityOf(v, x);return !!C && C.nm === 'Corve' && C.fn === 'Dornia'; }, ccE));
+const keepAt = await A.evaluate(id => window.EDICTUM_PROBE.CMV().CC_ISSUES.find(i => i.id === id).o.findIndex(o => o.e.ccc === 'keep'), ccE);
+await A.evaluate(([id, o]) => G.answer(id, o), [ccE, keepAt]);
+check('kept: Corve is a city of A, captured from Dornia', await until(() => A.evaluate(([c, d]) => (G.S.nation.cities || []).some(x => x.c === c && x.cq === 'Dornia' && x.cf === d && x.cfi === 'dc'), [cCorve, ud]), 10000), JSON.stringify(await A.evaluate(() => G.S.nation.cities)));
+check('its fate decided once', await A.evaluate(id => (G.S.nation.ccd || []).includes(id + ':dc') && !window.EDICTUM_PROBE.CMV().ccOpen(G.S.nation).length, ud));
+check('saved so, where it came from kept', await until(async () => { const d = await nationDoc(ua); return (d?.rec?.cities || []).some(x => x.c === cCorve && x.cf === ud); }, 15000));
+check('D’s page lets Corve go, with a line in its record', await until(async () => { const d = await nationDoc(ud); return !(d?.rec?.cities || []).some(x => x.c === cCorve) && (d?.rec?.log || []).some(l => l.k === 'clost'); }, 25000),
+  JSON.stringify((await nationDoc(ud))?.rec?.cities));
+
+/* the first final assault: the government moves to Brill */
+const dCap = await capOf(A, ud), sD = await siege(ud, dCap);
+check('A lays siege to Dornia’s capital', sD.ok && sD.doc.c === dCap, sD);
+check('the siege box tells where the government would go', await until(() => A.evaluate(id => { const T = G.WR2().territory(), x = T.list[T.byId[id]];return /moves to Brill, its biggest city/.test(window.EDICTUM_PROBE.CMV().wrFallWords(T, x)); }, ud), 15000));
+check('(a day passes)', (await admin('sieges/' + sD.id, { t: { integerValue: String(Date.now() - 25 * H) } })).status === 200);
+await until(() => A.evaluate(([id, c]) => { const s = G.WR2().wrSiege(G.S.uid, id);return !!s && s.c === c && Date.now() - s.t > 24 * 3600000; }, [ud, dCap]), 15000);
+const occ = await A.evaluate(id => window.EDICTUM_PROBE.CMV().wrOccIds(G.WR2().territory(), id), ud);
+check('A’s assault names Corve as no longer Dornia’s', occ.includes('dc'), occ);
+const wm = await fight(ud, dCap, { cap: 1, occ });
+check('the capital falls, and the government moves to Brill', !!(wm && wm.win && wm.fell && wm.doc && wm.doc.ni === 'db' && wm.doc.nn === 'Brill' && !wm.doc.m && !wm.doc.foes), wm && wm.doc);
+await takeHex(dCap, wm, 'ctake');
+check('Dornia stays on A’s map, its capital on Brill’s hex', await until(() => A.evaluate(([id, c]) => { const T = G.WR2().territory(), i = T.byId[id];return i !== undefined && T.list[i].cap === c; }, [ud, cBrill]), 20000));
+check('the old capital is A’s, taken in war', await until(() => A.evaluate(c => { const T = G.WR2().territory();return T.owner[c] === T.byId[G.S.uid]; }, dCap), 15000));
+check('and the war goes on', await A.evaluate(id => G.WR2().warWith(id).war, ud));
+check('D’s page saves the move: Brill is its capital, the fall in its record', await until(async () => { const r = (await nationDoc(ud))?.rec;return r?.capital === 'Brill' && (r.log || []).some(l => l.k === 'cfled' && l.fx === 'Brill') && !(r.cities || []).some(x => x.c === dCap); }, 25000),
+  JSON.stringify({ cap: (await nationDoc(ud))?.rec?.capital, log: ((await nationDoc(ud))?.rec?.log || []).slice(0, 3) }));
+check('D fights on: no fallen screen', await D.evaluate(() => !G.WR2().myFall() && !!G.S.nation && G.S.nation.capital === 'Brill'));
+check('the capital-taken edict for Dornia’s old capital lands on A’s desk', await until(() => A.evaluate(sid => { const v = G.syncInbox(G.S.nation, Date.now());for (const x of v.inbox) if (G.WR3().CQ_ISSUES.some(i => i.id === x.id)) { const F = G.WR3().cqFallOf(v, x);if (F && F.id === sid) return true; }return false; }, sD.id), 20000));
+check('no monument: Dornia has not fallen', !(await A.evaluate(c => G.WR3().monSites().some(s => s.c === c), dCap)));
+check('nor is it on the Fallen nations card', !/Dornia/.test(plain(await A.evaluate(() => G.WR2().wrFallenCard()))));
+
+/* the second siege, of Brill, D's last city: D falls */
+const sD2 = await siege(ud, cBrill);
+check('the referee lays a new siege on the new capital, named for it', sD2.ok && !sD2.again && sD2.doc.c === cBrill && sD2.doc.cn === 'Brill', sD2);
+check('(another day passes)', (await admin('sieges/' + sD2.id, { t: { integerValue: String(Date.now() - 25 * H) } })).status === 200);
+await until(() => A.evaluate(([id, c]) => { const s = G.WR2().wrSiege(G.S.uid, id);return !!s && s.c === c && Date.now() - s.t > 24 * 3600000; }, [ud, cBrill]), 15000);
+const wf = await fight(ud, cBrill, { cap: 1, occ: await A.evaluate(id => window.EDICTUM_PROBE.CMV().wrOccIds(G.WR2().territory(), id), ud) });
+check('the last capital falls, and Dornia with it', !!(wf && wf.win && wf.fell && wf.doc && !wf.doc.ni && wf.doc.m), wf && wf.doc);
+check('Dornia leaves A’s map', await until(() => A.evaluate(id => G.WR2().territory().byId[id] === undefined, ud), 20000));
+check('D sees the fallen screen', await until(async () => /Dornia has fallen/.test(plain(await D.evaluate(() => G.WR2().nationView()))), 20000));
 check('no page errors', !errors.length, errors.slice(0, 5).join(' | '));
 await finish();

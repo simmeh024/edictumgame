@@ -233,15 +233,16 @@ export function fcLetter(cfg, { to, nation, left, duty, close, last, tok }) {
     text: `${title}\n\nEvery entrant scores ${duty} flags of the others to stay in the running; you have ${flags} to go. Judging closes on ${when}.\n\n${cfg.site}/#flagcomp\nStop these letters: ${cfg.site}/mail?t=${tok}` };
 }
 /* war, round two: a player's capital besieged (kind 'siege'), or fallen ('fell'), told right away (functions/letters.js,
-   warWord; sent for the war kind) */
-export function warLetter(cfg, { to, kind, by, nation, capital, at, tok }) {
+   warWord; sent for the war kind); since 24 November 2026 also fallen while the government moves on to nn ('moved') */
+export function warLetter(cfg, { to, kind, by, nation, capital, at, nn, tok }) {
+  if (kind === 'moved') return movedLetter(cfg, { to, by, nation, capital, nn, tok });
   const fell = kind === 'fell', cap = capital || 'your capital', when = at ? new Date(at).toUTCString().replace(/:\d\d GMT$/, ' UTC') : '';
   const title = fell ? `${cap} has fallen` : `${by || 'An enemy'} has laid siege to ${cap}`;
   const body = fell
     ? p(`The army of <b>${esc(by || 'an enemy')}</b> has stormed <b>${esc(cap)}</b>, and the government of ${esc(nation || 'your nation')} is no more.`)
       + rows('urgent', [['&#x1F525;', 'The land your enemies took stays theirs.'], ['&#x1F331;', `Your people can rise again in the same region, with land credits, a quarter of your materials and seven days of peace, or start anew in another region.`], ['&#x1F3C5;', 'Either way you keep your achievements, portrait, flag, currency and history.']])
     : p(`The army of <b>${esc(by || 'an enemy')}</b> has surrounded <b>${esc(cap)}</b>, the capital of ${esc(nation || 'your nation')}.`)
-      + rows('urgent', [['&#x23F3;', `The final assault can come from <b>${esc(when || 'one day from now')}</b>. If ${esc(cap)} falls, ${esc(nation || 'your nation')} falls with it.`], ['&#x1F6E1;&#xFE0F;', 'Fortify the capital, win back your land, and call on your allies.'], ['&#x1F3F3;&#xFE0F;', 'Or surrender: the war ends on current lines, and you pay tribute for 14 days.']]);
+      + rows('urgent', [['&#x23F3;', `The final assault can come from <b>${esc(when || 'one day from now')}</b>. If ${esc(cap)} falls, your government moves to your biggest city; with no other city, ${esc(nation || 'your nation')} falls with it.`], ['&#x1F6E1;&#xFE0F;', 'Fortify the capital, win back your land, and call on your allies.'], ['&#x1F3F3;&#xFE0F;', 'Or surrender: the war ends on current lines, and you pay tribute for 14 days.']]);
   return { to, subject: title, unsub: `${cfg.site}/mail?t=${tok}`,
     html: page(cfg, { tone: 'urgent', icon: fell ? '&#x1F3DA;&#xFE0F;' : '&#x2694;&#xFE0F;', kicker: fell ? 'The fall' : 'Urgent dispatch', title, lead: fell ? 'Your nation has fallen' : 'A siege has begun', body, cta: { href: cfg.site + (fell ? '' : '/#map'), label: fell ? 'Rise again' : 'Take command' }, foot: footFor(cfg, tok) }),
     text: `${title}
@@ -249,6 +250,20 @@ export function warLetter(cfg, { to, kind, by, nation, capital, at, tok }) {
 ${fell ? `The army of ${by} stormed ${cap}. Your people can rise again, or start anew in another region.` : `The final assault can come from ${when || 'one day from now'}. Fortify, win back land, call your allies, or surrender.`}
 
 ${cfg.site}
+Stop these letters: ${cfg.site}/mail?t=${tok}` };
+}
+/* the capital taken, the nation not: its government has moved to nn, its biggest city, and the war goes on */
+function movedLetter(cfg, { to, by, nation, capital, nn, tok }) {
+  const cap = capital || 'your capital', nc = nn || 'your biggest city', title = `${cap} has fallen`;
+  const body = p(`The army of <b>${esc(by || 'an enemy')}</b> has stormed <b>${esc(cap)}</b>. The government of ${esc(nation || 'your nation')} got out in time, and <b>${esc(nc)}</b> is your capital now.`)
+    + rows('urgent', [['&#x1F3DB;&#xFE0F;', `${esc(nc)} is your capital. If it falls too, your government moves on to your next biggest city; with no city left, ${esc(nation || 'your nation')} falls.`], ['&#x2694;&#xFE0F;', `The war goes on. ${esc(by || 'Your enemy')} must lay a new siege to take ${esc(nc)}.`], ['&#x1F6E1;&#xFE0F;', 'Fortify, win back your land, call on your allies, or surrender.']]);
+  return { to, subject: title, unsub: `${cfg.site}/mail?t=${tok}`,
+    html: page(cfg, { tone: 'urgent', icon: '&#x1F3DA;&#xFE0F;', kicker: 'The capital has fallen', title, lead: `Your government has moved to ${nc}`, body, cta: { href: cfg.site + '/#map', label: 'Take command' }, foot: footFor(cfg, tok) }),
+    text: `${title}
+
+The army of ${by || 'an enemy'} stormed ${cap}. Your government has moved to ${nc}, and the war goes on. If ${nc} falls too, it moves on to your next biggest city; with no city left, ${nation || 'your nation'} falls.
+
+${cfg.site}/#map
 Stop these letters: ${cfg.site}/mail?t=${tok}` };
 }
 export function awayLetter(cfg, { to, nation, days, tok }) {

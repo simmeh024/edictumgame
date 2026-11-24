@@ -109,7 +109,7 @@ test('answered or vetoed, the edict decides its own capital, whatever the motion
 
 test('the Dispatch: a capital taken is a csack, never a minister sacked ("X sacks its <id>")', () => {
   assert.match(src, /n\.log\.unshift\(\{t:now\+1,k:'csack',a:en\.id,b:en\.n\.name,fx:en\.n\.capital\|\|''\}\)/);
-  assert.match(src, /'Take an enemy capital after a siege\.',1,x=>aT\(x,'log:csack'\)/, 'The Fall of a Capital, not for sacking a minister');
+  assert.match(src, /'Take an enemy capital after a siege\.',1,x=>Math\.max\(aT\(x,'log:csack'\),aT\(x,'log:ctake'\)\)/, 'The Fall of a Capital, not for sacking a minister');
   assert.match(src, /ST_LOG,\{siege:\['war','Laid siege to \{b\}’s capital, \{fx\}'\],csack:/);
   assert.doesNotMatch(cut('/* ── the record: log lines, the bell, the region', '/* a capital taken was logged as'), /k==='sack'|[{,]sack:/, 'the war section no longer takes the minister\'s kind');
   const ctx = vm.createContext({ PORTFOLIOS: [['fin', 'Finance', 'Finance Minister'], ['def', 'Defence', 'Defence Minister']], NORM_HOOKS: [], dspThawSt: s => s });
@@ -155,10 +155,10 @@ test('a captured city counts for nothing against the cities a nation may found',
   /* the record: captured cities kept beyond MAX_CITIES, up to CQ_MAX */
   const N = fn('normCities');assert.match(N, /if\(cq\?out\.filter\(x=>x\.cq\)\.length>=CQ_MAX:out\.filter\(x=>!x\.cq\)\.length>=MAX_CITIES\)continue;/);
   assert.match(N, /return out\.slice\(0,MAX_CITIES\+CQ_MAX\);/);
-  assert.match(fn('ensureCities'), /cxCityExtras\(c\),c\.cq\?\{cq:c\.cq\}:\{\}\)\);/, 'and ensureCities keeps the mark');
+  assert.match(fn('ensureCities'), /cxCityExtras\(c\),c\.cq\?\{cq:c\.cq,\.\.\.ccFrom\(c\)\}:\{\}\)\);/, 'and ensureCities keeps the mark');
   const ctx = vm.createContext({ MAP_VER: 5, MAX_CITIES: 3, CQ_MAX: 2, MAP: { N: 100, T: new Uint8Array(100).fill(2) }, MAP_T0: [], Date, Math, BUILDINGS: {}, cellOf: () => 0, isdHexOf: () => false,
     paidClean: () => null, bCost: () => ({}), whExtras: () => ({}), cxBldExtras: () => ({}), elExtras: () => ({}), cxCityExtras: () => ({}) });
-  vm.runInContext(N, ctx);
+  vm.runInContext(N + '\n' + fn('ccFrom'), ctx);
   const cities = [{ c: 0 }, { c: 1 }, { c: 2 }, { c: 3, cq: 'Vesad' }, { c: 4 }, { c: 5, cq: 'Bevton' }, { c: 6, cq: 'Tirrasol' }];
   const out = ctx.normCities({ cv: 5, loc: 0, cities: cities.map((c, i) => ({ id: 'c' + i, ...c })) });
   assert.deepEqual(J(out.map(c => c.c + (c.cq ? ':' + c.cq : ''))), ['0', '1', '2', '3:Vesad', '5:Bevton'], 'three founded, and two captured beside them');
