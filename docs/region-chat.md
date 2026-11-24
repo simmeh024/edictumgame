@@ -22,6 +22,13 @@ A live chat for each region: the nations of a region talk to each other in short
   Another nation's name opens its card in the line: its flag, name and full style, its region, and each mark beside
   its name in words, with **Open its page** for a nation of this region; Escape, Close or the name again puts it away.
   The player's own name is plain.
+- **WA Delegates** wear an open Assembly seat beside their name, in a stable colour unique to their region. It appears
+  in region, world, French, ambassador and alliance chats, the separate alliance channel views, and private and group
+  letters. The seat has its own space beside the name, so other marks cannot push it out. Its tooltip and accessible
+  label name the office and region; a staff or ambassador badge can appear alongside it. The read-only `chatDelegates`
+  civic operation checks authors' current regions and the protected Assembly records, once per region in a batch of
+  up to 80 authors. Visible marks refresh after a minute without replacing the chat or its composer; old lines show
+  the current office holder. A team announcement carries no nation's seat.
 - **Writing.** Every nation writes lines of up to 300 characters: Enter sends. A line shows at once as
   "Sending…" and is replaced by the server's copy. A guest (a nation with no linked sign-in) writes 10 lines in any
   hour: under the box the drawer says how many are left ("Guests can send 10 lines an hour: 7 are left."), and once

@@ -85,9 +85,10 @@ test('the server reads the war as the game does (functions/war-rules.js)', () =>
 });
 
 /* the game's helpers for falls, spoils and shields */
-const helpers = () => { const c = vm.createContext({ S: { mode: 'world' }, WR: { docs: new Map(), rev: 0 } }); vm.runInContext(['wrFellOf', 'wrSpoilOf', 'wrShielded'].map(fn).join('\n'), c); return c; };
+const helpers = (recs = {}) => { const c = vm.createContext({ S: { mode: 'world' }, WR: { docs: new Map(), rev: 0 }, NPC_SET: new Set(), docOf: id => recs[id] || null, hidDoc: () => null });
+  vm.runInContext(['wrFellOf', 'wrSpoilOf', 'wrSpoilWar', 'wrShielded', 'warCovers'].map(fn).join('\n'), c); return c; };
 test('a fall belongs to the nation as it was founded; its spoils are what its enemies took before it fell', () => {
-  const G = helpers(), F = { id: 'x', a: 'me', d: 'v', ft: 5000, df: 100, foes: ['me', 'ally'], c: 7 };
+  const G = helpers({ me: {}, v: {}, ally: {}, helper: {}, stranger: {} }), F = { id: 'x', a: 'me', d: 'v', ft: 5000, df: 100, foes: ['me', 'ally'], c: 7 };
   assert.equal(G.wrFellOf('v', { founded: 100 }, [F]), F);
   assert.equal(G.wrFellOf('v', { founded: 6000 }, [F]), null, 'founded again since: a new nation, not fallen');
   assert.equal(G.wrFellOf('w', { founded: 100 }, [F]), null);
@@ -100,6 +101,30 @@ test('a fall belongs to the nation as it was founded; its spoils are what its en
   assert.equal(G.wrSpoilOf({ t: 4000, src: 'me' }, [F]), null, 'a conquest that names no defender');
   assert.equal(G.wrShielded({ grc: { t: 10, u: 20 } }, 15), true);assert.equal(G.wrShielded({ grc: { t: 10, u: 20 } }, 25), false);
   assert.equal(G.wrShielded({ founded: 10, shd: 20 }, 15), true);assert.equal(G.wrShielded({ founded: 10, shd: 20 }, 5), false);
+});
+/* 24 Nov 2026 (Tela tyhate, Bearland and Thalarara): the referee's foes are the besieger and the wars the fallen nation
+   declared itself; a nation that declared war on it is in neither, and its conquests went blank at the fall */
+test('a nation that declared war on the fallen one keeps what it took, by its own record alone if need be', () => {
+  const F = { id: 'x', a: 'me', d: 'v', ft: 5000, df: 100, foes: ['me'], c: 7 };
+  const recs = { me: {}, v: {}, bear: { wars: { v: { t: 1500 } } }, late: { wars: { v: { t: 4500 } } }, old: { wh: [{ w: 'v', a: 1000, b: 2000 }] }, stranger: {},
+    helper: {} };
+  const G = helpers(recs);
+  assert.equal(G.wrSpoilOf({ d: 'v', t: 4000, src: 'bear' }, [F]), F, 'its war, declared in its own record');
+  assert.equal(G.wrSpoilOf({ d: 'v', t: 3000, src: 'late' }, [F]), null, 'a conquest from before its war began');
+  assert.equal(G.wrSpoilOf({ d: 'v', t: 1500, src: 'old' }, [F]), F, 'a war that ended in peace still covers what it took');
+  assert.equal(G.wrSpoilOf({ d: 'v', t: 3500, src: 'old' }, [F]), null, 'but nothing after the peace');
+  assert.equal(G.wrSpoilOf({ d: 'v', t: 4000, src: 'helper', w: 'bear' }, [F]), F, 'taken for an ally at war with it');
+  assert.equal(G.wrSpoilOf({ d: 'v', t: 4000, src: 'stranger' }, [F]), null, 'still not a party to the war');
+  /* the fallen record dissolved after the fall: the taker's own record answers */
+  const gone = helpers({ ...recs, v: undefined });
+  assert.equal(gone.wrSpoilOf({ d: 'v', t: 4000, src: 'bear' }, [F]), F);
+  assert.equal(gone.wrSpoilOf({ d: 'v', t: 1500, src: 'old' }, [F]), F);
+  assert.equal(gone.wrSpoilOf({ d: 'v', t: 3000, src: 'late' }, [F]), null);
+  assert.equal(gone.wrSpoilOf({ d: 'v', t: 4000, src: 'stranger' }, [F]), null);
+  /* a fallen record still there answers for itself: a war it does not share is no war (its peace with the taker) */
+  const peace = helpers({ ...recs, bear: { wars: { v: { t: 1500 } }, peace: { v: 2000 } }, v: { peace: { bear: 2100 } } });
+  assert.equal(peace.wrSpoilOf({ d: 'v', t: 1800, src: 'bear' }, [F]), F);
+  assert.equal(peace.wrSpoilOf({ d: 'v', t: 4000, src: 'bear' }, [F]), null, 'after both made peace');
 });
 
 /* territory() on a small map, as war-cut-off.test.mjs runs it, with the falls given */
@@ -114,16 +139,18 @@ function makeMap(COLS, ROWS, land) {
   }
   return { N, T, nbr, nbrFlat: nbr, cx, cy, COLS, ROWS };
 }
-function run(MAP, nations, events, falls) {
+/* wars: the records' own wars, read by the game's warCovers; without them every conquest is covered */
+function run(MAP, nations, events, falls, wars) {
   const ctx = vm.createContext({
     MAP, TERR_AT: null, atlasCache: new Map(), S: { db: null, mode: 'world', uid: 'me' }, RECL: { owner: new Map(), time: new Map() },
     FIX_EPOCH: 1000, SEAL2_AT: 1000, DAY, CAP_REACH: 68, NPC_SET: new Set(nations.filter(x => x.npc).map(x => x.id)),
     syncReclaims() {}, allNations: () => nations, cellOf: v => (Number.isInteger(v) ? v : -1), popNow: n => n.pop,
     budgetOf: p => Math.floor(p), weightOf: () => 1, npcLand: p => Math.floor(p), npcWeight: () => 1, nationColor: n => n.col || '#888',
     collectConquests: () => ({ list: events, sig: events.length + ':' + JSON.stringify(events) }), capWrong: () => new Map(),
-    claimLand: c => MAP.T[c] >= 2, inReach: () => true, warCovers: () => true, wrFallsAt: () => falls || [],
+    claimLand: c => MAP.T[c] >= 2, inReach: () => true, warCovers: () => true, wrFallsAt: () => falls || [], wrEndsAt: () => (falls || []).filter(F => !F.ni),
+    docOf: id => { const x = nations.find(y => y.id === id); return x ? x.n : null; }, hidDoc: () => null,
   });
-  vm.runInContext(vars(TERR) + '\n' + ['wrFellOf', 'wrSpoilOf', 'wrShielded'].map(fn).join('\n'), ctx);
+  vm.runInContext(vars(TERR) + '\n' + ['wrFellOf', 'wrSpoilOf', 'wrSpoilWar', 'wrShielded'].concat(wars ? ['warCovers'] : []).map(fn).join('\n'), ctx);
   return ctx.territory();
 }
 const COLS = 30, ROW = 2, at = c => ROW * COLS + c;
@@ -149,6 +176,38 @@ test('a fallen nation leaves the map: what its enemies took stays theirs, as the
   assert.deepEqual(cols(held(again, 'me')), [10, 12, 13]);
   assert.ok(held(again, 'v').length > 0, 'the risen nation has land of its own');
   assert.ok(!held(again, 'v').includes(at(12)), 'and none of what it lost');
+});
+test('what an ally took from the fallen nation in a war of its own stays with it, and what it handed on with the taker', () => {
+  /* Tela tyhate, Bearland and Thalarara (24 Nov 2026): the ally declared its own war, so the referee's foes leave it out */
+  const MAP = makeMap(COLS, 5, (r, c) => r === ROW || (r === 4 && c < 5) || (r === 0 && c >= 20));
+  const nat = (id, name, loc, wars) => ({ id, me: id === 'me', npc: false, n: { name, loc, pop: 0, founded: 1, claims: [], wars } });
+  const nations = () => [V(), { ...A(), n: { ...A().n, wars: { v: { t: 1000 } } } }, nat('bear', 'Bearland', 22, { v: { t: 1500 } }), nat('str', 'Stranger', 28, {})];
+  const ev = [{ c: at(12), t: 2000, o: 'me', src: 'me', d: 'v' }, { c: at(14), t: 2500, o: 'bear', src: 'bear', d: 'v' }, { c: at(15), t: 2600, o: 'bear', src: 'bear', d: 'v' },
+    { c: at(15), t: 2700, o: 'me', src: 'bear', bx: true, fr: 'bear', wr: true }, { c: at(16), t: 2800, o: 'str', src: 'str', d: 'v' }];
+  const before = run(MAP, nations(), ev, [], true);
+  assert.equal(before.owner[at(14)], before.byId.bear, 'the ally holds what it took');
+  assert.equal(before.owner[at(15)], before.byId.me, 'and the hex it handed on is the taker\'s');
+  assert.equal(before.owner[at(16)], before.byId.v, 'a nation at peace with it took nothing');
+  const F = { id: 's1', a: 'me', d: 'v', c: at(10), t: 7000, ft: 9000, df: 100, foes: ['me'], st: 'fell' };
+  const T = run(MAP, nations(), ev.concat({ c: at(10), t: 9000, o: 'me', src: 'me', d: 'v' }), [F], true);
+  assert.equal(T.byId.v, undefined);
+  assert.deepEqual(cols(held(T, 'me')), [10, 12, 15], 'the capital, its own conquest and the hex its ally handed it');
+  assert.deepEqual(cols(held(T, 'bear')), [14], 'the ally keeps what it took, though the referee did not list it');
+  assert.equal(T.spoil.get(at(14)), 'v');assert.equal(T.occ[at(14)], 0, 'as its own land');assert.equal(T.occ[at(15)], 0);
+  assert.equal(T.owner[at(16)], -1, 'a conquest without a war is no spoil: that hex lies open with the rest');
+  assert.equal(T.owner[at(11)], -1);
+});
+test('a capital lost while the government moved on stays the attacker’s, even with no land of its nation around it', () => {
+  /* the capital moves (24 Nov 2026): Vesad's government moved from hex 10 to its city on hex 25, far off */
+  const MAP = strip(), F = { id: 's1', a: 'me', d: 'v', c: at(10), t: 7000, ft: 9000, df: 100, foes: [], st: 'fell', ni: 'c1', nn: 'Brill' };
+  const ev = [{ c: at(10), t: 9000, o: 'me', src: 'me', d: 'v' }];
+  const T = run(MAP, [V({ loc: at(25) }), A()], ev, [F]);
+  assert.notEqual(T.byId.v, undefined, 'Vesad is still on the map');assert.equal(T.list[T.byId.v].cap, at(25));
+  assert.equal(T.owner[at(10)], T.byId.me, 'its old capital is the attacker’s');assert.equal(T.occ[at(10)], 1, 'as land taken in war');
+  assert.equal(T.orig[at(10)], T.byId.v, 'from Vesad');
+  assert.equal(T.owner[at(11)], -1, 'the land around it is nobody’s');
+  /* only the conquest the referee's fall names: not another nation's, nor one at another time */
+  const X = run(MAP, [V({ loc: at(25) }), A()], [{ ...ev[0], t: 50000 }], [F]);assert.equal(X.owner[at(10)], -1);
 });
 test('nothing is taken from a nation in its grace', () => {
   const MAP = strip(), ev = [{ c: at(12), t: 2000, o: 'me', src: 'me', d: 'v' }, { c: at(13), t: 5000, o: 'me', src: 'me', d: 'v' }];
@@ -267,7 +326,7 @@ test('an attack: a little weariness, and on land never its own it ends the attac
   assert.match(a, /n\.wwy=clamp\(\(\+n\.wwy\|\|0\)\+0\.25,0,100\);/);
   assert.match(a, /if\(n\.grc&&n\.grc\.u>now&&n\.grc\.t<=now&&T\.orig\[cell\]!==mi\)n\.grc=\{\.\.\.n\.grc,u:now\};/);
   assert.match(a, /const why=wrAttackWhy\(en\);if\(why\)/, 'a border war’s limit is checked first');
-  assert.match(a, /\.\.\.\(capHit\?\{cap:1\}:\{\}\)/, 'the final assault tells the referee');
+  assert.match(a, /\.\.\.\(capHit\?\{cap:1,occ:wrOccIds\(T,en\.id\)\}:\{\}\)/, 'the final assault tells the referee');
 });
 
 test('the record keeps what the war adds, within bounds', () => {

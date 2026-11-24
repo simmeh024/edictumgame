@@ -18,7 +18,7 @@ function fixture(){
   num0:v=>typeof v==='number'&&Number.isFinite(v)?v:0,clamp:(v,a,b)=>Math.min(b,Math.max(a,v)),cityList:n=>n.cities||[],territory:()=>world,b1Mine:x=>x.seed===n.seed,myId:()=> 'me',b1Now:()=>NOW,
   bCost:()=>({timber:30,iron:20,goods:15}),cabFx:()=>({build:1}),cityLabel:(n,c)=>c.nm||'Capital',conflictsOf:()=>[],setMonarchy(){},gcAdvance(){},wbOf:()=>0,pdAdd(){},pdBoost(){},STATS:{},PD_OVER:0,stockRates:()=>Object.fromEntries(RES.map(r=>[r,400]))});
  const start=source.indexOf('const WH_BONUS='),end=source.indexOf('/* ── navigation memory,',start);assert(start>0&&end>start);
- vm.runInContext(source.slice(start,end)+'\nthis.bonuses=WH_BONUS;',c);
+ vm.runInContext(functions.get('bMaterialCost')+'\n'+source.slice(start,end)+'\nthis.bonuses=WH_BONUS;',c);
  vm.runInContext(functions.get('stockNow')+'\n'+functions.get('applyEffects')+'\nthis.edicts=['+edictNodes.map(n=>code.slice(n.start,n.end)).join(',')+'];',c);
  const warehouse=(cell,more={})=>{const b={k:'warehouse',s:NOW-3*DAY,d:NOW-2*DAY,a:1,...more};n.cities.push({id:'c'+cell,c:cell,nm:'City '+cell,b:[b]});return b;};
  return {n,other,world,c,warehouse};
@@ -29,7 +29,7 @@ test('warehouse tiers add 400, 1200, 2400, 4400 and 7400 per resource',()=>{cons
 test('different city warehouses add together without double counting duplicate cities',()=>{const {n,c,warehouse}=fixture();warehouse(0,{wl:2});warehouse(5,{wl:1});n.cities.push({...n.cities[0]});assert.equal(c.stockCap(n,NOW),400+2400+1200);});
 test('lost warehouses stop contributing and captured warehouses work for their holder',()=>{const {n,other,world,c,warehouse}=fixture();warehouse(0,{wl:1});world.owner[0]=1;world.occ[0]=1;assert.equal(c.stockCap(n,NOW),400);assert.equal(c.stockCap(other,NOW),1600);});
 test('unfinished upgrade retains the previous tier until its timer ends',()=>{const {n,c,warehouse}=fixture();warehouse(0,{wl:0,wu:{l:1,s:NOW-3600000,d:NOW+3600000,c:{timber:60}}});assert.equal(c.stockCap(n,NOW),800);assert.equal(c.stockCap(n,NOW+3600000),1600);});
-test('upgrade material prices double at each tier (and 20% more since 2026-11-16), with increasing times',()=>{const {n,c}=fixture();let hours=0;for(let i=1;i<=4;i++){const q=c.whQuote(n,i);assert.deepEqual(json(q.cost),{timber:36*2**i,iron:24*2**i,goods:18*2**i});assert(q.hours>hours);hours=q.hours;}});
+test('upgrade material prices double at each tier (and 20% more since 2026-11-16), with increasing times',()=>{const {n,c}=fixture();let hours=0;for(let i=1;i<=4;i++){const q=c.whQuote(n,i);assert.deepEqual(json(q.cost),{timber:Math.ceil(36*2**i*1.2-1e-9),iron:24*2**i,goods:18*2**i});assert(q.hours>hours);hours=q.hours;}});
 test('offline production cannot use a warehouse before it completes',()=>{const {n,c,warehouse}=fixture();warehouse(0,{d:NOW-DAY/2});const stock=c.stockNow(n,NOW);assert.equal(stock.food,400);n.stock.food=350;assert.equal(c.stockNow(n,NOW).food,600);});
 test('offline accrual splits an upgrade at its actual completion time',()=>{const {n,c,warehouse}=fixture();n.stock.food=700;warehouse(0,{wl:0,wu:{l:1,s:NOW-2*DAY,d:NOW-DAY/2,c:{timber:60}}});assert.equal(c.stockNow(n,NOW).food,1000);});
 test('final upgrade awards two credits once, including after serializing and reloading',()=>{const {n,c,warehouse}=fixture();const b=warehouse(0,{wl:3,wu:{l:4,s:NOW-DAY,d:NOW-1000,c:{timber:480}}});c.whSync(n,NOW);assert.equal(n.lcb,2);assert.equal(b.wl,4);assert.equal(b.wr,1);assert(!b.wu);c.whSync(n,NOW);assert.equal(n.lcb,2);const loaded=json(n);c.whSync(loaded,NOW);assert.equal(loaded.lcb,2);});

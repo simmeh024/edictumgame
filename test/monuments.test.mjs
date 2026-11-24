@@ -19,7 +19,7 @@ function fn(name) {
   return src.slice(at + 1, i + 1);
 }
 const DAY = 864e5, J = v => JSON.parse(JSON.stringify(v));
-const SEC = cut('/* ───────── monuments to fallen nations (23 November 2026)', '/* ───────── works done (WD)');
+const SEC = cut('/* ───────── monuments to fallen nations (23 November 2026)', '/* ───────── the capital moves, and captured cities');
 const FIRST = 'vSaJNbKeUzO1NqwCR5gWHey5zn92';
 
 test('the referee keeps what the nation was with its fall: short strings, counts, its flag', () => {
@@ -32,12 +32,12 @@ test('the referee keeps what the nation was with its fall: short strings, counts
   const big = memorial({ flag: { p: 'tri-v', c: ['#111111', '#222222', '#333333'], e: 'star', ec: '#444444', layers: [...Array(200)].map(() => ({ k: 'disc', x: 1, y: 1, w: 1, h: 1, c: '#000000' })) } });
   assert.deepEqual(J(big.fl), { p: 'tri-v', c: ['#111111', '#222222', '#333333'], e: 'star', ec: '#444444' }, 'a flag too big to keep, without its layers');
   assert.deepEqual(J(memorial(null)), { pre: '', ld: '', ru: '', mo: '', dem: '', cur: '', ani: '', fl: {}, mc: '', pop: 0, ct: 0, ach: 0, dec: 0 });
-  assert.match(readFileSync(new URL('../functions/index.js', import.meta.url), 'utf8'), /const doc = \{ \.\.\.sg\.data\(\), st: 'fell', ft: now, foes, m: memorial\(them\) \};/);
+  assert.match(readFileSync(new URL('../functions/index.js', import.meta.url), 'utf8'), /doc = \{ \.\.\.sg\.data\(\), st: 'fell', ft: now, foes, m: memorial\(them\) \};/);
   assert.match(src, /foes:Array\.isArray\(d\.foes\)\?d\.foes\.filter\(x=>typeof x==='string'\)\.slice\(0,40\):\[\],m:monNorm\(d\.m\)\};/, 'every game reads it with the siege');
 });
 
 function ctxWith(falls, world = {}) {
-  const ctx = vm.createContext({ DAY, Math, JSON, Number, String, isFinite, Map, Set, Array, Object, wrFallsAt: () => falls, myId: () => 'me', S: { nation: null, world, worldAll: {} }, DORM: { w: {}, all: {} }, REG: { id: 'meridian' },
+  const ctx = vm.createContext({ DAY, Math, JSON, Number, String, isFinite, Map, Set, Array, Object, wrFallsAt: () => falls, wrEndsAt: () => falls, myId: () => 'me', S: { nation: null, world, worldAll: {} }, DORM: { w: {}, all: {} }, REG: { id: 'meridian' },
     MAP_LAYERS: [], MAP_TIP: [], MAP_PANEL: [], MAP_LEGEND: [], fmtDate: t => new Date(t).toISOString().slice(0, 10), fmtPop: p => p.toFixed(2) + ' million', plural: w => w + 's', regName: r => 'Region ' + r,
     esc: s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;'), safeColor: (c, d) => typeof c === 'string' && /^#[0-9a-fA-F]{6}$/.test(c) ? c : d, mapColor: f => f.c[0],
     flagSVG: (f, l) => `<svg data-p="${f.p}" aria-label="${l}"></svg>`, flagNorm: f => f, cityList: n => n.cities || [], achEarnedIds: n => Object.keys(n.ach || {}), decisions: n => n.dec || 0 });
@@ -109,7 +109,7 @@ test('the map: every monument on the main map and a visit, whatever layers are t
   labels.length = 0;L.draw({ T: {}, g, s: 0.7, scr: c => [c * 10, c * 10], off: () => false });assert.deepEqual(labels, ['Moradara'], 'zoomed out, only Moradara\'s name');
   assert.doesNotMatch(src, /wr3Ruin|'Ruins of '\+/, 'the War layer no longer draws ruins');
   assert.doesNotMatch(src, /<p class="eyebrow">Ruins<\/p>/, 'nor the old ruins card');
-  assert.match(src, /Wherever a capital fell, a monument to its nation stands on the map whatever layers are ticked: click it to read about the nation that fell\./, 'Help says so');
+  assert.match(src, /Wherever a nation fell with its last capital, a monument to it stands on the map whatever layers are ticked: click it to read about the nation that fell\./, 'Help says so');
 });
 
 test('the region\'s happenings, the Fallen nations card and the Dispatch tell of the First Flame', () => {

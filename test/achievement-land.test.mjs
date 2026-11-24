@@ -55,7 +55,7 @@ test('the back pay: told once, for what was earned before, with the count of eac
 
 test('the credits count wherever land is reckoned, and the page says what they pay', () => {
   assert.match(line('function landEarned('), /\+achRankCredits\(n\)\+achTierCredits\(n\)\+/, 'land credits now');
-  assert.match(line('function earnedAt('), /\+achRankCredits\(n\)\+achTierCredits\(n\)\+xuCredits\(n\)-/, 'land credits at a population (the admin land check), the outfitters’ too');
+  assert.match(line('function earnedAt('), /\+achRankCredits\(n\)\+achTierCredits\(n\)\+xuCredits\(n\)\+buCredits\(n\)-/, 'land credits at a population (the admin land check), the outfitters’ too');
   assert.ok(src.includes("if(lc)txt+=got.length===1?` It pays ${lc} land credits.`"), 'the toast for a new achievement');
   assert.ok(src.includes("${ACH_TIER_LC[a.t]?` · +${ACH_TIER_LC[a.t]} land`:''}"), 'the achievement card');
   assert.ok(src.includes('every Platinum, Prismatic or Obsidian achievement ${ACH_TIER_LC.p}, ${ACH_TIER_LC.x} or ${ACH_TIER_LC.o} more.'), 'the Achievements page');

@@ -57,6 +57,28 @@ export function milReady(rec, now) {
 /* a point's time with the cut, rounded as the game rounds it (after a training pact's) */
 export const milMs = (ms, cut) => cut > 0 ? Math.round(ms * (1 - cut)) : ms;
 
+/* the capital moves (24 November 2026, the owner: "if there are other cities, the capital moves to the 2nd largest city,
+   so the war keeps on going"). When a capital falls and its nation has another city, the government moves there and the
+   nation fights on; only a nation with no city left falls. The new capital is its biggest city: the most finished
+   buildings, then the oldest, then by id, as the record has them (by id, not by hex: a record from before the frontier
+   numbers its hexes on the charted map, and the referee knows no map). Left out: the capital itself (the record's first
+   city, as the game saves it), every capital that fell before (prior: the cities they were, ci, and became, ni), and the
+   cities the attacker's game sees held by another nation (occ). null when none is left: the nation falls. */
+export function successor(n, { prior = [], occ = [], now = Date.now() } = {}) {
+  const cs = Array.isArray(n && n.cities) ? n.cities.filter(c => c && typeof c === 'object' && typeof c.id === 'string' && c.id) : [];
+  if (!cs.length) return null;
+  const out = new Set([cs[0].id, ...prior.flatMap(F => [F && F.ci, F && F.ni]), ...(Array.isArray(occ) ? occ : [])].filter(x => typeof x === 'string'));
+  let best = null;
+  for (const c of cs) {
+    if (out.has(c.id)) continue;
+    const k = builtKeys(c, now).length, t = num(c.t);
+    if (!best || k > best.k || (k === best.k && (t < best.t || (t === best.t && c.id < best.c.id)))) best = { c, k, t };
+  }
+  return best ? best.c : null;
+}
+/* a city's finished buildings, by key (what the attacker may keep of a capital it takes over: sieges/<id>.cb) */
+export const builtKeys = (c, now) => (c && Array.isArray(c.b) ? c.b : []).filter(b => b && typeof b.k === 'string' && num(b.d) <= now).map(b => b.k.slice(0, 24)).slice(0, 25);
+
 /* what a fallen nation was, kept with its fall (sieges/<id>.m) for the monument every game draws where its capital stood
    (game/edictum.html, "monuments to fallen nations"): its record goes once its player founds a nation again. Short
    strings, a few counts, and its flag as it flew (a flag too big to keep is kept without its layers) */

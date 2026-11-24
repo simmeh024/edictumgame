@@ -24,7 +24,7 @@ function desk(over={}){
     BUILDINGS:{farm:{n:'Farm Estates'},sawmill:{n:'Sawmill'},market:{n:'Market Hall'}},RES:['food','timber','iron','oil','goods'],UNLOCKS:{},
     weekStart:t=>{const d=new Date(t),w=(d.getUTCDay()+6)%7,s=Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate()-w,8);return s>t?s-7*864e5:s;},...over});
   vm.runInContext(fn('hash')+'\n'+fn('rng')+'\n'+fn('tallyOf')+'\n'+source.slice(start,end)+
-    '\nthis.T={ddRoll,ddRare,ddDay,ddFresh,ddxReady,ddDelta,ddWeekOf,ddLegAt,ddLegRoll,ddLegOn,DD_LEG,DD_TASKS,DD_RARE,STK_UNLOCKS,ddSwapPick,ddSwapOk,ddAmt,wkKey,wkOf,wkGoal,wkMax,WK_PER,WK_REG,DDJ,DD_EVER,ddNewRoll,earned:n=>landEarned(n),src:UNLOCK_SOURCES,notes:(n,t)=>NOTIF_SOURCES.flatMap(h=>h(n,t))};',ctx);
+    '\nthis.T={ddRoll,ddRare,ddDay,ddFresh,ddxReady,ddDelta,ddQueueNote,ddWeekOf,ddLegAt,ddLegRoll,ddLegOn,DD_LEG,DD_TASKS,DD_RARE,STK_UNLOCKS,ddSwapPick,ddSwapOk,ddAmt,wkKey,wkOf,wkGoal,wkMax,WK_PER,WK_REG,DDJ,DD_EVER,ddNewRoll,earned:n=>landEarned(n),src:UNLOCK_SOURCES,notes:(n,t)=>NOTIF_SOURCES.flatMap(h=>h(n,t))};',ctx);
   return {...ctx.T,
     save(n,old,now=NOW){const out=[];for(const h of ctx.COMMIT_HOOKS){const m=h(n,old,now);if(m)out.push(...m);}return out;},
     reload(n){const d=JSON.parse(JSON.stringify(n)),o={...d};for(const k of ['dd','ddc','ddr','stk','ffb'])delete o[k];for(const h of ctx.NORM_HOOKS)h(o,d);return o;}};
@@ -514,4 +514,80 @@ test('This week: two alliances or more fold into one line, which opens to show e
   assert.equal((open.html.match(/Alliance · this week/g)||[]).length,4);assert.match(open.html,/aria-expanded="true"[^>]*>Hide</);
   const one=mk(['a2'],false);
   assert.doesNotMatch(one.html,/dd-wk-sum/,'a single alliance has no line of its own');assert.equal((one.html.match(/Alliance · this week/g)||[]).length,1);
+});
+
+// ── work called off: a building or an upgrade started and then cancelled counts back off (the owner, 24 Nov 2026) ──
+const H=3600e3;
+test('a building counts once work on it begins, and counts back off if it is cancelled before it is finished',()=>{
+  const D=desk(),old=nation({cities:[{id:'cap',c:5,b:[{k:'market',d:NOW-1}]},{id:'c2',c:6,b:[]}]}),at=now=>({now});
+  let n=structuredClone(old);n.cities[0].b.push({k:'farm',s:NOW,d:NOW+H});assert.equal(D.ddDelta(n,old,'build',at(NOW)),1,'started');
+  assert.equal(D.ddDelta(structuredClone(n),n,'build',at(NOW)),0,'and only once');
+  assert.equal(D.ddDelta(old,n,'build',at(NOW+60e3)),-1,'cancelled while under way');
+  assert.equal(D.ddDelta(old,n,'build',{now:NOW+60e3,since:NOW+1}),0,'started before the count began: nothing to take back');
+  assert.equal(D.ddDelta(old,n,'build',at(NOW+2*H)),0,'finished, then demolished: not a cancellation');
+  const lost=structuredClone(n);lost.cities.splice(0,1);assert.equal(D.ddDelta(lost,n,'build',at(NOW+60e3)),0,'a city lost with its building site is not a cancellation');
+});
+
+test('a building waiting in a city’s queue counts when its turn comes, and taken out of the queue counts nothing',()=>{
+  const D=desk(),old=nation({updatedAt:NOW,cities:[{id:'cap',c:5,b:[{k:'farm',s:NOW-H,d:NOW+H}]}]});
+  const q=structuredClone(old);q.cities[0].b.push({k:'sawmill',s:NOW+H,d:NOW+3*H});
+  assert.equal(D.ddDelta(q,old,'build',{now:NOW}),0,'queued: work has not begun');
+  const later=structuredClone(q);later.updatedAt=NOW+2*H;
+  assert.equal(D.ddDelta(later,q,'build',{now:NOW+2*H}),1,'its turn came since the last save');
+  assert.equal(D.ddDelta(structuredClone(later),later,'build',{now:NOW+2*H+1}),0,'and it counts once');
+  assert.equal(D.ddDelta(old,q,'build',{now:NOW+60e3}),0,'taken out of the queue before its turn: it never counted');
+  const stop=structuredClone(q);stop.cities[0].b=[{k:'sawmill',s:NOW+60e3,d:NOW+60e3+2*H}];
+  assert.equal(D.ddDelta(stop,q,'build',{now:NOW+60e3,since:new Date(NOW).setHours(0,0,0,0)}),0,'the one under way stopped and the next one begun: one off, one on');
+});
+
+test('upgrades called off count back off: the outfitters, the bureau, a building’s upgrade, a Warehouse’s level',()=>{
+  const D=desk(outfit()),old=nation({cities:[{id:'cap',c:5,b:[{k:'farm',d:NOW-1},{k:'warehouse',d:NOW-1}]}]}),at=now=>({now});
+  const xu=structuredClone(old);xu.xuw={k:'gear',u:1,s:NOW,d:NOW+H};
+  assert.equal(D.ddDelta(old,xu,'xu',at(NOW+60e3)),-1,'off the workbench');
+  const done=structuredClone(old);done.xul={k:'gear',u:1,t:NOW+H};assert.equal(D.ddDelta(done,xu,'xu',at(NOW+H+1)),0,'finished: not called off');
+  const bu=structuredClone(old);bu.buw={k:'net',u:1,s:NOW,d:NOW+H};assert.equal(D.ddDelta(old,bu,'bu',at(NOW+60e3)),-1,'a bureau job called off');
+  const ug=structuredClone(old);ug.cities[0].b[0].uu={u:1,s:NOW,d:NOW+H};
+  assert.equal(D.ddDelta(old,ug,'ugb',at(NOW+60e3)),-1,'a building’s upgrade stopped');assert.equal(D.ddDelta(old,ug,'xpb',at(NOW+60e3)),-1,'and it helped explorers');
+  const wh=structuredClone(old);wh.cities[0].b[1].wu={l:1,s:NOW,d:NOW+H};assert.equal(D.ddDelta(old,wh,'xpb',at(NOW+60e3)),-1,'a Warehouse level stopped');
+  const og=structuredClone(old);og.cities[0].b.push({k:'outfit',s:NOW,d:NOW+H});assert.equal(D.ddDelta(old,og,'xpb',at(NOW+60e3)),-1,'an Outfitters’ Guild cancelled');
+  const th=structuredClone(old);th.cities[0].b.push({k:'theatre',s:NOW,d:NOW+H});assert.equal(D.ddDelta(old,th,'xpb',at(NOW+60e3)),0,'a theatre never counted');
+});
+
+test('on the desk a cancelled building takes its count back until the task has paid',()=>{
+  const D=desk();let n=nation();n.stk={n:1,d:D.ddDay(NOW)};n.dd={...fixedDesk(D),r:{k:'build',g:2,c:0,p:0}};
+  const farm={k:'farm',s:NOW,d:NOW+H},saw={k:'sawmill',s:NOW,d:NOW+H};
+  let [m,old]=next(n,x=>{x.cities[0].b.push(farm);});D.save(m,old);assert.equal(m.dd.r.c,1,'started');
+  [m,old]=next(m,x=>{x.cities[0].b=[];});D.save(m,old,NOW+60e3);assert.equal(m.dd.r.c,0,'cancelled: back to none');
+  [m,old]=next(m,x=>{x.cities[0].b=[];});D.save(m,old,NOW+2*60e3);assert.equal(m.dd.r.c,0,'never below none');
+  [m,old]=next(m,x=>{x.cities[0].b.push(farm);});D.save(m,old,NOW+3*60e3);assert.equal(m.dd.r.c,1,'started again');
+  [m,old]=next(m,x=>{x.cities[0].b.push(saw);});const notes=D.save(m,old,NOW+4*60e3);
+  assert.ok(notes.some(t=>/^Rare task done: Start 2 buildings\./.test(t)),notes.join(' | '));
+  [m,old]=next(m,x=>{x.cities[0].b=[];});D.save(m,old,NOW+5*60e3);eq([m.dd.r.c,m.dd.r.p],[2,1],'a task that has paid stays paid');
+});
+
+test('on the desk a queued building ticks “Start a building” once its turn comes',()=>{
+  const D=desk();let n=nation({updatedAt:NOW-60e3,cities:[{id:'cap',c:5,b:[{k:'farm',s:NOW-H,d:NOW+H}]}]});n.stk={n:1,d:D.ddDay(NOW)};
+  n.dd={d:D.ddDay(NOW),q:[['build',1,'timber','iron'],['dm',1,'oil','goods'],['visit',1,'timber','goods']],c:[0,0,0],p:[0,0,0]};
+  let [m,old]=next(n,x=>{x.cities[0].b.push({k:'sawmill',s:NOW+H,d:NOW+3*H});});eq(D.save(m,old),[]);eq(m.dd.p,[0,0,0],'queued: not yet');m.updatedAt=NOW;
+  [m,old]=next(m,x=>{});const notes=D.save(m,old,NOW+H+60e3);
+  assert.ok(notes.some(t=>/^Desk task done: Start a building\./.test(t)),notes.join(' | '));eq(m.dd.p,[1,0,0]);
+});
+
+test('the week’s count of buildings started takes cancellations back, but only for work started this week',()=>{
+  const W0=new Date(2026,9,30,12).getTime(),D=desk({allNations:()=>[]}),W=D.wkKey(W0);
+  let [a,old]=next(nation(),x=>{x.cities[0].b.push({k:'farm',s:W0,d:W0+H});});D.save(a,old,W0);eq(a.wkc,{w:W,build:1});
+  [a,old]=next(a,x=>{x.cities[0].b=[];});D.save(a,old,W0+60e3);eq(a.wkc,{w:W},'cancelled');
+  [a,old]=next(a,x=>{x.cities[0].b=[];});D.save(a,old,W0+2*60e3);eq(a.wkc,{w:W},'nothing below none');
+  const lastWeek=nation({wkc:{w:W,iss:2},cities:[{id:'cap',c:5,b:[{k:'farm',s:W0-8*864e5,d:W0+H}]}]});
+  [a,old]=next(lastWeek,x=>{x.cities[0].b=[];});D.save(a,old,W0);eq(a.wkc,{w:W,iss:2},'started last week: this week’s count is left alone');
+});
+
+test('a building ordered into a queue says when it will count, if the desk is waiting for one',()=>{
+  const D=desk(outfit()),n=nation();
+  n.dd={d:D.ddDay(NOW),q:[['build',1,'timber','iron'],['dm',1,'oil','goods'],['visit',1,'timber','goods']],c:[0,0,0],p:[0,0,0]};
+  assert.match(D.ddQueueNote(n,'farm',NOW),/counts for your daily desk once work on it begins/);
+  n.dd.p[0]=1;assert.equal(D.ddQueueNote(n,'farm',NOW),'','already done');
+  n.dd.r={k:'xpb',g:1,c:0,p:0};assert.equal(D.ddQueueNote(n,'theatre',NOW),'','a theatre does not help explorers');
+  assert.match(D.ddQueueNote(n,'outfit',NOW),/once work on it begins/,'an Outfitters’ Guild does');
+  assert.equal(D.ddQueueNote(n,'farm',NOW+864e5),'','yesterday’s desk');
 });

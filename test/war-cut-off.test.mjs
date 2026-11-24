@@ -35,7 +35,7 @@ function run(MAP, nations, events) {
     syncReclaims() {}, allNations: () => nations, cellOf: v => (Number.isInteger(v) ? v : -1), popNow: n => n.pop,
     budgetOf: p => Math.floor(p), weightOf: () => 1, npcLand: p => Math.floor(p), npcWeight: () => 1, nationColor: n => n.col || '#888',
     collectConquests: () => ({ list: events, sig: events.length + ':' + JSON.stringify(events) }), capWrong: () => new Map(),
-    claimLand: c => MAP.T[c] >= 2, inReach: () => true, warCovers: () => true, wrFallsAt: () => [], wrFellOf: () => null, wrSpoilOf: () => null, wrShielded: () => false,
+    claimLand: c => MAP.T[c] >= 2, inReach: () => true, warCovers: () => true, wrFallsAt: () => [], wrEndsAt: () => [], wrFellOf: () => null, wrSpoilOf: () => null, wrShielded: () => false,
   });
   vm.runInContext(vars(CODE), ctx);
   return ctx.territory();

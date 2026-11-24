@@ -285,7 +285,7 @@ function card(store={},over={}){
     document:{addEventListener(){},getElementById:()=>null},render:()=>{},myId:()=>'me',territory:()=>({byId:{me:0},owner:[0,0,0],list:[{me:1}]}),MAP:{N:3},
     maxCities:()=>ctx.MAXC??1,MAX_CITIES:33,nvxCitySite:()=>true,CITY_COST:{food:30,timber:30,goods:20},costText:o=>Object.entries(o).map(([r,v])=>v+' '+r).join(', '),
     BUILDINGS:{farm:{n:'Farm',d:'Makes food. More text.'},saw:{n:'Sawmill',d:'Makes timber.'}},FFB_GIFT:12,FFB_OUT:{farm:'food'},resName:r=>r,firstSentence:t=>String(t).split('. ')[0]+'.',
-    cityLabel:(n,c)=>c.nm||n.capital,wsOf:n=>n.ws||null,WS_AT:[5,10,25],wsK:()=>-1,mileOf:()=>({cities:1}),MILE_CITIES:5,MILESTONES:[{p:7,city:1}],popNow:()=>4,fmtPop:p=>p+' million',
+    cityLabel:(n,c)=>c.nm||n.capital,wsOf:n=>n.ws||null,WS_AT:[5,10,25],wsK:()=>-1,mileOf:()=>({cities:1}),MILE_CITIES:5,nextCityAt:()=>7,popNow:()=>4,fmtPop:p=>p+' million',
     nextCreditPop:()=>5,esc:s=>String(s),resIco:r=>`<i data-r="${r}"></i>`,landCredits:()=>3,GL_TAG:'<span class="tut-lc">+10 land</span>',...over});
   vm.runInContext(fn('list')+'\nconst TUT_V=25,TUT_GS="mrba";\n'+fn('tutNorm')+'\n'+fn('tutCall')+'\n'+LISTS+'\n'+REWARDS+'\n'+CARD+
     '\n'+fn('cityBonusOpen')+'\n'+fn('cxBldExtras')+'\n'+fn('cityGoldKept')+'\n'+fn('cityGoldOpen')+'\n'+fn('bldUgEver')+'\nthis.X={tutCard,tutPhase,tutPicks,tutHid,tutHide,tutHonHid,tutHonHide,tutGroup,tutL,tutFinSeen,tutComing,tutOthers,tutProg,tutBonusLine,fdl:()=>0};',ctx);
