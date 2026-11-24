@@ -29021,7 +29021,7 @@ function c3Queue(ct,key){
   n.stock=roundStock(st);n.stockAt=now;n._stockSet=true;
   c.b.push({k:key,s,d:s+ms,p:cost});if(quick)n.qb=nth-1;
   commit(n);S.cityMsg='';render();
-  toast(`${B.w?'The ':'A '}${B.n} joins the queue in ${ct.nm}. Work starts in ${fmtDur(s-now)} and takes ${fmtDur(ms)}.`);
+  toast(`${B.w?'The ':'A '}${B.n} joins the queue in ${ct.nm}. Work starts in ${fmtDur(s-now)} and takes ${fmtDur(ms)}.${ddQueueNote(n,key,now)}`);
 }
 function c3When(t){return (fmtDate(t)===fmtDate(Date.now())?'':'on '+fmtDate(t)+' ')+'at '+fmtTime(t);}
 /* the same moment after "until": "until 09:43", or "until 16 Nov, 09:43" on another day */
@@ -65608,23 +65608,50 @@ function ddRare(n,day,q){
 const ddFresh=(n,day,salt)=>{const k=day+(salt||''),q=ddRoll(n,k),r=ddRare(n,k,q);return {d:day,q,c:[0,0,0],p:[0,0,0],...(r?{r}:{})};};
 /* the weekly reset: once every seven days a cleared desk can be swapped for a fresh one, an extra day of tasks and credits (n.ddx = when it was last used) */
 const DDX_GAP=7*864e5,ddxAt=n=>n&&Number.isFinite(n.ddx)&&n.ddx>0?n.ddx:0,ddxReady=(n,now)=>now-ddxAt(n)>=DDX_GAP;
-/* how far one save moved a task on */
-function ddDelta(n,old,k){
+/* how far one save moved a task on. Starting a building or an upgrade counts once work on it begins, and counts back off
+   if it is called off before it is finished (the owner, 24 Nov 2026: a building started and then cancelled still
+   counted on the desk). A building waiting in a city's queue counts when its turn comes, at the first save after that:
+   taken out of the queue it returns every material, so it could otherwise be ordered and cancelled for nothing.
+   o: {now, since}: the save's moment, and when the count being moved began (the desk's day, the legendary task's
+   appearance, the week), so that only work started since then counts back off. For those kinds (DD_BACK) the result
+   can be below zero; ddStep and its callers keep every count at zero or more. */
+const DD_BACK=new Set(['build','xpb','ugb','xu','bu']);
+/* the moment a record stood at: its last save, never later than this one */
+const ddAt=(m,now)=>m&&Number.isFinite(m.updatedAt)&&m.updatedAt>0?Math.min(m.updatedAt,now):now;
+/* work on a building has begun by a moment (a queued one starts later) */
+const ddBegun=(b,at)=>!!b&&!(Number.isFinite(b.s)&&b.s>at);
+/* a record's buildings whose work had begun by a moment, by city and kind */
+function ddBlds(m,at){const o=new Map();for(const c of (m&&m.cities)||[])for(const b of c.b||[])if(ddBegun(b,at))o.set(c.id+'|'+b.k,b);return o;}
+/* work called off since `since`: buildings begun and not finished that are gone while their city stays, and (up)
+   upgrades not finished that are gone from a building still standing (wh: a Warehouse's levels too) */
+function ddGone(n,old,now,since,f,up,wh){
+  const cs=new Map((n.cities||[]).map(c=>[c.id,c])),at=ddAt(old,now),off=(a,x)=>!!a&&Number.isFinite(a.s)&&a.s>=since&&a.d>now&&!(x&&x.s===a.s);let m=0;
+  for(const c of old.cities||[]){const nc=cs.get(c.id);if(!nc)continue;
+    for(const o of c.b||[]){if(f&&!f(o))continue;const b=(nc.b||[]).find(x=>x.k===o.k);
+      if(!up){if(!b&&ddBegun(o,at)&&off({s:Number.isFinite(o.s)?o.s:0,d:o.d},null))m++;continue;}
+      if(!b)continue;if(off(cxBldExtras(o).uu,cxBldExtras(b).uu))m++;else if(wh&&off(whExtras(o).wu,whExtras(b).wu))m++;}}
+  return m;
+}
+/* a job at the outfitters or the bureau (n.xuw, n.buw): 1 started, -1 called off, 0 neither */
+function ddJob(a,b,now,since){return (a&&Number.isFinite(a.s)&&!(b&&b.s===a.s)?1:0)-(b&&Number.isFinite(b.s)&&b.s>=since&&b.d>now&&!(a&&a.s===b.s)?1:0);}
+function ddDelta(n,old,k,o){
+  const now=o&&Number.isFinite(o.now)?o.now:Date.now(),since=o&&Number.isFinite(o.since)?o.since:0;
   const tl=key=>tallyOf(n,key)-tallyOf(old,key),flNew=()=>{const had=new Set((old.fl||[]).map(e=>e&&e.k+'|'+e.s));return (n.fl||[]).filter(e=>e&&!had.has(e.k+'|'+e.s)).length;};
   if(k==='iss'||k==='claim'||k==='dm')return tl(k);
   if(k==='deal')return tl('deal')+tl('dealok');
   if(k==='exp')return ['exp','exp2'].filter(f=>n[f]&&n[f].t0&&!(old[f]&&old[f].t0===n[f].t0)).length+flNew();
   if(k==='road'){const had=new Set((old.infra||[]).map(r=>r&&r.id));return (n.infra||[]).filter(r=>r&&r.k==='road'&&!had.has(r.id)).length;}
-  if(k==='build'){const had=new Set();for(const c of old.cities||[])for(const b of c.b||[])had.add(c.id+'|'+b.k);let m=0;for(const c of n.cities||[])for(const b of c.b||[])if(!had.has(c.id+'|'+b.k))m++;return m;}
-  if(k==='xu')return n.xuw&&Number.isFinite(n.xuw.s)&&!(old.xuw&&old.xuw.s===n.xuw.s)?1:0;
-  if(k==='xpb'){const B=xuByB(),was=new Map();for(const c of old.cities||[])for(const b of c.b||[])was.set(c.id+'|'+b.k,b);let m=0;
-    for(const c of n.cities||[])for(const b of c.b||[]){if(!B[b.k])continue;const o=was.get(c.id+'|'+b.k);if(!o){m++;continue;}
+  if(k==='build'){const had=ddBlds(old,ddAt(old,now));let m=0;for(const id of ddBlds(n,now).keys())if(!had.has(id))m++;return m-ddGone(n,old,now,since);}
+  if(k==='xu')return ddJob(n.xuw,old.xuw,now,since);
+  if(k==='xpb'){const B=xuByB(),was=ddBlds(old,ddAt(old,now)),hb=b=>!!B[b.k];let m=0;
+    for(const [id,b] of ddBlds(n,now)){if(!B[b.k])continue;const o=was.get(id);if(!o){m++;continue;}
       const u=cxBldExtras(b).uu,ou=cxBldExtras(o).uu,w=whExtras(b).wu,ow=whExtras(o).wu;
-      if(u&&Number.isFinite(u.s)&&!(ou&&ou.s===u.s))m++;else if(w&&Number.isFinite(w.s)&&!(ow&&ow.s===w.s))m++;}return m;}
+      if(u&&Number.isFinite(u.s)&&!(ou&&ou.s===u.s))m++;else if(w&&Number.isFinite(w.s)&&!(ow&&ow.s===w.s))m++;}
+    return m-ddGone(n,old,now,since,hb)-ddGone(n,old,now,since,hb,true,true);}
   if(k==='lost')return ['exp','exp2'].filter(f=>n[f]&&n[f].t0&&!(old[f]&&old[f].t0===n[f].t0)&&SITES[n[f].s]&&SITES[n[f].s].lost).length;
   if(k==='fleet')return flNew();
   if(k==='ugb'){const was=new Map();for(const c of old.cities||[])for(const b of c.b||[])was.set(c.id+'|'+b.k,b);let m=0;
-    for(const c of n.cities||[])for(const b of c.b||[]){const o=was.get(c.id+'|'+b.k);if(!o)continue;const u=cxBldExtras(b).uu,ou=cxBldExtras(o).uu;if(u&&Number.isFinite(u.s)&&!(ou&&ou.s===u.s))m++;}return m;}
+    for(const c of n.cities||[])for(const b of c.b||[]){const o=was.get(c.id+'|'+b.k);if(!o)continue;const u=cxBldExtras(b).uu,ou=cxBldExtras(o).uu;if(u&&Number.isFinite(u.s)&&!(ou&&ou.s===u.s))m++;}return m-ddGone(n,old,now,since,null,true);}
   if(k==='svc'){const a=n.svc,b=old.svc;if(!a||!Array.isArray(a.c))return 0;const same=!!b&&b.d===a.d&&Array.isArray(b.c);return a.c.filter((x,i)=>x&&x[3]===1&&!(same&&b.c[i]&&b.c[i][3]===1)).length;}
   if(k==='dig'){const had=new Set((old.dig||[]).map(d=>d&&d.s+'|'+d.t0));return (n.dig||[]).filter(d=>d&&!had.has(d.s+'|'+d.t0)).length;}
   if(k==='city')return tl('cities');
@@ -65633,7 +65660,7 @@ function ddDelta(n,old,k){
   if(k==='cov')return tl('cov');
   if(k==='spy')return tl('spy');
   if(k==='gint')return tl('cov:g');
-  if(k==='bu')return n.buw&&Number.isFinite(n.buw.s)&&!(old.buw&&old.buw.s===n.buw.s)?1:0;
+  if(k==='bu')return ddJob(n.buw,old.buw,now,since);
   if(k==='covc')return tl('cov:clean');
   if(k==='rs'){try{const P=rsOf(n),O=rsOf(old);if(!P)return 0;const oq=(O&&O.q)||[],had=new Set(oq.map(e=>e[0]+'|'+e[1])),wasQ=new Set(oq.map(e=>e[0]));let m=(P.q||[]).filter(e=>!had.has(e[0]+'|'+e[1])).length;
     const b0=rsBits(O&&O.k),b1=rsBits(P.k);for(let i=0;i<RS_N;i++)if(rsHas(b1,i)&&!rsHas(b0,i)&&!wasQ.has(i))m++;return m;}catch(e){return 0;}}
@@ -65646,6 +65673,10 @@ function ddDelta(n,old,k){
   if(k==='std'){try{return ['flag','arms','script','notes'].filter(x=>sdrBase[x](n)!==sdrBase[x](old)).length;}catch(e){return 0;}}
   return 0;
 }
+/* a task's move for one save, from the same nation's last record (base): below zero only for work called off (DD_BACK) */
+const ddStep=(n,base,k,now,since)=>{if(!base)return 0;const v=ddDelta(n,base,k,{now,since});return DD_BACK.has(k)?v:Math.max(0,v);};
+/* a count moved by dv, kept between zero and its goal */
+const ddMove=(c,dv,g)=>Math.max(0,Math.min(g,(c||0)+dv));
 /* A catch-up for the desks of 23 and 24 Nov 2026: the expedition task began counting fleeting finds on 23 Nov at 15:57Z
    (and only once a tab ran that build), so a party sent before then moved the fleeting-finds task on and not the
    expedition task. On those desks the expedition task is brought up to the fleeting-finds task's count (the parties it
@@ -65698,16 +65729,16 @@ COMMIT_HOOKS.push((n,old,now)=>{
   let G0=null,rt0=null;const just=[],RT=()=>rt0||(rt0=ddRates(n)),snap=()=>{if(!G0)G0=roundStock(stockNow(n,now));};
   const gift=(r,v)=>{snap();const st=stockNow(n,now);st[r]=stockLimit(n,r,num0(st[r])+v,st[r]);n.stock=roundStock(st);n.stockAt=now;};
   if(ddOn()){if(!n.dd||ddLater(day,n.dd.d)){n.dd=ddFresh(n,day);n.dd.t=now;}
-  const D=n.dd;if(!D.r){const r0=ddRare(n,D.d,D.q);if(r0)D.r=r0;}const flF=ddFleetFloor(D,base?Math.max(0,ddDelta(n,base,'fleet')):0);D.q.forEach(([k,goal,ra,rb],i)=>{
-    if(D.p[i])return;let dv=k==='visit'||k==='vote'?(mark===k?1:0):base?Math.max(0,ddDelta(n,base,k)):0;
+  const D=n.dd;if(!D.r){const r0=ddRare(n,D.d,D.q);if(r0)D.r=r0;}const t0=new Date(now).setHours(0,0,0,0),flF=ddFleetFloor(D,ddStep(n,base,'fleet',now,t0));D.q.forEach(([k,goal,ra,rb],i)=>{
+    if(D.p[i])return;let dv=k==='visit'||k==='vote'?(mark===k?1:0):ddStep(n,base,k,now,t0);
     if(k==='exp'&&flF>(D.c[i]||0)+dv)dv=flF-(D.c[i]||0);
-    if(dv)D.c[i]=Math.min(goal,(D.c[i]||0)+dv);
+    if(dv)D.c[i]=ddMove(D.c[i],dv,goal);
     if(D.c[i]>=goal){D.p[i]=1;ddKind(n,k);try{gbBump(n,'ddt',1,now);}catch(e){}const g=[[ra,ddAmt(n,ra,ddGift(ra),DD_SHARE.t,RT())],[rb,ddAmt(n,rb,ddGift(rb),DD_SHARE.t,RT())]];for(const [r,v] of g)gift(r,v);just.push('q'+i);out.push(`Desk task done: ${DD_TASKS[k].t(goal)}. ${ddGiftTxt(g,1)}.`);}
   });
   if(D.p.every(Boolean)&&!D.w){D.w=1;n.ddc=(Number.isInteger(n.ddc)?n.ddc:0)+1;const g=Object.keys(DD_CLEAR).map(r=>[r,ddAmt(n,r,DD_CLEAR[r],DD_SHARE.c,RT())]);for(const [r,v] of g)gift(r,v);just.push('w');out.push(`A clear desk: ${ddGiftTxt(g,1)}.`);
     if(ddWeek(n,now)){n.ddw=Math.min(DD_WEEK_MAX,ddwOf(n)+1);out.push('Today’s desk is clear: +2 land credits in your first week, to spend on the map.');}
     else out.push('Today’s desk is clear: +1 land credit to spend on the map.');}
-  const R=D.r;if(R&&!R.p){let dv=base?Math.max(0,ddDelta(n,base,R.k)):0;if(R.k==='exp'&&flF>(R.c||0)+dv)dv=flF-(R.c||0);if(dv)R.c=Math.min(R.g,(R.c||0)+dv);
+  const R=D.r;if(R&&!R.p){let dv=ddStep(n,base,R.k,now,t0);if(R.k==='exp'&&flF>(R.c||0)+dv)dv=flF-(R.c||0);if(dv)R.c=ddMove(R.c,dv,R.g);
     if(R.c>=R.g){R.p=1;n.ddr=ddrOf(n)+1;ddKind(n,R.k);const g=ddRareGift(n,RT());for(const [r,v] of g)gift(r,v);try{gbBump(n,'ddr',1,now);}catch(e){}just.push('r');
       out.push(`Rare task done: ${DD_TASKS[R.k].t(R.g)}. ${ddGiftTxt(g)} and +${DD_RARE_CR} land credits.`);}}
   /* the legendary task: it appears when its moment comes (late, after the last one, if that one was still open), and
@@ -65716,13 +65747,13 @@ COMMIT_HOOKS.push((n,old,now)=>{
     const grown=+(n.founded||0)>0&&now-n.founded>=DD_WEEK;
     if(grown&&!open&&(!L||L.w!==W.k)){const a=Math.max(ddLegAt(n,W),L&&!L.p&&L.w!==W.k?Math.min(L.e,W.t+DD_LEG_MS):0);
       if(now>=a&&now<W.t+DD_LEG_MS){const nl=ddLegRoll(n,W,a);if(nl){n.ddl=L=nl;out.push(`A legendary task is on your desk: ${DD_TASKS[nl.k].t(nl.g)}. You have seven days, for +${DD_LEG_CR} land credits and ${DD_LEG_GIFT} of every resource.`);}}}
-    if(L&&!L.p&&now>=L.a&&now<=L.e&&base){const dv=Math.max(0,ddDelta(n,base,L.k));if(dv)L.c=Math.min(L.g,(L.c||0)+dv);
+    if(L&&!L.p&&now>=L.a&&now<=L.e&&base){const dv=ddStep(n,base,L.k,now,L.a);if(dv)L.c=ddMove(L.c,dv,L.g);
       if(L.c>=L.g){L.p=1;L.d=now;n.ddlc=ddlcOf(n)+1;ddKind(n,L.k);snap();just.push('l');const st=stockNow(n,now);for(const r of RES)st[r]=num0(st[r])+DD_LEG_GIFT;xsMark(n,st,now);n.stock=roundStock(st);n.stockAt=now;n._stockSet=true;try{gbBump(n,'ddl',1,now);}catch(e){}
         out.push(`Legendary task done: ${DD_TASKS[L.k].t(L.g)}. +${DD_LEG_GIFT} of every resource and +${DD_LEG_CR} land credits.${xsOf(n)?' Some of it is over your storage: those resources earn nothing more until you use some, or a Warehouse makes room.':''}`);}}}}
   /* the browser tests' desk switch (EDICTUM_NO_DESK) holds this one back too: drawn by the seed, it paid 25 of every
      resource whenever a suite happened to do the week's new kind, and threw the suite's counts out */
   if(ddOn()){const W=wkKey(now);let N=n.ddn;if(base&&(!N||N.w!==W))N=n.ddn={w:W,k:ddNewRoll(n,W),c:0,p:0};
-    if(N&&N.w===W&&N.k&&DD_TASKS[N.k]&&!N.p&&base){const dv=N.k==='visit'||N.k==='vote'?(mark===N.k?1:0):Math.max(0,ddDelta(n,base,N.k));
+    if(N&&N.w===W&&N.k&&DD_TASKS[N.k]&&!N.p&&base){const dv=N.k==='visit'||N.k==='vote'?(mark===N.k?1:0):Math.max(0,ddStep(n,base,N.k,now));
       if(dv){N.c=1;N.p=1;n.ddnc=ddncOf(n)+1;ddKind(n,N.k);snap();const st=stockNow(n,now);for(const r of RES)st[r]=stockLimit(n,r,num0(st[r])+DD_NEW_GIFT,st[r]);n.stock=roundStock(st);n.stockAt=now;just.push('n');
         out.push(`Something new, done: ${DD_TASKS[N.k].t(1)}. +${DD_NEW_GIFT} of every resource and +${DD_NEW_CR} land credits.`);}}}
   if(just.length)DDJ.a={k:just,d:n.dd&&n.dd.d,from:G0||{},to:roundStock(n.stock||{}),at:now,t:0};
@@ -65797,7 +65828,9 @@ function wkGoal(scope,G,W,me){
 COMMIT_HOOKS.push((n,old,now)=>{
   if(!n||n.npc||!n.name||!ddOn())return;const out=[],W=wkKey(now);
   const base=old&&old.name===n.name&&old.tly&&typeof old.tly==='object'?old:null;
-  if(base){let c=null;for(const k of WK_KINDS){const dv=Math.max(0,ddDelta(n,base,k));if(!dv)continue;if(!c)c=n.wkc&&n.wkc.w===W?{...n.wkc}:{w:W};c[k]=Math.min(WK_CNT,(Number.isInteger(c[k])?c[k]:0)+dv);}if(c)n.wkc=c;}
+  if(base){let c=null;const w0=weekStart(now);for(const k of WK_KINDS){const dv=ddStep(n,base,k,now,w0);if(!dv)continue;
+    const cur=c||(n.wkc&&n.wkc.w===W?n.wkc:null),v=cur&&Number.isInteger(cur[k])?cur[k]:0;if(dv<0&&!v)continue;
+    if(!c)c=n.wkc&&n.wkc.w===W?{...n.wkc}:{w:W};c[k]=Math.max(0,Math.min(WK_CNT,v+dv));if(!c[k])delete c[k];}if(c)n.wkc=c;}
   const P=n.wgd&&n.wgd.w===W?{w:W,a:(n.wgd.a||[]).slice(),r:n.wgd.r===1?1:0}:{w:W,a:[],r:0};let paid=false;
   const pay=what=>{const st=stockNow(n,now);for(const r of RES)st[r]=stockLimit(n,r,num0(st[r])+WK_GIFT,st[r]);n.stock=roundStock(st);n.stockAt=now;paid=true;
     out.push(`${what}: +${WK_GIFT} of every resource and +${WK_CR} land credits.`);};
@@ -65813,6 +65846,14 @@ NORM_HOOKS.push((n,d)=>{
   if(d&&Number.isInteger(d.wga)&&d.wga>0&&d.wga<=WK_PAID_MAX)n.wga=d.wga;else delete n.wga;
   if(d&&Number.isInteger(d.wgr)&&d.wgr>0&&d.wgr<=WK_PAID_MAX)n.wgr=d.wgr;else delete n.wgr;
 });
+/* a building ordered into a city's queue counts for the desk once work on it begins (ddDelta): said when the desk has
+   an open task it will count for */
+function ddQueueNote(n,key,now){
+  try{if(!ddOn()||!n||n.npc)return '';const ks=new Set(['build']);if(xuByB()[key])ks.add('xpb');const D=n.dd,open=[];
+    if(D&&D.d===ddDay(now)&&Array.isArray(D.q)){D.q.forEach(([k],i)=>{if(!(D.p&&D.p[i])&&ks.has(k))open.push(k);});if(D.r&&!D.r.p&&ks.has(D.r.k))open.push(D.r.k);}
+    const L=ddLegOn(n,now);if(L&&!L.p&&ks.has(L.k))open.push(L.k);
+    return open.length?' It counts for your daily desk once work on it begins.':'';}catch(e){return '';}
+}
 /* ── the desk on the edicts page ── */
 /* whether a nation can do one of the desk's tasks today (DD_TASKS ok) */
 function ddFleetOk(n){try{const t=flNow();if(flOut(n,t)||flReady(n,t))return false;return flAlive(t).some(s=>{const P=flPlan(n,s,t);return !P.why||/^You need/.test(P.why);});}catch(e){return false;}}
