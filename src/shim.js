@@ -151,7 +151,7 @@
     /* headline numbers beside the record, which the rules bound (growth since the last save, army and land for
        the population) and every player's game holds the record to: population, army strength, land claimed */
     var out = { v: 1, j: j, reg: str(d.reg, 40) || 'meridian', name: str(d.name, 80), updatedAt: num(d.updatedAt), ts: serverTime(),
-      pop: Math.round(Math.min(1e7, Math.max(0, num(d.pop))) * 1e4) / 1e4, army: Math.round(Math.max(0, num(d.apw)) * 1e3) / 1e3,
+      pop: Math.round(Math.min(1e9, Math.max(0, num(d.pop))) * 1e4) / 1e4, army: Math.round(Math.max(0, num(d.apw)) * 1e3) / 1e3,
       cl: Array.isArray(d.claims) ? d.claims.length : 0 };
     // The map this page numbers hexes on (the game's MAP_VER): no page of an older map saves over it (saveNation, rules).
     var mv = mapVer();

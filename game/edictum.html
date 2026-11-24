@@ -24151,7 +24151,15 @@ function tradeView(){
    surplus resources. A city's production area is held land within two hexes, or three at two million city residents. Buildings work for
    whoever holds the city hex: its founder, or whoever took it in battle. Computer nations have fixed
    cities generated from the map, so the world starts developed and conquest has prizes. */
-const CITY_DISTRICT=2,CITY_MIN_DIST=4,MILE_CITIES=14,MAX_CITIES=33,CQ_MAX=10,STOCK_CAP=400,CITY_SLOTS=4,CAP_SLOTS=6;
+/* City thresholds are in millions. Keep the early game; later cities have their own schedule so saved
+   growth milestone indices, ranks, building unlocks and land credits keep their existing meaning. */
+const CITY_POP_AT=[
+  7,8.5,12.5,25,50,75,
+  100,110,115,125,150,200,225,250,275,300,325,350,400,450,500,550,600,650,700,800,900,
+  ...[1,1.25,1.5,2,2.5,3,4,5,6,7,8,9,10,12,14,16,18,20,25,30,40,50,100,200,300,500,1000].map(t=>t*1e6)
+];
+/* Nineteen land unlocks and the first-building and gold-upgrade bonuses remain available. */
+const CITY_DISTRICT=2,CITY_MIN_DIST=4,MILE_CITIES=1+CITY_POP_AT.length,MAX_CITIES=MILE_CITIES+21,CQ_MAX=10,STOCK_CAP=400,CITY_SLOTS=4,CAP_SLOTS=6;
 const START_STOCK={food:60,timber:45,iron:25,oil:10,goods:60};
 /* Guaranteed daily stockpile income per active city, independent of buildings, consumption and spoilage. */
 const CITY_BASE_INCOME={food:2,timber:1,goods:1};
@@ -25366,7 +25374,7 @@ const fmtPopShort=p=>p>=1e6?(p/1e6)+' trillion':p>=1000?(p/1000)+' billion':p+' 
 function milesReached(pop){return MILESTONES.filter(m=>pop>=m.p-1e-9);}
 function mileOf(n){
   const pop=n?popNow(n):5,r=milesReached(pop),next=MILESTONES.find(m=>pop<m.p-1e-9)||null;
-  return {pop,reached:r,next,bonus:r.reduce((s,m,i)=>s+mileCredit(n,i),0),cities:Math.min(MILE_CITIES,1+r.reduce((s,m)=>s+(m.city||0),0)),title:([...r].reverse().find(m=>m.t)||MILESTONES[0]).t};
+  return {pop,reached:r,next,bonus:r.reduce((s,m,i)=>s+mileCredit(n,i),0),cities:1+CITY_POP_AT.filter(p=>pop>=p-1e-9).length,title:([...r].reverse().find(m=>m.t)||MILESTONES[0]).t};
 }
 function bldUnlockAt(key){const m=MILESTONES.find(m=>(m.b||[]).includes(key));return m?m.p:5;}
 function bldUnlocked(n,key){if(key==='warehouse'&&!pgAvailable(n,'warehouse'))return false;return popNow(n)>=bldUnlockAt(key)-1e-9||cvBlueOk(n,key);}
@@ -25376,7 +25384,7 @@ function mileUnlocks(m,n){
   n=n||S.nation;const mc=mileCredit(n,MILESTONES.indexOf(m));
   const u=[];
   if(m.b)u.push(...m.b.filter(k=>ldrShow(n,k)).map(k=>BUILDINGS[k].w?'the '+BUILDINGS[k].n:BUILDINGS[k].n));if(m.x)u.push(...[].concat(m.x));
-  if(m.city)u.push('another city');
+  if(CITY_POP_AT.includes(m.p))u.push('another city');
   if(m.war)u.push('declaring war');
   if(m.alli)u.push('founding alliances');
   for(const [f,p] of Object.entries(FEATURE_AT))if(MILESTONES.filter(x=>x.p<=p).pop()===m)u.push(FEATURE_WORDS[f]+(p===m.p?'':' at '+fmtPopShort(p)));
@@ -25386,9 +25394,9 @@ function mileUnlocks(m,n){
   return u;
 }
 function growthSection(n){
-  const M=mileOf(n),nx=M.next,prev=[...M.reached].pop()||{p:0},pct=nx?clamp((M.pop-prev.p)/(nx.p-prev.p)*100,0,100):100;
+  const M=mileOf(n),L=growthMilestones(),reached=L.filter(m=>M.pop>=m.p-1e-9),nx=L.find(m=>M.pop<m.p-1e-9),prev=reached.at(-1)||{p:0},pct=nx?clamp((M.pop-prev.p)/(nx.p-prev.p)*100,0,100):100;
   return `<section class="section"><h2 class="h2">Growth</h2>
-    <div class="mile-now"><div><p class="eyebrow">${esc(M.title)}</p><p class="mile-pop"><span data-live="pop">${fmtPop(M.pop)}</span> people</p><p class="hint">${M.reached.length} of ${MILESTONES.length} milestones reached · ${esc(growthText(n))}</p>${newNote(n)}${sizeNote(M.pop)}${n.pk?`<p class="hint">Land, cities, buildings and food can support about ${fmtPop(n.pk)}.</p>`:''}</div>
+    <div class="mile-now"><div><p class="eyebrow">${esc(M.title)}</p><p class="mile-pop"><span data-live="pop">${fmtPop(M.pop)}</span> people</p><p class="hint">${reached.length} of ${L.length} milestones reached · ${esc(growthText(n))}</p>${newNote(n)}${sizeNote(M.pop)}${n.pk?`<p class="hint">Land, cities, buildings and food can support about ${fmtPop(n.pk)}.</p>`:''}</div>
       ${nx?`<div class="mile-next"><p class="lbl">Next milestone: ${fmtPopShort(nx.p)}</p><span class="bar"><i style="width:${pct.toFixed(1)}%"></i></span><p>${esc(cap1(list(mileUnlocks(nx,n))))}${nx.t?`, and the rank of ${esc(nx.t)}`:''}.</p></div>`:`<div class="mile-next"><p>Every milestone reached. ${esc(n.name)} is a ${esc(M.title)}.</p></div>`}</div>
     ${gcLimitsCard(n)}
     ${mileList(M.pop,m=>{const done=M.pop>=m.p-1e-9;return `<li class="${done?'done':''}"><span class="ms-p">${done?'<span class="tick" aria-label="Reached">✓</span>':''}${fmtPopShort(m.p)}</span><span class="ms-u">${esc(cap1(list(mileUnlocks(m,n))))}${m.t?` <span class="chip">${esc(m.t)}</span>`:''}</span></li>`;})}${mileMore(M.pop)}
@@ -26574,9 +26582,9 @@ function refreshBell(now){
   const bt=b.closest('.bell');if(bt&&bt.getAttribute('aria-label')!==l)bt.setAttribute('aria-label',l);
 }
 
-function nextCityAt(n){const p=popNow(n),m=MILESTONES.find(m=>m.city&&p<m.p-1e-9);return m?m.p:null;}
+function nextCityAt(n){const p=popNow(n);return CITY_POP_AT.find(at=>p<at-1e-9)??null;}
 /* what unlocks the next city: "300 million people or 4 million km² of land", just one of them once the other is used up
-   (past 200M people only land is left), or '' when neither is; short is for the city list's button */
+   or '' when neither is; short is for the city list's button */
 function nextCityWhen(n,km2,short){const p=nextCityAt(n),a=nextAreaCity(km2),ps=p!=null?fmtPopShort(p)+' people':'',as=a?(a/1e6)+' million km²'+(short?'':' of land'):'';return short?(ps||as):[ps,as].filter(Boolean).join(' or ');}
 /* ───────── national statistics ───────── */
 /* Hundreds of derived figures for role play. Everything is worked out from a nation's census scores,
@@ -28191,7 +28199,7 @@ function normalizeFix1(d){
   n.iseen=Array.isArray(d.iseen)?[...new Set(d.iseen.filter(v=>Number.isInteger(v)&&v>0&&v<=ISSUES.length+500))].slice(-2500):n.answered.map(a=>ISSUE_BY_ID[a.id]&&ISSUE_BY_ID[a.id].no).filter(Boolean);
   n.bonce=Array.isArray(d.bonce)?d.bonce.filter(k=>typeof k==='string'&&k.length<=40).slice(-200):[];
   n.wh=Array.isArray(d.wh)?d.wh.filter(w=>w&&idOk(w.w)&&typeof w.a==='number'&&typeof w.b==='number').slice(-40).map(w=>({w:w.w,a:w.a,b:w.b})):[];
-  const pk=num(d.pk,0),pr=num(d.pr,0);if(pk>0)n.pk=clamp(pk,1,1e7);else delete n.pk;if(pr>0)n.pr=clamp(pr,0.0001,0.5);else delete n.pr;
+  const pk=num(d.pk,0),pr=num(d.pr,0);if(pk>0)n.pk=clamp(pk,1,1e10);else delete n.pk;if(pr>0)n.pr=clamp(pr,0.0001,0.5);else delete n.pr;
   n.peak=Math.max(n.pop,num(d.peak,0));
   for(const k of ['alLeft','alJoin']){const v=num(d[k],0);if(v>0)n[k]=v;else delete n[k];}
   return n;
@@ -39600,8 +39608,10 @@ MILESTONES.push(
 );
 while(MILE_NEW.length<MILESTONES.length)MILE_NEW.push(MILESTONES[MILE_NEW.length].c);
 const mileIx=p=>MILESTONES.findIndex(m=>m.p===p);
-function mileShown(pop){return MILESTONES.slice(1).filter(m=>m.p<=1000||m.p<=pop*20);}
-function mileMore(pop){const k=MILESTONES.length-1-mileShown(pop).length;return k?`<p class="hint mile-more">${k===1?'One more milestone lies':k+' more milestones lie'} beyond, up to ${fmtPopShort(MILESTONES[MILESTONES.length-1].p)} people.</p>`:'';}
+/* Merge city-only steps for display without inserting into the indexed reward/history schedule. */
+function growthMilestones(){const known=new Set(MILESTONES.map(m=>m.p));return MILESTONES.concat(CITY_POP_AT.filter(p=>!known.has(p)).map(p=>({p}))).sort((a,b)=>a.p-b.p);}
+function mileShown(pop){return growthMilestones().slice(1).filter(m=>m.p<=1000||m.p<=pop*20);}
+function mileMore(pop){const L=growthMilestones(),k=L.length-1-mileShown(pop).length;return k?`<p class="hint mile-more">${k===1?'One more milestone lies':k+' more milestones lie'} beyond, up to ${fmtPopShort(L.at(-1).p)} people.</p>`:'';}
 
 /* ── the city aggregate: dormant buildings and the new fields ── */
 function bldAgg(a,B,key,x){
@@ -49134,7 +49144,7 @@ function tutComing(n,o){
   try{const m=mnComing(n);if(m)it.push(m);}catch(e){}
   try{const T=territory(),mi=T.byId[myId()];if(mi!==undefined){const free=Math.min(maxCities(T,mi),MAX_CITIES)-cityList(n).filter(c=>!c.cq).length;
     if(free>0&&nvxCitySite(T,mi)){if(!o.noCity)it.push({ic:'city',t:free===1?'A new city':`${free} new cities`,d:'ready to found now',go:1});}
-    else if(mileOf(n).cities<MILE_CITIES){const pop=popNow(n),m=MILESTONES.find(m=>pop<m.p-1e-9&&m.city);if(m)it.push({ic:'city',t:'Another city',d:`at ${fmtPop(m.p)} people · ${fmtPop(pop)} now`,p:pop/m.p});}}}catch(e){}
+    else if(mileOf(n).cities<MILE_CITIES){const pop=popNow(n),p=nextCityAt(n);if(p!=null)it.push({ic:'city',t:'Another city',d:`at ${fmtPop(p)} people · ${fmtPop(pop)} now`,p:pop/p});}}}catch(e){}
   try{const pop=popNow(n),np=nextCreditPop(n);if(np>pop*1.0001)it.push({ic:'hex',t:'Next land credit',d:`at ${fmtPop(np)} people · ${fmtPop(pop)} now`,p:pop/np});}catch(e){}
   try{const c=tutPaidN(n),m=TUT_MILES.find(([k])=>c<k);if(m){const U=UNLOCKS[m[1]];it.push({art:tutArt(m[1]),t:`A design: ${U.n}`,d:`${TUT_KW[U.k]} · at ${m[0]} tasks done · ${c} of ${m[0]}`,p:c/m[0]});}}catch(e){}
   if(!it.length)return '';
@@ -52275,16 +52285,16 @@ function muGrowth(x,now){
   const H=n.npc?((n._hist||[]).filter(q=>q.t<now).slice(-60).map(q=>[q.t,npcPop(n,q.t)])):(n.hist||[]).map(q=>[q.t,q.p]);
   const pts=H.concat([[now,pop]]);
   const chart=lineChart('Population',pts,v=>fmtPop(v),{ax:v=>v?(v>=1000?axNum(v/1000)+'B':axNum(v)+'M'):'0'});
-  const miles=MILESTONES.map((m,i)=>{const t=tallyFirst(n,'mile:'+i),hit=t||pop>=m.p-1e-9;return {m,i,t,hit};});
+  const L=growthMilestones(),miles=L.map(m=>{const i=MILESTONES.indexOf(m),t=i>=0?tallyFirst(n,'mile:'+i):0,hit=t||pop>=m.p-1e-9;return {m,i,t,hit};});
   const got=miles.filter(q=>q.hit),ahead=miles.filter(q=>!q.hit),next=ahead.slice(0,2),rest=ahead.slice(2);
   const peak=Math.max(tallyOf(n,'peak'),n.peak||0,pop);
   const T=n.tlx?STAT_KEYS.filter(k=>n.tlx[k]):[];
   const name=m=>`<b class="mu-mile-p">${fmtPopShort(m.p)}</b>${m.t?`<span class="mu-mile-t">${esc(m.t)}</span>`:''}`;
   const unl=m=>{if(!x.me)return '';try{const u=mileUnlocks(m,n);return u.length?` Unlocks ${esc(list(u))}.`:'';}catch(e){return '';}};
   const nx=next.map(({m})=>{const f=Math.min(1,pop/m.p);return `<div class="mu-nm"><p class="mu-nm-h">${name(m)}<span class="mu-nm-pc">${Math.floor(f*100)}%</span></p><span class="bar" role="img" aria-label="${Math.floor(f*100)} per cent of the way"><i style="width:${(f*100).toFixed(1)}%"></i></span><p class="hint">${esc(fmtPop(m.p-pop))} to go.${unl(m)}</p></div>`;}).join('');
-  const last=MILESTONES[MILESTONES.length-1];
+  const last=L.at(-1);
   const rows=Math.ceil(got.length/2);
-  return `${muFigs([['Population',fmtPop(pop)],['Peak',fmtPop(peak)],['Milestones reached',`${got.length} of ${MILESTONES.length}`]])}
+  return `${muFigs([['Population',fmtPop(pop)],['Peak',fmtPop(peak)],['Milestones reached',`${got.length} of ${L.length}`]])}
   <div class="mu-two mu-grow">
     <div class="mu-chart">${chart}</div>
     <section class="mu-nexts" aria-labelledby="mu-nx-h"><h2 class="h2" id="mu-nx-h">${next.length>1?'The next milestones':next.length?'The last milestone':'Every milestone reached'}</h2>${nx||`<p class="hint">${esc(n.name)} has passed every milestone the archive knows, up to ${fmtPopShort(last.p)} people.</p>`}
@@ -53271,7 +53281,7 @@ function normalizeBase(d){
   const dealNo=Array.isArray(d.dealNo)?d.dealNo.filter(x=>typeof x==='string').slice(-20).map(x=>x.slice(0,16)):[];
   return {v:1,_rev:Number.isSafeInteger(d._rev)&&d._rev>=0?d._rev:0,_dirty:!!d._dirty,name,pretitle:str(d.pretitle,40)||'Republic',motto:str(d.motto,80),capital:str(d.capital,40)||'the capital',leader:str(d.leader,40)||'Leader',
     currency:str(d.currency,30)||'crown',animal:str(d.animal,30)||'otter',demonym:str(d.demonym,40)||demonymOf(name),flag,founded:num(d.founded,now),capAt:num(d.capAt,0)||undefined,
-    s,budget,policies,pop:clamp(num(d.pop,5),0.1,1e7),popAt:num(d.popAt,now),answered,inbox,issueClock:num(d.issueClock,now),issueSeq:num(d.issueSeq,0),
+    s,budget,policies,pop:clamp(num(d.pop,5),0.1,1e9),popAt:num(d.popAt,now),answered,inbox,issueClock:num(d.issueClock,now),issueSeq:num(d.issueSeq,0),
     freq:FREQS.some(x=>x[0]===d.freq)?d.freq:FREQ_DEF,log,seed:str(d.seed,40)||'1',updatedAt:num(d.updatedAt,0),loc:validLoc(d.loc),wars,peace,conq,cv:MAP_VER,ready:Number.isInteger(d.ready)?clamp(d.ready,0,MAX_READY):READY_BASE,readyAt:num(d.readyAt,now),alli,allyOf:str(d.allyOf,60),spy,intel,deals,dealNo,trFav,trX,gm:clamp(num(d.gm,1),0.5,1.6),cities:normCities(d),cab:normCab(d,str(d.seed,40)||'1',num(d.founded,now)),cabSeq:Math.max(7,Math.floor(num(d.cabSeq,7))),cabAt:num(d.cabAt,0),la:clamp(num(d.la,45+hash((str(d.seed,40)||'1')+':la')%14),20,110),lt:num(d.lt,num(d.founded,now)),games:normGames(d),lore:d.lore&&typeof d.lore==='object'?Object.fromEntries(LORE.map(([k])=>[k,typeof d.lore[k]==='string'?d.lore[k].slice(0,2000):'']).filter(([,v])=>v.trim())):{},hist:Array.isArray(d.hist)?d.hist.filter(h=>h&&typeof h.t==='number'&&typeof h.p==='number'&&Array.isArray(h.s)&&h.s.length===STAT_KEYS.length).slice(-90).map(h=>({t:h.t,p:h.p,s:h.s.map(v=>clamp(num(v,50),0,100))})):[],claims:Array.isArray(d.claims)?(d.cv===undefined||d.cv===MAP_VER?d.claims.filter(e=>e&&Number.isInteger(e.c)&&e.c>=0&&e.c<MAP.N&&typeof e.t==='number'&&isFinite(e.t)).slice(-CLAIM_MAX).map(e=>({c:e.c,t:e.t})):[]):undefined,autoLand:!!d.autoLand,mileAck:Number.isInteger(d.mileAck)?clamp(d.mileAck,0,MILESTONES.length):undefined,seen:num(d.seen,0),dm:Array.isArray(d.dm)?d.dm.filter(m=>m&&typeof m.w==='string'&&typeof m.x==='string'&&m.x.trim()).slice(-400).map(dmNorm):[],seenDm:d.seenDm&&typeof d.seenDm==='object'?Object.fromEntries(Object.entries(d.seenDm).filter(([k,v])=>k.length<=90&&typeof v==='number'&&isFinite(v)).slice(-300)):{},stock:Object.fromEntries(RES.map(r=>[r,clamp(num(d.stock&&d.stock[r],START_STOCK[r]),0,whLoadCap(d)+xsOf(d))])),stockAt:num(d.stockAt,now),
     ruler:str(d.ruler,40).trim(),lang:str(d.lang,30).trim(),faith:str(d.faith,50).trim(),sport:str(d.sport,30).trim(),dish:str(d.dish,40).trim(),anthem:str(d.anthem,60).trim(),about:str(d.about,280).trim(),mapc:safeColor(d.mapc,''),topics};
 }
