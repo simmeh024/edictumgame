@@ -25,6 +25,19 @@ const code=()=> 'EDC-'+Array.from(crypto.getRandomValues(new Uint8Array(20))).ma
 const rejects=(p,code)=>assert.rejects(p,e=>e.code===code);
 const proposal={op:'propose',title:'A test resolution',body:'A valid protected resolution for the region.',category:'trade',strength:0};
 
+test('chat delegate lookup reaches the real callable and follows protected leadership across regions',async()=>{
+  const a=await player(true,true,'coralreach'),b=await player(true,true,'coralreach'),reader=await player();
+  const state=await civic(a,{op:'endorse',target:b.uid,on:true});assert.ok(state.D);
+  const ids=[a.uid,b.uid,reader.uid],before=(await db.doc('assemblyRegions/coralreach').get()).updateTime.toMillis();
+  const result=await civic(reader,{op:'chatDelegates',ids,reg:'meridian',delegate:reader.uid});
+  assert.deepEqual(Object.keys(result),['badges']);
+  assert.deepEqual(result.badges,Object.fromEntries(ids.map(id=>[id,id===state.D.id?'coralreach':''])));
+  assert.equal((await db.doc('assemblyRegions/coralreach').get()).updateTime.toMillis(),before,'lookup does not write political records');
+  const leader=state.D.id===a.uid?a:b;await civic(leader,{op:'resign'});
+  assert.equal((await civic(reader,{op:'chatDelegates',ids})).badges[leader.uid],'','a former delegate loses the mark');
+  await assert.rejects(civic(reader,{op:'chatDelegates',ids:['../private']}),e=>e.status==='INVALID_ARGUMENT');
+});
+
 test('Guest and young Registered Nations can read, but cannot bypass the 24-hour Assembly gate',async()=>{
   const g=await player(), r=await player(true);
   const gs=await civic(g,{op:'state'});assert.equal(gs.account.kind,'guest');assert.ok(gs.cur);

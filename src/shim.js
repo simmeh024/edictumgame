@@ -641,9 +641,9 @@
     var u = A.auth && A.auth.currentUser;
     if (!u) throw mapError({ code: 'unauthenticated' });
     var op = isObj(data) ? data.op : '';
-    /* who of the region is online (op online) only reads, so it is asked observing as well */
-    if (pviewing() && !(name === 'civic' && (op === 'state' && data.obs || op === 'online'))) throw readOnly();
-    if (observing() && (name === 'referee' || name === 'civic' && !/^(news|cb)/.test(op) && !(op === 'topic' && data.as === 'team') && !(op === 'state' && data.obs) && op !== 'online' || name === 'accounts' && op === 'shop')) throw readOnly();
+    /* presence and delegate badges only read, so they are asked observing as well */
+    if (pviewing() && !(name === 'civic' && (op === 'state' && data.obs || op === 'online' || op === 'chatDelegates'))) throw readOnly();
+    if (observing() && (name === 'referee' || name === 'civic' && !/^(news|cb)/.test(op) && !(op === 'topic' && data.as === 'team') && !(op === 'state' && data.obs) && op !== 'online' && op !== 'chatDelegates' || name === 'accounts' && op === 'shop')) throw readOnly();
     var r, b;
     try {
       r = await within(fetch(A.fn + '/' + name, { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + await u.getIdToken() }, body: JSON.stringify({ data: data }) }), name === 'adminConsole' ? 120000 : 20000);

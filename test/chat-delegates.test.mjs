@@ -11,6 +11,30 @@ const source=html.slice(html.indexOf('const CHAT_DEL_COLORS='),html.indexOf('fun
 const regions=new Set(DATA.regions.map(r=>r.id));
 function database(homes){return {doc:path=>path,getAll:async(...paths)=>paths.map(path=>{const id=path.split('/')[1];return {id,exists:id in homes,get:k=>k==='reg'?homes[id]:undefined};})};}
 
+test('the callable entry gate admits delegate lookups and rejects unknown operations',()=>{
+  const civic=fs.readFileSync(new URL('../functions/civic.js',import.meta.url),'utf8');
+  const constants=civic.slice(civic.indexOf('const ASSEMBLY_ACTS ='),civic.indexOf('/* One vCPU'));
+  const gate=civic.match(/^  if \(!CIVIC_OPS\.has\(op\).+$/m)[0];
+  const context=vm.createContext({HttpsError:class extends Error{constructor(code,message){super(message);this.code=code;}},...Object.fromEntries(['isAllianceOp','isTreatyOp','isBorderOp','isFlagOp','isRegionChatOp','isSupplyOp','isLandOp','isVentureOp','isRiddleOp'].map(k=>[k,()=>false]))});
+  vm.runInContext(constants+'\nthis.admit=op=>{'+gate+'};',context);
+  assert.doesNotThrow(()=>context.admit('chatDelegates'));
+  assert.throws(()=>context.admit('notAnOperation'),/Unknown request/);
+});
+
+test('the real runtime request wrapper allows delegate reads while observing and keeps writes blocked',async()=>{
+  const shim=fs.readFileSync(new URL('../src/shim.js',import.meta.url),'utf8');
+  const start=shim.indexOf('  async function call(name, data)'),end=shim.indexOf('  /* battles are rolled',start);
+  for(const mode of ['player','observe','preview']){
+    const requests=[],A={auth:{currentUser:{getIdToken:async()=> 'test-token'}},fn:'http://test.invalid'};
+    const call=new Function('A','isObj','pviewing','observing','readOnly','mapError','within','fetch',shim.slice(start,end)+'\nreturn call;')(
+      A,v=>v&&typeof v==='object',()=>mode==='preview',()=>mode!=='player',()=>new Error('read_only'),e=>new Error(e.message||e.code),p=>p,
+      async(url,init)=>{requests.push({url,data:JSON.parse(init.body).data});return {ok:true,json:async()=>({result:{badges:{delegate:'meridian'}}})};});
+    assert.deepEqual(await call('civic',{op:'chatDelegates',ids:['delegate']}),{badges:{delegate:'meridian'}});
+    assert.equal(requests.length,1,mode+' reaches the callable');
+    if(mode!=='player')for(const op of ['vote','endorse','authorizeSave'])await assert.rejects(call('civic',{op}),/read_only/);
+  }
+});
+
 test('the server derives office from the current region, once per region, and returns no private records',async()=>{
   const called=[],db=database({a:'meridian',b:'meridian',c:'frostmarch',moved:'frostmarch',closed:'unknown'});
   const out=await chatDelegates(db,['a','b','c','moved','closed','gone','a'],regions,async r=>{called.push(r);return r==='meridian'?'a':'c';});
