@@ -182,6 +182,35 @@ async function pack(db, actor, data) {
     throw e;
   }
 }
+/* Land credits granted by the staff (24 November 2026: Tela tyhate spent three re-claiming land a bug had freed when
+   Thalarara fell). lcGrant/{uid} {g: [{id, k, t, why}]}, the newest LCG_KEEP: only that player reads it, and the game
+   adds each grant once to the nation's bonus credits (n.lcb, as far as its cap allows) and remembers it (n.lcgd), with a
+   line in its record. Written only here, with the reason in the audit log. */
+const LCG_MAX = 20, LCG_KEEP = 20;
+async function landCredits(db, actor, data) {
+  const target = id(data.uid), k = typeof data.k === 'number' ? data.k : NaN, reason = text(data.reason, 300);
+  if (!Number.isInteger(k) || k < 1 || k > LCG_MAX) throw new HttpsError('invalid-argument', `Grant between 1 and ${LCG_MAX} land credits.`);
+  if (!reason) throw new HttpsError('invalid-argument', 'A reason is required.');
+  const nat = await db.doc('nations/' + target).get();
+  if (!nat.exists) throw new HttpsError('not-found', 'That account has no nation to grant land credits to.');
+  const name = text(nat.get('name'), 80), event = db.collection('adminAudit').doc(), ref = db.doc('lcGrant/' + target);
+  const common = { actor, action: 'land_credits_given', target, reason: `${k} land credit${k === 1 ? '' : 's'}: ${reason}`, ...(name ? { name } : {}), operation: event.id };
+  try {
+    const g = await db.runTransaction(async tx => {
+      const s = await tx.get(ref), was = s.exists && Array.isArray(s.get('g')) ? s.get('g') : [];
+      const g = was.concat({ id: event.id, k, t: Date.now(), why: reason }).slice(-LCG_KEEP);
+      tx.set(ref, { g });
+      return g;
+    });
+    await event.create({ ...common, outcome: 'completed', at: FieldValue.serverTimestamp() });
+    return { lcg: g };
+  } catch (e) {
+    await event.create({ ...common, outcome: 'failed', error: text(e.code || 'unknown', 64), at: FieldValue.serverTimestamp() });
+    throw e;
+  }
+}
+/* the land credits granted to a player, for the console's player page */
+async function grantsOf(db, uid) { const s = await db.doc('lcGrant/' + uid).get(); return s.exists && Array.isArray(s.get('g')) ? s.get('g') : []; }
 /* The staff's private notes on a player, in staffNotes/{uid}: read and written only here (the rules refuse every
    client) and never shown to the player. The audit log records each change, not the words, so a note is gone for
    good when it is deleted or the player deletes their account (functions/accounts.js). */
@@ -686,7 +715,8 @@ export const adminConsole = onCall({ region: 'europe-west1', maxInstances: 5, me
   if (d.op === 'setAmb') return setAmb(db, actor, d);
   if (d.op === 'mods') return modsList(db);
   if (d.op === 'search') return players(db, d);
-  if (d.op === 'player') return player(db, id(d.uid));
+  if (d.op === 'player') { const uid = id(d.uid), [p, lcg] = await Promise.all([player(db, uid), grantsOf(db, uid)]); return { ...p, lcg }; }
+  if (d.op === 'landCredits') return landCredits(db, actor, d);
   if (d.op === 'health') return health(db);
   if (d.op === 'online') return onlinePlayers(db);
   if (d.op === 'alliances') return alliancesList(db);

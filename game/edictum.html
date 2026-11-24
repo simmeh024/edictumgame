@@ -61615,6 +61615,7 @@ ${adminCards(p)}
     ${isStaff(p.uid)||isModId(p.uid)?`<h3 class="help-h3">Portal clock</h3>${adminClock(p)}`:''}
     <h3 class="help-h3">The Chancery Club</h3>${adminClub(p)}
     <h3 class="help-h3">Shop packs</h3>${adminPacks(p)}
+    <h3 class="help-h3">Land credits</h3>${adminLand(p)}
     <h3 class="help-h3">Staff notes</h3>${adminNotes(p)}
     <h3 class="help-h3">Letters with other players</h3>${adminLetters(p)}
     <h3 class="help-h3">Watchlist</h3>${adminWatch(p)}
@@ -100541,6 +100542,59 @@ MAP_PANEL.push(ctx=>{
   return '';
 });
 if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE.CMV=()=>({wrMovesOf,wrLostIdx,wrRewrite,wrWorldSync,wrMoveSync,wrOccIds,wrNextCap,wrFallWords,wrEndsAt,CC_ISSUES,ccOpen,ccPairs,ccCityOf,ccDue,ccTake,ccFrom,WR_RW});}catch(e){}
+/* ───────── land credits from the staff (24 November 2026) ─────────
+   The owner: "refund Tela 3 land credits" (Tela tyhate spent three re-claiming land a bug had freed when Thalarara fell;
+   PR #553). There was no way to give a player land credits, and a nation's bonus credits (n.lcb) live in the private half
+   of its record, which only its own game saves. Now an admin grants them on the console's player page (functions/admin.js,
+   landCredits: lcGrant/{uid}, the reason in the audit log), and the player's game, which alone reads that document,
+   adds each grant once to its bonus credits as far as their cap allows (addBonusCredits), remembers it (n.lcgd) and
+   writes a line in its record with the reason. A game open at the time takes it at once; one closed, when next opened. */
+const LCG={uid:'',un:null,g:[],ready:false};
+function lcgNorm(g){return (Array.isArray(g)?g:[]).filter(x=>x&&typeof x.id==='string'&&x.id&&x.id.length<=40&&Number.isInteger(x.k)&&x.k>=1&&x.k<=20).map(x=>({id:x.id,k:x.k,t:+x.t||0,why:typeof x.why==='string'?x.why.slice(0,300):''}));}
+function lcgConnect(){if(hmQuiet())return;
+  if(!S.db||S.mode!=='world'||OBS||PV||!S.uid)return;const me=S.uid;if(LCG.uid===me&&LCG.un)return;
+  if(LCG.un)try{LCG.un();}catch(e){}LCG.uid=me;LCG.g=[];LCG.ready=false;
+  try{LCG.un=S.db.doc('lcGrant/'+me).onSnapshot(s=>{LCG.g=lcgNorm(s.exists?(s.data()||{}).g:[]);LCG.ready=true;lcgApply();},()=>{LCG.ready=true;});}catch(e){LCG.ready=true;}
+}
+connect=(f=>async function(){const r=await f.apply(this,arguments);try{lcgConnect();}catch(e){}return r;})(connect);
+/* and after a save, in case the account changed or the first connect came before it was known */
+window.addEventListener('edictum:saved',()=>{try{lcgConnect();lcgApply();}catch(e){}});
+/* the grants this nation has not taken yet */
+function lcgDue(n){const done=new Set(Array.isArray(n&&n.lcgd)?n.lcgd:[]);return LCG.g.filter(x=>!done.has(x.id));}
+/* take them: each once, into the bonus credits, with a line in the record */
+function lcgApply(){
+  const n0=S.nation;if(!n0||OBS||PV||S.mode!=='world'||!LCG.ready||LCG.uid!==S.uid||S.moving)return;
+  const due=lcgDue(n0);if(!due.length)return;
+  const n=clone(n0),now=Date.now();let got=0;if(!Array.isArray(n.log))n.log=[];
+  for(const x of due){const k=addBonusCredits(n,x.k);got+=k;n.lcgd=(Array.isArray(n.lcgd)?n.lcgd:[]).concat(x.id).slice(-40);n.log.unshift({t:now,k:'lcgift',a:String(k),fx:x.why});}
+  n.log=n.log.slice(0,60);commit(n);
+  toast(got?`The Edictum Team granted ${n.name} ${got} land credit${got===1?'':'s'}.`:`The Edictum Team granted ${n.name} land credits, but it already holds the most bonus credits it can.`);
+}
+NORM_HOOKS.push((n,d)=>{if(Array.isArray(d.lcgd)){const L=d.lcgd.filter(x=>typeof x==='string'&&x&&x.length<=40).slice(-40);if(L.length)n.lcgd=L;}});
+logLine=(f=>function(l,n,id){if(l&&l.k==='lcgift'){const k=+l.a||0;return `The Edictum Team granted ${k} land credit${k===1?'':'s'}${l.fx?': '+l.fx:''}.`;}return f.apply(this,arguments);})(logLine);
+Object.assign(ST_LOG,{lcgift:['land','Was granted {a} land credits by the Edictum Team']});
+Object.assign(NOTIF_K,{lcgift:'Edictum Team'});
+/* the console's player page: what was granted, and a grant */
+function adminLand(p){
+  if(ADMX.lcFor!==p.uid){ADMX.lcFor=p.uid;ADMX.lcK='3';ADMX.lcWhy='';ADMX.lcMsg='';}
+  const L=Array.isArray(p.lcg)?p.lcg:[],busy=ADMX.lcBusy?' disabled':'';
+  const list=L.length?`<ul class="adm-lc">${L.slice().reverse().map(g=>`<li><b>${esc(String(g.k))}</b> on ${esc(adminTime(g.t))}${g.why?': '+esc(g.why):''}</li>`).join('')}</ul>`:'<p class="hint">None granted yet.</p>';
+  return `${list}<div class="field"><label for="admin-lc-why">Reason (kept in the audit log, and shown to the player)</label><input class="input" id="admin-lc-why" maxlength="300" value="${esc(ADMX.lcWhy||'')}" placeholder="e.g. Refund for land a bug freed"></div>
+    <div class="row"><input class="input" type="number" id="admin-lc-k" min="1" max="20" step="1" value="${esc(String(ADMX.lcK||'3'))}" aria-label="How many land credits" style="width:6em"><button type="button" class="btn small" data-act="admin-lc" data-id="${esc(p.uid)}"${busy}>Grant land credits</button></div>
+    <p class="hint">Added once to the nation’s bonus land credits (up to their cap) the next time its game is open, at once if it is open now, with a line in its record giving the reason.</p>${ADMX.lcMsg?`<p class="hint" aria-live="polite">${esc(ADMX.lcMsg)}</p>`:''}`;
+}
+async function adminLandSet(uid){
+  const p=ADMX.player;if(!p||p.uid!==uid||ADMX.lcBusy)return;
+  const k=Math.round(Number(ADMX.lcK));if(!(k>=1&&k<=20)){ADMX.lcMsg='Grant between 1 and 20 land credits.';render();return;}
+  const reason=String(ADMX.lcWhy||'').trim();if(!reason){ADMX.lcMsg='Write a reason first.';render();document.getElementById('admin-lc-why')?.focus();return;}
+  ADMX.lcBusy=true;ADMX.lcMsg='';render();
+  try{const r=await adminRequest({op:'landCredits',uid,k,reason});p.lcg=r.lcg;ADMX.lcWhy='';ADMX.lcMsg=`${k} land credit${k===1?'':'s'} granted. They are added the next time the player’s game is open.`;}
+  catch(e){ADMX.lcMsg='That did not work: '+(e.message||e.code||'unknown error');}
+  ADMX.lcBusy=false;render();
+}
+document.addEventListener('input',e=>{const t=e.target;if(!t)return;if(t.id==='admin-lc-why')ADMX.lcWhy=t.value;if(t.id==='admin-lc-k')ADMX.lcK=t.value;});
+document.addEventListener('click',e=>{const b=e.target&&e.target.closest&&e.target.closest('[data-act="admin-lc"]');if(b)adminLandSet(b.dataset.id);});
+if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE.LCG=()=>({LCG,lcgNorm,lcgDue,lcgApply,lcgConnect,adminLand,adminLandSet});}catch(e){}
 /* ───────── works done (WD): the bell tells of every work the builders finish, not only new buildings ─────────
    A building's upgrade, a retool, an economy level and a city's walls are written into the record (settled) by the
    first save after they finish (the COMMIT_HOOKS above), and the moment they finished goes with it; a Warehouse's tier
