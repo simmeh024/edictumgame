@@ -300,7 +300,7 @@ test('the five war edicts: never drawn at random, the last edicts added, each wi
   /* then the National Research Programme's (research.test.mjs), and nothing after those */
   const rsAt = code.indexOf('/* ───────── the National Research Programme (22 November 2026)'), rsP = code.indexOf('ISSUES.push(', vet + 20);
   assert.ok(rsAt > vet && rsP > rsAt, 'then the research edicts');
-  assert.equal(code.indexOf('ISSUES.push(', code.indexOf('/* ───────── military buildings (22 November 2026)')), -1, 'and nothing after those');
+  {const rse=code.indexOf('/* ───────── research edicts (23 November 2026)'),nx=code.indexOf('ISSUES.push(', code.indexOf('/* ───────── military buildings (22 November 2026)'));assert.ok(rse>0&&nx>rse,'and nothing after those but the research edicts (research-edicts.test.mjs)');}
   assert.match(readFileSync(new URL('../scripts/split-content.mjs', import.meta.url), 'utf8'), /'WAR2_ISSUES'/);
 });
 test('which war edict comes: the one that fits the trouble, one at a time and a day apart', () => {

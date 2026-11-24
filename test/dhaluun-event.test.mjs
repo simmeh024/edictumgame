@@ -4,7 +4,8 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 
 const html=fs.readFileSync(new URL('../game/edictum.html',import.meta.url),'utf8');
-const source=html.slice(html.indexOf('/* Dhaluun: a manually activated Cloudspine event */'),html.lastIndexOf("if(hot&&typeof hot.snapshot==='function')"));
+/* the section alone: later sections (the research edicts) follow it */
+const source=html.slice(html.indexOf('/* Dhaluun: a manually activated Cloudspine event */'),html.indexOf('} /* end Dhaluun event */')+'} /* end Dhaluun event */'.length);
 function game(){
   const W=160,H=8,N=W*H,cx=Float64Array.from({length:N},(_,c)=>c%W),cy=Float64Array.from({length:N},(_,c)=>Math.floor(c/W));
   const nbrFlat=new Int32Array(N*6).fill(-1);

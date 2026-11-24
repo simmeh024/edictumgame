@@ -11,7 +11,7 @@ import * as E from '../jobs/fx/engine.mjs';
 
 const src = readFileSync(new URL('../game/edictum.html', import.meta.url), 'utf8');
 const cut = (a, b) => { const i = src.indexOf(a), j = src.indexOf(b, i); assert.ok(i >= 0 && j > i, `source has ${a} … ${b}`); return src.slice(i, j); };
-const SEC = cut('/* ───────── military buildings (22 November 2026) ─────────', '\nif(hot&&typeof hot.snapshot');
+const SEC = cut('/* ───────── military buildings (22 November 2026) ─────────', '\n/* ───────── research edicts (23 November 2026)');
 const UG = cut('/* the five upgrade blocks', 'const CX_WALL=');
 const DAY = 864e5, MIN = 60000;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));

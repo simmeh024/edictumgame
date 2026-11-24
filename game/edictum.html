@@ -10860,6 +10860,16 @@ span.rs-card{cursor:default}
 @media (min-width:900px){.adst-rs2{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .adst-rstbl td:first-child,.adst-rstbl .rs-tt,.adst-rstbl .rs-nw{white-space:nowrap}
 /* rs:end */
+/* rse:start */
+/* research edicts: the line on an option that says what it does to research, and the Research page's edicts at work */
+.opt-rse{display:flex;gap:8px;align-items:flex-start;margin:6px 0 10px;font-size:13px;line-height:1.45;color:var(--ink-2);border-left:3px solid var(--accent);padding-left:9px}
+.opt-rse b{color:var(--ink)}
+.opt-rse .rse-ic{flex:none;display:inline-flex;color:var(--accent);margin-top:1px}
+.rse-list li{align-items:center}
+.rse-tag{flex:none;min-width:58px;text-align:center;font:600 11px/1 var(--f-body);letter-spacing:.04em;text-transform:uppercase;padding:5px 7px;border-radius:999px;border:1px solid currentColor}
+.rse-up .rse-tag{color:var(--up)}.rse-dn .rse-tag{color:var(--down)}.rse-mx .rse-tag{color:var(--ink-3)}
+.rs-rate .rse-dn dd{color:var(--down)}
+/* rse:end */
 /* food, timber and iron sinks (2026-11-22): field rations, famine relief, statues, railways relaid from roads */
 .rat-pips{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;margin:10px 0}
 .rat-pipw{display:inline-flex;gap:5px}.rat-pip{width:14px;height:14px;border-radius:50%;border:1.5px solid var(--rule-2);display:inline-block}.rat-pip.on{background:var(--accent);border-color:var(--accent)}
@@ -13606,6 +13616,11 @@ const POLICIES = {
   researchFund:['International Research Fund','The region pools money for research. Research Credits +5%.'],
   nuclearSafety:['Nuclear Safety Convention','Reactors and laboratories are inspected by the region. Grand Challenges and the laboratory’s works build 10% faster.'],
   armsControl:['Arms Control Treaty','Weapons are counted and inspected by the region. Wars cost 5% fewer materials.'],
+  /* made by the research edicts ("research edicts", RSE_LAW) */
+  researchTenure:['Research Tenure Act','The best scientists hold permanent posts. Research Credits +5%.'],
+  scienceAusterity:['Science Austerity Act','The laboratory’s budget is a tenth smaller. Research Credits −10%.'],
+  peerReview:['Peer Review Act','Every result is checked by a second team. Studies take 15% longer, and research is 5% cheaper.'],
+  fastTrackScience:['Fast-Track Science Act','Studies skip their slowest steps, and take 15% less time.'],
   universalHealth:['Universal Healthcare','Medical care is free at the point of use.'],
   freeUniversity:['Free University','Higher education is paid for by the state.'],
   gunControl:['Gun Control','Private ownership of handguns is banned.'],
@@ -18521,7 +18536,7 @@ const ISSUES = [
 {id:'rx-trip-retreats',c:'society',req:n=>!!n.policies.psychedelicTherapy,t:'Away With the Fungi',q:'Since doctors were allowed to prescribe psychedelics, “wellness retreats” have sprung up across the {D} countryside. A {CAP} bank sends its managers on a weekend called “Mushrooms for Leadership,” three ministries have held awaydays in a yurt, and one village council has voted to twin itself with the moon.',o:[
  {t:'“This is medicine, not a team-building exercise,” says psychiatrist Dr. Tomasz Achieng. “Only licensed clinics may give these drugs, only to patients, and only with a doctor in the room.”',e:{health:2,safety:2,econ:-2,tour:-2,b:{law:2}},fx:'psychedelic therapy is confined to hospitals, and the yurts have become rather confusing holiday lets'},
  {t:'“People are paying a fortune to stare at a tree,” says Finance Minister {FIN}. “License the retreats, tax every weekend, and let the trees earn their keep.”',e:{wealth:3,tour:4,econ:2,weird:3,cons:-2,health:-1},fx:'the countryside is dotted with licensed retreats, and the Treasury has a new revenue line labelled “enlightenment, taxable”'},
- {t:'“We opened a door and the whole country walked through it,” says Member of Parliament Hortensia Blackwood-Ilori. “Repeal the law. Mushrooms belong on toast.”',e:{cons:4,relig:2,health:-2,civil:-2,p:{psychedelicTherapy:0}},fx:'psychedelics are illegal again, and the bank in {CAP} has replaced its leadership weekend with a quiz'},
+ {t:'“We opened a door and the whole country walked through it,” says Member of Parliament Hortensia Quennell-Ilori. “Repeal the law. Mushrooms belong on toast.”',e:{cons:4,relig:2,health:-2,civil:-2,p:{psychedelicTherapy:0}},fx:'psychedelics are illegal again, and the bank in {CAP} has replaced its leadership weekend with a quiz'},
  {t:'“Our village has never been happier,” says Bramwell Osei-Dunmore, mayor of Upper Fennick. “Leave the retreats alone, and let us keep the moon.”',e:{happy:4,weird:5,civil:1,sci:-2,safety:-1},fx:'Upper Fennick has signed a twinning charter with the moon, which has not yet replied'}]},
 {id:'rx-sad-lamps',c:'welfare',t:'Light at the End of the Bus Shelter',q:'This has been the greyest winter on record, with eleven hours of sunshine in the whole of January, and doctors say a quarter of {N} has winter depression. The Health Ministry wants to fit every bus shelter with a therapy lamp bright enough to convince the brain that it is July.',o:[
  {t:'“Light is the cheapest antidepressant there is,” says psychiatrist Dr. Solveig Adeyemi. “Light up every bus shelter, and people will stand in them even after the bus has come.”',e:{happy:4,health:2,env:-2,tax:2,b:{health:2,transport:1}},fx:'bus shelters glow like midsummer, and commuters let three buses go past to finish their sunbathing'},
@@ -28306,7 +28321,7 @@ let migBusy=false;
 function npcMig(id){if(migBusy)return 0;migBusy=true;try{const p=migration().byId.get(id);return p?p.i-p.o:0;}catch(e){return 0;}finally{migBusy=false;}}
 
 /* ───────── laws that cannot stand together ───────── */
-const POLICY_CONFLICTS=[['stateReligion','secularism'],['blasphemy','secularism'],['surveillance','dataPrivacy'],['fourDay','sevenDay'],['noElections','directDemocracy'],['noElections','compulsoryVoting'],['noElections','proportionalRep'],['noElections','votesAt16'],['noElections','termLimits'],['noElections','sortition'],['openBorders','borderWall'],['sealedBorders','openBorders'],['sealedBorders','freeMovement'],['sealedBorders','exitTax'],['sealedBorders','skilledVisas'],['freeMovement','borderWall'],['freeMovement','exitTax'],['freeMovement','openBorders'],['pacifistConstitution','conscription'],['pacifistConstitution','nuclearArsenal'],['pacifistConstitution','mercenaries'],['oilDrilling','fossilPhaseOut'],['clearFelling','forestProtection'],['openCastMining','miningMoratorium'],['monarchy','termLimits'],['censorship','whistleblowerProtection'],['openScience','classifiedResearch']].filter(([a,b])=>POLICIES[a]&&POLICIES[b]);
+const POLICY_CONFLICTS=[['stateReligion','secularism'],['blasphemy','secularism'],['surveillance','dataPrivacy'],['fourDay','sevenDay'],['noElections','directDemocracy'],['noElections','compulsoryVoting'],['noElections','proportionalRep'],['noElections','votesAt16'],['noElections','termLimits'],['noElections','sortition'],['openBorders','borderWall'],['sealedBorders','openBorders'],['sealedBorders','freeMovement'],['sealedBorders','exitTax'],['sealedBorders','skilledVisas'],['freeMovement','borderWall'],['freeMovement','exitTax'],['freeMovement','openBorders'],['pacifistConstitution','conscription'],['pacifistConstitution','nuclearArsenal'],['pacifistConstitution','mercenaries'],['oilDrilling','fossilPhaseOut'],['clearFelling','forestProtection'],['openCastMining','miningMoratorium'],['monarchy','termLimits'],['censorship','whistleblowerProtection'],['openScience','classifiedResearch'],['researchTenure','scienceAusterity'],['peerReview','fastTrackScience']].filter(([a,b])=>POLICIES[a]&&POLICIES[b]);
 function conflictsOf(pk){const out=[];for(const [a,b] of POLICY_CONFLICTS){if(a===pk)out.push(b);else if(b===pk)out.push(a);}return out;}
 
 /* ───────── crowns ───────── */
@@ -101760,7 +101775,7 @@ w:[
 ]};
 /* the rules the server holds the research to (functions/research-rules.js; test/research.test.mjs checks they agree) */
 const RS_RULES={avg:[5,8,12,18,25,35,48,65,85,110,140,175,220,275,340,420,480,550,630,720,820,930,1050,1200],t1:[10,2,3,4,6],mul:[0,0.7,0.85,1,1.05],
-  eraHours:[0,2,6,12,24,36],discMax:0.25,intlMax:0.3,domMax:0.15,inst:[0,10,20,35,50,75,110,155,230],grants:{f:12},skew:120000};
+  eraHours:[0,2,6,12,24,36],discMax:0.25,intlMax:0.3,domMax:0.15,edMax:0.3,qMin:0.5,qMax:3,inst:[0,10,20,35,50,75,110,155,230],grants:{f:12},skew:120000};
 const RS_TRACKS=[{k:'t',n:'Trade',ico:'scales',al:'trade'},{k:'g',n:'Growth',ico:'leaf',al:'culture'},{k:'w',n:'War',ico:'swords',al:'def'}];
 const RS_ERAS=[['Foundations',1,4],['Industrialisation',5,8],['Modernisation',9,12],['National Excellence',13,16],['International Leadership',17,20],['Golden Age',21,24]];
 const RS_N=360,RS_TIERS=24,RS_PER=5,RS_TN=120;
@@ -101773,6 +101788,9 @@ function rsCostBase(i){
   let rest=5*a;for(let j=1;j<RS_PER;j++)rest-=Math.round(a*RS_RULES.mul[j]);return rest;
 }
 const rsHoursOf=i=>{const h=RS_RULES.eraHours[rsEraOf(rsTierOf(i))];return rsSlotOf(i)===0?h*1.5:h;};
+/* how long a study of technology i begun now would take, in ms (the research edicts and laws make it shorter or longer:
+   "research edicts", below, wraps this) */
+function rsStudyMs(n,i,now){return RS[i].h*3600e3;}
 (()=>{RS_TRACKS.forEach((T,k)=>RS_DATA[T.k].forEach((tier,ti)=>tier.forEach((e,s)=>{const i=rsIdx(k,ti+1,s),x=e[5]||{};
   RS[i]={i,id:e[0],n:e[1],ico:e[2],d:e[3],fx:e[4]||{},xid:x.x||[],q:x.q||{},k,t:ti+1,s,cost:rsCostBase(i),h:rsHoursOf(i)};RS_BY[e[0]]=RS[i];})));
   for(const r of RS)r.x=r.xid.map(id=>RS_BY[id].i);})();
@@ -102063,8 +102081,8 @@ function rsResearch(i){
     for(const r of RES)if(mat[r])st[r]-=mat[r];n.stock=roundStock(st);n.stockAt=Date.now();n._stockSet=true;}
   p.rs=Math.round((p.rs+price)*100)/100;
   const r=RS[i];
-  if(r.h>0){p.q=(p.q||[]).concat([[i,now,now+r.h*3600e3,price,0,S.mode!=='world'||!S.db?1:0]]);rsLog(n,'s',i,price,now);
-    commit(n);toast(`Your scientists have begun the study of ${r.n}. It will take ${fmtDur(r.h*3600e3)}.`);}
+  if(r.h>0){const ms=rsStudyMs(n,i,now);p.q=(p.q||[]).concat([[i,now,now+ms,price,0,S.mode!=='world'||!S.db?1:0]]);rsLog(n,'s',i,price,now);
+    commit(n);toast(`Your scientists have begun the study of ${r.n}. It will take ${fmtDur(ms)}.`);}
   else{const b=rsBits(p.k);rsPut(b,i);p.k=rsEnc(b);rsOnce(n,i);rsLog(n,'d',i,price,now);commit(n);RSV.toast=`Discovery: ${r.n}. ${rsFxLine(r)}`;toast(RSV.toast);}
   if(r.fx.ready||r.fx.rmax)try{saveSoon();}catch(e){}
   render();
@@ -102138,7 +102156,7 @@ function rsMandate(k,arg){
   if(!mdOk(n0,k,now)){toast(`${RS_MD[k][1]} needs ${mdCost(n0,k)} mandate; you have ${Math.floor(mdNow(n0,now))}.`);return;}
   const w=rsMdWait(n0,k,now);if(w){toast(`${RS_MD[k][1]} can be ordered again in ${fmtDur(w)}.`);return;}
   const n=clone(n0),p=n.nrp;let msg='';
-  if(k==='rsFund'){const e=(p.q||[]).find(q=>q[0]===arg);if(!e||e[4]){toast('That study cannot be hurried any more.');return;}const half=e[1]+(e[2]-e[1])/2;e[2]=Math.max(Math.min(e[2],now+(e[2]-now)/2),half);e[4]=1;msg=`Emergency funding: the study of ${RS[e[0]].n} will finish ${fmtDur(Math.max(0,e[2]-now))} from now.`;}
+  if(k==='rsFund'){const e=(p.q||[]).find(q=>q[0]===arg);if(!e||e[4]){toast('That study cannot be hurried any more.');return;}const half=Math.max(e[1]+(e[2]-e[1])/2,e[1]+RS[e[0]].h*3600e3*RS_RULES.qMin);e[2]=Math.max(Math.min(e[2],now+(e[2]-now)/2),Math.min(e[2],half));e[4]=1;msg=`Emergency funding: the study of ${RS[e[0]].n} will finish ${fmtDur(Math.max(0,e[2]-now))} from now.`;}
   else if(k==='rsSpeed'){
     if(arg==='lab'&&p.su&&!p.sh&&p.su>now){p.su=now+(p.su-now)/2;p.sh=1;msg='The builders work double shifts on the laboratory.';}
     else if(arg==='inst'&&p.xu&&!p.xh&&p.xu>now){p.xu=now+(p.xu-now)/2;p.xh=1;msg='The builders work double shifts on the expansion.';}
@@ -102539,7 +102557,7 @@ function rsDetailHTML(n,i,now){
   const q0=(p.q||[]).find(e=>e[0]===i);
   const rows=[['Cost',st==='done'?'Researched':`${price} RC${D.v?` <s class="hint">${r.cost}</s>`:''}`],['Prerequisite',esc(preTxt)+(xs.length?`; ${esc(list(xs))}`:'')]];
   if(Object.keys(mat).length&&st!=='done')rows.push(['Materials',esc(costText(mat))]);
-  if(r.h&&st!=='done')rows.push(['Study',fmtDur(r.h*3600e3)]);
+  if(r.h&&st!=='done'){const ms=rsStudyMs(n,i,now);rows.push(['Study',fmtDur(ms)+(Math.abs(ms-r.h*3600e3)>6e4?` <s class="hint">${fmtDur(r.h*3600e3)}</s>`:'')]);}
   const fx=rsFxParts(r.fx);
   const btn=st==='done'?`<p class="rs-done">${rsIco('check',18)} Researched${(()=>{const h=((n.nrx||{}).h||[]).find(e=>e[1]==='d'&&e[2]===i);return h?' on '+fmtDate(h[0]):'';})()}.</p>`
     :st==='study'?`<p class="rs-done">${rsIco('clock',18)} Study under way: ready ${q0&&q0[2]>now?'in '+fmtDur(q0[2]-now):'at the next save'}.</p>${q0&&!q0[4]&&q0[2]>now?`<button type="button" class="btn ghost rs-btn" data-act="rs-md" data-k="rsFund" data-v="${i}">Emergency funding · ${mdCost(n,'rsFund')} mandate</button>`:''}`
@@ -102547,7 +102565,7 @@ function rsDetailHTML(n,i,now){
   return `<aside class="rs-detail" aria-live="polite"><p class="eyebrow">Selected technology · ${RS_TRACKS[r.k].n} · Tier ${roman(r.t)}${r.s===0?' · Milestone':''}</p>
     <h2 class="rs-dh">${esc(r.n)}</h2><p class="rs-dd">${esc(r.d)}</p>
     <dl class="rs-dl">${rows.map(([a,v])=>`<div><dt>${a}</dt><dd>${v}</dd></div>`).join('')}<div><dt>Effect</dt><dd class="rs-fx">${fx.length?fx.map(x=>`<span>${esc(x)}</span>`).join(''):'—'}</dd></div></dl>
-    ${D.parts.length&&st!=='done'?`<p class="rs-disc"><b>Discounts ${Math.round(D.v*100)}%</b>: ${esc(list(D.parts.map(([l,v])=>`${l} ${Math.round(v*100)}%`)))}${D.parts.reduce((s,x)=>s+x[1],0)>RS_RULES.discMax+1e-9?' (at most 25% in all)':''}.</p>`:''}
+    ${D.parts.length&&st!=='done'?`<p class="rs-disc"><b>${D.v<0?`Dearer by ${Math.round(-D.v*100)}%`:`Discounts ${Math.round(D.v*100)}%`}</b>: ${esc(list(D.parts.map(([l,v])=>`${l} ${v<0?'+'+Math.round(-v*100)+'% dearer':Math.round(v*100)+'%'}`)))}${D.parts.reduce((s,x)=>s+Math.max(0,x[1]),0)>RS_RULES.discMax+1e-9?' (at most 25% off in all)':''}.</p>`:''}
     ${why.length&&st==='locked'?`<div class="rs-why"><p class="lbl">Why it is locked</p><ul>${why.map(w=>`<li>${rsIco('lock',13)} ${esc(w)}</li>`).join('')}</ul></div>`:''}
     ${btn}</aside>`;
 }
@@ -102728,7 +102746,7 @@ function rsOverviewHTML(n,now){
   const studies=(p.q||[]).map(e=>{const r=RS[e[0]],f=clamp((now-e[1])/Math.max(1,e[2]-e[1]),0,1);return `<li><span class="rs-li">${rsIco(r.ico,20)}</span><span class="rs-lb"><b>${esc(r.n)}</b><span class="hint">${RS_TRACKS[r.k].n}, Tier ${roman(r.t)} · ${e[2]>now?'ready in '+fmtDur(e[2]-now):'ready at the next save'}</span><span class="bar"><i style="width:${(f*100).toFixed(1)}%"></i></span></span>${!e[4]&&e[2]>now?`<button type="button" class="btn ghost sm" data-act="rs-md" data-k="rsFund" data-v="${e[0]}">Hurry · ${mdCost(n,'rsFund')} mandate</button>`:''}</li>`;}).join('');
   const avail=[];if(p.i)for(let i=0;i<RS_N;i++){if(rsHas(b,i))continue;const st=rsState(n,i,now,bal);if(st==='open'||st==='poor')avail.push([i,st,rsPrice(n,i,now)]);}
   avail.sort((x,y)=>(x[1]==='open'?0:1)-(y[1]==='open'?0:1)||x[2]-y[2]);
-  const av=avail.slice(0,6).map(([i,st,pr])=>{const r=RS[i];return `<li><span class="rs-li">${rsIco(r.ico,20)}</span><span class="rs-lb"><b>${esc(r.n)}</b><span class="hint">${RS_TRACKS[r.k].n}, Tier ${roman(r.t)} · ${pr} RC${r.h?' · '+fmtDur(r.h*3600e3):''} · ${esc(rsFxParts(r.fx)[0]||'')}</span></span><button type="button" class="btn ${st==='open'?'':'ghost '}sm" data-act="rs-research" data-v="${i}"${st==='open'?'':' disabled'}>${r.h?'Study':'Research'}</button></li>`;}).join('');
+  const av=avail.slice(0,6).map(([i,st,pr])=>{const r=RS[i];return `<li><span class="rs-li">${rsIco(r.ico,20)}</span><span class="rs-lb"><b>${esc(r.n)}</b><span class="hint">${RS_TRACKS[r.k].n}, Tier ${roman(r.t)} · ${pr} RC${r.h?' · '+fmtDur(rsStudyMs(n,i,now)):''} · ${esc(rsFxParts(r.fx)[0]||'')}</span></span><button type="button" class="btn ${st==='open'?'':'ghost '}sm" data-act="rs-research" data-v="${i}"${st==='open'?'':' disabled'}>${r.h?'Study':'Research'}</button></li>`;}).join('');
   const fr=RSB.from.overview||Infinity,rec=((n.nrx||{}).h||[]).filter(e=>e[1]==='d').slice(0,6).map(e=>{const r=RS[e[2]];return r?`<li><span class="rs-li">${rsIco(r.ico,20)}</span><span class="rs-lb"><b>${esc(r.n)}${e[0]>fr&&rsbTold(e)?' <span class="cz-new rs-new">New</span>':''}</b><span class="hint">${fmtDate(e[0])} · ${esc(rsFxLine(r))}</span></span></li>`:'';}).join('');
   const md=Object.entries(RS_MD).filter(([k])=>k!=='rsFund'&&k!=='rsSpeed').map(([k,[c,nm,d]])=>{const w=rsMdWait(n,k,now),ok=mdOk(n,k,now)&&!w;
     const ctl=k==='rsCommittee'?`<span class="rs-mdb">${RS_TRACKS.map(T=>`<button type="button" class="btn ghost sm" data-act="rs-md" data-k="${k}" data-v="${T.k}"${ok?'':' disabled'}>${T.n}</button>`).join('')}</span>`:`<button type="button" class="btn ghost sm" data-act="rs-md" data-k="${k}"${ok?'':' disabled'}>Order</button>`;
@@ -102742,7 +102760,7 @@ function rsOverviewHTML(n,now){
     </div>
     <div class="rs-ov-b">
       <section class="section rs-box rs-labcard"><div data-labfig="ov">${rsLabArt(rsLabState(n,now),'ov')}${rsLabProgressHTML(n,now)}</div><p class="lbl">${esc(cap1(p.i?rsInstName(n,p.l|0):p.nm||''))}</p><p class="hint">${esc(rsLabPlace(n))}${p.i?` · open since ${fmtDate(p.i)}`:''}${R.idle?` · <b class="dn">${esc(R.idle)}</b>`:''}</p></section>
-      ${p.i?`<section class="section rs-box"><h2 class="h2">Research Credits a day</h2><dl class="rs-rate">${R.parts.map(([l,v])=>`<div><dt>${esc(l)}</dt><dd class="num">+${fmtAmt(v)}</dd></div>`).join('')}${R.intl.v?`<div><dt>International cooperation</dt><dd class="num">+${Math.round(R.intl.v*100)}%</dd></div>`:''}${R.dom.v?`<div><dt>${esc(R.dom.parts.map(x=>x[0]).join(', '))}</dt><dd class="num">+${Math.round(R.dom.v*100)}%</dd></div>`:''}<div class="rs-tot"><dt>In all</dt><dd class="num">${fmtAmt(R.v)} RC</dd></div></dl></section>`:''}
+      ${p.i?`<section class="section rs-box"><h2 class="h2">Research Credits a day</h2><dl class="rs-rate">${R.parts.map(([l,v])=>`<div><dt>${esc(l)}</dt><dd class="num">+${fmtAmt(v)}</dd></div>`).join('')}${R.intl.v?`<div><dt>International cooperation</dt><dd class="num">+${Math.round(R.intl.v*100)}%</dd></div>`:''}${R.dom.v?`<div><dt>${esc(R.dom.parts.map(x=>x[0]).join(', '))}</dt><dd class="num">+${Math.round(R.dom.v*100)}%</dd></div>`:''}${R.ed&&R.ed.v?`<div class="rse-rate${R.ed.v<0?' rse-dn':''}"><dt>Research edicts and laws</dt><dd class="num">${R.ed.v<0?'−':'+'}${Math.round(Math.abs(R.ed.v)*100)}%</dd></div>`:''}<div class="rs-tot"><dt>In all</dt><dd class="num">${fmtAmt(R.v)} RC</dd></div></dl></section>`:''}
       <section class="section rs-box"><h2 class="h2">Scientific initiatives</h2><p class="hint">Paid for with mandate (you have ${Math.floor(mdNow(n,now))} of ${MD_CAP}).</p><ul class="rs-list rs-mdl">${md}</ul></section>
     </div></div>`;
 }
@@ -103836,6 +103854,422 @@ if(typeof window.EDICTUM_PROBE==='function')window.EDICTUM_PROBE.dhaluun={state:
    Willow Street's letters are (wsPush): an edict's number is its place (edict-order) */
 if(typeof CC_ISSUES!=='undefined'&&typeof ISSUES!=='undefined')for(const is of CC_ISSUES){if(ISSUE_BY_ID[is.id])continue;is.fo=1;ISSUES[ISSUES.length]=is;is.no=ISSUES.length;ISSUE_BY_ID[is.id]=is;is.nbx=false;}
 
+/* ───────── research edicts (23 November 2026) ─────────
+   Numbered after the captured cities' edicts above, which were live first (24 November): an edict's number is its
+   place (edict-order), so later edicts go after this section.
+   Sixty edicts for a nation whose laboratory is open (RSV_ISSUES, ids rsv-*), each of which speeds its research up or
+   slows it down, and four laws that do so for as long as they stand. Thirty-eight dilemmas (two of them choose a track
+   to put first), ten gambles (the option's own effects if the roll comes off, its g.e if not) and four stories of three
+   (nx/nxh; the follow-ups fo:1). Some come only while a study is under way (sq), and may name it ({RSSTUDY}); some
+   name the latest discovery ({RSTECH}).
+   Their research effects ride in an option's e (so a lost gamble has its own), and geoAfter does them, below, once the
+   credits are counted up to the moment of the ruling:
+     rcb [pct, days]      Research Credits a day ±pct% for so many days
+     rcp [pct, days, k?]  technologies pct% cheaper (negative: dearer) for so many days, in one track (t, g, w) or all
+     rqn pct              every study under way: pct% of the time it has left taken off (negative: added on)
+     rqs [pct, days, k?]  studies begun in the next so many days take pct% less time (negative: more), one track or all
+     rcx -days            Research Credits spent at once: so many days' worth at today's rate (no more than the balance)
+   The timed ones are kept in the shared record, n.nrp.ed: [{k: 'c' credits, 'p' price, 'q' study time; v: the share,
+   + faster or cheaper; a, u: from and until; t: a track, or none for all; id: the edict}]. With the laws, credits rise
+   by at most RS_RULES.edMax and fall by at most RSE_FLOOR; a price change counts with every other discount (at most
+   RS_RULES.discMax off); a study is never shorter than RS_RULES.qMin of its full time, nor longer than RS_RULES.qMax
+   of it. The server holds a save to the same bounds (functions/research-rules.js RS_ED_MAX, RS_Q_MIN, RS_Q_MAX).
+   Credits are counted piece by piece between the moments the rate changes (rseEarn), so a boost that ends between two
+   saves still counts for the hours it ran, and no longer.
+   The laws (POLICIES): researchTenure (Research Credits +5%), scienceAusterity (−10%), peerReview (studies 15% longer,
+   research 5% cheaper), fastTrackScience (studies 15% shorter); neither pair can stand together.
+   An option says what it does to research (gmbOdds, .opt-rse); the result says what it did; the Research page's
+   overview lists the edicts at work, and its credits a day show their share. ── */
+const RSE_FLOOR=0.5,RSE_KEEP=12,RSE_TRK={t:'Trade',g:'Growth',w:'War'};
+/* what each research law does: c the credits, q study time (+ shorter), p price (+ cheaper) */
+const RSE_LAW={researchTenure:{c:0.05},scienceAusterity:{c:-0.1},peerReview:{q:-0.15,p:0.05},fastTrackScience:{q:0.15}};
+const RSE_LAW_W={researchTenure:'Research Credits +5% for as long as it stands',scienceAusterity:'Research Credits −10% for as long as it stands',
+  peerReview:'studies 15% longer and research 5% cheaper for as long as it stands',fastTrackScience:'studies 15% shorter for as long as it stands'};
+const rseDays=d=>d===1?'a day':d+' days',rseNext=d=>d===1?'day':d+' days';
+/* an option's research effects in words (the option, its result, the record) */
+function rseWords(e){
+  const o=[];if(!e||typeof e!=='object')return o;
+  if(Array.isArray(e.rcb)){const [v,d]=e.rcb;o.push(`Research Credits ${v>0?'+':'−'}${Math.abs(v)}% for ${rseDays(d)}`);}
+  if(Array.isArray(e.rcp)){const [v,d,k]=e.rcp;o.push(`${k?RSE_TRK[k]+' research':'research'} ${Math.abs(v)}% ${v>0?'cheaper':'dearer'} for ${rseDays(d)}`);}
+  if(typeof e.rqn==='number')o.push(e.rqn>0?`studies under way finish sooner (${e.rqn}% of the time left cut)`:`studies under way take longer (${-e.rqn}% added to the time left)`);
+  if(Array.isArray(e.rqs)){const [v,d,k]=e.rqs;o.push(`${k?RSE_TRK[k]+' studies':'studies'} begun in the next ${rseNext(d)} take ${Math.abs(v)}% ${v>0?'less time':'longer'}`);}
+  if(typeof e.rcx==='number'&&e.rcx<0){const d=-e.rcx;o.push(`${d===0.25?'a quarter of a day’s':d===0.5?'half a day’s':d===1?'a day’s':d+' days’'} Research Credits spent`);}
+  if(e.p&&typeof e.p==='object')for(const k of Object.keys(e.p))if(e.p[k]&&RSE_LAW[k]&&POLICIES[k])o.push(`the ${POLICIES[k][0]} becomes law: ${RSE_LAW_W[k]}`);
+  return o;
+}
+const rseHas=e=>rseWords(e).length>0;
+/* a timed effect in words, as it stands */
+function rseEntryWords(e){
+  const pc=Math.round(Math.abs(e.v)*100),tk=e.t&&RSE_TRK[e.t]?RSE_TRK[e.t]+' ':'';
+  if(e.k==='c')return `Research Credits ${e.v>0?'+':'−'}${pc}%`;
+  if(e.k==='p')return `${tk?tk+'research':'Research'} ${pc}% ${e.v>0?'cheaper':'dearer'}`;
+  return `${tk?tk+'studies':'Studies'} begun now take ${pc}% ${e.v>0?'less time':'longer'}`;
+}
+/* the timed effects of a record at a moment: of kind k, for track t (an effect for every track counts for each) */
+function rseAt(p,k,now,t){return ((p&&Array.isArray(p.ed))?p.ed:[]).filter(e=>e&&e.k===k&&e.a<=now&&now<e.u&&(!t||!e.t||e.t===t));}
+/* shares together: what is positive at most hi, and the whole never below -lo */
+function rseSum(parts,hi,lo){const pos=parts.reduce((s,x)=>s+Math.max(0,x[1]),0),neg=parts.reduce((s,x)=>s+Math.min(0,x[1]),0);return Math.round(clamp(Math.min(hi,pos)+neg,-lo,hi)*1000)/1000;}
+function rseName(n,id){const is=ISSUE_BY_ID[id];try{return is?fill(is.t,n,null):'An edict';}catch(e){return is?is.t:'An edict';}}
+const rseLawOn=(n,k)=>{try{return !!pol(n)[k];}catch(e){return false;}};
+/* the credits' share from edicts and laws now: {v, parts [[name, share, until or 0]]} */
+function rseRateParts(n,now){
+  const p=rsOf(n),parts=[];if(!p)return {v:0,parts};
+  for(const e of rseAt(p,'c',now))parts.push([rseName(n,e.id),e.v,e.u]);
+  for(const [k,L] of Object.entries(RSE_LAW))if(L.c&&rseLawOn(n,k))parts.push([POLICIES[k][0],L.c,0]);
+  return {v:parts.length?rseSum(parts,RS_RULES.edMax,RSE_FLOOR):0,parts};
+}
+/* a study's time now: the share taken off (negative: added) by edicts and laws */
+function rseStudyShare(n,i,now){
+  const p=rsOf(n),t=RS_TRACKS[RS[i].k].k,parts=[];
+  for(const e of rseAt(p,'q',now,t))parts.push([rseName(n,e.id),e.v]);
+  for(const [k,L] of Object.entries(RSE_LAW))if(L.q&&rseLawOn(n,k))parts.push([POLICIES[k][0],L.q]);
+  return {v:Math.round(clamp(parts.reduce((s,x)=>s+x[1],0),1-RS_RULES.qMax,1-RS_RULES.qMin)*1000)/1000,parts};
+}
+rsStudyMs=(f=>function(n,i,now){
+  const ms=f.apply(this,arguments),full=RS[i].h*3600e3,S0=rseStudyShare(n,i,now||Date.now());
+  return S0.v?Math.round(clamp(ms*(1-S0.v),full*RS_RULES.qMin,full*RS_RULES.qMax)):ms;})(rsStudyMs);
+/* the credits a day: the edicts' and laws' share on top of cooperation's and the nation's own */
+rsRateParts=(f=>function(n,now){
+  const R=f.apply(this,arguments),p=rsOf(n);if(!p||!p.i||R.idle||!(R.base>0))return R;
+  const E=rseRateParts(n,now||Date.now());if(!E.parts.length)return R;
+  return Object.assign({},R,{ed:E,v:Math.max(0,Math.round(R.base*(1+R.intl.v+R.dom.v+E.v)*100)/100)});})(rsRateParts);
+/* prices: an edict's discount counts with every other (at most RS_RULES.discMax), and dearer is dearer */
+rsDisc=(f=>function(n,i,now){
+  const D=f.apply(this,arguments),p=rsOf(n);if(!p)return D;now=now||Date.now();
+  const t=RS_TRACKS[RS[i].k].k,add=rseAt(p,'p',now,t).map(e=>[rseName(n,e.id),e.v]);
+  for(const [k,L] of Object.entries(RSE_LAW))if(L.p&&rseLawOn(n,k))add.push([`the ${POLICIES[k][0]}`,L.p]);
+  if(!add.length)return D;const parts=D.parts.concat(add);
+  return {v:rseSum(parts,RS_RULES.discMax,RSE_FLOOR),parts};})(rsDisc);
+/* credits earned from a to b, counted piece by piece between the moments the rate changes (an edict's boost begins or
+   ends, a commissioned report runs out), each piece at the rate just before its end; with no boost at all, as before:
+   the rate at b for the whole time */
+function rseEarn(n,a,b){
+  if(!(b>a))return 0;const p=rsOf(n),cut=new Set([a,b]),at=t=>{if(typeof t==='number'&&t>a&&t<b)cut.add(t);},ed=((p&&Array.isArray(p.ed))?p.ed:[]).filter(e=>e&&e.k==='c');
+  for(const e of ed){at(e.a);at(e.u);}
+  if(p&&p.rp)at(p.rp);
+  if(cut.size===2&&!ed.length)return rsRate(n,b)*(b-a)/DAY;
+  const ts=[...cut].sort((x,y)=>x-y);let s=0;for(let j=1;j<ts.length;j++)s+=rsRate(n,ts[j]-1)*(ts[j]-ts[j-1])/DAY;return s;
+}
+rsBal=function(n,now){const p=rsOf(n);if(!p||!p.i)return 0;const from=p.ra||p.i,t=Math.max(from,Math.min(now||rsNow(),rsNow()));return Math.max(0,p.re-p.rs+rseEarn(n,from,t));};
+rsAccrue=function(n,now){const p=rsOf(n);if(!p||!p.i)return 0;const t=Math.min(now||rsNow(),rsNow()),from=p.ra||p.i;if(!(t>from))return 0;const add=rseEarn(n,from,t);p.re=Math.round((p.re+add)*100)/100;p.ra=t;return add;};
+/* the record: well formed, and none kept past its use (a credits boost until the credits are counted past its end) */
+function rseClean(d,ra,now){
+  if(!Array.isArray(d))return [];
+  return d.filter(e=>e&&['c','p','q'].includes(e.k)&&typeof e.v==='number'&&isFinite(e.v)&&Math.abs(e.v)<=1&&rsNum(e.a,0,9e15)>0&&rsNum(e.u,0,9e15)>e.a&&(e.k==='c'?e.u>(ra||0):e.u>now))
+    .slice(-RSE_KEEP).map(e=>{const o={k:e.k,v:Math.round(e.v*1000)/1000,a:e.a,u:e.u,id:typeof e.id==='string'?e.id.slice(0,40):''};if(['t','g','w'].includes(e.t))o.t=e.t;return o;});
+}
+NORM_HOOKS.push((n,d)=>{if(n&&n.nrp&&d&&d.nrp&&typeof d.nrp==='object'){const ed=rseClean(d.nrp.ed,n.nrp.ra,Date.now());if(ed.length)n.nrp.ed=ed;else delete n.nrp.ed;}});
+/* the ruling's research effects, on the copy being committed: the credits counted to now first, then each effect,
+   with a note for the result */
+function rseApply(n,e,id,now){
+  const p=rsOf(n),out=[];if(!p||!p.i)return out;const t0=Math.min(now,rsNow());
+  rsAccrue(n,t0);p.ed=rseClean(p.ed,p.ra,t0);
+  const put=(k,v,days,t)=>{const x={k,v:Math.round(v*1000)/1000,a:t0,u:t0+days*DAY,id:String(id||'').slice(0,40)};if(t&&RSE_TRK[t])x.t=t;p.ed=p.ed.concat([x]).slice(-RSE_KEEP);return x;};
+  const until=u=>`until ${fmtTime(u)}${dayTail(u,t0)}`;
+  if(Array.isArray(e.rcb)){const [v,d]=e.rcb,was=rsRate(n,t0);const x=put('c',v/100,d);const E=rseRateParts(n,t0+1),is=rsRate(n,t0+1),pos=E.parts.reduce((s,q)=>s+Math.max(0,q[1]),0);
+    out.push(['Research',`Research Credits ${v>0?'+':'−'}${Math.abs(v)}% ${until(x.u)}: ${fmtAmt(was)} → ${fmtAmt(is)} a day${pos>RS_RULES.edMax+1e-9?` (research edicts and laws add ${Math.round(RS_RULES.edMax*100)}% at most, together)`:''}.`]);}
+  if(Array.isArray(e.rcp)){const [v,d,k]=e.rcp,x=put('p',v/100,d,k);out.push(['Research',`${k&&RSE_TRK[k]?RSE_TRK[k]+' research':'Research'} ${Math.abs(v)}% ${v>0?'cheaper':'dearer'} ${until(x.u)}${v>0?' (with every other discount, 25% off at most)':''}.`]);}
+  if(Array.isArray(e.rqs)){const [v,d,k]=e.rqs,x=put('q',v/100,d,k);out.push(['Research',`${k?RSE_TRK[k]+' studies':'Studies'} begun ${until(x.u)} take ${Math.abs(v)}% ${v>0?'less time':'longer'}.`]);}
+  if(typeof e.rqn==='number'&&e.rqn){
+    const v=e.rqn/100,moved=[];let held=0;
+    for(const q of p.q||[]){if(!(q[2]>t0))continue;const r=RS[q[0]],full=r.h*3600e3,left=q[2]-t0;
+      const ne=v>0?Math.max(t0+left*(1-v),Math.min(q[2],q[1]+full*RS_RULES.qMin)):Math.min(q[2]+left*-v,Math.max(q[2],q[1]+full*RS_RULES.qMax));
+      if(Math.abs(ne-q[2])<6e4){held++;continue;}q[2]=Math.round(ne);moved.push(`${r.n} ${fmtDur(q[2]-t0)} from now (was ${fmtDur(left)})`);}
+    out.push(['Research',moved.length?`${v>0?'Hurried':'Held up'}: ${list(moved)}.`:held?(v>0?'Your studies were already as quick as a study can be.':'Your studies were already as slow as they can be made.'):`No study was under way, so nothing was ${v>0?'hurried':'held up'}.`]);
+  }
+  if(typeof e.rcx==='number'&&e.rcx<0){const want=Math.round(-e.rcx*rsRate(n,t0)*100)/100,bal=Math.max(0,p.re-p.rs),take=Math.round(Math.min(want,bal)*100)/100;
+    if(take>0){p.rs=Math.round((p.rs+take)*100)/100;out.push(['Research',`${fmtAmt(take)} Research Credits went on it${take+0.005<want?': all the laboratory had':''}.`]);}
+    else out.push(['Research','The laboratory had no Research Credits to spare.']);}
+  const w=rseWords(e);if(w.length)rsLog(n,'ed',String(id||'').slice(0,40),cap1(list(w)).slice(0,80),t0);
+  return out;
+}
+geoAfter=(f=>function(n,opt,ent,now,prior){
+  const notes=f.apply(this,arguments);
+  try{const e=opt&&opt.e;if(e&&n&&!n.npc&&rsOf(n)&&rseHas(e))notes.push(...rseApply(n,e,(ent&&ent.id)||(prior&&prior.id)||'',now||Date.now()));}catch(err){console.warn('research edicts',err);}
+  return notes;})(geoAfter);
+/* the option says what it would do to research; a gamble, both ways */
+gmbOdds=(f=>function(o,n,x){
+  const h=f.apply(this,arguments);
+  try{if(!o||!o.e)return h;const a=rseWords(o.e),b=o.g?rseWords(o.g.e||{}):[];if(!a.length&&!b.length)return h;
+    const body=o.g?`<b>If it comes off:</b> ${a.length?esc(list(a)):'research goes on as before'}. <b>If not:</b> ${b.length?esc(list(b)):'research goes on as before'}.`:esc(cap1(list(a)))+'.';
+    return h+`<p class="opt-rse"><span class="rse-ic" aria-hidden="true">${rsIco('flask',15)}</span><span>${body}</span></p>`;}catch(e){}
+  return h;})(gmbOdds);
+/* the scientific record keeps each ruling's research effects */
+RS_REC_K.a.push('ed');
+rsRecWords=(f=>function(n,e){if(e&&e[1]==='ed')return ['Edict',`${ISSUE_BY_ID[e[2]]?'“'+rseName(n,e[2])+'”: ':''}${e[3]||'research changed'}.`];return f.apply(this,arguments);})(rsRecWords);
+/* the Research page: the edicts at work, beside the scientific initiatives */
+function rseBoxHTML(n,now){
+  const p=rsOf(n);if(!p||!p.i)return '';const rows=[];
+  for(const e of rseAt(p,'c',now).concat(rseAt(p,'p',now),rseAt(p,'q',now)).sort((a,b)=>a.u-b.u))rows.push([e.v>0?'up':'dn',rseName(n,e.id),rseEntryWords(e),`${fmtDur(e.u-now)} left`]);
+  for(const k of Object.keys(RSE_LAW))if(rseLawOn(n,k))rows.push([k==='peerReview'?'mx':(RSE_LAW[k].c||RSE_LAW[k].q)>0?'up':'dn',POLICIES[k][0],cap1(RSE_LAW_W[k].replace(/ for as long as it stands$/,'')),'law']);
+  if(!rows.length)return '';const W={up:'Faster',dn:'Slower',mx:'Mixed'};
+  return `<section class="section rs-box rse-box"><h2 class="h2">Edicts at work</h2><ul class="rs-list rse-list">${rows.map(([c,t,w,l])=>`<li class="rse-${c}"><span class="rse-tag">${W[c]}</span><span class="rs-lb"><b>${esc(t)}</b><span class="hint">${esc(w)} · ${esc(l)}</span></span></li>`).join('')}</ul></section>`;
+}
+rsOverviewHTML=(f=>function(n,now){
+  const h=f.apply(this,arguments);
+  try{const box=rseBoxHTML(n,now||Date.now()),k='<section class="section rs-box"><h2 class="h2">Scientific initiatives</h2>';if(box&&h.includes(k))return h.replace(k,box+k);}catch(e){}
+  return h;})(rsOverviewHTML);
+/* the words: a study under way ({RSSTUDY}, the one that ends last, else the last begun) and the latest discovery ({RSTECH}) */
+function rseStudyName(n){
+  const p=rsOf(n),q=(p&&p.q||[]).slice().sort((a,b)=>b[2]-a[2])[0];if(q&&RS[q[0]])return RS[q[0]].n;
+  const h=((n&&n.nrx&&n.nrx.h)||[]).find(e=>e[1]==='s'&&RS[e[2]]);return h?RS[h[2]].n:'the next technology';
+}
+function rseTechName(n){const h=((n&&n.nrx&&n.nrx.h)||[]).find(e=>e[1]==='d'&&RS[e[2]]);return h?RS[h[2]].n:'its newest research';}
+fill=(f=>function(t,n,x){
+  if(typeof t==='string'&&n&&(t.indexOf('{RSSTUDY}')>=0||t.indexOf('{RSTECH}')>=0))t=t.replace(/\{RSSTUDY\}/g,()=>rseStudyName(n)).replace(/\{RSTECH\}/g,()=>rseTechName(n));
+  return f.call(this,t,n,x);})(fill);
+/* when they come: the laboratory open (and, for some, a study under way) */
+const rseOpen=n=>rsOn(n)&&rsPlaced(n);
+const rseStudying=n=>{const p=rsOf(n);return !!(p&&Array.isArray(p.q)&&p.q.some(e=>e[2]>Date.now()));};
+const RSV_ISSUES=[
+/* ── dilemmas ── */
+{id:'rsv-night-shift',c:'tech',t:'The Lights Stay On',q:'The scientists have asked to work through the night. The laboratory’s instruments stand idle from six in the evening until eight in the morning, and {RSDIR} reckons a night shift would do a week’s work in five days. The night watchman, who has had the building to himself for nineteen years, has asked to be consulted.',o:[
+ {t:'“Two shifts, round the clock, with overtime paid,” says {RSDIR}. “Science does not sleep, and for the next three days nor shall we.”',e:{happy:-1,tax:1,rcb:[20,3]},fx:'the laboratory works through the night, and the night watchman has started selling sandwiches at three in the morning'},
+ {t:'“Volunteers only, and a taxi home,” says the scientists’ staff representative, Pernille Ashgrove-Tull. “Some of us are owls. The rest of us are not.”',e:{rcb:[10,3]},fx:'a small band of night owls keeps the laboratory running after dark, and the taxi firm has hired two extra drivers'},
+ {t:'“Lights out at ten, and a proper breakfast at eight,” says Minister of Health and Education {HEA}. “Tired scientists make expensive mistakes.”',e:{health:2,happy:1,rcb:[-10,2]},fx:'the laboratory now closes at ten every night, and its scientists arrive in the morning rested, fed and noticeably slower'}]},
+{id:'rsv-coffee',c:'weird',t:'The Coffee Machine',q:'The laboratory’s coffee machine, a hissing brass monster older than most of the scientists, has died. Work has slowed by a third, according to a study the scientists carried out on themselves during their first decaffeinated afternoon. A catalogue of replacements lies on the Treasury’s desk, open at the most expensive page.',o:[
+ {t:'“Buy the Italian one with the eagle on top,” says senior chemist Bartholomew Quist-Ferraby. “Forty cups a minute and a noise like a steam train. Morale is a reagent too.”',e:{wealth:-1,happy:1,rcb:[15,4]},fx:'a gleaming Italian coffee machine with an eagle on top now presides over the laboratory, and the results are coming faster than ever'},
+ {t:'“A jar of instant and a kettle,” says the Treasury’s under-secretary, Grizelda Haverstock-Mwangi. “Great discoveries have been made on worse.”',e:{econ:1,rcb:[-5,3]},fx:'the laboratory runs on instant coffee and quiet resentment, and the work goes on, slightly slower'},
+ {t:'“No coffee at all. Nettle tea and a brisk walk,” says the laboratory’s wellbeing officer, Clementine Arrowsmith-Pike. “The mind wakes itself.”',e:{health:2,weird:1,rcb:[-15,2]},fx:'the laboratory now runs on nettle tea and brisk walks, and three experiments have been put off “until we feel more ourselves”'}]},
+{id:'rsv-congress',c:'world',t:'The Grand Congress',q:'The Regional Congress of Sciences meets this year in a spa town four hundred kilometres away: six days of lectures, dinners and arguments about whose slide was upside down. Every scientist in the laboratory has been invited. So, by return of post, has every scientist’s spouse.',o:[
+ {t:'“Send everyone,” says {RSDIR}. “We will come back with forty new ideas and a great many business cards. The benches can wait a few days.”',e:{sci:1,culture:1,rcb:[-20,3],rcp:[10,6]},fx:'the whole laboratory went to the congress and came back with forty new ideas, sixty business cards and a shared cold'},
+ {t:'“Send three, and make them take notes,” says Foreign Minister {FOR}. “Bring back the ideas. Leave the spa.”',e:{rcp:[5,5]},fx:'three scientists went to the congress, took notes in shorthand and came home with a suitcase of borrowed ideas'},
+ {t:'“Offer to host the next one here,” says the laboratory’s events officer, Ignatius Holloway-Brede. “The congress comes to us, and nobody leaves the bench.”',e:{tour:2,wealth:-1,rcb:[10,4]},fx:'{N} will host the next Regional Congress of Sciences, and the laboratory works on while the conference hall goes up next door'}]},
+{id:'rsv-forms',c:'gov',t:'Forty Pages of Forms',q:'A scientist who wants to begin a new study must now fill in a forty-page form, in triplicate, signed by four officials, one of whom retired in the spring. The Ministry of Science says the forms prevent waste. The scientists say the forms are the waste, and have filled in a forty-page form saying so.',o:[
+ {t:'“One page, one signature,” says {RSDIR}. “If an idea does not fit on a page, it is not ready.”',e:{corrupt:1,rqs:[20,5]},fx:'a new study now needs one page and one signature, and the laboratory is starting projects faster than it can name them'},
+ {t:'“The forms stay,” says the Ministry of Science’s chief auditor, Euphemia Grindle-Watts. “Every coin accounted for, every study justified, every page numbered.”',e:{corrupt:-1,rqs:[-15,5]},fx:'the forty-page form survives, renumbered and in a new colour, and every new study waits its turn in the in-tray'},
+ {t:'“Hire clerks to fill them in,” says Interior Minister {INT}. “The scientists do science, and the clerks do paper.”',e:{tax:1,rcx:-0.5,rqs:[10,4]},fx:'a team of clerks fills in the forms on the scientists’ behalf, and the laboratory has given each of them a mug'}]},
+{id:'rsv-down-pipettes',c:'econ',t:'Down Pipettes',q:'The laboratory’s technicians, who wash the glassware, mind the instruments and know where everything is, have gone on strike for better pay. Without them the scientists broke eleven beakers in a morning and cannot find the liquid nitrogen. The union’s demands are pinned to the noticeboard, beside a drawing of a sad beaker.',o:[
+ {t:'“Pay them what they ask, from the laboratory’s own budget,” says {RSDIR}. “I have tried cleaning a centrifuge. Never again.”',e:{equal:1,happy:1,rcx:-1},fx:'the technicians won their pay rise from the laboratory’s own budget, and the liquid nitrogen has been found'},
+ {t:'“Half now and half next year,” says the mediator, Rosalind Petheridge-Croft. “Nobody is happy, which is how you know it is fair.”',e:{rcb:[-10,2]},fx:'the technicians took half now and half next year, and went back to work after two days of grumbling'},
+ {t:'“Not a penny more,” says Finance Minister {FIN}. “The scientists can wash their own beakers.”',e:{econ:1,equal:-1,rcb:[-30,3],rqn:-20},fx:'the strike goes on, the scientists are washing their own beakers, and every study has slowed to the speed of a hand-dried test tube'}]},
+{id:'rsv-long-weekend',c:'culture',t:'The Long Weekend',q:'Founders’ Day falls on a Thursday this year, and the Cabinet proposes a four-day weekend for the whole nation. The laboratory would close with everything else. {RSDIR} points out that the cultures in the incubators do not observe public holidays, and that the mice will expect breakfast.',o:[
+ {t:'“Close everything, the laboratory too,” says Minister of Culture and Sport {CUL}. “Even geniuses need a picnic.”',e:{happy:2,rcb:[-20,2]},fx:'the laboratory closed for the long weekend, and a skeleton crew of one fed the mice and talked to the cultures'},
+ {t:'“A skeleton staff, paid double,” says the deputy director, Augustin Feverell-Mayhew. “The experiments tick over, and nobody is there long enough to mind.”',e:{tax:1,rcb:[-5,2]},fx:'a skeleton staff kept the laboratory ticking over through the long weekend, at double pay'},
+ {t:'“The laboratory stays open, with cake,” says {RSDIR}. “Some of us would rather be here anyway.”',e:{happy:-1,rcb:[10,2]},fx:'the laboratory stayed open through the long weekend with cake in the common room, and got more done than in an ordinary week'}]},
+{id:'rsv-catalogue',c:'tech',t:'The Instrument Catalogue',q:'The laboratory has asked for new instruments: microscopes that see further, scales that weigh finer, and a centrifuge that does not walk across the floor when it spins. The supplier’s catalogue runs to four hundred pages and is priced in a currency nobody recognises. The old centrifuge has reached the door.',o:[
+ {t:'“The best of everything,” says {RSDIR}. “Fine instruments make fast science.”',e:{wealth:-2,rqs:[25,6]},fx:'the laboratory has the finest instruments in the region, and its new studies are racing ahead'},
+ {t:'“Second-hand, from a university that is closing,” says procurement officer Tobias Wendlebury-Hart. “Half the price, and only slightly haunted.”',e:{wealth:-1,rqs:[10,5]},fx:'the laboratory bought a closing university’s instruments at half price, and one microscope still has a student’s sandwich in it'},
+ {t:'“Bolt the centrifuge to the floor,” says the Treasury’s value-for-money officer, Algernon Pettifer-Quaid. “Problem solved.”',e:{econ:1,rqs:[-10,5]},fx:'the centrifuge is bolted to the floor, and every new study takes a little longer while the scientists queue for it'}]},
+{id:'rsv-borrowed-time',c:'tech',sq:1,t:'Borrowed Time',q:'The Treasury’s great computer, which works out the national budget in the mornings, sits idle every night. The team studying {RSSTUDY} would like to borrow it from midnight until six. The Treasury’s chief programmer says the computer “has feelings about strangers”.',o:[
+ {t:'“Lend it to the laboratory every night,” says {RSDIR}. “A week of sums in a night, and the Treasury none the wiser.”',e:{econ:-1,rqn:25},fx:'the Treasury’s computer now works nights for the laboratory, and the budget has started arriving with equations in the margins'},
+ {t:'“Rent time on a computer abroad,” says the laboratory’s systems manager, Desmond Okafor-Pellingham. “Expensive, but it does not have feelings.”',e:{rcx:-0.5,rqn:15},fx:'the laboratory rents time on a foreign computer, and its results come back overnight with a polite invoice'},
+ {t:'“The Treasury’s computer stays at the Treasury,” says its chief programmer, Hortensia Vellacott-Nyarko. “I have seen what scientists do to keyboards.”',e:{econ:1},fx:'the Treasury’s computer stays at the Treasury, and the laboratory does its sums the long way'}]},
+{id:'rsv-inspector',c:'welfare',t:'The Inspector Calls',q:'The national safety inspector has visited the laboratory and filled a notebook. The fire doors are propped open with textbooks, an extension lead runs through a fish tank, and something in the basement is labelled only “DO NOT”. She proposes to close the building for a full inspection.',o:[
+ {t:'“Close it and do it properly,” says the inspector, Marguerite Fellowes-Hadley. “Two days of inspection, and twenty years of not exploding.”',e:{safety:2,rcb:[-25,2]},fx:'the laboratory closed for two days of inspection, and the thing in the basement turned out to be soup'},
+ {t:'“Fix it while we work,” says {RSDIR}. “A fire door at a time, and nobody stops.”',e:{safety:1,rcb:[-10,3]},fx:'the laboratory is being made safe one fire door at a time, while the scientists work around the workmen'},
+ {t:'“Sign the certificate and move on,” says a senior official at the Ministry of Science. “Nothing has exploded yet.”',e:{safety:-2,corrupt:1,rcb:[5,3]},fx:'the safety certificate was signed without further fuss, and the extension lead still runs through the fish tank'}]},
+{id:'rsv-open-week',c:'welfare',t:'The Open Week',q:'The public wants to see inside the laboratory. Schools have written, pensioners have written, and a man who believes the laboratory is building a time machine has written eleven times. Every visitor would need a guide, a hard hat and someone to stop them pressing the red button.',o:[
+ {t:'“Open the doors for a week,” says the outreach officer, Philippa Bramwell-Osei. “Every child who visits is a scientist in twenty years.”',e:{edu:2,happy:1,sci:1,rcb:[-15,3]},fx:'twelve thousand visitors toured the laboratory in a week, and the time-machine man left disappointed but delighted'},
+ {t:'“One Saturday afternoon,” says {RSDIR}. “Hard hats, a marked route and a tea towel over the red button.”',e:{edu:1,rcb:[-5,1]},fx:'the laboratory opened for one afternoon, and the tea towel over the red button has become a tourist attraction'},
+ {t:'“A laboratory is a workplace, not a museum,” says the head of security, Lorcan Brightmore-Iweala. “Send them a brochure.”',e:{edu:-1,cons:1,rcb:[10,2]},fx:'the laboratory stays closed to the public and sent out a glossy brochure instead, and the work goes on undisturbed'}]},
+{id:'rsv-cat',c:'weird',t:'The Laboratory Cat',q:'A large ginger cat has moved into the laboratory. It sleeps on the warm instruments, walks across keyboards during calculations and has twice deleted a week’s results by sitting on them. The scientists adore it. A petition to make it Head of Morale has two hundred signatures and one paw print.',o:[
+ {t:'“Appoint the cat Head of Morale,” says {RSDIR}. “I have never seen the laboratory so cheerful, or so covered in fur.”',e:{happy:1,weird:2,rcb:[10,5]},fx:'the cat is now Head of Morale, with a badge and a basket, and the laboratory has never been happier'},
+ {t:'“Find it a good home outside,” says the safety officer, Lucan Hetherington-Bligh. “Fur and microscopes do not mix.”',e:{safety:1,happy:-1,rqs:[-10,4]},fx:'the cat now lives with the safety officer, and the scientists have been sulking over their new studies ever since'},
+ {t:'“A cat flap, a rota and a basket away from the keyboards,” says the night watchman. “Everyone wins, especially the cat.”',e:{happy:1,rcb:[5,4]},fx:'the cat has a basket of its own and a rota of scientists to feed it, and the keyboards are mostly safe'}]},
+{id:'rsv-patent-queue',c:'econ',t:'The Patent Queue',q:'The patent office has a backlog of three years, and the laboratory will not publish a discovery until it is patented. The scientists are sitting on their results like hens on eggs, and some of the eggs, as one of them put it, “are getting on a bit”.',o:[
+ {t:'“Forty more examiners, and the backlog gone by spring,” says the business lobbyist Fenella Craddock-Oyinlola. “Every patent is a business waiting to happen.”',e:{econ:1,tax:1,rcp:[10,6]},fx:'forty new patent examiners are working through the backlog, and the laboratory’s results are reaching industry at last'},
+ {t:'“Publish everything now and patent nothing,” says {RSDIR}. “An idea shared today is worth ten patented in three years.”',e:{sci:1,wealth:-1,rcp:[5,6]},fx:'the laboratory publishes what it finds the day it finds it, and the patent office has quietly stopped writing to it'},
+ {t:'“Wait your turn like everybody else,” says the patent registrar, Cornelius Abernethy-Sloane. “The queue is the queue.”',e:{cons:1,rcb:[-10,4]},fx:'the laboratory waits its turn at the patent office, and its scientists have taken up knitting while they wait'}]},
+{id:'rsv-graduates',c:'welfare',t:'Twelve Graduates',q:'The twelve best science graduates of the year have each been offered two jobs: one at the laboratory, and one at a chemical company that pays twice as much and has a swimming pool. The graduates have asked the government, together and somewhat cheekily, to make them a better offer.',o:[
+ {t:'“Match the company’s salaries,” says {RSDIR}. “Twelve bright young minds are worth a swimming pool.”',e:{tax:1,econ:-1,rcb:[15,6]},fx:'all twelve graduates joined the laboratory at company salaries, and have already asked about the swimming pool'},
+ {t:'“Six to us and six to industry,” says the dean of the national university, Isadora Kettleworth-Nnamdi. “The nation needs both.”',e:{econ:1,rcb:[5,5]},fx:'six graduates joined the laboratory and six the chemical company, and they meet on Fridays to compare swimming pools'},
+ {t:'“Let them go where the money is,” says the chair of the Chamber of Industry, Leopoldine Varga-Moss. “Industry is science that pays for itself.”',e:{econ:2,rcb:[-5,4]},fx:'all twelve graduates went to industry, and the laboratory’s newest scientist is forty-three'}]},
+{id:'rsv-checked-twice',c:'gov',t:'Checked Twice',q:'A result the laboratory announced with great fanfare last month turned out to be a smudge on a lens. The newspapers have been merciless. A parliamentary committee proposes that every result be checked by a second team before it is announced: slower, it admits, but never again a smudge.',o:[
+ {t:'“Make it law,” says the committee’s chair, Ottilie Saxby-Ruthven. “Every result checked twice. Slower science, but true science.”',e:{sci:1,cons:1,p:{peerReview:true}},fx:'the Peer Review Act is law, every result is checked twice, and the smudge hangs framed in the laboratory’s entrance hall'},
+ {t:'“Spot checks, one study in five,” says {RSDIR}. “Enough to keep us honest without halving our speed.”',e:{sci:1,rqs:[-10,5]},fx:'one study in five is now checked by a second team, chosen by drawing lots from a beaker'},
+ {t:'“Trust the scientists,” says the laboratory’s youngest professor, Jasper Quilliam-Oduya. “One smudge in a thousand results is a very good record.”',e:{sci:-1,rqs:[10,4]},fx:'the laboratory carries on as before, and every lens in the building has been cleaned twice'}]},
+{id:'rsv-fast-track',c:'gov',t:'The Fast-Track Bill',q:'A bill before the house would let the laboratory skip the slowest steps of a study: the second sample, the third measurement and the waiting period “for the results to settle”. Its supporters say the nation’s science would move twice as fast. Its opponents say the mistakes would, too.',o:[
+ {t:'“Pass the Fast-Track Science Act,” says the bill’s author, Barnaby Trevelyan-Opoku. “Fewer steps, faster science, and the settling period was always a nap.”',e:{safety:-1,p:{fastTrackScience:true}},fx:'the Fast-Track Science Act is law, and studies now skip the settling period, which turned out to be mostly a nap'},
+ {t:'“Fast-track studies for a week, as a trial,” says {RSDIR}. “Then we look at what broke.”',e:{rqs:[20,7]},fx:'the laboratory is trying fast-tracked studies for a week, and has appointed someone to write down what breaks'},
+ {t:'“Throw the bill out,” says the chief scientific adviser, Hildegard Vossberg-Lane. “The third measurement is the one that catches the mistake.”',e:{safety:1,sci:1,rqs:[-5,3]},fx:'the bill was thrown out, and the laboratory has taken the third measurement to heart, and a little longer over it'}]},
+{id:'rsv-jobs-for-life',c:'gov',t:'Jobs for Life',q:'Scientists at the laboratory are hired on one-year contracts and spend a month of every year applying for their own jobs. {RSDIR} wants permanent posts for the best of them. The Treasury fears a laboratory full of comfortable professors who stopped trying some decades ago.',o:[
+ {t:'“Pass the Research Tenure Act,” says {RSDIR}. “A scientist who is not looking for the next job is looking down a microscope.”',e:{econ:-1,happy:1,p:{researchTenure:true}},fx:'the Research Tenure Act is law, and the laboratory’s best scientists have jobs for life and nothing to do but science'},
+ {t:'“Five-year contracts,” says the head of the civil service, Rupert Gallowglass-Tey. “Long enough to settle, short enough to stay hungry.”',e:{rcb:[10,7]},fx:'the laboratory’s scientists now have five-year contracts, and have spent the month they saved on experiments'},
+ {t:'“One-year contracts keep them sharp,” says Finance Minister {FIN}. “Comfort is the enemy of discovery.”',e:{econ:1,happy:-1,rcb:[-10,5]},fx:'one-year contracts stay, and the laboratory has lost another month to job applications'}]},
+{id:'rsv-belt',c:'econ',t:'Tightening the Belt',q:'The Treasury has found that the laboratory spends more on paper clips than the navy spends on rope. It proposes the Science Austerity Act: a tenth off the laboratory’s budget, for good, and a ban on paper clips. {RSDIR} has been seen hoarding paper clips.',o:[
+ {t:'“Pass the Science Austerity Act,” says Finance Minister {FIN}. “Lean science is good science.”',e:{econ:2,wealth:1,sci:-1,p:{scienceAusterity:true}},fx:'the Science Austerity Act is law, the laboratory’s budget is a tenth smaller, and paper clips change hands on the black market'},
+ {t:'“A one-off cut, this quarter only,” says the Treasury’s budget director, Imelda Crankshaw-Bede. “Painful, short and forgotten by spring.”',e:{wealth:1,rcb:[-20,5]},fx:'the laboratory took a one-off cut for the quarter, and the scientists have learnt to reuse their paper clips'},
+ {t:'“Not a penny off science,” says {RSDIR}. “Cut the navy’s rope instead.”',e:{econ:-1,sci:1,rcb:[5,3]},fx:'the laboratory’s budget is untouched, the navy is economising on rope, and the admirals are not pleased'}]},
+{id:'rsv-basement',c:'nature',t:'Water in the Basement',q:'A burst pipe has flooded the laboratory’s basement, where twenty years of notebooks are kept. The water is ankle-deep, rising, and smells faintly of the chemistry department. The scientists have formed a human chain on the stairs.',o:[
+ {t:'“Pumps, now, whatever they cost,” says {RSDIR}. “Those notebooks are the memory of the nation’s science.”',e:{rcx:-1},fx:'the basement was pumped dry overnight, every notebook was saved, and the laboratory’s budget took the blow'},
+ {t:'“Move the archive upstairs and carry on,” says the facilities manager, Gideon Ashcombe-Rees. “It will be crowded, but nothing stops.”',e:{rcb:[-15,3]},fx:'twenty years of notebooks now fill the corridors upstairs, and the scientists climb over them to reach their benches'},
+ {t:'“Dry the notebooks on washing lines all over the capital,” says a junior archivist. “The whole city can help.”',e:{happy:1,weird:2,rcb:[-5,3],rqn:-10},fx:'twenty years of science hung drying on washing lines across {CAP}, and a good many citizens have read it with interest'}]},
+{id:'rsv-grid',c:'society',t:'The Grid Goes Dark',q:'A cold snap has overloaded the national grid, and the power company can keep only some of the lights on. The hospitals want priority. So does the laboratory, whose freezers hold samples older than some of the hospital’s doctors. The power company would like a decision before its candles run out.',o:[
+ {t:'“The laboratory first,” says {RSDIR}. “A thawed freezer is ten years of work lost.”',e:{health:-1,rcb:[5,2]},fx:'the laboratory kept its power through the cold snap, and the hospitals worked by generator and lantern'},
+ {t:'“Hospitals first, and the laboratory dark at night,” says Minister of Health and Education {HEA}. “The samples can sit in the snow.”',e:{health:1,rqn:-20},fx:'the hospitals kept their power, and the laboratory’s samples spent three nights packed in snow on the roof'},
+ {t:'“Bicycle generators in the basement,” says the laboratory’s engineer, Wilhelmina Strachan-Obi. “Every scientist pedals an hour a day.”',e:{health:1,weird:2,rcb:[-10,2]},fx:'forty bicycles in the basement powered the laboratory through the cold snap, and the scientists have never been fitter'}]},
+{id:'rsv-down-the-road',c:'econ',t:'The Laboratory Down the Road',q:'A private laboratory, paid for by a soap fortune, has opened down the road. It pays well, it has a rooftop garden, and it has already hired three of the laboratory’s best chemists with an offer that included unlimited soap. Its founder has suggested, in a letter scented with lavender, that the two laboratories work together.',o:[
+ {t:'“Compete: better pay and a garden of our own,” says {RSDIR}. “Nobody takes our chemists with soap.”',e:{wealth:-1,rcb:[10,5]},fx:'the laboratory raised its salaries and planted a garden of its own, and the chemists are staying, mostly for the tomatoes'},
+ {t:'“Work with them,” says the laboratory’s commercial director, Lysander Pargeter-Nwosu. “Share the instruments, share the results, share the soap.”',e:{econ:1,rcp:[10,6]},fx:'the two laboratories now share instruments and results, and the national laboratory smells faintly of lavender'},
+ {t:'“Let them try,” says the soap heiress’s rival in the perfume trade, Desirée Montcalm-Achterberg. “Competition is good for everyone, eventually.”',e:{econ:1,rcb:[-10,4]},fx:'the soap laboratory hired four more chemists, and the national laboratory is short-handed for now'}]},
+{id:'rsv-saturday-science',c:'welfare',t:'Science on Saturday',q:'Only one child in ten says they would like to be a scientist, behind footballer, influencer and “dragon”. {RSDIR} proposes that the laboratory’s scientists teach a Saturday class in every town. The scientists have asked whether this means working on Saturdays. It does.',o:[
+ {t:'“Saturday science in every town,” says Minister of Health and Education {HEA}. “Tomorrow’s scientists are in today’s classrooms.”',e:{edu:2,sci:1,rcb:[-10,5]},fx:'scientists teach Saturday science in every town, and the number of children who want to be dragons has fallen sharply'},
+ {t:'“Scholarships for the best pupils, paid by the laboratory,” says {RSDIR}. “A small price for the next generation.”',e:{edu:1,sci:1,rcx:-0.5},fx:'the laboratory pays scholarships to the best young scientists in {N}, and the first winner is eleven and already argumentative'},
+ {t:'“Scientists in laboratories, teachers in schools,” says a headteacher, Constance Pemberton-Achebe. “Everyone where they do best.”',e:{rcb:[5,3]},fx:'the scientists stay at their benches, and the schools teach science as before, which is to say on Thursday afternoons'}]},
+{id:'rsv-benefactor',c:'rights',t:'The Anonymous Benefactor',q:'An anonymous benefactor has offered the laboratory a fortune, delivered by a lawyer in a very dark suit. There is one condition: the benefactor must never be named, and nobody may ask where the money came from. The lawyer would not say whether the benefactor was a person, a company or, in his words, “something else”.',o:[
+ {t:'“Take it and ask no questions,” says the laboratory’s bursar, Ambrose Fitzwarren-Kale. “Money is money, and science is hungry.”',e:{corrupt:2,rcb:[25,4]},fx:'the laboratory took the anonymous fortune, and the scientists are working at full speed and trying not to wonder'},
+ {t:'“Take it, but publish the donor’s name,” says {RSDIR}. “We have nothing to hide, so neither should they.”',e:{civil:1,rcb:[10,4]},fx:'the benefactor agreed to be named and turned out to be a retired dentist, and the laboratory now has a wing for teeth'},
+ {t:'“Refuse it,” says Interior Minister {INT}. “Science paid for by nobody knows whom belongs to nobody knows whom.”',e:{civil:1,corrupt:-1},fx:'the fortune was refused, and the lawyer in the dark suit left without saying goodbye'}]},
+{id:'rsv-subscriptions',c:'tech',t:'The Journal Subscriptions',q:'The laboratory takes four hundred scientific journals, at a cost that would build a small hospital. The publishers have raised the price again, and the scientists say they cannot work without knowing what everyone else has found. The Treasury says it has never read a scientific journal and is perfectly fine.',o:[
+ {t:'“Pay for every one,” says {RSDIR}. “Reading what others have done is the cheapest research there is.”',e:{rcx:-1,rqs:[15,6]},fx:'the laboratory kept all four hundred journals, and its studies begin faster for knowing what everyone else got wrong'},
+ {t:'“Share subscriptions with the region’s other laboratories,” says the librarians’ guild secretary, Jocasta Pembridge-Ofori. “One copy, passed around.”',e:{culture:1,rqs:[5,5]},fx:'the region’s laboratories now share their journals, which arrive a week late and covered in other people’s coffee'},
+ {t:'“Cancel the lot,” says Finance Minister {FIN}. “If a discovery matters, it will be in the newspapers.”',e:{econ:1,rqs:[-20,5]},fx:'the subscriptions are cancelled, and the scientists keep reading in the newspapers what they should have known months ago'}]},
+{id:'rsv-test-tubes',c:'weird',t:'Ten Thousand Test Tubes',q:'The laboratory ordered a telescope. It has received ten thousand test tubes, packed in straw, delivered by a lorry that cannot reverse out of the car park. The supplier blames its computer. Its computer, asked by the laboratory’s computer, blames the supplier.',o:[
+ {t:'“Send them back and wait for the telescope,” says {RSDIR}. “Order is order.”',e:{rcb:[-10,3]},fx:'the test tubes went back, the telescope is on its way, and the astronomers are looking at the sky with their own eyes meanwhile'},
+ {t:'“Keep them,” says the laboratory’s quartermaster, Ophelia Thistlewood-Barr. “We will never run short of test tubes again, and the telescope can follow.”',e:{weird:1,rcp:[5,5],rqs:[5,4]},fx:'the laboratory owns ten thousand spare test tubes, and uses them as vases, pencil pots and, once, a xylophone'},
+ {t:'“Give them to the schools,” says a primary-school science teacher, Marigold Fanshawe-Oduro. “Every classroom in {N} gets a hundred test tubes.”',e:{edu:1,happy:1},fx:'every school in {N} received a hundred test tubes, and the laboratory waits for its telescope like everybody else'}]},
+{id:'rsv-friday',c:'gov',sq:1,t:'By Friday',q:'A minister has promised the newspapers that the study of {RSSTUDY} will be finished “by Friday, at the latest”. It will not be finished by Friday. It may not be finished by the Friday after. {RSDIR} has asked who told the minister about Friday, and the minister has asked who told {RSDIR} about the newspapers.',o:[
+ {t:'“Then it will be done by Friday,” says the minister’s chief of staff, Ptolemy Ravensworth-Ajayi. “Double shifts, sandwiches at the bench, and nobody goes home.”',e:{happy:-1,health:-1,rqn:30},fx:'the laboratory worked double shifts on sandwiches, the study finished on Thursday night, and the minister took the credit on Friday morning'},
+ {t:'“Ask nicely, and bring cake,” says the deputy director. “Scientists respond to cake.”',e:{rqn:10},fx:'the minister brought cake, the scientists worked a little faster, and Friday became the Friday after'},
+ {t:'“Science cannot be rushed, and the minister will say so,” says {RSDIR}. “In public.”',e:{sci:1,pol:-1,rcb:[5,4]},fx:'the minister told the newspapers that science cannot be rushed, and the laboratory, unhurried, has been working rather well'}]},
+{id:'rsv-year-abroad',c:'world',t:'A Year Abroad',q:'The laboratory’s deputy director has been offered a year at the most famous university in the region, all expenses paid, and the chance to bring home whatever she learns. The laboratory would lose its best organiser for a year. She has already bought a guidebook.',o:[
+ {t:'“Let her go, with our blessing,” says {RSDIR}. “She will come back with ideas we cannot buy.”',e:{culture:1,rcb:[-10,5],rcp:[10,7]},fx:'the deputy director left for a year abroad, and her letters home are full of ideas the laboratory is already using'},
+ {t:'“Ask her to stay,” says the laboratory’s head of personnel, Wendeline Saltonstall-Eze. “A pay rise and a bigger office.”',e:{econ:-1,rcb:[10,3]},fx:'the deputy director stayed for a pay rise and a bigger office, and has put the guidebook on the shelf behind her desk'},
+ {t:'“Swap her for one of theirs for a year,” says Foreign Minister {FOR}. “A guest for a guest.”',e:{culture:1,pol:1,rcp:[5,6]},fx:'the laboratory swapped its deputy director for a visiting professor, who has rearranged every cupboard in the building'}]},
+{id:'rsv-magnet',c:'society',t:'The Neighbours Complain',q:'The houses around the laboratory shake every night at eleven, when the big magnet is switched on. Cups fall off shelves, cats leave home, and an elderly couple say their grandfather clock now keeps better time than it ever has, which they find suspicious. A residents’ association has been formed.',o:[
+ {t:'“No experiments after nine at night,” says the chair of the residents’ association, Muriel Gascoigne-Afolabi. “The neighbours have a right to sleep.”',e:{happy:1,rqs:[-15,5]},fx:'the big magnet goes off at nine, the neighbours sleep soundly, and new studies run a little longer'},
+ {t:'“Soundproof the building,” says {RSDIR}. “Rubber, lead and a great many egg boxes.”',e:{rcx:-0.5},fx:'the laboratory has been lined with rubber, lead and forty thousand egg boxes, and the neighbours’ cups stay on their shelves'},
+ {t:'“Pay the neighbours for their trouble,” says the bursar. “A cheque, a box of chocolates and a new set of cups.”',e:{wealth:-1,rcb:[5,3]},fx:'the neighbours were paid and given chocolates and new cups, and now set their clocks by the big magnet'}]},
+{id:'rsv-mice',c:'weird',t:'The Great Escape',q:'Four hundred laboratory mice have escaped through a hole in the skirting board, taking with them three months of carefully measured results and a quantity of cheese. They have been seen in the post office, the opera house and, on one occasion, the Cabinet room.',o:[
+ {t:'“Catch every one,” says {RSDIR}. “They are not mice. They are data.”',e:{rcb:[-10,2],rqn:-10},fx:'the laboratory spent two days catching mice all over {CAP}, and every one is back in its own small house'},
+ {t:'“Breed new ones and start again,” says the head of the animal unit, Florentyna Harcourt-Mbeki. “The escapees can keep the opera house.”',e:{rqn:-20},fx:'the laboratory is breeding a new colony, and the opera house has mice in the gods'},
+ {t:'“Declare them citizens,” says a backbencher, Tarquin Lowther-Nkemelu. “They have earned it.”',e:{weird:3,happy:1,rcb:[-5,2]},fx:'the four hundred mice are honorary citizens, and the post office has issued a stamp in their honour'}]},
+{id:'rsv-golden-retort',c:'culture',t:'The Golden Retort',q:'The laboratory has won the Golden Retort, the region’s most coveted scientific prize, for its work on {RSTECH}. The ceremony is abroad, lasts a week and involves a great deal of dancing. Every scientist wants to go. So does the Cabinet.',o:[
+ {t:'“The whole laboratory goes,” says {RSDIR}. “We won it together, and we will dance together.”',e:{culture:2,happy:1,sci:1,rcb:[-20,3]},fx:'the whole laboratory went to collect the Golden Retort and danced for a week, and the prize sits on the reception desk'},
+ {t:'“The director alone, back by Tuesday,” says the bursar. “The laboratory has work to do.”',e:{culture:1,rcb:[5,3]},fx:'{RSDIR} collected the Golden Retort alone and was back by Tuesday, a little hoarse from the speech'},
+ {t:'“The Cabinet goes on the laboratory’s behalf,” says Foreign Minister {FOR}. “Somebody has to do the dancing.”',e:{pol:1,happy:-1,rcb:[10,3]},fx:'the Cabinet collected the Golden Retort and danced on the nation’s behalf, and the laboratory worked on, slightly put out'}]},
+{id:'rsv-camera',c:'world',t:'The Visitor With a Camera',q:'A visiting delegation from abroad was shown round the laboratory last week. One of its members, a polite man with a very large camera, photographed every notebook, every blackboard and the canteen menu. The photographs have since appeared in a foreign journal, under somebody else’s name.',o:[
+ {t:'“Lock the laboratory down,” says Defence Minister {DEF}. “Passes, guards and no cameras past the front door.”',e:{mil:1,safety:1,rcb:[-15,4]},fx:'the laboratory is locked down with passes, guards and a cupboard for cameras, and getting in takes twenty minutes'},
+ {t:'“Publish everything first, and faster,” says {RSDIR}. “They cannot steal what we have already given away.”',e:{sci:1,rqs:[10,5]},fx:'the laboratory publishes its results the day it has them, and the foreign journal has run out of things to copy'},
+ {t:'“Leave fake notebooks out for the next delegation,” says a junior chemist, Perpetua Gilchrist-Odhiambo. “Equations that lead nowhere, in very neat handwriting.”',e:{weird:2,mil:1,rcb:[-5,2]},fx:'the next delegation photographed forty pages of very neat nonsense, and a foreign laboratory has spent a month on it'}]},
+{id:'rsv-spend-it',c:'gov',t:'Spend It or Lose It',q:'It is the last week of the financial year, and the laboratory has money left in its budget. Whatever is not spent by Friday goes back to the Treasury, and next year’s budget will be cut to match. The scientists have drawn up a list of things they need. It begins with “a boat”.',o:[
+ {t:'“Spend every coin,” says the bursar. “Instruments, glassware, the boat. Next year’s budget depends on it.”',e:{corrupt:1,wealth:-1,rqs:[20,5]},fx:'the laboratory spent every coin by Friday, boat included, and its new studies are flying'},
+ {t:'“Give it back,” says Finance Minister {FIN}. “Honesty is cheaper in the end.”',e:{wealth:1,corrupt:-1,rcb:[-10,5]},fx:'the laboratory returned its unspent money, and the Treasury, astonished, has framed the cheque'},
+ {t:'“A party for the whole laboratory,” says {RSDIR}. “They have earned it.”',e:{happy:2,rcb:[10,3]},fx:'the laboratory threw a party with the last of the year’s money, and came back on Monday refreshed and slightly sheepish'}]},
+{id:'rsv-flu',c:'welfare',t:'The Laboratory Flu',q:'A flu has swept through the laboratory, starting, as far as anyone can tell, in the microbiology department, which denies everything. Half the scientists are coughing at their benches. The other half are at home, coughing at their televisions.',o:[
+ {t:'“Everyone with a cough stays at home,” says Minister of Health and Education {HEA}. “Until the last sneeze.”',e:{health:1,rcb:[-20,3]},fx:'the coughing scientists stayed at home until the last sneeze, and the laboratory ran at half strength for three days'},
+ {t:'“Masks, soup and the windows open,” says the laboratory’s doctor, Evander Mackintosh-Oyelaran. “Those who can work, work.”',e:{rcb:[-10,3]},fx:'the laboratory works on in masks with the windows open, and the canteen serves soup three times a day'},
+ {t:'“A flu is a cold with ambitions,” says the head of microbiology. “Carry on.”',e:{health:-2,happy:-1},fx:'the scientists carried on through the flu at full speed, and the laboratory now has the loudest coughing in {N}'}]},
+{id:'rsv-citizen-science',c:'society',t:'Citizen Scientists',q:'Forty thousand citizens have answered the laboratory’s appeal to count birds, measure rainfall and look for unusual stars from their back gardens. The results are pouring in by post, telephone and, in one case, carrier pigeon. Somebody has to read them all.',o:[
+ {t:'“Enrol every one of them,” says {RSDIR}. “Forty thousand pairs of eyes, and all of them free.”',e:{edu:1,happy:1,rcb:[15,5]},fx:'forty thousand citizen scientists now report to the laboratory, and the pigeon has been given a desk'},
+ {t:'“A few hundred of the keenest,” says the laboratory’s data manager, Rowena Pickersgill-Adu. “We cannot read forty thousand letters.”',e:{edu:1,rcb:[5,4]},fx:'four hundred citizen scientists report to the laboratory, and the other thirty-nine thousand six hundred received a very nice letter'},
+ {t:'“Science is for scientists,” says the chief scientific adviser. “Thank them and send them home.”',e:{cons:1,edu:-1},fx:'the citizens were thanked and sent home, and the pigeon was the last to leave'}]},
+{id:'rsv-laboratory-line',c:'econ',t:'The Laboratory Line',q:'The laboratory stands on the edge of {CAP}, and most of its scientists spend two hours a day on buses that arrive when they feel like it. The railway company offers to build a station at the laboratory gate, if the government pays for the platform, the footbridge and a statue of the railway company’s founder.',o:[
+ {t:'“Build the station, statue and all,” says Minister of Public Works {WRK}. “Two hours a day, times four hundred scientists, is a great deal of science.”',e:{wealth:-2,b:{transport:1},rcb:[15,7]},fx:'the Laboratory Line opened with a brass band, and the statue of the railway’s founder gazes proudly at the car park'},
+ {t:'“A laboratory bus that runs on time,” says {RSDIR}. “Cheaper than a railway, and it does not need a statue.”',e:{wealth:-1,rcb:[5,5]},fx:'the laboratory runs its own bus, which leaves on the minute, and the scientists hold a quiz on the morning run'},
+ {t:'“Bicycles for everyone,” says the cycling campaigner, Saffron Delacourt-Wynne. “Fresh air is free.”',e:{env:1,health:1},fx:'four hundred bicycles now stand outside the laboratory, and the scientists arrive pink-cheeked and only slightly late'}]},
+{id:'rsv-regret',c:'tech',t:'Rejected With Regret',q:'The region’s most famous scientific journal has rejected the laboratory’s best paper of the year, in a two-line letter that ends “with regret”. The scientists believe the editor is the brother-in-law of a rival. The editor believes the paper is wrong. Both may be right.',o:[
+ {t:'“Start our own journal,” says {RSDIR}. “The Annals of {N}, published quarterly, rejecting nobody we like.”',e:{sci:1,rcx:-0.5},fx:'the first issue of the Annals of {N} is out, and the laboratory’s paper is on the cover'},
+ {t:'“Do the experiments again, better,” says the paper’s lead author, Ludmila Carrow-Fenwick. “Then they cannot say no.”',e:{sci:1,rqn:-20},fx:'the laboratory is repeating every experiment in the paper, more carefully, and its other studies are waiting for the apparatus'},
+ {t:'“Send it to the newspapers instead,” says the laboratory’s press officer. “Let the public be the judge.”',e:{weird:1,sci:-1,rcb:[10,3]},fx:'the paper was printed in full in a Sunday newspaper, between the horoscopes and the crossword, and the laboratory has moved on'}]},
+{id:'rsv-eclipse',c:'nature',t:'The Eclipse',q:'A total eclipse of the sun will cross {N} next Tuesday, for the first time in two hundred years. The astronomers want the whole laboratory on the hills with every instrument it owns. The chemists want to stay indoors, where the light is reliable. Everyone else wants to watch.',o:[
+ {t:'“All hands to the hills,” says {RSDIR}. “Two hundred years is a long wait for a second try.”',e:{sci:2,culture:1,rcb:[-15,2]},fx:'the whole laboratory watched the eclipse from the hills with every instrument it owns, and the photographs are already famous'},
+ {t:'“The astronomers go, everyone else works,” says the deputy director. “Two minutes of darkness is not a holiday.”',e:{sci:1},fx:'the astronomers caught the eclipse and the chemists never looked up, and both are very pleased with themselves'},
+ {t:'“Make it a national holiday,” says Minister of Culture and Sport {CUL}. “Everyone watches, nobody works.”',e:{happy:2,tour:1,rcb:[-20,1]},fx:'the whole of {N} stopped to watch the eclipse, and the laboratory stood empty for a day'}]},
+{id:'rsv-whose-first',c:'gov',t:'Whose Science First?',q:'Three ministers have each written to {RSDIR} this week, each asking for the laboratory’s full attention, each by Monday. The Finance Minister wants stronger markets, the Health Minister healthier citizens and the Defence Minister a stronger army. {RSDIR} has asked the government to choose, preferably before Monday.',o:[
+ {t:'“Markets first,” says Finance Minister {FIN}. “Prosperity pays for every other kind of science.”',e:{econ:1,rcp:[15,6,'t'],rqs:[15,6,'t']},fx:'the laboratory has turned its attention to trade, and the Finance Minister has stopped writing letters'},
+ {t:'“Health first,” says Minister of Health and Education {HEA}. “A nation that is well can do everything else.”',e:{health:1,rcp:[15,6,'g'],rqs:[15,6,'g']},fx:'the laboratory has turned its attention to growth and health, and the Health Minister has sent it a fruit basket'},
+ {t:'“The army first,” says Defence Minister {DEF}. “Everything else is easier when nobody is invading you.”',e:{mil:1,rcp:[15,6,'w'],rqs:[15,6,'w']},fx:'the laboratory has turned its attention to defence, and its car park is full of tanks waiting to be studied'}]},
+{id:'rsv-one-bench',c:'tech',sq:1,t:'All Hands to One Bench',q:'The team studying {RSSTUDY} is close to a breakthrough, and has asked to borrow every scientist from every other team until it is done. The other teams point out that they, too, are close to breakthroughs, and have been for some years.',o:[
+ {t:'“Everyone to that bench,” says {RSDIR}. “Finish one thing properly before starting the next.”',e:{rqn:35,rqs:[-20,4]},fx:'the whole laboratory crowded round one bench, the study raced ahead, and everything else waited its turn'},
+ {t:'“Lend them a few,” says the deputy director. “Enough to help, not enough to stop anything else.”',e:{rqn:15},fx:'a handful of scientists joined the team, and the study is moving faster while the rest of the laboratory carries on'},
+ {t:'“Every team keeps its own,” says the head of chemistry, Augusta Merriweather-Kwan. “Breakthroughs are not first come, first served.”',e:{rqs:[10,4]},fx:'every team kept its own scientists, and the laboratory’s new studies are getting off to a brisk start'}]},
+/* ── gambles ── */
+{id:'rsv-full-power',c:'tech',t:'Full Power',q:'The laboratory’s great machine, a ring of magnets three kilometres round, has never been run at full power. The engineers believe it would do in a day what normally takes a week. They also believe, though more quietly, that it might trip every fuse in the eastern half of {N}.',o:[
+ {t:'“Full power,” says {RSDIR}. “Fortune favours the bold, and the fuse box is new.”',e:{sci:1,rqn:40,rcb:[15,2]},fx:'the great machine ran at full power for a day and a night, and every study under way leapt ahead',g:{p:0.67,w:'the machine holds',l:'the fuses blow',e:{safety:-1,rqn:-30,rcb:[-20,3]},fx:'the great machine tripped every fuse in the eastern half of {N}, and the laboratory spent three days in the dark finding out why'}},
+ {t:'“Three-quarters power, and watch the dials,” says the chief engineer, Isambard Tregothnan-Oyelowo. “Most of the speed, little of the risk.”',e:{rqn:15},fx:'the great machine ran at three-quarters power with an engineer at every dial, and the studies are moving faster'},
+ {t:'“Shut it down for maintenance first,” says the safety officer. “Then we can talk about full power.”',e:{safety:2,rcb:[-10,2]},fx:'the great machine was shut down for maintenance, and the engineers found a spanner inside it that nobody can explain'}]},
+{id:'rsv-hunch',c:'weird',sq:1,t:'The Director’s Hunch',q:'{RSDIR} has woken in the night convinced that the study of {RSSTUDY} can be finished by an entirely different method, skipping most of the remaining steps. The method came in a dream, which also featured a talking otter. The senior scientists are polite but sceptical, especially about the otter.',o:[
+ {t:'“Try the director’s method,” says the deputy director. “If it works, we save weeks. If it does not, we will have learnt something.”',e:{weird:1,rqn:50},fx:'the director’s method worked, the study is all but finished, and a small statue of an otter now stands in the entrance hall',g:{p:0.5,w:'the dream method works',l:'the dream method fails',e:{weird:1,rqn:-40},fx:'the director’s method did not work, the study has had to go back three steps, and the otter is no longer mentioned'}},
+ {t:'“Run a small test of it on the side,” says senior physicist Cordelia Brightwater-Sena. “Dreams deserve a fair hearing and a small budget.”',e:{rcx:-0.25,rqn:10},fx:'a small side test of the director’s method showed promise, and has shaved a little off the study'},
+ {t:'“Stick to the method that works,” says the chief scientific adviser. “Otters are not peer-reviewed.”',e:{sci:1,cons:1},fx:'the laboratory stuck to the old method, and {RSDIR} has been gently encouraged to sleep more'}]},
+{id:'rsv-lottery',c:'econ',t:'The Science Lottery',q:'A charity proposes a national Science Lottery: every ticket one {C}, a prize every week, and every penny of profit to the laboratory. The charity has run lotteries before, for lifeboats and for a cathedral roof, and once for a lifeboat on a cathedral roof. Nobody knows how many tickets the public will buy.',o:[
+ {t:'“Launch it nationwide, with a television draw,” says the lottery’s organiser, Montgomery Ferrers-Adjei. “Big prizes, big sales, a big cheque for science.”',e:{happy:1,rcb:[30,5]},fx:'the Science Lottery sold out every week, and the laboratory is spending its winnings as fast as the scientists can think',g:{p:0.5,w:'the tickets sell',l:'hardly anyone buys a ticket',e:{happy:-1,rcx:-1},fx:'the Science Lottery sold forty-one tickets, and the laboratory has had to pay for the television draw itself'}},
+ {t:'“A modest raffle at the laboratory’s open day,” says {RSDIR}. “A cake, a telescope and a signed periodic table.”',e:{rcb:[5,4]},fx:'the laboratory raffle raised enough for a new microscope, and the signed periodic table went to a nine-year-old'},
+ {t:'“No gambling for science,” says the chair of the Temperance League, Obadiah Fairweather-Kanu. “Research should be paid for honestly, out of taxes.”',e:{cons:1,tax:1,rcb:[10,4]},fx:'there will be no Science Lottery, and the laboratory has a small rise in its budget instead, paid for by everyone'}]},
+{id:'rsv-attic-notebooks',c:'tech',t:'The Notebooks in the Attic',q:'A box of notebooks found in the attic of a retired professor seems to hold the answers to half the problems the laboratory is working on. They are written in a private shorthand, in pencil, and some pages have been used as coasters. Deciphering them would take time the laboratory does not obviously have.',o:[
+ {t:'“Decipher the lot, all hands,” says {RSDIR}. “If the answers are there, they are worth a month.”',e:{rcb:[-10,2],rqs:[30,7]},fx:'the notebooks were deciphered in a week, and the laboratory’s next studies begin with half the answers already written in pencil',g:{p:0.5,w:'the notebooks hold the answers',l:'the notebooks hold shopping lists',e:{rcb:[-25,3]},fx:'the notebooks turned out to be forty years of the professor’s shopping lists, in shorthand, and the laboratory lost a week reading them'}},
+ {t:'“Send them to the army’s code-breakers,” says Defence Minister {DEF}. “They need the practice.”',e:{mil:1,rqs:[10,6]},fx:'the army’s code-breakers deciphered the notebooks over a month, and some of the answers are proving useful'},
+ {t:'“Give them to the national museum,” says the professor’s granddaughter, Seraphina Wolstenholme-Asante. “He would have liked that.”',e:{culture:2},fx:'the notebooks are on show at the national museum, open at the page with the coffee rings'}]},
+{id:'rsv-balloon',c:'nature',t:'The Stratosphere Balloon',q:'The laboratory’s atmospheric team wants to send its instruments into the stratosphere on a balloon the size of a cathedral. If it works, a year of measurements arrives in a day. If the wind changes, the instruments will come down in a neighbouring country, or the sea, or, as the last balloon did, on a cow.',o:[
+ {t:'“Launch it at dawn,” says the balloon’s designer, Percival Ottoway-Hallam. “The wind is in our favour, probably.”',e:{sci:1,rcb:[10,3],rqs:[25,6]},fx:'the great balloon rose at dawn, brought down a year of measurements in a day, and landed gently on a hill',g:{p:0.6,w:'the balloon comes back',l:'the balloon drifts away',e:{rcx:-0.5,rcb:[-10,3]},fx:'the great balloon drifted out to sea with the laboratory’s best instruments, and the scientists are waiting on the beach'}},
+ {t:'“A small balloon first, with the old instruments,” says {RSDIR}. “Then the big one.”',e:{rqs:[10,5]},fx:'a small balloon carried the old instruments up and back, and the team knows the winds better for it'},
+ {t:'“Measure from the ground,” says the old weather forecaster, Ebenezer Cradock-Yeboah. “The sky is not going anywhere.”',e:{cons:1,rqs:[-5,4]},fx:'the laboratory measures the sky from the ground, slowly, and the cow has been spared'}]},
+{id:'rsv-pigeons',c:'weird',t:'Results by Pigeon',q:'The cable that links the laboratory to the region’s other laboratories has been cut by a fishing trawler. Repairs will take two weeks. A pigeon fancier from {CAP} has offered his forty racing pigeons to carry the laboratory’s results, rolled up very small, wherever they need to go.',o:[
+ {t:'“Use the pigeons,” says {RSDIR}. “They are faster than the post and more reliable than the cable.”',e:{weird:2,rcp:[10,6]},fx:'forty racing pigeons carry the laboratory’s results across the region, and the region’s laboratories have built pigeon lofts',g:{p:0.67,w:'the pigeons find their way',l:'the pigeons fly home instead',e:{weird:2,rcb:[-15,3]},fx:'the pigeons flew home to {CAP} with the laboratory’s results, and their keeper now knows more physics than anyone in the region'}},
+ {t:'“Wait for the repair,” says the systems manager. “Two weeks is two weeks.”',e:{rcb:[-10,4]},fx:'the laboratory waited two weeks for the cable to be mended, and caught up on its filing'},
+ {t:'“Hire a fast boat to carry the results,” says Minister of Public Works {WRK}. “Once a day, there and back.”',e:{wealth:-1,rcx:-0.5},fx:'a fast boat carries the laboratory’s results across the water once a day, and its crew can say “peer review” in four languages'}]},
+{id:'rsv-twenty-four',c:'tech',sq:1,t:'The Twenty-Four-Hour Experiment',q:'A team proposes to finish the study of {RSSTUDY} in one heroic sitting: twenty-four hours without a break, every instrument running, every scientist awake. It has never been tried. The canteen has been asked whether it can do breakfast at four in the morning, and has said it will try.',o:[
+ {t:'“Try it,” says the team’s leader, Benedikta Lorimer-Ansah. “One day, one result, and then we sleep for a week.”',e:{health:-1,rqn:45},fx:'the team worked for twenty-four hours without a break and finished most of the study, and slept until Thursday',g:{p:0.5,w:'the team stays awake',l:'the team falls asleep at the bench',e:{health:-1,rqn:-25,rcb:[-10,2]},fx:'the team fell asleep at the bench at three in the morning, a flask boiled dry, and the study has had to go back a step'}},
+ {t:'“Two twelve-hour shifts instead,” says {RSDIR}. “The same hours, half the heroics.”',e:{rqn:20},fx:'the study ran for a day and a night in two shifts, and has moved well ahead'},
+ {t:'“No heroics,” says the laboratory’s nurse, Lavinia Hesketh-Amadi. “Science at a sensible pace, by people who have slept.”',e:{health:1,happy:1},fx:'the study goes on at a sensible pace, and the canteen is relieved'}]},
+{id:'rsv-catalyst',c:'nature',t:'The Untested Catalyst',q:'A young chemist has made a catalyst that speeds up every reaction in the building. It may also speed up reactions nobody wants, such as the one between the canteen’s custard and its plates. It has been tested once, on a Tuesday, on a very small scale.',o:[
+ {t:'“Use it everywhere,” says its maker, Octavian Rushworth-Danso. “Every reaction faster, every study shorter.”',e:{rqs:[30,6]},fx:'the catalyst works, every reaction in the laboratory is faster, and the custard is kept well away from it',g:{p:0.6,w:'the catalyst behaves',l:'the catalyst misbehaves',e:{env:-1,safety:-1,rqs:[-20,5]},fx:'the catalyst sped up all the wrong reactions, the canteen’s custard set like concrete, and the laboratory has spent a week cleaning'}},
+ {t:'“Test it properly for a month first,” says {RSDIR}. “If it is as good as its maker says, it will still be good in a month.”',e:{sci:1},fx:'the catalyst is being tested properly, and its maker checks on it every hour'},
+ {t:'“Use it in one department only,” says the head of chemistry. “Ours, where we know where the fire blankets are.”',e:{rqs:[10,5]},fx:'the catalyst is used in the chemistry department only, which is now the fastest department in the building'}]},
+{id:'rsv-grand-grant',c:'gov',t:'The Grand Grant',q:'The Regional Science Foundation is offering one enormous grant, enough to run the laboratory for a season, to the best application in the region. A good application would take the laboratory’s senior scientists a week. Every other laboratory in the region is applying too, and some have been writing since spring.',o:[
+ {t:'“Every senior scientist writes for a week,” says {RSDIR}. “We will win it, or at least have a very good document.”',e:{sci:1,rcb:[25,6]},fx:'the laboratory won the Grand Grant, and the money is turning into instruments, hours and very good biscuits',g:{p:0.5,w:'the grant is won',l:'another laboratory wins',e:{rcb:[-15,4]},fx:'the grant went to a laboratory that had been writing since spring, and the senior scientists lost a week for a very good document'}},
+ {t:'“A joint application with a neighbouring laboratory,” says the grants officer, Hyacinth Brabazon-Quaye. “A share of a sure thing.”',e:{culture:1,rcp:[10,6]},fx:'a joint application won a share of the grant, and the two laboratories now share a secretary and a great many emails'},
+ {t:'“Do not apply,” says the laboratory’s operations manager, Crispin Hollingworth-Abara. “The laboratory should be working, not writing.”',e:{rcb:[5,3]},fx:'the laboratory did not apply and spent the week working, and was quietly pleased when a rival’s application was rejected for spelling'}]},
+{id:'rsv-demonstration',c:'world',t:'The Demonstration',q:'The laboratory has been invited to demonstrate its newest work, {RSTECH}, before an audience of foreign ministers and investors. A good demonstration could bring money and partners for years. A bad one would be remembered for years too. The last nation to try was undone by a projector.',o:[
+ {t:'“A live demonstration, on stage,” says {RSDIR}. “Nothing convinces like the real thing.”',e:{econ:1,culture:1,rcb:[20,5],rcp:[10,5]},fx:'the live demonstration brought the audience to its feet, and investors are queuing at the laboratory’s door',g:{p:0.67,w:'the demonstration works',l:'the demonstration fails on stage',e:{pol:-1,rcb:[-15,4]},fx:'the demonstration failed on stage in front of forty ministers, and the laboratory has spent days writing apologies'}},
+ {t:'“Show a film of it instead,” says the press officer, Valentina Cholmondeley-Ekwueme. “Films do not break.”',e:{culture:1,rcb:[5,4]},fx:'the film of the laboratory’s work was politely applauded, and two investors asked for the director’s card'},
+ {t:'“Decline the invitation,” says Defence Minister {DEF}. “Why show the world what we have?”',e:{mil:1},fx:'the laboratory declined the invitation, and its newest work remains a well-kept secret'}]},
+/* ── stories of three ── */
+{id:'rsv-comet-1',c:'nature',w:2.5,t:'A Light in the West',q:'The laboratory’s astronomers have found a comet: bright, new and heading roughly towards {N}, though they stress “roughly” and “not into”. It will be visible to the naked eye in a few days and gone within a month. The astronomers would like everything. The rest of the laboratory would like to know what “everything” means.',o:[
+ {t:'“Everything,” says {RSDIR}. “Every telescope, every camera, every astronomer, and the chemists can hold the ladders.”',e:{sci:1,rcb:[-15,3]},fx:'the whole laboratory is watching the comet, and the chemists are holding the ladders',nx:'rsv-comet-2',nxh:18},
+ {t:'“The astronomers watch, everyone else works,” says the deputy director. “A comet is a sky event, not a holiday.”',e:{sci:1},fx:'the astronomers are on the roof every night with the comet, and the rest of the laboratory works below them',nx:'rsv-comet-2',nxh:18},
+ {t:'“Sell tickets to the roof,” says the laboratory’s enterprising caretaker, Dorcas Penrose-Abiola. “Science can pay its own way.”',e:{tour:2,rcb:[5,3]},fx:'the laboratory’s roof is the best seat in {N} for the comet, and the ticket money pays for the telescopes',nx:'rsv-comet-2',nxh:18}]},
+{id:'rsv-comet-2',c:'nature',fo:1,t:'The Comet’s Tail',q:'The comet is now brighter than the moon, and its tail stretches across half the sky. The astronomers have found something in it: a dust nobody has seen before, which might hold clues to a dozen questions the laboratory is working on. To collect it they would need a rocket, or a very tall balloon, or, as one of them suggests, “a very long net”.',o:[
+ {t:'“Send a rocket,” says {RSDIR}. “Once in a lifetime is once in a lifetime.”',e:{sci:1,rcx:-1,rcp:[15,7]},fx:'a rocket flew into the comet’s tail and came back with a thimble of dust, and the laboratory is beside itself',nx:'rsv-comet-3',nxh:24},
+ {t:'“Read the dust from its light,” says the chief astronomer, Theodora Glanville-Mensah. “It tells its story in colours, from here.”',e:{rqs:[10,6]},fx:'the laboratory is reading the comet’s dust in its light, colour by colour, from the roof',nx:'rsv-comet-3',nxh:24},
+ {t:'“Let it go,” says a sceptical governor of the laboratory, Gwendolen Farquharson-Diallo. “The sky will still be there next year.”',e:{econ:1,rcb:[5,2]},fx:'the laboratory let the comet go about its business, and got on with its own',nx:'rsv-comet-3',nxh:24}]},
+{id:'rsv-comet-3',c:'nature',fo:1,t:'The Comet Departs',q:'The comet is fading, its tail a smudge above the western hills. The laboratory has more data than it knows what to do with, a shed full of comet souvenirs and a dozen astronomers who have not slept properly in a month. The public would like the comet to have a name. The astronomers would like a lie-down.',o:[
+ {t:'“Name it after {N},” says Minister of Culture and Sport {CUL}. “The world will remember who saw it first.”',e:{culture:2,happy:1,rcb:[10,5]},fx:'the comet bears the name of {N} in every star catalogue in the region, and the laboratory is basking in it'},
+ {t:'“Name it after the night watchman,” says {RSDIR}. “He pointed it out to the astronomers before they saw it themselves.”',e:{equal:1,happy:1,rqs:[15,5]},fx:'the comet bears the name of the laboratory’s night watchman, who has been on the radio twice and is being insufferable about it'},
+ {t:'“Give the astronomers a week off,” says their union representative, Caspian Wetherell-Nduka. “Then they can name it whatever they like.”',e:{health:1,sci:1,rcb:[-10,3]},fx:'the astronomers slept for a week and then named the comet after a cat, and nobody has argued with them'}]},
+{id:'rsv-feud-1',c:'tech',w:2.5,t:'Two Professors',q:'Professor Ignatia Swaffham-Dorrell and Professor Reynaud Ostrowski-Penhallow have not spoken to each other for eleven years, since a dispute over a footnote. They now lead the laboratory’s two largest teams, which have stopped sharing instruments, coffee and the lift. Work is slowing on both floors.',o:[
+ {t:'“Lock them in a room until they make up,” says {RSDIR}. “With sandwiches, and the footnote.”',e:{rcb:[-10,2]},fx:'the two professors have been locked in a room with sandwiches and the footnote, and the shouting can be heard on the floor below',nx:'rsv-feud-2',nxh:20},
+ {t:'“Give each team its own instruments,” says the bursar. “Expensive, but quiet.”',e:{wealth:-1,rcx:-0.5},fx:'each professor now has a set of instruments, and the corridor between their floors is a no-man’s-land',nx:'rsv-feud-2',nxh:20},
+ {t:'“Let them compete,” says the chairman of the laboratory’s governors, Peregrine Ashburnham-Okoro. “Rivalry makes people work harder.”',e:{rcb:[10,3]},fx:'the two teams are racing each other, and the laboratory is working at a furious pace',nx:'rsv-feud-2',nxh:20}]},
+{id:'rsv-feud-2',c:'tech',fo:1,t:'The Footnote',q:'The feud between the two professors has reached the newspapers. Professor Swaffham-Dorrell has accused Professor Ostrowski-Penhallow of stealing an idea; he has produced a notebook dated twenty years ago; she says the date was written later, in a different pen. Their teams have taken sides, and so, it seems, has most of the laboratory.',o:[
+ {t:'“An inquiry, under an outside judge,” says Interior Minister {INT}. “Evidence, witnesses and a verdict.”',e:{corrupt:-1,rcb:[-15,4]},fx:'an inquiry is hearing the case of the footnote, and half the laboratory has been called as witnesses',nx:'rsv-feud-3',nxh:24},
+ {t:'“Give them both the credit,” says {RSDIR}. “A joint paper, both names, in alphabetical order.”',e:{rcb:[5,3]},fx:'a joint paper has been published with both names in alphabetical order, and both professors have complained about the alphabet',nx:'rsv-feud-3',nxh:24},
+ {t:'“Move one team into another building,” says the facilities manager. “Distance is a great peacemaker.”',e:{rcx:-0.5,rqs:[10,5]},fx:'one team has moved into a building across the road, and both are working faster for the quiet',nx:'rsv-feud-3',nxh:24}]},
+{id:'rsv-feud-3',c:'tech',fo:1,t:'Half an Answer Each',q:'Something unexpected has happened: the two professors were seen sharing a table in the canteen, and one of them laughed. It turns out that, working apart, each has found half of the same answer. Together, they believe, they could finish it. Apart, each would take years.',o:[
+ {t:'“Put them on one team, at last,” says {RSDIR}. “Eleven years is long enough.”',e:{happy:1,rqn:30,rcb:[15,4]},fx:'the two professors now lead one team, their halves fit together perfectly, and the laboratory has never moved faster'},
+ {t:'“Let them work side by side, but separately,” says the deputy director. “Peace is fragile. Do not shake it.”',e:{rcb:[10,4]},fx:'the two professors work side by side, sharing results and nothing else, and the laboratory is grateful for the quiet'},
+ {t:'“Give them a joint prize and retire them both,” says the president of the Academy, Evangeline Marchbanks-Oyede. “Let them argue in comfort.”',e:{culture:1,rcb:[-5,3],rcp:[10,6]},fx:'the two professors retired together with a joint prize, and their teams, free at last, share everything'}]},
+{id:'rsv-wing-1',c:'econ',w:2.5,t:'The New Wing',q:'The laboratory has outgrown its building. Scientists work in corridors, the library is in the lift and the mice live in a former broom cupboard. {RSDIR} has drawn up plans for a new wing, and the builders say they can start on Monday, as long as nobody minds the noise.',o:[
+ {t:'“Build the grand wing, with a dome,” says the architect, Thaddeus Pennycuick-Arhin. “A wing worthy of the nation’s science, and a dome to be seen from the sea.”',e:{wealth:-2,culture:1,rcb:[-20,4]},fx:'work has begun on a grand new wing with a dome, and the drilling starts every morning at seven',nx:'rsv-wing-2',nxh:30},
+ {t:'“A plain wing, built quickly,” says Minister of Public Works {WRK}. “Walls, a roof and plenty of sockets. Science does not need a dome.”',e:{wealth:-1,rcb:[-10,3]},fx:'a plain new wing is going up beside the laboratory, quickly and without a dome',nx:'rsv-wing-2',nxh:30},
+ {t:'“Rent offices in town until we can afford it,” says Finance Minister {FIN}. “No noise, no dust, no dome.”',e:{econ:1,rqs:[-10,5]},fx:'half the laboratory has moved into rented offices above a bakery, and new studies start slowly between the two buildings',nx:'rsv-wing-2',nxh:30}]},
+{id:'rsv-wing-2',c:'econ',fo:1,t:'Under the Foundations',q:'The builders have hit something under the laboratory’s new wing: an ancient mosaic, say the archaeologists, or a very old bathroom floor, say the builders. The archaeologists want six weeks. The builders want a decision. The scientists want the drilling to stop, whichever it is.',o:[
+ {t:'“Let the archaeologists dig,” says Minister of Culture and Sport {CUL}. “Our past matters as much as our future.”',e:{culture:2,rcb:[-10,4]},fx:'the archaeologists are uncovering the mosaic, and the laboratory works on beside a very old bathroom floor',nx:'rsv-wing-3',nxh:30},
+ {t:'“Build over it, with a glass floor on top,” says {RSDIR}. “Science above, history below, and both on show.”',e:{culture:1,rcx:-0.5},fx:'the new wing will have a glass floor over the mosaic, and the scientists have already started losing pens through the gaps',nx:'rsv-wing-3',nxh:30},
+ {t:'“Pour the concrete,” says the site foreman, Hamish Strathallan-Boateng. “It has waited two thousand years. It can wait a little longer.”',e:{culture:-2,rcb:[5,3]},fx:'the concrete was poured, the mosaic is underneath it, and the builders are a week ahead',nx:'rsv-wing-3',nxh:30}]},
+{id:'rsv-wing-3',c:'econ',fo:1,t:'The Ribbon',q:'The new wing is finished. It has laboratories with windows, a library that is not in a lift and, whatever was decided, a story to tell about its foundations. {RSDIR} would like to open it with a ceremony. The scientists would like to move in this afternoon.',o:[
+ {t:'“A grand opening, with the whole Cabinet,” says the events officer, Ignatius Holloway-Brede. “A ribbon, a band, speeches.”',e:{culture:1,pol:1,rcb:[15,6]},fx:'the new wing was opened with a ribbon, a band and too many speeches, and the scientists moved in to cheers'},
+ {t:'“Move in today, celebrate later,” says {RSDIR}. “The best opening is a discovery.”',e:{rcb:[20,4],rqs:[15,5]},fx:'the scientists moved into the new wing the afternoon it was finished, and the first discovery made there came that week'},
+ {t:'“Name it after the builders,” says the night watchman. “They did the work.”',e:{equal:1,happy:1,rcb:[10,5]},fx:'the new wing bears its builders’ names on a brass plate by the door, and the scientists say good morning to it every day'}]},
+{id:'rsv-prodigy-1',c:'society',w:2.5,t:'A Letter in Crayon',q:'The laboratory has received a letter in crayon from a twelve-year-old in a fishing village, pointing out a mistake in a paper the laboratory published last year. The mistake is real. The letter also encloses a correction, a drawing of a lighthouse and a request to “come and do proper science”.',o:[
+ {t:'“Invite her for the summer,” says {RSDIR}. “With her parents, a chaperone and a very small lab coat.”',e:{edu:1,happy:1,rcb:[5,3]},fx:'a twelve-year-old from a fishing village is spending the summer at the laboratory, and has already corrected two more papers',nx:'rsv-prodigy-2',nxh:24},
+ {t:'“Send her a scholarship and a chemistry set,” says Minister of Health and Education {HEA}. “Let her finish school first.”',e:{edu:2,rcx:-0.25},fx:'the girl from the fishing village has a scholarship and a chemistry set, and her village has learnt to keep its windows open',nx:'rsv-prodigy-2',nxh:24},
+ {t:'“Thank her and correct the paper,” says the paper’s author, rather stiffly. “Children are welcome to write. Not to work.”',e:{cons:1,rqn:-5},fx:'the laboratory corrected its paper and thanked the girl, and she has written again, with a sharper crayon',nx:'rsv-prodigy-2',nxh:24}]},
+{id:'rsv-prodigy-2',c:'society',fo:1,t:'The Jam-Jar Instrument',q:'The girl from the fishing village has had an idea: a way of measuring things that the laboratory’s senior scientists say “cannot possibly work”. She has built it from a bicycle wheel, a jam jar and fishing line. It appears to work. The senior scientists have asked to see it again, slowly.',o:[
+ {t:'“Build a proper version at once,” says {RSDIR}. “If a jam jar can do it, a laboratory can do it better.”',e:{sci:1,rqs:[25,6]},fx:'the laboratory has built a proper version of the jam-jar instrument, and new studies are measured in half the time',nx:'rsv-prodigy-3',nxh:24},
+ {t:'“Test it against the old method for a month,” says the chief scientific adviser. “Extraordinary claims, jam jars and so on.”',e:{sci:1,rqs:[-5,4]},fx:'the jam-jar instrument is being tested against the old method, and is winning',nx:'rsv-prodigy-3',nxh:24},
+ {t:'“Patent it in her name,” says the village solicitor, Tamsin Penberthy-Ogunleye. “The idea is hers, and so should the money be.”',e:{econ:1,equal:1,rcp:[10,6]},fx:'the jam-jar instrument is patented in the girl’s name, and her village is building her a workshop',nx:'rsv-prodigy-3',nxh:24}]},
+{id:'rsv-prodigy-3',c:'society',fo:1,t:'The Youngest Professor',q:'Universities across the region want the girl from the fishing village. One has offered her a professorship at thirteen, with a chair, a parking space and an office with a view of the sea. She has asked the laboratory for advice, and still calls it “my lab”.',o:[
+ {t:'“A post at our laboratory, after school,” says {RSDIR}. “She stays at home, and she stays ours.”',e:{edu:1,sci:1,rcb:[15,6]},fx:'the youngest scientist in {N} works at the laboratory after school, and the senior scientists have started asking her for help'},
+ {t:'“Let her take the professorship abroad,” says Foreign Minister {FOR}. “A {D} professor in a foreign university is an ambassador for {N}.”',e:{culture:2,rcp:[10,7]},fx:'the girl from the fishing village is the youngest professor in the region, and sends the laboratory her best ideas first'},
+ {t:'“Let her be twelve,” says her mother, a fishing-boat skipper, Morwenna Polglaze-Ennor. “The professorship can wait. The summer cannot.”',e:{happy:2,rcb:[-5,3]},fx:'the girl from the fishing village is spending the summer on her mother’s boat, and has already improved the nets'}]}];
+for(const is of RSV_ISSUES){ISSUES.push(is);is.no=ISSUES.length;ISSUE_BY_ID[is.id]=is;is.nbx=false;is.nr=true;if(is.fo)continue;if(!is.w)is.w=2;is.req=is.sq?n=>rseOpen(n)&&rseStudying(n):n=>rseOpen(n);ISSUES_RANDOM.push(is);}
+edictTopicBadge=(f=>function(is){return f.apply(this,arguments)+(is&&/^rsv-/.test(is.id)?'<span class="edict-story rsd-tag">From the laboratory</span>':'');})(edictTopicBadge);
+/* Help › Research: a word on the edicts */
+{const H=HELP_EXT.find(h=>h.k==='research');if(H){const b=H.body;H.body=n=>b(n)+`<p><b>Research edicts.</b> Once the laboratory is open, some edicts change how fast research goes, and say so on each option: Research Credits up or down for some days, studies under way finished sooner or held up, new studies quicker or slower, research cheaper or dearer, credits spent. Four laws do it for as long as they stand (the Research Tenure Act, the Science Austerity Act, the Peer Review Act, the Fast-Track Science Act). Together, edicts and laws add at most ${Math.round(RS_RULES.edMax*100)}% to the credits, and a study is never quicker than half its time. The Research page’s overview lists the edicts at work.</p>`;}}
+if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE.rse={RSV_ISSUES,RSE_LAW,RSE_FLOOR,rseWords,rseRateParts,rseStudyShare,rseEarn,rseApply,rseClean,rseAt,rseBoxHTML,rsBal:(n,t)=>rsBal(n,t),rsAccrue:(n,t)=>rsAccrue(n,t),rsStudyMs:(n,i,t)=>rsStudyMs(n,i,t),rsDisc:(n,i,t)=>rsDisc(n,i,t),rsPrice:(n,i,t)=>rsPrice(n,i,t),rsRate:(n,t)=>rsRate(n,t),rsRateParts:(n,t)=>rsRateParts(n,t),fill:(t,n)=>fill(t,n,null),gmbOdds:(o,n)=>gmbOdds(o,n,null)};}catch(e){}
 
 if(hot&&typeof hot.snapshot==='function'){try{hot.snapshot(()=>({view:S.view,openIssue:S.openIssue,result:S.result,visit:S.visit,censusKey:S.censusKey,settings:S.settings,draft:S.draft,mapViews:S.mapViews,mapSel:S.mapSel,mapPick:S.mapPick}));}catch(e){}}
 if(hot&&typeof hot.ready==='function')hot.ready(start);else start((hot&&hot.data)||{});

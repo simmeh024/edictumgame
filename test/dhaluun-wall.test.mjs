@@ -4,7 +4,8 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 import {runWall,EVENT,HEADLINE,ARTICLE} from '../tools/admin/dhaluun-wall.mjs';
 const html=fs.readFileSync(new URL('../game/edictum.html',import.meta.url),'utf8');
-const section=html.slice(html.indexOf('/* Dhaluun: a manually activated Cloudspine event */'),html.lastIndexOf("if(hot&&typeof hot.snapshot==='function')"));
+/* the section alone: later sections (the research edicts) follow it */
+const section=html.slice(html.indexOf('/* Dhaluun: a manually activated Cloudspine event */'),html.indexOf('} /* end Dhaluun event */')+'} /* end Dhaluun event */'.length);
 function game(){
   const N=256,nbr=new Int32Array(N*6).fill(-1);nbr[0]=1;nbr[6+3]=0;nbr[6+1]=2;nbr[12+4]=1;
   const cities=[{id:'cap',cap:true,b:['fortress']},{id:'n0',cap:false,b:['farm']}];
