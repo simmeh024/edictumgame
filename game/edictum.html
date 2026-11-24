@@ -98975,12 +98975,28 @@ function wrFallsAt(at){
 function wrFellOf(id,n,FL){FL=FL||wrFallsAt(null);const f=(n&&n.founded)||0;for(const F of FL)if(F.d===id&&(F.df?F.df===f:f<=F.ft))return F;return null;}
 function myFall(){return S.nation&&S.mode==='world'?wrFellOf(myId(),S.nation):null;}
 /* the fall a conquest belongs to: a hex taken from the fallen nation before its capital fell, by the besieger, one of
-   the fallen nation's enemies, or for one of them (an ally's war, e.w) */
+   the fallen nation's enemies, or for one of them (an ally's war, e.w). The referee's list of enemies (F.foes) holds the
+   besieger and only the wars the fallen nation declared itself, since a war is kept in the record of the side that
+   declared it; so a nation at war with it by its own declaration counts as well (wrSpoilWar). Until 24 Nov 2026 it did
+   not: when Tela tyhate took Index Finger, the 45 hexes its ally Bearland had taken from Thalarara (30 of them handed
+   on to Tela) went blank with the rest of Thalarara, and Tela's land was left full of holes (bug report). */
 function wrSpoilOf(e,FL){
   if(typeof e.d!=='string')return null;
   for(const F of FL){if(F.d!==e.d||!(e.t<=F.ft+1000)||(F.df&&e.t<F.df))continue;
-    if(e.src===F.a||F.foes.includes(e.src)||(e.w&&(e.w===F.a||F.foes.includes(e.w))))return F;}
+    if(e.src===F.a||F.foes.includes(e.src)||(e.w&&(e.w===F.a||F.foes.includes(e.w))))return F;
+    if(wrSpoilWar(e.src,F.d,e.t)||(e.w&&wrSpoilWar(e.w,F.d,e.t)))return F;}
   return null;
+}
+/* a war between a and b covered time t, as warCovers reads it from both records; once b's record is gone (dissolved
+   after its fall), a's own record alone: the war it declared on b, or one kept in its history (n.wh) */
+function wrSpoilWar(a,b,t){
+  if(!a||!b||a===b)return false;
+  if(warCovers(a,b,t))return true;
+  if(docOf(b)||hidDoc(b))return false;
+  const A=docOf(a)||hidDoc(a);if(!A)return false;
+  const d=(A.wars&&A.wars[b]&&A.wars[b].t)||0;if(d&&d<=t+1000)return true;
+  for(const w of A.wh||[])if(w.w===b&&w.a<=t+1000&&t<=w.b+1000)return true;
+  return false;
 }
 /* a nation nobody may attack at time t: in its grace after coming back (n.grc), or in the days after it rose again */
 function wrShielded(n,t){if(!n)return false;const g=n.grc;if(g&&t>=g.t&&t<=g.u)return true;return !!(n.shd&&t<n.shd&&t>=(n.founded||0));}
