@@ -1,8 +1,17 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {planEvent,runEvent,EVENT,MESSAGE} from '../tools/admin/dhaluun-event.mjs';
+import {planEvent,runEvent,decodeNation,EVENT,MESSAGE} from '../tools/admin/dhaluun-event.mjs';
+import {deflateNation} from '../functions/nationtext.js';
 import fs from 'node:fs';
 import {mapKit} from '../scripts/bake-maps.mjs';
+test('the planner decodes compressed live nations and legacy JSON with the adapter’s public metadata',()=>{
+  const j=JSON.stringify({name:'Playerland',reg:'cloudspine'});
+  for(const payload of [{j},{z:deflateNation(j)}]){
+    const d={...payload,pop:12,army:8,cl:10,rev:4,storageV:1,ts:{toMillis:()=>123}};
+    const n=decodeNation({id:'player',get:k=>d[k]});assert.equal(n.name,'Playerland');assert.equal(n._pop,12);assert.equal(n._ts,123);assert.equal(n._rev,4);assert.equal(n.whv,1);
+  }
+  assert.throws(()=>decodeNation({id:'broken',get:()=>undefined}),/Cannot decode nation/);
+});
 test('the real Cloudspine map gains exactly 120 land hexes',async()=>{
   const p=await planEvent([]);assert.equal(p.after-p.before,120);assert.equal(p.event.targets.length,5);
   assert.equal(p.event.by,'npc-cloudspine-dhaluun');assert.equal(p.event.reg,'cloudspine');

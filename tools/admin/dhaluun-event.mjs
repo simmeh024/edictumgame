@@ -3,10 +3,18 @@ import fs from 'node:fs';
 import {createRequire} from 'node:module';
 import {fileURLToPath} from 'node:url';
 import {chromium} from 'playwright';
+import {nationText} from '../../functions/nationtext.js';
 const require=createRequire(new URL('../../functions/package.json',import.meta.url));
 const {initializeApp,applicationDefault}=require('firebase-admin/app');
 const {getFirestore,Timestamp,FieldValue}=require('firebase-admin/firestore');
 export const EVENT='dhaluun-cloudspine-v1',REGION='cloudspine',MESSAGE='hmm, that did not go to plan.';
+export function decodeNation(snapshot){
+  const text=nationText(snapshot);if(text===null)throw new Error('Cannot decode nation '+snapshot.id+'. No event was written.');
+  const n=JSON.parse(text);if(!n||typeof n!=='object'||Array.isArray(n))throw new Error('Invalid nation '+snapshot.id+'.');
+  Object.assign(n,{_ts:snapshot.get('ts')?.toMillis?.()||0,_pop:snapshot.get('pop'),_army:snapshot.get('army'),_cl:snapshot.get('cl'),_rev:snapshot.get('rev')||0,_dirty:false});
+  if(snapshot.get('storageV')===1)n.whv=1;
+  return n;
+}
 export async function planEvent(rows,{now=Date.now()}={}){
   const browser=await chromium.launch({...(process.env.CHROMIUM_PATH?{executablePath:process.env.CHROMIUM_PATH}:{})});
   try{
@@ -35,7 +43,7 @@ export async function runEvent(db,{apply=false}={}){
   const nations=await db.collection('nations').where('reg','==',REGION).get();
   const mods=nations.empty?[]:await db.getAll(...nations.docs.map(d=>db.doc('mod/'+d.id)));
   const hidden=new Map(mods.map(d=>[d.id,d.get('hidden')===true]));
-  const rows=nations.docs.map(d=>({id:d.id,n:JSON.parse(d.get('j')),hidden:hidden.get(d.id)}));
+  const rows=nations.docs.map(d=>({id:d.id,n:decodeNation(d),hidden:hidden.get(d.id)}));
   const plan=await planEvent(rows);
   if(!apply)return {status:'plan',...plan};
   return db.runTransaction(async tx=>{
