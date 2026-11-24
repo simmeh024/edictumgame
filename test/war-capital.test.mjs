@@ -176,8 +176,8 @@ test('the decision: goodwill with the region, and the capital marked decided', (
   ctx.applyEffects(n, { cqc: 'keep' });assert.deepEqual(J(n.cqd), ['f1', 'f2'], 'once');
 });
 
-test('the city cap as it always was: one city for each that people, land and buildings bring, 33 at most (tripled for a few minutes on 22 Nov 2026, then set back)', () => {
+test('the city cap includes the population schedule, land and building bonuses, with captured cities counted separately', () => {
   assert.match(src, /function maxCities\(T,i\)\{return Math\.min\(MAX_CITIES,mileOf\(S\.nation\)\.cities\+areaCities\(myArea\(T,i\)\)\+\(cityBonusOpen\(S\.nation\)\?1:0\)\+\(cityGoldOpen\(S\.nation\)\?1:0\)\);\}/);
-  assert.match(src, /MAX_CITIES=33,CQ_MAX=10,/);assert.doesNotMatch(src, /CITY_MULT/);
+  assert.match(src, /MILE_CITIES=1\+CITY_POP_AT\.length,MAX_CITIES=MILE_CITIES\+21,CQ_MAX=10,/);assert.doesNotMatch(src, /CITY_MULT/);
   assert.match(src, /const lcCities=n=>\{const cap=cellOf\(n&&n\.loc\);return n&&Array\.isArray\(n\.cities\)\?n\.cities\.filter\(c=>c&&c\.c!==cap&&!c\.cq\)\.length:0;\};/, 'a captured city earns no founding land credits');
 });
