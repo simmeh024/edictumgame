@@ -109,10 +109,10 @@ const next = (before, f) => { const n = J(before); f(n.nrp, n); return n; };
 
 test('the server: credits may carry the research edicts’ boost', () => {
   const before = rec({ k: bits(), re: 100, rs: 0, ra: T0 });
-  const base = R.rsBase(50, 0, 0), most = (base + R.RS_BLD_RC_MAX) * (1 + R.RS_INTL_MAX + R.RS_DOM_MAX + R.RS_ED_MAX);
+  const base = R.rsBase(50, 0, 0), most = (base + R.RS_BLD_RC_MAX) * (1 + R.RS_INTL_MAX + R.RS_DOM_MAX + R.RS_ED_MAX) * R.RS_RC_K;
   assert.equal(R.rsRateMax(50, 0, 0), most);
   /* a day at the base rate with the edicts' whole boost, and international cooperation's and the report's: kept */
-  const full = next(before, p => { p.re = 100 + base * (1 + R.RS_INTL_MAX + R.RS_DOM_MAX + R.RS_ED_MAX); p.ra = T0 + DAY; });
+  const full = next(before, p => { p.re = 100 + base * (1 + R.RS_INTL_MAX + R.RS_DOM_MAX + R.RS_ED_MAX) * R.RS_RC_K; p.ra = T0 + DAY; });
   assert.equal(R.rsSettle(full, before, T0 + DAY, T0).ok, true);
   /* more than the most: cut back */
   const over = next(before, p => { p.re = 100 + most * 1.2; p.ra = T0 + DAY; });
@@ -160,12 +160,13 @@ function engine(laws = {}) {
   const RS = [{ i: 0, n: 'Steam Power', k: 0, h: 12 }, { i: 1, n: 'Sanitation', k: 1, h: 6 }];
   const ctx = {
     Math, Object, Array, Number, JSON, String, Set, Map, isFinite, console, DAY, RS, RS_TRACKS: [{ k: 't' }, { k: 'g' }, { k: 'w' }],
-    RS_RULES: { discMax: 0.25, edMax: R.RS_ED_MAX, qMin: R.RS_Q_MIN, qMax: R.RS_Q_MAX },
+    RS_RULES: { rk: R.RS_RC_K, discMax: 0.25, edMax: R.RS_ED_MAX, qMin: R.RS_Q_MIN, qMax: R.RS_Q_MAX },
     POLICIES: { researchTenure: ['Research Tenure Act'], scienceAusterity: ['Science Austerity Act'], peerReview: ['Peer Review Act'], fastTrackScience: ['Fast-Track Science Act'] },
     ISSUE_BY_ID: { 'rsv-a': { t: 'Edict A' }, 'rsv-b': { t: 'Edict B' } }, fill: t => t, pol: () => laws, NORM_HOOKS: [],
     clamp: (v, a, b) => Math.min(b, Math.max(a, v)), rsNum: (v, lo, hi) => typeof v === 'number' && isFinite(v) ? Math.min(hi, Math.max(lo, v)) : lo,
     rsOf: n => n && n.nrp, rsNow: () => ctx.NOW, NOW: 0, list: a => a.join(', '), cap1: s => s && s[0].toUpperCase() + s.slice(1), fmtAmt: x => String(Math.round(x * 10) / 10),
     fmtDur: ms => Math.round(ms / HOUR) + ' h', fmtTime: () => '12:00', dayTail: () => '', rsLog: () => {},
+    rsRateV: (base, m) => Math.max(0, Math.round(base * (1 + m) * R.RS_RC_K * 100) / 100),
     rsStudyMs: (n, i) => RS[i].h * HOUR, rsRateParts: () => ({ v: 10, base: 10, intl: { v: 0 }, dom: { v: 0 }, parts: [] }), rsDisc: () => ({ v: 0, parts: [] }), rsBal: () => 0, rsAccrue: () => 0
   };
   vm.createContext(ctx);

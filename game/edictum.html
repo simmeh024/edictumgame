@@ -101773,8 +101773,10 @@ w:[
   ['w-eternal-vigilance','Eternal Vigilance','eye','The watch never sleeps, and never needs to raise its voice.',{cspy:1}],
   ['w-peace-through-strength','Peace Through Strength','dove','Strong enough to be left alone, and wise enough to leave others alone.',{once:{safety:1,happy:1}}]]
 ]};
-/* the rules the server holds the research to (functions/research-rules.js; test/research.test.mjs checks they agree) */
-const RS_RULES={avg:[5,8,12,18,25,35,48,65,85,110,140,175,220,275,340,420,480,550,630,720,820,930,1050,1200],t1:[10,2,3,4,6],mul:[0,0.7,0.85,1,1.05],
+/* the rules the server holds the research to (functions/research-rules.js; test/research.test.mjs checks they agree).
+   rk: the share of the credits a day a nation keeps; the rest goes on the laboratory's running costs (the owner,
+   24 Nov 2026: "it needs a bit of a nerf", a fifth off everything) */
+const RS_RULES={rk:0.8,avg:[5,8,12,18,25,35,48,65,85,110,140,175,220,275,340,420,480,550,630,720,820,930,1050,1200],t1:[10,2,3,4,6],mul:[0,0.7,0.85,1,1.05],
   eraHours:[0,2,6,12,24,36],discMax:0.25,intlMax:0.3,domMax:0.15,edMax:0.3,qMin:0.5,qMax:3,inst:[0,10,20,35,50,75,110,155,230],grants:{f:12},skew:120000};
 const RS_TRACKS=[{k:'t',n:'Trade',ico:'scales',al:'trade'},{k:'g',n:'Growth',ico:'leaf',al:'culture'},{k:'w',n:'War',ico:'swords',al:'def'}];
 const RS_ERAS=[['Foundations',1,4],['Industrialisation',5,8],['Modernisation',9,12],['National Excellence',13,16],['International Leadership',17,20],['Golden Age',21,24]];
@@ -101930,7 +101932,10 @@ function rsIntl(n,now){
 }
 function rsDom(n,now){const p=rsOf(n),parts=[];if(p&&p.rp>now)parts.push(['the national science report',0.1]);const v=Math.min(RS_RULES.domMax,parts.reduce((s,x)=>s+x[1],0));return {v,parts};}
 /* RC a day, and how it is made up: 10, Science & Technology / 5, the institution, the technologies, the research
-   buildings, then cooperation (none at all while the laboratory is not at work: see its site, below) */
+   buildings, then cooperation (none at all while the laboratory is not at work: see its site, below), and of all that
+   the share RS_RULES.rk, the rest going on the laboratory's running costs. rsRateV: the day's credits from the base
+   and the boosts' share (m); every wrapper below works them out through it */
+const rsRateV=(base,m)=>Math.max(0,Math.round(base*(1+m)*RS_RULES.rk*100)/100);
 function rsRateParts(n,now){
   now=now||Date.now();const p=rsOf(n);if(!p||!p.i)return {v:0,parts:[],base:0};
   const sci=clamp(num0((n.s||{}).sci),0,100),l=p.l|0,b=rsBits(p.k),tr=rsTechRc(b),bld=rsBldRc(n);
@@ -101938,8 +101943,7 @@ function rsRateParts(n,now){
   if(RS_RULES.inst[l])parts.push([rsInstName(n,l),RS_RULES.inst[l]]);
   if(tr)parts.push(['Technologies',tr]);if(bld)parts.push(['Research buildings',bld]);
   const base=parts.reduce((s,x)=>s+x[1],0),I=rsIntl(n,now),Dm=rsDom(n,now);
-  const v=base*(1+I.v+Dm.v);
-  return {v:Math.round(v*100)/100,base,parts,intl:I,dom:Dm};
+  return {v:rsRateV(base,I.v+Dm.v),base,parts,intl:I,dom:Dm,rk:RS_RULES.rk};
 }
 const rsRate=(n,now)=>rsRateParts(n,now).v;
 /* the balance now, without changing the record */
@@ -102760,7 +102764,7 @@ function rsOverviewHTML(n,now){
     </div>
     <div class="rs-ov-b">
       <section class="section rs-box rs-labcard"><div data-labfig="ov">${rsLabArt(rsLabState(n,now),'ov')}${rsLabProgressHTML(n,now)}</div><p class="lbl">${esc(cap1(p.i?rsInstName(n,p.l|0):p.nm||''))}</p><p class="hint">${esc(rsLabPlace(n))}${p.i?` · open since ${fmtDate(p.i)}`:''}${R.idle?` · <b class="dn">${esc(R.idle)}</b>`:''}</p></section>
-      ${p.i?`<section class="section rs-box"><h2 class="h2">Research Credits a day</h2><dl class="rs-rate">${R.parts.map(([l,v])=>`<div><dt>${esc(l)}</dt><dd class="num">+${fmtAmt(v)}</dd></div>`).join('')}${R.intl.v?`<div><dt>International cooperation</dt><dd class="num">+${Math.round(R.intl.v*100)}%</dd></div>`:''}${R.dom.v?`<div><dt>${esc(R.dom.parts.map(x=>x[0]).join(', '))}</dt><dd class="num">+${Math.round(R.dom.v*100)}%</dd></div>`:''}${R.ed&&R.ed.v?`<div class="rse-rate${R.ed.v<0?' rse-dn':''}"><dt>Research edicts and laws</dt><dd class="num">${R.ed.v<0?'−':'+'}${Math.round(Math.abs(R.ed.v)*100)}%</dd></div>`:''}<div class="rs-tot"><dt>In all</dt><dd class="num">${fmtAmt(R.v)} RC</dd></div></dl></section>`:''}
+      ${p.i?`<section class="section rs-box"><h2 class="h2">Research Credits a day</h2><dl class="rs-rate">${R.parts.map(([l,v])=>`<div><dt>${esc(l)}</dt><dd class="num">+${fmtAmt(v)}</dd></div>`).join('')}${R.intl.v?`<div><dt>International cooperation</dt><dd class="num">+${Math.round(R.intl.v*100)}%</dd></div>`:''}${R.dom.v?`<div><dt>${esc(R.dom.parts.map(x=>x[0]).join(', '))}</dt><dd class="num">+${Math.round(R.dom.v*100)}%</dd></div>`:''}${R.ed&&R.ed.v?`<div class="rse-rate${R.ed.v<0?' rse-dn':''}"><dt>Research edicts and laws</dt><dd class="num">${R.ed.v<0?'−':'+'}${Math.round(Math.abs(R.ed.v)*100)}%</dd></div>`:''}${RS_RULES.rk<1?`<div class="rse-dn rs-run"><dt>Laboratory running costs</dt><dd class="num">−${Math.round((1-RS_RULES.rk)*100)}%</dd></div>`:''}<div class="rs-tot"><dt>In all</dt><dd class="num">${fmtAmt(R.v)} RC</dd></div></dl></section>`:''}
       <section class="section rs-box"><h2 class="h2">Scientific initiatives</h2><p class="hint">Paid for with mandate (you have ${Math.floor(mdNow(n,now))} of ${MD_CAP}).</p><ul class="rs-list rs-mdl">${md}</ul></section>
     </div></div>`;
 }
@@ -103261,7 +103265,7 @@ rsWhy=(f=>function(n,i,now){const p=rsOf(n);if(p&&p.i&&!rsActive(n))return [rsId
 rsRateParts=(f=>function(n,now){
   const R=f.apply(this,arguments),p=rsOf(n);if(!p||!p.i)return R;
   if(!rsActive(n))return Object.assign({},R,{v:0,idle:rsIdleWhy(n)});
-  if(p.o===0){const add=RS_SITES[0].rc,parts=R.parts.concat([['The university quarter',add]]),base=R.base+add;return Object.assign({},R,{parts,base,v:Math.round((base*(1+R.intl.v+R.dom.v))*100)/100});}
+  if(p.o===0){const add=RS_SITES[0].rc,parts=R.parts.concat([['The university quarter',add]]),base=R.base+add;return Object.assign({},R,{parts,base,v:rsRateV(base,R.intl.v+R.dom.v)});}
   return R;})(rsRateParts);
 rsFinish=(f=>function(n,now){return rsActive(n)?f.apply(this,arguments):[];})(rsFinish);
 rsDisc=(f=>function(n,i,now){const D=f.apply(this,arguments),p=rsOf(n);if(!p||!rsPlaced(n))return D;const S0=RS_SITES[p.o],k=RS_TRACKS[RS[i].k].k,v=S0&&S0.disc&&S0.disc[k];if(!v)return D;
@@ -103437,7 +103441,7 @@ DSP_LOG.rsx={sec:'culture',w:5,kick:'Science',go:'visit',h:['{B} opens in {N}','
 DSP_LOG.rsc={sec:'front',w:7,kick:'Science',go:'visit',h:['{N} completes {B}','{B} is finished','A great work in {N}'],b:'{N} has completed {B}, one of the great works of the region, after years of building and a great deal of scaffolding.'};
 NOTIF_SOURCES.push(n=>(n.log||[]).filter(l=>l.k==='rsi'||l.k==='rsx'||l.k==='rsc').slice(0,6).map(l=>({t:l.t,k:l.k,kl:'National Research',txt:logLine(l,n,myId()),go:'research'})));
 HELP_EXT.push({k:'research',t:'Research',body:n=>`<p>After ${RS_AT} enacted edicts, your scientists petition the government for a National Research Laboratory (a gold-bordered edict; vetoed, it comes back ${RS_AGAIN} edicts later). Grant it, choose its city, name it and its director, and build it in five stages. At the inauguration you receive ${RS_RULES.grants.f} Research Credits.</p>
-  <p><b>Research Credits</b> come every day, even while you are away: 10, plus a fifth of your Science &amp; Technology, plus your institution’s bonus. Eight expansions raise it from 20 to 250 a day at Science 50. International cooperation adds up to ${Math.round(RS_RULES.intlMax*100)}%, and discounts take up to ${Math.round(RS_RULES.discMax*100)}% off a price.</p>
+  <p><b>Research Credits</b> come every day, even while you are away: 10, plus a fifth of your Science &amp; Technology, plus your institution’s bonus, of which the laboratory’s running costs take ${Math.round((1-RS_RULES.rk)*100)}%. Eight expansions raise it from ${fmtAmt(20*RS_RULES.rk)} to ${fmtAmt(250*RS_RULES.rk)} a day at Science 50. International cooperation adds up to ${Math.round(RS_RULES.intlMax*100)}%, and discounts take up to ${Math.round(RS_RULES.discMax*100)}% off a price.</p>
   <p><b>The research tree</b> has three tracks, Trade, Growth and War, each of 24 tiers in six eras, five technologies a tier. Each tier needs the one before; later tiers need progress in the other tracks too, and some technologies need buildings, cities, materials or a Grand Challenge. From Tier V a technology is studied for some hours once paid for, one study per track. Every technology does something, and the Research page says what.</p>`});
 /* the browser tests' window into the research (EDICTUM_PROBE.rs) */
 if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE.rs={RS,RS_BY,RS_DATA,RS_RULES,RS_TRACKS,RS_ERAS,RS_LAB,RS_INST,RS_CH,RS_LETTERS,RS_DILEMMAS,RS_X,RS_C,RS_RC,RS_READY,RS_RMAX,RS_FX_CAP,RS_BLD,RS_AL_PROJ,RS_ID,RS_AT,RS_AGAIN,RSU,RSV,RSF,
@@ -103932,7 +103936,7 @@ rsStudyMs=(f=>function(n,i,now){
 rsRateParts=(f=>function(n,now){
   const R=f.apply(this,arguments),p=rsOf(n);if(!p||!p.i||R.idle||!(R.base>0))return R;
   const E=rseRateParts(n,now||Date.now());if(!E.parts.length)return R;
-  return Object.assign({},R,{ed:E,v:Math.max(0,Math.round(R.base*(1+R.intl.v+R.dom.v+E.v)*100)/100)});})(rsRateParts);
+  return Object.assign({},R,{ed:E,v:rsRateV(R.base,R.intl.v+R.dom.v+E.v)});})(rsRateParts);
 /* prices: an edict's discount counts with every other (at most RS_RULES.discMax), and dearer is dearer */
 rsDisc=(f=>function(n,i,now){
   const D=f.apply(this,arguments),p=rsOf(n);if(!p)return D;now=now||Date.now();
