@@ -52,7 +52,7 @@ test('another region is named quietly after the name, in the reader’s language
 test('the heading leaves out the reader’s own region and keeps the name from shrinking', () => {
   const line = fn('rgcLine');
   assert.match(line, /from=rg&&rg!==REG\.id\?rgwFrom\(rg\):''/, 'no region for the reader’s own');
-  assert.match(line, /<span class="rgc-lw">\$\{who\}\$\{from\}\$\{mk\?`<span class="rgc-mk">\$\{mk\}<\/span>`:''\}/, 'name, region, then the marks');
+  assert.match(line, /<span class="rgc-lw">\$\{who\}\$\{m\.tm\?'':chatDelegateBadge\(m\.a\)\}\$\{from\}\$\{mk\?`<span class="rgc-mk">\$\{mk\}<\/span>`:''\}/, 'name, region, then the marks');
   assert.match(line, /mk=m\.tm\?'':\(pill\?rgcRoleIc\(pill\):''\)\+marks/, 'the role’s badge leads the marks');
   assert.match(html, /\.rgc-lw \.rgc-nm\{flex:0 0 auto;max-width:100%\}/, 'the name does not shrink until it fills the row');
   assert.match(html, /\.rgc-mk\{display:flex;flex-wrap:wrap;[^}]*height:20px;[^}]*overflow:hidden\}/, 'a mark that does not fit drops out whole');
