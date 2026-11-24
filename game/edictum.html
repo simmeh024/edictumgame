@@ -35749,10 +35749,10 @@ HAP_SOURCES.push((x,now)=>{
 });
 vsAdd('cv',(x,now)=>{
   if(!x||!x.n||x.me)return '';const n=S.nation;
-  const pr=cvProtected(x,now),rv=n?cvRetal(x.id,n,now):null,c=x.npc?0:cvCaught(x.n,now);
+  const pr=cvProtected(x,now),rv=n?cvRetal(x.id,n,now):null,c=x.npc?cvIndex().all.filter(e=>e.by===x.id&&e.ex&&now-e.op.t<30*DAY).length:cvCaught(x.n,now);
   const btn=(n&&!pr?`<button class="btn ghost" data-act="cv-go" data-id="${esc(x.id)}">${rv?'Retaliate…':'Plan a covert operation'}</button>`:'')+(n&&n.ifl&&n.ifl[x.id]?`<button class="btn ghost" data-act="ib-file" data-id="${esc(x.id)}">Open your file</button>`:'');
-  const sub=x.npc?'Computer-run nations do not run covert operations, but their scandals still make the papers.':pr?`New nations are protected from covert operations for 3 days, until ${fmtDate((x.n.founded||0)+CV_NEW)}.`:rv?`${esc(x.n.name)} was caught ${esc(cvVerbYou(rv.op.k))}: you have a right to retaliate until ${fmtTime(rv.rt+CV_RV)}.`:'Covert operations: scandals, blueprints, sabotage and bribes.';
-  return `<section class="mu-visit cv-visit"><div class="mu-sc-h"><div><p class="eyebrow">Intelligence file</p>${x.npc?'':`<p class="mu-visit-n">Caught spying: ${c} ${c===1?'time':'times'} in the last 30 days</p>`}<p class="hint">${sub}</p></div>${btn}</div></section>`;
+  const sub=x.npc&&c?`${esc(x.n.name)} has been caught spying ${c} ${c===1?'time':'times'} in the last 30 days.`:x.npc?'Computer-run nations do not usually run covert operations, but their scandals still make the papers.':pr?`New nations are protected from covert operations for 3 days, until ${fmtDate((x.n.founded||0)+CV_NEW)}.`:rv?`${esc(x.n.name)} was caught ${esc(cvVerbYou(rv.op.k))}: you have a right to retaliate until ${fmtTime(rv.rt+CV_RV)}.`:'Covert operations: scandals, blueprints, sabotage and bribes.';
+  return `<section class="mu-visit cv-visit"><div class="mu-sc-h"><div><p class="eyebrow">Intelligence file</p>${x.npc&&!c?'':`<p class="mu-visit-n">Caught spying: ${c} ${c===1?'time':'times'} in the last 30 days</p>`}<p class="hint">${sub}</p></div>${btn}</div></section>`;
 });
 DISPATCH_SOURCES.push(ctx=>{
   if(!ctx||ctx.reg!==REG.id)return [];
@@ -103173,6 +103173,71 @@ if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE.mil={milOwn
    ws-9 to ws-16 (see "Letters from Willow Street: one citizen"). Edicts written later go after this line. Tests that
    run the sections above on their own, without the letters, skip it. */
 if(typeof wsPush==='function')wsPush(WS_ACT1,WS_N);
+
+/* Dhaluun: a manually activated Cloudspine event */
+if(typeof grow==='function'&&typeof cvIndex==='function'&&typeof collectConquests==='function'&&typeof connect==='function'){
+/* Dhaluun's one-off Cloudspine event. Installing this code does not launch it:
+   the operator must create worldEvents/dhaluun-cloudspine-v1 with the admin tool. */
+const DHALUUN={id:'dhaluun-cloudspine-v1',by:'npc-cloudspine-dhaluun',reg:'cloudspine',data:null};
+function dhaluunRead(d){
+  if(!d||d.v!==1||d.reg!==DHALUUN.reg||d.by!==DHALUUN.by||d.map!==MAP_VER||!Number.isFinite(d.t)||d.t<=0||d.t>Date.now())return null;
+  if(!Array.isArray(d.land)||d.land.length!==120||new Set(d.land).size!==120||d.land.some(c=>!Number.isInteger(c)||c<0||c>=MAP.N||MAP.T[c]<2))return null;
+  if(!Array.isArray(d.targets)||!d.targets.length||d.targets.length>1000)return null;
+  const ids=new Set();
+  for(const x of d.targets){if(!x||typeof x.id!=='string'||!/^[\w-]{1,128}$/.test(x.id)||x.id===DHALUUN.by||ids.has(x.id)||typeof x.nm!=='string'||!x.nm.trim()||x.nm.length>80)return null;ids.add(x.id);}
+  return {t:d.t,land:d.land.slice(),targets:d.targets.map(x=>({id:x.id,nm:x.nm}))};
+}
+function dhaluunActive(at){return REG.id===DHALUUN.reg&&DHALUUN.data&&(at==null?Date.now():at)>=DHALUUN.data.t?DHALUUN.data:null;}
+/* Reserve the annexed land before natural cores grow. Explicit player claims, cities,
+   capitals and later conquests still use the normal territory rules. */
+grow=(f=>function(list,over){
+  const d=dhaluunActive(TERR_AT),i=list.findIndex(x=>x.id===DHALUUN.by);
+  if(!d||i<0)return f.apply(this,arguments);
+  const reserved=new Map(over||[]),caps=new Set(list.map(x=>x.cap));
+  for(const c of d.land)if(!reserved.has(c)&&!caps.has(c))reserved.set(c,i);
+  return f.call(this,list,reserved);
+})(grow);
+collectConquests=(f=>function(at){const r=f.apply(this,arguments),d=dhaluunActive(at);return d?{...r,sig:r.sig+'|dhaluun:'+d.t}:r;})(collectConquests);
+cvIndex=(f=>function(){
+  const r=f.apply(this,arguments),d=dhaluunActive();if(!d)return r;
+  const all=r.all.slice();
+  for(const x of d.targets){const op={id:DHALUUN.id+':'+x.id,k:'g',tg:x.id,tn:x.nm,t:d.t,rg:DHALUUN.reg,p:0,x:1};
+    all.push({by:DHALUUN.by,bn:'Dhaluun',bd:'Dhaluunese',op,ok:false,ex:true,key:cvKey(DHALUUN.by,op)});}
+  all.sort((a,b)=>b.op.t-a.op.t);return {all,k:r.k+'|dhaluun:'+d.t};
+})(cvIndex);
+/* The operation is a snapshot: newcomers are not spied on retroactively. */
+function dhaluunPlan(T){
+  if(REG.id!==DHALUUN.reg)throw new Error('Open Cloudspine to plan this event.');
+  if(DHALUUN.data)throw new Error('This event has already run.');
+  const i=T.byId[DHALUUN.by];if(i===undefined)throw new Error('Dhaluun has no territory.');
+  const cap=T.list[i].cap,cx=MAP.cx[cap],cy=MAP.cy[cap],held=new Set(),edge=new Set(),land=[];
+  for(let c=0;c<MAP.N;c++)if(T.owner[c]===i)held.add(c);
+  const offer=c=>{for(let k=0;k<6;k++){const n=MAP.nbrFlat[c*6+k];
+    if(n>=0&&T.owner[n]===-1&&MAP.T[n]>=2&&MAP.cx[n]<cx&&!held.has(n))edge.add(n);}};
+  for(const c of held)offer(c);
+  while(land.length<120){
+    const next=[...edge].sort((a,b)=>{
+      /* Prefer a compact western frontier, rather than a one-hex tendril. */
+      const score=c=>(cx-MAP.cx[c])+Math.abs(MAP.cy[c]-cy)*1.8;
+      return score(a)-score(b)||a-b;
+    })[0];
+    if(next===undefined)throw new Error('There are fewer than 120 connected unclaimed land hexes west of Dhaluun.');
+    edge.delete(next);held.add(next);land.push(next);offer(next);
+  }
+  const targets=allNations().filter(x=>x.id!==DHALUUN.by&&!x.hid).map(x=>({id:x.id,nm:x.n.name})).sort((a,b)=>a.id.localeCompare(b.id));
+  return {v:1,reg:DHALUUN.reg,by:DHALUUN.by,map:MAP_VER,t:Date.now(),land,targets};
+}
+connect=(f=>async function(){const r=await f.apply(this,arguments);
+  if(REG.id===DHALUUN.reg&&S.db)quietListen(S.db.doc('worldEvents/'+DHALUUN.id),s=>{
+    DHALUUN.data=dhaluunRead(s&&s.exists?s.data():null);passForget();terrCache.clear();atlasCache.clear();
+    quietRender(()=>{render();redrawMaps();});
+  },()=>{});
+  return r;
+})(connect);
+if(typeof window.EDICTUM_PROBE==='function')window.EDICTUM_PROBE.dhaluun={state:DHALUUN,read:dhaluunRead,plan:()=>dhaluunPlan(territory()),index:()=>cvIndex(),map:MAP,version:MAP_VER,
+  load:rows=>{S.nation=null;S.uid='';S.mode='world';S.world={};HIDN.w={};for(const x of rows){const n=normalize(x.n);if(!n||n.reg!==REG.id)continue;auditNation(n,x.n,x.id,Date.now(),false);if(isDormant(n))continue;if(x.hidden)HIDN.w[x.id]=n;else S.world[x.id]=n;}passForget();terrCache.clear();}};
+
+} /* end Dhaluun event */
 
 if(hot&&typeof hot.snapshot==='function'){try{hot.snapshot(()=>({view:S.view,openIssue:S.openIssue,result:S.result,visit:S.visit,censusKey:S.censusKey,settings:S.settings,draft:S.draft,mapViews:S.mapViews,mapSel:S.mapSel,mapPick:S.mapPick}));}catch(e){}}
 if(hot&&typeof hot.ready==='function')hot.ready(start);else start((hot&&hot.data)||{});

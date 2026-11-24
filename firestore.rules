@@ -1022,6 +1022,11 @@ service cloud.firestore {
         && (!('s' in request.resource.data) || request.resource.data.s is map);
       allow delete: if isSelf(uid);
     }
+    // Scripted NPC events: public state, written only through the Admin SDK.
+    match /worldEvents/{event} {
+      allow read: if true;
+      allow write: if false;
+    }
     match /adminAudit/{event} {
       allow read: if isAdmin();
       allow write: if false;
