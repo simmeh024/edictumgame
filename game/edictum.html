@@ -22940,8 +22940,9 @@ function territory(extra){
   if(extra){const cap=cellOf(extra.loc);if(cap>=0)list.push({id:extra.id,n:extra.n,cap,pop:extra.pop,me:true});}
   list.sort((a,b)=>a.id<b.id?-1:a.id>b.id?1:0);
   /* a nation whose capital fell (war, round two) is off the map from that moment: what its enemies took from it stays
-     theirs (the spoils, below), the rest of its land is free */
-  const FL=wrFallsAt(TERR_AT);
+     theirs (the spoils, below), the rest of its land is free. A capital lost while the nation had another city only moved
+     its government (the capital moves: the records as read have it at its new city), so it does not count here */
+  const FL=wrEndsAt(TERR_AT),MV=new Map();for(const F of wrFallsAt(TERR_AT))if(F.ni)MV.set(F.c,F);
   if(FL.length)for(let i=list.length-1;i>=0;i--){const x=list[i];if(!x.npc&&!x.hid&&wrFellOf(x.id,x.n,FL))list.splice(i,1);}
   for(const x of list){x.cm=!x.npc&&(x.id==='draft'||Array.isArray(x.n.claims));x.budget=x.cm?CORE_HEXES:x.npc?npcLand(x.pop):budgetOf(x.pop);x.w=x.npc?npcWeight(x.pop):weightOf(x.pop);x.col=nationColor(x.n);}
   const ev=collectConquests(TERR_AT);
@@ -22989,6 +22990,9 @@ function territory(extra){
       /* a hex taken in war and handed to another nation (wr, warGive) stays land taken in war: still counted as lost by
          the nation it was taken from, and the new holder may hand it on or give it back in its turn */
       if(e.wr&&how.get(e.c)===2)continue;how.set(e.c,1);nat.set(e.c,oi);continue;}
+    /* a capital its nation lost while its government moved on (the capital moves): the attacker's, as the referee's fall
+       says (F.a took F.c from F.d at F.ft), also when the land around it is nobody's once the capital has gone */
+    {const F=cur<0&&!e.npc?MV.get(e.c):null;if(F&&F.a===e.src&&F.d===e.d&&Math.abs(e.t-F.ft)<=1000){over.set(e.c,oi);how.set(e.c,2);tk[e.c]=e.t;const di=byId[F.d];if(di!==undefined)nat.set(e.c,di);moved=true;continue;}}
     if(e.npc){const si=byId[e.src];if(si===undefined||cur!==si)continue;}
     else if(e.t>=FIX_EPOCH){
       if(cur<0||cur===oi||(list[cur].n.founded||0)>e.t)continue;
@@ -23252,11 +23256,11 @@ async function attack(){
   /* war, round two: a border war's limit; a raid takes no land; a capital under siege is taken in the final assault */
   {const why=wrAttackWhy(en);if(why){S.warMsg=why;S.mapTarget=null;updateMapPanel();redrawMaps();toast(why);return;}}
   const raid=wrRaidOn(en),capHit=!!T.isCap[cell];let fell=false;
-  let win,t=now,seal=null,seal2=null,pe=od.p,w=aw&&!aw.direct&&aw.defending?aw.defending:'',roll=null;
+  let win,t=now,seal=null,seal2=null,pe=od.p,w=aw&&!aw.direct&&aw.defending?aw.defending:'',roll=null,mvDoc=null;
   if(S.db){
     S.attacking=true;S.warMsg='The referee is rolling the dice…';updateMapPanel();
     let res;
-    try{const api=await window.claude.use('referee');res=api?await api.battle({d:en.id,c:cell,p:od.p,w,h:od.attHelp.map(h=>h.id),...(capHit?{cap:1}:{})}):{ok:false,why:'none'};}catch(e){res={ok:false,why:(e&&e.code)||'unavailable'};}
+    try{const api=await window.claude.use('referee');res=api?await api.battle({d:en.id,c:cell,p:od.p,w,h:od.attHelp.map(h=>h.id),...(capHit?{cap:1,occ:wrOccIds(T,en.id)}:{})}):{ok:false,why:'none'};}catch(e){res={ok:false,why:(e&&e.code)||'unavailable'};}
     S.attacking=false;
     if(!S.nation)return;
     if(!res||!res.ok){
@@ -23265,7 +23269,7 @@ async function attack(){
       S.warMsg=why==='coming_soon'?COMING_SOON:why==='maintenance'?MAINTENANCE:why==='ready'?'Your army is not ready: the referee counts no readiness left. It returns as usual.':why==='banned'?'This account is banned, so its army cannot fight.':why==='hidden'?(iAmHidden()?HID_WAR:`The moderators have hidden ${en.n.name} while they look into a report, so the battle was not fought.`):why==='pact'?'The referee refused the battle: a pact binds the two sides. It must be ended or broken first.':why==='nation'?'Your nation has not reached the region yet. Try again in a moment.':why==='gone'?`${en.n.name} is no longer a nation of this region, so the battle was not fought.`:'The battle was not fought: the referee could not be reached. Try again in a moment.';
       S.mapTarget=null;updateMapPanel();redrawMaps();return;
     }
-    win=!!res.win;fell=!!(win&&capHit&&res.fell);if(res.doc&&res.id)wrPut(res.id,res.doc);t=Number(res.t)||Date.now();roll=typeof res.roll==='number'?res.roll:null;seal=typeof res.s==='string'?res.s:null;seal2=typeof res.s2==='string'?res.s2:null;pe=typeof res.p==='number'?res.p:od.p;if(typeof res.w==='string')w=res.w;now=Date.now();
+    win=!!res.win;fell=!!(win&&capHit&&res.fell);if(fell&&res.doc&&typeof res.doc.ni==='string'&&res.doc.ni)mvDoc=res.doc;if(res.doc&&res.id)wrPut(res.id,res.doc);t=Number(res.t)||Date.now();roll=typeof res.roll==='number'?res.roll:null;seal=typeof res.s==='string'?res.s:null;seal2=typeof res.s2==='string'?res.s2:null;pe=typeof res.p==='number'?res.p:od.p;if(typeof res.w==='string')w=res.w;now=Date.now();
   }else{roll=Math.random();win=roll<od.p;}
   const n=clone(S.nation),msgs=[];
   spendReady(n,now);
@@ -23289,6 +23293,7 @@ async function attack(){
   else if(win){const e=w?{c:cell,t,w,d:en.id}:{c:cell,t,d:en.id};if(seal)e.s=seal;if(seal2)e.s2=seal2;if(typeof refSig(e)==='string')REF.ok.set(refK(myId(),e),true);n.gw={...(n.gw||{}),[en.id]:clamp(((n.gw||{})[en.id]||0)-3,-GW_MAX,GW_MAX)};n.conq.push(e);n.log.unshift({t:now,k:'conq',a:en.id,b:en.n.name,fx:landName(cell),c:cell});
     const gv=wgForPick(T,cell,bi);
     if(gv){n.bx=(n.bx||[]).concat({c:cell,t:t+1,to:gv.id,fr:myId(),wr:1});n.log.unshift({t:now,k:'hand',a:gv.id,b:gv.n.name,fx:landName(cell),c:cell});msgs.push(`Victory. Your forces took a hex ${placePhrase(cell)} from ${en.n.name} and handed it to ${gv.n.name}.`);}
+    else if(fell&&mvDoc){n.log.unshift({t:now+1,k:'ctake',a:en.id,b:en.n.name,fx:en.n.capital||''});msgs.push(`Victory. ${en.n.capital||'Their capital'} has fallen, but the government of ${en.n.name} got out in time and has moved to ${mvDoc.nn||'another city'}. The war goes on: lay siege to its new capital to finish it. Decide the fate of ${en.n.capital||'the city you took'} on your desk.`);}
     else if(fell){n.log.unshift({t:now+1,k:'csack',a:en.id,b:en.n.name,fx:en.n.capital||''});msgs.push(`Victory. ${en.n.capital||'Their capital'} has fallen, and with it ${en.n.name}. Its land taken in war is yours to keep.`);}
     else msgs.push(`Victory. Your forces took a hex ${placePhrase(cell)} from ${en.n.name}.`);}
   else msgs.push(`${en.n.name} held the line. Your attack was repelled.`);
@@ -24258,7 +24263,7 @@ function cityList(n){
 function ensureCities(n){
   const cap=cellOf(n.loc);
   if(cap<0){n.cities=[];return n;}
-  n.cities=cityList(n).map(c=>Object.assign({id:c.id,c:c.c,nm:c.nm||'',t:c.t||0,b:(c.b||[]).map(b=>Object.assign({},b))},cxCityExtras(c),c.cq?{cq:c.cq}:{}));
+  n.cities=cityList(n).map(c=>Object.assign({id:c.id,c:c.c,nm:c.nm||'',t:c.t||0,b:(c.b||[]).map(b=>Object.assign({},b))},cxCityExtras(c),c.cq?{cq:c.cq,...ccFrom(c)}:{}));
   return n;
 }
 function cityLabel(n,c){return c.nm||(n&&c.c===cellOf(n.loc)?n.capital:'Unnamed city');}
@@ -29208,7 +29213,7 @@ function helpBody(n){
       <h3 class="help-h3">Attacking</h3>
       <p>Select an enemy hex outlined in red on the map. You can strike hexes next to your land or your allies’ land, or up to 3 hexes beyond across unclaimed land or shallow sea, losing 15% of your strength for each hex crossed and 25% more by sea unless you have a Blue-Water Navy. A capital can only be taken at the end of a siege. The panel shows your chance, between 5% and 95%: hills and mountains, fortresses, walls, defence policies and the hexes around the target all count, and spies can tip it. A computer nation may strike back at once.</p>
       <h3 class="help-h3">Sieges and the fall of a nation</h3>
-      <p>In a war of conquest, an enemy capital can be besieged once it is all the land its nation has left, or once every hex around it is held by you or your allies. The besieged player is told at once, by post as well if they take war letters. After ${hrs(SIEGE_MS)} your army may make the final assault, until ${hrs(SIEGE_MAX)} after the siege began; the capital’s last defenders make it ${Math.round((CAP_DEF-1)*100)}% harder to take. If it falls, the nation falls with it: it leaves the map, the land its enemies took stays theirs, and the rest lies open. Its player can rise again in the same region, with 3 bonus land credits, a quarter of its materials and ${SHIELD_MS/DAY} days in which nobody may attack it, or start anew in another region. Either way they keep their achievements, portrait, flag, coat of arms, currency, script and history. The conqueror decides the fallen capital’s fate in an edict: take it over as a city of its own (a captured city never counts against the cities a nation may found), raze it, plunder it, set it free or leave it in ruins.</p>
+      <p>In a war of conquest, an enemy capital can be besieged once it is all the land its nation has left, or once every hex around it is held by you or your allies. The besieged player is told at once, by post as well if they take war letters. After ${hrs(SIEGE_MS)} your army may make the final assault, until ${hrs(SIEGE_MAX)} after the siege began; the capital’s last defenders make it ${Math.round((CAP_DEF-1)*100)}% harder to take. If it falls and the nation has another city, its government moves to the biggest (the one with the most finished buildings) and the war goes on: the attacker must lay siege to the new capital. Only when the last capital falls does the nation fall with it: it leaves the map, the land its enemies took stays theirs, and the rest lies open. Its player can rise again in the same region, with 3 bonus land credits, a quarter of its materials and ${SHIELD_MS/DAY} days in which nobody may attack it, or start anew in another region. Either way they keep their achievements, portrait, flag, coat of arms, currency, script and history. The conqueror decides the fallen capital’s fate in an edict: take it over as a city of its own (a captured city never counts against the cities a nation may found), raze it, plunder it, set it free or leave it in ruins. Any other city of a player’s nation on land you take in war brings an edict too: keep it as a captured city, raze it, sack it and hold it under occupation, or give it back.</p>
       <p>A nation under siege may surrender instead: the war ends on current lines, it pays ${Math.round(TRIB_SHARE*100)}% of its spare materials to the besieger for ${TRIB_MS/DAY} days, and a truce holds for ${SURR_TRUCE/DAY} days.</p>
       <h3 class="help-h3">Defending</h3>
       <p>The defender can act too. Spend a point of readiness to fortify one of your hexes for ${hrs(FORT_MS)} (${Math.round((FORT_DEF-1)*100)}% harder to take, ${FORT_MAX} at a time). Your troops fight ${Math.round((RALLY-1)*100)}% harder to win back a hex lost within the day, and a city rises ${Math.round((LIBERATE-1)*100)}% stronger to free itself from an occupier. If enemies took your land while you were away for more than ${hrs(GRACE_AWAY)}, your people rally when you come back: nobody may attack you for ${GRACE_MS/DAY} days, at most once every ${GRACE_GAP/DAY} days. The grace ends if your army attacks land that was never yours.</p>
@@ -29217,7 +29222,7 @@ function helpBody(n){
       <h3 class="help-h3">The cost of war</h3>
       <p>A war uses food, timber, iron, oil and goods every day, on top of what the nation needs in peacetime, and each war costs more than the last: two at once cost nearly three times one, three cost five times. Every occupied city needs a garrison. Short of materials, cities grow restless and produce less, and a city at war whose mood falls under ${STRIKE_AT} goes on strike and produces nothing. War also slows population growth, and several wars at once, hunger and war weariness make the population shrink. Weariness builds every day at war, and faster with more wars, wars of conquest and land lost; at 100 the government sues for peace on current lines with every enemy. While cities complain or strike, war edicts land on your desk until there is peace.</p>
       <h3 class="help-h3">Seeing the war</h3>
-      <p>Tick War under the map’s layers to see sieges with their countdown, fortified hexes, hexes fought over in the last day, raided hexes and war memorials. Wherever a capital fell, a monument to its nation stands on the map whatever layers are ticked: click it to read about the nation that fell. After each attack a battle report shows the dice, the odds the referee used and everything that counted.</p>
+      <p>Tick War under the map’s layers to see sieges with their countdown, fortified hexes, hexes fought over in the last day, raided hexes and war memorials. Wherever a nation fell with its last capital, a monument to it stands on the map whatever layers are ticked: click it to read about the nation that fell. After each attack a battle report shows the dice, the odds the referee used and everything that counted.</p>
       <h3 class="help-h3">War reports</h3>
       <p>When a war ends, its report goes into the Wars section of your Nation page, which visitors can read too: how long it lasted and how it ended, battles fought and won, hexes taken and lost, the materials its upkeep took and the people it cost.</p>
       <h3 class="help-h3">War industry</h3>
@@ -53413,7 +53418,7 @@ function normCities(d){
     const cq=typeof c.cq==='string'&&c.cq.trim()?c.cq.trim().slice(0,40):'';
     /* a captured city (the capital taken, cq: the nation it was taken from) counts for nothing against MAX_CITIES */
     if(cq?out.filter(x=>x.cq).length>=CQ_MAX:out.filter(x=>!x.cq).length>=MAX_CITIES)continue;
-    out.push(Object.assign({id,c:c.c,nm:typeof c.nm==='string'?c.nm.trim().slice(0,30):'',t:nm(c.t,0),b:bs},cxCityExtras(c),cq?{cq}:{}));
+    out.push(Object.assign({id,c:c.c,nm:typeof c.nm==='string'?c.nm.trim().slice(0,30):'',t:nm(c.t,0),b:bs},cxCityExtras(c),cq?{cq,...ccFrom(c)}:{}));
   }
   const ci=out.findIndex(c=>c.c===cap);
   if(ci<0)out.unshift({id:'cap',c:cap,nm:'',t:nm(d.founded,0),b:[]});else if(ci>0)out.unshift(out.splice(ci,1)[0]);
@@ -98947,8 +98952,12 @@ rgcCardHTML=(f=>function(c,m,nm){
 /* ── the region's sieges and falls ── */
 function wrNorm(id,d){
   if(!d||typeof d.a!=='string'||typeof d.d!=='string'||!Number.isInteger(d.c))return null;
-  return {id,a:d.a,d:d.d,c:d.c,t:+d.t||0,st:d.st==='fell'?'fell':'on',ft:+d.ft||0,an:String(d.an||'').slice(0,40),dn:String(d.dn||'').slice(0,40),df:+d.df||0,
+  const x={id,a:d.a,d:d.d,c:d.c,t:+d.t||0,st:d.st==='fell'?'fell':'on',ft:+d.ft||0,an:String(d.an||'').slice(0,40),dn:String(d.dn||'').slice(0,40),df:+d.df||0,
     cn:String(d.cn||'').slice(0,40),reg:String(d.reg||''),foes:Array.isArray(d.foes)?d.foes.filter(x=>typeof x==='string').slice(0,40):[],m:monNorm(d.m)};
+  /* the capital moves (24 November 2026): a capital that fell while its nation had another city; the government moved to
+     the city ni (its id in the nation's record), named nn; ci the city the capital was, cb its finished buildings */
+  if(x.st==='fell'&&typeof d.ni==='string'&&d.ni){x.ni=d.ni.slice(0,16);x.nn=String(d.nn||'').slice(0,40);x.ci=String(d.ci||'').slice(0,16);x.cb=Array.isArray(d.cb)?d.cb.filter(k=>typeof k==='string').slice(0,25):[];}
+  return x;
 }
 function wrConnect(){if(hmQuiet())return;
   if(!S.db||S.mode!=='world'&&!(OBS&&S.obsOn))return;
@@ -98958,21 +98967,26 @@ function wrConnect(){if(hmQuiet())return;
   try{WR.unsub=S.db.collection('sieges').where('reg','==',reg).onSnapshot(qs=>{
     const m=new Map();for(const d of qs.docs){try{const x=wrNorm(d.id,d.data()||{});if(x)m.set(d.id,x);}catch(e){}}
     WR.docs=m;WR.rev++;WR.ready=true;WR.err='';
+    /* a capital moved: the records as every page reads them, and this nation's own (the capital moves, below) */
+    try{wrWorldSync();wrMoveSync();}catch(e){console.warn('capital moves',e);}
     try{if(S.view==='map'){updateMapPanel();redrawMaps();}else if(!alTyping())quietRender();}catch(e){}
   },e=>{WR.err=(e&&e.message)||'unavailable';WR.ready=true;});}catch(e){WR.ready=true;}
 }
 connect=(f=>async function(){const r=await f.apply(this,arguments);try{wrConnect();}catch(e){}return r;})(connect);
-function wrPut(id,d){const x=wrNorm(id,d);if(!x)return;WR.docs=new Map(WR.docs);WR.docs.set(id,x);WR.rev++;}
-let wrFallMemo={rev:-1,at:undefined,v:[]};
-/* the falls the map knows at time at (null: now), oldest first */
+function wrPut(id,d){const x=wrNorm(id,d);if(!x)return;WR.docs=new Map(WR.docs);WR.docs.set(id,x);WR.rev++;try{wrWorldSync();}catch(e){}}
+let wrFallMemo={rev:-1,at:undefined,v:[]},wrEndMemo={v:null,e:[]};
+/* the capitals the map knows fell by time at (null: now), oldest first: a nation's last, which ended it, and those it
+   lost while it had another city to move to (F.ni) */
 function wrFallsAt(at){
   if(S.mode==='local'||!WR.docs.size)return [];
   if(wrFallMemo.rev===WR.rev&&wrFallMemo.at===at)return wrFallMemo.v;
   const v=[...WR.docs.values()].filter(x=>x.st==='fell'&&x.ft>0&&(at==null||x.ft<=at)).sort((a,b)=>a.ft-b.ft);
   wrFallMemo={rev:WR.rev,at,v};return v;
 }
-/* the fall of this nation as its record n stands (the one founded then), if its capital fell */
-function wrFellOf(id,n,FL){FL=FL||wrFallsAt(null);const f=(n&&n.founded)||0;for(const F of FL)if(F.d===id&&(F.df?F.df===f:f<=F.ft))return F;return null;}
+/* the falls that ended a nation (its last capital), oldest first */
+function wrEndsAt(at){const v=wrFallsAt(at);if(wrEndMemo.v!==v)wrEndMemo={v,e:v.filter(F=>!F.ni)};return wrEndMemo.e;}
+/* the fall of this nation as its record n stands (the one founded then), if its last capital fell */
+function wrFellOf(id,n,FL){FL=FL||wrEndsAt(null);const f=(n&&n.founded)||0;for(const F of FL)if(!F.ni&&F.d===id&&(F.df?F.df===f:f<=F.ft))return F;return null;}
 function myFall(){return S.nation&&S.mode==='world'?wrFellOf(myId(),S.nation):null;}
 /* the fall a conquest belongs to: a hex taken from the fallen nation before its capital fell, by the besieger, one of
    the fallen nation's enemies, or for one of them (an ally's war, e.w). The referee's list of enemies (F.foes) holds the
@@ -99009,7 +99023,9 @@ protectedNow=(f=>function(id){if(f.apply(this,arguments))return true;const x=fin
    SIEGE_MAX, and the war between them still on (a peace or a surrender lifts it) */
 function wrSiege(a,d,now){
   now=now||Date.now();if(S.mode!=='world'||!WR.docs.size)return null;const D=docOf(d);if(!D)return null;
-  let best=null;for(const x of WR.docs.values()){if(x.a!==a||x.d!==d||x.st!=='on')continue;if(x.df&&x.df!==(D.founded||0))continue;if(now-x.t>SIEGE_MAX||x.t>now+60000)continue;if(!best||x.t>best.t)best=x;}
+  /* of the capital d has now: a siege of a capital it lost since, its government gone elsewhere, has nothing to take */
+  const cap=cellOf(D.loc);
+  let best=null;for(const x of WR.docs.values()){if(x.a!==a||x.d!==d||x.st!=='on')continue;if(x.df&&x.df!==(D.founded||0))continue;if(cap>=0&&x.c!==cap)continue;if(now-x.t>SIEGE_MAX||x.t>now+60000)continue;if(!best||x.t>best.t)best=x;}
   if(!best)return null;
   /* the war still on: a siege never outlasts its war, since it ends SIEGE_MAX after it began and a truce lasts as long */
   const w=pairWar(a,d);if(!w.war)return null;
@@ -99400,7 +99416,8 @@ warNotice=(f=>function(){let h='';try{h=wrNotice();}catch(e){}return h+f.apply(t
 NOTIF_SOURCES.push((n,now)=>{
   const out=[];if(!n||S.mode!=='world')return out;const me=myId();
   for(const s of wrSiegesOn(me,now))out.push({t:s.t,k:'war',kl:'War office',txt:`${s.an||nameOf(s.a)} has laid siege to ${n.capital}. The final assault can come from ${peaceWhen(s.t+SIEGE_MS,now)}.`,go:'map'});
-  for(const F of wrFallsAt(null))if(F.a===me&&now-F.ft<7*DAY)out.push({t:F.ft,k:'war',kl:'War office',txt:`${F.cn||'The capital'} has fallen to your army, and ${F.dn} is no more.`,go:'region'});
+  for(const F of wrFallsAt(null))if(F.a===me&&now-F.ft<7*DAY)out.push(F.ni?{t:F.ft,k:'war',kl:'War office',txt:`${F.cn||'The capital'} has fallen to your army. The government of ${F.dn} has fled to ${F.nn||'another city'}, and the war goes on.`,go:'map'}
+    :{t:F.ft,k:'war',kl:'War office',txt:`${F.cn||'The capital'} has fallen to your army, and ${F.dn} is no more.`,go:'region'});
   return out;
 });
 
@@ -99415,7 +99432,7 @@ function wrSiegeBox(x){
   const mine=wrSiege(me,x.id,now),theirs=wrSiege(x.id,me,now),parts=[];
   if(mine){const at=mine.t+SIEGE_MS;parts.push(`<p class="wr-sg"><b>Your army besieges ${esc(x.n.capital)}.</b> ${now<at?`The final assault can go in from ${esc(peaceWhen(at,now))}`:'The final assault can go in now: select the capital on the map'}, until ${esc(peaceWhen(mine.t+SIEGE_MAX,now))}.</p>`);}
   else if(ws.g==='c'&&!ws.iOffered){const T=territory(),why=wrSiegeWhy(T,x.id,now);
-    parts.push(why?`<p class="hint wr-sg">${esc(why)}</p>`:`<p class="wr-sg">${esc(x.n.capital)} stands alone. Lay siege to it: after a day your army may make the final assault, and if it falls, ${esc(x.n.name)} falls with it.</p><div class="row"><button class="btn danger" data-act="wr-siege" data-id="${esc(x.id)}"${WR.busy?' disabled':''}>${WR.busy==='siege'?'Laying siege…':'Lay siege to '+esc(x.n.capital)}</button></div>`);}
+    parts.push(why?`<p class="hint wr-sg">${esc(why)}</p>`:`<p class="wr-sg">${esc(x.n.capital)} stands alone. Lay siege to it: after a day your army may make the final assault, and if it falls, ${esc(wrFallWords(T,x))}.</p><div class="row"><button class="btn danger" data-act="wr-siege" data-id="${esc(x.id)}"${WR.busy?' disabled':''}>${WR.busy==='siege'?'Laying siege…':'Lay siege to '+esc(x.n.capital)}</button></div>`);}
   if(theirs){const at=theirs.t+SIEGE_MS;
     parts.push(`<p class="wr-sg"><b>${esc(x.n.name)} besieges ${esc(S.nation.capital)}.</b> ${now<at?`Its final assault can come from ${esc(peaceWhen(at,now))}.`:'Its final assault can come at any moment.'} Fortify the capital, win back land, call your allies, or surrender.</p>`);
     parts.push(S.wrSurr===x.id?`<div class="wr-surr" role="group" aria-label="Surrender"><p class="dz-sure">Surrender to ${esc(x.n.name)}? The war ends on current lines, ${esc(S.nation.name)} pays ${Math.round(TRIB_SHARE*100)}% of its spare materials in tribute for 14 days, and a truce holds for 14 days.</p><div class="row"><button class="btn danger solid" data-act="wr-surr" data-id="${esc(x.id)}">Yes, surrender</button><button class="btn ghost" data-act="wr-surr-no">Fight on</button></div></div>`
@@ -99499,12 +99516,12 @@ dspThawSt=(f=>function(s){
   return {...r,sec:'world',kick:'War',h:`${m[1]} takes the capital of ${m[3]}`,b:`${m[1]} has taken the capital of ${m[3]} after a siege, and ${m[3]} has fallen.`,go:'map'};
 })(dspThawSt);
 HAP_SOURCES.push((x,now)=>{
-  const out=[];for(const F of wrFallsAt(null)){if(now-F.ft>30*DAY)continue;out.push({t:F.ft,txt:monIsFirst(F)?`${F.dn}, the nation of Edictum’s first player, fell: the army of ${F.an} took its capital, ${F.cn||'its capital'}, after a siege. The First Flame burns where it stood.`:`${F.dn} fell: the army of ${F.an} took its capital, ${F.cn||'its capital'}, after a siege. A monument stands where it stood.`});}
+  const out=[];for(const F of wrFallsAt(null)){if(now-F.ft>30*DAY)continue;if(F.ni){out.push({t:F.ft,txt:`The army of ${F.an} took ${F.cn||'the capital'} of ${F.dn} after a siege. Its government fled to ${F.nn||'another city'}, and the war goes on.`});continue;}out.push({t:F.ft,txt:monIsFirst(F)?`${F.dn}, the nation of Edictum’s first player, fell: the army of ${F.an} took its capital, ${F.cn||'its capital'}, after a siege. The First Flame burns where it stood.`:`${F.dn} fell: the army of ${F.an} took its capital, ${F.cn||'its capital'}, after a siege. A monument stands where it stood.`});}
   return out;
 });
 /* the region page: the fallen nations */
 function wrFallenCard(){
-  const FL=wrFallsAt(null).slice().reverse().slice(0,8);if(!FL.length)return '';
+  const FL=wrEndsAt(null).slice().reverse().slice(0,8);if(!FL.length)return '';
   return `<section class="rgn-card" aria-labelledby="rgn-fallen-h"><p class="eyebrow">In memoriam</p><h2 class="h3" id="rgn-fallen-h">Fallen nations</h2><ul class="wr-fl-list">${FL.map(F=>`<li><b>${esc(F.dn||'A nation')}</b> fell to ${esc(F.an||'an enemy')} on ${esc(fmtDate(F.ft))}${F.cn?`. ${monIsFirst(F)?'The First Flame, the monument to the first nation, burns':'A monument stands'} where its capital, ${esc(F.cn)}, stood`:''}.</li>`).join('')}</ul></section>`;
 }
 rgnOverview=(f=>function(){let h=f.apply(this,arguments);try{const c=wrFallenCard();if(c)h=h.replace('<div class="rgn-cards">','<div class="rgn-cards">'+c);}catch(e){}return h;})(rgnOverview);
@@ -99512,6 +99529,7 @@ rgnOverview=(f=>function(){let h=f.apply(this,arguments);try{const c=wrFallenCar
 DISPATCH_SOURCES.push(ctx=>{
   if(!ctx||(ctx.reg&&ctx.reg!==REG.id))return [];const out=[];
   for(const F of wrFallsAt(null)){if(!(F.ft>=ctx.from&&F.ft<ctx.to))continue;
+    if(F.ni){out.push({t:F.ft,sec:'front',h:`${F.cn||'The capital'} falls, ${F.dn} fights on`,b:`After a day under siege, the army of ${F.an} stormed ${F.cn||'the capital'} of ${F.dn}. Its government got out in time and has set up in ${F.nn||'another city'}, the new capital, and the war goes on.`,who:[F.a],w:8,k:'fall:'+F.id});continue;}
     if(monIsFirst(F)){out.push({t:F.ft,sec:'front',h:`The first nation has fallen: ${F.dn}`,b:`After a day under siege, the army of ${F.an} stormed ${F.cn||'the capital'}, and ${F.dn}, the nation of Edictum’s first player, founded before any border was drawn, is no more. Where its capital stood, a column of white stone now carries a flame that is never to go out: the First Flame, the only monument of its kind in the world.`,who:[F.a],w:10,k:'fall:'+F.id});continue;}
     out.push({t:F.ft,sec:'front',h:`The fall of ${F.dn}`,b:`After a day under siege, the army of ${F.an} stormed ${F.cn||'the capital'} and the government of ${F.dn} is no more. Its land taken in war now flies the flag of its conquerors. Survivors are said to be gathering, and talk of rising again.`,who:[F.a],w:9,k:'fall:'+F.id});}
   return out;
@@ -99521,7 +99539,7 @@ function wrFelLine(n){const f=n&&n.fel;if(!f)return '';return `<p class="wr-fel"
 hxCard=(f=>function(x){let h=f.apply(this,arguments);try{if(h&&x&&x.n&&x.n.fel)h=h.replace('</h3>','</h3>'+wrFelLine(x.n));}catch(e){}return h;})(hxCard);
 
 /* ── achievements ── */
-achDef('war','war-sack','g','The Fall of a Capital','Take an enemy capital after a siege.',1,x=>aT(x,'log:csack'),{sec:'Some walls are only a matter of time.'});
+achDef('war','war-sack','g','The Fall of a Capital','Take an enemy capital after a siege.',1,x=>Math.max(aT(x,'log:csack'),aT(x,'log:ctake')),{sec:'Some walls are only a matter of time.'});
 achDef('war','war-fallen','b','Ashes and Embers','Rise again after your capital fell.',1,x=>x.n&&x.n.fel?1:0,{sec:'Every nation falls in the end. Not every nation gets up.'});
 achDef('war','war-phoenix','g','Phoenix','Rise again after your fall and grow to 10 million people.',1,x=>x.n&&x.n.fel&&popNow(x.n,x.now)>=10?1:0,{sec:'From the ashes.'});
 achDef('war','war-surr','b','Live to Fight Another Day','Surrender under siege.',1,x=>aT(x,'log:surr'),{sec:'Discretion, valour, and so on.'});
@@ -99531,7 +99549,7 @@ achDef('war','war-hold','s','The Walls Held','Fortify a hex in wartime.',1,x=>x.
 targetPanel=(f=>function(T,cell,reach){
   let h=f.apply(this,arguments);
   try{const bi=T.owner[cell],x=T.list[bi],bits=[];
-    if(x&&T.isCap[cell]){bits.push(`<b>The final assault.</b> If ${esc(x.n.capital||'the capital')} falls, ${esc(x.n.name)} falls with it: its government is gone and it leaves the map.`);h=h.replace('data-act="attack"','data-act="attack" data-cap="1"').replace(/(data-cap="1"[^>]*>)Attack</,'$1Storm the capital<');}
+    if(x&&T.isCap[cell]){const nc=x.npc?null:wrNextCap(T,x);bits.push(nc?`<b>The final assault.</b> If ${esc(x.n.capital||'the capital')} falls, the government of ${esc(x.n.name)} moves to ${esc(cityLabel(x.n,nc))}, its biggest city, and the war goes on. You decide the fate of the city you take.`:`<b>The final assault.</b> If ${esc(x.n.capital||'the capital')} falls, ${esc(x.n.name)} falls with it: its government is gone and it leaves the map.`);h=h.replace('data-act="attack"','data-act="attack" data-cap="1"').replace(/(data-cap="1"[^>]*>)Attack</,'$1Storm the capital<');}
     if(x&&wrRaidOn(x))bits.push('<b>A raid.</b> Victory takes no land: your raiders bring back materials, and the hex yields nothing for them for a day.');
     if(x){const w=warWith(x.id);if(w.war&&w.direct&&w.byMe&&w.g==='b')bits.push(`<b>A border war:</b> ${wrTakenIn(S.nation,x.id,w.since)} of the ${BORDER_CAP} hexes it may take.`);}
     if(bits.length)h=h.replace('<p class="mp-note">',`<p class="mp-note wr-tp">${bits.join(' ')}</p><p class="mp-note">`);
@@ -99757,7 +99775,7 @@ COMMIT_HOOKS.push((n,old,now)=>{
   /* the wars that have ended: their reports */
   for(const id of Object.keys(n.wst||{})){
     if(wars.some(w=>w.id===id))continue;const s=n.wst[id];
-    const D=docOf(id),F=wrFallsAt(null).filter(f=>f.d===id&&f.a===me&&f.ft<=now+60000&&(!D||!f.df||(D.founded||0)===f.df)).pop();
+    const D=docOf(id),F=wrEndsAt(null).filter(f=>f.d===id&&f.a===me&&f.ft<=now+60000&&(!D||!f.df||(D.founded||0)===f.df)).pop();
     let how='',t1=now;
     if(F){how='fell-them';t1=F.ft;}
     else if(D||NPC_SET.has(id)){const p=pairWar(me,id);if(p.war)continue;t1=p.peaceAt||now;how=p.surr?(p.surr===me?'surr-me':'surr-them'):p.auto?'auto':(n.log||[]).some(l=>l.k==='wwpeace'&&Math.abs(l.t-t1)<DAY)?'forced':'peace';}
@@ -99809,7 +99827,7 @@ function wr3MapData(T){
   if(wr3MapMemo.k===k&&wr3MapMemo.v&&wr3MapMemo.T===T)return wr3MapMemo.v;
   const sieges=[],forts=[],fought=[],raided=[],ruins=[],mems=[];
   if(S.mode==='world')for(const x of WR.docs.values()){if(x.st!=='on')continue;const s=wrSiege(x.a,x.d,now);if(s===x){const i=T.byId[x.d];if(i!==undefined)sieges.push({c:T.list[i].cap,at:s.t+SIEGE_MS,end:s.t+SIEGE_MAX,a:s.an});}}
-  for(const F of wrFallsAt(null))ruins.push({c:F.c,nm:F.cn||F.dn});
+  for(const F of wrEndsAt(null))ruins.push({c:F.c,nm:F.cn||F.dn});
   T.list.forEach(x=>{if(x.npc)return;for(const c of Object.keys(wrForts(x.n,now)))forts.push(+c);if(Array.isArray(x.n.mem)&&x.n.mem.length)mems.push({c:x.cap,k:x.n.mem.length});});
   if(T.tk)for(let c=0;c<MAP.N;c++)if(T.occ[c]&&now-T.tk[c]<DAY)fought.push(c);
   try{for(const c of wrRaided(T,now))raided.push(c);}catch(e){}
@@ -100080,6 +100098,9 @@ MAP_PANEL.push(ctx=>{
 });
 /* the fallen capital's finished buildings, from its nation's record while it still stands (no wonders) */
 function cqBuildings(F,now){
+  /* a capital its nation moved away from (the capital moves): the referee kept what stood in it, since the nation's
+     record no longer holds the city */
+  if(F.ni)return (F.cb||[]).filter((k,i,a)=>BUILDINGS[k]&&!BUILDINGS[k].w&&a.indexOf(k)===i).slice(0,CITY_SLOTS).map(k=>({k,s:now,d:now}));
   const D=docOf(F.d);if(!D||(F.df&&(D.founded||0)!==F.df))return [];
   const city=(Array.isArray(D.cities)?D.cities:[]).find(c=>c&&c.c===F.c)||(Array.isArray(D.cities)?D.cities[0]:null);
   return ((city&&city.b)||[]).filter(b=>b&&BUILDINGS[b.k]&&!BUILDINGS[b.k].w&&+b.d<=now).slice(0,CITY_SLOTS).map(b=>({k:b.k,s:now,d:now}));
@@ -100143,7 +100164,7 @@ function monNorm(m){
     mc:s(m.mc,9),pop:k(m.pop),ct:Math.floor(k(m.ct)),ach:Math.floor(k(m.ach)),dec:Math.floor(k(m.dec))};
 }
 /* the fall that raises the First Flame: Moradara's first */
-function monIsFirst(F){if(!F||F.d!==MON_FIRST.id)return false;const f=wrFallsAt(null).find(x=>x.d===MON_FIRST.id);return !!f&&f.id===F.id;}
+function monIsFirst(F){if(!F||F.ni||F.d!==MON_FIRST.id)return false;const f=wrEndsAt(null).find(x=>x.d===MON_FIRST.id);return !!f&&f.id===F.id;}
 /* the fallen nation's record, while it stands as it fell (its player has not founded a nation again) */
 function monRec(F){
   const D=F.d===myId()?S.nation:(S.world&&S.world[F.d])||(DORM.w&&DORM.w[F.d])||null;
@@ -100166,7 +100187,7 @@ function monRisen(F){
 /* the monuments: one for each hex where a capital fell, the newest fall (or the First Flame's) standing for it */
 let monMemo={FL:null,id:'',v:[]};
 function monSites(){
-  const FL=wrFallsAt(null);if(monMemo.FL===FL&&monMemo.id===MON_FIRST.id)return monMemo.v;
+  const FL=wrEndsAt(null);if(monMemo.FL===FL&&monMemo.id===MON_FIRST.id)return monMemo.v;
   const by=new Map();
   for(const F of FL){const s=by.get(F.c)||{c:F.c,falls:[],first:null};s.falls.push(F);if(monIsFirst(F))s.first=F;by.set(F.c,s);}
   monMemo={FL,id:MON_FIRST.id,v:[...by.values()]};return monMemo.v;
@@ -100256,6 +100277,270 @@ MAP_LEGEND.push(()=>{
   return `<span class="lg"><svg width="12" height="16" viewBox="0 0 12 16" aria-hidden="true"><rect x="1" y="12" width="10" height="3" fill="${MON_STONE}" stroke="currentColor" stroke-width=".8"/><path d="M3 12V5a3 3 0 0 1 6 0v7Z" fill="${MON_STONE}" stroke="currentColor" stroke-width=".8"/><rect x="3.4" y="5.2" width="5.2" height="1.8" fill="#b8443a"/></svg>Monument to a fallen nation</span>`
     +(L.some(s=>s.first)?`<span class="lg"><svg width="12" height="18" viewBox="0 0 12 18" aria-hidden="true"><rect x="1" y="15" width="10" height="2.5" fill="${MON_MARBLE}" stroke="currentColor" stroke-width=".7"/><path d="M4.2 15l.5-9.5h2.6l.5 9.5Z" fill="${MON_MARBLE}" stroke="currentColor" stroke-width=".7"/><rect x="3.8" y="4.6" width="4.4" height="1.2" fill="${MON_GOLD}"/><path d="M4.6 4.5C4 2.8 5.6 2.2 6 .5c.5 1.6 2 2.3 1.4 4Z" fill="#ffb52e"/></svg>The First Flame</span>`:'');
 });
+/* ───────── the capital moves, and captured cities (24 November 2026) ─────────
+   The owner: "make it so that if there are other cities, the capital moves to the 2nd largest city, so the war keeps on
+   going, captured cities also need an edict to either keep, destroy or something else".
+   The capital moves. When the final assault takes a capital and its nation has another city, the referee moves the
+   government to the biggest of them (functions/war-rules.js, successor: the most finished buildings, then the oldest)
+   and marks the siege fallen with the new capital's city id (sieges/<id>: ni, nn its name, ci the city the capital was,
+   cb its finished buildings). The nation stays on the map and its wars go on: territory, pairWar, the fallen screen, the
+   monuments and the Fallen nations card count only a nation's last capital (wrEndsAt). Every page reads the nation's
+   record as moved (wrRewrite, applied to S.world as each snapshot of the region or of the sieges comes in: dormSift,
+   wrWorldSync): its capital on the new city's hex and named after it, the city it was gone from its list. Its own page
+   saves it so (wrMoveSync), with a line in its record. With the assault the attacker sends the cities it sees held by
+   another nation (wrOccIds), which cannot be the new capital, and decides the fate of the capital it took in the
+   capital-taken edicts, as before (cqFalls: F.a; cqBuildings: F.cb). Only a nation with no city left falls.
+   Captured cities. A city of another player's nation on land this nation holds as taken in war (T.occ) brings an edict
+   about its fate (CC_ISSUES, one for each city, arriving when its hex was taken, stable as the capital-taken ones are):
+   keep it as a captured city of this nation (ccc 'keep' or 'new', ccb its finished buildings; it counts for nothing
+   against the cities a nation may found, as a captured capital does), raze it (ccr), sack it and hold it under
+   occupation as before (ccs), or give it back (ccf: the hex handed to its nation). What is decided, or vetoed, goes in
+   n.ccd. A city kept (cities[].cf, the nation it was taken from, cfi its id there) or razed (n.czr) leaves its old
+   nation's record as every page reads it (wrRewrite), and its own page saves it so; that holds only for a city whose
+   hex the taker took in war: its own sealed conquest of that hex from that nation, or a hex handed to it in war. */
+
+/* ── the records as read ── */
+const WR_RW=new WeakMap();
+/* the moves of nation id's capital, as the record n (the nation founded then) has lived them, oldest first */
+function wrMovesOf(id,n){
+  if(S.mode!=='world'||!n||n.npc)return [];const f=+n.founded||0;
+  return wrFallsAt(null).filter(F=>F.ni&&F.d===id&&(F.df?F.df===f:f<=F.ft));
+}
+/* the cities other nations took over or razed, by the nation they were taken from: [{c, id, t, by, r, nm}] (r: razed) */
+let wrLostMemo={w:null,me:null,v:new Map()};
+function wrLostIdx(w){
+  const me=S.nation;if(wrLostMemo.w===w&&wrLostMemo.me===me)return wrLostMemo.v;
+  const recs=[];if(me&&S.uid&&!OBS)recs.push([myId(),me]);for(const id of Object.keys(w||{}))if(id!==S.uid||OBS)recs.push([id,w[id]]);
+  /* the hexes handed over in war, by whom they went to */
+  const handed=new Set();for(const [,n] of recs)for(const e of Array.isArray(n&&n.bx)?n.bx:[])if(e&&e.wr&&typeof e.to==='string'&&Number.isInteger(e.c))handed.add(e.to+'|'+e.c);
+  const took=(by,n,c,d,t)=>handed.has(by+'|'+c)||(Array.isArray(n.conq)?n.conq:[]).some(q=>q&&!q.n&&q.c===c&&q.d===d&&q.t<=t+1000&&sealed(by,q,n));
+  const v=new Map(),add=(d,e)=>{let L=v.get(d);if(!L)v.set(d,L=[]);L.push(e);};
+  for(const [by,n] of recs){if(!n||n.npc)continue;
+    for(const c of Array.isArray(n.cities)?n.cities:[])if(c&&typeof c.cf==='string'&&c.cf!==by&&Number.isInteger(c.c)&&took(by,n,c.c,c.cf,+c.t||0))add(c.cf,{c:c.c,id:c.cfi||'',t:+c.t||0,by,r:0});
+    for(const z of Array.isArray(n.czr)?n.czr:[])if(z&&typeof z.d==='string'&&z.d!==by&&Number.isInteger(z.c)&&took(by,n,z.c,z.d,+z.t||0))add(z.d,{c:z.c,id:z.id||'',t:+z.t||0,by,r:1});}
+  wrLostMemo={w,me,v};return v;
+}
+/* the record n of nation id as it now stands: its capital moved after each fall that moved it, and the cities other
+   nations took over or razed gone from its list. n itself when nothing changed; what did is kept beside (WR_RW) */
+function wrRewrite(n,id,idx){
+  if(!n||n.npc||S.mode!=='world')return n;
+  const M=wrMovesOf(id,n),L=(idx||wrLostIdx(S.world)).get(id)||[];if(!M.length&&!L.length)return n;
+  let cs=cityList(n),loc=n.loc,name=n.capital,ch=false;const moved=[],lost=[];
+  for(const F of M){
+    /* a capital settled again since (a move to another region or hex) is not the one that fell */
+    if(capSince(n)>F.ft)continue;
+    const nc=cs.find(c=>c.id===F.ni),at=cellOf(loc);if(!nc)continue;
+    if(at!==nc.c&&at!==F.c)continue;
+    const keep=cs.filter(c=>c===nc||!((c.id===F.ci||c.c===F.c)&&(+c.t||0)<=F.ft));
+    if(at===nc.c&&keep.length===cs.length)continue;
+    if(at!==nc.c){loc=locOf(nc.c);name=nc.nm||F.nn||name;moved.push(F);}
+    cs=[nc].concat(keep.filter(c=>c!==nc));ch=true;
+  }
+  if(L.length){const cap=cellOf(loc),left=cs.filter(c=>{if(c.c===cap)return true;const e=L.find(e=>e.c===c.c&&(+c.t||0)<e.t);if(!e)return true;lost.push({...e,nm:cityLabel(n,c)});return false;});
+    if(left.length!==cs.length){cs=left;ch=true;}}
+  if(!ch)return n;
+  const o={...n,loc,capital:name,cities:cs};WR_RW.set(o,{moved,lost});return o;
+}
+/* the region's records as every page reads them */
+function wrWorldSync(){
+  if(S.mode!=='world'||!S.world)return;
+  const w=S.world,idx=wrLostIdx(w);let out=null;
+  for(const id of Object.keys(w)){const v=wrRewrite(w[id],id,idx);if(v!==w[id]){if(!out)out=Object.assign({},w);out[id]=v;}}
+  if(out){S.world=out;passForget();}
+}
+dormSift=(f=>function(w){
+  const k=f.apply(this,arguments);
+  try{if(w&&S.mode==='world'){const idx=wrLostIdx(w);for(const id of Object.keys(w)){const v=wrRewrite(w[id],id,idx);if(v!==w[id])w[id]=v;}setTimeout(wrMoveSync,0);}}catch(e){console.warn('capital moves',e);}
+  return k;
+})(dormSift);
+/* this nation's own record: saved as it now stands, with a line for each capital lost and each city taken */
+function wrMoveSync(){
+  if(!S.nation||OBS||PV||S.mode!=='world'||!WR.ready||S.moving||myFall())return;
+  const v=wrRewrite(S.nation,myId());if(v===S.nation)return;
+  const info=WR_RW.get(v)||{moved:[],lost:[]},n=clone(v);if(!Array.isArray(n.log))n.log=[];
+  for(const F of info.moved){n.log.unshift({t:F.ft,k:'cfled',a:F.cn||'',b:F.an||nameOf(F.a),fx:F.nn||n.capital||''});applyEffects(n,{happy:-4,pol:-2});}
+  for(const e of info.lost)n.log.unshift({t:e.t,k:e.r?'crazed':'clost',a:e.nm||'',b:nameOf(e.by),c:e.c});
+  n.log.sort((a,b)=>(b.t||0)-(a.t||0));n.log=n.log.slice(0,60);
+  commit(n);
+  if(info.moved.length){const F=info.moved[info.moved.length-1];toast(`${F.cn||'Your capital'} has fallen to ${F.an||'the enemy'}. Your government has moved to ${n.capital}.`);}
+}
+/* a captured city keeps where it came from: the nation (cf) and the city's id there (cfi) */
+function ccFrom(c){const o={};if(c&&typeof c.cf==='string'&&/^[\w-]{1,128}$/.test(c.cf)){o.cf=c.cf;if(typeof c.cfi==='string'&&c.cfi.length<=16)o.cfi=c.cfi;}return o;}
+NORM_HOOKS.push((n,d)=>{
+  if(Array.isArray(d.ccd)){const L=d.ccd.filter(x=>typeof x==='string'&&x.length<=160).slice(-60);if(L.length)n.ccd=L;}
+  if(Array.isArray(d.czr)){const L=d.czr.filter(z=>z&&typeof z.d==='string'&&/^[\w-]{1,128}$/.test(z.d)&&Number.isInteger(z.c)&&z.c>=0).slice(-60).map(z=>({c:z.c,d:z.d,id:typeof z.id==='string'?z.id.slice(0,16):'',t:+z.t||0,nm:typeof z.nm==='string'?z.nm.slice(0,30):''}));if(L.length)n.czr=L;}
+});
+
+/* ── the attacker's side ── */
+/* the ids of nation id's cities the map shows held by another nation, and those taken over or razed */
+function wrOccIds(T,id){
+  const i=T.byId[id],x=i===undefined?null:T.list[i];if(!x||x.npc)return [];
+  const out=cityList(x.n).filter(c=>c.c!==x.cap&&T.owner[c.c]!==i).map(c=>c.id);
+  for(const e of wrLostIdx(S.world).get(id)||[])if(e.id)out.push(e.id);
+  return [...new Set(out.filter(s=>typeof s==='string'&&s&&s.length<=16))].slice(0,40);
+}
+/* the city the government of x would move to if its capital fell now, as the referee picks it, or null */
+function wrNextCap(T,x){
+  const i=T.byId[x.id];if(i===undefined||x.npc)return null;const now=Date.now(),cap=T.list[i].cap;let best=null;
+  for(const c of cityList(x.n)){if(c.c===cap||T.owner[c.c]!==i)continue;const k=(c.b||[]).filter(b=>b&&typeof b.k==='string'&&+b.d<=now).length,t=+c.t||0;
+    if(!best||k>best.k||(k===best.k&&(t<best.t||(t===best.t&&c.id<best.c.id))))best={c,k,t};}
+  return best?best.c:null;
+}
+/* what follows the fall of x's capital, in words */
+function wrFallWords(T,x){const c=wrNextCap(T,x);return c?`the government of ${x.n.name} moves to ${cityLabel(x.n,c)}, its biggest city, and the war goes on`:`${x.n.name} falls with it`;}
+logLine=(f=>function(l,n,id){
+  if(l&&l.k==='ctake')return `${n&&n.name||'The nation'} took ${l.fx||'the capital'}, the capital of ${l.b}, after a siege; its government fled.`;
+  if(l&&l.k==='cfled')return `${l.b||'The enemy'} took ${l.a||'the capital'} after a siege; the government moved to ${l.fx||'another city'}.`;
+  if(l&&l.k==='clost')return `${l.b||'The enemy'} took over ${l.a||'a city'} as a city of its own.`;
+  if(l&&l.k==='crazed')return `${l.b||'The enemy'} razed ${l.a||'a city'}.`;
+  if(l&&l.k==='czraze')return `${n&&n.name||'The nation'} razed ${l.a||'a city'}, taken from ${l.b}.`;
+  if(l&&l.k==='cloot')return `${n&&n.name||'The nation'} sacked ${l.a||'a city'} of ${l.b}, and holds it.`;
+  if(l&&l.k==='cfree')return `${n&&n.name||'The nation'} gave ${l.a||'a city'} back to ${l.b}.`;
+  return f.apply(this,arguments);})(logLine);
+Object.assign(ST_LOG,{ctake:['war','Took {fx}, the capital of {b}; its government fled'],cfled:['war','Lost the capital {a} to {b}; the government moved to {fx}'],clost:['war','{b} took over {a}'],
+  crazed:['war','{b} razed {a}'],czraze:['war','Razed {a}, taken from {b}'],cloot:['war','Sacked {a}, a city of {b}'],cfree:['war','Gave {a} back to {b}']});
+Object.assign(NOTIF_K,{ctake:'War office',cfled:'War office',clost:'War office',crazed:'War office'});
+
+/* ── captured cities: their fate ── */
+const CC_ISSUES=[
+{id:'cc-gates',c:'world',t:'The Gates of {CCITY}',q:'Our army holds {CCITY}, a city of {CFROM}, and its gates stand open. The townspeople are waiting in the square to hear what becomes of them. So, it must be said, are our generals.',o:[
+ {t:'“Raise our flag over the town hall,” says Defence Minister {DEF}. “{CCITY} is a city of {N} now, buildings and all.”',e:{mil:1,culture:1,ccc:'keep',ccb:1},fx:'{CCITY}, taken from {CFROM}, is a city of {N} now'},
+ {t:'“Burn it to the ground,” says the {L}. “{CFROM} will never use {CCITY} against us again.”',e:{mil:2,happy:-2,gwall:-2,ccr:1},fx:'{CCITY} was burned to the ground, and nothing of it is left'},
+ {t:'“Empty the warehouses, then hold the gates,” says Finance Minister {FIN}. “The city can stay theirs on paper. Its goods are ours.”',e:{wealth:1,corrupt:1,ccs:1},fx:'the warehouses of {CCITY} were emptied, and our garrison holds the gates'},
+ {t:'“Give it back,” says Foreign Minister {FOR}. “We came for the war, not for their homes. Let the region see what kind of nation we are.”',e:{happy:1,mil:-1,gwall:3,ccf:1},fx:'{CCITY} was handed back to {CFROM}, and the region took note'}]},
+{id:'cc-mayor',c:'world',t:'The Mayor of {CCITY}',q:'The mayor of {CCITY} has asked to see whoever now speaks for {N}. She has brought the city’s accounts, its keys and a list of demands, and she is not leaving until somebody reads it.',o:[
+ {t:'“Let her keep her office, under our flag,” says Interior Minister {INT}. “She knows where the drains are. We do not.”',e:{pol:2,civil:1,ccc:'keep',ccb:1},fx:'the mayor of {CCITY} still runs her city, now a city of {N}'},
+ {t:'“Thank her for the accounts, and pull the town hall down on top of them,” says Defence Minister {DEF}. “Then the rest of the town.”',e:{mil:2,pol:-1,gwall:-2,ccr:1},fx:'{CCITY} was razed, town hall first, and its mayor walked home to {CFROM}'},
+ {t:'“Read her list, then take the treasury,” says a Treasury official. “Her demands can be met from whatever is left.”',e:{wealth:1,corrupt:2,ccs:1},fx:'the treasury of {CCITY} was carried off, and the mayor is still reading her list to an empty room'},
+ {t:'“Send her home with her keys,” says Foreign Minister {FOR}. “{CCITY} belongs to {CFROM}. We only borrowed it.”',e:{pol:1,gwall:3,ccf:1},fx:'the mayor of {CCITY} went home with her keys, to a city of {CFROM} again'}]},
+{id:'cc-granary',c:'world',t:'The Granaries of {CCITY}',q:'The granaries of {CCITY} are full to the rafters with the harvest of {CFROM}. Our quartermasters want it for the army. The townspeople want it for the winter.',o:[
+ {t:'“The grain stays, and so do we,” says Welfare Minister {HEA}. “Feed the town and it will be a loyal city of {N} by spring.”',e:{happy:1,equal:1,ccc:'keep',ccb:1},fx:'{CCITY} kept its grain, and became a city of {N}'},
+ {t:'“Load every sack onto the wagons,” says Defence Minister {DEF}. “An army marches on its stomach, and theirs is not our problem.”',e:{mil:2,happy:-1,ccs:1},fx:'the granaries of {CCITY} were emptied onto our wagons, and our garrison holds the city'},
+ {t:'“Burn the granaries, and the town with them,” says the {L}. “What we cannot carry, {CFROM} shall not eat.”',e:{mil:2,env:-2,gwall:-3,ccr:1},fx:'{CCITY} and its granaries were burned, and the smoke was seen across the region'},
+ {t:'“Leave the grain and leave the town,” says Foreign Minister {FOR}. “A hungry city hates its conqueror for a hundred years.”',e:{happy:1,gwall:2,ccf:1},fx:'{CCITY} was handed back to {CFROM}, its granaries untouched'}]},
+{id:'cc-road',c:'world',t:'The Road out of {CCITY}',q:'Thousands of people are leaving {CCITY} on foot, with handcarts, prams and goats, heading for the border of {CFROM}. Our soldiers have asked whether they should stop them.',o:[
+ {t:'“Let them go, and send our own families in,” says the {L}. “Settlers from {N} will make it a city of ours.”',e:{happy:1,dmst:{food:-30,goods:-20},ccc:'new'},fx:'settlers from {N} moved into {CCITY}, rebuilt as New {CAP}'},
+ {t:'“Turn them round, gently,” says Welfare Minister {HEA}. “The city is ours now, and so are they. A city needs its people.”',e:{equal:1,happy:-1,ccc:'keep',ccb:1},fx:'the people of {CCITY} went home to a city of {N}'},
+ {t:'“Let them go, and pull the empty city down behind them,” says Defence Minister {DEF}. “Nobody comes back to a heap of stones.”',e:{mil:1,culture:-2,gwall:-2,ccr:1},fx:'{CCITY} was pulled down once its people had gone'},
+ {t:'“Open the road, and give them back their city,” says Foreign Minister {FOR}. “Then nobody needs to walk anywhere.”',e:{happy:1,gwall:3,ccf:1},fx:'the people of {CCITY} turned their handcarts round: the city is a city of {CFROM} again'}]},
+{id:'cc-bells',c:'world',t:'The Bells of {CCITY}',q:'The great bell of {CCITY} has rung every hour for three hundred years. Since our army arrived it has rung every five minutes, and the townspeople will not say who is pulling the rope.',o:[
+ {t:'“Let it ring, and keep the city with it,” says Culture Minister {CUL}. “Nothing wins hearts like a conqueror who leaves the bells alone.”',e:{relig:2,happy:1,ccc:'keep',ccb:1},fx:'the bell of {CCITY} rings on the hour again, in a city of {N}'},
+ {t:'“Take the bell down and melt it into cannon,” says Defence Minister {DEF}. “Then hold the town. Quietly.”',e:{mil:2,relig:-2,ccs:1},fx:'the bell of {CCITY} was melted down for our guns, and the city is under our occupation'},
+ {t:'“Tear down the tower, and the town after it,” says the {L}. “A city that rings the alarm for {CFROM} is a city we do not need.”',e:{mil:1,relig:-3,gwall:-2,ccr:1},fx:'{CCITY} was torn down, bell tower first'},
+ {t:'“Ring it one last time for us, and give the city back,” says Foreign Minister {FOR}. “Bells carry far. So does goodwill.”',e:{relig:1,gwall:3,ccf:1},fx:'the bell of {CCITY} rang for the handover, and the city is a city of {CFROM} again'}]},
+{id:'cc-strongroom',c:'world',t:'The Strongroom of {CCITY}',q:'Under the town hall of {CCITY} our engineers have found the strongroom of the city bank of {CFROM}: gold, bonds, ledgers, and a great deal of very old cheese, stored there by mistake in 1911.',o:[
+ {t:'“Leave the bank where it is, and run it ourselves,” says Finance Minister {FIN}. “A city with a bank is a city that pays for itself.”',e:{econ:2,wealth:1,ccc:'keep',ccb:1},fx:'the bank of {CCITY} opened on Monday as a bank of {N}'},
+ {t:'“Carry it all home,” says a Treasury official, rolling up his sleeves. “Gold, bonds, ledgers. The cheese can stay.”',e:{wealth:2,corrupt:2,ccs:1},fx:'the strongroom of {CCITY} was emptied into our treasury, cheese excepted'},
+ {t:'“Blow the strongroom, and the town hall with it,” says Defence Minister {DEF}. “No bank, no war chest. No city, no trouble.”',e:{mil:1,econ:-1,gwall:-2,ccr:1},fx:'{CCITY} was levelled: town hall, strongroom and cheese'},
+ {t:'“Return it, sealed and counted,” says Foreign Minister {FOR}. “Every coin. The region will remember who kept their word.”',e:{corrupt:-1,gwall:4,ccf:1},fx:'{CCITY} and its strongroom were handed back to {CFROM}, sealed and counted'}]},
+{id:'cc-signs',c:'world',t:'What to Call {CCITY}',q:'The sign painters of {N} want to know what to paint on the road signs. {CCITY} has been a city of {CFROM} for as long as anyone can remember. Now our army holds it.',o:[
+ {t:'“Leave the old name,” says Culture Minister {CUL}. “Changing a name changes nothing that matters.”',e:{culture:2,happy:1,ccc:'keep',ccb:1},fx:'{CCITY} kept its old name, and became a city of {N}'},
+ {t:'“Name it after our own capital,” says the {L}. “New {CAP}. Every map in the region will know whose city it is.”',e:{mil:1,civil:-2,ccc:'new',ccb:1},fx:'{CCITY} is now New {CAP}, a city of {N}'},
+ {t:'“Paint nothing,” says Defence Minister {DEF}. “By next week there will be no city to put a sign on.”',e:{mil:2,culture:-2,gwall:-2,ccr:1},fx:'no sign points to {CCITY} any more: the city was razed'},
+ {t:'“Paint them back the way they were,” says Foreign Minister {FOR}. “It is their city, and we are going home.”',e:{gwall:3,ccf:1},fx:'{CCITY} was handed back to {CFROM}, its old signs still standing'}]},
+{id:'cc-garrison',c:'world',t:'The Garrison of {CCITY}',q:'Our garrison in {CCITY} has written home. The townspeople are polite, the beer is excellent and nobody can tell what the soldiers are for. Their general asks whether they are staying.',o:[
+ {t:'“They stay, and the city is ours,” says Defence Minister {DEF}. “A full garrison and a military governor.”',e:{mil:2,civil:-2,ccc:'keep',ccb:1},fx:'{CCITY} is a city of {N} under a military governor'},
+ {t:'“They stay, but the city stays theirs on paper,” says Finance Minister {FIN}. “Occupation is cheaper than government. Collect what the town owes and hold the walls.”',e:{econ:1,corrupt:1,ccs:1},fx:'{CCITY} stays a city of {CFROM} under our occupation, and pays for the privilege'},
+ {t:'“They leave, and the walls come down behind them,” says the {L}. “We will not garrison a city we do not want.”',e:{mil:1,gwall:-2,ccr:1},fx:'our garrison left {CCITY} in ruins behind it'},
+ {t:'“Bring them home, and leave the beer to the locals,” says Welfare Minister {HEA}. “The city goes back to {CFROM}.”',e:{happy:2,gwall:2,ccf:1},fx:'our soldiers came home from {CCITY}, which is a city of {CFROM} again'}]}];
+/* numbered after every other edict: the loop at the very end of the script ("captured cities: their edicts") */
+const CC_SET=new Set(CC_ISSUES.map(i=>i.id)),CC_LOOT=3;
+/* the captured cities this nation holds whose fate it has not decided, oldest first: cities of other players' nations
+   on land it holds as taken in war, each with the moment its hex was taken (its edict's arrival) */
+function ccOpen(n){
+  if(!n||S.mode!=='world'||OBS)return [];
+  let T,CS;try{T=territory();CS=cityState(T);}catch(e){return [];}const mi=T.byId[myId()];if(mi===undefined)return [];
+  const done=new Set(Array.isArray(n.ccd)?n.ccd:[]),out=[];
+  for(const ct of CS.all){
+    if(ct.npc||ct.fid===T.list[mi].id||ct.hi!==mi||ct.cap||!T.occ[ct.c])continue;
+    const key=ct.fid+':'+ct.id,at=Math.floor((T.tk&&T.tk[ct.c])||0);if(done.has(key)||!at)continue;
+    out.push({key,c:ct.c,fid:ct.fid,id:ct.id,nm:ct.nm,fn:(ct.fn&&ct.fn.name)||nameOf(ct.fid),at});
+  }
+  return out.sort((a,b)=>a.at-b.at);
+}
+/* the captured-city edicts on the desk, each with the city it is about (or null) */
+function ccPairs(n,L){
+  L=L||ccOpen(n);const E=(Array.isArray(n&&n.inbox)?n.inbox:[]).filter(x=>x&&CC_SET.has(x.id)),used=new Set(),out=new Map();
+  for(const x of E){const C=L.find(C=>C.at===x.at&&!used.has(C.key));if(C){used.add(C.key);out.set(x,C);}}
+  for(const x of E)if(!out.has(x)){const C=L.find(C=>!used.has(C.key))||null;if(C)used.add(C.key);out.set(x,C);}
+  return out;
+}
+function ccCityOf(n,x){const L=ccOpen(n);if(!x)return L[0]||null;const C=L.find(C=>C.at===x.at);if(C)return C;for(const [y,D] of ccPairs(n,L))if(y.id===x.id)return D;return L[0]||null;}
+/* the edicts due: one for each captured city no edict on the desk is about */
+function ccDue(n,now){
+  if(OBS||!n||n.npc||!Array.isArray(n.inbox)||S.mode!=='world')return [];
+  const L=ccOpen(n);if(!L.length)return [];
+  const P=ccPairs(n,L),have=new Set([...P.values()].filter(Boolean).map(C=>C.key)),taken=new Set([...P.keys()].map(x=>x.id));
+  const recent=new Set((n.answered||[]).filter(a=>now-(+a.t||0)<30*DAY).map(a=>a.id)),out=[];
+  for(const C of L){
+    if(have.has(C.key))continue;
+    const free=CC_ISSUES.filter(i=>!taken.has(i.id)),R=free.filter(i=>!recent.has(i.id)),pool=R.length?R:free;if(!pool.length)break;
+    const id=pool[hash(C.key)%pool.length].id;taken.add(id);out.push({id,at:C.at});
+  }
+  return out;
+}
+syncInbox=(f=>function(n,now){
+  const m=f.apply(this,arguments);let due=[];try{if(m&&Array.isArray(m.inbox)&&deskN(m.inbox)<EDICT_KEEP)due=ccDue(m,now);}catch(e){console.warn('captured cities',e);}if(!due.length)return m;
+  const out=m===n?clone(m):m;for(const x of due)if(deskN(out.inbox)<EDICT_KEEP)out.inbox.push(x);return out;
+})(syncInbox);
+/* {CCITY} and {CFROM}: the city the edict on the desk (x) is about, and the nation it was taken from */
+fill=(f=>function(s,n,x){
+  if(typeof s==='string'&&(s.includes('{CCITY}')||s.includes('{CFROM}'))){const N=n||S.nation,C=(x&&CC_SET.has(x.id)?ccCityOf(N,x):ccCityOf(N,null));s=s.split('{CCITY}').join((C&&C.nm)||'the captured city').split('{CFROM}').join((C&&C.fn)||'the enemy');}
+  return f.apply(this,[s,...[].slice.call(arguments,1)]);
+})(fill);
+let CC_NOW=null;
+function ccAct(id){
+  if(!CC_SET.has(id)||!S.nation)return null;
+  try{const v=syncInbox(S.nation,Date.now()),x=v.inbox.find(y=>y.id===id);return x?{id,C:ccCityOf(v,x)}:null;}catch(e){return null;}
+}
+answer=(f=>function(id){const a=ccAct(id);if(!a)return f.apply(this,arguments);const was=CC_NOW;CC_NOW=a;try{return f.apply(this,arguments);}finally{CC_NOW=was;}})(answer);
+dismiss=(f=>function(id){const a=ccAct(id);if(!a)return f.apply(this,arguments);const was=CC_NOW;CC_NOW=a;try{return f.apply(this,arguments);}finally{CC_NOW=was;}})(dismiss);
+/* answered or vetoed, the city's fate is decided (vetoed: it stays under occupation, as before) */
+COMMIT_HOOKS.push(n=>{
+  const a=CC_NOW;if(!a||!a.C||!n||n.npc||!Array.isArray(n.inbox)||n.inbox.some(x=>x&&x.id===a.id))return [];
+  const L=Array.isArray(n.ccd)?n.ccd:[];if(!L.includes(a.C.key))n.ccd=L.concat(a.C.key).slice(-60);return [];
+});
+/* take the city over as a city of this nation: '' when done, or why not */
+function ccTake(n,C,how,keepB,now){
+  const T=territory(),mi=T.byId[myId()];if(mi===undefined||T.owner[C.c]!==mi)return `${C.nm||'The city'} is no longer yours, so it could not become a city of ${n.name}.`;
+  n.cities=(Array.isArray(n.cities)?n.cities:cityList(n)).slice();
+  if(n.cities.some(c=>c.c===C.c))return '';
+  if(n.cities.filter(c=>c.cq).length>=CQ_MAX)return `${n.name} holds the most captured cities it can (${CQ_MAX}).`;
+  let nm=how==='new'?('New '+(n.capital||'Capital')).slice(0,30):String(C.nm||'Captured city').slice(0,30);
+  if(n.cities.some(c=>cityLabel(n,c).toLowerCase()===nm.toLowerCase()))nm=(nm+' II').slice(0,30);
+  const D=docOf(C.fid),src=D?cityList(D).find(c=>c.id===C.id||c.c===C.c):null;
+  const b=keepB&&src?(src.b||[]).filter(x=>x&&BUILDINGS[x.k]&&!BUILDINGS[x.k].w&&+x.d<=now).slice(0,CITY_SLOTS).map(x=>({k:x.k,s:now,d:now})):[];
+  n.cities.push({id:'q'+now.toString(36),c:C.c,nm,t:now,b,cq:String(C.fn||'').slice(0,40)||'another nation',cf:C.fid,cfi:String(C.id||'').slice(0,16)});
+  n.log.unshift({t:now,k:'city',a:nm,fx:landName(C.c)});n.log=n.log.slice(0,60);
+  return '';
+}
+applyEffects=(f=>function(n,e){
+  if(e&&n&&!n.npc&&('ccc' in e||'ccb' in e||'ccr' in e||'ccs' in e||'ccf' in e)){
+    e=Object.assign({},e);const now=Date.now(),C=CC_NOW?CC_NOW.C:null,me=myId();
+    if(e.gwall)cqGoodwill(n,e.gwall);
+    if(C){
+      if(e.ccc){const why=ccTake(n,C,e.ccc,!!e.ccb,now);if(why)setTimeout(()=>toast(why),50);}
+      if(e.ccr){n.czr=(Array.isArray(n.czr)?n.czr:[]).concat({c:C.c,d:C.fid,id:String(C.id||'').slice(0,16),t:now,nm:String(C.nm||'').slice(0,30)}).slice(-60);
+        n.log.unshift({t:now,k:'czraze',a:C.nm,b:C.fn,c:C.c});}
+      if(e.ccs){const L=wrLoot(C.c),st=stockNow(n,now);for(const r in L)st[r]=stockLimit(n,r,num0(st[r])+L[r]*CC_LOOT);n.stock=roundStock(st);n.stockAt=now;n._stockSet=true;
+        n.gw={...(n.gw||{}),[C.fid]:clamp(((n.gw||{})[C.fid]||0)-3,-GW_MAX,GW_MAX)};n.log.unshift({t:now,k:'cloot',a:C.nm,b:C.fn,c:C.c});}
+      if(e.ccf){n.bx=(Array.isArray(n.bx)?n.bx:[]).concat({c:C.c,t:now,to:C.fid,fr:me});
+        n.gw={...(n.gw||{}),[C.fid]:clamp(((n.gw||{})[C.fid]||0)+8,-GW_MAX,GW_MAX)};n.log.unshift({t:now,k:'cfree',a:C.nm,b:C.fn,c:C.c});}
+      const L=Array.isArray(n.ccd)?n.ccd:[];if(!L.includes(C.key))n.ccd=L.concat(C.key).slice(-60);
+      n.log=n.log.slice(0,60);
+    }
+    delete e.ccc;delete e.ccb;delete e.ccr;delete e.ccs;delete e.ccf;delete e.gwall;
+  }
+  return f.call(this,n,e);
+})(applyEffects);
+/* the city on the map, when its fate waits on this nation's desk: a way to the edict */
+MAP_PANEL.push(ctx=>{
+  const c=ctx.cell;if(c==null||S.mode!=='world'||!S.nation||OBS)return '';
+  try{if(!ccOpen(S.nation).some(C=>C.c===c))return '';const v=syncInbox(S.nation,Date.now());for(const [x,C] of ccPairs(v))if(C&&C.c===c)
+    return `<div class="row"><button type="button" class="btn ghost sm" data-act="open" data-id="${esc(x.id)}" data-at="${x.at}">Decide the fate of ${esc(C.nm||'the city')} →</button></div>`;}catch(e){}
+  return '';
+});
+if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE.CMV=()=>({wrMovesOf,wrLostIdx,wrRewrite,wrWorldSync,wrMoveSync,wrOccIds,wrNextCap,wrFallWords,wrEndsAt,CC_ISSUES,ccOpen,ccPairs,ccCityOf,ccDue,ccTake,ccFrom,WR_RW});}catch(e){}
 /* ───────── works done (WD): the bell tells of every work the builders finish, not only new buildings ─────────
    A building's upgrade, a retool, an economy level and a city's walls are written into the record (settled) by the
    first save after they finish (the COMMIT_HOOKS above), and the moment they finished goes with it; a Warehouse's tier
@@ -103452,6 +103737,10 @@ if(typeof window.EDICTUM_PROBE==='function')window.EDICTUM_PROBE.dhaluun={state:
   load:rows=>{S.nation=null;S.uid='';S.mode='world';S.world={};HIDN.w={};for(const x of rows){const n=normalize(x.n);if(!n||n.reg!==REG.id)continue;auditNation(n,x.n,x.id,Date.now(),false);if(isDormant(n))continue;if(x.hidden)HIDN.w[x.id]=n;else S.world[x.id]=n;}passForget();terrCache.clear();}};
 
 } /* end Dhaluun event */
+/* captured cities: their edicts (the capital moves, and captured cities), numbered after every other edict, as
+   Willow Street's letters are (wsPush): an edict's number is its place (edict-order) */
+if(typeof CC_ISSUES!=='undefined'&&typeof ISSUES!=='undefined')for(const is of CC_ISSUES){if(ISSUE_BY_ID[is.id])continue;is.fo=1;ISSUES[ISSUES.length]=is;is.no=ISSUES.length;ISSUE_BY_ID[is.id]=is;is.nbx=false;}
+
 
 if(hot&&typeof hot.snapshot==='function'){try{hot.snapshot(()=>({view:S.view,openIssue:S.openIssue,result:S.result,visit:S.visit,censusKey:S.censusKey,settings:S.settings,draft:S.draft,mapViews:S.mapViews,mapSel:S.mapSel,mapPick:S.mapPick}));}catch(e){}}
 if(hot&&typeof hot.ready==='function')hot.ready(start);else start((hot&&hot.data)||{});

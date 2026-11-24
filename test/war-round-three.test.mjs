@@ -68,7 +68,7 @@ test('the war\'s count while it lasts, and its end found at the next save', () =
   const hook = cut('COMMIT_HOOKS.push((n,old,now)=>{\n  const out=[];if(!n||n.npc||OBS||S.mode===\'readonly\'||cellOf(n.loc)<0)return out;\n  if(S.mode===\'world\'&&!worldHeardAt)', '\n/* ── the battle report ── */');
   const now = 1e12, H2 = [];
   const ctx = vm.createContext({ DAY, Math, RES, OBS: false, S: { mode: 'world' }, worldHeardAt: 1, COMMIT_HOOKS: H2, cellOf: () => 5, myId: () => 'me', NPC_SET: new Set(), nameOf: () => 'Vesad',
-    economy: () => ({ T: { byId: { me: 0 } }, wup: { war: Object.fromEntries(RES.map(r => [r, [r === 'iron' ? 10 : 0]])) } }), popNow: () => 100, wrFallsAt: () => [], fmtPopShort: p => p + 'M' });
+    economy: () => ({ T: { byId: { me: 0 } }, wup: { war: Object.fromEntries(RES.map(r => [r, [r === 'iron' ? 10 : 0]])) } }), popNow: () => 100, wrFallsAt: () => [], wrEndsAt: () => [], fmtPopShort: p => p + 'M' });
   vm.runInContext(vars(CONSTS) + '\n' + vars(cut('const WR3_RES=', '\n')) + '\n' + vars(cut('const WR3_HOW=', '\n')) + '\n' + ['wr3Stat', 'wr3Hexes', 'wr3Close'].map(fn).join('\n') + '\n' + hook, ctx);
   let at = true;ctx.wrWarsOf = () => at ? [{ id: 'them', g: 'c' }] : [];ctx.docOf = id => id === 'them' ? { conq: [] } : null;
   ctx.pairWar = () => at ? { war: true, since: now - 5 * DAY } : { war: false, peaceAt: now - H, surr: 'them' };
@@ -107,7 +107,7 @@ test('veterans and memorials: two edicts after a war with battles fought, the se
 
 test('the map layer: sieges, ruins, fortified hexes, today\'s battles, raids and memorials', () => {
   const now = Date.now(), ctx = vm.createContext({ DAY, Date, Math, MAP: { N: 6 }, SIEGE_MS: 24 * H, SIEGE_MAX: 72 * H, S: { mode: 'world' }, polMemo: { k: 'x' },
-    WR: { rev: 1, docs: new Map([['s1', { a: 'me', d: 'v', st: 'on', t: now - H, an: 'Axe' }]]) }, wrSiege: (a, d) => [...ctx.WR.docs.values()][0], wrFallsAt: () => [{ c: 4, cn: 'Adler', dn: 'Vesad' }],
+    WR: { rev: 1, docs: new Map([['s1', { a: 'me', d: 'v', st: 'on', t: now - H, an: 'Axe' }]]) }, wrSiege: (a, d) => [...ctx.WR.docs.values()][0], wrFallsAt: () => [{ c: 4, cn: 'Adler', dn: 'Vesad' }], wrEndsAt: () => [{ c: 4, cn: 'Adler', dn: 'Vesad' }],
     wrForts: n => n.fort || {}, wrRaided: () => new Set([2]) });
   vm.runInContext(vars(cut('let wr3MapMemo=', '\n')) + '\n' + fn('wr3MapData'), ctx);
   const T = { list: [{ id: 'me', cap: 0, n: { fort: { 3: now + H }, mem: [{ t: 1, nm: 'X' }] } }, { id: 'v', cap: 5, n: {} }], byId: { me: 0, v: 1 }, occ: [0, 1, 0, 0, 0, 0], tk: [0, now - H, 0, 0, 0, 0] };
@@ -136,7 +136,7 @@ test('a war ends when either side\'s capital falls: no more upkeep or weariness 
   const t = 1e12, F = { d: 'v', a: 'me', ft: t + 5 * H, df: 100 }, GOALS = cut('const WAR_GOALS={', '};') + '};';
   const ctx = vm.createContext({ TRUCE_MS: 72 * H, PEACE_AUTO_MS: 30 * H, SURR_TRUCE: 14 * DAY, NPC_SET: new Set(), DAY, BORDER_CAP: 12, wakeFence: () => 0, npcPeaceWait: () => DAY, Date: { now: () => t + 6 * H } });
   vm.runInContext(vars(GOALS.replace('${BORDER_CAP}', '12')) + '\n' + fn('pairWar') + '\n' + fn('wrFellOf'), ctx);
-  const recs = { me: { wars: { v: { t, g: 'c' } } }, v: { founded: 100 } };ctx.docOf = id => recs[id];ctx.wrFallsAt = () => [F];
+  const recs = { me: { wars: { v: { t, g: 'c' } } }, v: { founded: 100 } };ctx.docOf = id => recs[id];ctx.wrFallsAt = () => [F];ctx.wrEndsAt = () => [F];
   const w = ctx.pairWar('me', 'v');
   assert.equal(w.war, false);assert.equal(w.fell, 'v');assert.equal(w.peaceAt, F.ft);
   recs.v = { founded: t + 9 * H };ctx.Date = { now: () => t + 10 * H };

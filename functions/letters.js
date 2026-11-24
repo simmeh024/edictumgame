@@ -94,17 +94,18 @@ async function pushTo(db, uid, payload) {
   return sent;
 }
 
-/* war, round two (functions/index.js, the referee): a player's capital besieged ('siege') or fallen ('fell'): a
-   notification, and a letter by post right away for a player who takes war letters (mailAccounts p.war) */
-export async function warWord(db, to, kind, { by, nation, capital, at }) {
-  const fell = kind === 'fell', cap = capital || 'your capital';
+/* war, round two (functions/index.js, the referee): a player's capital besieged ('siege'), fallen with the nation
+   ('fell'), or fallen while the government moves on to nn, its biggest city ('moved'): a notification, and a letter by
+   post right away for a player who takes war letters (mailAccounts p.war) */
+export async function warWord(db, to, kind, { by, nation, capital, at, nn }) {
+  const fell = kind === 'fell', moved = kind === 'moved', cap = capital || 'your capital';
   let pushed = 0, mailed = 0;
-  try { pushed = await pushTo(db, to, { title: fell ? `${cap} has fallen` : `${by} has laid siege to ${cap}`, body: fell ? `${nation} has fallen to ${by}. Rise again, or start anew elsewhere.` : 'The final assault can come in a day. Surrender, or hold out and fight.', tag: 'siege-' + to, url: fell ? '/' : '/#map' }); } catch (e) { pushed = 0; }
+  try { pushed = await pushTo(db, to, { title: fell || moved ? `${cap} has fallen` : `${by} has laid siege to ${cap}`, body: fell ? `${nation} has fallen to ${by}. Rise again, or start anew elsewhere.` : moved ? `${by} took ${cap}. Your government has moved to ${nn || 'your biggest city'}, and the war goes on.` : 'The final assault can come in a day. Surrender, or hold out and fight.', tag: 'siege-' + to, url: fell ? '/' : '/#map' }); } catch (e) { pushed = 0; }
   try {
     const acc = await db.doc('mailAccounts/' + to).get();
     if (acc.exists && acc.get('ok') && acc.get('e') && acc.get('p') && acc.get('p').war) {
       const cfg = await mailConfig(db);
-      mailed = await send(db, [warLetter(cfg, { to: acc.get('e'), kind, by, nation, capital, at, tok: acc.get('tok') })], cfg);
+      mailed = await send(db, [warLetter(cfg, { to: acc.get('e'), kind, by, nation, capital, at, nn, tok: acc.get('tok') })], cfg);
     }
   } catch (e) { mailed = 0; }
   return { pushed, mailed };

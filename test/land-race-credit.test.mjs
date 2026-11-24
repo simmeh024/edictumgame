@@ -30,7 +30,7 @@ function kit(world) {
     HIDN: { w: {} }, REF: { ok: new Map() }, RECL: { owner: new Map(), time: new Map() }, recRev: 0, NPC_SET: new Set(),
     MAP: { N, T: new Uint8Array(N).fill(2), cx: new Float64Array(N).map((_, i) => i), cy: new Float64Array(N) },
     setTimeout: (f, ms) => { timers.push({ f, ms }); return timers.length; },
-    wrFallsAt: () => [], wrFellOf: () => null, wrSpoilOf: () => null, wrShielded: () => false,
+    wrFallsAt: () => [], wrEndsAt: () => [], wrFellOf: () => null, wrSpoilOf: () => null, wrShielded: () => false,
     raceFetch() {}, syncReclaims() {}, sealed: () => true, hidDoc: () => null, hidMask: n => n, myId: () => 'me',
     hash: s => { let h = 0; for (const ch of s) h = Math.imul(h ^ ch.charCodeAt(0), 16777619); return h; },
     allNations: () => [...Object.entries(ctx.S.world).map(([id, n]) => ({ id, n })), { id: 'me', n: ctx.S.nation, me: true }],

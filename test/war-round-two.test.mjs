@@ -147,7 +147,7 @@ function run(MAP, nations, events, falls, wars) {
     syncReclaims() {}, allNations: () => nations, cellOf: v => (Number.isInteger(v) ? v : -1), popNow: n => n.pop,
     budgetOf: p => Math.floor(p), weightOf: () => 1, npcLand: p => Math.floor(p), npcWeight: () => 1, nationColor: n => n.col || '#888',
     collectConquests: () => ({ list: events, sig: events.length + ':' + JSON.stringify(events) }), capWrong: () => new Map(),
-    claimLand: c => MAP.T[c] >= 2, inReach: () => true, warCovers: () => true, wrFallsAt: () => falls || [],
+    claimLand: c => MAP.T[c] >= 2, inReach: () => true, warCovers: () => true, wrFallsAt: () => falls || [], wrEndsAt: () => (falls || []).filter(F => !F.ni),
     docOf: id => { const x = nations.find(y => y.id === id); return x ? x.n : null; }, hidDoc: () => null,
   });
   vm.runInContext(vars(TERR) + '\n' + ['wrFellOf', 'wrSpoilOf', 'wrSpoilWar', 'wrShielded'].concat(wars ? ['warCovers'] : []).map(fn).join('\n'), ctx);
@@ -196,6 +196,18 @@ test('what an ally took from the fallen nation in a war of its own stays with it
   assert.equal(T.spoil.get(at(14)), 'v');assert.equal(T.occ[at(14)], 0, 'as its own land');assert.equal(T.occ[at(15)], 0);
   assert.equal(T.owner[at(16)], -1, 'a conquest without a war is no spoil: that hex lies open with the rest');
   assert.equal(T.owner[at(11)], -1);
+});
+test('a capital lost while the government moved on stays the attacker’s, even with no land of its nation around it', () => {
+  /* the capital moves (24 Nov 2026): Vesad's government moved from hex 10 to its city on hex 25, far off */
+  const MAP = strip(), F = { id: 's1', a: 'me', d: 'v', c: at(10), t: 7000, ft: 9000, df: 100, foes: [], st: 'fell', ni: 'c1', nn: 'Brill' };
+  const ev = [{ c: at(10), t: 9000, o: 'me', src: 'me', d: 'v' }];
+  const T = run(MAP, [V({ loc: at(25) }), A()], ev, [F]);
+  assert.notEqual(T.byId.v, undefined, 'Vesad is still on the map');assert.equal(T.list[T.byId.v].cap, at(25));
+  assert.equal(T.owner[at(10)], T.byId.me, 'its old capital is the attacker’s');assert.equal(T.occ[at(10)], 1, 'as land taken in war');
+  assert.equal(T.orig[at(10)], T.byId.v, 'from Vesad');
+  assert.equal(T.owner[at(11)], -1, 'the land around it is nobody’s');
+  /* only the conquest the referee's fall names: not another nation's, nor one at another time */
+  const X = run(MAP, [V({ loc: at(25) }), A()], [{ ...ev[0], t: 50000 }], [F]);assert.equal(X.owner[at(10)], -1);
 });
 test('nothing is taken from a nation in its grace', () => {
   const MAP = strip(), ev = [{ c: at(12), t: 2000, o: 'me', src: 'me', d: 'v' }, { c: at(13), t: 5000, o: 'me', src: 'me', d: 'v' }];
@@ -314,7 +326,7 @@ test('an attack: a little weariness, and on land never its own it ends the attac
   assert.match(a, /n\.wwy=clamp\(\(\+n\.wwy\|\|0\)\+0\.25,0,100\);/);
   assert.match(a, /if\(n\.grc&&n\.grc\.u>now&&n\.grc\.t<=now&&T\.orig\[cell\]!==mi\)n\.grc=\{\.\.\.n\.grc,u:now\};/);
   assert.match(a, /const why=wrAttackWhy\(en\);if\(why\)/, 'a border war’s limit is checked first');
-  assert.match(a, /\.\.\.\(capHit\?\{cap:1\}:\{\}\)/, 'the final assault tells the referee');
+  assert.match(a, /\.\.\.\(capHit\?\{cap:1,occ:wrOccIds\(T,en\.id\)\}:\{\}\)/, 'the final assault tells the referee');
 });
 
 test('the record keeps what the war adds, within bounds', () => {
