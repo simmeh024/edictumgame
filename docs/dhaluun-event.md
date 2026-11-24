@@ -45,3 +45,32 @@ node --test test/dhaluun-event.test.mjs
 node --test test/dhaluun-event-plan.test.mjs
 npx firebase emulators:exec --project demo-edictum --only firestore "node --test test/dhaluun-event-rules.test.mjs"
 ```
+
+## The Great Border Wall and the Dispatch report
+
+The next stage adds a completed **Great Wall** to Dhaluun’s capital, using the existing wonder’s 12% defence bonus.
+Its crenellations and watchtowers follow every edge of the empire’s current perimeter, including the western
+expansion and coast, rather than the short stretch used by an ordinary Great Wall. It follows later border changes
+and is absent from atlas dates before construction.
+
+The same event update publishes **“Behind Dhaluun’s new wall, preparations for something”** in Cloudspine’s Dispatch.
+The report attributes the preparations to sources and leaves their purpose unknown. It belongs to the edition
+covering the activation time and is included when that edition is archived normally.
+
+After deploying the client, preview the wall stage:
+
+```sh
+node tools/admin/dhaluun-wall.mjs --project edictum-b30de
+```
+
+Publish the wall and article together:
+
+```sh
+node tools/admin/dhaluun-wall.mjs --project edictum-b30de --apply
+```
+
+This updates only the existing event’s `wall` field and creates one audit entry. A repeat returns `already-applied`.
+The original territory, spy-operation timestamp and target snapshot stay intact. No additional chat post is made.
+
+`npm run test:dhaluun-wall` checks the full perimeter, defence bonus, Dispatch edition, timeline and operator replay
+handling. It also renders the real wall and the Dispatch article to screenshots in `test/out/`.

@@ -103185,7 +103185,8 @@ function dhaluunRead(d){
   if(!Array.isArray(d.targets)||!d.targets.length||d.targets.length>1000)return null;
   const ids=new Set();
   for(const x of d.targets){if(!x||typeof x.id!=='string'||!/^[\w-]{1,128}$/.test(x.id)||x.id===DHALUUN.by||ids.has(x.id)||typeof x.nm!=='string'||!x.nm.trim()||x.nm.length>80)return null;ids.add(x.id);}
-  return {t:d.t,land:d.land.slice(),targets:d.targets.map(x=>({id:x.id,nm:x.nm}))};
+  const wall=d.wall&&d.wall.v===1&&Number.isFinite(d.wall.t)&&d.wall.t>=d.t&&d.wall.t<=Date.now()&&typeof d.wall.h==='string'&&d.wall.h.trim()&&d.wall.h.length<=160&&typeof d.wall.b==='string'&&d.wall.b.trim()&&d.wall.b.length<=1200?{v:1,t:d.wall.t,h:d.wall.h,b:d.wall.b}:null;
+  return {t:d.t,land:d.land.slice(),targets:d.targets.map(x=>({id:x.id,nm:x.nm})),...(wall?{wall}:{})};
 }
 function dhaluunActive(at){return REG.id===DHALUUN.reg&&DHALUUN.data&&(at==null?Date.now():at)>=DHALUUN.data.t?DHALUUN.data:null;}
 /* Reserve the annexed land before natural cores grow. Explicit player claims, cities,
@@ -103227,9 +103228,42 @@ function dhaluunPlan(T){
   const targets=allNations().filter(x=>x.id!==DHALUUN.by&&!x.hid).map(x=>({id:x.id,nm:x.n.name})).sort((a,b)=>a.id.localeCompare(b.id));
   return {v:1,reg:DHALUUN.reg,by:DHALUUN.by,map:MAP_VER,t:Date.now(),land,targets};
 }
+function dhaluunInstall(raw){
+  DHALUUN.data=dhaluunRead(raw);passForget();terrCache.clear();atlasCache.clear();
+  if(typeof cityMemo!=='undefined')cityMemo={T:null,k:'',v:null};
+  if(typeof dcCSm!=='undefined')dcCSm={T:null,t:0,v:null};
+  if(typeof dcSpotMemo!=='undefined')dcSpotMemo={v:null,r:null};
+  if(typeof dspMemo!=='undefined'){dspMemo.clear();dspXRev++;}
+}
+/* The completed Great Wall uses the existing wonder, its defence bonus and its renderer.
+   Dhaluun's version covers the whole perimeter, rather than the usual short stretch. */
+if(typeof npcCities==='function'&&typeof dcWallGeo==='function'&&typeof cityEpochKey==='function'&&typeof DISPATCH_SOURCES!=='undefined'){
+function dhaluunWallActive(at){const d=dhaluunActive(at);return d&&d.wall&&(at==null?Date.now():at)>=d.wall.t?d.wall:null;}
+npcCities=(f=>function(id){const cities=f.apply(this,arguments);
+  if(id!==DHALUUN.by||!dhaluunWallActive(TERR_AT))return cities;
+  return cities.map(c=>c.cap&&!c.b.includes('wall')?{...c,b:c.b.concat('wall')}:c);
+})(npcCities);
+cityEpochKey=(f=>function(now){const k=f.apply(this,arguments),wall=dhaluunWallActive(TERR_AT);return wall?k+'|dhaluun-wall:'+wall.t:k;})(cityEpochKey);
+const dhaluunWallMemo=new WeakMap();
+function dhaluunWallGeo(T,o){
+  let hit=dhaluunWallMemo.get(T);if(hit)return hit;
+  const lines=[],cells=new Set();
+  for(let c=0;c<MAP.N;c++){if(T.owner[c]!==o)continue;
+    for(let d=0;d<6;d++){const j=MAP.nbr[c*6+d];if(j>=0&&T.owner[j]===o)continue;
+      const x=MAP.cx[c],y=MAP.cy[c],k=(d+1)%6;lines.push([x+HCX[d]*HEX_R,y+HCY[d]*HEX_R,x+HCX[k]*HEX_R,y+HCY[k]*HEX_R,x,y]);cells.add(c);}}
+  hit={lines,cells};dhaluunWallMemo.set(T,hit);return hit;
+}
+dcWallGeo=(f=>function(T,o){return dhaluunWallActive(TERR_AT)&&T.list[o]&&T.list[o].id===DHALUUN.by?dhaluunWallGeo(T,o):f.apply(this,arguments);})(dcWallGeo);
+function dhaluunWallStory(ctx){
+  const wall=dhaluunWallActive();if(!ctx||ctx.reg!==DHALUUN.reg||!wall||!dspIn(ctx,wall.t))return [];
+  return [{k:DHALUUN.id+':wall',t:wall.t,sec:'world',kick:'Behind the wall',h:wall.h,b:wall.b,who:[DHALUUN.by],w:10,go:'map'}];
+}
+DISPATCH_SOURCES.push(dhaluunWallStory);
+if(typeof window.EDICTUM_PROBE==='function')window.EDICTUM_PROBE.dhaluunWall={active:dhaluunWallActive,geometry:dhaluunWallGeo,story:dhaluunWallStory,cities:id=>npcCities(id),cityState:T=>cityState(T),defence:(T,o,c)=>cityDefMult(T,o,c),draw:M=>dcWalls(M),install:dhaluunInstall};
+}
 connect=(f=>async function(){const r=await f.apply(this,arguments);
   if(REG.id===DHALUUN.reg&&S.db)quietListen(S.db.doc('worldEvents/'+DHALUUN.id),s=>{
-    DHALUUN.data=dhaluunRead(s&&s.exists?s.data():null);passForget();terrCache.clear();atlasCache.clear();
+    dhaluunInstall(s&&s.exists?s.data():null);
     quietRender(()=>{render();redrawMaps();});
   },()=>{});
   return r;
