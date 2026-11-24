@@ -163,6 +163,17 @@ await nav(A, 'assembly'); await A.click('#asmx-tab-mem');
 await A.click(`#asmx-p-mem [data-act="asm-end"][data-id="${ub}"]`);
 check('an endorsement counts for Brackwater', await until(() => A.evaluate(id => G.S.civic?.info.some(([i, v]) => i === id && v.k >= 1), ub)));
 check('the endorsements list shows Brackwater’s seal', await until(() => sealAt(A, '#asmx-p-mem .mem', 'Brackwater')));
+/* the live seat lookup must cross the shim and callable entry gate, not a stand-in badge response */
+const chair=await A.evaluate(()=>G.S.civic?.D?.id);
+check('the endorsed region has a Delegate', chair===ua||chair===ub);
+if(chair===ua||chair===ub){
+  const speaker=chair===ua?A:B;
+  await speaker.evaluate(async reg=>{const api=await window.claude.use('civic');await api.request({op:'rcPost',reg,x:'A note from the current Delegate.'});},reg);
+  await A.click('.rgc-btn');await A.waitForSelector('#rgc-dock:not([hidden])');
+  check('the current Delegate wears the seat in the real chat, through the protected callable',await until(()=>A.locator(`#rgc-list [data-chat-delegate="${chair}"] .chat-delegate`).first().isVisible().catch(()=>false),20000));
+  await shot(A,'delegate-chat-seat');
+  await A.click('#rgc-dock [data-rgc="close"]');
+}
 await B.ctx.close();
 await db.doc('nations/' + ub).update({ ts: Timestamp.fromMillis(Date.now() - 20 * DAY) });
 await root.set({ at: Date.now() }, { merge: true });
