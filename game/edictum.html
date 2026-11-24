@@ -25459,6 +25459,16 @@ function xuCredits(n){
       a=Math.min(a,5);b=Math.min(b,5);c+=(a>=4)+(a>=5)+(b>=4)+(b>=5);}
     return c;}catch(e){return 0;}
 }
+/* the bureau (2026-11-23), likewise: every purple and gold block of its six departments, tier I and tier II, 24 in all;
+   its own list of departments (BU_CR_KEYS), as land credits are counted before the Bureau's part of the script has run
+   (test/bureau-tier2.test.mjs keeps it equal to BU's) */
+function buCredits(n){
+  try{if(!n||n.npc)return 0;const K=['safe','school','forge','listen','recruit','cover'],u=n.bu||{},v=n.bu2||{},L=n.bln||{},w=n.buw,now=Date.now();let c=0;
+    for(const k of K){let a=u[k]|0,b=typeof L[k]==='string'?v[k]|0:0;
+      if(w&&w.k===k&&w.d<=now){if(w.x!==2)a=Math.max(a,w.u|0);else if(w.u>0&&typeof L[k]==='string')b=Math.max(b,w.u|0);}
+      a=Math.min(a,5);b=Math.min(b,5);c+=(a>=4)+(a>=5)+(b>=4)+(b>=5);}
+    return c;}catch(e){return 0;}
+}
 /* population marks: at 10, 20 … 100 million people a nation earns 2, 4 … 20 land credits (twice the tens), and every
    25 million after 100 million 2 more. Counted from the population now, like the milestones. */
 function popMarkCredits(p){if(!(p>=10-1e-9))return 0;let k=0;for(let m=10;m<=100&&p>=m-1e-9;m+=10)k+=m/5;if(p>=125-1e-9)k+=2*Math.floor((p-100+1e-9)/25);return k;}
@@ -25472,7 +25482,7 @@ function rdCredits(n){
     const t=Date.UTC(+m[1],+m[2]-1,+m[3],8);if(t>now||(f&&t+7*864e5<=f))continue;wk.add(m[1]+m[2]+m[3]);}
   return 5*wk.size;
 }
-function landEarned(n){const p=popNow(n);return Math.max(0,Math.max(0,budgetOf(p)-CORE_HEXES)+mileOf(n).bonus+(n&&n.npc?0:popMarkCredits(p))+(n.lcb||0)+achRankCredits(n)+achTierCredits(n)+prvCredits(n)+rdCredits(n)+xuCredits(n)-(n.mvl||0));}
+function landEarned(n){const p=popNow(n);return Math.max(0,Math.max(0,budgetOf(p)-CORE_HEXES)+mileOf(n).bonus+(n&&n.npc?0:popMarkCredits(p))+(n.lcb||0)+achRankCredits(n)+achTierCredits(n)+prvCredits(n)+rdCredits(n)+xuCredits(n)+buCredits(n)-(n.mvl||0));}
 function landCredits(n){
   if(!n||!Array.isArray(n.claims)||cellOf(n.loc)<0)return 0;
   const T=territory(),i=T.byId[myId()];if(i===undefined)return 0;
@@ -28180,7 +28190,7 @@ function spareOf(E,id,res){const j=E.T.byId[id];return j===undefined?0:Math.max(
 /* the credits earned at population p: everything landEarned counts at today's population, rank and province credits
    included (and the dig credits below), so the next credit's population is reckoned from the same total. Province credits
    were once left out here, and a nation with 25 provinces was told its next credit came at 286 million instead of 35. */
-function earnedAt(n,p){const r=milesReached(p);return Math.max(0,budgetOf(p)-CORE_HEXES)+r.reduce((s,m,i)=>s+mileCredit(n,i),0)+(n.lcb||0)+prvCredits(n)+rdCredits(n)+achRankCredits(n)+achTierCredits(n)+xuCredits(n)-(n.mvl||0);}
+function earnedAt(n,p){const r=milesReached(p);return Math.max(0,budgetOf(p)-CORE_HEXES)+r.reduce((s,m,i)=>s+mileCredit(n,i),0)+(n.lcb||0)+prvCredits(n)+rdCredits(n)+achRankCredits(n)+achTierCredits(n)+xuCredits(n)+buCredits(n)-(n.mvl||0);}
 function nextCreditPop(n){
   const T=territory(),i=T.byId[myId()],used=i===undefined?0:claimsUsed(n,T,i),need=used+1,p0=popNow(n);
   if(earnedAt(n,p0)>=need)return p0;let lo=p0,hi=p0;
@@ -35427,7 +35437,7 @@ function cvBlock(n,x,k,now){
   if(cvProtected(x,now))return `${x.n.name} was founded less than 3 days ago and is protected from covert operations until ${fmtDate((x.n.founded||0)+CV_NEW)}.`;
   const rv=cvRetal(x.id,n,now);
   if(!rv){
-    const last=cvLastOp(n),gap=buGap(n);if(now-last<gap)return `Your service can run one covert operation every ${SAFE_H[buLv(n,'safe')]} hours. The next is possible in ${fmtDur(last+gap-now)}.`;
+    const last=cvLastOp(n),gap=buGap(n);if(now-last<gap)return `Your service can run one covert operation every ${buGapWords(n)}. The next is possible in ${fmtDur(last+gap-now)}.`;
     const ht=heatOf(n,x.id,now);if(ht>=HEAT_MAX)return `Too hot: your heat with ${x.n.name} is ${ht}. It cools over the next few days; your service will touch them again below ${HEAT_MAX}.`;
   }
   const ag=agents(n,now);if(ag.r<1)return ag.next?`No agent is ready. The next one is free in ${fmtDur(ag.next)}.`:'Every agent is on home duty. Call one back on the roster.';
@@ -35447,8 +35457,9 @@ function cvOdds(me,x,k,rv,o){
   add(ps,'their safety',-(v(st,'safety',50)-50)/5);
   if(rv)add(ps,'retaliation',15);
   const ag=o.ag,jn=o.jn;
-  if(ag){if(ag.lv>1)add(ps,`${ag.nm}’s experience`,2*(ag.lv-1));if(agFits(ag,k))add(ps,`${ag.nm}, a ${AG_SP[ag.sp][0].toLowerCase()}`,6);}
+  if(ag){if(ag.lv>1)add(ps,`${ag.nm}’s experience`,2*(ag.lv-1));if(agFits(ag,k))add(ps,`${ag.nm}, a ${AG_SP[ag.sp][0].toLowerCase()}`,6);if(ag.lv>=3)add(ps,'the masterclass',bb(me,'school','master'));}
   if(k==='s'||k==='c')add(ps,'your forgery lab',2*buLv(me,'forge',now));
+  if(k==='s'||k==='c')add(ps,'your master engravers',bb(me,'forge','engr'));if(k==='b'||k==='d')add(ps,'your copy room',bb(me,'forge','copy'));
   let gd=0;if(!x.npc){gd=agRoster(t).filter(g=>g.h).slice(0,3).reduce((s,g)=>s+(g.lv>=3?4:3),0);add(ps,'their agents on home duty',-gd);if(ibMoles(me,x.id,now).length)add(ps,'your double agent in their service',10);}
   if(jn){if(jn.c)add(ps,`help from ${jn.nm}`,8);else add(ps,`${jn.nm}’s agent ${jn.a.nm}`,12+2*(jn.a.lv-1));}
   add(px,'their Counter-Intelligence Bureau',Q.counterIntel?15:0);
@@ -35458,10 +35469,10 @@ function cvOdds(me,x,k,rv,o){
   add(px,'Foreign Intelligence Service',P.spyAgency?-8:0);
   add(px,'your science',-(v(sm,'sci',50)-50)/8);
   if(rv)add(px,'retaliation',-10);
-  if(!x.npc){add(px,'their agents on home duty',gd);const L=buLv(t,'listen',now);if(L>1)add(px,'their listening post',3*(L-1));}
+  if(!x.npc){add(px,'their agents on home duty',gd);const L=buLv(t,'listen',now);if(L>1)add(px,'their listening post',3*(L-1));add(px,'their codebreakers',bb(t,'listen','code'));}
   if(ag&&ag.lv>1)add(px,`${ag.nm}’s experience`,-(ag.lv-1));
   if((k==='s'||k==='c')&&buLv(me,'forge',now)>=5)add(px,'your forgery lab',-5);
-  add(px,'diplomatic cover',-2*buLv(me,'cover',now));
+  add(px,'diplomatic cover',-2*buLv(me,'cover',now));add(px,'your attachés',-bb(me,'cover','att'));
   if(jn&&!jn.c)add(px,'a joint operation',-5);
   add(px,'your heat with them',Math.min(20,heatOf(me,x.id,now)/5));
   let p=K.base,xp=30+K.xb;for(const a of ps)p+=a[1];for(const a of px)xp+=a[1];
@@ -35541,7 +35552,7 @@ function cvLaunch(){
   let clsW='';if(R.ok&&CLS_OPS[k]){const hit=clsOf(x.n).filter(q=>CLS_OPS[k].includes(q));clsRead(n,x.id,hit,now);if(hit.length)clsW=` Your agents read their classified ${list(hit.map(q=>CLS_BY[q].n.toLowerCase()))}: open to you for 7 days.`;}
   if(R.ok&&k==='m')ibFileSet(n,x.id,{...(op.st?{s:{v:op.st.slice(),t:now,...(op.sd?{sd:1}:{})}}:{}),c:Object.assign({},ibFile(n,x.id).c||{},{gs:op.gs||'',mn:op.mn||'',pm:op.m,gt:now,t:now})},now);
   if(R.ex){
-    const al=sameAlliance(myId(),x.id),gw={...(n.gw||{})};op.gw=k==='g'?3:jn?5:al?12:8;
+    const al=sameAlliance(myId(),x.id),gw={...(n.gw||{})};op.gw=Math.round((k==='g'?3:jn?5:al?12:8)*buGwK(n));
     gw[x.id]=clamp((gw[x.id]||0)-op.gw,-GW_MAX,GW_MAX);
     if(k!=='g')for(const y of allNations())if(!y.me&&y.id!==x.id)gw[y.id]=clamp((gw[y.id]||0)-1,-GW_MAX,GW_MAX);
     n.gw=gw;applyEffects(n,{happy:-1});n.cvEx=(n.cvEx||[]).concat(now).slice(-30);
@@ -35823,12 +35834,14 @@ function agSpAt(n,i,g){const s=(n&&n.seed)||'1';return AG_SPK[(hash(s+':sp')+i+(
 function agRoster(n){
   const max=agentsMax(n||{}),by=new Map(),out=[];
   for(const a of Array.isArray(n&&n.ag)?n.ag:[])if(a&&Number.isInteger(a.i))by.set(a.i,a);
-  for(let i=0;i<max;i++){const s=by.get(i)||{},a={i,g:Number.isInteger(s.g)?s.g:0,x:Number.isInteger(s.x)?s.x:0,r:Number.isFinite(s.r)?s.r:0,h:s.h===1?1:0,l:s.l===1?1:0};
+  /* Headhunters (tier II): every agent has at least the line's blocks in experience */
+  const hx=bb(n,'recruit','head');
+  for(let i=0;i<max;i++){const s=by.get(i)||{},a={i,g:Number.isInteger(s.g)?s.g:0,x:Math.max(Number.isInteger(s.x)?s.x:0,hx),r:Number.isFinite(s.r)?s.r:0,h:s.h===1?1:0,l:s.l===1?1:0};
     a.nm=agNameAt(n,i,a.g);a.sp=agSpAt(n,i,a.g);a.lv=agLv(a.x);out.push(a);}
   return out;
 }
 const agFits=(a,k)=>!!(a&&AG_SP[a.sp]&&AG_SP[a.sp][2].includes(k));
-function agRestMs(n){return Math.round(AGENT_MS*(1-0.1*buLv(n,'school')));}
+function agRestMs(n){return Math.round(AGENT_MS*(1-0.1*buLv(n,'school')-0.04*bb(n,'school','instr')));}
 /* experience: 1 a mission, 1 more for a success, and the training school's blue and gold blocks 1 each */
 function agGain(n,a,ok){const L=buLv(n,'school'),was=a.lv;a.x=Math.min(999,(a.x|0)+1+(ok?1:0)+(L>=3?1:0)+(L>=5?1:0));a.lv=agLv(a.x);if(a.lv>was)a.up=a.lv;}
 /* writes one agent back into n.ag, keeping only what differs from a fresh recruit */
@@ -35878,7 +35891,7 @@ function agPick(n,k,now,slot){
 /* heat: what n's operations against tg in the last 4 days add up to, fading as they age: 25 each (10 for gathering
    intelligence), 25 more if exposed. keep(op, roll) filters the operations counted */
 const HEAT_MS=4*DAY,HEAT_MAX=100;
-function heatOf(rec,tg,now,keep){let h=0;for(const o of (rec&&rec.cov)||[]){if(o.tg!==tg||o.rg!==REG.id)continue;const a=now-o.t;if(a<0||a>=HEAT_MS)continue;const R=cvRoll(o);if(keep&&!keep(o,R))continue;h+=((o.k==='g'?10:25)+(R.ex?25:0))*(1-a/HEAT_MS);}return Math.round(h);}
+function heatOf(rec,tg,now,keep){let h=0;for(const o of (rec&&rec.cov)||[]){if(o.tg!==tg||o.rg!==REG.id)continue;const a=now-o.t;if(a<0||a>=HEAT_MS)continue;const R=cvRoll(o);if(keep&&!keep(o,R))continue;h+=((o.k==='g'?10:25)+(R.ex?25:0))*(1-a/HEAT_MS);}return Math.round(h*buHeatK(rec));}
 
 /* double agents. ibTurned: tg's decision that it turned this agent of mine, in the last 14 days. ibMoles: the agents of
    nation id that n turned and that are still in its service (same slot, same generation) */
@@ -35902,12 +35915,12 @@ const BU={
     req:[null,{k:['diplo']},{k:['parliament','palace','court']},{k:['diplo'],ug:2},{k:['diplo'],ug:4}]}
 };
 const BU_KEYS=Object.keys(BU),BU_TOTAL=BU_KEYS.length*5,SAFE_H=[8,7.5,7,6.5,6,5];
-function buLv(n,k,now){if(!n||!BU[k])return 0;let L=(n.bu&&n.bu[k])|0;const w=n.buw;if(w&&w.k===k&&w.d<=(now||Date.now()))L=Math.max(L,w.u|0);return clamp(L,0,5);}
+function buLv(n,k,now){if(!n||!BU[k])return 0;let L=(n.bu&&n.bu[k])|0;const w=n.buw;if(w&&w.k===k&&w.x!==2&&w.d<=(now||Date.now()))L=Math.max(L,w.u|0);return clamp(L,0,5);}
 function buAll(n,now){return BU_KEYS.reduce((a,k)=>a+buLv(n,k,now),0);}
 function buCost(k,i){const m=XU_MUL[i],o={};for(const r in BU[k].base)o[r]=Math.max(1,Math.round(BU[k].base[r]*m));return o;}
-function buGap(n){return SAFE_H[buLv(n,'safe')]*3600e3;}
+function buGap(n){return SAFE_H[buLv(n,'safe')]*3600e3-10*60000*bb(n,'safe','bolt');}
 function buRecruits(n){return [0,1,1,2,2,3][buLv(n,'recruit')];}
-function buHoldK(n){const L=buLv(n,'recruit');return L>=4?0.5:L>=2?0.75:1;}
+function buHoldK(n){const L=buLv(n,'recruit');return (L>=4?0.5:L>=2?0.75:1)-0.05*bb(n,'recruit','reserve');}
 function buLvText(k,i){
   switch(k){
     case 'safe':return `one covert operation every ${SAFE_H[i+1]} hours`;
@@ -35933,7 +35946,7 @@ function buNowText(n,k,L){
 }
 function buWhy(n,k,now){
   now=now||Date.now();const L=buLv(n,k,now);if(L>=5)return 'Every block is fitted.';
-  if(n.buw&&n.buw.d>now)return n.buw.k===k?'This one is in training.':`The bureau is busy with ${BU[n.buw.k].n} for ${fmtDur(n.buw.d-now)}.`;
+  if(n.buw&&n.buw.d>now)return n.buw.k===k?'This one is in training.':`The bureau is busy with ${buJobName(n.buw,n)} for ${fmtDur(n.buw.d-now)}.`;
   const q=BU[k].req[L];if(q&&!xuHave(n,q,now))return `Needs ${xuReqText(q)} in one of your cities.`;
   const miss=lacking(buCost(k,L),stockNow(n,now));if(miss.length)return `You need ${list(miss)} more.`;
   return '';
@@ -35941,21 +35954,133 @@ function buWhy(n,k,now){
 function buStart(k){
   const n0=S.nation,now=Date.now();if(!n0||!BU[k])return;const why=buWhy(n0,k,now);if(why){toast(why);return;}
   const n=clone(n0),L=buLv(n0,k,now),cost=buCost(k,L),st=stockNow(n0,now),h=XU_H[L];
-  if(n.buw&&n.buw.d<=now){n.bu=Object.assign({},n.bu||{});n.bu[n.buw.k]=Math.max(n.bu[n.buw.k]|0,n.buw.u);n.bul={k:n.buw.k,u:n.buw.u,t:n.buw.d};}
+  buSettle(n,now);
   for(const r of RES)st[r]-=cost[r]||0;n.stock=roundStock(st);n.stockAt=now;n._stockSet=true;
   n.buw={k,u:L+1,s:now,d:now+h*3600e3,p:cost};commit(n);render();
   toast(`The bureau has started on ${BU[k].n}, ${XU_COL[L]}. Ready in ${fmtDur(h*3600e3)}.`);
 }
 function buCancel(){
-  const n0=S.nation,now=Date.now();if(!n0||!n0.buw||n0.buw.d<=now)return;const n=clone(n0),w=n.buw,st=stockNow(n0,now),p=paidClean(w.p,buCost(w.k,w.u-1))||buCost(w.k,w.u-1);
+  const n0=S.nation,now=Date.now();if(!n0||!n0.buw||n0.buw.d<=now)return;const n=clone(n0),w=n.buw,st=stockNow(n0,now),p=paidClean(w.p,buJobCost(w))||buJobCost(w);
   for(const r of RES)if(p[r])st[r]=stockLimit(n,r,st[r]+p[r],st[r]);n.stock=roundStock(st);n.stockAt=now;n._stockSet=true;delete n.buw;commit(n);render();
-  toast(`${BU[w.k].n} is called off, and its materials are back in the stockpile.`);
+  toast(`${cap1(buJobName(w,n0))} is called off, and its materials are back in the stockpile.`);
 }
-COMMIT_HOOKS.push((n,old,now)=>{const w=n&&n.buw;if(w&&w.d<=(now||Date.now())&&BU[w.k]){n.bu=Object.assign({},n.bu||{});n.bu[w.k]=Math.max(n.bu[w.k]|0,clamp(w.u|0,1,5));n.bul={k:w.k,u:n.bu[w.k],t:w.d};delete n.buw;}return [];});
+COMMIT_HOOKS.push((n,old,now)=>{buSettle(n,now||Date.now());return [];});
 /* the buildings that open a department's blocks, for the Cities page */
 function buByB(){const o={};for(const k of BU_KEYS)BU[k].req.forEach((q,i)=>{if(!q)return;for(const b of q.k)(o[b]=o[b]||[]).push([k,i,q]);});return o;}
 function ibBldNote(key){const L=buByB()[key];if(!L||!L.length)return '';return `For spies: opens ${list(L.map(([k,i,q])=>`${BU[k].n} ${XU_COL[i]}${q.ug?` (upgraded to ${XU_COL[q.ug-1]})`:''}`))} at the bureau.`;}
 function buDeskOk(n){const now=Date.now();if(!n||(n.buw&&n.buw.d>now))return false;return BU_KEYS.some(k=>{const L=buLv(n,k,now);if(L>=5)return false;const q=BU[k].req[L];return !q||!!xuHave(n,q,now);});}
+/* ── the bureau, tier II (23 November 2026): as at the outfitters (XU2), a department with all five blocks can be refitted
+   as one of two lines, for good, and five more blocks follow, each adding a little. Here everything costs BU2_UG (4) times
+   as much: a tier II block four times its tier I block, the refit four times the gold block; the blocks take half as long
+   again (the refit BU2_REFIT_H hours). No building is needed for them. Record: n.bln {department: line}, n.bu2
+   {department: 1-5}; the training job n.buw carries x 2 (u 0 and ln for the refit), n.bul likewise. Every purple and gold
+   block, tier I and tier II, is worth a land credit (buCredits, beside the other land credits); n.bcr counts the ones the
+   nation has been told of. The record is shared, so other nations' pages read a target's Codebreakers. ── */
+const BU2_UG=4,BU2_UH=1.5,BU2_REFIT_H=12,BU_CR_MAX=24;
+const BU2={
+  safe:{n:'Safe House Network',lines:{
+    bolt:{n:'Bolt-holes',s:'Your next covert operation comes 10 minutes sooner for each block, 50 minutes at gold II.'},
+    drops:{n:'Dead Drops',s:'Each of your operations builds 5% less heat with its target for each block, a quarter less at gold II.'}}},
+  school:{n:'Spy Academy',lines:{
+    instr:{n:'Field Instructors',s:'Agents rest 4% less for each block, 70% less in all at gold II.'},
+    master:{n:'Masterclass',s:'Agents at level 3 or above get +1 on the success roll for each block, +5 at gold II.'}}},
+  forge:{n:'Engraving Works',lines:{
+    engr:{n:'Master Engravers',s:'+1 on scandals and counterfeiting for each block, +15 in all at gold II.'},
+    copy:{n:'Copy Room',s:'+1 on stealing blueprints and sabotaging trade for each block, +5 at gold II.'}}},
+  listen:{n:'Signals Station',lines:{
+    code:{n:'Codebreakers',s:'Foreign operations against you 1 likelier to be exposed for each block, 5 at gold II.'},
+    mole:{n:'Mole Hunters',s:'+2 on mole hunts and on turning captured agents for each block, +10 at gold II.'}}},
+  recruit:{n:'Recruitment Bureau',lines:{
+    reserve:{n:'Reserve List',s:'Captured agents come home 5% sooner for each block, in a quarter of the time at gold II.'},
+    head:{n:'Headhunters',s:'Every agent has at least 1 experience for each block: from blue II a new recruit starts at level 2.'}}},
+  cover:{n:'Embassy Network',lines:{
+    att:{n:'Attachés',s:'Your operations 1 less likely to be exposed for each block, 15 less in all at gold II.'},
+    deny:{n:'Plausible Deniability',s:'An exposed operation costs 10% less goodwill for each block, half at gold II.'}}}
+};
+const BU2_KEYS=Object.keys(BU2);
+/* the line a department was refitted as ('' for none), counting a refit whose time is up before the save that writes it */
+function buLine(n,k,now){
+  if(!n||!BU2[k])return '';const w=n.buw;
+  if(w&&w.k===k&&w.x===2&&!w.u&&typeof w.ln==='string'&&Object.hasOwn(BU2[k].lines,w.ln)&&w.d<=(now||Date.now()))return w.ln;
+  const l=n.bln&&n.bln[k];return typeof l==='string'&&Object.hasOwn(BU2[k].lines,l)?l:'';
+}
+/* tier II blocks fitted, 0 to 5 */
+function bu2Lv(n,k,now){
+  if(!buLine(n,k,now))return 0;let b=(n.bu2&&n.bu2[k])|0;const w=n.buw;
+  if(w&&w.k===k&&w.x===2&&w.u>0&&w.d<=(now||Date.now()))b=Math.max(b,w.u|0);return clamp(b,0,5);
+}
+/* the blocks of one line: 0 when the department was refitted as the other, or not at all */
+function bb(n,k,ln){return n&&(n.bln||n.buw&&n.buw.x===2)?(buLine(n,k)===ln?bu2Lv(n,k):0):0;}
+function bu2All(n,now){return BU2_KEYS.reduce((a,k)=>a+bu2Lv(n,k,now),0);}
+/* a tier II job's price and hours: i a block (0-4), or -1 for the refit (four times the gold block) */
+function bu2Cost(k,i){const c=buCost(k,i<0?4:i),o={};for(const r in c)o[r]=c[r]*BU2_UG;return o;}
+function bu2Hours(k,i){return i<0?BU2_REFIT_H:Math.round(XU_H[i]*BU2_UH*10)/10;}
+function buJobCost(w){return w&&w.x===2?bu2Cost(w.k,w.u>0?w.u-1:-1):buCost(w.k,w.u-1);}
+function buJobName(w,n){
+  if(!w||!BU[w.k])return 'a department';if(w.x!==2)return `${BU[w.k].n}, ${XU_COL[w.u-1]}`;
+  if(!w.u){const L=BU2[w.k]&&BU2[w.k].lines[w.ln];return `the refit of ${BU[w.k].n}${L?' as '+L.n:''}`;}
+  const ln=n?buLine(n,w.k):'',L=ln&&BU2[w.k].lines[ln];return `${L?L.n:BU2[w.k].n}, ${XU_COL[w.u-1]} II`;
+}
+/* a finished job written into the record (the save's COMMIT_HOOKS, and before a new one starts) */
+function buSettle(n,now){
+  const w=n&&n.buw;if(!w||!(w.d<=now)||!BU[w.k])return;
+  if(w.x===2){const k=w.k;if(BU2[k]){
+    if(!w.u){if(Object.hasOwn(BU2[k].lines,w.ln)){n.bln=Object.assign({},n.bln||{},{[k]:w.ln});n.bul={k,u:0,t:w.d,x:2,ln:w.ln};}}
+    else if(buLine(n,k,now)){n.bu2=Object.assign({},n.bu2||{});n.bu2[k]=Math.max(n.bu2[k]|0,clamp(w.u|0,1,5));n.bul={k,u:n.bu2[k],t:w.d,x:2};}}}
+  else{n.bu=Object.assign({},n.bu||{});n.bu[w.k]=Math.max(n.bu[w.k]|0,clamp(w.u|0,1,5));n.bul={k:w.k,u:n.bu[w.k],t:w.d};}
+  delete n.buw;
+}
+/* what tier II block i of a line adds, and what the line does with b blocks */
+function bu2LvText(k,ln,i){
+  const b=i+1;
+  switch(ln){
+    case 'bolt':return `the next operation ${10*b} minutes sooner`;
+    case 'drops':return `${5*b}% less heat from each operation`;
+    case 'instr':return `agents rest ${50+4*b}% less in all`;
+    case 'master':return `+${b} on the roll for agents at level 3 or above`;
+    case 'engr':return `+${10+b} on scandals and counterfeiting in all`;
+    case 'copy':return `+${b} on blueprints and sabotage`;
+    case 'code':return `foreign operations ${b} likelier to be exposed`;
+    case 'mole':return `+${2*b} on mole hunts and turning captured agents`;
+    case 'reserve':return `captured agents home ${50+5*b}% sooner in all`;
+    case 'head':return `every agent has at least ${b} experience`;
+    case 'att':return `your operations ${10+b} less likely to be exposed in all`;
+    case 'deny':return `${10*b}% less goodwill lost when exposed`;
+  }
+  return '';
+}
+function bu2NowText(k,ln,b){return b?cap1(bu2LvText(k,ln,b-1))+'.':'No tier II blocks yet.';}
+/* the bell's words for a finished job, with the land credit a purple or gold block brings */
+function buDoneText(n,w){
+  if(w.x===2){const L=BU2[w.k]&&(w.ln?BU2[w.k].lines[w.ln]:BU2[w.k].lines[buLine(n,w.k)]);if(!L)return `The bureau has finished work on ${BU[w.k].n}.`;
+    if(!w.u)return `The bureau has refitted ${BU[w.k].n} as ${L.n}. Its five tier II blocks can begin.`;
+    return `The bureau has finished ${L.n}, ${XU_COL[w.u-1]} II: ${bu2LvText(w.k,w.ln||buLine(n,w.k),w.u-1)}.${w.u>=4?' And a land credit for the map.':''}`;}
+  return `The bureau has finished ${BU[w.k].n}, ${XU_COL[w.u-1]}: ${buLvText(w.k,w.u-1)}.${w.u>=4?' And a land credit for the map.':''}`;
+}
+/* why a department's next tier II job (the refit, or its next block) cannot start now, or '' */
+function bu2Why(n,k,now){
+  now=now||Date.now();if(!BU2[k])return 'This department has no tier II.';if(buLv(n,k,now)<5)return 'Fit all five blocks first.';
+  const ln=buLine(n,k,now),b=bu2Lv(n,k,now);if(ln&&b>=5)return 'Every block is fitted, tier II too.';
+  const w=n.buw&&n.buw.d>now?n.buw:null;if(w)return w.k===k?'This one is in training.':`The bureau is busy with ${buJobName(w,n)} for ${fmtDur(w.d-now)}.`;
+  const miss=lacking(bu2Cost(k,ln?b:-1),stockNow(n,now));if(miss.length)return `You need ${list(miss)} more.`;
+  return '';
+}
+/* the refit as a line (ln), or the next tier II block (no ln) */
+function bu2Start(k,ln){
+  const n0=S.nation,now=Date.now();if(!n0||!BU2[k])return;const cur=buLine(n0,k,now);
+  if(ln?(cur||!Object.hasOwn(BU2[k].lines,ln)):!cur)return;
+  const why=bu2Why(n0,k,now);if(why){toast(why);return;}
+  const n=clone(n0),b=bu2Lv(n0,k,now),i=ln?-1:b,cost=bu2Cost(k,i),h=bu2Hours(k,i),st=stockNow(n0,now);
+  buSettle(n,now);for(const r of RES)st[r]-=cost[r]||0;n.stock=roundStock(st);n.stockAt=now;n._stockSet=true;
+  n.buw={k,u:ln?0:b+1,s:now,d:now+h*3600e3,p:cost,x:2};if(ln)n.buw.ln=ln;S.ibPick=null;commit(n);render();
+  toast(ln?`The bureau has started refitting ${BU[k].n} as ${BU2[k].lines[ln].n}. Ready in ${fmtDur(h*3600e3)}.`:`The bureau has started on ${BU2[k].lines[cur].n}, ${XU_COL[b]} II. Ready in ${fmtDur(h*3600e3)}.`);
+}
+/* the effects the rest of the Bureau asks for */
+function buGapWords(n){const m=Math.round(buGap(n)/60000);if(!(m%60))return `${m/60} hours`;if(m%60===30&&!bb(n,'safe','bolt'))return `${Math.floor(m/60)}.5 hours`;return `${Math.floor(m/60)} hours ${m%60} minutes`;}
+const buHeatK=n=>1-0.05*bb(n,'safe','drops');
+const buGwK=n=>1-0.1*bb(n,'cover','deny');
+/* the daily desk may ask for a tier II job too */
+buDeskOk=(f=>function(n){if(f.apply(this,arguments))return true;try{const now=Date.now();if(!n||(n.buw&&n.buw.d>now))return false;return BU2_KEYS.some(k=>buLv(n,k,now)>=5&&!(buLine(n,k,now)&&bu2Lv(n,k,now)>=5));}catch(e){return false;}})(buDeskOk);
 
 /* ── joint operations: an ally's agent on loan (a player ally lends it on the roster), or a computer ally's help, once a
    day each ── */
@@ -35994,7 +36119,7 @@ function ibCaptives(n,now){
   if(!n||S.mode==='local')return [];const C=Array.isArray(n.cvC)?n.cvC:[];
   return cvAgainst(n,3).filter(e=>e.ex&&e.op.k!=='v'&&!NPC_SET.has(e.by)&&Number.isInteger(e.op.ai)&&now-e.op.t<AG_RANSOM).map(e=>{const L=ibRec(e.by),until=e.op.t+AG_HOLD*buHoldK(L||{}),d=C.find(d=>d.k===e.key)||null;return {e,d,until,open:!d&&now<until};});
 }
-function ibTurnChance(n){return clamp(50+(pol(n).counterIntel?15:0)+5*agRoster(n).filter(a=>a.h).length+3*buLv(n,'listen'),10,90);}
+function ibTurnChance(n){return clamp(50+(pol(n).counterIntel?15:0)+5*agRoster(n).filter(a=>a.h).length+3*buLv(n,'listen')+2*bb(n,'listen','mole'),10,90);}
 function ibDecide(key,dk){
   const n0=S.nation,now=Date.now(),c=ibCaptives(n0,now).find(c=>c.e.key===key);if(!c||!['x','r','t'].includes(dk))return;
   if(!c.open){toast(c.d?'You have already decided.':'The agent has already been sent home.');render();return;}
@@ -36030,7 +36155,7 @@ function ibToggle(i,f){
 /* ── mole hunts: trace an anonymous operation against you (its source, and the right to retaliate for 48 hours), or
    search your own service for a double agent. One every 12 hours; it uses an agent for two hours ── */
 const MH_GAP=12*3600e3,MH_COST={goods:15};
-function mhChance(n,a){return clamp(35+(pol(n).counterIntel?15:0)+5*agRoster(n).filter(x=>x.h).length+3*buLv(n,'listen')+(a?3*(a.lv-1):0),10,85);}
+function mhChance(n,a){return clamp(35+(pol(n).counterIntel?15:0)+5*agRoster(n).filter(x=>x.h).length+3*buLv(n,'listen')+2*bb(n,'listen','mole')+(a?3*(a.lv-1):0),10,85);}
 function mhTargets(n,now){const done=new Set(((n&&n.mh)||[]).map(h=>h.k));return cvAgainst(n,7).filter(e=>e.ok&&!e.ex&&!done.has(e.key));}
 function mhTraced(n,key){return ((n&&n.mh)||[]).find(h=>h.k===key&&h.ok&&h.by)||null;}
 function mhWhy(n,now){
@@ -36128,10 +36253,10 @@ function cvSwayOk(n,now){
   const w=n.asm&&n.asm.w;if(w&&w.c===st.c&&w.k===st.cur.k)return {why:'Your agents have already leaned on this vote.',st};
   return {st,why:''};
 }
-function cvSwayOdds(n,a){const b=Math.min(14,a?2*(a.lv-1)+(agFits(a,'v')?6:0):0),cv=Math.min(10,2*buLv(n,'cover'));return {b,cv,p:45+b,x:40-cv};}
+function cvSwayOdds(n,a){const b=Math.min(14,a?2*(a.lv-1)+(agFits(a,'v')?6:0):0),cv=Math.min(10,2*buLv(n,'cover'))+bb(n,'cover','att');return {b,cv,p:45+b,x:40-cv};}
 function cvSwayWhy(n,now,sw){
   if(sw.why)return sw.why;
-  const last=cvLastOp(n),gap=buGap(n);if(now-last<gap)return `Your service can run one covert operation every ${SAFE_H[buLv(n,'safe')]} hours. The next is possible in ${fmtDur(last+gap-now)}.`;
+  const last=cvLastOp(n),gap=buGap(n);if(now-last<gap)return `Your service can run one covert operation every ${buGapWords(n)}. The next is possible in ${fmtDur(last+gap-now)}.`;
   if(!agPick(n,'v',now))return 'No agent is ready.';
   const miss=lacking(cvOpCost('v',false),stockNow(n,now));if(miss.length)return `You need ${list(miss)} more.`;
   return '';
@@ -36147,7 +36272,7 @@ async function cvSway(v){
   const id=(t.toString(36)+(hash((n.seed||'1')+':cv:'+t)%1296).toString(36)).slice(0,14);
   const op={id,k:'v',tg:'@asm',tn:'the Regional Assembly',t,rg:REG.id,p:od.p/100,x:od.x/100,ai:a.i,ok:w.ok?1:0,ex:w.ex?1:0,sd:v,np:(Array.isArray(w.np)?w.np:[]).slice(0,2),rt:String(st.cur.ti||'').slice(0,60)};if(a.g)op.ag=a.g;
   a.r=t+agRestMs(n);agGain(n,a,!!w.ok);agPut(n,a,t);
-  if(w.ex){const gw={...(n.gw||{})};for(const y of allNations())if(!y.me)gw[y.id]=clamp((gw[y.id]||0)-3,-GW_MAX,GW_MAX);n.gw=gw;applyEffects(n,{happy:-1});n.cvEx=(n.cvEx||[]).concat(t).slice(-30);op.gw=3;}
+  if(w.ex){const sg=Math.round(3*buGwK(n)),gw={...(n.gw||{})};for(const y of allNations())if(!y.me)gw[y.id]=clamp((gw[y.id]||0)-sg,-GW_MAX,GW_MAX);n.gw=gw;applyEffects(n,{happy:-1});n.cvEx=(n.cvEx||[]).concat(t).slice(-30);op.gw=sg;}
   n.cov=cvTrim([op].concat(n.cov||[]),t);
   cvBump(n,'cov',t);cvBump(n,'cov:v',t);if(w.ex)cvBump(n,'cov:ex',t);else if(w.ok)cvBump(n,'cov:clean',t);if(w.ok)cvBump(n,'cov:sway',t);
   commit(n);S.cvShow=id;S.ibFresh=id;render();setTimeout(()=>{if(S.ibFresh===id)S.ibFresh=null;},1500);
@@ -36165,8 +36290,15 @@ NORM_HOOKS.push((n,d)=>{
     if(Number.isInteger(a.g)&&a.g>0)o.g=Math.min(a.g,9999);if(Number.isInteger(a.x)&&a.x>0)o.x=Math.min(a.x,999);if(num(a.r)&&a.r>0)o.r=a.r;if(a.h===1)o.h=1;if(a.l===1)o.l=1;if(Object.keys(o).length>1)out.push(o);}
     if(out.length)n.ag=out;}
   if(d.bu&&typeof d.bu==='object'&&!Array.isArray(d.bu)){const o={};for(const k of BU_KEYS){const v=d.bu[k];if(Number.isInteger(v)&&v>0)o[k]=Math.min(v,5);}if(Object.keys(o).length)n.bu=o;}
-  const w=d.buw;if(w&&BU[w.k]&&Number.isInteger(w.u)&&w.u>=1&&w.u<=5&&num(w.s)&&num(w.d)&&w.d>w.s&&w.d-w.s<=2*DAY){const o={k:w.k,u:w.u,s:w.s,d:w.d};const p=paidClean(w.p,buCost(w.k,w.u-1));if(p)o.p=p;n.buw=o;}
-  const l=d.bul;if(l&&BU[l.k]&&Number.isInteger(l.u)&&num(l.t))n.bul={k:l.k,u:clamp(l.u,1,5),t:l.t};
+  const w=d.buw;if(w&&BU[w.k]&&num(w.s)&&num(w.d)&&w.d>w.s&&w.d-w.s<=2*DAY){
+    /* tier II (x 2): a block u 1-5 of the department's line, or the refit itself (u 0, ln the line chosen) */
+    if(w.x===2){if(BU2[w.k]&&Number.isInteger(w.u)&&w.u>=0&&w.u<=5&&(w.u>0||Object.hasOwn(BU2[w.k].lines,w.ln))){const o={k:w.k,u:w.u,s:w.s,d:w.d,x:2};if(!w.u)o.ln=w.ln;const p=paidClean(w.p,buJobCost(o));if(p)o.p=p;n.buw=o;}}
+    else if(Number.isInteger(w.u)&&w.u>=1&&w.u<=5){const o={k:w.k,u:w.u,s:w.s,d:w.d};const p=paidClean(w.p,buCost(w.k,w.u-1));if(p)o.p=p;n.buw=o;}}
+  const l=d.bul;if(l&&BU[l.k]&&Number.isInteger(l.u)&&num(l.t)){if(l.x===2&&BU2[l.k]){n.bul={k:l.k,u:clamp(l.u,0,5),t:l.t,x:2};if(!l.u&&Object.hasOwn(BU2[l.k].lines,l.ln))n.bul.ln=l.ln;}else n.bul={k:l.k,u:clamp(l.u,1,5),t:l.t};}
+  /* the lines chosen and their tier II blocks, and the land credits told */
+  if(d.bln&&typeof d.bln==='object'&&!Array.isArray(d.bln)){const o={},b={};for(const k of BU2_KEYS){const ln=d.bln[k];if(typeof ln!=='string'||!Object.hasOwn(BU2[k].lines,ln))continue;o[k]=ln;const v=d.bu2&&d.bu2[k];if(Number.isInteger(v)&&v>0)b[k]=Math.min(v,5);}
+    if(Object.keys(o).length)n.bln=o;if(Object.keys(b).length)n.bu2=b;}
+  if(Number.isInteger(d.bcr)&&d.bcr>0)n.bcr=Math.min(d.bcr,BU_CR_MAX);
   if(Array.isArray(d.cvC)){const a=d.cvC.filter(x=>x&&typeof x.k==='string'&&/^[a-z0-9]{1,12}$/.test(x.k)&&idOk(x.by)&&['x','r','t'].includes(x.d)&&num(x.t)).slice(-30).map(x=>{const o={k:x.k,by:x.by,ai:Number.isInteger(x.ai)&&x.ai>=0&&x.ai<12?x.ai:0,d:x.d,t:x.t};if(Number.isInteger(x.ag)&&x.ag>0)o.ag=Math.min(x.ag,9999);if(x.pd===1)o.pd=1;if(x.f===1)o.f=1;return o;});if(a.length)n.cvC=a;}
   if(Array.isArray(d.cvJ)){const a=d.cvJ.filter(k=>typeof k==='string'&&/^[a-z0-9]{1,12}$/.test(k)).slice(-60);if(a.length)n.cvJ=a;}
   if(Array.isArray(d.mh)){const a=d.mh.filter(h=>h&&typeof h.k==='string'&&h.k.length>0&&h.k.length<=12&&num(h.t)).slice(-30).map(h=>{const o={k:h.k,t:h.t,ok:h.ok===1?1:0};if(idOk(h.by))o.by=h.by;if(typeof h.bn==='string')o.bn=h.bn.slice(0,40);return o;});if(a.length)n.mh=a;}
@@ -36187,22 +36319,42 @@ function ibRosterHTML(n,now){
   return `<section class="ib-roster" aria-labelledby="ib-roster-h"><div class="ib-rh"><h2 class="lbl-h" id="ib-roster-h">Your agents</h2><span class="ib-next">Next covert operation: <b>${young?`from ${esc(fmtDate((n.founded||0)+CV_NEW))}`:wait?`in ${esc(fmtDur(wait))}`:'ready'}</b></span>${chat}</div><ul class="ib-ags">${cards}</ul></section>`;
 }
 function ibBureauHTML(n,now){
-  const w=n.buw&&n.buw.d>now?n.buw:null,have=buAll(n,now),open=S.ibBuOpen!=null?S.ibBuOpen:false;
+  const w=n.buw&&n.buw.d>now?n.buw:null,have=buAll(n,now),have2=bu2All(n,now),open=S.ibBuOpen!=null?S.ibBuOpen:false,cr=buCredits(n);
   const sum=BU_KEYS.map(k=>[k,buLv(n,k,now)]).filter(([,L])=>L).map(([k,L])=>`${BU[k].n}: ${buNowText(n,k,L).replace(/\.$/,'')}`);
+  for(const k of BU2_KEYS){const ln=buLine(n,k,now),b=bu2Lv(n,k,now);if(ln)sum.push(`${BU2[k].lines[ln].n}${b?`, ${b} of 5 tier II`:''}`);}
+  const crTag=i=>i>=3?' · +1 land credit':'';
   const rows=BU_KEYS.map(k=>{
-    const U=BU[k],L=buLv(n,k,now),wip=w&&w.k===k,nx=L<5?L:-1,q=nx>=0?U.req[nx]:null,hv=q?xuHave(n,q,now):{},why=nx>=0?buWhy(n,k,now):'';
-    const blocks=Array.from({length:5},(_,i)=>`<i class="ugb-${XU_COL[i]}${i<L?' on':wip&&i===L?' wip':''}"></i>`).join('');
-    let need='';
-    if(nx>=0)need=!q?'<span class="xu-need ok">Open to everyone</span>':hv?`<span class="xu-need ok">Needs ${esc(xuReqText(q))}: ${esc(cityLabel(n,hv.c))} has one</span>`
-      :`<span class="xu-need no">Needs ${esc(xuReqText(q))}${q.k.every(b=>!bldUnlocked(n,b))?`, which opens at ${esc(fmtPopShort(Math.min(...q.k.map(bldUnlockAt))))} people`:''}. ${dlReqBtn(n,q)}</span>`;
-    const btn=nx<0?'':wip?'<span class="xp-pill sm">In training</span>':`<button type="button" class="btn${why?' ghost':''} xu-btn" data-act="ib-up" data-k="${k}"${why?` aria-disabled="true" title="${esc(why)}"`:''}>Upgrade</button>`;
-    return `<li class="xu-row${L>=5?' done':''}"><span class="xu-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="${U.ic}"/></svg></span><div class="xu-b">
+    const U=BU[k],L=buLv(n,k,now),wip=w&&w.k===k,T2=BU2[k]&&L>=5,ln=T2?buLine(n,k,now):'',b=ln?bu2Lv(n,k,now):0,refit=wip&&w.x===2&&!w.u;
+    const ic=`<span class="xu-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="${U.ic}"/></svg></span>`;
+    if(!T2){
+      const nx=L<5?L:-1,q=nx>=0?U.req[nx]:null,hv=q?xuHave(n,q,now):{},why=nx>=0?buWhy(n,k,now):'';
+      const blocks=Array.from({length:5},(_,i)=>`<i class="ugb-${XU_COL[i]}${i<L?' on':wip&&i===L?' wip':''}"></i>`).join('');
+      let need='';
+      if(nx>=0)need=!q?'<span class="xu-need ok">Open to everyone</span>':hv?`<span class="xu-need ok">Needs ${esc(xuReqText(q))}: ${esc(cityLabel(n,hv.c))} has one</span>`
+        :`<span class="xu-need no">Needs ${esc(xuReqText(q))}${q.k.every(b=>!bldUnlocked(n,b))?`, which opens at ${esc(fmtPopShort(Math.min(...q.k.map(bldUnlockAt))))} people`:''}. ${dlReqBtn(n,q)}</span>`;
+      const btn=nx<0?'':wip?'<span class="xp-pill sm">In training</span>':`<button type="button" class="btn${why?' ghost':''} xu-btn" data-act="ib-up" data-k="${k}"${why?` aria-disabled="true" title="${esc(why)}"`:''}>Upgrade</button>`;
+      return `<li class="xu-row${L>=5?' done':''}" data-k="${k}">${ic}<div class="xu-b">
       <div class="xu-t"><b>${esc(U.n)}</b><span class="ugb xu-blk" role="img" aria-label="${L} of 5 blocks">${blocks}</span></div>
       ${L?`<p class="xu-now">${esc(buNowText(n,k,L))}</p>`:''}
-      ${nx>=0?`<p class="xu-next">${esc(cap1(XU_COL[nx]))}: ${esc(buLvText(k,nx))} · ${esc(costText(buCost(k,nx)))} · ${XU_H[nx]} h</p><div class="xu-f">${need}${btn}</div>${/^You need/.test(why)?dlShortHTML(buCost(k,nx),stockNow(n,now)):''}`:'<p class="xu-next">Every block fitted.</p>'}</div></li>`;}).join('');
-  const ws=w?`<div class="xu-ws"><div class="xu-ws-t"><span><b>In training:</b> ${esc(BU[w.k].n)}, ${XU_COL[w.u-1]}</span><b>${esc(fmtDur(w.d-now))}</b></div><span class="bar exp-bar"><i style="width:${clamp((now-w.s)/(w.d-w.s)*100,0,100).toFixed(1)}%"></i></span><div class="xu-ws-f"><span class="hint">One department at a time.</span><button type="button" class="linkish small" data-act="ib-upc">Cancel</button></div></div>`:'';
-  return `<details class="xu ib-bu" id="ib-bu"${open?' open':''}><summary><span class="eyebrow">The bureau’s departments</span><span class="xp-ot">${have} of ${BU_TOTAL} blocks${w?' · one in training':''}</span></summary>
-    <p class="xu-intro">Six departments of five blocks. The first block is open to everyone; better ones need the right buildings in your cities.</p>
+      ${nx>=0?`<p class="xu-next">${esc(cap1(XU_COL[nx]))}: ${esc(buLvText(k,nx))} · ${esc(costText(buCost(k,nx)))} · ${XU_H[nx]} h${crTag(nx)}</p><div class="xu-f">${need}${btn}</div>${/^You need/.test(why)?dlShortHTML(buCost(k,nx),stockNow(n,now)):''}`:'<p class="xu-next">Every block fitted.</p>'}</div></li>`;}
+    /* tier II: the refit's two lines, then the line's five blocks */
+    const T=BU2[k],LN=ln?T.lines[ln]:null,why=bu2Why(n,k,now),short=/^You need/.test(why);
+    const blocks=ln?Array.from({length:5},(_,i)=>`<i class="ugb-${XU_COL[i]}${i<b?' on':wip&&w.x===2&&w.u===i+1?' wip':''}"></i>`).join(''):Array.from({length:5},(_,i)=>`<i class="ugb-${XU_COL[i]} on"></i>`).join('');
+    const head=`<div class="xu-t"><b>${esc(ln?LN.n:U.n)}${ln?` <span class="tier-b" role="img" aria-label="Tier II" title="Tier II: ${esc(U.n)} refitted as ${esc(LN.n)}">II</span>`:''}</b><span class="ugb xu-blk" role="img" aria-label="${ln?`${b} of 5 tier II blocks`:'5 of 5 blocks'}">${blocks}</span></div>`;
+    const now1=`<p class="xu-now">${esc(buNowText(n,k,L))}${ln&&b?' '+esc(bu2NowText(k,ln,b)):''}</p>`;
+    let body='';
+    if(refit)body=`<p class="xu-next">Refitting as ${esc(T.lines[w.ln].n)}, tier II.</p><div class="xu-f"><span class="xu-need ok">${esc(T.n)}: its five blocks start when the refit is done</span><span class="xp-pill sm">In training</span></div>`;
+    else if(!ln){const pk=S.ibPick===k,c=bu2Cost(k,-1);
+      body=`<p class="xu-next">Tier II: ${esc(T.n)} · ${esc(costText(c))} · ${BU2_REFIT_H} h · five more blocks follow</p><div class="xu-f"><span class="xu-need ok">All five blocks fitted</span><button type="button" class="btn xu-btn${why&&!short?' ghost':''}" data-act="ib-refit" data-k="${k}" aria-expanded="${pk}">${pk?'Not now':'Refit to tier II'}</button></div>`
+        +(pk?`<div class="tier-pick xu-pick" id="ib-pick-${k}" role="group" aria-label="What ${esc(U.n)} becomes"><p class="hint">Choose one of two lines; the choice is for good. Its five tier II blocks then follow, each costing four times its tier I block and taking half as long again, and the department keeps everything it does now.${why&&!short?' '+esc(why):''}</p><ul class="tier-l">${Object.entries(T.lines).map(([lk,L])=>`<li><b>${esc(L.n)}</b><span class="hint">${esc(L.s)}</span><button type="button" class="btn small-btn" data-act="ib-fit" data-k="${k}" data-ln="${lk}"${why?` aria-disabled="true" title="${esc(why)}"`:''}>Refit as ${esc(L.n)}</button></li>`).join('')}</ul>${short?dlShortHTML(c,stockNow(n,now)):''}</div>`:'');}
+    else if(b<5){const c=bu2Cost(k,b),bw=wip&&w.x===2&&w.u===b+1;
+      const btn=bw?'<span class="xp-pill sm">In training</span>':`<button type="button" class="btn${why?' ghost':''} xu-btn" data-act="ib-up2" data-k="${k}"${why?` aria-disabled="true" title="${esc(why)}"`:''}>Upgrade</button>`;
+      body=`<p class="xu-next">${esc(cap1(XU_COL[b]))} II: ${esc(bu2LvText(k,ln,b))} · ${esc(costText(c))} · ${bu2Hours(k,b)} h${crTag(b)}</p><div class="xu-f"><span class="xu-need ok">Tier II needs no building</span>${btn}</div>${short?dlShortHTML(c,stockNow(n,now)):''}`;}
+    else body='<p class="xu-next">Every block fitted, tier II too.</p>';
+    return `<li class="xu-row${ln?' xu-t2':''}${b>=5?' done':''}" data-k="${k}">${ic}<div class="xu-b">${head}${now1}${body}</div></li>`;}).join('');
+  const ws=w?`<div class="xu-ws"><div class="xu-ws-t"><span><b>In training:</b> ${esc(buJobName(w,n))}</span><b>${esc(fmtDur(w.d-now))}</b></div><span class="bar exp-bar"><i style="width:${clamp((now-w.s)/(w.d-w.s)*100,0,100).toFixed(1)}%"></i></span><div class="xu-ws-f"><span class="hint">One department at a time.</span><button type="button" class="linkish small" data-act="ib-upc">Cancel</button></div></div>`:'';
+  return `<details class="xu ib-bu" id="ib-bu"${open?' open':''}><summary><span class="eyebrow">The bureau’s departments</span><span class="xp-ot">${have} of ${BU_TOTAL} blocks${have2?` · ${have2} tier II`:''}${w?' · one in training':''}</span></summary>
+    <p class="xu-intro">Six departments of five blocks. The first block is open to everyone; better ones need the right buildings in your cities. Every purple and gold block is worth a land credit${cr?` (${cr} so far)`:''}, and a department with all five can be refitted to tier II.</p>
     ${sum.length?`<div class="xp-pills">${sum.map(t=>xpPill(esc(t),'rew')).join('')}</div>`:''}${ws}<ul class="xu-list">${rows}</ul></details>`;
 }
 const IB_TABS=[['ops','Operations'],['files','Files'],['def','Defence'],['rec','Record']];
@@ -36328,14 +36480,20 @@ function ibRecTab(n,now){
 /* the bell: a department finished, an agent in your cells, a ransom asked for one of yours, chatter */
 NOTIF_SOURCES.push((n,now)=>{
   if(!n||n.npc||!n.name)return [];const out=[],me=myId(),w=n.buw,l=n.bul;
-  if(w&&w.d<=now&&now-w.d<3*DAY&&BU[w.k])out.push({t:w.d,k:'cov',kl:'Intelligence',txt:`The bureau has finished ${BU[w.k].n}, ${XU_COL[w.u-1]}: ${buLvText(w.k,w.u-1)}.`,go:'intel'});
-  else if(l&&BU[l.k]&&now-l.t<3*DAY&&now>=l.t)out.push({t:l.t,k:'cov',kl:'Intelligence',txt:`The bureau has finished ${BU[l.k].n}, ${XU_COL[l.u-1]}: ${buLvText(l.k,l.u-1)}.`,go:'intel'});
+  if(w&&w.d<=now&&now-w.d<3*DAY&&BU[w.k])out.push({t:w.d,k:'cov',kl:'Intelligence',txt:buDoneText(n,w),go:'intel'});
+  else if(l&&BU[l.k]&&now-l.t<3*DAY&&now>=l.t)out.push({t:l.t,k:'cov',kl:'Intelligence',txt:buDoneText(n,l),go:'intel'});
   for(const c of ibCaptives(n,now))if(c.open)out.push({t:c.e.op.t,k:'cov',kl:'Intelligence',txt:`${cap1(cvAn(c.e.bd))} ${c.e.bd} agent is in your cells. Expel them, ask a ransom or try to turn them, by ${fmtTime(c.until)}.`,go:'intel'});
   for(const a of agRoster(n)){const c=agCaught(n,a,now,me);if(!c||c.mil)continue;const d=ibDecision(c.op.tg,cvKey(me,c.op));if(d&&d.d==='r'&&!c.op.rs)out.push({t:d.t,k:'cov',kl:'Intelligence',txt:`${c.op.tn} asks ${AG_RANSOM_G} goods for ${a.nm}. Pay it on the Intelligence page, or they hold your agent until ${fmtTime(c.u)}.`,go:'intel'});}
   const L=buLv(n,'listen',now);for(const c of ibChatter(n,now))out.push({t:c.t,k:'cov',kl:'Intelligence',txt:L?`Chatter: ${c.nm}’s service has been busy around you.`:'Chatter: a foreign service has been busy around you.',go:'intel'});
   return out;
 });
 
+/* the land credits the bureau pays, told once each (the first time: the back pay for blocks fitted before) */
+COMMIT_HOOKS.push((n,old,now)=>{
+  if(!n||n.npc||!n.name||typeof buCredits!=='function')return [];const c=buCredits(n),t=n.bcr|0;if(c<=t)return [];n.bcr=Math.min(c,BU_CR_MAX);const add=c-t;
+  return [t?`${add===1?'A land credit':add+' land credits'} from the bureau, for a purple or gold block. Spend ${add===1?'it':'them'} on the map.`
+    :`The Land Office pays ${add===1?'a land credit':add+' land credits'} for the bureau’s purple and gold blocks, one for each. Spend ${add===1?'it':'them'} on the map.`];
+});
 /* How to play */
 HELP_EXT.push({k:'bureau',t:'The Bureau of Intelligence',body:n=>`<p><b>Agents.</b> Your service has three named agents, one more with a Foreign Intelligence Service and up to three more from the recruitment office. Each is a forger (better at scandals and counterfeiting), a burglar (blueprints and sabotage), a charmer (bribes and the Assembly) or a scout (military missions and gathering intelligence): +6 on the operations it is suited to. Agents gain experience on every mission, more for a success, and each level up to 5 adds 2 to their chance of success and takes 1 off their chance of exposure. After a mission an agent rests for ${Math.round(AGENT_MS/60000)} minutes. One caught on a covert operation is held for 12 hours, one caught on a military mission for 4.</p>
   <p><b>Heat.</b> Every operation against a nation adds heat: 25 (10 for gathering intelligence), and 25 more if it is exposed, fading over four days. Each 5 heat makes exposure 1 point likelier, up to 20, and at ${HEAT_MAX} your service will not touch that nation again until it cools. Retaliation ignores heat.</p>
@@ -36343,7 +36501,9 @@ HELP_EXT.push({k:'bureau',t:'The Bureau of Intelligence',body:n=>`<p><b>Agents.<
   <p><b>New operations.</b> Gathering intelligence is quiet (70% to succeed, 15% to be exposed) and fills your file on a nation: army, stockpile, trade, cabinet, building sites and its vote in the Assembly. Assembly members can sway a vote: up to two computer nations that have not voted yet vote your way; the Assembly’s clerks roll for it, and if it is exposed every nation here thinks a little less of you.</p>
   <p><b>Joint operations.</b> Lend an agent to your alliance on the roster, and allies can take it on their operations (+12 and its experience, 5 less likely to be exposed); the lender gets a share of the gains and of the blame. A computer ally helps once a day (+8).</p>
   <p><b>Defence.</b> Agents on home duty make foreign operations less likely to succeed and likelier to be exposed. A foreign agent exposed against you is yours to decide on: expel, ask a ransom of ${AG_RANSOM_G} goods, or try to turn them into a double agent. A mole hunt traces an anonymous operation (and gives you the right to retaliate) or searches your own service for a double agent. Chatter warns when a rival’s unnoticed operations against you add up; a listening post names them.</p>
-  <p><b>Files and the Most Wanted board.</b> Military dossiers, bribed ministers and gathered intelligence go into a file on each nation, with the date. The Record tab shows the region’s most-caught spymasters this week.</p>`});
+  <p><b>Files and the Most Wanted board.</b> Military dossiers, bribed ministers and gathered intelligence go into a file on each nation, with the date. The Record tab shows the region’s most-caught spymasters this week.</p>
+  <p><b>Tier II.</b> A department with all five blocks can be refitted to tier II as one of two lines; the choice is for good. The refit costs four times its gold block and takes ${BU2_REFIT_H} hours, and five more blocks follow (grey II to gold II), each four times its tier I block and half as long again, with no building needed. Each adds a little: ${esc(BU2_KEYS.map(k=>BU[k].n+' becomes '+BU2[k].n+' ('+Object.values(BU2[k].lines).map(L=>L.n).join(' or ')+')').join('; '))}.</p>
+  <p><b>Land credits.</b> Every purple and gold block of the bureau, tier I and tier II, is worth a land credit: two for each department at gold, four at gold II, ${BU_CR_MAX} in all. Blocks fitted before this rule were paid at once.</p>`});
 
 /* achievements */
 UNLOCKS['t-handler']={k:'title',n:'the Handler',src:'ach'};
@@ -36380,6 +36540,10 @@ document.addEventListener('click',e=>{
   if(a==='ib-gather'){if(d.id&&findNation(d.id))S.cvTg=d.id;S.cvK='g';S.ibTab='ops';S.cvMsg='';S.cvShow=null;render();return;}
   if(a==='ib-up'){if(el.getAttribute('aria-disabled')==='true'){toast(el.title);return;}buStart(d.k);return;}
   if(a==='ib-upc'){buCancel();return;}
+  /* tier II: open the lines (ib-refit), refit as one (ib-fit), the next block (ib-up2) */
+  if(a==='ib-refit'){S.ibPick=S.ibPick===d.k?null:d.k;render();if(S.ibPick)setTimeout(()=>{const b=document.querySelector(`[data-act="ib-fit"][data-k="${CSS.escape(d.k)}"]`);if(b)try{b.focus({preventScroll:false});}catch(err){}},0);return;}
+  if(a==='ib-fit'){if(el.getAttribute('aria-disabled')==='true'){toast(el.title);return;}bu2Start(d.k,d.ln);return;}
+  if(a==='ib-up2'){if(el.getAttribute('aria-disabled')==='true'){toast(el.title);return;}bu2Start(d.k);return;}
 });
 document.addEventListener('change',e=>{if(e.target&&e.target.id==='ib-jn'){S.ibJn=e.target.value;render();const s=document.getElementById('ib-jn');if(s)s.focus();}});
 document.addEventListener('keydown',e=>{
@@ -86521,7 +86685,7 @@ mapBox=(f=>function(kind){const h=f.apply(this,arguments),n=S.nation;if(kind!=='
 
 /* the browser tests' window into the game: test/lib.mjs sets EDICTUM_PROBE before the page loads (a
    player's own browser can reach all of this anyway) */
-if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({RPATCH,SC:()=>scProbe(),WR3:()=>({CQ_ISSUES,cqFall,cqFalls,cqPairs,cqFallOf,cqAct,wrSackFix,MON_FIRST,monSites,monCard,monInfo,monIsFirst,monNorm,monRisen,cqDue,cqTake,cityFounded,cqBuildings,openMapAt,WAR3_ISSUES,wr3WarsSection,wr3BattleCard,wr3MapData,wr3Econ,wr3Close,wr3VetDue,wr3WindToggle,wr3MunOn,wr3Reserve,wr3Factors,wr3On}),WR2:()=>({wrFallenCard,WR,WAR_GOALS,WAR2_ISSUES,wrSiege,wrSiegesOn,wrFallsAt,myFall,wrSiegeWhy,wrCapExposed,wrUnrest,wrWarsOf,wrPopFx,wrTribute,wrForts,wrFortify,wrSurrender,wrSiegeStart,wrRise,wrCarry,wrEdictDue,wrSafe,wrNotice,territory,frontier,economy,warControls,targetPanel,armyBlock,warNotice,warWith,pairWar,nationView,rgnOverview,hxCard}),HELPX:()=>({HLP,HELP_CH,HELP_SUM,HELP_FOR,GLOSS,helpFind,helpIndex,helpSecList,helpForYou,helpChapters,rgcCmd,rgcCardOf,rgcCardHTML,admhHs,admhHsCount}),MTP:()=>({MTP,MTP_PAD,TBMP_SCALE,redrawMaps,mapScale,viewOf}),SCR:()=>({scrOf,scrClean,scrDef,scrFamOf,scrEdParse,scrGlyphs,scrLay,scrChars,scrSVG,scrLine,scrCard,scrCharterSVG,scrFmt,scrFor,dmRich,dmPlain,scrDmWith,SCR_FAM,SCR_ABC,SCS}),BDX:()=>bdProbe(),LDX:()=>ldProbe(),FLY:()=>({flagSVG,fgSplit,fgFused}),RD:()=>rdProbe(),JV:()=>jvProbe(),M100P:()=>({M100,M100_N,M100_MC,M100_MCN,m100Bits,m100Got,m100In,m100Due,m100Count,m100Show,m100Open,ctgMcOk,nationColor,czShOk,czShieldPath,unlocksOf,czPatSVG,xsMax}),M200P:()=>({M200,M200_N,M200_MC,M200_MCN,M200_U,m200Bits,m200Got,m200In,m200Due,m200Count,m200Show,m200Open,ctgMcOk,nationColor,czShOk,czShieldPath,unlocksOf,czPatSVG,czStampArt,czFrameArt,czCharge,czFramed,flagSVG,xsMax,ACH_BY_ID,achEarnedIds}),WTN:()=>({WN,wbMap,wnKind,wnWaters,wnSync,wnAt,wnRename,wnReset,wnNameProblem,wnTaken,wnPanel,wnLabels,lakeMap,isLake,cellAt,WN_REACH,WTN_MAX,REG,RV,rvData,hexDist,territory,MAP,HEX_W,updateMapPanel,logLine}),RVN:()=>({RV,rvData,rvSync,rvKey,rvHeld,rvStretch,rvMost,rvEdgeHolder,rvAt,rvNameAt,rvLabelAt,rvParts,rvRename,rvReset,rvNameProblem,rvTidy,rvLabel,rvnPanel,logLine,RVN_MAX,RVN_LEN,updateMapPanel,hexDist,HEX_W,REG}),CP2:()=>({BLD_ICO,bldIco,bldLead,cxDefTotal,cxOrder,qjBuilding,BUILDINGS}),PRVC:()=>({cxPrvOf,cxPrvSeatTrial,cxOvwCols,prvSeat,prvMine,prvOfCell,prvSetAut,prvAppoint,PRV}),NPX:()=>({fbTrend,fbYesterday,heroLead,heroOpen,opOf,OPEN_TO,hnOf,hnFill,hnLine,nbSection,ppWho,ppWhoHTML,ppHash,ppCarried,economy,territory,bordersOf,fillDeal,findNation,clsHide,MAP,hexDist,STAT_KEYS,popNow,myId}),PT:()=>ptProbe(),LTH:()=>lthProbe(),DAM:()=>damProbe(),CHAT:()=>({RGC,RGW,RGF,RGA,tab:rgcTab(),count:rgcCount(),region:rgcUnread(),world:rgwUnread(),named:rgwNamedUnread(),fr:rgwUnread(RGF),frNamed:rgwNamedUnread(RGF),frOn:rgfOn(),amb:rgwUnread(RGA),ambOn:rgaOn(),tabs:rgcTabs().map(x=>x[0]),hidden:document.hidden}),UXP2:()=>({edictDesk,edictStep,edictOpen,fill,ISSUE_BY_ID,ACH,keysOpen,dmOthers,dmPickList,stGroups,stTabLast,navRecent,vhData,VH_KEY,VH_AFTER,QJ_DO,qjItems:q=>navQjItems(q),NAV_REC_KEY,ST_KEY}),HID:()=>({HIDN,hidMask,iAmHidden,frontier,mapPanel,warControls}),WG:()=>({wgTakers,wgForField,wgForPick,warGiveHex,warGive,occupiedFrom,attack,offerPeace,declareWar,collectConquests,dedupeConq}),WAKE:()=>({dormFresh,dormQuiet,dormWelcome,moveTo,RSTAT,REGIONS,REG,regDisabled}),HMB:()=>({RCTRL,hmBake,hmAutoFlag,fxDraw,capHolder,FX_DEF,DEF_FLAG,hmRle,hmLiveNorm,hmMapNorm,hmSel,hmRegions,hmBlocked,hmEngaged:()=>hmEngaged,HM,REG,MAP}),LAND:()=>({landWait,capLift,capWrong,capNote,raceKnown,RACE,worldHeardAt:()=>worldHeardAt,landQ:()=>S.landQ,landQueued,fdSites:(n,T)=>fdSites(n,T)}),BG:{gain:bldGain,html:bldGainHtml},IB:()=>({agRoster,agPick,agStatus,heatOf,cvRoll,cvKey,cvBlock,cvOdds,buLv,buGap,buAll,BU,BU_KEYS,ibFile,ibWanted,ibChatter,HEAT_MAX,DD_TASKS,DD_LEG,findNation,allNations,cvProtected}),VL:()=>({VL_SECS,VL_DEF,CLS,CLS_OPS,CLS_READ,vlOrder,clsOf,clsRaw,clsMax,clsSeen,clsHide,clsRead,vlSave,findNation}),IFC:()=>({plan:ifcPlan,works:ifcWorks,line:ifcLine,tab:ifcTab}),XP:()=>({BUILDINGS,XU,XU_KEYS,XU_TOTAL,LOST_KINDS,LOST_ORDER,XU2,XU2_KEYS,LOST2_KINDS,LOST2_ORDER,xuLine,xu2Lv,xb,xu2Cost,xu2Hours,xu2Why,xu2Start,xuCredits,xuMapsLv,xuFlK,xuFindK,xuParty,xuTimeK,xuReach,xuCostK,xuCurio,flSoon,landEarned,xuLv,xuWhy,xuHave,xuStart,xuCost,xuGear,xpSeen,expFree,xpTeamOpen,nationBuilt,expBackTeam,SITES,SITE_KINDS,expPlan,expOdds,expRuns,expRange,flRange,flAlive,flPlan,flDebug,flNow,discoveries,sendExpedition,hearReport,xpRoute,xpRivals,xpRivalText,xpFinds,flOdds,territory}),SVC:()=>({SVC,SVC_N,SVC_V,SVC_NEED,svcPlan,svcOpen,svcDig,svcShort,svcRoll,svcAmt,svcDayOf,svcRoom,svcNext}),FLC:()=>({FLC,FLC_RULES,FLC_CAT,flcId,flcTimes,flcPhase,flcPrev,flcView,flcLoad,flcChamp,flcTodo,flcClaims,flcLand,flcStreak,flcAllDone,flcSeen,flcDuty,flcDeskOn,flcDraftPush,FCA}),LK:{lakeMap,isLake,claimLand,lakeShore,fillHeld,LAKE_MAX,LAKE_A,freeCell,claimFrontier,blockPlan,autoPlan,terrCount,placePhrase,claimWhy,swapCheck,inspectPanel,writeClaims,landCredits:n=>landCredits(n)},PST:()=>({PST,PST_LOOKS,PST_SHAPES,PST_SIZES,pstBar,pstKm,pstView,pstBox,pstPlace,pstKeyOf,pstRender,pstShow,pstHide,pstLocked,pstOffered,pstSizeOffered,pstPrintK,pstSealId,pstPhys,pstCrc}),DIG:()=>({DIG_SETS,DIG_FIRST,DIG_POOL,DIG_SITES,DIG_LEN,DIG_EVENTS,DIG_SCH,digSet,digHeld,digDone,digRew,digCredits,digOrder,digActive,digRetired,digOpenedAt,digPlan,digSend,digOpen,digChoose,digMod,digEvent,digPity,digGround,digInvites,digJoin,digJointOn,digGiftsIn,digTake,digGiveSpare,digSellSpare,digHire,digRegionFinds,digFirsts,landEarned:n=>landEarned(n),REG,REGIONS,COL_BY_ID}),MW:()=>({mwOf,mwPoints,mwVisitors,mwTakings,mwExhibit,mwExhibitItems,mwRanking,mwWorn,mwSlots,mwOnShow,COL_BY_ID,COL_ITEMS,DIG_SETS,MW_FLOORS}),GM:()=>({gamesResults,edOf,b1Now,gevWhy,baseScores,entryOf,medalsIn,gamesRecords,gamesCeremony,unlocksOf,myId,formOf,GAME_EVENTS,clone,commit}),GM2:()=>({GAMES_V2,GTAC,TRAIN_PTS,TRAIN_MAX,BOY_GW,edOf,edStart,entryOf,gamesHost,gamesBids,edEvents,edDrawn,gmSwapOf,gmMascOf,gmChatLines,gmChatLine,gmTrCost,gevWhy,formOf,gamesResults,dspBuild,dspNoOf,c3MyBid,gcerSeen,stockNow,stockCap,canFeature,myId,clone,commit}),GB:()=>({IRON_DEP,IRON_DEP_YIELD,CELL_RES,MAP_T:MAP.T,mapAt:c=>{centerMain(c,NEAR_Z*1.6);},stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,FOOD_SPOIL,FOOD_EAT,FOOD_TIERS,FOOD_LAND,foodTier,TIMBER_BURN,foodGrowth,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({dspShown,dspRegShown,dspRegs,dspPic,dspLocator,dspHtDefs,pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),ASMX:()=>({ASMX,ASMX_TABS,asmBookAt,asmState,asmArcLoad,REG}),RGNX:()=>({RGN,RGN_PAGE,notifItems,ONL,onlRefresh}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals,seatsOf,alliancesOf,alMineAll,alClashes,alFest,alWornOf,alGuardsOf,alSeatsFor,allianceOf,AL_TY_UI,alStripHTML,alArmsSVG,alArmsAuto,alPzKeys,alMoCheck,alOpenPage,alWeekData,alLvOpens}),TYX:()=>({TY,TY_RULES,TY_K,tyOf,tyList,tyWarBlock,tyIncoming,affinity,alPactLive,alRelationsHTML,econOf,armyPower,armyRaw,attackMult,readyMs,drWords,drNote,drBroken,relationCard}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,npcIdeaNow,npcDealFor,npcAsk,npcReply,npcVerdict,npcTradeTalk,dealSlots,maxDeals,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,achTierCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC,step:rcStepCheck,head:rcHead,sponsoring:rcSponsoring,qr:qrMatrix,card:rcCardDraw,invCap:rcInvCap,free:rcFreeLand,STEPS:RC_STEPS,UNL:RC_UNLOCKS}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend,card:n=>tutCard(n),phase:n=>tutPhase(n),picks:(n,ph)=>tutPicks(n,ph),group:(n,k)=>tutGroup(n,tutL(k)),hid:n=>tutHid(n)},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours,
+if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({RPATCH,SC:()=>scProbe(),WR3:()=>({CQ_ISSUES,cqFall,cqFalls,cqPairs,cqFallOf,cqAct,wrSackFix,MON_FIRST,monSites,monCard,monInfo,monIsFirst,monNorm,monRisen,cqDue,cqTake,cityFounded,cqBuildings,openMapAt,WAR3_ISSUES,wr3WarsSection,wr3BattleCard,wr3MapData,wr3Econ,wr3Close,wr3VetDue,wr3WindToggle,wr3MunOn,wr3Reserve,wr3Factors,wr3On}),WR2:()=>({wrFallenCard,WR,WAR_GOALS,WAR2_ISSUES,wrSiege,wrSiegesOn,wrFallsAt,myFall,wrSiegeWhy,wrCapExposed,wrUnrest,wrWarsOf,wrPopFx,wrTribute,wrForts,wrFortify,wrSurrender,wrSiegeStart,wrRise,wrCarry,wrEdictDue,wrSafe,wrNotice,territory,frontier,economy,warControls,targetPanel,armyBlock,warNotice,warWith,pairWar,nationView,rgnOverview,hxCard}),HELPX:()=>({HLP,HELP_CH,HELP_SUM,HELP_FOR,GLOSS,helpFind,helpIndex,helpSecList,helpForYou,helpChapters,rgcCmd,rgcCardOf,rgcCardHTML,admhHs,admhHsCount}),MTP:()=>({MTP,MTP_PAD,TBMP_SCALE,redrawMaps,mapScale,viewOf}),SCR:()=>({scrOf,scrClean,scrDef,scrFamOf,scrEdParse,scrGlyphs,scrLay,scrChars,scrSVG,scrLine,scrCard,scrCharterSVG,scrFmt,scrFor,dmRich,dmPlain,scrDmWith,SCR_FAM,SCR_ABC,SCS}),BDX:()=>bdProbe(),LDX:()=>ldProbe(),FLY:()=>({flagSVG,fgSplit,fgFused}),RD:()=>rdProbe(),JV:()=>jvProbe(),M100P:()=>({M100,M100_N,M100_MC,M100_MCN,m100Bits,m100Got,m100In,m100Due,m100Count,m100Show,m100Open,ctgMcOk,nationColor,czShOk,czShieldPath,unlocksOf,czPatSVG,xsMax}),M200P:()=>({M200,M200_N,M200_MC,M200_MCN,M200_U,m200Bits,m200Got,m200In,m200Due,m200Count,m200Show,m200Open,ctgMcOk,nationColor,czShOk,czShieldPath,unlocksOf,czPatSVG,czStampArt,czFrameArt,czCharge,czFramed,flagSVG,xsMax,ACH_BY_ID,achEarnedIds}),WTN:()=>({WN,wbMap,wnKind,wnWaters,wnSync,wnAt,wnRename,wnReset,wnNameProblem,wnTaken,wnPanel,wnLabels,lakeMap,isLake,cellAt,WN_REACH,WTN_MAX,REG,RV,rvData,hexDist,territory,MAP,HEX_W,updateMapPanel,logLine}),RVN:()=>({RV,rvData,rvSync,rvKey,rvHeld,rvStretch,rvMost,rvEdgeHolder,rvAt,rvNameAt,rvLabelAt,rvParts,rvRename,rvReset,rvNameProblem,rvTidy,rvLabel,rvnPanel,logLine,RVN_MAX,RVN_LEN,updateMapPanel,hexDist,HEX_W,REG}),CP2:()=>({BLD_ICO,bldIco,bldLead,cxDefTotal,cxOrder,qjBuilding,BUILDINGS}),PRVC:()=>({cxPrvOf,cxPrvSeatTrial,cxOvwCols,prvSeat,prvMine,prvOfCell,prvSetAut,prvAppoint,PRV}),NPX:()=>({fbTrend,fbYesterday,heroLead,heroOpen,opOf,OPEN_TO,hnOf,hnFill,hnLine,nbSection,ppWho,ppWhoHTML,ppHash,ppCarried,economy,territory,bordersOf,fillDeal,findNation,clsHide,MAP,hexDist,STAT_KEYS,popNow,myId}),PT:()=>ptProbe(),LTH:()=>lthProbe(),DAM:()=>damProbe(),CHAT:()=>({RGC,RGW,RGF,RGA,tab:rgcTab(),count:rgcCount(),region:rgcUnread(),world:rgwUnread(),named:rgwNamedUnread(),fr:rgwUnread(RGF),frNamed:rgwNamedUnread(RGF),frOn:rgfOn(),amb:rgwUnread(RGA),ambOn:rgaOn(),tabs:rgcTabs().map(x=>x[0]),hidden:document.hidden}),UXP2:()=>({edictDesk,edictStep,edictOpen,fill,ISSUE_BY_ID,ACH,keysOpen,dmOthers,dmPickList,stGroups,stTabLast,navRecent,vhData,VH_KEY,VH_AFTER,QJ_DO,qjItems:q=>navQjItems(q),NAV_REC_KEY,ST_KEY}),HID:()=>({HIDN,hidMask,iAmHidden,frontier,mapPanel,warControls}),WG:()=>({wgTakers,wgForField,wgForPick,warGiveHex,warGive,occupiedFrom,attack,offerPeace,declareWar,collectConquests,dedupeConq}),WAKE:()=>({dormFresh,dormQuiet,dormWelcome,moveTo,RSTAT,REGIONS,REG,regDisabled}),HMB:()=>({RCTRL,hmBake,hmAutoFlag,fxDraw,capHolder,FX_DEF,DEF_FLAG,hmRle,hmLiveNorm,hmMapNorm,hmSel,hmRegions,hmBlocked,hmEngaged:()=>hmEngaged,HM,REG,MAP}),LAND:()=>({landWait,capLift,capWrong,capNote,raceKnown,RACE,worldHeardAt:()=>worldHeardAt,landQ:()=>S.landQ,landQueued,fdSites:(n,T)=>fdSites(n,T)}),BG:{gain:bldGain,html:bldGainHtml},IB:()=>({agRoster,agPick,agStatus,heatOf,cvRoll,cvKey,cvBlock,cvOdds,buLv,buGap,buAll,BU,BU_KEYS,BU2,BU2_KEYS,buLine,bu2Lv,bb,bu2Cost,bu2Hours,bu2Why,buCredits,buHoldK,agRestMs,cvSwayOdds,ibTurnChance,mhChance,landEarned,ibFile,ibWanted,ibChatter,HEAT_MAX,DD_TASKS,DD_LEG,findNation,allNations,cvProtected}),VL:()=>({VL_SECS,VL_DEF,CLS,CLS_OPS,CLS_READ,vlOrder,clsOf,clsRaw,clsMax,clsSeen,clsHide,clsRead,vlSave,findNation}),IFC:()=>({plan:ifcPlan,works:ifcWorks,line:ifcLine,tab:ifcTab}),XP:()=>({BUILDINGS,XU,XU_KEYS,XU_TOTAL,LOST_KINDS,LOST_ORDER,XU2,XU2_KEYS,LOST2_KINDS,LOST2_ORDER,xuLine,xu2Lv,xb,xu2Cost,xu2Hours,xu2Why,xu2Start,xuCredits,xuMapsLv,xuFlK,xuFindK,xuParty,xuTimeK,xuReach,xuCostK,xuCurio,flSoon,landEarned,xuLv,xuWhy,xuHave,xuStart,xuCost,xuGear,xpSeen,expFree,xpTeamOpen,nationBuilt,expBackTeam,SITES,SITE_KINDS,expPlan,expOdds,expRuns,expRange,flRange,flAlive,flPlan,flDebug,flNow,discoveries,sendExpedition,hearReport,xpRoute,xpRivals,xpRivalText,xpFinds,flOdds,territory}),SVC:()=>({SVC,SVC_N,SVC_V,SVC_NEED,svcPlan,svcOpen,svcDig,svcShort,svcRoll,svcAmt,svcDayOf,svcRoom,svcNext}),FLC:()=>({FLC,FLC_RULES,FLC_CAT,flcId,flcTimes,flcPhase,flcPrev,flcView,flcLoad,flcChamp,flcTodo,flcClaims,flcLand,flcStreak,flcAllDone,flcSeen,flcDuty,flcDeskOn,flcDraftPush,FCA}),LK:{lakeMap,isLake,claimLand,lakeShore,fillHeld,LAKE_MAX,LAKE_A,freeCell,claimFrontier,blockPlan,autoPlan,terrCount,placePhrase,claimWhy,swapCheck,inspectPanel,writeClaims,landCredits:n=>landCredits(n)},PST:()=>({PST,PST_LOOKS,PST_SHAPES,PST_SIZES,pstBar,pstKm,pstView,pstBox,pstPlace,pstKeyOf,pstRender,pstShow,pstHide,pstLocked,pstOffered,pstSizeOffered,pstPrintK,pstSealId,pstPhys,pstCrc}),DIG:()=>({DIG_SETS,DIG_FIRST,DIG_POOL,DIG_SITES,DIG_LEN,DIG_EVENTS,DIG_SCH,digSet,digHeld,digDone,digRew,digCredits,digOrder,digActive,digRetired,digOpenedAt,digPlan,digSend,digOpen,digChoose,digMod,digEvent,digPity,digGround,digInvites,digJoin,digJointOn,digGiftsIn,digTake,digGiveSpare,digSellSpare,digHire,digRegionFinds,digFirsts,landEarned:n=>landEarned(n),REG,REGIONS,COL_BY_ID}),MW:()=>({mwOf,mwPoints,mwVisitors,mwTakings,mwExhibit,mwExhibitItems,mwRanking,mwWorn,mwSlots,mwOnShow,COL_BY_ID,COL_ITEMS,DIG_SETS,MW_FLOORS}),GM:()=>({gamesResults,edOf,b1Now,gevWhy,baseScores,entryOf,medalsIn,gamesRecords,gamesCeremony,unlocksOf,myId,formOf,GAME_EVENTS,clone,commit}),GM2:()=>({GAMES_V2,GTAC,TRAIN_PTS,TRAIN_MAX,BOY_GW,edOf,edStart,entryOf,gamesHost,gamesBids,edEvents,edDrawn,gmSwapOf,gmMascOf,gmChatLines,gmChatLine,gmTrCost,gevWhy,formOf,gamesResults,dspBuild,dspNoOf,c3MyBid,gcerSeen,stockNow,stockCap,canFeature,myId,clone,commit}),GB:()=>({IRON_DEP,IRON_DEP_YIELD,CELL_RES,MAP_T:MAP.T,mapAt:c=>{centerMain(c,NEAR_Z*1.6);},stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,FOOD_SPOIL,FOOD_EAT,FOOD_TIERS,FOOD_LAND,foodTier,TIMBER_BURN,foodGrowth,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({dspShown,dspRegShown,dspRegs,dspPic,dspLocator,dspHtDefs,pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),ASMX:()=>({ASMX,ASMX_TABS,asmBookAt,asmState,asmArcLoad,REG}),RGNX:()=>({RGN,RGN_PAGE,notifItems,ONL,onlRefresh}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals,seatsOf,alliancesOf,alMineAll,alClashes,alFest,alWornOf,alGuardsOf,alSeatsFor,allianceOf,AL_TY_UI,alStripHTML,alArmsSVG,alArmsAuto,alPzKeys,alMoCheck,alOpenPage,alWeekData,alLvOpens}),TYX:()=>({TY,TY_RULES,TY_K,tyOf,tyList,tyWarBlock,tyIncoming,affinity,alPactLive,alRelationsHTML,econOf,armyPower,armyRaw,attackMult,readyMs,drWords,drNote,drBroken,relationCard}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,npcIdeaNow,npcDealFor,npcAsk,npcReply,npcVerdict,npcTradeTalk,dealSlots,maxDeals,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,achTierCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC,step:rcStepCheck,head:rcHead,sponsoring:rcSponsoring,qr:qrMatrix,card:rcCardDraw,invCap:rcInvCap,free:rcFreeLand,STEPS:RC_STEPS,UNL:RC_UNLOCKS}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend,card:n=>tutCard(n),phase:n=>tutPhase(n),picks:(n,ph)=>tutPicks(n,ph),group:(n,k)=>tutGroup(n,tutL(k)),hid:n=>tutHid(n)},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours,
   SV:MC_SV,XS:MC_XS,QUEUE:MC_QUEUE,DISH:MC_DISH,FINDS:MC_FINDS,CHART_MS:MC_CHART_MS,repSecs:mcRepSecs,repKind:mcRepKind,fold:mcFold,lane:mcLane,dish:mcDish,
   finds:mcFinds,findAt:mcFindAt,bits:mcBitsList,charted:mcCharted,chartedNow:mcChartedNow,unqueue:mcUnqueue,dishBuild:mcDishBuild,bringHome:mcBringHome,
   secSite:mcSecSite,prefOk:mcPrefOk,prefTile:mcPrefTile,setPref:mcSetPref,startProblem:mcStartProblem,wfKey:mcWfKey,osKey:mcOsKey},WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,ACT1:WS_ACT1,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond,real:wsReal,mask:wsMask,ansN:wsAnsN},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR,bell:now=>notifItems(now||Date.now())},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},TIER:()=>({BTIER,bEff,bTier,bTierNext,bTierLine,tierQuote,tierProblem,cxTier,cxTrMap,tierSettle,tierReady,cxGoldNow,cxUpQuote,cxUpList,cxUps,mktSlots,mktSlotsOf,maxDeals,bldAggOf}),CX:{upgradable:cxUpgradable,mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState,UG:CX_UG,LV:CX_LV,ups:cxUps,upMap:cxUpMap,extras:cxBldExtras,quote:cxUpQuote},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo,unlockTarget,unlockShow,unlockFresh,unlockQueue,ULK,UNLOCKS,unlocksOf,toast:m=>toast(m)},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{coinBackSVG:cuCoinBackSVG,noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,coinSVG:cuCoinSVG,guide:cuGuideHTML,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,drawMap,sfKey,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ACH_RANKS_V1,ID_BD,achVal,achCtx,achEvalNew,achState,stockRates:n=>stockRates(n),achPoints,achRank,achRankOf,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,flagNorm:(f,n)=>flagNorm(f,n),flagSVG:(f,l)=>flagSVG(f,l),mapTip:id=>{const T=mapTerr('main'),i=T.list.findIndex(x=>x.id===id);if(i<0)return '';const cell=Array.prototype.indexOf.call(T.owner,i);return MAP_TIP.map(h=>{try{return h({kind:'main',cell,cv:null,x:0,y:0});}catch(e){return '';}}).filter(x=>typeof x==='string').join(' | ');},cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
