@@ -166,9 +166,11 @@ export function rsLevelMax(b) {
 export function rsTechRc(b) { let s = 0; for (const [i, v] of Object.entries(RS_RC)) if (rsHas(b, +i)) s += v; return s; }
 /* the base daily credits: 10, a point for every 5 of Science & Technology (0 to 100), the institution and the
    technologies; the most a record may earn adds the research buildings' RS_BLD_RC_MAX, and international cooperation
-   (RS_INTL_MAX), the nation's own boosts (RS_DOM_MAX) and its research edicts and laws (RS_ED_MAX) on top */
+   (RS_INTL_MAX), the nation's own boosts (RS_DOM_MAX) and its research edicts and laws (RS_ED_MAX) on top, and of all
+   that the share RS_RC_K (game: RS_RULES.rk), the rest going on the laboratory's running costs (24 Nov 2026) */
+export const RS_RC_K = 0.8;
 export const rsBase = (sci, lab, techRc) => 10 + Math.floor(Math.max(0, Math.min(100, num(sci))) / 5) + (RS_INST_BONUS[Math.max(0, Math.min(8, lab | 0))] || 0) + num(techRc);
-export const rsRateMax = (sci, lab, techRc) => (rsBase(sci, lab, techRc) + RS_BLD_RC_MAX) * (1 + RS_INTL_MAX + RS_DOM_MAX + RS_ED_MAX);
+export const rsRateMax = (sci, lab, techRc) => (rsBase(sci, lab, techRc) + RS_BLD_RC_MAX) * (1 + RS_INTL_MAX + RS_DOM_MAX + RS_ED_MAX) * RS_RC_K;
 /* the readiness research gives a record: {rcut: the share by which a point returns sooner, extra: points held} */
 export function rsWar(rec) {
   const p = rec && rec.nrp, b = rsBits(p && p.k);

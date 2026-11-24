@@ -157,12 +157,12 @@ try {
     await page.evaluate(() => window.__game.rs.rsResearch(4));
     const bal4 = await page.evaluate(() => { const p = window.__game.S.nation.nrp; return Math.round(p.re - p.rs); });
     check('a fourth is not affordable yet (6 RC, 3 left)', bal4 === 3, bal4);
-    /* a day away: credits counted from the last count, 20 a day at Science 50 */
+    /* a day away: credits counted from the last count, 20 a day at Science 50 and 2 for the site, less a fifth for running costs */
     await t.edit(n => { n.s.sci = 50; n.nrp.ra = Date.now() - 86400000; });
     const p4 = await t.R(), rate = await page.evaluate(() => window.__game.rs.rsRate(window.__game.S.nation, Date.now()));
-    check('a day away earns a day’s credits: 20 at Science & Technology 50, and 2 more for the university quarter', Math.abs(rate - 22) < 0.01 && Math.abs((p4.re - p4.rs) - 25) < 0.6, { rate, bal: p4.re - p4.rs });
+    check('a day away earns a day’s credits: 20 at Science & Technology 50, and 2 more for the university quarter, less a fifth for running costs', Math.abs(rate - 17.6) < 0.01 && Math.abs((p4.re - p4.rs) - 20.6) < 0.6, { rate, bal: p4.re - p4.rs });
     for (const i of [4, 0]) await page.evaluate(i => window.__game.rs.rsResearch(i), i);
-    check('so the balance after the fourth and fifth (6 and 10) is 9', await page.evaluate(() => { const p = window.__game.S.nation.nrp; return Math.round(p.re - p.rs) === 9; }));
+    check('so the balance after the fourth and fifth (6 and 10) is 5', await page.evaluate(() => { const p = window.__game.S.nation.nrp; return Math.round(p.re - p.rs) === 5; }));
     check('Tier I of Trade is complete', await page.evaluate(() => { const r = window.__game.rs; return r.rsDone(r.rsBits(window.__game.S.nation.nrp.k))[0][1] === 5; }));
     await t.go('research/tree');
     await page.click('.rs-card[data-v="5"]');

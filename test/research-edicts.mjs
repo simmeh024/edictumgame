@@ -77,7 +77,7 @@ try {
     const r1 = await t.rule('rsv-night-shift', 0), p1 = await t.P();
     const rate1 = await page.evaluate(() => { const G = window.__game; return G.rse.rsRateParts(G.S.nation, Date.now()); });
     check(`${tag}: the boost is recorded from the ruling for three days`, p1.ed && p1.ed.length === 1 && p1.ed[0].k === 'c' && p1.ed[0].v === 0.2 && Math.abs(p1.ed[0].u - p1.ed[0].a - 3 * 864e5) < 1, p1.ed);
-    check(`${tag}: the credits a day are 20% of the base higher`, Math.abs(rate1.v - rate0.v - rate0.base * 0.2) < 0.02, { before: rate0.v, after: rate1.v, base: rate0.base });
+    check(`${tag}: the credits a day are 20% of the base higher (less the running costs)`, Math.abs(rate1.v - rate0.v - rate0.base * 0.2 * rate0.rk) < 0.02, { before: rate0.v, after: rate1.v, base: rate0.base, rk: rate0.rk });
     check(`${tag}: the result says so`, (r1.notes || []).some(x => /^Research Credits \+20% until .+: [\d.]+ → [\d.]+ a day\.$/.test(x)), r1.notes);
     /* the Research page: the edicts at work, and their share of the credits */
     await t.go('research');

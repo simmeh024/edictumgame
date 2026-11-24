@@ -40,8 +40,11 @@ save to); `functions/civic.js` (the save permit calls `rsSettle`); `functions/al
    newspaper and the bell, and pays the **Founding Research Grant of 12 RC**: Tier I's 2, 3 and 4.
    Works and studies whose time is up finish by themselves within seconds, whatever page the player is on.
 3. **Research Credits.** From the inauguration: `10 + floor(Science & Technology / 5) + the institution's bonus`
-   a day, plus a few from technologies and research buildings, counted while the player is away. At Science 50 the
-   laboratory gives 20 a day. International cooperation adds up to 30%, the nation's own science report up to 15%.
+   a day, plus a few from technologies and research buildings, counted while the player is away. International
+   cooperation adds up to 30%, the nation's own science report up to 15%, research edicts and laws up to 30%. Of all
+   that the nation keeps 80% (`RS_RULES.rk`, the server's `RS_RC_K`): the rest goes on the laboratory's running costs,
+   shown as its own line under the credits a day (a fifth off everything since 24 Nov 2026). At Science 50 the
+   laboratory gives 16 a day (20 before running costs).
    A laboratory that is not at work (held by an enemy, destroyed, or being rebuilt) earns nothing: see *The laboratory
    at war*.
 4. **The research tree.** Three tracks (Trade, Growth, War), each 24 tiers in six eras (Foundations I–IV,
@@ -127,7 +130,7 @@ The average price per tier is 5, 8, 12, 18, 25, 35, 48, 65, 85, 110, 140, 175, 2
 cost 0.7, 0.85, 1 and 1.05 of the tier's average and the milestone the rest (1.4). The whole programme costs
 **125,415 RC** before discounts.
 
-The institutions (`RS_INST`) and the credits a day each gives at Science 50:
+The institutions (`RS_INST`) and the credits a day each gives at Science 50, before the running costs take a fifth:
 
 | | Institution | Needs | RC a day |
 | --- | --- | --- | ---: |
@@ -323,7 +326,7 @@ server's clock before it signs the save:
 
 - research is never lost: technologies, studies and credits the saved record held stay;
 - credits earned grow no faster than `rsRateMax` (the record's Science, institution and technologies, the research
-  buildings, and every boost) from the time they were last counted, never past the server's time; a grant counts once;
+  buildings, and every boost, less the running costs `RS_RC_K`) from the time they were last counted, never past the server's time; a grant counts once;
 - Field Notes (the outfitters' Field naturalists refitted at tier II, 2026-11-23): each first find a save adds to
   `disc` (at most `RS_FN_MAX`, 3) may add as many credits as the line's tier II blocks (`xl.nat` `notes`, `x2.nat`
   1 to 5), once the saved record's laboratory is open (`rsFieldNotes`);

@@ -124,7 +124,8 @@ test('Research Credits: 10 + Science / 5 + the institution, the targets at Scien
   assert.deepEqual([0, 1, 2, 3, 4, 5, 6, 7, 8].map(l => R.rsBase(50, l, 0)), [20, 30, 40, 55, 70, 95, 130, 175, 250]);
   assert.deepEqual(J(G.RS_INST.map(x => x[1])), R.RS_INST_BONUS);assert.deepEqual(J(G.RS_RULES.inst), R.RS_INST_BONUS);
   assert.equal(R.rsBase(100, 0, 0), 30);assert.equal(R.rsBase(-5, 0, 0), 10);assert.equal(R.rsBase(250, 0, 0), 30, 'Science counts to 100');
-  assert.ok(R.rsRateMax(50, 0, 0) >= 20 * (1 + R.RS_INTL_MAX + R.RS_DOM_MAX), 'room for cooperation and the nation’s own boosts');
+  assert.ok(R.rsRateMax(50, 0, 0) >= 20 * (1 + R.RS_INTL_MAX + R.RS_DOM_MAX) * G.RS_RULES.rk, 'room for cooperation and the nation’s own boosts');
+  assert.equal(G.RS_RULES.rk, R.RS_RC_K, 'the running costs: the same share kept in the game and on the server');assert.equal(R.RS_RC_K, 0.8);
   assert.equal(G.RS_RULES.intlMax, R.RS_INTL_MAX);assert.equal(G.RS_RULES.discMax, R.RS_DISC_MAX);assert.equal(G.RS_RULES.domMax, R.RS_DOM_MAX);
   assert.deepEqual(JSON.parse(cut('const RS_GRANTS=', ';').slice(16).replace(/(\w+):/g, '"$1":')), R.RS_GRANTS);
   /* the institutions: the first with one track at tier IV, later ones with more of every track */
