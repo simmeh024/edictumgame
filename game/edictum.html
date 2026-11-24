@@ -53273,7 +53273,7 @@ function normalizeBase(d){
     currency:str(d.currency,30)||'crown',animal:str(d.animal,30)||'otter',demonym:str(d.demonym,40)||demonymOf(name),flag,founded:num(d.founded,now),capAt:num(d.capAt,0)||undefined,
     s,budget,policies,pop:clamp(num(d.pop,5),0.1,1e7),popAt:num(d.popAt,now),answered,inbox,issueClock:num(d.issueClock,now),issueSeq:num(d.issueSeq,0),
     freq:FREQS.some(x=>x[0]===d.freq)?d.freq:FREQ_DEF,log,seed:str(d.seed,40)||'1',updatedAt:num(d.updatedAt,0),loc:validLoc(d.loc),wars,peace,conq,cv:MAP_VER,ready:Number.isInteger(d.ready)?clamp(d.ready,0,MAX_READY):READY_BASE,readyAt:num(d.readyAt,now),alli,allyOf:str(d.allyOf,60),spy,intel,deals,dealNo,trFav,trX,gm:clamp(num(d.gm,1),0.5,1.6),cities:normCities(d),cab:normCab(d,str(d.seed,40)||'1',num(d.founded,now)),cabSeq:Math.max(7,Math.floor(num(d.cabSeq,7))),cabAt:num(d.cabAt,0),la:clamp(num(d.la,45+hash((str(d.seed,40)||'1')+':la')%14),20,110),lt:num(d.lt,num(d.founded,now)),games:normGames(d),lore:d.lore&&typeof d.lore==='object'?Object.fromEntries(LORE.map(([k])=>[k,typeof d.lore[k]==='string'?d.lore[k].slice(0,2000):'']).filter(([,v])=>v.trim())):{},hist:Array.isArray(d.hist)?d.hist.filter(h=>h&&typeof h.t==='number'&&typeof h.p==='number'&&Array.isArray(h.s)&&h.s.length===STAT_KEYS.length).slice(-90).map(h=>({t:h.t,p:h.p,s:h.s.map(v=>clamp(num(v,50),0,100))})):[],claims:Array.isArray(d.claims)?(d.cv===undefined||d.cv===MAP_VER?d.claims.filter(e=>e&&Number.isInteger(e.c)&&e.c>=0&&e.c<MAP.N&&typeof e.t==='number'&&isFinite(e.t)).slice(-CLAIM_MAX).map(e=>({c:e.c,t:e.t})):[]):undefined,autoLand:!!d.autoLand,mileAck:Number.isInteger(d.mileAck)?clamp(d.mileAck,0,MILESTONES.length):undefined,seen:num(d.seen,0),dm:Array.isArray(d.dm)?d.dm.filter(m=>m&&typeof m.w==='string'&&typeof m.x==='string'&&m.x.trim()).slice(-400).map(dmNorm):[],seenDm:d.seenDm&&typeof d.seenDm==='object'?Object.fromEntries(Object.entries(d.seenDm).filter(([k,v])=>k.length<=90&&typeof v==='number'&&isFinite(v)).slice(-300)):{},stock:Object.fromEntries(RES.map(r=>[r,clamp(num(d.stock&&d.stock[r],START_STOCK[r]),0,whLoadCap(d)+xsOf(d))])),stockAt:num(d.stockAt,now),
-    ruler:str(d.ruler,40).trim(),lang:str(d.lang,30).trim(),faith:str(d.faith,50).trim(),sport:str(d.sport,30).trim(),dish:str(d.dish,40).trim(),anthem:str(d.anthem,60).trim(),about:str(d.about,280).trim(),mapc:safeColor(d.mapc,''),topics};
+    ruler:str(d.ruler,40).trim(),lang:str(d.lang,30).trim(),faith:str(d.faith,50).trim(),beliefOutlook:beliefValue(BELIEF_OUTLOOK,d.beliefOutlook),beliefGov:beliefValue(BELIEF_GOV,d.beliefGov),beliefWords:str(d.beliefWords,160).trim(),beliefOccasion:str(d.beliefOccasion,60).trim(),sport:str(d.sport,30).trim(),dish:str(d.dish,40).trim(),anthem:str(d.anthem,60).trim(),about:str(d.about,280).trim(),mapc:safeColor(d.mapc,''),topics};
 }
 /* observing another region (OBS), this browser's copy is neither read (its cells belong to another map) nor written */
 /* a copy a newer map's page left in this browser (a tab of the new build played here since) is not read: mapStaleStop */
@@ -57702,6 +57702,10 @@ function factbook(n,now,live,id){
   const part=[
     ['Capital',esc(n.capital)],['Leader',esc(n.leader)+(n.ruler?' '+esc(n.ruler):'')],['Currency',esc(n.currency)],['National animal',esc(n.animal)],['Demonym',esc(n.demonym)],
     ...[['lang','Language'],['faith','Religion'],['sport','National sport'],['dish','National dish'],['anthem','Anthem']].filter(([k])=>n[k]).map(([k,l])=>[l,k==='anthem'?'“'+esc(n[k])+'”':esc(n[k])]),
+    ...(n.beliefOutlook?[['National outlook',esc(beliefLabel(BELIEF_OUTLOOK,n.beliefOutlook))]]:[]),
+    ...(n.beliefGov?[['Government and belief',esc(beliefLabel(BELIEF_GOV,n.beliefGov))]]:[]),
+    ...(n.beliefWords?[['National beliefs',esc(n.beliefWords)]]:[]),
+    ...(n.beliefOccasion?[['National occasion',esc(n.beliefOccasion)]]:[]),
     ...czFactRows(n),
     ['Founded',n.npc?'Before records began':fmtDate(n.founded)]
   ];
@@ -59948,6 +59952,15 @@ function hmBake(raws,hidden){
    (sgShow, from the wiring near the end of the script). The open tab is in the address as #settings/<tab>. */
 const SG_TABS=[['nation','Your nation'],['edicts','Edicts'],['notif','Notifications'],['display','Display'],['sound','Sound'],['nav','Navigation'],['account','Account']];
 const SG={tab:'nation',saved:null,leave:null,leaveOK:false};
+const BELIEF_OUTLOOK=[['','Not declared'],['religious','Religious'],['agnostic','Agnostic'],['atheist','Atheist'],['pluralist','Pluralist']];
+const BELIEF_GOV=[['','Not declared'],['secular','Secular government'],['freedom','Freedom of belief'],['recognized','Recognized tradition'],['state-religion','State religion'],['state-atheism','State atheism']];
+const beliefLabel=(options,value)=>options.find(([k])=>k===value)?.[1]||'';
+const beliefValue=(options,value)=>options.some(([k])=>k===value)?value:'';
+function sgBeliefPreview(st){
+  const outlook=beliefLabel(BELIEF_OUTLOOK,st.beliefOutlook),gov=beliefLabel(BELIEF_GOV,st.beliefGov),faith=String(st.faith||'').trim(),words=String(st.beliefWords||'').trim(),occasion=String(st.beliefOccasion||'').trim();
+  if(!st.beliefOutlook&&!st.beliefGov&&!faith&&!words&&!occasion)return '<p class="hint">Nothing declared yet.</p>';
+  return `<dl>${[[st.beliefOutlook?'National outlook':'',st.beliefOutlook?outlook:''],[faith?'Tradition':'',faith],[st.beliefGov?'Government and belief':'',st.beliefGov?gov:''],[words?'In your own words':'',words],[occasion?'National occasion':'',occasion]].filter(([k])=>k).map(([k,v])=>`<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>`;
+}
 const SG_CULT=['lang','faith','sport','dish','anthem','about'];
 function sgTabOfId(id){
   id=String(id||'').replace(/^#/,'');
@@ -59960,7 +59973,7 @@ function sgTabOfId(id){
   return 'nation';
 }
 function settingsFrom(n){return {pretitle:n.pretitle,ptCustom:!PRETITLES.includes(n.pretitle),motto:n.motto,capital:n.capital,leader:n.leader,animal:n.animal,demonym:n.demonym,
-  ruler:n.ruler||'',lang:n.lang||'',faith:n.faith||'',sport:n.sport||'',dish:n.dish||'',anthem:n.anthem||'',about:n.about||'',mapc:n.mapc||''};}
+  ruler:n.ruler||'',lang:n.lang||'',faith:n.faith||'',beliefOutlook:beliefValue(BELIEF_OUTLOOK,n.beliefOutlook),beliefGov:beliefValue(BELIEF_GOV,n.beliefGov),beliefWords:n.beliefWords||'',beliefOccasion:n.beliefOccasion||'',sport:n.sport||'',dish:n.dish||'',anthem:n.anthem||'',about:n.about||'',mapc:n.mapc||''};}
 /* how many fields of the draft differ from the nation (the custom-title switch is not a field of its own) */
 function sgDirtyN(){const st=S.settings;if(!st||!S.nation)return 0;const a=settingsFrom(S.nation);return Object.keys(a).filter(k=>k!=='ptCustom'&&JSON.stringify(a[k])!==JSON.stringify(st[k])).length;}
 const sgTopicsN=n=>Object.values(n.topics||{}).filter(v=>v===1||v===-1).length;
@@ -60039,6 +60052,15 @@ function settingsView(){
           ${f('dish','National dish',40,'e.g. fish stew')}
           ${f('anthem','National anthem',60,'e.g. Rise, O '+n.name)}
         </div>
+        <div style="margin-top:22px"><h3 class="sg-ch">National beliefs</h3><p class="hint fs-hint">Optional. Your nation's outlook and the government's relationship to belief are separate choices. Individuals may hold different beliefs.</p>
+          <div class="fields">
+            <div class="field"><label for="s-beliefOutlook">National outlook</label><select class="input" id="s-beliefOutlook" data-bind="s.beliefOutlook">${BELIEF_OUTLOOK.map(([v,l])=>`<option value="${esc(v)}"${st.beliefOutlook===v?' selected':''}>${esc(l)}</option>`).join('')}</select></div>
+            <div class="field"><label for="s-beliefGov">Government and belief</label><select class="input" id="s-beliefGov" data-bind="s.beliefGov">${BELIEF_GOV.map(([v,l])=>`<option value="${esc(v)}"${st.beliefGov===v?' selected':''}>${esc(l)}</option>`).join('')}</select></div>
+            ${f('beliefOccasion','National occasion (optional)',60,'e.g. Day of Open Questions')}
+          </div>
+          <div class="field" style="margin-top:16px"><label for="s-beliefWords">National beliefs in your own words (optional)</label><textarea class="input" id="s-beliefWords" data-bind="s.beliefWords" maxlength="160" rows="2" placeholder="A short description shown on your nation page.">${esc(st.beliefWords||'')}</textarea></div>
+          <p class="hint fs-hint">These choices describe your nation. They do not automatically change rights or game statistics.</p><div class="sg-belief-preview"><p class="lbl">As other players see it</p><div class="factbook" id="sg-belief-preview">${sgBeliefPreview(st)}</div></div>
+        </div>
         <div class="field" style="margin-top:16px"><label for="s-about">About ${esc(n.name)}</label><textarea class="input" id="s-about" data-bind="s.about" maxlength="280" rows="3" placeholder="A few lines in your own words. Other players see them on your nation page.">${esc(st.about||'')}</textarea><span class="hint" id="s-about-count">${(st.about||'').length} / 280</span></div>
       </fieldset>
       <fieldset class="sg-fs" id="set-mapc"><legend class="sg-ch">Map colour</legend>
@@ -60097,7 +60119,7 @@ function settingsView(){
    Delete opens the account panel's own step for it (src/shim.js, __edictum.openAccount), which deletes the
    account on the server as well. Start over is a dissolve followed by the founding page with the old name and
    particulars filled in; what SG_CARRY lists comes along when the nation is founded again (sgCarry, in found). */
-const SG_CARRY=['ruler','lang','faith','sport','dish','anthem','about','lore','mapc','cz','cur','freq','topics'],SG_CARRY_KEY='edictum.restart';
+const SG_CARRY=['ruler','lang','faith','beliefOutlook','beliefGov','beliefWords','beliefOccasion','sport','dish','anthem','about','lore','mapc','cz','cur','freq','topics'],SG_CARRY_KEY='edictum.restart';
 const sgDzOk=()=>!!S.nation&&nameFold(S.dzType||'')===nameFold(S.nation.name);
 function sgCarry(v){try{if(v===undefined){const o=JSON.parse(localStorage.getItem(SG_CARRY_KEY)||'null');return o&&o.name&&Date.now()-o.t<7*86400000?o:null;}
   if(v===null)localStorage.removeItem(SG_CARRY_KEY);else localStorage.setItem(SG_CARRY_KEY,JSON.stringify(v));}catch(e){}return null;}
@@ -60499,6 +60521,7 @@ function saveSettings(){
   n.pretitle=t(st.pretitle,40,n.pretitle);n.motto=String(st.motto||'').trim().slice(0,80);n.capital=t(st.capital,40,n.capital);n.leader=t(st.leader,40,n.leader);
   n.animal=t(st.animal,30,n.animal);n.demonym=t(st.demonym,40,n.demonym);
   for(const [k,max] of [['ruler',40],['lang',30],['faith',50],['sport',30],['dish',40],['anthem',60],['about',280]])n[k]=String(st[k]||'').trim().slice(0,max);
+  n.beliefOutlook=beliefValue(BELIEF_OUTLOOK,st.beliefOutlook);n.beliefGov=beliefValue(BELIEF_GOV,st.beliefGov);n.beliefWords=String(st.beliefWords||'').trim().slice(0,160);n.beliefOccasion=String(st.beliefOccasion||'').trim().slice(0,60);
   {const mc=safeColor(st.mapc,'');n.mapc=tutMapcOk(n,mc)&&ctgMcOk(n,mc)?mc:n.mapc||'';}
   commit(n);S.settings=settingsFrom(n);render();toast('Changes saved.');return true;
 }
@@ -86965,6 +86988,7 @@ function sgPaint(){
   const st=S.settings,n=S.nation;if(!st||!n||S.view!=='settings')return;
   const p=document.getElementById('sg-pv-in');if(p)p.innerHTML=sgPreview(st,n);
   const c=document.getElementById('sg-cult-n');if(c)c.textContent=sgCultN(st)+' of 6 filled';
+  const bp=document.getElementById('sg-belief-preview');if(bp)bp.innerHTML=sgBeliefPreview(st);
   const s=document.querySelector('[data-sg-sub="nation"]');if(s)s.textContent=sgTabSub('nation',n);
   const b=document.getElementById('sg-tab-nation');if(b)b.classList.toggle('dirty',settingsDirty());
 }
@@ -87024,7 +87048,7 @@ UX_SETTINGS.push(
   {v:'focus:s-ruler',l:'Leader’s name and title',g:'Settings',words:'leader ruler name title president king queen head',view:'settings',target:'#s-ruler'},
   {v:'focus:s-ptsel',l:'Type of state',g:'Settings',words:'pretitle republic kingdom empire duchy form of state',view:'settings',target:'#s-ptsel'},
   {v:'focus:s-motto',l:'Motto, capital and citizens',g:'Settings',words:'motto capital city demonym citizens animal particulars',view:'settings',target:'#s-motto'},
-  {v:'focus:s-lang',l:'Culture: language, religion, sport, dish, anthem',g:'Settings',words:'culture language religion faith sport dish food anthem song about description',view:'settings',target:'#s-lang'},
+  {v:'focus:s-lang',l:'Culture: language, religion, sport, dish, anthem',g:'Settings',words:'culture language religion faith beliefs agnostic atheist pluralist secular holiday occasion sport dish food anthem song about description',view:'settings',target:'#s-lang'},
   {v:'focus:set-mapc',l:'Map colour',g:'Settings',words:'map colour color territory shade',view:'settings',target:'#set-mapc'},
   {v:'focus:away-box',l:'Holiday mode',g:'Settings',words:'holiday away vacation pause break absent',view:'settings',target:'#away-box'},
   {v:'focus:sg-topics',l:'Edict topics',g:'Settings',words:'topics subjects more fewer kinds of edict',view:'settings',target:'#sg-topics'},
