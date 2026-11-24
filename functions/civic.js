@@ -6,6 +6,7 @@ import { deflateNation } from './nationtext.js';
 import { identity, eligibility, nationJSON, refuse, registered, regionMessage, regionClosed, refuseBannedIdentity, DAY } from './eligibility.js';
 import { cabinetAffinity } from './affinity.js';
 import { assemblyEngine } from './assembly-engine.js';
+import { chatDelegates } from './chat-delegates.js';
 import DATA from './civic-data.json' with { type: 'json' };
 import { cbTopic, cbReply, cbEdit, cbDelete, cbMod, cbPost, cbFollow, cbReact, cbSig, TEAM_OK, asTeam, teamMark, rmbParent, rmbReact, cbCounted } from './board.js';
 import { alliance, isAllianceOp } from './alliances.js';
@@ -665,7 +666,7 @@ async function newsUpvote(db, who, d) {
    region in its transaction (only a Registered Nation a day old gets that far), so it is paced more closely (functions/pace.js) */
 const ASSEMBLY_ACTS = new Set(['vote', 'propose', 'withdraw', 'endorse', 'support', 'agenda', 'message', 'paper', 'resign', 'rejoin', 'sway']);
 const CIVIC_OPS = new Set(['authorizeSave', 'carryKey', 'newsComment', 'newsModerate', 'newsReact', 'newsVote', 'newsClick', 'newsUpvote', 'renamed',
-  'cbTopic', 'cbReply', 'cbEdit', 'cbDelete', 'cbMod', 'cbPost', 'cbFollow', 'cbReact', 'cbSig', 'topic', 'topicReact', 'state', 'book', 'online', 'xmClock', ...ASSEMBLY_ACTS]);
+  'cbTopic', 'cbReply', 'cbEdit', 'cbDelete', 'cbMod', 'cbPost', 'cbFollow', 'cbReact', 'cbSig', 'topic', 'topicReact', 'state', 'book', 'online', 'chatDelegates', 'xmClock', ...ASSEMBLY_ACTS]);
 
 /* One vCPU serves up to 80 requests at once; a smaller share of one serves a single request, and every nation
    save asks here for its permit. maxInstances still caps the bill. */
@@ -711,6 +712,14 @@ export const civic = onCall({ region: 'europe-west1', maxInstances: 10, cpu: 1, 
     catch { throw new HttpsError('unavailable', 'Who is online cannot be told just now.'); }
   }
   const db = getFirestore(), who = await identity(uid);
+  if (d.op === 'chatDelegates') {
+    await mayObserve(db, who);
+    return chatDelegates(db, d.ids, regions, async reg => {
+      const now = Date.now(), meta = await db.doc('assemblyRegions/' + reg).get();
+      const base = await regionBase(db, reg, rootKey(meta));
+      return assemblyEngine(reg, base.records, base.locks).delegate(base.records, now).D?.id || '';
+    });
+  }
   if (d.op === 'authorizeSave') return permit(db, who, d);
   if (d.op === 'carryKey') return noteCarryKey(db, who, d);
   if (d.op === 'newsComment') return newsComment(db, who, d);

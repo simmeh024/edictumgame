@@ -10083,6 +10083,12 @@ button.rgc-nm{text-align:left}
    them all out */
 .rgc-lw{display:flex;align-items:center;gap:7px;flex:0 1 auto;min-width:0;overflow:hidden;padding:2px;margin:-2px}
 .rgc-lw .rgc-nm{flex:0 0 auto;max-width:100%}
+.chat-delegate-slot{display:inline-flex;flex:none;vertical-align:middle}
+.chat-delegate-slot:not(:empty){margin-inline:4px;width:18px;height:18px}
+.chat-delegate{display:inline-flex;width:18px;height:18px;flex:none;color:color-mix(in srgb,var(--delegate-color) 82%,var(--ink))}
+.chat-delegate svg{display:block;width:100%;height:100%}
+.rgc-lw .chat-delegate-slot:not(:empty){margin:0}
+.rgc-lw:has(.chat-delegate) .rgc-nm{max-width:calc(100% - 24px)}
 .rgc-mk{display:flex;flex-wrap:wrap;align-items:center;column-gap:7px;row-gap:30px;flex:0 4 auto;min-width:0;height:20px;padding:0 2px;overflow:hidden}
 /* an empty first item, so even the first mark drops out whole rather than showing half of itself */
 .rgc-mk::before{content:'';width:0;margin-right:-7px}
@@ -24145,8 +24151,18 @@ function tradeView(){
    surplus resources. A city's production area is held land within two hexes, or three at two million city residents. Buildings work for
    whoever holds the city hex: its founder, or whoever took it in battle. Computer nations have fixed
    cities generated from the map, so the world starts developed and conquest has prizes. */
-const CITY_DISTRICT=2,CITY_MIN_DIST=4,MILE_CITIES=14,MAX_CITIES=33,CQ_MAX=10,STOCK_CAP=400,CITY_SLOTS=4,CAP_SLOTS=6;
-const START_STOCK={food:60,timber:45,iron:25,oil:10,goods:40};
+/* City thresholds are in millions. Keep the early game; later cities have their own schedule so saved
+   growth milestone indices, ranks, building unlocks and land credits keep their existing meaning. */
+const CITY_POP_AT=[
+  7,8.5,12.5,25,50,75,
+  100,110,115,125,150,200,225,250,275,300,325,350,400,450,500,550,600,650,700,800,900,
+  ...[1,1.25,1.5,2,2.5,3,4,5,6,7,8,9,10,12,14,16,18,20,25,30,40,50,100,200,300,500,1000].map(t=>t*1e6)
+];
+/* Nineteen land unlocks and the first-building and gold-upgrade bonuses remain available. */
+const CITY_DISTRICT=2,CITY_MIN_DIST=4,MILE_CITIES=1+CITY_POP_AT.length,MAX_CITIES=MILE_CITIES+21,CQ_MAX=10,STOCK_CAP=400,CITY_SLOTS=4,CAP_SLOTS=6;
+const START_STOCK={food:60,timber:45,iron:25,oil:10,goods:60};
+/* Guaranteed daily stockpile income per active city, independent of buildings, consumption and spoilage. */
+const CITY_BASE_INCOME={food:2,timber:1,goods:1};
 const CITY_COST={food:30,timber:35,goods:20};
 const BLD_CATS=[['prod','Production'],['soc','Society'],['def','Defence'],['won','Wonders']];
 const BUILDINGS={
@@ -24203,7 +24219,7 @@ function bTierLine(k,t,ln){const T=bTier(k,t);return T?T.lines[bTierLineKey(k,t,
 /* the tier a building can be retooled to next, or 0 */
 function bTierNext(k,t){const to=Math.max(2,(t|0)+1);return bTier(k,to)?to:0;}
 /* the list price of a retool (no cabinet bonus): the most a kept price can be */
-function bTierList(k,l){const T=bTier(k,l);if(!T)return null;const c={};for(const r in T.cost)c[r]=Math.max(1,Math.round(T.cost[r]));return c;}
+function bTierList(k,l){const T=bTier(k,l);if(!T)return null;const c={};for(const r in T.cost)c[r]=Math.max(1,Math.round(T.cost[r]));return bMaterialCost(c);}
 /* what a building does at its tier: the building itself at tier I, its line laid over it above that (kept: cityState
    asks for every building in every city) */
 const bEffMemo=new Map();
@@ -24346,7 +24362,10 @@ function stockNow(n,now){
 }
 const roundStock=st=>Object.fromEntries(RES.map(r=>[r,Math.round(num0(st[r])*100)/100]));
 const fmtStock=v=>String(Math.floor(v+1e-6));
-function bCost(n,key){const B=BUILDINGS[key],k=cabFx(n).cost,o={};for(const r of RES)if(B.cost[r])o[r]=Math.max(1,Math.round(B.cost[r]*k));return o;}
+/* 2026-11-23: buildings and their upgrades ask 20% more food, timber and oil, rounded up once.
+   Upgrade calculations use the old base, then raise the final price after the timber-to-iron split. */
+function bMaterialCost(c){if(!c)return c;const o={...c};for(const r of ['food','timber','oil'])if(o[r]>0)o[r]=Math.ceil(o[r]*1.2-1e-9);return o;}
+function bCost(n,key,raw){const B=BUILDINGS[key],k=cabFx(n).cost,o={};for(const r of RES)if(B.cost[r])o[r]=Math.max(1,Math.round(B.cost[r]*k));return raw?o:bMaterialCost(o);}
 /* what was paid, kept on a building (p), a level being raised (lu.p) and walls going up (wu.p), so that a cancel gives
    back that and not today's price: the cabinet's cost bonus may have changed in between. Never more than the list price
    (max); work started before this was kept has none, and gets today's price as before. */
@@ -25355,7 +25374,7 @@ const fmtPopShort=p=>p>=1e6?(p/1e6)+' trillion':p>=1000?(p/1000)+' billion':p+' 
 function milesReached(pop){return MILESTONES.filter(m=>pop>=m.p-1e-9);}
 function mileOf(n){
   const pop=n?popNow(n):5,r=milesReached(pop),next=MILESTONES.find(m=>pop<m.p-1e-9)||null;
-  return {pop,reached:r,next,bonus:r.reduce((s,m,i)=>s+mileCredit(n,i),0),cities:Math.min(MILE_CITIES,1+r.reduce((s,m)=>s+(m.city||0),0)),title:([...r].reverse().find(m=>m.t)||MILESTONES[0]).t};
+  return {pop,reached:r,next,bonus:r.reduce((s,m,i)=>s+mileCredit(n,i),0),cities:1+CITY_POP_AT.filter(p=>pop>=p-1e-9).length,title:([...r].reverse().find(m=>m.t)||MILESTONES[0]).t};
 }
 function bldUnlockAt(key){const m=MILESTONES.find(m=>(m.b||[]).includes(key));return m?m.p:5;}
 function bldUnlocked(n,key){if(key==='warehouse'&&!pgAvailable(n,'warehouse'))return false;return popNow(n)>=bldUnlockAt(key)-1e-9||cvBlueOk(n,key);}
@@ -25365,7 +25384,7 @@ function mileUnlocks(m,n){
   n=n||S.nation;const mc=mileCredit(n,MILESTONES.indexOf(m));
   const u=[];
   if(m.b)u.push(...m.b.filter(k=>ldrShow(n,k)).map(k=>BUILDINGS[k].w?'the '+BUILDINGS[k].n:BUILDINGS[k].n));if(m.x)u.push(...[].concat(m.x));
-  if(m.city)u.push('another city');
+  if(CITY_POP_AT.includes(m.p))u.push('another city');
   if(m.war)u.push('declaring war');
   if(m.alli)u.push('founding alliances');
   for(const [f,p] of Object.entries(FEATURE_AT))if(MILESTONES.filter(x=>x.p<=p).pop()===m)u.push(FEATURE_WORDS[f]+(p===m.p?'':' at '+fmtPopShort(p)));
@@ -25375,9 +25394,9 @@ function mileUnlocks(m,n){
   return u;
 }
 function growthSection(n){
-  const M=mileOf(n),nx=M.next,prev=[...M.reached].pop()||{p:0},pct=nx?clamp((M.pop-prev.p)/(nx.p-prev.p)*100,0,100):100;
+  const M=mileOf(n),L=growthMilestones(),reached=L.filter(m=>M.pop>=m.p-1e-9),nx=L.find(m=>M.pop<m.p-1e-9),prev=reached.at(-1)||{p:0},pct=nx?clamp((M.pop-prev.p)/(nx.p-prev.p)*100,0,100):100;
   return `<section class="section"><h2 class="h2">Growth</h2>
-    <div class="mile-now"><div><p class="eyebrow">${esc(M.title)}</p><p class="mile-pop"><span data-live="pop">${fmtPop(M.pop)}</span> people</p><p class="hint">${M.reached.length} of ${MILESTONES.length} milestones reached · ${esc(growthText(n))}</p>${newNote(n)}${sizeNote(M.pop)}${n.pk?`<p class="hint">Land, cities, buildings and food can support about ${fmtPop(n.pk)}.</p>`:''}</div>
+    <div class="mile-now"><div><p class="eyebrow">${esc(M.title)}</p><p class="mile-pop"><span data-live="pop">${fmtPop(M.pop)}</span> people</p><p class="hint">${reached.length} of ${L.length} milestones reached · ${esc(growthText(n))}</p>${newNote(n)}${sizeNote(M.pop)}${n.pk?`<p class="hint">Land, cities, buildings and food can support about ${fmtPop(n.pk)}.</p>`:''}</div>
       ${nx?`<div class="mile-next"><p class="lbl">Next milestone: ${fmtPopShort(nx.p)}</p><span class="bar"><i style="width:${pct.toFixed(1)}%"></i></span><p>${esc(cap1(list(mileUnlocks(nx,n))))}${nx.t?`, and the rank of ${esc(nx.t)}`:''}.</p></div>`:`<div class="mile-next"><p>Every milestone reached. ${esc(n.name)} is a ${esc(M.title)}.</p></div>`}</div>
     ${gcLimitsCard(n)}
     ${mileList(M.pop,m=>{const done=M.pop>=m.p-1e-9;return `<li class="${done?'done':''}"><span class="ms-p">${done?'<span class="tick" aria-label="Reached">✓</span>':''}${fmtPopShort(m.p)}</span><span class="ms-u">${esc(cap1(list(mileUnlocks(m,n))))}${m.t?` <span class="chip">${esc(m.t)}</span>`:''}</span></li>`;})}${mileMore(M.pop)}
@@ -26283,7 +26302,7 @@ function dmAttOpen(a,m,peer,E){
 const dmDayLabel=t=>{const d=new Date(t),s=new Date();s.setHours(0,0,0,0);const y=new Date(s.getTime()-DAY);return t>=s.getTime()?'Today':t>=y.getTime()?'Yesterday':fmtDate(t);};
 const dmClock=t=>{try{return new Date(t).toLocaleString('en-GB',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});}catch(e){return '';}};
 /* the founder's brass dot beside a correspondent's name, as on their page (only what the server vouches for) */
-function dmFounder(id){try{if(isOffice(id))return '';const x=findNation(id);return x&&typeof shopBadge==='function'?shopBadge(x.n,1):'';}catch(e){return '';}}
+function dmFounder(id){try{if(isOffice(id)||dmIsGroup(id))return '';const x=findNation(id);return chatDelegateBadge(id)+(x&&typeof shopBadge==='function'?shopBadge(x.n,1):'');}catch(e){return '';}}
 function dmFace(id){if(isOffice(id))return OFFICES[id].seal;if(dmIsGroup(id))return `<span class="dm-grp" aria-hidden="true">${/^al:/.test(id)?'⚑':(dmGroupMeta(id).m.length||'·')}</span>`;const x=dmFind(id);return x?flagSVG(x.n.flag,'Flag of '+x.n.name):'';}
 const dmKind=id=>isOffice(id)?'offices':dmIsGroup(id)?'groups':NPC_SET.has(id)?'computer':'players';
 /* the sender's stationery (Customise › Stationery): paper, a wax seal, a signature; anyone else's only if they hold it */
@@ -26344,7 +26363,7 @@ function messagesView(){
     const status=m.b?' · Not delivered: this nation does not accept your letters':m.h==='cap'?` · Waiting for a reply: you have written ${DM_CAP} letters in a row`:m.h==='day'?' · Waits until tomorrow: 150 letters a day':m.q?(Array.isArray(m.to)?` · Delivered to ${(m.qd||[]).length} of ${m.to.length}`:' · Not sent yet'):m===lastMine&&peerSeen>=m.t?' · Seen':'';
     const note=m.k&&DM_NOTES[m.k]?`<p class="dm-note-h">${esc(DM_NOTES[m.k][0])}</p>`:'';
     const quote=m.r?`<blockquote class="dm-q">${esc(dmPlain(m.r.x))}</blockquote>`:'';
-    const who=grp&&!m.mine?`<span class="bub-who">${esc(nameOf(m.from))}${dmFounder(m.from)}</span>`:'';
+    const who=grp&&!m.mine?`<span class="bub-who">${esc(nameOf(m.from))}${dmFounder(m.from)}</span>`:!m.npc&&!isOffice(m.from)?chatDelegateBadge(m.mine?me:m.from):'';
     const tools=po?'':`<span class="bub-tools">${m.q&&m.mine?`<button type="button" class="linkish small" data-act="dm-withdraw" data-t="${m.t}">Withdraw</button>`:`<button type="button" class="linkish small" data-act="dm-reply" data-t="${m.t}" data-from="${esc(m.from)}">Reply</button>`}${!m.mine&&!m.npc&&!isOffice(m.from)&&S.mode==='world'?`<button type="button" class="linkish small" data-act="dm-report" data-t="${m.t}" data-from="${esc(m.from)}">Report</button>`:''}</span>`;
     return `${sep}<li class="bub${m.mine?' mine':''}${st?' staff':''}${P.lp?' '+lpClass(P.lp):''}${m.k?' note':''}${P.lm?' has-pm':''}"${lpGlyph(P.lp)}>${P.lm?dmStamp(m.mine?me:m.from,P.lm,m.t):''}${st?'<span class="bub-staff">Edictum staff</span>':''}${who}${note}${quote}${m.npc||isOffice(m.from)?`<p>${esc(m.x)}</p>`:`<div class="dm-x">${scrDmWith(m.mine?me:m.from,()=>dmRich(m.x))}</div>`}${m.a?dmAttCard(m.a,m.from,m.mine,peer):''}${dmSign(m.mine?me:m.from,m.npc?'':P.lg)}${m.npc?'':scrSig(m.mine?me:m.from)}${dmWax(m.mine?me:m.from,P.ls)}<span class="bub-t" title="${esc(dmClock(m.t))}">${rel(m.t)}${status}</span>${tools}</li>`;
   }).join('');
@@ -26377,7 +26396,7 @@ function messagesView(){
       <ol class="bubs" data-stick="dm:${esc(peer)}">${more}${bubbles}</ol><p class="hint dm-note">${esc(po.note||'Offices write to every nation of the region at once, and do not answer letters. Choose which offices write to you in Settings › Letters.')}</p>`:'';
   const gm=grp?dmGroupMeta(peer):null;
   const head=grp?`<div class="thread-h"><button class="linkish small dm-back" data-act="dm-back">← All conversations</button><span class="mflag">${dmFace(peer)}</span><b>${esc(nameOf(peer))}</b><span class="chip">${/^al:/.test(peer)?'Alliance':'Group'}</span>${dmLabelPills(peer)}<span class="hint dm-members">${esc(list(gm.m.filter(id=>id!==me).map(id=>nameOf(id))))} and you</span>${menu}</div>`
-    :px?`<div class="thread-h"><button class="linkish small dm-back" data-act="dm-back">← All conversations</button><span class="mflag">${flagSVG(px.n.flag,'Flag of '+px.n.name)}</span><b>${esc(px.n.name)}</b>${px.far?`<span class="chip">${esc(xnRegName(px.id))}</span>`:''}${px.npc?'<span class="chip">Computer-run</span>':''}${pst?STAFF_PILL:''}${dmLabelPills(peer)}<button class="linkish small" data-act="visit" data-id="${esc(px.id)}">View nation</button>${menu}</div>`:'';
+    :px?`<div class="thread-h"><button class="linkish small dm-back" data-act="dm-back">← All conversations</button><span class="mflag">${flagSVG(px.n.flag,'Flag of '+px.n.name)}</span><b>${esc(px.n.name)}</b>${chatDelegateBadge(peer)}${px.far?`<span class="chip">${esc(xnRegName(px.id))}</span>`:''}${px.npc?'<span class="chip">Computer-run</span>':''}${pst?STAFF_PILL:''}${dmLabelPills(peer)}<button class="linkish small" data-act="visit" data-id="${esc(px.id)}">View nation</button>${menu}</div>`:'';
   const filters=`<div class="dm-filters" role="group" aria-label="Show">${DM_FILTERS.map(([k,l])=>`<button type="button" class="chip-btn${F===k?' on':''}" data-act="dm-filter" data-v="${k}" aria-pressed="${F===k}">${l}</button>`).join('')}</div>`
     +`<div class="dm-lbf"><div class="dm-filters dm-lbs" role="group" aria-label="Labels">${DM_LABELS.map(([k,l])=>{const c=[...th.keys()].filter(id=>dmLabels(id).includes(k)).length;return `<button type="button" class="chip-btn dm-lbc dm-lb-${k}${LF===k?' on':''}" data-act="dm-lfilter" data-v="${k}" aria-pressed="${LF===k}"><i class="dm-dot dm-lb-${k}" aria-hidden="true"></i>${l}${c?`<span class="dm-lbn">${c}</span>`:''}</button>`;}).join('')}</div>`
     +`<label class="dm-af"><span class="hint">With</span><select class="input" id="dm-af" aria-label="Show the conversations whose letters carry">${DM_AF.map(([k,l])=>`<option value="${k}"${AF===k?' selected':''}>${l}</option>`).join('')}</select></label></div>`;
@@ -26573,9 +26592,9 @@ function refreshBell(now){
   const bt=b.closest('.bell');if(bt&&bt.getAttribute('aria-label')!==l)bt.setAttribute('aria-label',l);
 }
 
-function nextCityAt(n){const p=popNow(n),m=MILESTONES.find(m=>m.city&&p<m.p-1e-9);return m?m.p:null;}
+function nextCityAt(n){const p=popNow(n);return CITY_POP_AT.find(at=>p<at-1e-9)??null;}
 /* what unlocks the next city: "300 million people or 4 million km² of land", just one of them once the other is used up
-   (past 200M people only land is left), or '' when neither is; short is for the city list's button */
+   or '' when neither is; short is for the city list's button */
 function nextCityWhen(n,km2,short){const p=nextCityAt(n),a=nextAreaCity(km2),ps=p!=null?fmtPopShort(p)+' people':'',as=a?(a/1e6)+' million km²'+(short?'':' of land'):'';return short?(ps||as):[ps,as].filter(Boolean).join(' or ');}
 /* ───────── national statistics ───────── */
 /* Hundreds of derived figures for role play. Everything is worked out from a nation's census scores,
@@ -28190,7 +28209,7 @@ function normalizeFix1(d){
   n.iseen=Array.isArray(d.iseen)?[...new Set(d.iseen.filter(v=>Number.isInteger(v)&&v>0&&v<=ISSUES.length+500))].slice(-2500):n.answered.map(a=>ISSUE_BY_ID[a.id]&&ISSUE_BY_ID[a.id].no).filter(Boolean);
   n.bonce=Array.isArray(d.bonce)?d.bonce.filter(k=>typeof k==='string'&&k.length<=40).slice(-200):[];
   n.wh=Array.isArray(d.wh)?d.wh.filter(w=>w&&idOk(w.w)&&typeof w.a==='number'&&typeof w.b==='number').slice(-40).map(w=>({w:w.w,a:w.a,b:w.b})):[];
-  const pk=num(d.pk,0),pr=num(d.pr,0);if(pk>0)n.pk=clamp(pk,1,1e7);else delete n.pk;if(pr>0)n.pr=clamp(pr,0.0001,0.5);else delete n.pr;
+  const pk=num(d.pk,0),pr=num(d.pr,0);if(pk>0)n.pk=clamp(pk,1,1e10);else delete n.pk;if(pr>0)n.pr=clamp(pr,0.0001,0.5);else delete n.pr;
   n.peak=Math.max(n.pop,num(d.peak,0));
   for(const k of ['alLeft','alJoin']){const v=num(d[k],0);if(v>0)n[k]=v;else delete n[k];}
   return n;
@@ -35741,10 +35760,10 @@ HAP_SOURCES.push((x,now)=>{
 });
 vsAdd('cv',(x,now)=>{
   if(!x||!x.n||x.me)return '';const n=S.nation;
-  const pr=cvProtected(x,now),rv=n?cvRetal(x.id,n,now):null,c=x.npc?0:cvCaught(x.n,now);
+  const pr=cvProtected(x,now),rv=n?cvRetal(x.id,n,now):null,c=x.npc?cvIndex().all.filter(e=>e.by===x.id&&e.ex&&now-e.op.t<30*DAY).length:cvCaught(x.n,now);
   const btn=(n&&!pr?`<button class="btn ghost" data-act="cv-go" data-id="${esc(x.id)}">${rv?'Retaliate…':'Plan a covert operation'}</button>`:'')+(n&&n.ifl&&n.ifl[x.id]?`<button class="btn ghost" data-act="ib-file" data-id="${esc(x.id)}">Open your file</button>`:'');
-  const sub=x.npc?'Computer-run nations do not run covert operations, but their scandals still make the papers.':pr?`New nations are protected from covert operations for 3 days, until ${fmtDate((x.n.founded||0)+CV_NEW)}.`:rv?`${esc(x.n.name)} was caught ${esc(cvVerbYou(rv.op.k))}: you have a right to retaliate until ${fmtTime(rv.rt+CV_RV)}.`:'Covert operations: scandals, blueprints, sabotage and bribes.';
-  return `<section class="mu-visit cv-visit"><div class="mu-sc-h"><div><p class="eyebrow">Intelligence file</p>${x.npc?'':`<p class="mu-visit-n">Caught spying: ${c} ${c===1?'time':'times'} in the last 30 days</p>`}<p class="hint">${sub}</p></div>${btn}</div></section>`;
+  const sub=x.npc&&c?`${esc(x.n.name)} has been caught spying ${c} ${c===1?'time':'times'} in the last 30 days.`:x.npc?'Computer-run nations do not usually run covert operations, but their scandals still make the papers.':pr?`New nations are protected from covert operations for 3 days, until ${fmtDate((x.n.founded||0)+CV_NEW)}.`:rv?`${esc(x.n.name)} was caught ${esc(cvVerbYou(rv.op.k))}: you have a right to retaliate until ${fmtTime(rv.rt+CV_RV)}.`:'Covert operations: scandals, blueprints, sabotage and bribes.';
+  return `<section class="mu-visit cv-visit"><div class="mu-sc-h"><div><p class="eyebrow">Intelligence file</p>${x.npc&&!c?'':`<p class="mu-visit-n">Caught spying: ${c} ${c===1?'time':'times'} in the last 30 days</p>`}<p class="hint">${sub}</p></div>${btn}</div></section>`;
 });
 DISPATCH_SOURCES.push(ctx=>{
   if(!ctx||ctx.reg!==REG.id)return [];
@@ -39753,8 +39772,10 @@ MILESTONES.push(
 );
 while(MILE_NEW.length<MILESTONES.length)MILE_NEW.push(MILESTONES[MILE_NEW.length].c);
 const mileIx=p=>MILESTONES.findIndex(m=>m.p===p);
-function mileShown(pop){return MILESTONES.slice(1).filter(m=>m.p<=1000||m.p<=pop*20);}
-function mileMore(pop){const k=MILESTONES.length-1-mileShown(pop).length;return k?`<p class="hint mile-more">${k===1?'One more milestone lies':k+' more milestones lie'} beyond, up to ${fmtPopShort(MILESTONES[MILESTONES.length-1].p)} people.</p>`:'';}
+/* Merge city-only steps for display without inserting into the indexed reward/history schedule. */
+function growthMilestones(){const known=new Set(MILESTONES.map(m=>m.p));return MILESTONES.concat(CITY_POP_AT.filter(p=>!known.has(p)).map(p=>({p}))).sort((a,b)=>a.p-b.p);}
+function mileShown(pop){return growthMilestones().slice(1).filter(m=>m.p<=1000||m.p<=pop*20);}
+function mileMore(pop){const L=growthMilestones(),k=L.length-1-mileShown(pop).length;return k?`<p class="hint mile-more">${k===1?'One more milestone lies':k+' more milestones lie'} beyond, up to ${fmtPopShort(L.at(-1).p)} people.</p>`:'';}
 
 /* ── the city aggregate: dormant buildings and the new fields ── */
 function bldAgg(a,B,key,x){
@@ -41809,7 +41830,7 @@ function spAutoClaim(B){
 }
 /* building on a tile */
 function spShip(B,col){const half=col&&col.blds.some(b=>b.k===(B.id==='moon'?'md':'os')&&b.d<=Date.now());const s=SP_SHIP[B.id];return {oil:Math.round(s.oil*(half?0.5:1)),h:s.h*(half?0.5:1),half};}
-function spCost(B,key,col){const D=SP_BLDS[B.id][key],sh=spShip(B,col),o=Object.assign({},D.cost);o.oil=(o.oil||0)+sh.oil;return o;}
+function spCost(B,key,col){const D=SP_BLDS[B.id][key],sh=spShip(B,col),o=Object.assign({},D.cost);o.oil=(o.oil||0)+sh.oil;return bMaterialCost(o);}
 function spHours(B,key,col){return SP_BLDS[B.id][key].h+spShip(B,col).h;}
 function spBuildProblem(B,c,key,col,now){
   const D=SP_BLDS[B.id][key],W=spWorld(B),C=W.byId[myId()];now=now||Date.now();if(!D)return 'Unknown building.';
@@ -49287,7 +49308,7 @@ function tutComing(n,o){
   try{const m=mnComing(n);if(m)it.push(m);}catch(e){}
   try{const T=territory(),mi=T.byId[myId()];if(mi!==undefined){const free=Math.min(maxCities(T,mi),MAX_CITIES)-cityList(n).filter(c=>!c.cq).length;
     if(free>0&&nvxCitySite(T,mi)){if(!o.noCity)it.push({ic:'city',t:free===1?'A new city':`${free} new cities`,d:'ready to found now',go:1});}
-    else if(mileOf(n).cities<MILE_CITIES){const pop=popNow(n),m=MILESTONES.find(m=>pop<m.p-1e-9&&m.city);if(m)it.push({ic:'city',t:'Another city',d:`at ${fmtPop(m.p)} people · ${fmtPop(pop)} now`,p:pop/m.p});}}}catch(e){}
+    else if(mileOf(n).cities<MILE_CITIES){const pop=popNow(n),p=nextCityAt(n);if(p!=null)it.push({ic:'city',t:'Another city',d:`at ${fmtPop(p)} people · ${fmtPop(pop)} now`,p:pop/p});}}}catch(e){}
   try{const pop=popNow(n),np=nextCreditPop(n);if(np>pop*1.0001)it.push({ic:'hex',t:'Next land credit',d:`at ${fmtPop(np)} people · ${fmtPop(pop)} now`,p:pop/np});}catch(e){}
   try{const c=tutPaidN(n),m=TUT_MILES.find(([k])=>c<k);if(m){const U=UNLOCKS[m[1]];it.push({art:tutArt(m[1]),t:`A design: ${U.n}`,d:`${TUT_KW[U.k]} · at ${m[0]} tasks done · ${c} of ${m[0]}`,p:c/m[0]});}}catch(e){}
   if(!it.length)return '';
@@ -52428,16 +52449,16 @@ function muGrowth(x,now){
   const H=n.npc?((n._hist||[]).filter(q=>q.t<now).slice(-60).map(q=>[q.t,npcPop(n,q.t)])):(n.hist||[]).map(q=>[q.t,q.p]);
   const pts=H.concat([[now,pop]]);
   const chart=lineChart('Population',pts,v=>fmtPop(v),{ax:v=>v?(v>=1000?axNum(v/1000)+'B':axNum(v)+'M'):'0'});
-  const miles=MILESTONES.map((m,i)=>{const t=tallyFirst(n,'mile:'+i),hit=t||pop>=m.p-1e-9;return {m,i,t,hit};});
+  const L=growthMilestones(),miles=L.map(m=>{const i=MILESTONES.indexOf(m),t=i>=0?tallyFirst(n,'mile:'+i):0,hit=t||pop>=m.p-1e-9;return {m,i,t,hit};});
   const got=miles.filter(q=>q.hit),ahead=miles.filter(q=>!q.hit),next=ahead.slice(0,2),rest=ahead.slice(2);
   const peak=Math.max(tallyOf(n,'peak'),n.peak||0,pop);
   const T=n.tlx?STAT_KEYS.filter(k=>n.tlx[k]):[];
   const name=m=>`<b class="mu-mile-p">${fmtPopShort(m.p)}</b>${m.t?`<span class="mu-mile-t">${esc(m.t)}</span>`:''}`;
   const unl=m=>{if(!x.me)return '';try{const u=mileUnlocks(m,n);return u.length?` Unlocks ${esc(list(u))}.`:'';}catch(e){return '';}};
   const nx=next.map(({m})=>{const f=Math.min(1,pop/m.p);return `<div class="mu-nm"><p class="mu-nm-h">${name(m)}<span class="mu-nm-pc">${Math.floor(f*100)}%</span></p><span class="bar" role="img" aria-label="${Math.floor(f*100)} per cent of the way"><i style="width:${(f*100).toFixed(1)}%"></i></span><p class="hint">${esc(fmtPop(m.p-pop))} to go.${unl(m)}</p></div>`;}).join('');
-  const last=MILESTONES[MILESTONES.length-1];
+  const last=L.at(-1);
   const rows=Math.ceil(got.length/2);
-  return `${muFigs([['Population',fmtPop(pop)],['Peak',fmtPop(peak)],['Milestones reached',`${got.length} of ${MILESTONES.length}`]])}
+  return `${muFigs([['Population',fmtPop(pop)],['Peak',fmtPop(peak)],['Milestones reached',`${got.length} of ${L.length}`]])}
   <div class="mu-two mu-grow">
     <div class="mu-chart">${chart}</div>
     <section class="mu-nexts" aria-labelledby="mu-nx-h"><h2 class="h2" id="mu-nx-h">${next.length>1?'The next milestones':next.length?'The last milestone':'Every milestone reached'}</h2>${nx||`<p class="hint">${esc(n.name)} has passed every milestone the archive knows, up to ${fmtPopShort(last.p)} people.</p>`}
@@ -53424,9 +53445,9 @@ function normalizeBase(d){
   const dealNo=Array.isArray(d.dealNo)?d.dealNo.filter(x=>typeof x==='string').slice(-20).map(x=>x.slice(0,16)):[];
   return {v:1,_rev:Number.isSafeInteger(d._rev)&&d._rev>=0?d._rev:0,_dirty:!!d._dirty,name,pretitle:str(d.pretitle,40)||'Republic',motto:str(d.motto,80),capital:str(d.capital,40)||'the capital',leader:str(d.leader,40)||'Leader',
     currency:str(d.currency,30)||'crown',animal:str(d.animal,30)||'otter',demonym:str(d.demonym,40)||demonymOf(name),flag,founded:num(d.founded,now),capAt:num(d.capAt,0)||undefined,
-    s,budget,policies,pop:clamp(num(d.pop,5),0.1,1e7),popAt:num(d.popAt,now),answered,inbox,issueClock:num(d.issueClock,now),issueSeq:num(d.issueSeq,0),
+    s,budget,policies,pop:clamp(num(d.pop,5),0.1,1e9),popAt:num(d.popAt,now),answered,inbox,issueClock:num(d.issueClock,now),issueSeq:num(d.issueSeq,0),
     freq:FREQS.some(x=>x[0]===d.freq)?d.freq:FREQ_DEF,log,seed:str(d.seed,40)||'1',updatedAt:num(d.updatedAt,0),loc:validLoc(d.loc),wars,peace,conq,cv:MAP_VER,ready:Number.isInteger(d.ready)?clamp(d.ready,0,MAX_READY):READY_BASE,readyAt:num(d.readyAt,now),alli,allyOf:str(d.allyOf,60),spy,intel,deals,dealNo,trFav,trX,gm:clamp(num(d.gm,1),0.5,1.6),cities:normCities(d),cab:normCab(d,str(d.seed,40)||'1',num(d.founded,now)),cabSeq:Math.max(7,Math.floor(num(d.cabSeq,7))),cabAt:num(d.cabAt,0),la:clamp(num(d.la,45+hash((str(d.seed,40)||'1')+':la')%14),20,110),lt:num(d.lt,num(d.founded,now)),games:normGames(d),lore:d.lore&&typeof d.lore==='object'?Object.fromEntries(LORE.map(([k])=>[k,typeof d.lore[k]==='string'?d.lore[k].slice(0,2000):'']).filter(([,v])=>v.trim())):{},hist:Array.isArray(d.hist)?d.hist.filter(h=>h&&typeof h.t==='number'&&typeof h.p==='number'&&Array.isArray(h.s)&&h.s.length===STAT_KEYS.length).slice(-90).map(h=>({t:h.t,p:h.p,s:h.s.map(v=>clamp(num(v,50),0,100))})):[],claims:Array.isArray(d.claims)?(d.cv===undefined||d.cv===MAP_VER?d.claims.filter(e=>e&&Number.isInteger(e.c)&&e.c>=0&&e.c<MAP.N&&typeof e.t==='number'&&isFinite(e.t)).slice(-CLAIM_MAX).map(e=>({c:e.c,t:e.t})):[]):undefined,autoLand:!!d.autoLand,mileAck:Number.isInteger(d.mileAck)?clamp(d.mileAck,0,MILESTONES.length):undefined,seen:num(d.seen,0),dm:Array.isArray(d.dm)?d.dm.filter(m=>m&&typeof m.w==='string'&&typeof m.x==='string'&&m.x.trim()).slice(-400).map(dmNorm):[],seenDm:d.seenDm&&typeof d.seenDm==='object'?Object.fromEntries(Object.entries(d.seenDm).filter(([k,v])=>k.length<=90&&typeof v==='number'&&isFinite(v)).slice(-300)):{},stock:Object.fromEntries(RES.map(r=>[r,clamp(num(d.stock&&d.stock[r],START_STOCK[r]),0,whLoadCap(d)+xsOf(d))])),stockAt:num(d.stockAt,now),
-    ruler:str(d.ruler,40).trim(),lang:str(d.lang,30).trim(),faith:str(d.faith,50).trim(),sport:str(d.sport,30).trim(),dish:str(d.dish,40).trim(),anthem:str(d.anthem,60).trim(),about:str(d.about,280).trim(),mapc:safeColor(d.mapc,''),topics};
+    ruler:str(d.ruler,40).trim(),lang:str(d.lang,30).trim(),faith:str(d.faith,50).trim(),beliefOutlook:beliefValue(BELIEF_OUTLOOK,d.beliefOutlook),beliefGov:beliefValue(BELIEF_GOV,d.beliefGov),beliefWords:str(d.beliefWords,160).trim(),beliefOccasion:str(d.beliefOccasion,60).trim(),sport:str(d.sport,30).trim(),dish:str(d.dish,40).trim(),anthem:str(d.anthem,60).trim(),about:str(d.about,280).trim(),mapc:safeColor(d.mapc,''),topics};
 }
 /* observing another region (OBS), this browser's copy is neither read (its cells belong to another map) nor written */
 /* a copy a newer map's page left in this browser (a tab of the new build played here since) is not read: mapStaleStop */
@@ -57731,6 +57752,57 @@ function staffPillOf(id){return isModId(id)?MOD_PILL:STAFF_PILL;}
 function isAmbId(id){return !!id&&((id===S.uid&&!!S.isAmb&&!PV)||!!(S.ambs&&S.ambs.has(id)));}
 /* the pill beside a nation's name: staff first, then an ambassador's */
 function rolePillOf(id){return isStaff(id)?staffPillOf(id):isAmbId(id)?AMB_PILL:'';}
+/* A bare Assembly seat, in its region's colour. These colours are stable across every chat and theme.
+   Office is read from the protected server records, never from a posted line or public nation JSON. */
+const CHAT_DEL_COLORS={meridian:'#7760ad',frostmarch:'#438ca9',northernpale:'#728da6',driftlands:'#688c7f',silentmoors:'#8c749a',wildwood:'#527544',saffron:'#b4852d',hollow:'#98774e',ashen:'#a36962',ironsteppe:'#8c8050',gilded:'#a79238',verdantbasin:'#34865b',coralreach:'#c46d7b',emberisles:'#bf663c',lanterncoast:'#ad754a',jadeterraces:'#328b7b',highcrags:'#7e839b',cloudspine:'#7d93ba',obsidianrim:'#625a7b',ambershallows:'#c28f43',sunkenkingdoms:'#3e7f86',mistral:'#4b9aa1',stormwrack:'#4e687e',longvalley:'#8c9b43',greywater:'#6e807c',scatteredcrown:'#a25d84',terra:'#688ab5'};
+const CHAT_DEL={cache:new Map(),pending:new Set(),busy:false,timer:0,uid:'',db:null};
+function chatDelegateReset(){
+  if(CHAT_DEL.uid===S.uid&&CHAT_DEL.db===S.db)return;
+  CHAT_DEL.uid=S.uid;CHAT_DEL.db=S.db;CHAT_DEL.cache.clear();CHAT_DEL.pending.clear();
+}
+function chatDelegateMark(id){
+  const entry=CHAT_DEL.cache.get(id),reg=entry&&entry.until>Date.now()?entry.reg:'',R=REG_BY_ID[reg],color=CHAT_DEL_COLORS[reg];
+  if(!R||!color)return '';
+  const label='WA Delegate · '+R.name;
+  return `<span class="chat-delegate" style="--delegate-color:${color}" role="img" aria-label="${esc(label)}" title="${esc(label)}"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2.5 16 4.8v4.6c0 3.3-2.2 5.8-6 7.4-3.8-1.6-6-4.1-6-7.4V4.8Z" fill="currentColor" fill-opacity=".12" stroke="currentColor" stroke-width="1.15"/><path d="M7.3 10.5V7a.6.6 0 0 1 .6-.6h4.2a.6.6 0 0 1 .6.6v3.5M6.5 9.3v1.8h7V9.3M7.6 11.1v1.8m4.8-1.8v1.8" fill="none" stroke="currentColor" stroke-width="1.15" stroke-linejoin="round" stroke-linecap="round"/></svg></span>`;
+}
+function chatDelegateNeed(id){
+  chatDelegateReset();
+  if(!id||!S.db||S.mode==='local'||!S.uid||!/^[-\w]{1,128}$/.test(id)||NPC_SET.has(id)||isOffice(id)||dmIsGroup(id))return;
+  const entry=CHAT_DEL.cache.get(id);if(entry&&entry.until>Date.now())return;
+  CHAT_DEL.pending.add(id);
+  if(!CHAT_DEL.busy&&!CHAT_DEL.timer)CHAT_DEL.timer=setTimeout(chatDelegateLoad,0);
+}
+function chatDelegateBadge(id){
+  chatDelegateNeed(id);
+  return `<span class="chat-delegate-slot" data-chat-delegate="${esc(id)}">${chatDelegateMark(id)}</span>`;
+}
+function chatDelegatePaint(){
+  chatDelegateReset();
+  for(const slot of document.querySelectorAll('[data-chat-delegate]')){
+    if(!slot.getClientRects().length)continue;
+    const id=slot.dataset.chatDelegate,h=chatDelegateMark(id);if(slot.innerHTML!==h)slot.innerHTML=h;
+    chatDelegateNeed(id);
+  }
+}
+async function chatDelegateLoad(){
+  CHAT_DEL.timer=0;chatDelegateReset();if(CHAT_DEL.busy||!CHAT_DEL.pending.size)return;
+  const ids=[...CHAT_DEL.pending].slice(0,80),uid=S.uid,db=S.db;
+  for(const id of ids)CHAT_DEL.pending.delete(id);CHAT_DEL.busy=true;
+  try{
+    const api=await window.claude.use('civic');if(!api)throw new Error('offline');
+    const result=await api.request({op:'chatDelegates',ids});
+    if(uid!==S.uid||db!==S.db)return;
+    const until=Date.now()+60000;
+    for(const id of ids){const reg=result&&result.badges&&result.badges[id];CHAT_DEL.cache.set(id,{reg:REG_BY_ID[reg]?reg:'',until});}
+  }catch(e){if(uid===S.uid&&db===S.db)for(const id of ids)CHAT_DEL.cache.set(id,{reg:'',until:Date.now()+60000});}
+  finally{
+    for(const id of ids)CHAT_DEL.pending.delete(id);
+    CHAT_DEL.busy=false;chatDelegatePaint();
+    if(CHAT_DEL.pending.size&&!CHAT_DEL.timer)CHAT_DEL.timer=setTimeout(chatDelegateLoad,0);
+  }
+}
+setInterval(()=>{if(!document.hidden)chatDelegatePaint();},15000);
 function portalOk(v){return !!S.isOwner||!!S.isMod&&MOD_VIEWS.includes(v);}
 /* a moderator's portal: the queue of what needs them, the reports, every region's chat, and the player behind a report
    (functions/admin.js, modPlayer: the nation and its history, never the account behind it) */
@@ -57804,6 +57876,10 @@ function factbook(n,now,live,id){
   const part=[
     ['Capital',esc(n.capital)],['Leader',esc(n.leader)+(n.ruler?' '+esc(n.ruler):'')],['Currency',esc(n.currency)],['National animal',esc(n.animal)],['Demonym',esc(n.demonym)],
     ...[['lang','Language'],['faith','Religion'],['sport','National sport'],['dish','National dish'],['anthem','Anthem']].filter(([k])=>n[k]).map(([k,l])=>[l,k==='anthem'?'“'+esc(n[k])+'”':esc(n[k])]),
+    ...(n.beliefOutlook?[['National outlook',esc(beliefLabel(BELIEF_OUTLOOK,n.beliefOutlook))]]:[]),
+    ...(n.beliefGov?[['Government and belief',esc(beliefLabel(BELIEF_GOV,n.beliefGov))]]:[]),
+    ...(n.beliefWords?[['National beliefs',esc(n.beliefWords)]]:[]),
+    ...(n.beliefOccasion?[['National occasion',esc(n.beliefOccasion)]]:[]),
     ...czFactRows(n),
     ['Founded',n.npc?'Before records began':fmtDate(n.founded)]
   ];
@@ -60050,6 +60126,15 @@ function hmBake(raws,hidden){
    (sgShow, from the wiring near the end of the script). The open tab is in the address as #settings/<tab>. */
 const SG_TABS=[['nation','Your nation'],['edicts','Edicts'],['notif','Notifications'],['display','Display'],['sound','Sound'],['nav','Navigation'],['account','Account']];
 const SG={tab:'nation',saved:null,leave:null,leaveOK:false};
+const BELIEF_OUTLOOK=[['','Not declared'],['religious','Religious'],['agnostic','Agnostic'],['atheist','Atheist'],['pluralist','Pluralist']];
+const BELIEF_GOV=[['','Not declared'],['secular','Secular government'],['freedom','Freedom of belief'],['recognized','Recognized tradition'],['state-religion','State religion'],['state-atheism','State atheism']];
+const beliefLabel=(options,value)=>options.find(([k])=>k===value)?.[1]||'';
+const beliefValue=(options,value)=>options.some(([k])=>k===value)?value:'';
+function sgBeliefPreview(st){
+  const outlook=beliefLabel(BELIEF_OUTLOOK,st.beliefOutlook),gov=beliefLabel(BELIEF_GOV,st.beliefGov),faith=String(st.faith||'').trim(),words=String(st.beliefWords||'').trim(),occasion=String(st.beliefOccasion||'').trim();
+  if(!st.beliefOutlook&&!st.beliefGov&&!faith&&!words&&!occasion)return '<p class="hint">Nothing declared yet.</p>';
+  return `<dl>${[[st.beliefOutlook?'National outlook':'',st.beliefOutlook?outlook:''],[faith?'Tradition':'',faith],[st.beliefGov?'Government and belief':'',st.beliefGov?gov:''],[words?'In your own words':'',words],[occasion?'National occasion':'',occasion]].filter(([k])=>k).map(([k,v])=>`<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>`;
+}
 const SG_CULT=['lang','faith','sport','dish','anthem','about'];
 function sgTabOfId(id){
   id=String(id||'').replace(/^#/,'');
@@ -60062,7 +60147,7 @@ function sgTabOfId(id){
   return 'nation';
 }
 function settingsFrom(n){return {pretitle:n.pretitle,ptCustom:!PRETITLES.includes(n.pretitle),motto:n.motto,capital:n.capital,leader:n.leader,animal:n.animal,demonym:n.demonym,
-  ruler:n.ruler||'',lang:n.lang||'',faith:n.faith||'',sport:n.sport||'',dish:n.dish||'',anthem:n.anthem||'',about:n.about||'',mapc:n.mapc||''};}
+  ruler:n.ruler||'',lang:n.lang||'',faith:n.faith||'',beliefOutlook:beliefValue(BELIEF_OUTLOOK,n.beliefOutlook),beliefGov:beliefValue(BELIEF_GOV,n.beliefGov),beliefWords:n.beliefWords||'',beliefOccasion:n.beliefOccasion||'',sport:n.sport||'',dish:n.dish||'',anthem:n.anthem||'',about:n.about||'',mapc:n.mapc||''};}
 /* how many fields of the draft differ from the nation (the custom-title switch is not a field of its own) */
 function sgDirtyN(){const st=S.settings;if(!st||!S.nation)return 0;const a=settingsFrom(S.nation);return Object.keys(a).filter(k=>k!=='ptCustom'&&JSON.stringify(a[k])!==JSON.stringify(st[k])).length;}
 const sgTopicsN=n=>Object.values(n.topics||{}).filter(v=>v===1||v===-1).length;
@@ -60141,6 +60226,15 @@ function settingsView(){
           ${f('dish','National dish',40,'e.g. fish stew')}
           ${f('anthem','National anthem',60,'e.g. Rise, O '+n.name)}
         </div>
+        <div style="margin-top:22px"><h3 class="sg-ch">National beliefs</h3><p class="hint fs-hint">Optional. Your nation's outlook and the government's relationship to belief are separate choices. Individuals may hold different beliefs.</p>
+          <div class="fields">
+            <div class="field"><label for="s-beliefOutlook">National outlook</label><select class="input" id="s-beliefOutlook" data-bind="s.beliefOutlook">${BELIEF_OUTLOOK.map(([v,l])=>`<option value="${esc(v)}"${st.beliefOutlook===v?' selected':''}>${esc(l)}</option>`).join('')}</select></div>
+            <div class="field"><label for="s-beliefGov">Government and belief</label><select class="input" id="s-beliefGov" data-bind="s.beliefGov">${BELIEF_GOV.map(([v,l])=>`<option value="${esc(v)}"${st.beliefGov===v?' selected':''}>${esc(l)}</option>`).join('')}</select></div>
+            ${f('beliefOccasion','National occasion (optional)',60,'e.g. Day of Open Questions')}
+          </div>
+          <div class="field" style="margin-top:16px"><label for="s-beliefWords">National beliefs in your own words (optional)</label><textarea class="input" id="s-beliefWords" data-bind="s.beliefWords" maxlength="160" rows="2" placeholder="A short description shown on your nation page.">${esc(st.beliefWords||'')}</textarea></div>
+          <p class="hint fs-hint">These choices describe your nation. They do not automatically change rights or game statistics.</p><div class="sg-belief-preview"><p class="lbl">As other players see it</p><div class="factbook" id="sg-belief-preview">${sgBeliefPreview(st)}</div></div>
+        </div>
         <div class="field" style="margin-top:16px"><label for="s-about">About ${esc(n.name)}</label><textarea class="input" id="s-about" data-bind="s.about" maxlength="280" rows="3" placeholder="A few lines in your own words. Other players see them on your nation page.">${esc(st.about||'')}</textarea><span class="hint" id="s-about-count">${(st.about||'').length} / 280</span></div>
       </fieldset>
       <fieldset class="sg-fs" id="set-mapc"><legend class="sg-ch">Map colour</legend>
@@ -60199,7 +60293,7 @@ function settingsView(){
    Delete opens the account panel's own step for it (src/shim.js, __edictum.openAccount), which deletes the
    account on the server as well. Start over is a dissolve followed by the founding page with the old name and
    particulars filled in; what SG_CARRY lists comes along when the nation is founded again (sgCarry, in found). */
-const SG_CARRY=['ruler','lang','faith','sport','dish','anthem','about','lore','mapc','cz','cur','freq','topics'],SG_CARRY_KEY='edictum.restart';
+const SG_CARRY=['ruler','lang','faith','beliefOutlook','beliefGov','beliefWords','beliefOccasion','sport','dish','anthem','about','lore','mapc','cz','cur','freq','topics'],SG_CARRY_KEY='edictum.restart';
 const sgDzOk=()=>!!S.nation&&nameFold(S.dzType||'')===nameFold(S.nation.name);
 function sgCarry(v){try{if(v===undefined){const o=JSON.parse(localStorage.getItem(SG_CARRY_KEY)||'null');return o&&o.name&&Date.now()-o.t<7*86400000?o:null;}
   if(v===null)localStorage.removeItem(SG_CARRY_KEY);else localStorage.setItem(SG_CARRY_KEY,JSON.stringify(v));}catch(e){}return null;}
@@ -60511,7 +60605,7 @@ function found(){
   const now=Date.now(),{s,b}=foundStats(d.answers);
   const n={v:1,name,pretitle:d.pretitle,motto:d.motto.trim(),capital:d.capital.trim()||'Port Alder',leader:d.leader.trim()||'Leader',currency:d.currency.trim()||'crown',animal:d.animal.trim()||'otter',
     demonym:d.demonym.trim()||demonymOf(name),flag:clone(d.flag),...(d.fx&&d.fx.capital&&d.capital.trim()===d.fx.capital?{capA:d.fx.capital}:{}),founded:now,reg:REG.id,s,budget:b,policies:{},pop:5,popAt:now,answered:[],inbox:[],issueClock:now,issueSeq:0,freq:FREQ_DEF,
-    log:[{t:now,k:'found'}],seed:String(hash(name+':'+now)),updatedAt:now,claims:[],mileAck:1,onb:{v:1,u:[]}};
+    log:[{t:now,k:'found'}],seed:String(hash(name+':'+now)),updatedAt:now,claims:[],mileAck:1,mbg:20,onb:{v:1,u:[]}};
   for(let i=0;i<2;i++){n.inbox.push({id:pickIssue(n),at:now});n.issueSeq++;}
   /* the clock as if the last edict came a slot less EDICT_FIRST ago: the next one arrives ten minutes in, then every 30 */
   n.issueClock=now-(FREQ_DEF-EDICT_FIRST)*60000;
@@ -60601,6 +60695,7 @@ function saveSettings(){
   n.pretitle=t(st.pretitle,40,n.pretitle);n.motto=String(st.motto||'').trim().slice(0,80);n.capital=t(st.capital,40,n.capital);n.leader=t(st.leader,40,n.leader);
   n.animal=t(st.animal,30,n.animal);n.demonym=t(st.demonym,40,n.demonym);
   for(const [k,max] of [['ruler',40],['lang',30],['faith',50],['sport',30],['dish',40],['anthem',60],['about',280]])n[k]=String(st[k]||'').trim().slice(0,max);
+  n.beliefOutlook=beliefValue(BELIEF_OUTLOOK,st.beliefOutlook);n.beliefGov=beliefValue(BELIEF_GOV,st.beliefGov);n.beliefWords=String(st.beliefWords||'').trim().slice(0,160);n.beliefOccasion=String(st.beliefOccasion||'').trim().slice(0,60);
   {const mc=safeColor(st.mapc,'');n.mapc=tutMapcOk(n,mc)&&ctgMcOk(n,mc)?mc:n.mapc||'';}
   commit(n);S.settings=settingsFrom(n);render();toast('Changes saved.');return true;
 }
@@ -64608,7 +64703,7 @@ function whSync(n,now){
 }
 function whRecord(ct){return cityList(ct.fn).find(c=>c.id===ct.id&&c.c===ct.c)?.b?.find(b=>b.k==='warehouse');}
 function whBusy(ct,now=Date.now()){const b=whRecord(ct),u=b&&whExtras(b).wu;return u&&u.d>now?u:null;}
-function whQuote(n,to){const base=bCost(n,'warehouse');return {cost:Object.fromEntries(Object.entries(base).map(([r,v])=>[r,Math.ceil(v*2**to*WH_UP_K-1e-9)])),hours:Math.round(WH_HOURS[to]*cabFx(n).build*10)/10};}
+function whQuote(n,to){const base=bCost(n,'warehouse',true);return {cost:bMaterialCost(Object.fromEntries(Object.entries(base).map(([r,v])=>[r,Math.ceil(v*2**to*WH_UP_K-1e-9)]))),hours:Math.round(WH_HOURS[to]*cabFx(n).build*10)/10};}
 function whUpgradeProblem(n,ct,st,now=Date.now()){
   if(!ct||ct.fid!==myId()||!ct.active||ct.hi!==territory().byId[myId()])return 'Only the city’s founder can upgrade a warehouse it currently holds.';
   const b=whRecord(ct);if(!b||b.d>now)return 'Complete the Warehouse first.';if(whBusy(ct,now))return 'A warehouse upgrade is already under way.';
@@ -64638,7 +64733,7 @@ function whRow(ct,b,mine,now,html){
 }
 function whSummary(n,now){const entries=whEntries(n).filter(e=>e.b.d<=now);return `<p class="hint wh-summary">Capacity: <b>${stockCap(n,now)} of every resource</b> · ${STOCK_CAP} base${entries.length?' + '+entries.length+' working '+(entries.length===1?'Warehouse':'Warehouses'):'. Build a Warehouse in each city to expand it.'}${n.policies?.warehouseRacks?' · racking +200':''}${n.policies?.warehouseArchive?' · archive reserve −200':''}. Resources already stored are retained if capacity falls; further production pauses for any resource over its limit.</p>`;}
 document.addEventListener('click',e=>{const el=e.target.closest('[data-act]');if(!el||!S.nation)return;if(el.dataset.act==='wh-upgrade')whUpgrade(el.dataset.id);if(el.dataset.act==='wh-cancel')whCancel(el.dataset.id);});
-HELP_EXT.push({k:'warehouses',t:'Warehouses and resource storage',body:()=>'<p>Your nation starts with room for 400 of each resource. One Warehouse may be built in every city, using one building slot. It adds 400 storage, then four upgrades add 800, 1,200, 2,000 and 3,000 more: each warehouse contributes 400, 1,200, 2,400, 4,400 or 7,400 capacity per resource. Warehouses in cities you hold add together.</p><p>Base construction costs 30 timber, 20 iron and 15 goods and takes four hours. Each upgrade doubles that base material cost. The four upgrade durations are 8, 16, 24 and 36 hours, before cabinet modifiers. Old capacity stays usable during work, and new capacity begins only at completion. The city cannot run other construction at the same time as an upgrade. Cancelling returns half the upgrade materials. Each final-tier completion awards its builder two land credits once.</p><p>Two warehouse edicts become eligible only after you hold a completed warehouse of your own. Standardised racking adds 200 national capacity per resource; reserving room for archives removes 200. Those policy adjustments apply once nationally while you hold a working warehouse. Losing or demolishing storage keeps existing resources; production resumes when the stock falls below its current capacity.</p>'});
+HELP_EXT.push({k:'warehouses',t:'Warehouses and resource storage',body:()=>'<p>Your nation starts with room for 400 of each resource. One Warehouse may be built in every city, using one building slot. It adds 400 storage, then four upgrades add 800, 1,200, 2,000 and 3,000 more: each warehouse contributes 400, 1,200, 2,400, 4,400 or 7,400 capacity per resource. Warehouses in cities you hold add together.</p><p>Base construction costs 36 timber, 20 iron and 15 goods and takes four hours. Each upgrade doubles that base material cost. The four upgrade durations are 8, 16, 24 and 36 hours, before cabinet modifiers. Old capacity stays usable during work, and new capacity begins only at completion. The city cannot run other construction at the same time as an upgrade. Cancelling returns half the upgrade materials. Each final-tier completion awards its builder two land credits once.</p><p>Two warehouse edicts become eligible only after you hold a completed warehouse of your own. Standardised racking adds 200 national capacity per resource; reserving room for archives removes 200. Those policy adjustments apply once nationally while you hold a working warehouse. Losing or demolishing storage keeps existing resources; production resumes when the stock falls below its current capacity.</p>'});
 
 
 /* ── navigation memory, search, long-page sections and actionable requirements ── */
@@ -67390,6 +67485,32 @@ COMMIT_HOOKS.push((n,old,now)=>{
 setInterval(()=>{try{
   const n=S.nation;if(!n||n.npc||!n.name||document.hidden||OBS||PV||tabPassive||regBlocked()||S.mode==='readonly'||S.moving||S.db&&!RCTRL.ready)return;
   if(n.hst===1&&!(n.wbk&&wbDays(n)<WB_DAYS&&ddLater(ddDay(Date.now()),n.wbk.d)))return;
+  commit(clone(n));const a=document.activeElement;if(!(a&&a.closest&&a.closest('input,textarea,select,[contenteditable]')))quietRender();
+}catch(e){}},5000);
+
+/* ───────── material balance: the extra starting goods paid back (2026-11-24) ─────────
+   New nations already receive these 20 goods in START_STOCK (found marks mbg:20). Existing nations keep how many
+   have actually reached their stores in mbg. Full stores defer payment; partial room never forfeits the remainder.
+   This runs after actRecord, so a concurrent save replays only player actions and recalculates the payment from
+   the winning record, rather than replaying the resource gift as another player action. */
+const MB_GOODS=20;
+function mbGoodsPaid(n){return n&&Number.isInteger(n.mbg)&&n.mbg>0?Math.min(MB_GOODS,n.mbg):0;}
+NORM_HOOKS.push((n,d)=>{const p=mbGoodsPaid(d);if(p)n.mbg=p;else delete n.mbg;});
+function mbGoodsBackpay(n,old,now){
+  if(!n||n.npc||!n.name)return [];
+  const same=old&&old.founded===n.founded&&old.seed===n.seed;
+  const paid=Math.max(mbGoodsPaid(n),same?mbGoodsPaid(old):0);n.mbg=paid;
+  if(paid>=MB_GOODS)return [];
+  const st=stockNow(n,now),had=num0(st.goods),room=Math.max(0,Math.floor(stockCap(n,now)-had+1e-6));
+  const amount=Math.min(MB_GOODS-paid,room);if(!amount)return [];
+  st.goods=had+amount;n.stock=roundStock(st);n.stockAt=now;n.mbg=paid+amount;
+  return [`The larger starting stock, paid back: +${amount} goods.${n.mbg<MB_GOODS?` ${MB_GOODS-n.mbg} more will arrive when your stores have room.`:''}`];
+}
+COMMIT_HOOKS.push(mbGoodsBackpay);
+/* Opening the game is enough. While stores are full, wait without saving again until a whole good fits. */
+setInterval(()=>{try{
+  const n=S.nation;if(!n||n.npc||!n.name||mbGoodsPaid(n)>=MB_GOODS||document.hidden||OBS||PV||tabPassive||regBlocked()||S.mode==='readonly'||S.moving||S.db&&!RCTRL.ready)return;
+  const now=Date.now();if(stockCap(n,now)-num0(stockNow(n,now).goods)<1-1e-6)return;
   commit(clone(n));const a=document.activeElement;if(!(a&&a.closest&&a.closest('input,textarea,select,[contenteditable]')))quietRender();
 }catch(e){}},5000);
 
@@ -77101,6 +77222,7 @@ stockRates=(f=>function(n){
   for(const r of RES){const fl=GB.SHARE*Math.max(0,E.prod[r][i]-E.exp[r][i]);if(fl>o[r])o[r]=fl;}
   o.food*=1-foodSpoilAt(E.T,i);
   if(n&&!n.npc){o.goods+=gbPopGoods(n);const st=n.stock||START_STOCK;for(const r of RES)if(isFinite(GB_MIN[r])&&num0(st[r])<GB_MIN[r]&&o[r]<GB.TRICKLE)o[r]=GB.TRICKLE;}
+  if(n&&!n.npc){const a=cityState(E.T).agg[i],count=a&&a.cities||0;for(const r in CITY_BASE_INCOME)o[r]+=count*CITY_BASE_INCOME[r];}
   return o;
 })(stockRates);
 
@@ -77165,6 +77287,7 @@ function rbdParts(n,r){
   if(r==='food'&&got>0){const f=foodSpoilAt(T,i),sp=got*f;if(sp>=0.05)stock.push([f<FOOD_SPOIL?`Spoils on the way (${spoilPct(f)}%, down from ${spoilPct(FOOD_SPOIL)}% with your Granary)`:`Spoils on the way (${spoilPct(f)}%; a Granary cuts it)`,-sp]);got-=sp;}
   if(r==='goods'&&!n.npc)add('Your population’s own goods',gbPopGoods(n));
   const st0=n.stock||START_STOCK;if(!n.npc&&isFinite(GB_MIN[r])&&num0(st0[r])<GB_MIN[r]&&got<GB.TRICKLE)add('State top-up while it is low',GB.TRICKLE-got);
+  if(!n.npc&&a&&CITY_BASE_INCOME[r])add(`City base income (${a.cities} active ${a.cities===1?'city':'cities'})`,a.cities*CITY_BASE_INCOME[r]);
   const tot=stockRates(n)[r];add('Other effects',tot-got);
   return {made,used,trade,stock,prod:E.prod[r][i],left,tot};
 }
@@ -78670,7 +78793,7 @@ function obsChat(A){
   const C=AL.chat;if(C.aid!==A.id)return '<p class="hint" role="status">Opening the channel…</p>';
   if(C.err)return `<p class="err">${esc(C.err)}</p>`;
   if(!C.list.length)return '<p class="hint">No messages in this channel yet.</p>';
-  return `<ol class="al-chat" data-stick="alo:${esc(A.id)}">${C.list.map(m=>`<li class="al-msg"><p class="al-msg-h"><b>${nationLink(m.a,findNation(m.a)?findNation(m.a).n.name:m.nm,false)}</b><span class="hint">${esc(rel(m.t))}</span></p><p class="al-msg-x">${esc(m.x)}</p></li>`).join('')}</ol>`;
+  return `<ol class="al-chat" data-stick="alo:${esc(A.id)}">${C.list.map(m=>`<li class="al-msg"><p class="al-msg-h"><b>${nationLink(m.a,findNation(m.a)?findNation(m.a).n.name:m.nm,false)}</b>${chatDelegateBadge(m.a)}<span class="hint">${esc(rel(m.t))}</span></p><p class="al-msg-x">${esc(m.x)}</p></li>`).join('')}</ol>`;
 }
 alPageView=(f=>function(){const h=f.apply(this,arguments);if(!obsStaff())return h;const A=politics().al.get(AL.view);if(!A||!A.srv)return h;
   try{alChatConnect();}catch(e){}
@@ -78986,9 +79109,9 @@ function cxRefund(n,st,cost,now){for(const r of RES)st[r]=stockLimit(n,r,st[r]+M
 /* prices round up to whole units, less a hair of floating-point dust first (225 × 1.08 is 243.00000000000003: 243, not 244) */
 /* since 2026-11-17 (idea 6) 30% of an upgrade's timber price is asked in iron instead, so upgrades lean on iron: ugIron,
    kept on cxUpList's line so the tests that lift that line get it too */
-function cxUpList(k,to,m,tr){const U=CX_UG[to-1];m=m||(U&&U.cost);if(!BUILDINGS[k]||!m)return null;const T=tr>=2?bTier(k,tr):null,base=bCost(null,k),c={};for(const r in base)c[r]=Math.max(1,Math.ceil(base[r]*m*(T?T.ug:1)-1e-9));return ugIron(c);}function ugIron(c){const t=c.timber||0;if(t<2)return c;const x=Math.round(t*0.3);c.timber=t-x;c.iron=(c.iron||0)+x;return c;}
-function cxWallList(to){const W=CX_WALL[to];if(!W)return null;const c={};for(const r in W.cost)c[r]=Math.max(1,Math.round(W.cost[r]));return c;}
-function cxUpQuote(n,ct,k,to,tr){const U=CX_UG[to-1],T=tr>=2?bTier(k,tr):null,base=bCost(n,k),c={};for(const r in base)c[r]=Math.max(1,Math.ceil(base[r]*U.cost*(T?T.ug:1)-1e-9));return {cost:ugIron(c),hours:Math.max(0.1,Math.round(bHours(n,k)*U.h*(T?T.uh:1)*cxBuildK(ct)*10)/10)};}
+function cxUpList(k,to,m,tr){const U=CX_UG[to-1];m=m||(U&&U.cost);if(!BUILDINGS[k]||!m)return null;const T=tr>=2?bTier(k,tr):null,base=bCost(null,k,true),c={};for(const r in base)c[r]=Math.max(1,Math.ceil(base[r]*m*(T?T.ug:1)-1e-9));return bMaterialCost(ugIron(c));}function ugIron(c){const t=c.timber||0;if(t<2)return c;const x=Math.round(t*0.3);c.timber=t-x;c.iron=(c.iron||0)+x;return c;}
+function cxWallList(to){const W=CX_WALL[to];if(!W)return null;const c={};for(const r in W.cost)c[r]=Math.max(1,Math.round(W.cost[r]));return bMaterialCost(c);}
+function cxUpQuote(n,ct,k,to,tr){const U=CX_UG[to-1],T=tr>=2?bTier(k,tr):null,base=bCost(n,k,true),c={};for(const r in base)c[r]=Math.max(1,Math.ceil(base[r]*U.cost*(T?T.ug:1)-1e-9));return {cost:bMaterialCost(ugIron(c)),hours:Math.max(0.1,Math.round(bHours(n,k)*U.h*(T?T.uh:1)*cxBuildK(ct)*10)/10)};}
 function cxBusyLeft(b,now){const e=cxBldExtras(b),d=e.tu&&e.tu.d>now?e.tu.d:e.uu?e.uu.d:now;return fmtDur(Math.max(0,d-now));}
 function cxUpBusy(rec,now){return ((rec&&rec.b)||[]).find(b=>{if(!b||!cxUpgradable(b.k))return false;const e=cxBldExtras(b);return e.uu&&e.uu.d>now||e.tu&&e.tu.d>now;})||null;}
 function cxUpProblem(n,ct,k,st,now){
@@ -79011,7 +79134,7 @@ function cxUpCancel(cid,k){
   if(!e||!e.uu||e.uu.d<=now)return;const st=stockNow(S.nation,now);cxRefund(n,st,e.uu.p||cxUpQuote(S.nation,ct,k,e.uu.u,e.tr).cost,now);cxUgPut(b,{ug:e.ug});
   commit(n);S.cityMsg='';render();toast(`Work on the ${BUILDINGS[k].n} has stopped. Half the materials were saved.`);
 }
-function cxWallQuote(n,ct,to){const W=CX_WALL[to],f=cabFx(n),c={};for(const r in W.cost)c[r]=Math.max(1,Math.round(W.cost[r]*f.cost));return {cost:c,hours:Math.round(W.h*f.build*cxBuildK(ct)*10)/10};}
+function cxWallQuote(n,ct,to){const W=CX_WALL[to],f=cabFx(n),c={};for(const r in W.cost)c[r]=Math.max(1,Math.round(W.cost[r]*f.cost));return {cost:bMaterialCost(c),hours:Math.round(W.h*f.build*cxBuildK(ct)*10)/10};}
 function cxWallProblem(n,ct,st,now){
   const e=cxCityExtras(ct.rec);if(e.wu&&e.wu.d>now)return 'The masons are already at work.';
   const lv=cxWallLv(ct.rec,now);if(lv>=3)return 'The walls are as high as they go.';
@@ -79363,9 +79486,9 @@ document.addEventListener('click',e=>{
 const EL_FX=0.02,EL_COST=1.8,EL_GROW_C=1.3,EL_H=1.2,EL_GROW_H=1.12,EL_H_MAX=96;
 const EL_BLD={market:5,exchange:0,cbank:5};
 function elOn(k){return Object.hasOwn(EL_BLD,k)&&!!BUILDINGS[k];}
-function elList(k,l){const base=bCost(null,k),m=EL_COST*Math.pow(EL_GROW_C,l-1),c={};for(const r in base)c[r]=Math.max(1,Math.ceil(base[r]*m-1e-9));return c;}
-function elQuote(n,ct,k,l){const base=bCost(n,k),m=EL_COST*Math.pow(EL_GROW_C,l-1),c={};for(const r in base)c[r]=Math.max(1,Math.ceil(base[r]*m-1e-9));
-  return {cost:c,hours:Math.min(EL_H_MAX,Math.max(0.5,Math.round(bHours(n,k)*EL_H*Math.pow(EL_GROW_H,l-1)*cxBuildK(ct)*10)/10))};}
+function elList(k,l){const base=bCost(null,k,true),m=EL_COST*Math.pow(EL_GROW_C,l-1),c={};for(const r in base)c[r]=Math.max(1,Math.ceil(base[r]*m-1e-9));return bMaterialCost(c);}
+function elQuote(n,ct,k,l){const base=bCost(n,k,true),m=EL_COST*Math.pow(EL_GROW_C,l-1),c={};for(const r in base)c[r]=Math.max(1,Math.ceil(base[r]*m-1e-9));
+  return {cost:bMaterialCost(c),hours:Math.min(EL_H_MAX,Math.max(0.5,Math.round(bHours(n,k)*EL_H*Math.pow(EL_GROW_H,l-1)*cxBuildK(ct)*10)/10))};}
 function elLv(b,now){const e=elExtras(b);return e.eu&&e.eu.d<=now?e.eu.l:e.el||0;}
 function elMap(c,now){const o={};for(const b of (c&&c.b)||[])if(b&&b.d<=now&&(b.k==='market'||b.k==='exchange'||b.k==='cbank')){const l=elLv(b,now);if(l)o[b.k]=l;}return o;}
 /* the economy a city's levels add, for cityState: only from a building that works (a Stock Exchange needs its group) */
@@ -79417,7 +79540,7 @@ const tierA=s=>(/^[AEIOU]/i.test(s)?'an ':'a ')+s;
 /* "each costing twice as much and taking half as long again", from a tier's ug and uh */
 const tierUgWords=T=>`each costing ${T.ug===2?'twice':T.ug+' times'} as much and taking ${T.uh===1.5?'half as long again':T.uh+' times as long'}`;
 function tierBadge(k,tq){const L=bTierLine(k,tq.t,tq.ln);return `<span class="tier-b" role="img" aria-label="Tier ${TIER_ROMAN[tq.t]}" title="Tier ${TIER_ROMAN[tq.t]}${L?': '+esc(L.n)+', '+esc(tierA(BUILDINGS[k].n))+' retooled':''}">${TIER_ROMAN[tq.t]}</span>`;}
-function tierQuote(n,ct,k,to){const T=bTier(k,to),f=cabFx(n),c={};for(const r in T.cost)c[r]=Math.max(1,Math.round(T.cost[r]*f.cost));return {cost:c,hours:Math.max(0.1,Math.round(T.h*f.build*cxBuildK(ct)*10)/10)};}
+function tierQuote(n,ct,k,to){const T=bTier(k,to),f=cabFx(n),c={};for(const r in T.cost)c[r]=Math.max(1,Math.round(T.cost[r]*f.cost));return {cost:bMaterialCost(c),hours:Math.max(0.1,Math.round(T.h*f.build*cxBuildK(ct)*10)/10)};}
 function tierProblem(n,ct,k,st,now){
   const b=ct.rec&&ct.rec.b.find(x=>x.k===k);if(!b||b.d>now)return 'Finish the building first.';
   const to=bTierNext(k,cxTier(b,now).t);if(!to)return 'It is at its highest tier.';
@@ -87039,6 +87162,7 @@ function sgPaint(){
   const st=S.settings,n=S.nation;if(!st||!n||S.view!=='settings')return;
   const p=document.getElementById('sg-pv-in');if(p)p.innerHTML=sgPreview(st,n);
   const c=document.getElementById('sg-cult-n');if(c)c.textContent=sgCultN(st)+' of 6 filled';
+  const bp=document.getElementById('sg-belief-preview');if(bp)bp.innerHTML=sgBeliefPreview(st);
   const s=document.querySelector('[data-sg-sub="nation"]');if(s)s.textContent=sgTabSub('nation',n);
   const b=document.getElementById('sg-tab-nation');if(b)b.classList.toggle('dirty',settingsDirty());
 }
@@ -87098,7 +87222,7 @@ UX_SETTINGS.push(
   {v:'focus:s-ruler',l:'Leader’s name and title',g:'Settings',words:'leader ruler name title president king queen head',view:'settings',target:'#s-ruler'},
   {v:'focus:s-ptsel',l:'Type of state',g:'Settings',words:'pretitle republic kingdom empire duchy form of state',view:'settings',target:'#s-ptsel'},
   {v:'focus:s-motto',l:'Motto, capital and citizens',g:'Settings',words:'motto capital city demonym citizens animal particulars',view:'settings',target:'#s-motto'},
-  {v:'focus:s-lang',l:'Culture: language, religion, sport, dish, anthem',g:'Settings',words:'culture language religion faith sport dish food anthem song about description',view:'settings',target:'#s-lang'},
+  {v:'focus:s-lang',l:'Culture: language, religion, sport, dish, anthem',g:'Settings',words:'culture language religion faith beliefs agnostic atheist pluralist secular holiday occasion sport dish food anthem song about description',view:'settings',target:'#s-lang'},
   {v:'focus:set-mapc',l:'Map colour',g:'Settings',words:'map colour color territory shade',view:'settings',target:'#set-mapc'},
   {v:'focus:away-box',l:'Holiday mode',g:'Settings',words:'holiday away vacation pause break absent',view:'settings',target:'#away-box'},
   {v:'focus:sg-topics',l:'Edict topics',g:'Settings',words:'topics subjects more fewer kinds of edict',view:'settings',target:'#sg-topics'},
@@ -88335,7 +88459,7 @@ function alNextLeader(A){const D=A.doc;return Object.entries(D.mem).filter(([id]
 function alChannelHTML(A){
   const C=AL.chat,me=myId(),mod=alCan(A,me,'o'),reg=civicRegistered(),U=AL_TY_UI[A.doc.ty]||AL_TY_UI.def,now=Date.now();
   const role=id=>{const r=alRoleOf(A,id);return r==='ld'||r==='o'?r:'';};
-  const msg=m=>{const r=role(m.a);return `<li class="al-msg${m.a===me?' me':''}${r?' al-r-'+r:''}"><p class="al-msg-h"><b>${m.a===me?'You':nationLink(m.a,findNation(m.a)?findNation(m.a).n.name:m.nm,false)}</b>${r?`<span class="al-msg-r">${r==='ld'?alGlyph('leader'):''}${esc(r==='ld'?U.lead:U.off)}</span>`:''}<span class="hint">${esc(rel(m.t))}</span>${m.a===me||mod?`<button type="button" class="linkish small" data-act="dp-chat-del" data-id="${esc(m.id)}" aria-label="Delete this message">Delete</button>`:''}</p><p class="al-msg-x">${esc(m.x).replace(/\n/g,'<br>')}</p></li>`;};
+  const msg=m=>{const r=role(m.a);return `<li class="al-msg${m.a===me?' me':''}${r?' al-r-'+r:''}"><p class="al-msg-h"><b>${m.a===me?'You':nationLink(m.a,findNation(m.a)?findNation(m.a).n.name:m.nm,false)}</b>${chatDelegateBadge(m.a)}${r?`<span class="al-msg-r">${r==='ld'?alGlyph('leader'):''}${esc(r==='ld'?U.lead:U.off)}</span>`:''}<span class="hint">${esc(rel(m.t))}</span>${m.a===me||mod?`<button type="button" class="linkish small" data-act="dp-chat-del" data-id="${esc(m.id)}" aria-label="Delete this message">Delete</button>`:''}</p><p class="al-msg-x">${esc(m.x).replace(/\n/g,'<br>')}</p></li>`;};
   const ev=alEvents(A,alEvSince(C.list,now)).map(e=>({t:e.t,e}));
   const list=C.list.map(m=>({t:m.t,m})).concat(ev).sort((a,b)=>a.t-b.t).map(o=>o.m?msg(o.m):alEvLI(o.e)).join('');
   return `${alChanHead(A)}${A.doc.ty==='def'?alHornHTML(now,'ch'):''}<p class="hint">Only members of ${esc(A.name)} can read this channel. Its events stand between the messages.</p>${C.err?`<p class="err">${esc(C.err)}</p>`:''}
@@ -92668,7 +92792,7 @@ function rgcLine(m,run,by,me,mod,memo){
   const nc=!mine&&!m.tm,ncOpen=nc&&!run&&RGC.nc===m.id,nmc='rgc-nm'+(rl?' rl-'+rl:'');
   const who=m.tm?`<b class="rgc-nm rgc-team">${esc(nm)}</b>`:nc?`<button type="button" class="linkish ${nmc}" data-rgc="nc" data-id="${esc(m.a)}" data-l="${i}" aria-expanded="${ncOpen}">${esc(nm)}</button>`:`<b class="${nmc}">${esc(nm)}</b>`;
   const fl=m.tm?`<span class="mflag sm rgc-tmfl" aria-hidden="true">${RGC_TEAM_SVG}</span>`:`<span class="mflag sm${x||wf?'':' rgc-nofl'}">${x?flagSVG(x.n.flag,'Flag of '+nm):wf}</span>`;
-  const head=run?'':`<p class="rgc-lh">${fl}<span class="rgc-lw">${who}${from}${mk?`<span class="rgc-mk">${mk}</span>`:''}${m.tm?pill:''}</span><time datetime="${new Date(m.t).toISOString()}" title="${esc(when)}">${esc(fmtTime(m.t))}</time></p>`;
+  const head=run?'':`<p class="rgc-lh">${fl}<span class="rgc-lw">${who}${m.tm?'':chatDelegateBadge(m.a)}${from}${mk?`<span class="rgc-mk">${mk}</span>`:''}${m.tm?pill:''}</span><time datetime="${new Date(m.t).toISOString()}" title="${esc(when)}">${esc(fmtTime(m.t))}</time></p>`;
   const staff=m.tm||!!m.st||isStaff(m.a);
   let can;
   if(ally){const A=rgcAllyOn();can={del:mine||!!(A&&alCan(A,me,'o'))};}
@@ -92681,7 +92805,7 @@ function rgcLine(m,run,by,me,mod,memo){
     +(can.mute?`<button type="button" role="menuitem" data-rgc="mute-ask" data-id="${i}">Silence ${esc(nm)}…</button>`:'')
     +(can.del?`<button type="button" role="menuitem" class="rgc-danger" data-rgc="${ally?'ally-del':'del-ask'}" data-id="${i}">${mine?'Delete':'Remove the line'}</button>`:'');
   const menu=items?`<div class="rgc-mw"><button type="button" class="rgc-more" data-rgc="menu" data-id="${i}" aria-expanded="${open}" aria-haspopup="menu" aria-label="Options for this line by ${esc(nm)}"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="5.5" cy="12" r="1.7" fill="currentColor"/><circle cx="12" cy="12" r="1.7" fill="currentColor"/><circle cx="18.5" cy="12" r="1.7" fill="currentColor"/></svg></button>${open?`<div class="rgc-menu" role="menu">${items}</div>`:''}</div>`:'';
-  return `<li class="rgc-l${run?' run':''}${mine?' me':''}${named?' named':''}${ally?' ally':''}${RGC.goto===m.id?' flash':''}" data-id="${i}">${head}${!ally&&m.r?rgcQuote(m.r):''}<div class="rgc-xw">${run?`<time class="rgc-rt" datetime="${new Date(m.t).toISOString()}" title="${esc(when)}">${esc(fmtTime(m.t))}</time>`:''}${rgcBody(m,nm)}${menu}</div>${ally?'':rgcRxs(m,me)}${RGC.ask&&RGC.ask.id===m.id?rgcAsk(m,nm,mine):''}${RGC.who===m.id?rgcTeamWho():''}${ncOpen?rgcNcHTML(m,x,nm,rg||(x?REG.id:ally?'':RGC.reg||REG.id),pill+marks):''}</li>`;
+  return `<li class="rgc-l${run?' run':''}${mine?' me':''}${named?' named':''}${ally?' ally':''}${RGC.goto===m.id?' flash':''}" data-id="${i}">${head}${!ally&&m.r?rgcQuote(m.r):''}<div class="rgc-xw">${run?`<time class="rgc-rt" datetime="${new Date(m.t).toISOString()}" title="${esc(when)}">${esc(fmtTime(m.t))}</time>`:''}${rgcBody(m,nm)}${menu}</div>${ally?'':rgcRxs(m,me)}${RGC.ask&&RGC.ask.id===m.id?rgcAsk(m,nm,mine):''}${RGC.who===m.id?rgcTeamWho():''}${ncOpen?rgcNcHTML(m,x,nm,rg||(x?REG.id:ally?'':RGC.reg||REG.id),pill+chatDelegateMark(m.a)+marks):''}</li>`;
 }
 /* a new nation's welcome line (sys 'found': functions/regionchat.js, rcHello), drawn as an announcement: its flag and
    name, "has been founded, welcome to #Region!" and, for a week, a Welcome button that starts a line greeting it (Say
@@ -93449,7 +93573,7 @@ function rgcCardHTML(c,m,nm){
   if(c.k==='rank'){const R=ACH_RANKS[Math.min(c.i,ACH_RANKS.length-1)];return `<div class="rgc-cd"><p class="rgc-cd-t">Rank of ${esc(nm)}</p><p class="rgc-cd-big">${esc(R[1])}</p>${rows([['Points',fmt0(c.p)],['Achievements',fmt0(c.n)]])}</div>`;}
   const x=allNations().find(o=>o.id===c.id||(o.me&&c.id===S.uid)),R=ACH_RANKS[Math.min(c.i,ACH_RANKS.length-1)];
   const name=x&&!x.me?`<button type="button" class="linkish" data-act="visit" data-id="${esc(c.id)}">${esc(c.nm)}</button>`:esc(c.nm);
-  return `<div class="rgc-cd"><p class="rgc-cd-t">Nation card</p><p class="rgc-cd-big">${x?`<span class="mflag sm">${flagSVG(x.n.flag,'Flag of '+c.nm)}</span>`:''}${name}${rolePillOf(c.id)}</p>${rows([['People',esc(fmtPop(c.pop))],['Cities',fmt0(c.ci)],['Land',fmt0(c.hx)+' hexes'],['Rank',esc(R[1])],...(c.al?[['Alliance',esc(c.al)]]:[])])}</div>`;
+  return `<div class="rgc-cd"><p class="rgc-cd-t">Nation card</p><p class="rgc-cd-big">${x?`<span class="mflag sm">${flagSVG(x.n.flag,'Flag of '+c.nm)}</span>`:''}${name}${chatDelegateBadge(c.id)}${rolePillOf(c.id)}</p>${rows([['People',esc(fmtPop(c.pop))],['Cities',fmt0(c.ci)],['Land',fmt0(c.hx)+' hexes'],['Rank',esc(R[1])],...(c.al?[['Alliance',esc(c.al)]]:[])])}</div>`;
 }
 function rgcBody(m,nm){
   if(m.cd)return rgcCardHTML(m.cd,m,nm);
@@ -93636,7 +93760,7 @@ function acxLogHTML(){
     const acts=ask&&ACX.ask.all?`<button type="button" class="btn danger small" data-act="acx-uncast-yes" data-id="${esc(m.id)}">Remove everywhere</button><button type="button" class="btn ghost small" data-act="acx-ask-no">Keep</button>`
       :ask?`<button type="button" class="btn danger small" data-act="acx-del-yes" data-id="${esc(m.id)}">Remove it</button><button type="button" class="btn ghost small" data-act="acx-ask-no">Keep</button>`
       :`<button type="button" class="linkish small" data-act="acx-del" data-id="${esc(m.id)}">${all?'Remove here':'Remove'}</button>${all?`<button type="button" class="linkish small" data-act="acx-uncast" data-id="${esc(m.id)}">Remove from every region</button>`:''}${staff?'':`<button type="button" class="linkish small" data-act="acx-mute-ask" data-id="${esc(m.id)}">Silence…</button><button type="button" class="linkish small" data-act="admin-inspect" data-id="${esc(m.a)}">Inspect</button>`}`;
-    return d+`<li class="acx-l${m.tm?' tm':''}" data-id="${esc(m.id)}"><time class="acx-t" datetime="${new Date(m.t).toISOString()}" title="${esc(fmtDate(m.t)+', '+fmtTime(m.t))}">${esc(fmtTime(m.t))}</time><span class="acx-w"><b>${esc(m.nm)}</b>${m.rg&&acxShared(ACX.reg)?` <span class="hint acx-rg">${esc(regName(m.rg))}</span>`:''}${pill}${sil.has(m.a)&&!staff?' <span class="chip acx-sil">Silenced</span>':''}</span><span class="acx-x">${esc(m.x)}${m.im?rgcPicHTML(m.im,`data-pic="open" data-box="acx" data-id="${esc(m.id)}"`,m.tm?'Edictum team':m.nm,true):''}</span><span class="acx-b">${acts}</span></li>`;
+    return d+`<li class="acx-l${m.tm?' tm':''}" data-id="${esc(m.id)}"><time class="acx-t" datetime="${new Date(m.t).toISOString()}" title="${esc(fmtDate(m.t)+', '+fmtTime(m.t))}">${esc(fmtTime(m.t))}</time><span class="acx-w"><b>${esc(m.nm)}</b>${m.tm?'':chatDelegateBadge(m.a)}${m.rg&&acxShared(ACX.reg)?` <span class="hint acx-rg">${esc(regName(m.rg))}</span>`:''}${pill}${sil.has(m.a)&&!staff?' <span class="chip acx-sil">Silenced</span>':''}</span><span class="acx-x">${esc(m.x)}${m.im?rgcPicHTML(m.im,`data-pic="open" data-box="acx" data-id="${esc(m.id)}"`,m.tm?'Edictum team':m.nm,true):''}</span><span class="acx-b">${acts}</span></li>`;
   }).join('');
 }
 /* the chat and the region list again, in place */
@@ -103213,6 +103337,105 @@ if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE.mil={milOwn
    ws-9 to ws-16 (see "Letters from Willow Street: one citizen"). Edicts written later go after this line. Tests that
    run the sections above on their own, without the letters, skip it. */
 if(typeof wsPush==='function')wsPush(WS_ACT1,WS_N);
+
+/* Dhaluun: a manually activated Cloudspine event */
+if(typeof grow==='function'&&typeof cvIndex==='function'&&typeof collectConquests==='function'&&typeof connect==='function'){
+/* Dhaluun's one-off Cloudspine event. Installing this code does not launch it:
+   the operator must create worldEvents/dhaluun-cloudspine-v1 with the admin tool. */
+const DHALUUN={id:'dhaluun-cloudspine-v1',by:'npc-cloudspine-dhaluun',reg:'cloudspine',data:null};
+function dhaluunRead(d){
+  if(!d||d.v!==1||d.reg!==DHALUUN.reg||d.by!==DHALUUN.by||d.map!==MAP_VER||!Number.isFinite(d.t)||d.t<=0||d.t>Date.now())return null;
+  if(!Array.isArray(d.land)||d.land.length!==120||new Set(d.land).size!==120||d.land.some(c=>!Number.isInteger(c)||c<0||c>=MAP.N||MAP.T[c]<2))return null;
+  if(!Array.isArray(d.targets)||!d.targets.length||d.targets.length>1000)return null;
+  const ids=new Set();
+  for(const x of d.targets){if(!x||typeof x.id!=='string'||!/^[\w-]{1,128}$/.test(x.id)||x.id===DHALUUN.by||ids.has(x.id)||typeof x.nm!=='string'||!x.nm.trim()||x.nm.length>80)return null;ids.add(x.id);}
+  const wall=d.wall&&d.wall.v===1&&Number.isFinite(d.wall.t)&&d.wall.t>=d.t&&d.wall.t<=Date.now()&&typeof d.wall.h==='string'&&d.wall.h.trim()&&d.wall.h.length<=160&&typeof d.wall.b==='string'&&d.wall.b.trim()&&d.wall.b.length<=1200?{v:1,t:d.wall.t,h:d.wall.h,b:d.wall.b}:null;
+  return {t:d.t,land:d.land.slice(),targets:d.targets.map(x=>({id:x.id,nm:x.nm})),...(wall?{wall}:{})};
+}
+function dhaluunActive(at){return REG.id===DHALUUN.reg&&DHALUUN.data&&(at==null?Date.now():at)>=DHALUUN.data.t?DHALUUN.data:null;}
+/* Reserve the annexed land before natural cores grow. Explicit player claims, cities,
+   capitals and later conquests still use the normal territory rules. */
+grow=(f=>function(list,over){
+  const d=dhaluunActive(TERR_AT),i=list.findIndex(x=>x.id===DHALUUN.by);
+  if(!d||i<0)return f.apply(this,arguments);
+  const reserved=new Map(over||[]),caps=new Set(list.map(x=>x.cap));
+  for(const c of d.land)if(!reserved.has(c)&&!caps.has(c))reserved.set(c,i);
+  return f.call(this,list,reserved);
+})(grow);
+collectConquests=(f=>function(at){const r=f.apply(this,arguments),d=dhaluunActive(at);return d?{...r,sig:r.sig+'|dhaluun:'+d.t}:r;})(collectConquests);
+cvIndex=(f=>function(){
+  const r=f.apply(this,arguments),d=dhaluunActive();if(!d)return r;
+  const all=r.all.slice();
+  for(const x of d.targets){const op={id:DHALUUN.id+':'+x.id,k:'g',tg:x.id,tn:x.nm,t:d.t,rg:DHALUUN.reg,p:0,x:1};
+    all.push({by:DHALUUN.by,bn:'Dhaluun',bd:'Dhaluunese',op,ok:false,ex:true,key:cvKey(DHALUUN.by,op)});}
+  all.sort((a,b)=>b.op.t-a.op.t);return {all,k:r.k+'|dhaluun:'+d.t};
+})(cvIndex);
+/* The operation is a snapshot: newcomers are not spied on retroactively. */
+function dhaluunPlan(T){
+  if(REG.id!==DHALUUN.reg)throw new Error('Open Cloudspine to plan this event.');
+  if(DHALUUN.data)throw new Error('This event has already run.');
+  const i=T.byId[DHALUUN.by];if(i===undefined)throw new Error('Dhaluun has no territory.');
+  const cap=T.list[i].cap,cx=MAP.cx[cap],cy=MAP.cy[cap],held=new Set(),edge=new Set(),land=[];
+  for(let c=0;c<MAP.N;c++)if(T.owner[c]===i)held.add(c);
+  const offer=c=>{for(let k=0;k<6;k++){const n=MAP.nbrFlat[c*6+k];
+    if(n>=0&&T.owner[n]===-1&&MAP.T[n]>=2&&MAP.cx[n]<cx&&!held.has(n))edge.add(n);}};
+  for(const c of held)offer(c);
+  while(land.length<120){
+    const next=[...edge].sort((a,b)=>{
+      /* Prefer a compact western frontier, rather than a one-hex tendril. */
+      const score=c=>(cx-MAP.cx[c])+Math.abs(MAP.cy[c]-cy)*1.8;
+      return score(a)-score(b)||a-b;
+    })[0];
+    if(next===undefined)throw new Error('There are fewer than 120 connected unclaimed land hexes west of Dhaluun.');
+    edge.delete(next);held.add(next);land.push(next);offer(next);
+  }
+  const targets=allNations().filter(x=>x.id!==DHALUUN.by&&!x.hid).map(x=>({id:x.id,nm:x.n.name})).sort((a,b)=>a.id.localeCompare(b.id));
+  return {v:1,reg:DHALUUN.reg,by:DHALUUN.by,map:MAP_VER,t:Date.now(),land,targets};
+}
+function dhaluunInstall(raw){
+  DHALUUN.data=dhaluunRead(raw);passForget();terrCache.clear();atlasCache.clear();
+  if(typeof cityMemo!=='undefined')cityMemo={T:null,k:'',v:null};
+  if(typeof dcCSm!=='undefined')dcCSm={T:null,t:0,v:null};
+  if(typeof dcSpotMemo!=='undefined')dcSpotMemo={v:null,r:null};
+  if(typeof dspMemo!=='undefined'){dspMemo.clear();dspXRev++;}
+}
+/* The completed Great Wall uses the existing wonder, its defence bonus and its renderer.
+   Dhaluun's version covers the whole perimeter, rather than the usual short stretch. */
+if(typeof npcCities==='function'&&typeof dcWallGeo==='function'&&typeof cityEpochKey==='function'&&typeof DISPATCH_SOURCES!=='undefined'){
+function dhaluunWallActive(at){const d=dhaluunActive(at);return d&&d.wall&&(at==null?Date.now():at)>=d.wall.t?d.wall:null;}
+npcCities=(f=>function(id){const cities=f.apply(this,arguments);
+  if(id!==DHALUUN.by||!dhaluunWallActive(TERR_AT))return cities;
+  return cities.map(c=>c.cap&&!c.b.includes('wall')?{...c,b:c.b.concat('wall')}:c);
+})(npcCities);
+cityEpochKey=(f=>function(now){const k=f.apply(this,arguments),wall=dhaluunWallActive(TERR_AT);return wall?k+'|dhaluun-wall:'+wall.t:k;})(cityEpochKey);
+const dhaluunWallMemo=new WeakMap();
+function dhaluunWallGeo(T,o){
+  let hit=dhaluunWallMemo.get(T);if(hit)return hit;
+  const lines=[],cells=new Set();
+  for(let c=0;c<MAP.N;c++){if(T.owner[c]!==o)continue;
+    for(let d=0;d<6;d++){const j=MAP.nbr[c*6+d];if(j>=0&&T.owner[j]===o)continue;
+      const x=MAP.cx[c],y=MAP.cy[c],k=(d+1)%6;lines.push([x+HCX[d]*HEX_R,y+HCY[d]*HEX_R,x+HCX[k]*HEX_R,y+HCY[k]*HEX_R,x,y]);cells.add(c);}}
+  hit={lines,cells};dhaluunWallMemo.set(T,hit);return hit;
+}
+dcWallGeo=(f=>function(T,o){return dhaluunWallActive(TERR_AT)&&T.list[o]&&T.list[o].id===DHALUUN.by?dhaluunWallGeo(T,o):f.apply(this,arguments);})(dcWallGeo);
+function dhaluunWallStory(ctx){
+  const wall=dhaluunWallActive();if(!ctx||ctx.reg!==DHALUUN.reg||!wall||!dspIn(ctx,wall.t))return [];
+  return [{k:DHALUUN.id+':wall',t:wall.t,sec:'world',kick:'Behind the wall',h:wall.h,b:wall.b,who:[DHALUUN.by],w:10,go:'map'}];
+}
+DISPATCH_SOURCES.push(dhaluunWallStory);
+if(typeof window.EDICTUM_PROBE==='function')window.EDICTUM_PROBE.dhaluunWall={active:dhaluunWallActive,geometry:dhaluunWallGeo,story:dhaluunWallStory,cities:id=>npcCities(id),cityState:T=>cityState(T),defence:(T,o,c)=>cityDefMult(T,o,c),draw:M=>dcWalls(M),install:dhaluunInstall};
+}
+connect=(f=>async function(){const r=await f.apply(this,arguments);
+  if(REG.id===DHALUUN.reg&&S.db)quietListen(S.db.doc('worldEvents/'+DHALUUN.id),s=>{
+    dhaluunInstall(s&&s.exists?s.data():null);
+    quietRender(()=>{render();redrawMaps();});
+  },()=>{});
+  return r;
+})(connect);
+if(typeof window.EDICTUM_PROBE==='function')window.EDICTUM_PROBE.dhaluun={state:DHALUUN,read:dhaluunRead,plan:()=>dhaluunPlan(territory()),index:()=>cvIndex(),map:MAP,version:MAP_VER,
+  load:rows=>{S.nation=null;S.uid='';S.mode='world';S.world={};HIDN.w={};for(const x of rows){const n=normalize(x.n);if(!n||n.reg!==REG.id)continue;auditNation(n,x.n,x.id,Date.now(),false);if(isDormant(n))continue;if(x.hidden)HIDN.w[x.id]=n;else S.world[x.id]=n;}passForget();terrCache.clear();}};
+
+} /* end Dhaluun event */
 
 if(hot&&typeof hot.snapshot==='function'){try{hot.snapshot(()=>({view:S.view,openIssue:S.openIssue,result:S.result,visit:S.visit,censusKey:S.censusKey,settings:S.settings,draft:S.draft,mapViews:S.mapViews,mapSel:S.mapSel,mapPick:S.mapPick}));}catch(e){}}
 if(hot&&typeof hot.ready==='function')hot.ready(start);else start((hot&&hot.data)||{});

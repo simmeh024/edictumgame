@@ -54,6 +54,17 @@ await A.click('[data-act="sg-leave-stay"]');
 check('Stay here keeps the draft', !await A.$('.sg-leave-t') && await A.$eval('#s-motto', e => e.value) === 'Order in Every Column');
 await nav(A, 'map'); await A.click('[data-act="sg-leave-save"]');
 check('Save and go on saves, then goes', await until(async () => await A.evaluate(() => G.S.view) === 'map') && await until(async () => { const n = await localNation(A); return n.motto === 'Order in Every Column' && n.ruler === 'Ada Brook' && n.lang === 'Tabular'; }));
+await nav(A, 'settings'); await A.click('#sg-tab-nation');
+// National beliefs are optional, separate from government policy, and preserve the existing religion field.
+await A.fill('#s-faith', 'The Lantern Way');await A.selectOption('#s-beliefOutlook','agnostic');await A.selectOption('#s-beliefGov','secular');
+await A.fill('#s-beliefWords','We welcome questions.');await A.fill('#s-beliefOccasion','Day of Inquiry');
+check('beliefs stay in the draft until saved', !(await localNation(A)).beliefOutlook && /changes not saved/.test(await text(A, '[data-sg-sub="nation"]')));
+await A.click('#settings-form button[type="submit"]');
+check('beliefs and the existing religion save together', await until(async()=>{const n=await localNation(A);return n.beliefOutlook==='agnostic'&&n.beliefGov==='secular'&&n.beliefWords==='We welcome questions.'&&n.beliefOccasion==='Day of Inquiry'&&n.faith==='The Lantern Way';}));
+await A.reload();await A.waitForSelector('#sg');
+check('belief choices survive reload',await A.inputValue('#s-beliefOutlook')==='agnostic'&&await A.inputValue('#s-beliefGov')==='secular'&&await A.inputValue('#s-faith')==='The Lantern Way');
+await nav(A,'nation');
+check('the nation factbook shows outlook, government, description and occasion',await until(async()=>{const t=await text(A,'.factbook');return ['Agnostic','Secular government','We welcome questions.','Day of Inquiry','The Lantern Way'].every(x=>t.includes(x));}));
 await nav(A, 'settings'); await A.click('#sg-tab-nation'); await A.fill('#s-animal', 'heron'); await nav(A, 'nation'); await A.click('[data-act="sg-leave-go"]');
 check('Leave without saving drops the draft', await until(async () => await A.evaluate(() => G.S.view) === 'nation') && (await localNation(A)).animal !== 'heron');
 await nav(A, 'settings'); await A.click('#sg-tab-nation');

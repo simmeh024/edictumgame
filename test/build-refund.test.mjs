@@ -25,6 +25,7 @@ function city({ costK = 1, farmP, millP } = {}) {
     const RES=['food','timber','iron','oil','goods'],DAY=864e5;
     ${line(/const BUILDINGS=\{\n  farm:[^\n]*\n  sawmill:[^\n]*\n/)}};
     let K=${costK};const cabFx=n=>({cost:n&&n.name?K:1});this.setK=k=>{K=k;};
+    ${fn('bMaterialCost')}
     ${fn('bCost')}
     ${fn('paidClean')}
     ${fn('bPaid')}
@@ -86,7 +87,7 @@ test('an upgrade being fitted and walls going up keep their price, capped at the
   assert.equal(C.cxBldExtras({ k: 'farm', uu: { u: 1, s: t, d: t + 3600e3 } }).uu.p, undefined, 'none kept, none made up');
   // a raise to the old level 2 still under way keeps its price, capped at that level's list (1.5 times the farm's)
   const old = C.cxBldExtras({ k: 'farm', lu: { l: 2, s: t, d: t + 3600e3, p: { timber: 11, goods: 999 } } }).uu;
-  assert.deepEqual(copy(old), { u: 4, s: t, d: t + 3600e3, p: { timber: 10, goods: 12 } }, 'since 2026-11-17 the list is 10 timber and 5 iron (15 timber, 30% of it moved to iron)');
+  assert.deepEqual(copy(old), { u: 4, s: t, d: t + 3600e3, p: { timber: 11, goods: 12 } }, 'the timber surcharge raises the cap to 12; the 11 actually paid is preserved');
   const wu = C.cxCityExtras({ wu: { l: 1, s: t, d: t + 3600e3, p: { timber: 15, iron: 7 } } }).wu;
   assert.deepEqual(copy(wu.p), { timber: 15, iron: 7 });
 });
