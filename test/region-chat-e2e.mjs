@@ -380,6 +380,18 @@ await C.fill('#rgc-ax', 'Allies, to the iron mines!'); await C.press('#rgc-ax', 
 check('a message there reaches the other members, counted on their Alliance tab', await until(async () => /1/.test(await text(B, '#rgc-tab-ally .rgc-tn')), 20000));
 await B.click('#rgc-tab-ally');
 check('and it reads there', await until(async () => /Allies, to the iron mines!/.test(await text(B, '#rgc-list'))) && !(await B.$('#rgc-tab-ally .rgc-tn')));
+// Both members see alliance reactions; the sender can change and remove theirs.
+const allyLine = await B.$eval('#rgc-list .rgc-l:has-text("Allies, to the iron mines!")', el => el.dataset.id);
+await B.click(`#rgc-list .rgc-more[data-id="${allyLine}"]`);
+check('an alliance line offers eight reactions', await until(async () => await B.locator('.rgc-menu .rgc-rxp button').count() === 8));
+await B.click('.rgc-menu .rgc-rxp [data-k="hear"]');
+check('an alliance reaction reaches both members', await until(async () => await B.getAttribute(`#rgc-list .rgc-l[data-id="${allyLine}"] .rgc-rx[data-k="hear"]`, 'aria-pressed') === 'true' && /1/.test(await text(C, `#rgc-list .rgc-l[data-id="${allyLine}"] .rgc-rx[data-k="hear"]`)), 15000));
+check('the alliance reaction is saved on the message', await until(async () => (await restListAdmin(`alliances/${aid}/chat`)).find(d => d.id === allyLine)?.fields.rv?.mapValue?.fields?.[uidB]?.stringValue === 'hear'));
+await B.click(`#rgc-list .rgc-more[data-id="${allyLine}"]`);
+await B.click('.rgc-menu .rgc-rxp [data-k="love"]');
+check('choosing another alliance reaction replaces it', await until(async () => !!(await C.$(`#rgc-list .rgc-l[data-id="${allyLine}"] .rgc-rx[data-k="love"]`)) && !(await C.$(`#rgc-list .rgc-l[data-id="${allyLine}"] .rgc-rx[data-k="hear"]`)), 15000));
+await B.click(`#rgc-list .rgc-l[data-id="${allyLine}"] .rgc-rx[data-k="love"]`);
+check('clicking the alliance reaction again removes it', await until(async () => !(await C.$(`#rgc-list .rgc-l[data-id="${allyLine}"] .rgc-rx`)), 15000));
 const renamed = await civic(B, { op: 'alEdit', aid: aid || await B.evaluate(() => G.ALX().alMine()?.id), name: 'The Grand Northern Chat Pact' });
 check('a long name shows on the tab as its initials, the full name kept for screen readers', renamed.ok && await until(async () => await C.$eval('#rgc-tab-ally', b => b.childNodes[0].textContent === 'GNCP' && b.querySelector('.u-sr')?.textContent === 'The Grand Northern Chat Pact'), 20000), JSON.stringify(renamed));
 const coded = await civic(B, { op: 'alEdit', aid: aid || await B.evaluate(() => G.ALX().alMine()?.id), tg: 'GN7' });
