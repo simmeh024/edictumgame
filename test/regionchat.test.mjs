@@ -113,6 +113,12 @@ test('a quick-command card keeps only its own fields, in range', async () => {
   const { rcCardIn } = await import('../functions/regionchat.js');
   assert.deepEqual(rcCardIn({ k: 'stock', v: [1, 2.26, 3, 4, 2e9], r: [1, -2, 0, 0, 0], x: 1 }), { k: 'stock', v: [1, 2.3, 3, 4, 1e9], r: [1, -2, 0, 0, 0] });
   assert.deepEqual(rcCardIn({ k: 'rank', i: 3, p: 120, n: 9, evil: '<b>' }), { k: 'rank', i: 3, p: 120, n: 9 });
+  /* a card carries the numbering its rank is a place on (rkn, the game's RK_MARK_VER); a card from a game before the
+     middle of the ladder grew sends none, and is read on the older numbering. A number out of range is dropped, not
+     refused, and the top of the ladder is well inside the bound (103 ranks on 25 November 2026, RC_RANKS 299). */
+  assert.deepEqual(rcCardIn({ k: 'rank', i: 102, p: 44400, n: 300, rkn: 2 }), { k: 'rank', i: 102, p: 44400, n: 300, rkn: 2 });
+  assert.deepEqual(rcCardIn({ k: 'rank', i: 3, p: 1, n: 1, rkn: 99 }), { k: 'rank', i: 3, p: 1, n: 1 });
+  assert.deepEqual(rcCardIn({ k: 'nation', id: 'abc', pop: 1, ci: 1, hx: 1, i: 102, rkn: 2 }), { k: 'nation', id: 'abc', pop: 1, ci: 1, hx: 1, i: 102, rkn: 2 });
   assert.deepEqual(rcCardIn({ k: 'nation', id: 'abc', pop: 12.34, ci: 3, hx: 400, i: 5, al: '  The   Pact ', nm: 'ignored' }), { k: 'nation', id: 'abc', pop: 12.3, ci: 3, hx: 400, i: 5, al: 'The Pact' });
   assert.deepEqual(rcCardIn({ k: 'help', s: 'trade-routes', t: '<b>x</b>' }), { k: 'help', s: 'trade-routes' });
   const refused = c => assert.throws(() => rcCardIn(c), e => e.code === 'invalid-argument' && e.details?.code === 'rc_card', JSON.stringify(c));

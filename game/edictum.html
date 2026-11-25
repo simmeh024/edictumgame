@@ -30853,7 +30853,7 @@ function achRank(p){let i=0;for(let k=0;k<ACH_RANKS.length;k++)if(p>=ACH_RANKS[k
    On 25 November 2026 fifteen ranks were added between Luminary and Eternal, so a rank's place on the ladder moved
    even though the rank itself did not: n.rkh is still a place on the old ladder, and ACH_V1_RANK says where each of
    those fifty-one ranks now sits. Nothing saved has to change. */
-const ACH_RANKS_V1=[0,50,100,150,200,250,325,400,500,625,750,875,1000,1250,1500,1750,2000,2250,2500,2875,3250,3625,4000,4500,5000,5500,6000,6750,7500,8250,9000,9750,10500,11000,11500,12000,12600,13200,13800,14400,15000,15600,16200,16800,17400,18000,18600,19200,19800,20400,21000],ACH_RANKS_VER=2,ACH_V1_RANK=ACH_RANKS_V1.map((_,i)=>i<=18?i:i<=33?2*i-18:i+15);
+const ACH_RANKS_V1=[0,50,100,150,200,250,325,400,500,625,750,875,1000,1250,1500,1750,2000,2250,2500,2875,3250,3625,4000,4500,5000,5500,6000,6750,7500,8250,9000,9750,10500,11000,11500,12000,12600,13200,13800,14400,15000,15600,16200,16800,17400,18000,18600,19200,19800,20400,21000],ACH_RANKS_VER=2,RK_MARK_VER=2,rkMark1=i=>i<=18?i:i<=33?2*i-18:i+15,ACH_V1_RANK=ACH_RANKS_V1.map((_,i)=>rkMark1(i));
 function achIdxV1(p){let i=0;for(let k=0;k<ACH_RANKS_V1.length;k++)if(p>=ACH_RANKS_V1[k])i=k;return i;}
 function achFloor(n,p){if(!n||n.npc)return 0;const v=achIdxV1(p);return n.rkv>=ACH_RANKS_VER?Math.min(v,Number.isInteger(n.rkh)&&n.rkh>0?n.rkh:0):v;}
 /* a nation's rank at p points (its own points when p is left out) */
@@ -30861,6 +30861,17 @@ function achRankOf(n,p){
   if(p==null)p=achPoints(n);const r=achRank(p),v=achFloor(n,p),f=ACH_V1_RANK[v]||0;if(f<=r.i)return r;
   const R=ACH_RANKS[f],nx=ACH_RANKS[f+1]||null,lo=ACH_RANKS_V1[v];
   return {i:f,at:R[0],name:R[1],blurb:R[2],next:nx?{at:nx[0],name:nx[1]}:null,pct:nx?clamp((p-lo)/(nx[0]-lo)*100,0,100):100,held:true};
+}
+/* A rank a game publishes for others to read — the mark beside a world-chat line, a board profile's rk, a /rank or
+   /nation card — is a place on the ladder, and the fifteen ranks added to the middle on 25 November 2026 moved every
+   place above Luminary. So a mark now says which numbering it was written in (rkn, RK_MARK_VER), and a mark from before
+   that (no rv) is read on the old numbering and mapped up with rkMark1, the same shift ACH_V1_RANK uses. Without this
+   a line already posted would be drawn as a different rank, with another rank's border, for the thirty days it is
+   kept. Any later change to the middle of the ladder must raise RK_MARK_VER and map the versions before it here. */
+function rkMarkIdx(rk,rv){
+  if(!Number.isInteger(rk)||rk<0)return 0;
+  const i=rv>=RK_MARK_VER?rk:rkMark1(rk);
+  return Math.min(ACH_RANKS.length-1,Math.max(0,i));
 }
 NORM_HOOKS.push((n,d)=>{
   if(d&&d.rkv>=ACH_RANKS_VER){n.rkv=ACH_RANKS_VER;if(Number.isInteger(d.rkh)&&d.rkh>0)n.rkh=Math.min(ACH_RANKS_V1.length-1,d.rkh);else delete n.rkh;}
@@ -69146,11 +69157,11 @@ function cbUserWant(list){
     S.db.doc('cbUser/'+u).get().then(s=>{const d=s.exists?s.data()||null:null,o=CB.users.get(u),same=JSON.stringify(o&&o.d)===JSON.stringify(d);CB.users.set(u,{d,at:Date.now()});
       if(!same&&(S.view==='community'||S.view==='customise'))quietRender();},()=>{});}
 }
-function cbRankArg(){try{const i=achRankOf(S.nation).i;return Number.isInteger(i)?{rk:i}:{};}catch(e){return {};}}
+function cbRankArg(){try{const i=achRankOf(S.nation).i;return Number.isInteger(i)?{rk:i,rkn:RK_MARK_VER}:{};}catch(e){return {};}}
 function cbAuthorMarks(p,U){
   if(!p||p.of||p.as)return '';let h='',x=null;
   try{x=findNation(p.a);if(x&&(x.npc||!x.n))x=null;}catch(e){x=null;}
-  try{let i=-1,nm='';if(x){const r=achRankOf(x.n);i=r.i;nm=r.name;}else if(U&&Number.isInteger(U.rk)){i=Math.min(ACH_RANKS.length-1,U.rk);nm=ACH_RANKS[i][1];}
+  try{let i=-1,nm='';if(x){const r=achRankOf(x.n);i=r.i;nm=r.name;}else if(U&&Number.isInteger(U.rk)){i=rkMarkIdx(U.rk,U.rkn);nm=ACH_RANKS[i][1];}
     i=Math.min(ID_BD.length-1,i);if(i>0)h+=`<i class="rgc-rk cb-rk id-rk-${idBdLook(i)}" role="img" aria-label="Rank: ${esc(nm)}" title="Rank: ${esc(nm)}"></i>`;}catch(e){}
   try{let al=null;if(x){const A=alWornOf(x.id);if(A&&!A.npc&&A.name)al={n:A.name,c:safeColor((A.doc&&A.doc.col)||A.col,'#3A8FD1'),t:A.doc&&A.doc.tg,y:A.ty};}else if(U&&U.al&&U.al.n)al={n:String(U.al.n).slice(0,40),c:safeColor(U.al.c,'#3A8FD1'),t:U.al.t,y:U.al.y};
     if(al)h+=alTagHTML(al.n,al.t,al.c,al.y).replace('class="rgc-al ','class="rgc-al cb-al ');}catch(e){}
@@ -93307,7 +93318,7 @@ function rgcLineOf(d,w){
   return {id:d.id,a:String(v.a||''),nm:String(v.nm||'A nation').slice(0,80),x:String(v.x||'').slice(0,RGC_TEXT),t:Number(v.t)||0,st:v.st==='admin'||v.st==='mod'?v.st:'',tm:v.tm===true,wn:typeof v.wn==='string'?v.wn.slice(0,80):'',sys:!w&&v.sys==='found'?'found':!w&&v.sys==='all'&&v.tm===true?'all':'',
     r:r?{id:r.id,a:String(r.a||''),nm:String(r.nm||'A nation').slice(0,80),x:String(r.x||'').slice(0,90),tm:r.tm===true,im:r.im===true}:null,im:rgcImOf(v.im),
     cd:rgcCardOf(v.cd),mn:v.mn&&typeof v.mn==='object'&&!Array.isArray(v.mn)?v.mn:null,rv:v.rv&&typeof v.rv==='object'&&!Array.isArray(v.rv)?v.rv:null,
-    ...(w?{w:true,ch:typeof w==='string'?w:'world',rg:typeof v.rg==='string'?v.rg.slice(0,40):'',fl:typeof v.fl==='string'&&v.fl.length<=4000?v.fl:'',rk:Number.isInteger(v.rk)&&v.rk>=0?v.rk:-1,
+    ...(w?{w:true,ch:typeof w==='string'?w:'world',rg:typeof v.rg==='string'?v.rg.slice(0,40):'',fl:typeof v.fl==='string'&&v.fl.length<=4000?v.fl:'',rk:Number.isInteger(v.rk)&&v.rk>=0?v.rk:-1,rkn:Number.isInteger(v.rkn)&&v.rkn>=0?v.rkn:0,
       al:v.al&&typeof v.al==='object'&&typeof v.al.n==='string'&&v.al.n?{n:v.al.n.slice(0,40),c:typeof v.al.c==='string'?v.al.c:''}:null,fd:v.fd===true}:{})};
 }
 function rgcHear(reg,qs){
@@ -93728,7 +93739,7 @@ async function rgcSend(){
   const p={x:x.slice(0,RGC_TEXT),t:Date.now(),top:C.top,id:'',...(P?{im:{s:P.th,w:P.w,h:P.h}}:{}),...(cd?{cd:{...cd,nm:cd.k==='nation'?(allNations().find(o=>o.id===cd.id||(o.me&&cd.id===S.uid))||{n:{name:''}}).n.name:''}}:{})},reg=wd?C.reg:RGC.reg,reo=C.re,re=reo&&reo.id||'',mn=rgcMnIds(p.x);
   RGC.busy=true;RGC.msg='';C.pend.push(p);ta.value='';C.draft='';C.re=null;RGC.pic=null;RGC.picErr='';rgcMnShow(ta);rgcGrow(ta);RGC.stick=true;rgcPaint();
   try{
-    const r=await rgcCivic({op:'rcPost',reg,x:p.x,...(re?{re}:{}),...(mn.length?{mn}:{}),...(P?{pic:rgcPicOut(P)}:{}),...(cd?{cd}:{}),...(wd?{rk:rgwRank()}:{})});
+    const r=await rgcCivic({op:'rcPost',reg,x:p.x,...(re?{re}:{}),...(mn.length?{mn}:{}),...(P?{pic:rgcPicOut(P)}:{}),...(cd?{cd}:{}),...(wd?{rk:rgwRank(),rkn:RK_MARK_VER}:{})});
     p.id=typeof r.id==='string'?r.id:'';achPend('rch');if(re)achPend('rchr');if(mn.length)achPend('mnt');
     if(r.guest===true&&Array.isArray(r.gt))RGC.gt=r.gt.map(Number).filter(t=>t>0).slice(-RGC_GUEST);
     if(!p.id||C.list.some(m=>m.id===p.id))C.pend=C.pend.filter(q=>q!==p);
@@ -93970,7 +93981,7 @@ function rgcBadges(x,memo){
    Supporter), its flag, and its region */
 function rgwBadges(m){
   let h='';
-  if(m.rk>0)try{const i=Math.min(ID_BD.length-1,m.rk),R=ACH_RANKS[m.rk],nm=R?R[1]:'';h+=`<i class="rgc-rk id-rk-${idBdLook(i)}" role="img" aria-label="Rank: ${esc(nm)}" title="Rank: ${esc(nm)}"></i>`;}catch(e){}
+  if(m.rk>0)try{const j=rkMarkIdx(m.rk,m.rkn),i=Math.min(ID_BD.length-1,j),R=ACH_RANKS[j],nm=R?R[1]:'';h+=`<i class="rgc-rk id-rk-${idBdLook(i)}" role="img" aria-label="Rank: ${esc(nm)}" title="Rank: ${esc(nm)}"></i>`;}catch(e){}
   if(m.al&&m.al.n)h+=alTagHTML(m.al.n,m.al.t,m.al.c,m.al.y);
   if(m.fd)h+=`<span class="founder-pill sm" title="Founding Supporter: among the first to help write the world of Edictum">${SHOP_BRASS}<span class="founder-sr">Founding Supporter</span></span>`;
   return h;
@@ -94300,16 +94311,16 @@ function rgcCardOf(c){
   if(!c||typeof c!=='object'||Array.isArray(c))return null;
   const n=v=>Number.isFinite(Number(v))?Number(v):0,i=v=>Number.isInteger(v)&&v>=0?v:0;
   if(c.k==='stock'&&Array.isArray(c.v)&&Array.isArray(c.r)&&c.v.length===5&&c.r.length===5)return {k:'stock',v:c.v.map(n),r:c.r.map(n)};
-  if(c.k==='rank')return {k:'rank',i:i(c.i),p:i(c.p),n:i(c.n)};
+  if(c.k==='rank')return {k:'rank',i:i(c.i),p:i(c.p),n:i(c.n),rkn:i(c.rkn)};
   if(c.k==='border'&&typeof c.id==='string'&&/^[a-z0-9]{12}$/.test(c.id))return {k:'border',id:c.id};
-  if(c.k==='nation'&&typeof c.id==='string'&&c.id)return {k:'nation',id:c.id.slice(0,128),nm:String(c.nm||'A nation').slice(0,80),pop:n(c.pop),ci:i(c.ci),hx:i(c.hx),i:i(c.i),al:typeof c.al==='string'?c.al.slice(0,40):''};
+  if(c.k==='nation'&&typeof c.id==='string'&&c.id)return {k:'nation',id:c.id.slice(0,128),nm:String(c.nm||'A nation').slice(0,80),pop:n(c.pop),ci:i(c.ci),hx:i(c.hx),i:i(c.i),rkn:i(c.rkn),al:typeof c.al==='string'?c.al.slice(0,40):''};
   return null;
 }
 function rgcAllyName(id){try{for(const a of AL.docs.values())if(a&&a.mem&&a.mem[id])return String(a.name||'').slice(0,40);}catch(e){}return '';}
 function rgcNationCard(x){
   const T=territory(),k=T.byId?T.byId[x.id]:undefined;let hx=0;if(k!==undefined)for(let c=0;c<T.owner.length;c++)if(T.owner[c]===k)hx++;
   let r=0;try{r=Math.max(0,achRankOf(x.n).i|0);}catch(e){}
-  return {k:'nation',id:x.me?S.uid:x.id,pop:Math.round((popNow(x.n)||0)*10)/10,ci:cityList(x.n).length,hx,i:r,al:rgcAllyName(x.me?S.uid:x.id)};
+  return {k:'nation',id:x.me?S.uid:x.id,pop:Math.round((popNow(x.n)||0)*10)/10,ci:cityList(x.n).length,hx,i:r,rkn:RK_MARK_VER,al:rgcAllyName(x.me?S.uid:x.id)};
 }
 /* the command in the words, as a card to send, an error to show, or null for ordinary words */
 function rgcCmd(x){
@@ -94319,7 +94330,7 @@ function rgcCmd(x){
   if(!RGC_CMDS.some(([k])=>k.split(' ')[0]==='/'+c))return /^\/[a-z]+$/i.test(x)?{err:`There is no command /${c}. ${rgcCmdHelp()}`}:null;
   if(!n)return {err:'Found a nation first.'};
   if(c==='stock'){const st=stockNow(n),rt=stockRates(n);return {cd:{k:'stock',v:RES.map(r=>Math.round((st[r]||0)*10)/10),r:RES.map(r=>Math.round((rt[r]||0)*10)/10)}};}
-  if(c==='rank'){let p=0;try{p=achPoints(n);}catch(e){}return {cd:{k:'rank',i:rgwRank(),p,n:achEarnedIds(n).length}};}
+  if(c==='rank'){let p=0;try{p=achPoints(n);}catch(e){}return {cd:{k:'rank',i:rgwRank(),p,n:achEarnedIds(n).length,rkn:RK_MARK_VER}};}
   if(!arg)return {err:'Name a nation: /nation <name>.'};
   const low=arg.toLowerCase().replace(/^@/,''),all=allNations().filter(x=>!x.npc&&x.n&&x.n.name);
   let hit=all.filter(x=>x.n.name.toLowerCase()===low);if(!hit.length)hit=all.filter(x=>x.n.name.toLowerCase().startsWith(low));
@@ -94331,8 +94342,8 @@ function rgcCardHTML(c,m,nm){
   const rows=a=>`<dl class="rgc-cd-g">${a.map(([k,v])=>`<div><dt>${k}</dt><dd>${v}</dd></div>`).join('')}</dl>`;
   if(c.k==='stock')return `<div class="rgc-cd"><p class="rgc-cd-t">Stockpile of ${esc(nm)}</p>${rows(RES.map((r,j)=>[`${resIco(r)}${esc(RES_INFO[r][0])}`,`${fmt0(c.v[j])}<small>${c.r[j]>=0?'+':''}${fmtAmt(c.r[j])} a day</small>`]))}</div>`;
   if(c.k==='border')return bdCardHTML(c);
-  if(c.k==='rank'){const R=ACH_RANKS[Math.min(c.i,ACH_RANKS.length-1)];return `<div class="rgc-cd"><p class="rgc-cd-t">Rank of ${esc(nm)}</p><p class="rgc-cd-big">${esc(R[1])}</p>${rows([['Points',fmt0(c.p)],['Achievements',fmt0(c.n)]])}</div>`;}
-  const x=allNations().find(o=>o.id===c.id||(o.me&&c.id===S.uid)),R=ACH_RANKS[Math.min(c.i,ACH_RANKS.length-1)];
+  if(c.k==='rank'){const R=ACH_RANKS[rkMarkIdx(c.i,c.rkn)];return `<div class="rgc-cd"><p class="rgc-cd-t">Rank of ${esc(nm)}</p><p class="rgc-cd-big">${esc(R[1])}</p>${rows([['Points',fmt0(c.p)],['Achievements',fmt0(c.n)]])}</div>`;}
+  const x=allNations().find(o=>o.id===c.id||(o.me&&c.id===S.uid)),R=ACH_RANKS[rkMarkIdx(c.i,c.rkn)];
   const name=x&&!x.me?`<button type="button" class="linkish" data-act="visit" data-id="${esc(c.id)}">${esc(c.nm)}</button>`:esc(c.nm);
   return `<div class="rgc-cd"><p class="rgc-cd-t">Nation card</p><p class="rgc-cd-big">${x?`<span class="mflag sm">${flagSVG(x.n.flag,'Flag of '+c.nm)}</span>`:''}${name}${chatDelegateBadge(c.id)}${rolePillOf(c.id)}</p>${rows([['People',esc(fmtPop(c.pop))],['Cities',fmt0(c.ci)],['Land',fmt0(c.hx)+' hexes'],['Rank',esc(R[1])],...(c.al?[['Alliance',esc(c.al)]]:[])])}</div>`;
 }

@@ -61,7 +61,10 @@ import DATA from './civic-data.json' with { type: 'json' };
    lines carry the same marks, it is paced on its own (rcPace b, bh), and a mention there names only an ambassador or a
    member of staff (ambassadors/{uid} or staff/{uid}), as no one else could read the line.
    Together they are RC_SHARED, the chats that are no one region's. */
-export const RC_WORLD = 'world', RC_FR = 'fr', RC_AMB = 'amb', RC_SHARED = [RC_WORLD, RC_FR, RC_AMB], RC_WORLD_GAP = 4000, RC_RANKS = 99;
+/* RC_RANKS bounds the rank index a game may send with a line, a rank card or a nation card: a sanity bound, not the
+   ladder's length, and well clear of it (the ladder was 72 ranks on 14 November 2026 and 103 on the 25th, so the top
+   index is 102). A card above the bound is refused outright, so this must stay ahead of every ladder the game ships. */
+export const RC_WORLD = 'world', RC_FR = 'fr', RC_AMB = 'amb', RC_SHARED = [RC_WORLD, RC_FR, RC_AMB], RC_WORLD_GAP = 4000, RC_RANKS = 299;
 /* a chat that is no one region's: the world chat, the French chat or the ambassadors' chat */
 export const rcShared = reg => RC_SHARED.includes(reg);
 /* who may write, react and read in a shared chat: everyone, but the ambassadors' chat only ambassadors and staff */
@@ -147,6 +150,10 @@ export function rcWait(p, now, hour = RC_HOUR) {
 export const RC_CARDS = ['stock', 'rank', 'nation', 'border', 'help'];
 const num = (v, lo, hi) => { const x = Number(v); return Number.isFinite(x) ? Math.min(hi, Math.max(lo, Math.round(x * 10) / 10)) : null; };
 const int = (v, lo, hi) => { const x = Number(v); return Number.isInteger(x) && x >= lo && x <= hi ? x : null; };
+/* rkn: which numbering a published rank index is written in (the game: RK_MARK_VER), kept beside it so a reader can
+   tell a place on today's ladder from one on the ladder as it stood before the middle ranks were added. A game from
+   before that sends none, and the reader then reads the index on the older numbering. */
+const rkVer = c => { const n = int(c && c.rkn, 0, 9); return n == null ? {} : { rkn: n }; };
 export function rcCardIn(c) {
   const bad = () => { throw new HttpsError('invalid-argument', 'That card cannot be shown.', { code: 'rc_card' }); };
   if (!c || typeof c !== 'object' || Array.isArray(c) || !RC_CARDS.includes(c.k)) bad();
@@ -159,7 +166,7 @@ export function rcCardIn(c) {
   if (c.k === 'rank') {
     const i = int(c.i, 0, RC_RANKS), p = int(c.p, 0, 1e8), n = int(c.n, 0, 1e5);
     if (i == null || p == null || n == null) bad();
-    return { k: 'rank', i, p, n };
+    return { k: 'rank', i, p, n, ...rkVer(c) };
   }
   if (c.k === 'border') {
     const id = typeof c.id === 'string' && /^[a-z0-9]{12}$/.test(c.id) ? c.id : '';
@@ -174,7 +181,7 @@ export function rcCardIn(c) {
   const id = typeof c.id === 'string' && /^[\w-]{1,128}$/.test(c.id) ? c.id : '', pop = num(c.pop, 0, 1e9), ci = int(c.ci, 0, 1e4), hx = int(c.hx, 0, 1e6), i = int(c.i, 0, RC_RANKS);
   if (!id || pop == null || ci == null || hx == null || i == null) bad();
   const al = line(c.al, 40);
-  return { k: 'nation', id, pop, ci, hx, i, ...(al ? { al } : {}) };
+  return { k: 'nation', id, pop, ci, hx, i, ...rkVer(c), ...(al ? { al } : {}) };
 }
 
 async function rcPost(db, who, d, regions) {
@@ -261,7 +268,7 @@ async function rcPost(db, who, d, regions) {
       const an = al && al.exists && mem[who.uid] ? line(al.get('name'), 40) : '', col = an && /^#[0-9a-fA-F]{6}$/.test(al.get('col') || '') ? al.get('col').toUpperCase() : '';
       const tg = an && /^[A-Z0-9]{2,4}$/.test(al.get('tg') || '') ? al.get('tg') : '', ty = an && ['def', 'trade', 'culture', 'research'].includes(al.get('ty')) ? al.get('ty') : '';
       const flag = e.n.flag && typeof e.n.flag === 'object' ? JSON.stringify(e.n.flag) : '', rk = Number.isInteger(d.rk) && d.rk >= 0 && d.rk <= RC_RANKS ? d.rk : null;
-      marks = { rg: home, ...(flag && flag.length <= 4000 ? { fl: flag } : {}), ...(rk != null ? { rk } : {}), ...(an ? { al: { n: an, ...(col ? { c: col } : {}), ...(tg ? { t: tg } : {}), ...(ty ? { y: ty } : {}) } } : {}),
+      marks = { rg: home, ...(flag && flag.length <= 4000 ? { fl: flag } : {}), ...(rk != null ? { rk, ...rkVer(d) } : {}), ...(an ? { al: { n: an, ...(col ? { c: col } : {}), ...(tg ? { t: tg } : {}), ...(ty ? { y: ty } : {}) } } : {}),
         ...(shop.exists && shop.get('owns.founder') ? { fd: true } : {}) };
     }
     tx.set(pace, { p: recent.concat(now).slice(-RC_HOUR), ...(world ? { [pw]: now, [ph]: h } : { h }) }, { merge: true });
