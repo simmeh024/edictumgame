@@ -136,8 +136,16 @@ await C.click('[data-rgc="close"]');
 await C.setViewportSize({ width: 390, height: 760 });
 await C.click('.rgc-btn'); await C.waitForSelector('#rgc-dock:not([hidden])'); await C.click('#rgc-tab-region');
 check('on a phone it opens on the newest line', await until(async () => await atEnd(C, '#rgc-body') && await newestSeen(C)), String(await gap(C, '#rgc-body')));
+/* An Android keyboard shrinks the layout viewport only because the page asks it to (build.py, interactive-widget).
+   Without that the page stays tall, the drawer with it, and the writing box sits under the keyboard. */
+check('the page asks a keyboard to shrink the page with it', /interactive-widget=resizes-content/.test(await C.$eval('meta[name="viewport"]', m => m.content)), await C.$eval('meta[name="viewport"]', m => m.content));
 await C.setViewportSize({ width: 390, height: 460 });
 check('and a screen made shorter (a keyboard opening) keeps the newest line in sight', await until(async () => await atEnd(C, '#rgc-body') && await newestSeen(C)), String(await gap(C, '#rgc-body')));
+const boxSeen = () => C.evaluate(() => { const i = document.querySelector('#rgc-x').getBoundingClientRect(); return i.top >= -1 && i.bottom <= window.innerHeight + 1 && i.height > 20; });
+check('and the writing box stays on the shortened screen', await until(boxSeen), await C.evaluate(() => JSON.stringify(document.querySelector('#rgc-x').getBoundingClientRect()) + ' in ' + window.innerHeight));
+await C.focus('#rgc-x'); await C.fill('#rgc-x', 'Typed with the keyboard up.');
+check('what is written in it shows', await until(boxSeen) && await C.$eval('#rgc-x', t => t.value) === 'Typed with the keyboard up.');
+await C.fill('#rgc-x', '');
 
 /* The layout viewport stays tall on iOS and some Android keyboards; only the visual viewport moves. */
 await C.setViewportSize({ width: 390, height: 760 }); await C.focus('#rgc-x');
