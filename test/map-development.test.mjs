@@ -207,17 +207,23 @@ test('jumping the main map to a hex ends a glide still running on it',()=>{
  assert.deepEqual({...ctx.S.mapViews.main},{z:5,cx:20,cy:9});
  ctx.X.centerMain(1);assert.equal(ctx.S.mapViews.main.z,6);assert.deepEqual(cancelled,[7],'nothing to stop the second time');
 });
-test('a bridge spans water to a city at most three hexes away, and only while both ends are held',()=>{
+test('a bridge crosses land or water between owned hexes at most three steps apart',()=>{
  const {ctx,world,cell}=fixture();ctx.hexDist=ctx.hexDist||((a,b)=>{const W=24,aq=a%W,ar=(a-aq)/W,bq=b%W,br=(b-bq)/W,dq=aq-bq,dr=ar-br;return (Math.abs(dq)+Math.abs(dr)+Math.abs(dq+dr))/2;});
  const a=city(cell(4,4)),b=city(cell(7,4)),far=city(cell(9,4));
- /* dry land between: no bridge, build a road */
- assert.equal(ctx.mpBridgePath(world,0,a.c,b.c),null);
+ const land=ctx.mpBridgePath(world,0,a.c,b.c);assert.equal(land.length,4);
+ ctx.cityState=()=>({byCell:new Map()});assert.ok(ctx.mpRoutePreview(world,'bridge',a.c,b.c).path,'neither end needs a city');
  for(const q of [5,6])for(let r=0;r<9;r++){ctx.MAP.T[cell(q,r)]=0;world.owner[cell(q,r)]=-1;}
  const p=ctx.mpBridgePath(world,0,a.c,b.c);assert.deepEqual([p[0],p.at(-1),p.length],[a.c,b.c,4]);
  assert.equal(ctx.mpBridgePath(world,0,a.c,far.c),null);
  const byCell=new Map([[a.c,a],[b.c,b]]),r=route(ctx,p,'bridge');assert.ok(ctx.mpRouteShape(r));
  assert.equal(ctx.mpRouteStatus(r,world,0,byCell),'Active');assert.deepEqual([...ctx.mpLiveCells(r,world,0)],[a.c,b.c]);
  assert.equal(ctx.mpRouteShape({...r,path:[a.c,cell(5,4),cell(6,4),cell(7,4),cell(8,4)],b:cell(8,4)}),null);
- b.hi=1;assert.equal(ctx.mpRouteStatus(r,world,0,byCell),'Far city lost');
+ byCell.clear();assert.equal(ctx.mpRouteStatus(r,world,0,byCell),'Active');world.owner[b.c]=1;assert.equal(ctx.mpRouteStatus(r,world,0,byCell),'Connection cut');
  assert.ok(ctx.types.bridge.cost.iron>=15&&ctx.types.bridge.mins>=120);
+});
+
+test('shipping connections reach ten steps while harbour expansion keeps its longer reach',()=>{
+ const {ctx,world,cell}=fixture(),a=cell(1,4),ten=cell(11,4),eleven=cell(12,4);ctx.MAP.T.fill(0);for(const c of [a,ten,eleven])ctx.MAP.T[c]=2;
+ const port=city(a,{done:['harbour']});ctx.cityState=()=>({byCell:new Map([[a,port]])});
+ assert.equal(ctx.mpRoutePreview(world,'sea',a,ten).steps,10);assert.match(ctx.mpRoutePreview(world,'sea',a,eleven).why,/10 steps/);assert.ok(ctx.mpSeaReach(a).has(eleven));
 });
