@@ -81,6 +81,21 @@ const finery = async uid => (await db.doc('finery/' + uid).get()).data();
 const config = (extra = {}) => db.doc('authConfig/paddle').set({ env: 'sandbox', apiKey: 'pdl_sdbx_apikey_test', webhookSecret: SECRET, clientToken: 'test_clienttoken', prices: PRICES, api: base, ...extra });
 const until = async (fn, ms = 8000) => { const end = Date.now() + ms; let v; while (Date.now() < end) { v = await fn(); if (v) return v; await new Promise(r => setTimeout(r, 150)); } return v; };
 
+test('first-month Club gift is time-limited, retryable and claimed once, including by guests', async () => {
+  const day = 86400000, now = Date.UTC(2026, 10, 27, 12), guest = await player(false);
+  await config({ skew: now - Date.now() });
+  const result = await Promise.all([call(guest, { step: 'anniversary' }), call(guest, { step: 'anniversary' })]);
+  assert.equal(result[0].at, result[1].at);
+  assert.equal(result[0].vip.until, result[0].at + 3 * day);
+  assert.equal((await db.doc('shopPrize/' + guest.uid).get()).get('d3.anniversary-2026'), result[0].at);
+  assert.equal((await shop(guest.uid)).vip.until, result[0].at + 3 * day);
+  await config({ skew: Date.UTC(2026, 11, 5) - Date.now() });
+  assert.equal((await call(guest, { step: 'anniversary' })).at, result[0].at, 'a lost response can be retried after the window');
+  const late = await player(false);
+  await rejects(call(late, { step: 'anniversary' }), 'anniversary_closed');
+  await config();
+});
+
 before(async () => { await new Promise(r => server.listen(0, '127.0.0.1', r)); base = 'http://127.0.0.1:' + server.address().port; await config(); });
 after(async () => { server.close(); await db.doc('authConfig/paddle').delete(); });
 

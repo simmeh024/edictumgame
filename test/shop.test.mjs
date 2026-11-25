@@ -13,6 +13,18 @@ const DAY = 864e5, H = 36e5, src = fs.readFileSync(new URL('../game/edictum.html
 const tx = (id, product, o = {}) => ({ id, product, ok: true, ck: true, status: 'completed', created: Date.UTC(2026, 10, 1), paid: Date.UTC(2026, 10, 1, 1), period: null, sub: '', ...o });
 const adj = (txn, action, status, type = 'full') => ({ txn, action, status, type });
 
+test('three-day Club promotional access follows existing coverage', () => {
+  const at = Date.UTC(2026, 10, 27);
+  const alone = entitlement({ now: at, shortPrizes: [at] });
+  assert.equal(alone.vip.until, at + 3 * DAY);
+  assert.equal(alone.vip.from, at);
+  const existing = entitlement({ now: at, comp: { at: at - DAY, until: at + 5 * DAY }, shortPrizes: [at] });
+  assert.equal(existing.vip.until, at + 8 * DAY);
+  assert.equal(existing.vip.runs[0].s, at - DAY);
+  assert.equal(entitlement({ now: at, shortPrizes: [at, at] }).vip.until, at + 6 * DAY);
+  assert.equal(entitlement({ now: at, shortPrizes: [0, NaN] }).vip, null);
+});
+
 test('signatures: Paddle-Signature over "<ts>:<raw body>", within five minutes, any of several h1', () => {
   const raw = Buffer.from('{"event_id":"evt_01"}'), now = Date.now(), ts = Math.floor(now / 1000);
   assert.ok(verifySignature(raw, signature(raw, 'secret', ts), 'secret', now));

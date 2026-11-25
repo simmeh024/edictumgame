@@ -217,7 +217,7 @@ export function months(p) {
       gifts: [{p, from, t, txn}], refunds: [{txn, why, item?, p?}], cancels: [{sub, why}], notes: [{k, txn, t, st, p?}], cosmetics: [ids shown to other players]}
    A month of the Club given as a gift begins when it is paid, or where the membership already paid for ends; a month
    won begins the same way, after whatever is paid, given or granted, so it is never spent on days already covered. */
-export function entitlement({ txs = [], adjs = [], subs = {}, picks = {}, now, comp = null, prizes = [], fgift = null, grants = {} }) {
+export function entitlement({ txs = [], adjs = [], subs = {}, picks = {}, now, comp = null, prizes = [], shortPrizes = [], fgift = null, grants = {} }) {
   const out = { owns: {}, granted: {}, vip: null, gifts: [], refunds: [], cancels: [], notes: [], cosmetics: [] };
   /* a checkout this server opened, or a renewal of a subscription one of those started */
   const valid = txs.filter(t => t.status === 'completed' && t.ok && (t.ck || t.sub && subs[t.sub]));
@@ -298,6 +298,13 @@ export function entitlement({ txs = [], adjs = [], subs = {}, picks = {}, now, c
     let s = t, c;
     while ((c = cover.find(p => p.s <= s && s < p.e))) s = c.e;
     const g = { s, e: addMonth(s), sub: '', plan: 'gift' };
+    cover.push(g); kept.push(g);
+  }
+  /* Short promotional access is queued behind existing coverage, like a won month. */
+  for (const t of (Array.isArray(shortPrizes) ? shortPrizes : []).filter(x => Number.isFinite(x) && x > 0).sort((a, b) => a - b)) {
+    let s = t, c;
+    while ((c = cover.find(p => p.s <= s && s < p.e))) s = c.e;
+    const g = { s, e: s + 3 * 86400000, sub: '', plan: 'gift' };
     cover.push(g); kept.push(g);
   }
   if (kept.length) {
