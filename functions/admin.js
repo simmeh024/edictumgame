@@ -473,6 +473,35 @@ async function setAmb(db, actor, data) {
     reason: on ? 'Appointed as ambassador' : 'No longer an ambassador', outcome: 'completed', at: FieldValue.serverTimestamp() });
   return { uid, amb: on };
 }
+/* The ambassadors' notes (functions/ambassador.js, ambPass): what an ambassador saw and could not act on, waiting
+   for a moderator ahead of the ordinary reports. Staff read them and say what became of each one; the ambassador
+   reads that answer on their own desk. Nothing here acts on a player: a moderator still decides and acts as usual. */
+const AMB_NOTE_STATES = ['read', 'done', 'dropped'];
+async function ambNotesList(db) {
+  const [open, recent] = await Promise.all([
+    db.collection('ambNotes').where('state', '==', 'waiting').orderBy('t', 'asc').limit(60).get(),
+    db.collection('ambNotes').orderBy('t', 'desc').limit(40).get()]);
+  const row = d => ({ id: d.id, by: d.get('by') || '', nm: text(d.get('nm'), 80), kind: text(d.get('kind'), 20),
+    x: text(d.get('x'), 600), target: d.get('target') || '', name: text(d.get('name'), 80), reg: text(d.get('reg'), 40),
+    line: text(d.get('line'), 40), topic: text(d.get('topic'), 40), t: +d.get('t') || 0,
+    state: text(d.get('state'), 20) || 'waiting', said: text(d.get('said'), 300), at: +d.get('at') || 0 });
+  const seen = new Set(open.docs.map(d => d.id));
+  return { at: Date.now(), waiting: open.docs.map(row), recent: recent.docs.filter(d => !seen.has(d.id)).map(row) };
+}
+async function ambNoteAct(db, actor, data) {
+  const id = text(data.id, 40), state = AMB_NOTE_STATES.includes(data.state) ? data.state : '';
+  const said = text(data.said, 300);
+  if (!id || !state) throw new HttpsError('invalid-argument', 'Choose a note and what became of it.');
+  const ref = db.doc('ambNotes/' + id), s = await ref.get();
+  if (!s.exists) throw new HttpsError('not-found', 'That note is no longer there.');
+  const b = db.batch();
+  b.set(ref, { state, at: Date.now(), by2: actor, ...(said ? { said } : {}) }, { merge: true });
+  b.create(db.collection('adminAudit').doc(), { actor, action: 'amb_note_' + state, outcome: 'completed', at: FieldValue.serverTimestamp(),
+    ...(s.get('target') ? { target: s.get('target'), name: text(s.get('name'), 80) } : {}), note: id,
+    reason: said || 'An ambassador’s note was handled' });
+  await b.commit();
+  return { id, state };
+}
 async function modsList(db) {
   const qs = await db.collection('staff').where('m', '==', true).get();
   const rows = await Promise.all(qs.docs.map(async d => { const n = await db.doc('nations/' + d.id).get(); return { uid: d.id, name: text(n.get('name'), 80), reg: text(n.get('reg'), 40), t: +d.get('t') || 0 }; }));
@@ -710,11 +739,16 @@ export const adminConsole = onCall({ region: 'europe-west1', maxInstances: 5, me
        behind the nation: no sign-ins, no address, no other accounts from it, no purchases (modPlayer) */
     if (req.auth.token.mod === true && d.op === 'player') return modPlayer(db, id(d.uid));
     if (req.auth.token.mod === true && d.op === 'note' && text(d.action, 8) !== 'drop') return note(db, actor, d);
+    /* the ambassadors' notes: a moderator reads them and says what became of each (functions/ambassador.js) */
+    if (req.auth.token.mod === true && d.op === 'ambNotes') return ambNotesList(db);
+    if (req.auth.token.mod === true && d.op === 'ambNote') return ambNoteAct(db, actor, d);
     throw new HttpsError('permission-denied', 'Only Edictum admins can use the console.');
   }
   if (d.op === 'setMod') return setMod(db, actor, d);
   if (d.op === 'setAmb') return setAmb(db, actor, d);
   if (d.op === 'mods') return modsList(db);
+  if (d.op === 'ambNotes') return ambNotesList(db);
+  if (d.op === 'ambNote') return ambNoteAct(db, actor, d);
   if (d.op === 'search') return players(db, d);
   if (d.op === 'player') { const uid = id(d.uid), [p, lcg] = await Promise.all([player(db, uid), grantsOf(db, uid)]); return { ...p, lcg }; }
   if (d.op === 'landCredits') return landCredits(db, actor, d);

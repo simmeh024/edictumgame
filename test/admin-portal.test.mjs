@@ -32,12 +32,14 @@ vm.runInContext([
   'const admImpactBox=()=>"";const admWhyBox=()=>"";const admKeysHint=()=>"";',
   'const S={isOwner:true,mod:{}};const ADM={d:null,ask:null,act:""};const ADMR={pick:0};',
   'const ADMH={d:null},BGA={list:null},AW={a:null};',
+  /* the ambassadors' notes, which a moderator sees in the queue as well (functions/ambassador.js, ambPass) */
+  'const ABN={d:null};const ABN_KIND={threat:"Threat",scam:"Scam",trouble:"Trouble",broken:"Broken",silence:"Silence"};',
   grab(/const admRepKind=[\s\S]*?;\n/, 'admRepKind'),
   grab(/const admRepThing=[^\n]*\n/, 'admRepThing'),
   grab(/const admDaysWord=[^\n]*\n/, 'admDaysWord'),
   grab(/const admReportWhy=[^\n]*\n/, 'admReportWhy'),
   fn('admReports'), fn('admCases'), fn('triRows'),
-  'this.admReports=admReports;this.admCases=admCases;this.triRows=triRows;this.admDaysWord=admDaysWord;this.admReportWhy=admReportWhy;this.S=S;this.ADM=ADM;this.ADMH=ADMH;this.BGA=BGA;this.AW=AW;this.ADMR=ADMR;',
+  'this.admReports=admReports;this.admCases=admCases;this.triRows=triRows;this.admDaysWord=admDaysWord;this.admReportWhy=admReportWhy;this.S=S;this.ADM=ADM;this.ADMH=ADMH;this.BGA=BGA;this.AW=AW;this.ADMR=ADMR;this.ABN=ABN;',
 ].join('\n'), ctx);
 const { admReports, admCases, triRows, admDaysWord, admReportWhy } = ctx;
 
@@ -93,14 +95,17 @@ test('Needs attention gathers every queue, the longest waiting first', () => {
   ctx.ADMH.d = { open: [{ id: 't1', topic: 'I cannot sign in', w: 's', lt: now - 5 * 3600000 }, { id: 't2', topic: 'waiting on the player', w: 'p', lt: now - 9 * 3600000 }] };
   ctx.BGA.list = [{ id: 'b1', ti: 'The map will not draw', st: 'new', t: now - 3600000 }, { id: 'b2', ti: 'old news', st: 'fixed', t: now - 99 * 3600000 }];
   ctx.AW.a = { alerts: [{ id: 'a1', ti: 'A nation grew tenfold', x: 'Aldara', t: now - 4 * 3600000, seen: false }, { id: 'a2', ti: 'seen already', t: now - 50 * 3600000, seen: true }] };
+  ctx.ABN.d = { waiting: [{ id: 'n1', kind: 'threat', nm: 'Envoyland', name: 'Tallowmere', target: 'u9', x: 'a threat in a letter', t: now - 7 * 3600000 }],
+    recent: [{ id: 'n0', kind: 'broken', nm: 'Envoyland', name: 'Wyke', x: 'handled', t: now - 90 * 3600000, state: 'done' }] };
   const rows = triRows();
-  assert.equal(rows.map(r => r.k).join(' '), 'help alert report bug', 'oldest first, and only what is still waiting');
-  assert.equal(rows.length, 4, 'a ticket waiting on the player, a fixed bug and a seen alert are not waiting on the staff');
+  assert.equal(rows.map(r => r.k).join(' '), 'ambnote help alert report bug', 'oldest first, and only what is still waiting');
+  assert.equal(rows.length, 5, 'a ticket waiting on the player, a fixed bug, a seen alert and a handled note are not waiting on the staff');
+  assert.match(rows[0].x, /Threat . from Envoyland/, 'a note says what kind it is and which ambassador sent it');
 });
 
-test('a moderator\'s queue is the reports alone', () => {
+test('a moderator\'s queue is the reports and the ambassadors notes', () => {
   ctx.S.isOwner = false;
-  assert.equal(triRows().map(r => r.k).join(' '), 'report', 'help queries, bugs and alerts are the admins\'');
+  assert.equal(triRows().map(r => r.k).join(' '), 'ambnote report', 'help queries, bugs and alerts are the admins\'');
   ctx.S.isOwner = true;
 });
 

@@ -15,7 +15,7 @@ test('the callable entry gate admits delegate lookups and rejects unknown operat
   const civic=fs.readFileSync(new URL('../functions/civic.js',import.meta.url),'utf8');
   const constants=civic.slice(civic.indexOf('const ASSEMBLY_ACTS ='),civic.indexOf('/* One vCPU'));
   const gate=civic.match(/^  if \(!CIVIC_OPS\.has\(op\).+$/m)[0];
-  const context=vm.createContext({HttpsError:class extends Error{constructor(code,message){super(message);this.code=code;}},...Object.fromEntries(['isAllianceOp','isTreatyOp','isBorderOp','isFlagOp','isRegionChatOp','isSupplyOp','isLandOp','isVentureOp','isRiddleOp'].map(k=>[k,()=>false]))});
+  const context=vm.createContext({HttpsError:class extends Error{constructor(code,message){super(message);this.code=code;}},...Object.fromEntries(['isAllianceOp','isTreatyOp','isBorderOp','isFlagOp','isRegionChatOp','isAmbOp','isSupplyOp','isLandOp','isVentureOp','isRiddleOp'].map(k=>[k,()=>false]))});
   vm.runInContext(constants+'\nthis.admit=op=>{'+gate+'};',context);
   assert.doesNotThrow(()=>context.admit('chatDelegates'));
   assert.throws(()=>context.admit('notAnOperation'),/Unknown request/);
