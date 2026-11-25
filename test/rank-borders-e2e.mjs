@@ -149,7 +149,8 @@ await shot('#id-pp img.id-pp','rank-idcard.png');await A.click('.id-ppx');
 await A.setViewportSize({width:1280,height:900});await A.emulateMedia({colorScheme:'light'});await nav(A,'nation');await A.evaluate(()=>scrollTo(0,0));await sleep(200);
 await shot('.hero.id-sec','rank-top-desktop-light.png');
 /* ── the ladder was stretched on 10 November 2026: a nation keeps the rank it held ──
-   3,300 prestige was Eminence (rank 20, from 3,250). On the new ladder alone it is Elder Statesman (19, from 3,000).
+   3,300 prestige was Eminence (place 20 on the old ladder, from 3,250). On the ladder as it stands, with the fifteen
+   ranks added to the middle on 25 November, 3,300 alone gives Asked for an Opinion, and Eminence sits at place 22.
    A nation from before the change has no mark yet; its first save writes down the rank it had. */
 const B=await player('old hand',{vp:{width:412,height:900},dpr:2,dark:true});await open(B);await found(B,'Oldland');
 const old=await B.evaluate(()=>{
@@ -158,29 +159,29 @@ const old=await B.evaluate(()=>{
   for(const a of R.ACH.slice().sort((x,y)=>R.ACH_TIER[y.t].p-R.ACH_TIER[x.t].p)){if(a.id.startsWith('cab-'))continue;const v=R.ACH_TIER[a.t].p;if(p+v<=3300){ach[a.id]=t;p+=v;}if(p>=3300)break;}
   delete n.rkv;delete n.rkh;n.ach=ach;const before=R.achRankOf(n).i;G.commit(n);G.render();const m=G.S.nation,r=R.achRankOf(m);
   return {p:R.achPoints(m),before,rkv:m.rkv,rkh:m.rkh,i:r.i,name:r.name,held:!!r.held,next:r.next&&r.next.at,bare:R.achRank(R.achPoints(m)).i,credits:R.achRankCredits(m),bd:R.idBdIndex(m),
-    fresh:R.achRankOf({ach:m.ach,rkv:2}).i,later:[R.achRankOf(m,3600).i,R.achRankOf(m,4000).i],has:G.WND.unlocks(m).includes(R.ID_BD[20][0]),hasNext:G.WND.unlocks(m).includes(R.ID_BD[21][0])};});
-check('a nation from before the change reads as the old ladder had it, and its first save writes that rank down',old.before===20&&old.rkv===2&&old.rkh===20&&old.p>=3250&&old.p<3500,JSON.stringify(old));
-check('it keeps the rank it held: Eminence, where the new ladder alone gives Elder Statesman',old.i===20&&old.name==='Eminence'&&old.held&&old.bare===19&&old.fresh===19&&old.next===4000,JSON.stringify(old));
-check('with its land credits and its border',old.credits===200&&old.bd===20&&old.has&&!old.hasNext,JSON.stringify(old));
-check('and climbs on from there: the next rank comes at the new mark',old.later[0]===20&&old.later[1]===21,JSON.stringify(old.later));
+    fresh:R.achRankOf({ach:m.ach,rkv:2}).i,later:[R.achRankOf(m,3600).i,R.achRankOf(m,4000).i],has:G.WND.unlocks(m).includes(R.ID_BD[22][0]),hasNext:G.WND.unlocks(m).includes(R.ID_BD[23][0])};});
+check('a nation from before the change reads as the old ladder had it, and its first save writes that rank down',old.before===22&&old.rkv===2&&old.rkh===20&&old.p>=3250&&old.p<3500,JSON.stringify(old));
+check('it keeps the rank it held: Eminence, where the new ladder alone gives Elder Statesman',old.i===22&&old.name==='Eminence'&&old.held&&old.bare===21&&old.fresh===21&&old.next===3750,JSON.stringify(old));
+check('with its land credits and its border',old.credits===220&&old.bd===22&&old.has&&!old.hasNext,JSON.stringify(old));
+check('and climbs on from there: the next rank comes at the new mark',old.later[0]===22&&old.later[1]===24,JSON.stringify(old.later));
 await nav(B,'nation');await B.evaluate(()=>scrollTo(0,0));await sleep(200);
-const oc=await B.evaluate(()=>{const h=document.querySelector('.hero.id-sec'),b=h&&h.querySelector('.id-bd');return {cls:h?h.className:'',plate:b&&b.querySelector('.id-bd-pl')?b.querySelector('.id-bd-pl').textContent:'',look:G.RK.ID_BD[20][2].split(' ')[0]};});
+const oc=await B.evaluate(()=>{const h=document.querySelector('.hero.id-sec'),b=h&&h.querySelector('.id-bd');return {cls:h?h.className:'',plate:b&&b.querySelector('.id-bd-pl')?b.querySelector('.id-bd-pl').textContent:'',look:G.RK.ID_BD[22][2].split(' ')[0]};});
 check('its card wears that rank’s border and name',oc.cls.includes('id-rk-'+oc.look)&&oc.plate==='Eminence',JSON.stringify(oc));
 await nav(B,'achievements');await sleep(400);
-check('the Achievements page names the rank held and counts on to the next',/Eminence/.test(await B.locator('.ach-rank').first().textContent())&&/to Kingmaker at 4,000/.test((await B.locator('.ach-next').first().textContent()).replace(/\s+/g,' ')),await B.locator('.ach-hp').first().textContent());
+check('the Achievements page names the rank held and counts on to the next',/Eminence/.test(await B.locator('.ach-rank').first().textContent())&&/to Precedent at 3,750/.test((await B.locator('.ach-next').first().textContent()).replace(/\s+/g,' ')),await B.locator('.ach-hp').first().textContent());
 await B.locator('.ach-ladder summary').click();
 /* (the list is filled as the fold opens, and again after a redraw: wait for it) */
-check('and its ranks list ticks every rank up to it',await until(async()=>await B.locator('.ach-ladder li.done').count()===21),String(await B.locator('.ach-ladder li.done').count()));
+check('and its ranks list ticks every rank up to it',await until(async()=>await B.locator('.ach-ladder li.done').count()===23),String(await B.locator('.ach-ladder li.done').count()));
 const ptsB=()=>B.evaluate(()=>G.RK.achPoints(G.S.nation)),p0=await ptsB();
-await B.locator('.ach-ladder [data-act="bd-zoom"][data-i="21"]').click();
-/* what is left to Kingmaker, from the nation's own prestige: about 650, but what a new nation earns by itself when it
+await B.locator('.ach-ladder [data-act="bd-zoom"][data-i="23"]').click();
+/* what is left to Precedent, from the nation's own prestige: about 400, but what a new nation earns by itself when it
    is founded differs from run to run (a silver more on CI on 13 Nov 2026: 3,365 at the first save, 3,340 here), and a
    save may write down the first visit to this page while it is open, so the prestige before the click or now */
-const togo=async()=>{const m=/The border of Kingmaker, at 4,000 prestige\. (\d+) prestige to go\./.exec((await big(B)).sum);return m?+m[1]:-1;};
+const togo=async()=>{const m=/The border of Precedent, at 3,750 prestige\. (\d+) prestige to go\./.exec((await big(B)).sum);return m?+m[1]:-1;};
 const left=await togo(),p1=await ptsB();
-check('a border still ahead says how much prestige is to go',left>=500&&left<=700&&(left===4000-p0||left===4000-p1)&&!(await big(B)).cz,JSON.stringify({left,p0,p1,big:await big(B)}));
+check('a border still ahead says how much prestige is to go',left>=250&&left<=450&&(left===3750-p0||left===3750-p1)&&!(await big(B)).cz,JSON.stringify({left,p0,p1,big:await big(B)}));
 await B.keyboard.press('Escape');
 /* the mark is kept by a reload, and the rank with it */
 await B.evaluate(()=>G.S.nation&&0);await sleep(2500);await B.reload();await B.waitForSelector('.layout',{timeout:30000});
-check('a reload keeps the rank',await until(()=>B.evaluate(()=>{const n=G.S&&G.S.nation;return !!n&&n.rkv===2&&n.rkh===20&&G.RK.achRankOf(n).i===20;}),15000),JSON.stringify(await B.evaluate(()=>({rkv:G.S.nation.rkv,rkh:G.S.nation.rkh,i:G.RK.achRankOf(G.S.nation).i}))));
+check('a reload keeps the rank',await until(()=>B.evaluate(()=>{const n=G.S&&G.S.nation;return !!n&&n.rkv===2&&n.rkh===20&&G.RK.achRankOf(n).i===22;}),15000),JSON.stringify(await B.evaluate(()=>({rkv:G.S.nation.rkv,rkh:G.S.nation.rkh,i:G.RK.achRankOf(G.S.nation).i}))));
 await finish();
