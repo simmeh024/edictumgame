@@ -74,3 +74,35 @@ The original territory, spy-operation timestamp and target snapshot stay intact.
 
 `npm run test:dhaluun-wall` checks the full perimeter, defence bonus, Dispatch edition, timeline and operator replay
 handling. It also renders the real wall and the Dispatch article to screenshots in `test/out/`.
+
+## The imperial customs notice
+
+`tools/admin/dhaluun-customs.mjs` publishes the owner's approved text once in the **Western Dhaluun Free Trade
+Agreement** channel, authored by Dhaluun. The alliance channel and chat drawer show its reserved message identity as
+a yellow warning block, with an imperial customs heading. Normal messages cannot acquire that styling by copying
+its words. Reactions and officer moderation remain available.
+
+The same transaction creates `worldEvents/dhaluun-customs-v1`: a snapshot of up to two active trade routes per player
+member. A shared route counts against both members' limits. Routes with Dhaluun are preferred, then other NPCs,
+then fellow members. The command previews the actual game's signed, unsuspended, nonzero-flow routes; pending
+offers and future trades are not selected.
+
+Selected routes deliver **50% less in both directions for exactly 24 hours**, starting when the command publishes.
+The reduction combines with existing blockade/escort effects. It changes real imports, exports and stock accrual,
+while the route card states the reduction and its expiry. Stock accrual is split at the start and end boundaries,
+including catch-up for an absent player. Normal flow resumes automatically; keep the event record for historical
+stock accrual rather than deleting it at expiry. Existing stockpiles and the signed contracts are not rewritten.
+
+Preview, then publish after the client has deployed:
+
+```sh
+node tools/admin/dhaluun-customs.mjs --project edictum-b30de
+node tools/admin/dhaluun-customs.mjs --project edictum-b30de --apply
+```
+
+Publication checks that alliance membership and the region's nation snapshot have not changed during planning,
+then writes the event, private alliance-chat message and audit entry atomically. A repeat returns `already-applied`.
+The message stays as channel history after the disruption ends. No region-wide chat message is sent.
+
+`npm run test:dhaluun-customs` checks the deadline, stock catch-up, route allocation, exact message, atomic
+publication and the warning's desktop/mobile appearance in light and dark themes.

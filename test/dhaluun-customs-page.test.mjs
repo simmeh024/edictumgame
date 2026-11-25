@@ -1,0 +1,50 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import {fileURLToPath} from 'node:url';
+import {chromium} from 'playwright';
+import {MESSAGE,BY,EVENT,DAY,AGREEMENT} from '../tools/admin/dhaluun-customs.mjs';
+test('the real economy halves selected trade, restores it after a day, and renders the approved yellow warning in both channels',async()=>{
+  const browser=await chromium.launch();
+  try{
+    const page=await browser.newPage({viewport:{width:1100,height:900}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
+    await page.route('**/*',r=>r.request().url()==='https://edictum.invalid/'?r.fulfill({contentType:'text/html',body:'<div id="app"></div>'}):r.abort());await page.goto('https://edictum.invalid/');
+    await page.evaluate(()=>{localStorage.setItem('statehood.nation.v1',JSON.stringify({name:'Tester',reg:'cloudspine'}));window.EDICTUM_PROBE=g=>{window.G=g;};window.testNow=Date.now();Date.now=()=>window.testNow;});
+    const html=fs.readFileSync(new URL('../game/edictum.html',import.meta.url),'utf8'),script=html.slice(html.indexOf('<script>')+8,html.lastIndexOf('</script>'));
+    await page.addScriptTag({content:script.replace("if(hot&&typeof hot.ready==='function')hot.ready(start);else start((hot&&hot.data)||{});",'/* Offline component test. */')});
+    const result=await page.evaluate(({message,by,event,day,name})=>{
+      const P=window.EDICTUM_PROBE,C=P.customs,M=G.MAP,now=Date.now(),T0=G.territory(),cells=[];
+      for(let c=0;c<M.N&&cells.length<3;c++)if(M.T[c]>=2&&T0.owner[c]<0&&T0.list.every(x=>G.NPX().hexDist(c,x.cap)>12)&&cells.every(x=>G.NPX().hexDist(c,x)>12))cells.push(c);
+      const rows=['player-a','player-b','outsider'].map((id,k)=>({id,n:{name:id,reg:'cloudspine',seed:id,loc:G.locOf(cells[k]),founded:now-10*day,popAt:now,updatedAt:now,pop:5,claims:[],stock:{food:10,timber:10,iron:10,oil:10,goods:10},stockAt:now-2*day,deals:[{id:id+'-iron',w:by,g:['food',2],r:['iron',4],t:now-4*day},{id:id+'-goods',w:by,g:['food',1],r:['goods',2],t:now-4*day}]}}));
+      P.dhaluun.load(rows);const AL=G.ALX().AL,aid='test-agreement',raw={name,reg:'cloudspine',ty:'trade',t:now-5*day,fd:'player-a',ld:'player-a',mem:{'player-a':{t:now-5*day},'player-b':{t:now-5*day}},log:[]};
+      AL.docs=new Map([[aid,G.ALX().alNorm(aid,raw)]]);AL.reg='cloudspine';AL.ready=true;AL.rev++;AL.cty='trade';
+      const before=C.economy(),beforeRoutes=before.active.map(d=>({id:d.id,bk:d.bk})),targets=before.active.filter(d=>d.a!=='outsider'&&d.b!=='outsider');
+      const data={v:1,reg:'cloudspine',by,aid,t:now-1,u:now-1+day,factor:0.5,routes:targets.map(d=>({id:d.id,a:d.a,b:d.b,dt:d.t}))};C.install(data);
+      const after=C.economy(),ratios=after.active.map(d=>({id:d.id,ratio:d.bk/beforeRoutes.find(b=>b.id===d.id).bk}));
+      const n=G.S.world['player-a'],ratesOn=C.rates(n);window.testNow=data.u+day;
+      const ratesOff=C.rates(n);C.state.clock=data.t;const finalOn=C.rates(n);C.state.clock=null;
+      const actual=C.stock(n,{food:0,timber:0,iron:0,oil:0,goods:0},data.t-day,window.testNow,ratesOff),cap=G.GB().stockCap(n),expected=Object.fromEntries(Object.keys(ratesOff).map(r=>[r,Math.min(cap,2*ratesOff[r]+finalOn[r])]));
+      const expired=C.economy().active.map(d=>({id:d.id,bk:d.bk}));
+      window.testNow=now;C.install(data);G.S.uid='player-a';G.S.nation=n;
+      const A=G.ALX().politics().al.get(aid),m={id:event,a:by,nm:'Dhaluun',x:message,t:now};AL.chat={...AL.chat,aid,list:[m],err:'',seen:0};
+      window.warningFixture={channel:C.channel(A),drawer:'<ol class="rgc-list">'+C.drawer(m,new Map(G.allNations().map(x=>[x.id,x])),G.myId())+'</ol>'};
+      return {ratios,actual,expected,expired,beforeRoutes,selected:targets.length,ratesOn,ratesOff};
+    },{message:MESSAGE,by:BY,event:EVENT,day:DAY,name:AGREEMENT});
+    assert.equal(result.selected,4);for(const r of result.ratios)assert.equal(r.ratio,r.id.startsWith('outsider')?1:0.5);
+    for(const r of result.expired)assert.equal(r.bk,result.beforeRoutes.find(d=>d.id===r.id).bk);
+    for(const r in result.actual)assert.ok(Math.abs(result.actual[r]-result.expected[r])<1e-7,`${r}: ${result.actual[r]} versus ${result.expected[r]}`);
+    await page.addStyleTag({content:html.slice(html.indexOf('<style>')+7,html.indexOf('</style>'))});
+    await page.evaluate(()=>{document.documentElement.dataset.theme='light';document.getElementById('app').style.display='none';const fixture=document.createElement('main');fixture.id='fixture';fixture.style.padding='12px';fixture.innerHTML=window.warningFixture.channel;document.body.append(fixture);});
+    const channel=page.locator('.al-msg.dh-warning');await channel.waitFor({state:'visible'});
+    assert.equal((await channel.locator('.al-msg-x').innerText()).replace(/\r/g,''),MESSAGE);
+    const color=await channel.evaluate(e=>getComputedStyle(e).backgroundColor);assert.equal(color,'rgb(255, 242, 184)');
+    fs.mkdirSync(new URL('./out/',import.meta.url),{recursive:true});await channel.screenshot({path:fileURLToPath(new URL('./out/dhaluun-customs-channel.png',import.meta.url))});
+    await page.setViewportSize({width:390,height:900});await page.evaluate(()=>{document.getElementById('fixture').innerHTML=window.warningFixture.drawer;});
+    const drawer=page.locator('.rgc-l.dh-warning');await drawer.waitFor({state:'visible'});assert.match(await drawer.innerText(),/imperial customs notice/i);
+    assert.ok((await drawer.innerText()).includes('Consider this your first customs notice.'));
+    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+    await drawer.screenshot({path:fileURLToPath(new URL('./out/dhaluun-customs-drawer.png',import.meta.url))});
+    await page.evaluate(()=>{document.documentElement.dataset.theme='dark';});assert.equal(await drawer.evaluate(e=>getComputedStyle(e).backgroundColor),'rgb(66, 55, 25)');
+    await drawer.screenshot({path:fileURLToPath(new URL('./out/dhaluun-customs-dark.png',import.meta.url))});assert.deepEqual(errors,[]);
+  }finally{await browser.close();}
+});
