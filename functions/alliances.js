@@ -1,4 +1,6 @@
 import { HttpsError } from 'firebase-functions/v2/https';
+import { FieldValue, FieldPath } from 'firebase-admin/firestore';
+import { pushChatMention } from './letters.js';
 import { eligibility, refuse, nationJSON, DAY } from './eligibility.js';
 /* Settings › Privacy › Who can reach me: a nation that takes none of a kind (rch[k] 'n') is kept to here too */
 const closed = (N, k) => !!(N && N.rch && typeof N.rch === 'object' && N.rch[k] === 'n');
@@ -655,18 +657,55 @@ async function alBuild(db, who, d) {
 async function alPost(db, who, d) {
   const x = body(d.x, AL_POST);
   if (!x) throw new HttpsError('invalid-argument', 'Write something first.');
-  return db.runTransaction(async tx => {
+  let tell = [], channel = '';
+  const result = await db.runTransaction(async tx => {
     const e = await eligibility(tx, who);
     const { aid, A } = await load(tx, db, d);need(A, who.uid, 'm');
+    channel = aid;
+    const asked = [...new Set(Array.isArray(d.mn) ? d.mn.filter(u => isUid(u) && u !== who.uid && A.mem[u]) : [])].slice(0, 5);
+    const got = asked.length ? await tx.getAll(...asked.flatMap(u => [db.doc('nations/' + u), db.doc('lblock/' + u + '~' + who.uid)])) : [];
+    const mn = {};
+    asked.forEach((u, i) => { const n = got[2*i], nm = n.exists ? line(n.get('name'), 80) : ''; if (nm && !got[2*i+1].exists) { const low = x.toLowerCase(), at = '@' + nm.toLowerCase(); let j = low.indexOf(at); while (j >= 0) { const next = low.charAt(j + at.length); if (!next || !/[\p{L}\p{N}]/u.test(next)) { mn[u] = nm; break; } j = low.indexOf(at, j + 1); } } });
     const pace = db.doc('alPace/' + who.uid), ps = await tx.get(pace), now = Date.now();
     const p = (ps.exists && Array.isArray(ps.get('p')) ? ps.get('p') : []).filter(t => typeof t === 'number' && t <= now && now - t < 3600000);
     const wait = Math.max(p.length ? Math.max(...p) + AL_GAP - now : 0, p.length >= AL_HOUR ? Math.min(...p.slice(-AL_HOUR)) + 3600000 - now : 0);
     if (wait > 0) throw new HttpsError('failed-precondition', `Slow down a little. You can write again in ${Math.ceil(wait / 1000)} seconds.`, { code: 'al_paced', wait });
     const ref = db.collection('alliances/' + aid + '/chat').doc();
     tx.set(pace, { p: p.concat(now).slice(-AL_HOUR) });
-    tx.create(ref, { a: who.uid, nm: nameOf(e.saved), x, t: now });
+    const me = nameOf(e.saved);
+    tx.create(ref, { a: who.uid, nm: me, x, t: now, ...(Object.keys(mn).length ? { mn } : {}) });
+    for (const u of Object.keys(mn)) tx.create(db.collection('mentions/' + u + '/m').doc(), { k: 'allianceChat', by: who.uid, nm: me, aid, rc: ref.id, x: line(x, 160), t: now });
+    tell = Object.keys(mn).map(u => ({ u, me }));
     return { ok: true, id: ref.id };
   });
+  await Promise.all(tell.map(t => pushChatMention(db, t.u, who.uid, t.me, false, 'alliance/' + channel).catch(() => 0)));
+  return result;
+}
+const AL_REACT = ['hear', 'ha', 'bravo', 'shame', 'fire', 'love', 'wow', 'hmm'];
+async function alReact(db, who, d) {
+  const id = typeof d.id === 'string' && /^[A-Za-z0-9]{20}$/.test(d.id) ? d.id : '';
+  if (!id || !AL_REACT.includes(d.k)) throw new HttpsError('invalid-argument', 'Choose a line and a reaction.');
+  return db.runTransaction(async tx => {
+    await eligibility(tx, who, { linked: false });
+    const { aid, A } = await load(tx, db, d); need(A, who.uid, 'm');
+    const ref = db.doc('alliances/' + aid + '/chat/' + id), s = await tx.get(ref);
+    if (!s.exists) refuse('al_gone', 'That line is no longer in the channel.');
+    const rv = s.get('rv') && typeof s.get('rv') === 'object' ? s.get('rv') : {}, had = rv[who.uid] || '', pick = had === d.k ? '' : d.k;
+    if (pick && !had && Object.keys(rv).length >= 300) refuse('al_full', 'This line has all the reactions it can hold.');
+    tx.update(ref, new FieldPath('rv', who.uid), pick || FieldValue.delete());
+    const own = db.doc('alReactions/' + who.uid + '/items/' + id);
+    if (pick) tx.set(own, { aid }); else tx.delete(own);
+    return { ok: true, k: pick };
+  });
+}
+/* The per-player index lets account deletion remove reactions even after leaving an alliance. */
+export async function alForgetReactions(db, uid) {
+  const rows = await db.collection('alReactions/' + uid + '/items').get();
+  if (rows.empty) return;
+  const lines = await Promise.all(rows.docs.map(row => { const aid = row.get('aid'); return isAid(aid) ? db.doc('alliances/' + aid + '/chat/' + row.id).get() : null; }));
+  const w = db.bulkWriter(), writes = [];
+  rows.docs.forEach((row, i) => { if (lines[i] && lines[i].exists) writes.push(w.update(lines[i].ref, new FieldPath('rv', uid), FieldValue.delete())); writes.push(w.delete(row.ref)); });
+  await Promise.all([Promise.all(writes), w.close()]);
 }
 async function alPostDel(db, who, d) {
   const pid = typeof d.pid === 'string' && /^[A-Za-z0-9]{20}$/.test(d.pid) ? d.pid : '';
@@ -942,6 +981,6 @@ export async function alDrop(db, uid) {
   } catch (e) { console.warn('alDrop', uid, e && e.message); }
 }
 
-const OPS = { alFound, alEdit, alInvite, alUninvite, alRequest, alCancel, alAnswer, alLeave, alRemove, alRole, alDonate, alBuild, alPost, alPostDel, alTally, alMigrate, alPact, alPactAnswer, alPactEnd, alRival, alVote, alWear, alStudy, alRsStart, alRsGive };
+const OPS = { alFound, alEdit, alInvite, alUninvite, alRequest, alCancel, alAnswer, alLeave, alRemove, alRole, alDonate, alBuild, alPost, alReact, alPostDel, alTally, alMigrate, alPact, alPactAnswer, alPactEnd, alRival, alVote, alWear, alStudy, alRsStart, alRsGive };
 export const isAllianceOp = op => Object.prototype.hasOwnProperty.call(OPS, op);
 export function alliance(db, who, d) { return OPS[d.op](db, who, d); }

@@ -10,7 +10,7 @@ import { mailStep, mailUnsub, forgetMail, recoveryMail } from './mail.js';
 import { noteGone, forgetGone } from './gone.js';
 import { onceUse, forgetOnce } from './once.js';
 import { lettersStep, forgetLetters } from './letters.js';
-import { alDrop } from './alliances.js';
+import { alDrop, alForgetReactions } from './alliances.js';
 import { trDrop } from './treaties.js';
 import { bdDrop } from './borders.js';
 import { ldDrop } from './land.js';
@@ -222,6 +222,7 @@ export const accounts = onCall({ region: 'europe-west1', maxInstances: 10, memor
     // and on the Community Board: its reactions, the topics it followed and its board profile
     await cbForget(db, uid);
     // and in the region chats (functions/regionchat.js)
+    await alForgetReactions(db, uid);
     await rcForget(db, uid, DATA.regions.map(r => r.id));
     // its flag in an open competition, its ratings, and its name in the halls (functions/flagcomp.js)
     await fcForget(db, uid);

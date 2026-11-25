@@ -9238,6 +9238,7 @@ button[disabled] .gv-cost{opacity:.6}
 .al-msg-h{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px;margin:0 0 3px;font-size:13px}
 .al-msg-h .linkish.small{margin-left:auto;font-weight:500}
 .al-msg-x{margin:0;font-size:14px;overflow-wrap:anywhere}
+.al-react{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}.al-react button{border:1px solid var(--rule);border-radius:5px;background:transparent;cursor:pointer;padding:3px 6px}.al-react button[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent)}
 .al-chat-f{display:flex;gap:8px;align-items:flex-end}.al-chat-f textarea{flex:1;resize:vertical}
 .al-tr{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px;margin-bottom:16px}
 .al-res{border:1px solid var(--rule);border-radius:4px;padding:8px 10px;display:flex;flex-direction:column;gap:2px}
@@ -68175,7 +68176,7 @@ function cbMnListen(){
   CB.mnUid=S.uid;CB.mns=[];
   CB.mnOff=S.db.collection('mentions/'+S.uid+'/m').orderBy('t','desc').limit(20).onSnapshot(qs=>{
     const old=Date.now()-30*DAY;
-    const all=qs.docs.map(d=>({id:d.id,...d.data()})).filter(m=>typeof m.t==='number'&&typeof m.reg==='string');
+    const all=qs.docs.map(d=>({id:d.id,...d.data()})).filter(m=>typeof m.t==='number'&&(typeof m.reg==='string'||m.k==='allianceChat'));
     /* the board's (a topic) and the region chat's (k chat, a line rc) */
     CB.mns=all.filter(m=>CB_ID.test(m.tid||''));CB.mnAll=all;
     for(const d of qs.docs)if(((d.data()||{}).t||0)<old&&d.ref)Promise.resolve().then(()=>d.ref.delete()).catch(()=>{});
@@ -88137,7 +88138,7 @@ function alChatConnect(){
   alChatBgSync();
   if(!aid||!S.db)return;
   try{C.unsub=S.db.collection('alliances/'+aid+'/chat').orderBy('t','desc').limit(60).onSnapshot(qs=>{
-    C.list=qs.docs.map(d=>{const v=d.data()||{};return {id:d.id,a:String(v.a||''),nm:String(v.nm||'A nation').slice(0,80),x:String(v.x||'').slice(0,1000),t:Number(v.t)||0};}).sort((a,b)=>a.t-b.t);C.err='';
+    C.list=qs.docs.map(d=>{const v=d.data()||{};return {id:d.id,a:String(v.a||''),nm:String(v.nm||'A nation').slice(0,80),x:String(v.x||'').slice(0,1000),mn:v.mn||null,rv:v.rv||null,t:Number(v.t)||0};}).sort((a,b)=>a.t-b.t);C.err='';
     try{if(typeof rgcAllyHeard==='function')rgcAllyHeard();}catch(e){}
     if(OBS){if(S.view==='alliance'&&!alTyping())quietRender();return;}
     if(S.view==='diplomacy'&&AL.tab==='alliance'&&AL.sub==='channel'){alChatSeen();if(!alTyping())quietRender();}else NVX.ver++;
@@ -88521,12 +88522,12 @@ function alNextLeader(A){const D=A.doc;return Object.entries(D.mem).filter(([id]
 function alChannelHTML(A){
   const C=AL.chat,me=myId(),mod=alCan(A,me,'o'),reg=civicRegistered(),U=AL_TY_UI[A.doc.ty]||AL_TY_UI.def,now=Date.now();
   const role=id=>{const r=alRoleOf(A,id);return r==='ld'||r==='o'?r:'';};
-  const msg=m=>{const r=role(m.a);return `<li class="al-msg${m.a===me?' me':''}${r?' al-r-'+r:''}"><p class="al-msg-h"><b>${m.a===me?'You':nationLink(m.a,findNation(m.a)?findNation(m.a).n.name:m.nm,false)}</b>${chatDelegateBadge(m.a)}${r?`<span class="al-msg-r">${r==='ld'?alGlyph('leader'):''}${esc(r==='ld'?U.lead:U.off)}</span>`:''}<span class="hint">${esc(rel(m.t))}</span>${m.a===me||mod?`<button type="button" class="linkish small" data-act="dp-chat-del" data-id="${esc(m.id)}" aria-label="Delete this message">Delete</button>`:''}</p><p class="al-msg-x">${esc(m.x).replace(/\n/g,'<br>')}</p></li>`;};
+  const msg=m=>{const r=role(m.a);return `<li class="al-msg${m.a===me?' me':''}${r?' al-r-'+r:''}"><p class="al-msg-h"><b>${m.a===me?'You':nationLink(m.a,findNation(m.a)?findNation(m.a).n.name:m.nm,false)}</b>${chatDelegateBadge(m.a)}${r?`<span class="al-msg-r">${r==='ld'?alGlyph('leader'):''}${esc(r==='ld'?U.lead:U.off)}</span>`:''}<span class="hint">${esc(rel(m.t))}</span>${m.a===me||mod?`<button type="button" class="linkish small" data-act="dp-chat-del" data-id="${esc(m.id)}" aria-label="Delete this message">Delete</button>`:''}</p><p class="al-msg-x">${rgcText(m.x,m.mn).replace(/\n/g,'<br>')}</p><div class="al-react" role="group" aria-label="React to this message">${RGC_RX.slice(0,8).map(([k,e,l])=>{const count=Object.values(m.rv||{}).filter(v=>v===k).length,mine=m.rv&&m.rv[me]===k;return `<button type="button" data-act="dp-react" data-id="${esc(m.id)}" data-k="${k}" aria-label="${esc(l)}" title="${esc(l)}" aria-pressed="${!!mine}">${e}${count?' '+count:''}</button>`;}).join('')}</div></li>`;};
   const ev=alEvents(A,alEvSince(C.list,now)).map(e=>({t:e.t,e}));
   const list=C.list.map(m=>({t:m.t,m})).concat(ev).sort((a,b)=>a.t-b.t).map(o=>o.m?msg(o.m):alEvLI(o.e)).join('');
   return `${alChanHead(A)}${A.doc.ty==='def'?alHornHTML(now,'ch'):''}<p class="hint">Only members of ${esc(A.name)} can read this channel. Its events stand between the messages.</p>${C.err?`<p class="err">${esc(C.err)}</p>`:''}
     <ol class="al-chat" id="al-chat" data-stick="al:${esc(A.id)}" aria-live="polite">${list||'<li class="hint">No messages yet. Say hello to your allies.</li>'}</ol>
-    ${reg?`<form class="al-chat-f" id="al-chat-form" novalidate><label class="sr" for="al-chat-x">Message</label><textarea class="input" id="al-chat-x" rows="2" maxlength="1000" placeholder="Write to your allies">${esc(AL.draft||'')}</textarea><button class="btn" type="submit"${alBusy('alPost')}>Send</button></form>`:`<p class="hint">${accountActionHint('alliance')||'Link a sign-in account to write in the channel.'}</p>`}`;
+    ${reg?`<ul class="rgc-mn" id="al-chat-mn" role="listbox" aria-label="Allies to mention" hidden></ul><form class="al-chat-f" id="al-chat-form" novalidate><label class="sr" for="al-chat-x">Message</label><textarea class="input" id="al-chat-x" rows="2" maxlength="1000" placeholder="Write to your allies" aria-autocomplete="list" aria-controls="al-chat-mn" aria-expanded="false">${esc(AL.draft||'')}</textarea><button class="btn" type="submit"${alBusy('alPost')}>Send</button></form>`:`<p class="hint">${accountActionHint('alliance')||'Link a sign-in account to write in the channel.'}</p>`}`;
 }
 function alTreasuryHTML(A){
   const D=A.doc,me=myId(),st=stockNow(S.nation),lv=alLevel(D.xp),can=alCan(A,me,'o'),pend=alPending(A),g=AL.give||{k:'goods',q:''},ty=D.ty;
@@ -89356,6 +89357,7 @@ document.addEventListener('click',e=>{
   else if(a==='dp-kick'){AL.kick=id;render();}
   else if(a==='dp-disband-ask'){S.alDisband=true;S.confirmLeave=true;render();}
   else if(a==='dp-build'){const A=alMine();if(A&&A.srv)alAct('alBuild',{aid:A.id,p:el.dataset.v},r=>{alMoNote(A,el.dataset.v,r.level||1);toast(`${AL_PJ[el.dataset.v][0]} built${r.level>1?' to level '+r.level:''}.`);});}
+  else if(a==='dp-react'){const A=alMine();if(A&&A.srv)alAct('alReact',{aid:A.id,id,k:el.dataset.k});}
   else if(a==='dp-chat-del'){const A=alMine();if(A&&A.srv)alAct('alPostDel',{aid:A.id,pid:id});}
   else if(a==='dp-ty'||a==='dp-acc'||a==='dp-col'||a==='dp-ac'){const f=dpForm(el.dataset.pre);if(!f)return;f[a==='dp-ty'?'ty':a==='dp-acc'?'acc':a==='dp-ac'?'ac':'col']=el.dataset.v;render();}
   else if(a==='dp-arms-auto'){if(AL.edit){AL.edit.ar=null;render();}}
@@ -89383,7 +89385,7 @@ document.addEventListener('change',e=>{
 });
 document.addEventListener('submit',e=>{
   const id=e.target&&e.target.id;
-  if(id==='al-chat-form'){e.preventDefault();const A=alMine(),x=String(AL.draft||'').trim();if(!A||!A.srv||!x)return;alAct('alPost',{aid:A.id,x},()=>{achPend('rch');AL.draft='';stickDown('al:'+A.id);});}
+  if(id==='al-chat-form'){e.preventDefault();const A=alMine(),x=String(AL.draft||'').trim();if(!A||!A.srv||!x)return;alAct('alPost',{aid:A.id,x,mn:rgcMnIds(x,A)},()=>{achPend('rch');AL.draft='';stickDown('al:'+A.id);});}
   else if(id==='al-give'){e.preventDefault();const g=AL.give||{},k=(document.getElementById('al-give-k')||{}).value||g.k||'goods',q=Math.floor(+((document.getElementById('al-give-q')||{}).value||g.q||0));alPledge(k,q);}
   else if(id==='al-charter'){e.preventDefault();const A=alMine(),f=AL.edit;if(!A||!A.srv||!f)return;const D=A.doc,d={aid:A.id};
     if(f.tg&&!AL_TG_RE.test(f.tg)){AL.msg=AL_TG_BAD;toast(AL.msg);render();return;}
@@ -92857,17 +92859,17 @@ function rgcLine(m,run,by,me,mod,memo){
   const head=run?'':`<p class="rgc-lh">${fl}<span class="rgc-lw">${who}${m.tm?'':chatDelegateBadge(m.a)}${from}${mk?`<span class="rgc-mk">${mk}</span>`:''}${m.tm?pill:''}</span><time datetime="${new Date(m.t).toISOString()}" title="${esc(when)}">${esc(fmtTime(m.t))}</time></p>`;
   const staff=m.tm||!!m.st||isStaff(m.a);
   let can;
-  if(ally){const A=rgcAllyOn();can={del:mine||!!(A&&alCan(A,me,'o'))};}
+  if(ally){const A=rgcAllyOn();can={rx:!OBS,del:mine||!!(A&&alCan(A,me,'o'))};}
   else can={rx:!OBS,re:!OBS&&!rgcWrite(),rep:!mine&&!OBS&&!m.tm,blk:!mine&&!OBS&&!staff&&!dmBlocked(m.a),mute:(mod||rgcAmb()&&!isAmbId(m.a))&&!mine&&!staff,del:mine||mod};
   const open=RGC.menu===m.id,myRx=m.rv&&m.rv[me]||'';
-  const items=(can.rx?`<div class="rgc-rxp" role="group" aria-label="React">${RGC_RX.map(([k,e,l])=>`<button type="button" role="menuitem" data-rgc="react" data-id="${i}" data-k="${k}" aria-pressed="${myRx===k}" aria-label="${esc(l)}" title="${esc(l)}">${e}</button>`).join('')}</div>`:'')
+  const items=(can.rx?`<div class="rgc-rxp" role="group" aria-label="React">${(ally?RGC_RX.slice(0,8):RGC_RX).map(([k,e,l])=>`<button type="button" role="menuitem" data-rgc="react" data-id="${i}" data-k="${k}" aria-pressed="${myRx===k}" aria-label="${esc(l)}" title="${esc(l)}">${e}</button>`).join('')}</div>`:'')
     +(can.re?`<button type="button" role="menuitem" data-rgc="reply" data-id="${i}">Answer</button>`:'')
     +(can.rep?`<button type="button" role="menuitem" data-rgc="report" data-id="${i}">Report to the moderators</button>`:'')
     +(can.blk?`<button type="button" role="menuitem" data-rgc="block-ask" data-id="${i}">Block ${esc(nm)}</button>`:'')
     +(can.mute?`<button type="button" role="menuitem" data-rgc="mute-ask" data-id="${i}">Silence ${esc(nm)}…</button>`:'')
     +(can.del?`<button type="button" role="menuitem" class="rgc-danger" data-rgc="${ally?'ally-del':'del-ask'}" data-id="${i}">${mine?'Delete':'Remove the line'}</button>`:'');
   const menu=items?`<div class="rgc-mw"><button type="button" class="rgc-more" data-rgc="menu" data-id="${i}" aria-expanded="${open}" aria-haspopup="menu" aria-label="Options for this line by ${esc(nm)}"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="5.5" cy="12" r="1.7" fill="currentColor"/><circle cx="12" cy="12" r="1.7" fill="currentColor"/><circle cx="18.5" cy="12" r="1.7" fill="currentColor"/></svg></button>${open?`<div class="rgc-menu" role="menu">${items}</div>`:''}</div>`:'';
-  return `<li class="rgc-l${run?' run':''}${mine?' me':''}${named?' named':''}${ally?' ally':''}${RGC.goto===m.id?' flash':''}" data-id="${i}">${head}${!ally&&m.r?rgcQuote(m.r):''}<div class="rgc-xw">${run?`<time class="rgc-rt" datetime="${new Date(m.t).toISOString()}" title="${esc(when)}">${esc(fmtTime(m.t))}</time>`:''}${rgcBody(m,nm)}${menu}</div>${ally?'':rgcRxs(m,me)}${RGC.ask&&RGC.ask.id===m.id?rgcAsk(m,nm,mine):''}${RGC.who===m.id?rgcTeamWho():''}${ncOpen?rgcNcHTML(m,x,nm,rg||(x?REG.id:ally?'':RGC.reg||REG.id),pill+chatDelegateMark(m.a)+marks):''}</li>`;
+  return `<li class="rgc-l${run?' run':''}${mine?' me':''}${named?' named':''}${ally?' ally':''}${RGC.goto===m.id?' flash':''}" data-id="${i}">${head}${!ally&&m.r?rgcQuote(m.r):''}<div class="rgc-xw">${run?`<time class="rgc-rt" datetime="${new Date(m.t).toISOString()}" title="${esc(when)}">${esc(fmtTime(m.t))}</time>`:''}${rgcBody(m,nm)}${menu}</div>${rgcRxs(m,me)}${RGC.ask&&RGC.ask.id===m.id?rgcAsk(m,nm,mine):''}${RGC.who===m.id?rgcTeamWho():''}${ncOpen?rgcNcHTML(m,x,nm,rg||(x?REG.id:ally?'':RGC.reg||REG.id),pill+chatDelegateMark(m.a)+marks):''}</li>`;
 }
 /* a new nation's welcome line (sys 'found': functions/regionchat.js, rcHello), drawn as an announcement: its flag and
    name, "has been founded, welcome to #Region!" and, for a week, a Welcome button that starts a line greeting it (Say
@@ -92977,7 +92979,7 @@ function rgcFoot(){
   if(tab==='ally'){
     const A=rgcAllyOn(),reg=civicRegistered(),key='ally|'+(A?A.id:'')+'|'+reg;
     if(RGC.foot!==key){RGC.foot=key;
-      f.innerHTML=!A?'':reg?`<form class="rgc-f" id="rgc-aform" novalidate><label class="sr" for="rgc-ax">Write to ${esc(A.name)}</label><textarea class="input" id="rgc-ax" rows="1" maxlength="1000" placeholder="Write to ${esc(A.name)}…" enterkeyhint="send" autocomplete="off" spellcheck="true"></textarea><button class="btn" type="submit" id="rgc-asend">Send</button></form><p class="rgc-msg" id="rgc-amsg" role="status"></p>`
+      f.innerHTML=!A?'':reg?`<ul class="rgc-mn" id="rgc-amn" role="listbox" aria-label="Allies to mention" hidden></ul><form class="rgc-f" id="rgc-aform" novalidate><label class="sr" for="rgc-ax">Write to ${esc(A.name)}</label><textarea class="input" id="rgc-ax" rows="1" maxlength="1000" placeholder="Write to ${esc(A.name)}…" enterkeyhint="send" autocomplete="off" spellcheck="true" aria-autocomplete="list" aria-controls="rgc-amn" aria-expanded="false"></textarea><button class="btn" type="submit" id="rgc-asend">Send</button></form><p class="rgc-msg" id="rgc-amsg" role="status"></p>`
         :'<p class="rgc-ro">Writing in the alliance channel needs a Registered Nation. Link a sign-in to join in.</p>';
       const ta=f.querySelector('#rgc-ax');if(ta){ta.value=RGC.adraft[A.id]||'';rgcGrow(ta);}}
     const m=f.querySelector('#rgc-amsg');if(m){m.textContent=RGC.amsg;m.classList.toggle('err',!!RGC.amsg);}
@@ -93090,7 +93092,7 @@ document.addEventListener('click',e=>{
     return;
   }
   if(el.tagName==='INPUT')return;
-  const a=el.dataset.rgc,id=el.dataset.id||'',m=rgcCh().list.find(x=>x.id===id);
+  const a=el.dataset.rgc,id=el.dataset.id||'',m=(rgcTab()==='ally'?rgcAllyLines():rgcCh().list).find(x=>x.id===id);
   if(a==='toggle')rgcOpen(!RGC.open);
   else if(a==='close')rgcOpen(false);
   else if(a==='settings'){if(navNarrow())rgcOpen(false,true);else rgcFull(false);uxOpen('settings',null,'#set-chat-btn');}
@@ -93191,7 +93193,7 @@ function rgcAllyUnread(){try{return rgcAllyOn()?alChatUnread():0;}catch(e){retur
 /* the Chat button counts the Region tab, every alliance tab, and the shared chats' lines that name the player */
 function rgcAllyAllUnread(){try{return rgcAllyOn()?rgcAllyAll().reduce((k,B)=>k+alChatUnreadOf(B),0):0;}catch(e){return 0;}}
 function rgcCount(){return rgcUnread()+rgcAllyAllUnread()+RGS.reduce((k,C)=>k+(C===RGA?rgwUnread(C):rgwNamedUnread(C)),0);}
-function rgcAllyLines(){const C=AL.chat;return (C&&C.list||[]).map(m=>({id:m.id,a:m.a,nm:m.nm,x:m.x,t:m.t,st:'',ally:true}));}
+function rgcAllyLines(){const C=AL.chat;return (C&&C.list||[]).map(m=>({id:m.id,a:m.a,nm:m.nm,x:m.x,mn:m.mn,rv:m.rv,t:m.t,st:'',ally:true}));}
 /* the alliance channel's listener (alChatConnect) calls this with every snapshot */
 function rgcAllyHeard(){if(RGC.open&&rgcTab()==='ally'){if(!document.hidden)try{alChatSeen();}catch(e){}rgcPaint();}rgcBadge();}
 function rgcTabsPaint(){
@@ -93288,7 +93290,8 @@ function rgwFlag(fl,nm){const f=rgwFlagOf(fl);if(!f)return '';try{return flagSVG
 function rgwFrom(rg){const R=REG_BY_ID[rg];return R?`<span class="rgc-from" title="${esc('A nation of '+(R.the||R.name))}"><span data-no-tr>${uiLang()==='fr'?'de':'of'}</span> ${esc(R.name)}</span>`:'';}
 function rgwRank(){try{return Math.max(0,achRankOf(S.nation).i|0);}catch(e){return 0;}}
 /* who @ offers: the region's nations, and on a shared chat's tab the nations that wrote there lately as well */
-function rgcMnPool(){
+function rgcMnPool(A){
+  if(A)return Object.keys(A.doc.mem||{}).filter(id=>id!==myId()).map(id=>{const x=findNation(id);return x?{id,nm:x.n.name,fl:x.n.flag}:null;}).filter(Boolean);
   const me=myId(),out=allNations().filter(x=>!x.npc&&!x.me&&x.id!==me).map(x=>({id:x.id,nm:x.n.name,fl:x.n.flag})),W=rgsOf(rgcTab());
   if(W){const have=new Set(out.map(o=>o.id));
     for(let i=W.list.length-1;i>=0;i--){const m=W.list[i];if(m.tm||m.a===me||have.has(m.a))continue;have.add(m.a);out.push({id:m.a,nm:m.nm,fl:m.fl?rgwFlagOf(m.fl):null});}}
@@ -93298,22 +93301,22 @@ function rgcMnPool(){
 /* @mentions: the word being typed after an @ offers the region's nations; the server keeps those named after an @ */
 function rgcMnFind(ta){const v=ta.value,c=typeof ta.selectionStart==='number'?ta.selectionStart:v.length,m=/(^|\s)@([^\s@]{0,40})$/.exec(v.slice(0,c));return m?{q:m[2],start:c-m[2].length-1,end:c}:null;}
 function rgcMnShow(ta){
-  const ul=document.getElementById('rgc-mn');if(!ul||!ta)return;const t=document.activeElement===ta?rgcMnFind(ta):null;
-  const q=t?t.q.toLowerCase():'',items=t?rgcMnPool().filter(o=>!dmBlocked(o.id)&&o.nm.toLowerCase().startsWith(q)).sort((a,b)=>a.nm.localeCompare(b.nm)).slice(0,6):[];
+  if(!ta)return;const ul=document.getElementById(ta.getAttribute('aria-controls'));if(!ul)return;const A=ta.id==='rgc-ax'?rgcAllyOn():ta.id==='al-chat-x'?alMine():null;const t=document.activeElement===ta?rgcMnFind(ta):null;
+  const q=t?t.q.toLowerCase():'',items=t?rgcMnPool(A).filter(o=>!dmBlocked(o.id)&&o.nm.toLowerCase().startsWith(q)).sort((a,b)=>a.nm.localeCompare(b.nm)).slice(0,6):[];
   if(!items.length){RGC.mn=null;ul.hidden=true;ul.innerHTML='';ta.setAttribute('aria-expanded','false');ta.removeAttribute('aria-activedescendant');return;}
   const sel=RGC.mn&&RGC.mn.q===q?Math.min(RGC.mn.sel,items.length-1):0;
   RGC.mn={...t,q,sel,items};
-  ul.innerHTML=RGC.mn.items.map((o,k)=>`<li role="option" id="rgc-mn-${k}" class="${k===sel?'on':''}" aria-selected="${k===sel}" data-k="${k}"><span class="mflag sm">${o.fl?flagSVG(o.fl,''):''}</span>@${esc(o.nm)}</li>`).join('');
-  ul.hidden=false;ta.setAttribute('aria-expanded','true');ta.setAttribute('aria-activedescendant','rgc-mn-'+sel);
+  ul.innerHTML=RGC.mn.items.map((o,k)=>`<li role="option" id="${ul.id}-${k}" class="${k===sel?'on':''}" aria-selected="${k===sel}" data-k="${k}"><span class="mflag sm">${o.fl?flagSVG(o.fl,''):''}</span>@${esc(o.nm)}</li>`).join('');
+  ul.hidden=false;ta.setAttribute('aria-expanded','true');ta.setAttribute('aria-activedescendant',ul.id+'-'+sel);
 }
 function rgcMnPick(ta,k){
   const M=RGC.mn;if(!M||!M.items[k])return;const o=M.items[k],v=ta.value,ins='@'+o.nm+' ';
-  ta.value=(v.slice(0,M.start)+ins+v.slice(M.end)).slice(0,RGC_TEXT);const c=Math.min(ta.value.length,M.start+ins.length);
-  ta.focus();try{ta.setSelectionRange(c,c);}catch(e){}rgcCh().draft=ta.value;RGC.mn=null;rgcGrow(ta);rgcMnShow(ta);rgcFoot();
+  ta.value=(v.slice(0,M.start)+ins+v.slice(M.end)).slice(0,Number(ta.maxLength)||RGC_TEXT);const c=Math.min(ta.value.length,M.start+ins.length);
+  ta.focus();try{ta.setSelectionRange(c,c);}catch(e){}if(ta.id==='rgc-ax'){const A=rgcAllyOn();if(A)RGC.adraft[A.id]=ta.value;}else if(ta.id==='al-chat-x')AL.draft=ta.value;else rgcCh().draft=ta.value;RGC.mn=null;rgcGrow(ta);rgcMnShow(ta);
 }
-function rgcMnIds(x){
+function rgcMnIds(x,A){
   const low=x.toLowerCase(),me=myId(),out=[];
-  for(const n of rgcMnPool().sort((a,b)=>b.nm.length-a.nm.length)){
+  for(const n of rgcMnPool(A).sort((a,b)=>b.nm.length-a.nm.length)){
     const at='@'+n.nm.toLowerCase();let i=low.indexOf(at);
     while(i>=0){const nx=low.charAt(i+at.length);if(!nx||!/[\p{L}\p{N}]/u.test(nx)){out.push(n.id);break;}i=low.indexOf(at,i+1);}
     if(out.length>=5)break;
@@ -93323,15 +93326,15 @@ function rgcMnIds(x){
 /* a reaction shows at once; the server's answer (and the next snapshot) settles it */
 async function rgcReact(m,k){
   if(OBS||!m)return;const me=myId(),had=m.rv&&m.rv[me]||'',rv={...(m.rv||{})};
-  if(had===k)delete rv[me];else rv[me]=k;m.rv=rv;rgcPaint();
-  try{await rgcCivic({op:'rcReact',reg:rgcRegOf(m),id:m.id,k});if(had!==k)achPend('rx');}
-  catch(e){const r={...(m.rv||{})};if(had)r[me]=had;else delete r[me];m.rv=r;rgcPaint();toast(alErrText(e));}
+  if(had===k)delete rv[me];else rv[me]=k;m.rv=rv;if(m.ally){const orig=AL.chat.list.find(x=>x.id===m.id);if(orig)orig.rv=rv;}rgcPaint();
+  try{if(m.ally){const A=rgcAllyOn();if(!A)return;await alReq({op:'alReact',aid:A.id,id:m.id,k});}else await rgcCivic({op:'rcReact',reg:rgcRegOf(m),id:m.id,k});if(had!==k)achPend('rx');}
+  catch(e){const r={...(m.rv||{})};if(had)r[me]=had;else delete r[me];m.rv=r;if(m.ally){const orig=AL.chat.list.find(x=>x.id===m.id);if(orig)orig.rv=r;}rgcPaint();toast(alErrText(e));}
 }
 async function rgcAllySend(){
   const ta=document.getElementById('rgc-ax'),A=rgcAllyOn();if(!ta||!A||RGC.abusy)return;
   const x=ta.value.trim();if(!x)return;
   RGC.abusy=true;RGC.amsg='';rgcFoot();
-  try{await alReq({op:'alPost',aid:A.id,x});achPend('rch');ta.value='';delete RGC.adraft[A.id];rgcGrow(ta);RGC.stick=true;}
+  try{await alReq({op:'alPost',aid:A.id,x,mn:rgcMnIds(x,A)});achPend('rch');ta.value='';delete RGC.adraft[A.id];rgcGrow(ta);RGC.stick=true;}
   catch(e){RGC.amsg=alErrText(e);}
   finally{RGC.abusy=false;rgcFoot();const t=document.getElementById('rgc-ax');if(t&&RGC.open)t.focus({preventScroll:true});}
 }
@@ -93401,29 +93404,34 @@ document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closes
   toast(S.nation&&dmx(S.nation).rc===0?'Turn the region chat on first: Settings › Chat.':'The region chat needs a connection to the region.');});
 /* a mention in the bell opens the chat at its line */
 document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-act="nt-go"][data-rc]');if(!el)return;
+  const a=/^alliance-([\w-]{1,128})\/([A-Za-z0-9]{20})$/.exec(el.dataset.rc);if(a){setTimeout(()=>rgcAllianceGoto(a[1],a[2]),0);return;}
   const g=/^([a-z]{2,40})\/([A-Za-z0-9]{20})$/.exec(el.dataset.rc);if(!g)return;setTimeout(()=>{if(rgcOn())rgcGoto(g[2],rgsOf(g[1])?g[1]:'region');},0);},true);
 NOTIF_SOURCES.push((n,now)=>(CB.mnAll||[]).filter(m=>m.k==='chat'&&typeof m.rc==='string'&&/^[A-Za-z0-9]{20}$/.test(m.rc)&&now-m.t<30*DAY).map(m=>({t:m.t,k:'mention',kl:'Mention',go:S.view||'nation',rc:m.reg+'/'+m.rc,
   txt:`${String(m.nm||'A nation').slice(0,80)} ${m.rp?'answered you':'mentioned you'} in ${m.reg==='amb'?'the ambassadors’ chat':m.reg==='fr'?'the French chat':m.reg==='world'?'the world chat':'the region chat'}: ${String(m.x||'').slice(0,120)}`})));
-document.addEventListener('mousedown',e=>{const li=e.target.closest&&e.target.closest('#rgc-mn li');if(!li)return;e.preventDefault();const ta=document.getElementById('rgc-x');if(ta)rgcMnPick(ta,Number(li.dataset.k));});
-document.addEventListener('focusout',e=>{if(e.target&&e.target.id==='rgc-x')setTimeout(()=>{const ta=document.getElementById('rgc-x');if(ta&&document.activeElement!==ta)rgcMnShow(ta);},0);});
-document.addEventListener('input',e=>{const el=e.target;if(!el)return;if(el.id==='rgc-x')rgcMnShow(el);else if(el.id==='rgc-ax'){const A=rgcAllyOn();if(A)RGC.adraft[A.id]=el.value;rgcGrow(el);if(RGC.amsg){RGC.amsg='';rgcFoot();}}});
+NOTIF_SOURCES.push((n,now)=>(CB.mnAll||[]).filter(m=>m.k==='allianceChat'&&typeof m.aid==='string'&&typeof m.rc==='string'&&now-m.t<30*DAY).map(m=>({t:m.t,k:'mention',kl:'Mention',go:S.view||'nation',rc:'alliance-'+m.aid+'/'+m.rc,txt:`${String(m.nm||'A nation').slice(0,80)} mentioned you in the alliance chat: ${String(m.x||'').slice(0,120)}`})));
+document.addEventListener('mousedown',e=>{const li=e.target.closest&&e.target.closest('#rgc-mn li,#rgc-amn li,#al-chat-mn li');if(!li)return;e.preventDefault();const ta=document.querySelector('[aria-controls="'+li.parentElement.id+'"]');if(ta)rgcMnPick(ta,Number(li.dataset.k));});
+document.addEventListener('focusout',e=>{const ta=e.target;if(ta&&['rgc-x','rgc-ax','al-chat-x'].includes(ta.id))setTimeout(()=>{if(document.activeElement!==ta)rgcMnShow(ta);},0);});
+document.addEventListener('input',e=>{const el=e.target;if(!el)return;if(el.id==='rgc-x'||el.id==='al-chat-x')rgcMnShow(el);else if(el.id==='rgc-ax'){const A=rgcAllyOn();if(A)RGC.adraft[A.id]=el.value;rgcMnShow(el);rgcGrow(el);if(RGC.amsg){RGC.amsg='';rgcFoot();}}});
 document.addEventListener('submit',e=>{if(e.target&&e.target.id==='rgc-aform'){e.preventDefault();rgcAllySend();}});
 /* before the drawer's own keys: the @ list, leaving an answer, the alliance's Enter, the tabs' arrows */
 document.addEventListener('keydown',e=>{
-  if(!RGC.open)return;const t=e.target;if(!t)return;
-  if(t.id==='rgc-x'&&RGC.mn&&!e.isComposing){const M=RGC.mn,n=M.items.length;
+  const t=e.target;if(!t)return;
+  if(['rgc-x','rgc-ax','al-chat-x'].includes(t.id)&&RGC.mn&&!e.isComposing){const M=RGC.mn,n=M.items.length;
     if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();e.stopPropagation();M.sel=(M.sel+(e.key==='ArrowDown'?1:n-1))%n;rgcMnShow(t);return;}
     if(e.key==='Enter'||e.key==='Tab'){e.preventDefault();e.stopPropagation();rgcMnPick(t,M.sel);return;}
-    if(e.key==='Escape'){e.preventDefault();e.stopPropagation();RGC.mn=null;const ul=document.getElementById('rgc-mn');if(ul){ul.hidden=true;ul.innerHTML='';}t.setAttribute('aria-expanded','false');return;}}
+    if(e.key==='Escape'){e.preventDefault();e.stopPropagation();RGC.mn=null;const ul=document.getElementById(t.getAttribute('aria-controls'));if(ul){ul.hidden=true;ul.innerHTML='';}t.setAttribute('aria-expanded','false');return;}}
+  if(!RGC.open)return;
   if(t.id==='rgc-x'&&e.key==='Escape'&&rgcCh().re){e.preventDefault();e.stopPropagation();rgcCh().re=null;rgcFoot();return;}
   if(t.id==='rgc-ax'&&e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();e.stopPropagation();rgcAllySend();return;}
   if(t.dataset&&t.dataset.rgc==='tab'&&['ArrowLeft','ArrowRight','Home','End'].includes(e.key)){e.preventDefault();const T=rgcTabs().map(x=>x[0]),i=T.indexOf(t.dataset.v),L=T.length;
     rgcSetTab(T[e.key==='Home'?0:e.key==='End'?L-1:(i+(e.key==='ArrowRight'?1:L-1))%L],true);}
 },true);
+function rgcAllianceGoto(aid,id){const A=rgcAllyAll().find(a=>a.id===aid);if(!A){toast('That alliance channel is no longer available.');return;}AL.cty=A.ty;alChatConnect();RGC.goto=id||'';RGC.tab='ally';if(!RGC.open)rgcOpen(true,true);else rgcPaint();}
 /* #chat (a push notification's link) opens the drawer once the game is in the region */
-uxHashView=(f=>function(h){if(h==='chat'||h==='chat/world'||h==='chat/fr'||h==='chat/amb'){RGC.want=h==='chat'?true:h.slice(5);return S.view&&S.view!=='chat'?S.view:'nation';}return f.apply(this,arguments);})(uxHashView);
-if(location.hash==='#chat')RGC.want=true;else if(location.hash==='#chat/world'||location.hash==='#chat/fr'||location.hash==='#chat/amb')RGC.want=location.hash.slice(6);
+uxHashView=(f=>function(h){if(/^chat\/alliance\/[\w-]{1,128}$/.test(h)){RGC.wantAlliance=h.slice(14);return S.view&&S.view!=='chat'?S.view:'nation';}if(h==='chat'||h==='chat/world'||h==='chat/fr'||h==='chat/amb'){RGC.want=h==='chat'?true:h.slice(5);return S.view&&S.view!=='chat'?S.view:'nation';}return f.apply(this,arguments);})(uxHashView);
+if(/^#chat\/alliance\/[\w-]{1,128}$/.test(location.hash))RGC.wantAlliance=location.hash.slice(15);else if(location.hash==='#chat')RGC.want=true;else if(location.hash==='#chat/world'||location.hash==='#chat/fr'||location.hash==='#chat/amb')RGC.want=location.hash.slice(6);
 setInterval(()=>{try{
+    if(RGC.wantAlliance&&rgcAllyAll().some(a=>a.id===RGC.wantAlliance)){const aid=RGC.wantAlliance;RGC.wantAlliance='';rgcAllianceGoto(aid,'');}
   if(RGC.want&&rgcOn()){const w=RGC.want,W=rgsOf(w);RGC.want=false;if(W&&rgsOn(W)){RGC.tab=w;rgcLS('edictum.rgc.tab',w);}rgcOpen(true);}
   if(RGC.open&&!document.hidden){if(rgcTab()==='haps'){if(Date.now()-RGC.hapMemo.at>30000)rgcPaint();}else if(rgcWhoSig()!==RGC.whoSig)rgcPaint();else rgcTabsPaint();}
 }catch(e){}},5000);
