@@ -50503,7 +50503,7 @@ const PRV_COUNCIL=[['Treasurer','Raises the province’s revenue'],['Constable',
 const PRV_FA={crime:2,happy:2,civil:2,corrupt:2,edu:2,sci:2,env:2,tour:2,culture:2,mil:2,relig:2,cons:2,safety:2,pr:0.04,ar:0.05,bu:0.12,fd:40};
 const PRV_FAK=Object.keys(PRV_FA);
 const PRV_FXN={pr:'economy',ar:'army',bu:'build times',fd:'food'};
-const PRV={iss:null,notes:[],fd:null,ui:{sel:null,edit:false,tool:'move',msg:'',cur:-1,open:'',pick:'',fix:null},memo:{T:null,k:'',v:null},side:new Map(),pop:{k:'',v:null},tpl:null,tplN:-1,cz:''};
+const PRV={iss:null,notes:[],fd:null,ui:{sel:null,edit:false,tool:'move',msg:'',cur:-1,open:'',pick:'',ren:'',fix:null},memo:{T:null,k:'',v:null},side:new Map(),pop:{k:'',v:null},tpl:null,tplN:-1,cz:''};
 
 /* ── the words ── */
 function prvTermOf(n){const t=n&&n.prov&&PRV_TERMS[n.prov.term];return t||PRV_TERMS.p;}
@@ -50518,7 +50518,7 @@ function prvGovNorm(g){
   if(!g||typeof g!=='object'||Array.isArray(g))return null;const nm=czText(g.nm,40);if(!nm)return null;
   const num=(v,d)=>typeof v==='number'&&isFinite(v)?v:d;
   const o={nm,tr:Array.isArray(g.tr)?[...new Set(g.tr.filter(t=>typeof t==='string'&&PRV_GT[t]))].slice(0,2):[],sk:clamp(Math.round(num(g.sk,3)),1,5),lo:clamp(Math.round(num(g.lo,60)),0,100),t:Math.max(0,num(g.t,0))};
-  if(g.ac===1)o.ac=1;return o;
+  if(g.ac===1)o.ac=1;const seed=czText(g.seed,40);if(seed)o.seed=seed;return o;
 }
 function prvFlagNorm(f,n){
   if(!f||typeof f!=='object'||Array.isArray(f))return null;
@@ -50964,6 +50964,15 @@ function prvRename(id,nm){
     q.nm=nm;return '';},`Renamed ${nm}.`);
   PRV.ui.open='';
 }
+function prvRenamePerson(id,role,nm){
+  nm=czText(nm,40);
+  const ok=prvEdit((n,P)=>{const q=P.l.find(v=>v.id===id),person=q&&(role==='g'?q.g:(/^[0-2]$/.test(role)&&q.c&&q.c[+role]));
+    if(!person)return 'That official no longer holds office.';
+    if(nm.length<2)return 'Give the official a name of at least two letters.';
+    if(role==='g'&&!person.seed)person.seed=person.nm;
+    person.nm=nm;return '';},`Renamed ${nm}.`);
+  if(ok){PRV.ui.ren='';render();}
+}
 function prvSetAut(id,a){
   a=clamp(Math.round(+a),0,3);
   prvEdit((n,P,T,i)=>{const q=P.l.find(v=>v.id===id);if(!q)return 'That division no longer exists.';const was=q.a||0;if(a===was)return '';
@@ -50989,7 +50998,7 @@ function prvAppoint(id,role,j){
     }
     n.log=n.log.slice(0,60);q.gq=(q.gq||0)+3;return '';
   });
-  if(msg){PRV.ui.pick='';PRV.ui.msg=msg;render();}
+  if(msg){PRV.ui.pick='';PRV.ui.ren='';PRV.ui.msg=msg;render();}
 }
 /* dismiss a governor without a successor: an acting governor keeps the seat warm, and the other governors take note */
 function prvDismissG(id){
@@ -51000,7 +51009,7 @@ function prvDismissG(id){
     const a=prvGen(n,q.id,'a'+(q.gq||0),false);a.ac=1;a.lo=50;a.t=now;q.g=a;q.gq=(q.gq||0)+1;
     n.log.unshift({t:now,k:'govsack',a:q.nm,b:old.nm,fx:''});n.log=n.log.slice(0,60);
     msg=`${old.nm} is dismissed. ${a.nm} is acting governor of ${q.nm} until you choose one.`;return '';});
-  if(msg){PRV.ui.pick='g';PRV.ui.msg=msg;render();}
+  if(msg){PRV.ui.pick='g';PRV.ui.ren='';PRV.ui.msg=msg;render();}
 }
 function prvDismissC(id,k){
   prvEdit((n,P,T,i)=>{const q=P.l.find(v=>v.id===id);if(!q||!q.c||!q.c[k])return '';const now=Date.now();
@@ -51061,7 +51070,7 @@ function prvGovHTML(n,N,p,now,own){
   const g=p.q.g,t1=prvT1(n);
   if(!g)return `<p class="prv-gov-none">No governor</p>`;
   const lo=prvLoy(n,p,N,now),fx=prvFxWords(prvGovFx(n,p,N,now));
-  return `<div class="prv-gov${!g.ac&&lo<25?' prv-dis':''}">${cvMed({seed:g.nm,cls:'cv-med-g',small:1,ink:cvGovInk(N?prvMix(N.col||'#57A6DE',PRV_TINT[p.tint||0]):'#57A6DE')})}
+  return `<div class="prv-gov${!g.ac&&lo<25?' prv-dis':''}">${cvMed({seed:g.seed||g.nm,cls:'cv-med-g',small:1,ink:cvGovInk(N?prvMix(N.col||'#57A6DE',PRV_TINT[p.tint||0]):'#57A6DE')})}
     <div class="prv-gw"><p class="prv-gn"><span class="u-sr">${g.ac?'Acting governor':'Governor'}: </span>${esc(g.nm)}${g.ac?' <span class="chip">Acting</span>':''}</p>
     ${g.tr.length?`<div class="traits">${g.tr.map(t=>`<span class="chip trait" title="${esc(PRV_GT[t][1]+'. At full strength: '+prvTraitWords(t)+'.')}">${esc(PRV_GT[t][0])}</span>`).join('')}</div>`:''}
     ${g.ac?`<p class="hint">Keeps the seat warm until you choose a governor.</p>`:`<div class="loy"><span class="lbl">Loyalty</span><span class="bar" role="img" aria-label="Loyalty ${Math.round(lo)} of 100"><i style="width:${Math.round(lo)}%"></i></span><span class="loy-t${lo<25?' low':''}">${prvLoyWord(lo)}</span></div>`}
@@ -51089,15 +51098,16 @@ function prvSide(n,N,p,now,T){
   const id=p.id,q=p.q,t1=prvT1(n),low1=prvLow(t1),g=q.g,pick=PRV.ui.pick,aut=q.a||0;
   const cands=(role)=>`<div class="cands" id="prv-cands-${role}"><p class="hint">${role==='g'?(g&&!g.ac?`Candidates to replace ${esc(g.nm)}. Replacing a governor in office costs the other governors 4 loyalty.`:'Candidates for governor.'):`Candidates for ${PRV_COUNCIL[+role][0]}.`}</p>
     ${prvCands(n,q,role).map((m,j)=>`<div class="cand"><div><b>${esc(m.nm)}</b> ${role==='g'?'':`${cvSkillMeter(m.sk)}`}</div>${role==='g'?`<div class="traits">${m.tr.map(t=>`<span class="chip trait" title="${esc(PRV_GT[t][1])}">${esc(PRV_GT[t][0])}</span>`).join('')}</div><p class="hint">${esc(m.tr.map(t=>PRV_GT[t][0]+': '+prvTraitWords(t)).join('. '))}, in proportion to ${esc(p.nm)}’s ${prvPct(p.share)} of the people.</p>`:''}<button type="button" class="btn small-btn" id="prv-ap-${role}-${j}" data-act="prv-appoint" data-id="${id}" data-r="${role}" data-j="${j}">Appoint</button></div>`).join('')}</div>`;
+  const renameForm=(role,person,label)=>PRV.ui.ren===role?`<form class="name-row prv-ren" data-prv-person="${role}" data-id="${id}"><label class="u-sr" for="prv-person-${role}">Name of the ${label}</label><input class="input" id="prv-person-${role}" maxlength="40" value="${esc(person.nm)}" autocomplete="off" required><button class="btn ghost" type="submit">Save</button><button class="linkish small" type="button" data-act="prv-person-cancel">Cancel</button></form>`:'';
   const council=PRV_COUNCIL.map(([r,d],k)=>{const m=(q.c||[])[k],open=pick===String(k);
     return `<li><div class="prv-cr"><span><b>${r}</b> <span class="hint">${d}</span></span><span>${m?`${esc(m.nm)} ${cvSkillMeter(m.sk)}`:'<span class="muted">Empty</span>'}</span></div>
-      <div class="row prv-crb"><button type="button" class="linkish small" id="prv-pk-${k}" data-act="prv-pick" data-r="${k}" aria-expanded="${open}">${open?'Close':m?'Replace…':'Appoint…'}</button>${m?`<button type="button" class="linkish small" id="prv-dc-${k}" data-act="prv-dismiss-c" data-id="${id}" data-r="${k}">Dismiss</button>`:''}</div>${open?cands(String(k)):''}</li>`;}).join('');
+      <div class="row prv-crb"><button type="button" class="linkish small" id="prv-pk-${k}" data-act="prv-pick" data-r="${k}" aria-expanded="${open}">${open?'Close':m?'Replace…':'Appoint…'}</button>${m?`<button type="button" class="linkish small" data-act="prv-person-rename" data-r="${k}">Rename</button><button type="button" class="linkish small" id="prv-dc-${k}" data-act="prv-dismiss-c" data-id="${id}" data-r="${k}">Dismiss</button>`:''}</div>${m?renameForm(String(k),m,r):''}${open?cands(String(k)):''}</li>`;}).join('');
   const nbs=N.prov.filter(x=>x!==p&&!x.dorm&&prvCanJoin(T,N.i,p,x)).concat(N.prov.filter(x=>x.dorm&&x!==p)),old=prvOld(p),t2=prvLow(prvT2(n));
   return `<section class="prv-side" id="prv-side" aria-labelledby="prv-side-h" style="--pc:${esc(prvTintOf(T,p))}">
     <div class="prv-sh">${prvArt(n,q,'',' prv-big')}<div><p class="eyebrow">${p.cap?'Capital '+esc(low1):esc(t1)} · ${esc(cpFmt(p.pop))}</p><h2 class="prv-sn" id="prv-side-h" tabindex="-1">${esc(p.nm)}</h2></div></div>
     <form id="prv-ren-form" class="name-row prv-ren" data-id="${id}" novalidate><label class="u-sr" for="prv-ren">Name of the ${esc(low1)}</label><input class="input" id="prv-ren" maxlength="32" value="${esc(q.nm)}" autocomplete="off"><button class="btn ghost" type="submit">Rename</button></form>
     <h3 class="prv-h3">Governor</h3>${prvGovHTML(n,N,p,now,true)}
-    <div class="row prv-crb"><button type="button" class="linkish small prv-rep" id="prv-pk-g" data-act="prv-pick" data-r="g" aria-expanded="${pick==='g'}">${pick==='g'?(g&&!g.ac?'Keep '+esc(g.nm.split(' ')[0]):'Close'):g&&!g.ac?'Replace…':'Choose a governor…'}</button>${g&&!g.ac?`<button type="button" class="linkish small" id="prv-dg" data-act="prv-dismiss-g" data-id="${id}" title="The other governors lose 4 loyalty">Dismiss</button>`:''}</div>${pick==='g'?cands('g'):''}
+    <div class="row prv-crb"><button type="button" class="linkish small prv-rep" id="prv-pk-g" data-act="prv-pick" data-r="g" aria-expanded="${pick==='g'}">${pick==='g'?(g&&!g.ac?'Keep '+esc(g.nm.split(' ')[0]):'Close'):g&&!g.ac?'Replace…':'Choose a governor…'}</button>${g?`<button type="button" class="linkish small" data-act="prv-person-rename" data-r="g">Rename</button>`:''}${g&&!g.ac?`<button type="button" class="linkish small" id="prv-dg" data-act="prv-dismiss-g" data-id="${id}" title="The other governors lose 4 loyalty">Dismiss</button>`:''}</div>${g?renameForm('g',g,'governor'):''}${pick==='g'?cands('g'):''}
     <h3 class="prv-h3">Provincial council <span class="hint">optional</span></h3><ul class="prv-council">${council}</ul>
     <h3 class="prv-h3" id="prv-aut-l">Autonomy</h3>
     <div class="seg prv-aut" role="group" aria-labelledby="prv-aut-l">${PRV_AUT.map(([l],k)=>`<button type="button" class="seg-b${aut===k?' on':''}" id="prv-a-${k}" data-act="prv-aut" data-id="${id}" data-v="${k}" aria-pressed="${aut===k}">${l}</button>`).join('')}</div>
@@ -51459,10 +51469,12 @@ document.addEventListener('click',e=>{
   if(a==='prv-go'){PRV.ui.sel=id;go('provinces');return;}
   if(a==='prv-city'){prvOpenCity(el.dataset.c);return;}
   if(a==='prv-seat-c'){prvSeat(id,+el.dataset.c);return;}
-  if(a==='prv-sel'){PRV.ui.sel=id;PRV.ui.pick='';PRV.ui.msg='';render();const h=document.getElementById('prv-side-h');if(h&&el.closest('.prv-cards,.prv-tbl')){h.scrollIntoView({block:'start',behavior:mfxRM()?'auto':'smooth'});try{h.focus({preventScroll:true});}catch(err){}}return;}
+  if(a==='prv-sel'){PRV.ui.sel=id;PRV.ui.pick='';PRV.ui.ren='';PRV.ui.msg='';render();const h=document.getElementById('prv-side-h');if(h&&el.closest('.prv-cards,.prv-tbl')){h.scrollIntoView({block:'start',behavior:mfxRM()?'auto':'smooth'});try{h.focus({preventScroll:true});}catch(err){}}return;}
   if(a==='prv-edit'){PRV.ui.edit=!PRV.ui.edit;PRV.ui.msg=PRV.ui.edit?'Editing borders. Choose a tool, then click the map.':'';render();return;}
   if(a==='prv-tool'){PRV.ui.tool=['add','seat','isle'].includes(el.dataset.v)?el.dataset.v:'move';PRV.ui.msg='';render();return;}
   if(a==='prv-pick'){const r=el.dataset.r;PRV.ui.pick=PRV.ui.pick===r?'':r;render();return;}
+  if(a==='prv-person-rename'){PRV.ui.ren=el.dataset.r;PRV.ui.msg='';render();const input=document.getElementById('prv-person-'+PRV.ui.ren);if(input){input.focus();input.select();}return;}
+  if(a==='prv-person-cancel'){PRV.ui.ren='';render();return;}
   if(a==='prv-appoint'){prvAppoint(id,el.dataset.r,+el.dataset.j);return;}
   if(a==='prv-dismiss-c'){prvDismissC(id,+el.dataset.r);return;}
   if(a==='prv-dismiss-g'){prvDismissG(id);return;}
@@ -51472,8 +51484,8 @@ document.addEventListener('click',e=>{
   if(a==='prv-flag'){prvFlagEdit(id,el.dataset.f,el.dataset.v);return;}
   if(a==='prv-fopen'){const d=el.closest('details');PRV.ui.open=d&&d.open?'':'f'+id;return;}
 });
-document.addEventListener('change',e=>{const el=e.target;if(el&&el.id==='prv-selp'){PRV.ui.sel=+el.value;PRV.ui.pick='';PRV.ui.msg='';render();}});
-document.addEventListener('submit',e=>{const f=e.target;if(!f||f.id!=='prv-ren-form')return;e.preventDefault();const i=document.getElementById('prv-ren');prvRename(+f.dataset.id,i?i.value:'');});
+document.addEventListener('change',e=>{const el=e.target;if(el&&el.id==='prv-selp'){PRV.ui.sel=+el.value;PRV.ui.pick='';PRV.ui.ren='';PRV.ui.msg='';render();}});
+document.addEventListener('submit',e=>{const f=e.target;if(!f)return;if(f.dataset.prvPerson!==undefined){e.preventDefault();const role=f.dataset.prvPerson,i=document.getElementById('prv-person-'+role);prvRenamePerson(+f.dataset.id,role,i?i.value:'');return;}if(f.id!=='prv-ren-form')return;e.preventDefault();const i=document.getElementById('prv-ren');prvRename(+f.dataset.id,i?i.value:'');});
 
 /* ───────── Round 12 (F): more variety in the flag designer ───────── */
 /* New patterns and emblems join PATTERNS and EMBLEMS, so every picker sees them (province flags too).
