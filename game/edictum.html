@@ -10196,6 +10196,8 @@ button.rgc-nm{text-align:left}
 .rgc-gq.err{color:var(--down)}
 .rgc-gq .linkish{font-size:inherit;padding:0}
 .rgc-foot .row{gap:10px;align-items:center;flex-wrap:wrap}
+/* If a keyboard leaves little room, keep the composer scrollable rather than pushing it below the viewport. */
+@media (max-width:959px){.rgc-foot{flex-shrink:0;max-height:60%;overflow-y:auto;overscroll-behavior:contain}}
 @media (max-width:600px){
   .rgc-dock{width:100vw;height:100dvh;bottom:auto;border-left:0;box-shadow:none}
   html.rgc-on,html.rgc-on body{overflow:hidden}
@@ -93395,6 +93397,7 @@ function rgcDock(){
   /* the Region, World and Alliance tabs keep to their newest line (stickWatch): the reader's own scrolling lets go of it
      and shows Latest lines; a draft, an answer or picture bar or a keyboard that changes the box's size does not */
   stickWatch(body,{on:()=>RGC.stick&&rgcTab()!=='haps',set:v=>{RGC.stick=v;const j=d.querySelector('.rgc-jump');if(j)j.hidden=v||rgcTab()==='haps';}},d.querySelector('#rgc-list'));
+  rgcViewportWatch();
   return d;
 }
 const rgcIn=()=>REG.the||REGION;
@@ -93590,7 +93593,7 @@ function rgcPaint(){
 }
 /* the writing box is drawn again only when what may be written changes, so a draft and the caret stay put */
 function rgcFoot(){
-  const f=RGC.dock&&RGC.dock.querySelector('#rgc-foot');if(!f)return;
+  const f=RGC.dock&&RGC.dock.querySelector('#rgc-foot');if(!f)return;if(RGC.open)rgcViewportSoon();
   const tab=rgcTab();
   if(tab==='haps'){if(RGC.foot!=='haps'){RGC.foot='haps';f.innerHTML='';}f.hidden=true;return;}
   f.hidden=false;
@@ -93621,9 +93624,32 @@ function rgcFoot(){
   const b=f.querySelector('#rgc-send');if(b)b.disabled=RGC.busy;
   const g=f.querySelector('#rgc-gq');if(g){const h=rgcGuestNote(),full=/^You have sent/.test(h);if(g.innerHTML!==h)g.innerHTML=h;g.classList.toggle('err',full);g.setAttribute('role',full?'alert':'note');}
 }
+/* Mobile keyboards often resize only visualViewport, leaving 100dvh and fixed positioning at the old height.
+   Follow its visible rectangle while the drawer is open; do not fight the user's pinch zoom. */
+let rgcVWatching=false,rgcVFrame=0;
+function rgcViewport(){
+  const d=RGC.dock,v=window.visualViewport;if(!d)return;
+  const mobile=window.matchMedia('(max-width:959px)').matches;
+  if(!RGC.open||!mobile||!v||!Number.isFinite(v.height)||v.height<=0||(v.scale||1)>1.01){d.style.removeProperty('top');d.style.removeProperty('height');d.style.removeProperty('bottom');return;}
+  const top=Number.isFinite(v.offsetTop)?Math.max(0,v.offsetTop):0;
+  d.style.top=top+'px';d.style.height=v.height+'px';d.style.bottom='auto';
+  /* The footer itself can scroll on a very short viewport, for example with a reply or picture attached. */
+  const foot=d.querySelector('#rgc-foot'),active=document.activeElement;
+  if(foot&&active&&foot.contains(active)&&active.matches('textarea,input')){
+    const a=active.getBoundingClientRect(),f=foot.getBoundingClientRect();
+    if(a.bottom>f.bottom)foot.scrollTop+=a.bottom-f.bottom+4;
+    else if(a.top<f.top)foot.scrollTop-=f.top-a.top+4;
+  }
+}
+function rgcViewportSoon(){if(rgcVFrame)return;rgcVFrame=requestAnimationFrame(()=>{rgcVFrame=0;rgcViewport();});}
+function rgcViewportWatch(){
+  if(rgcVWatching)return;rgcVWatching=true;
+  const v=window.visualViewport;if(v){v.addEventListener('resize',rgcViewportSoon);v.addEventListener('scroll',rgcViewportSoon);}
+  window.addEventListener('resize',rgcViewportSoon);document.addEventListener('focusin',e=>{if(RGC.open&&RGC.dock&&RGC.dock.contains(e.target))rgcViewportSoon();});
+}
 /* the line that held the focus is gone: the writing box takes it, or the Close button for a reader */
 function rgcRefocus(){const d=RGC.dock;if(!d||d.hidden||d.contains(document.activeElement))return;const t=d.querySelector('#rgc-x')||d.querySelector('[data-rgc="close"]');if(t)t.focus({preventScroll:true});}
-function rgcGrow(ta){ta.style.height='auto';ta.style.height=Math.min(ta.scrollHeight+2,128)+'px';}
+function rgcGrow(ta){ta.style.height='auto';ta.style.height=Math.min(ta.scrollHeight+2,128)+'px';if(ta.closest('#rgc-dock'))rgcViewportSoon();}
 function rgcOpen(on,quiet){
   if(on&&!rgcOn())return;
   const d=rgcDock(),was=RGC.open;RGC.open=!!on;
@@ -93631,11 +93657,11 @@ function rgcOpen(on,quiet){
     /* the divider stands before the first line not yet read when the drawer opened; lines that come in while it is
        open are read as they come */
     if(!was){RGC.mark=RGC.seen;RGC.markTop=RGC.top;RGC.stick=true;RGC.foot='';for(const C of RGS)C.looked=false;const W=rgsOf(rgcTab());if(W)rgwLook(W);}
-    d.hidden=false;document.documentElement.classList.add('rgc-on');rgcConnect();rgcPaint();if(!document.hidden&&rgcTab()==='region')rgcSeen();rgcBadge();rgcSilLoad(!was);
+    d.hidden=false;document.documentElement.classList.add('rgc-on');rgcViewport();rgcConnect();rgcPaint();if(!document.hidden&&rgcTab()==='region')rgcSeen();rgcBadge();rgcSilLoad(!was);
     Promise.resolve().then(()=>onlRefresh()).then(rgcHead,()=>{});
     if(!quiet)requestAnimationFrame(()=>{const t=document.getElementById('rgc-x')||d.querySelector('[data-rgc="close"]');if(t)t.focus({preventScroll:true});});
   }else{
-    d.hidden=true;Object.assign(RGC,{menu:'',ask:null,mark:0,markTop:0});for(const C of RGS)Object.assign(C,{mark:0,markTop:0,looked:false});document.documentElement.classList.remove('rgc-on');rgcBadge();
+    d.hidden=true;rgcViewport();Object.assign(RGC,{menu:'',ask:null,mark:0,markTop:0});for(const C of RGS)Object.assign(C,{mark:0,markTop:0,looked:false});document.documentElement.classList.remove('rgc-on');rgcBadge();
     if(was&&!quiet){const o=RGC.opener,b=o&&o.isConnected&&o.getClientRects().length?o:[...document.querySelectorAll('.rgc-btn')].find(x=>x.getClientRects().length);if(b)b.focus({preventScroll:true});}
   }
 }
