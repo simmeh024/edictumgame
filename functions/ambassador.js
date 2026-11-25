@@ -4,7 +4,7 @@
 // greets, answers, praises, tallies and hands things to the moderators. Deleting a line, hiding a nation, lifting a
 // silence and reading the account behind a nation remain a moderator's.
 //
-// The ops, all through the civic callable, all refused to anyone without the claim:
+// The ops, all through the civic callable, refused without the claim except for the admin-only read-only preview:
 //   ambDesk     the round: the newly founded of a region, how quiet every chat is, the board topics nobody has
 //               answered, the silences running, and what is left of the week's commendations
 //   ambGreet    mark a newly founded nation greeted (ambGreet/{uid}), so two ambassadors never write to it twice.
@@ -136,19 +136,19 @@ async function deskAsks(db) {
 const desks = new Map();
 export const resetDesk = () => desks.clear();
 async function ambDesk(db, who, d, regions) {
-  ambOnly(who);
+  if (!(d.preview === true && who.admin === true)) ambOnly(who);
   const now = Date.now(), me = await meOf(db, who.uid);
   const asked = line(d.reg, 40);
   const reg = regions.has(asked) ? asked : regions.has(me.reg) ? me.reg : [...regions][0] || '';
   if (!reg) throw new HttpsError('failed-precondition', 'There is no region to walk round yet.');
-  const key = who.uid + '|' + reg, hit = desks.get(key);
+  const key = who.uid + '|' + reg + (d.preview === true ? '|preview' : ''), hit = desks.get(key);
   if (hit && now - hit.at < 60000 && d.refresh !== true) return hit.d;
   /* the region's own chat is read once: it says who has written since being founded and how alive the room is */
   const recent = await safe(db.collection('rchat/' + reg + '/chat').where('t', '>', now - AMB_NEW).limit(400).select('a').get(), { docs: [] });
   const spoke = new Set(recent.docs.map(s => String(s.get('a') || '')));
   const [newly, rooms, topics, silences, cred, asks] = await Promise.all([
     safe(deskNewly(db, reg, now, spoke), []), deskRooms(db, regions, now), deskTopics(db, regions, now),
-    deskSilences(db, who, reg, now), safe(credLeft(db, who.uid, now), { left: AMB_CRED, of: AMB_CRED, week: weekOf(now) }), deskAsks(db)]);
+    deskSilences(db, d.preview === true && who.admin === true ? { uid: '' } : who, reg, now), d.preview === true && who.admin === true ? { left: AMB_CRED, of: AMB_CRED, week: weekOf(now) } : safe(credLeft(db, who.uid, now), { left: AMB_CRED, of: AMB_CRED, week: weekOf(now) }), deskAsks(db)]);
   const out = { at: now, reg, me: me.name, newly, rooms, topics, silences, cred, asks, quiet: AMB_QUIET, span: AMB_NEW };
   desks.set(key, { at: now, d: out });
   if (desks.size > 200) for (const [k, v] of desks) if (now - v.at > 60000) desks.delete(k);
@@ -279,5 +279,9 @@ async function ambLedger(db, who) {
 
 const OPS = { ambDesk, ambGreet, ambPass, ambCommend, ambAsk, ambLedger };
 export function ambassador(db, who, d, regions) {
+  if (d.preview === true) {
+    if (who.admin !== true || !['ambDesk', 'ambLedger'].includes(d.op)) throw new HttpsError('permission-denied', 'The role preview is read-only and for admins only.');
+    if (d.op === 'ambLedger') return { at: Date.now(), silences: [], notes: [] };
+  }
   return OPS[d.op](db, who, d, regions);
 }

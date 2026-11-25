@@ -731,6 +731,7 @@ async function allianceChat(db, actor, data) {
 export const adminConsole = onCall({ region: 'europe-west1', maxInstances: 5, memory: '512MiB', timeoutSeconds: 300 }, async req => {
   if (!req.auth) throw new HttpsError('unauthenticated', 'Sign in first.');
   const d = req.data || {}, db = getFirestore(), actor = req.auth.uid;
+  if (d.previewRole && req.auth.token.admin !== true) throw new HttpsError('permission-denied', 'Only admins can use role previews.');
   /* a moderator (claim mod, appointed below with op 'setMod') uses the console's moderation part only: the report queue
      (close a report, remove the reported post or chat line). Silencing and the region chats are functions/regionchat.js's */
   if (req.auth.token.admin !== true) {
@@ -743,6 +744,12 @@ export const adminConsole = onCall({ region: 'europe-west1', maxInstances: 5, me
     if (req.auth.token.mod === true && d.op === 'ambNotes') return ambNotesList(db);
     if (req.auth.token.mod === true && d.op === 'ambNote') return ambNoteAct(db, actor, d);
     throw new HttpsError('permission-denied', 'Only Edictum admins can use the console.');
+  }
+  /* An admin may inspect the moderator's reduced, read-only view. */
+  if (d.previewRole === 'moderator') {
+    if (d.op === 'player') return modPlayer(db, id(d.uid));
+    if (d.op === 'ambNotes') return ambNotesList(db);
+    throw new HttpsError('permission-denied', 'The moderator preview is read-only.');
   }
   if (d.op === 'setMod') return setMod(db, actor, d);
   if (d.op === 'setAmb') return setAmb(db, actor, d);

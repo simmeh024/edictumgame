@@ -1,7 +1,7 @@
 // The Ambassador's Desk (functions/ambassador.js, and the amb-* views in game/edictum.html), in the parts that need
 // no database. What matters here is the shape of the role, not the queries:
 //   - the desk, and every op on it, is refused to anyone without the ambassador's claim: a player, a moderator and
-//     an admin all get nothing, so the desk can never become a second, weaker moderator's portal;
+//     an admin all get nothing unless the admin explicitly requests the read-only preview;
 //   - one question tallies once however it was worded, and an ambassador counts once a day towards it;
 //   - the week's commendations come back on a Monday and not before;
 //   - the round counts a room as quiet only when somebody is there to hear the silence.
@@ -28,6 +28,16 @@ test('the desk is the ambassador’s alone', async () => {
       e => e.code === 'permission-denied' && /ambassadors have a desk/.test(e.message),
       `${op} is refused to ${JSON.stringify(who)}`);
   }
+});
+
+test('only admins can use the read-only preview, and it never performs an ambassador action', async () => {
+  const regions = new Set(['mer']);
+  for (const who of [{uid:'player'}, {uid:'mod',mod:true}, {uid:'amb',amb:true}])
+    for (const op of AMB_OPS) assert.throws(() => ambassador(null,who,{op,preview:true},regions), e=>e.code==='permission-denied');
+  for (const op of AMB_OPS.filter(x=>!['ambDesk','ambLedger'].includes(x)))
+    assert.throws(() => ambassador(null,{uid:'admin',admin:true},{op,preview:true},regions), e=>e.code==='permission-denied');
+  const ledger=await ambassador(null,{uid:'admin',admin:true},{op:'ambLedger',preview:true},regions);
+  assert.deepEqual(ledger.silences,[]);assert.deepEqual(ledger.notes,[]);
 });
 
 test('an ambassador cannot commend or greet their own nation', async () => {
@@ -138,7 +148,7 @@ vm.runInContext([
   'const REG={id:"mer",name:"Meridian Reach"};',
   'const admSkel=(n=6)=>"<div class=\\"adm-skel\\"></div>";',
   'const NAV_SVG=p=>"<svg>"+p+"</svg>";const NAV_IC_DEF="<svg></svg>";',
-  'const ADM_MOBILE={matches:false};const S={isAmb:true,isMod:false,isOwner:false,mode:"world"};',
+  'const ADM_MOBILE={matches:false};const S={isAmb:true,isMod:false,isOwner:false,mode:"world"};const rolePicker=()=>"";const roleBanner=()=>"";',
   'const render=()=>{};const toast=()=>{};const go=()=>{};const setTimeout=()=>0;',
   deskBlock,
   'this.AMB=AMB;this.ambView=ambView;this.AMB_VIEWS=AMB_VIEWS;this.S=S;this.ambWelcomeText=ambWelcomeText;',

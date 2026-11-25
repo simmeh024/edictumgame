@@ -1010,7 +1010,9 @@ out (see Fair play), with Hide and Ban. For anyone else `#admin` simply shows th
 **Needs attention** (`#admin-triage`) stands at the top of the sidebar: everything waiting on the staff in one
 list, the longest-waiting first — the report queue, the help queries waiting on an answer, the new bug reports and
 the unseen alerts — with a row older than a day marked. It opens each in the page it belongs to. A moderator sees
-the same page with the reports alone. `J` and `K` move down and up the list and `Enter` opens a row; on the report
+the same page with the reports alone. Admins can use **View as** in the portal to preview the moderator and
+ambassador panels. The previews are read-only, and the ambassador preview has a region selector; its personal ledger
+and commendation allowance are examples, not another ambassador’s records. `J` and `K` move down and up the list and `Enter` opens a row; on the report
 queue `D` removes the reported post, `H` hides, `R` removes, `B` bans, `C` closes the ticket and `Esc` cancels. All
 but closing still ask first.
 

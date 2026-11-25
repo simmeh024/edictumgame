@@ -231,6 +231,12 @@ test('a moderator may look up the player behind a report, and sees nothing of th
   assert.equal(seen.mod, true);
   assert.equal(seen.account, null, 'how they sign in and where from is not a moderator’s to see');
   assert.deepEqual(seen.alts, []); assert.equal(seen.purchases, null); assert.equal(seen.once, null);
+  const preview = await call(a, { op: 'player', uid: p.uid, previewRole: 'moderator' });
+  assert.equal(preview.mod, true); assert.equal(preview.account, null); assert.deepEqual(preview.alts, []);
+  await assert.rejects(call(a, { op: 'search', previewRole: 'moderator' }), e => e.status === 'PERMISSION_DENIED');
+  await assert.rejects(call(a, { op: 'moderate', action: 'ban', target: p.uid, reason: 'no', previewRole: 'moderator' }), e => e.status === 'PERMISSION_DENIED');
+  await assert.rejects(call(mod, { op: 'player', uid: p.uid, previewRole: 'moderator' }), e => e.status === 'PERMISSION_DENIED');
+
   assert.ok(seen.nation && seen.reports && seen.actions, 'the nation, the reports and what was decided before are there');
   /* a moderator may write in the case file, so the next pair of eyes knows what was found; deleting stays an admin's */
   const wrote = (await call(mod, { op: 'note', uid: p.uid, text: 'Removed a chat line; watching.' })).staffNote;

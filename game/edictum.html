@@ -57938,10 +57938,24 @@ setInterval(()=>{if(!document.hidden)chatDelegatePaint();},15000);
 const CRED_PILL='<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="9" r="5.5"/><path d="m8.5 13.5-1.5 7 5-2.5 5 2.5-1.5-7"/></svg>Commended';
 function credOf(id){try{return id&&S.cred?S.cred.get(id)||null:null;}catch(e){return null;}}
 function credPillOf(id){const c=credOf(id);return c?`<span class="cred-pill" title="${esc(c.x)}${c.nm?' — '+esc(c.nm):''}">${CRED_PILL}</span>`:'';}
-function portalOk(v){return !!S.isOwner||!!S.isMod&&MOD_VIEWS.includes(v);}
+/* Admin role previews never change the signed-in account's claims. */
+const ROLE_PREVIEW={role:'admin',reg:'',serial:0};
+const rolePreview=()=>!!S.isOwner&&ROLE_PREVIEW.role!=='admin';
+const modPreview=()=>!!S.isOwner&&ROLE_PREVIEW.role==='moderator';
+function portalOk(v){return modPreview()?MOD_VIEWS.includes(v):!!S.isOwner||!!S.isMod&&MOD_VIEWS.includes(v);}
+function rolePicker(){return S.isOwner?`<div class="field" style="margin:12px 0"><label class="lbl" for="role-preview">View as</label><select class="input" id="role-preview"><option value="admin"${ROLE_PREVIEW.role==='admin'?' selected':''}>Admin</option><option value="moderator"${ROLE_PREVIEW.role==='moderator'?' selected':''}>Moderator preview</option><option value="ambassador"${ROLE_PREVIEW.role==='ambassador'?' selected':''}>Ambassador preview</option></select></div>`:'';}
+function roleBanner(){return rolePreview()?`<div class="info" role="status"><b>${ROLE_PREVIEW.role==='moderator'?'Moderator':'Ambassador'} preview · read-only.</b> Actions are disabled. ${ROLE_PREVIEW.role==='ambassador'?'Personal history and commendation allowance are examples, not another ambassador’s records.':''}</div>`:'';}
 /* a moderator's portal: the queue of what needs them, the reports, every region's chat, and the player behind a report
    (functions/admin.js, modPlayer: the nation and its history, never the account behind it) */
 const MOD_VIEWS=['admin-triage','admin-reports','admin-chat','admin-players','admin-ambnotes'];
+const ROLE_READ_ACTIONS=new Set(['adm-tab','amb-tab','adm-menu-open','adm-menu-close','admin-close','admin-refresh','adm-refresh-now','adm-tri-open','admin-inspect','amb-refresh','acx-reg','acx-reload']);
+document.addEventListener('change',e=>{const t=e.target;if(!S.isOwner||!t)return;
+  if(t.id==='role-preview'){ROLE_PREVIEW.role=['admin','moderator','ambassador'].includes(t.value)?t.value:'admin';ROLE_PREVIEW.serial++;ROLE_PREVIEW.reg=REG.id;AMB.d=null;AMB.at=0;AMB.led=null;AMB.ledAt=0;AMB.err='';AMB.ledErr='';ADMX.player=null;ADMX.err='';ADM.ask=null;TRI.at=0;go(ROLE_PREVIEW.role==='admin'?'admin':ROLE_PREVIEW.role==='moderator'?'admin-reports':'amb');return;}
+  if(t.id==='role-preview-region'&&ROLE_PREVIEW.role==='ambassador'){ROLE_PREVIEW.reg=t.value;ROLE_PREVIEW.serial++;AMB.d=null;AMB.at=0;AMB.err='';ambLoad(true);render();}
+},true);
+document.addEventListener('click',e=>{if(!rolePreview()||!e.target.closest('.adm'))return;const el=e.target.closest('button,a,[data-act]');if(!el)return;const a=el.dataset.act;if(ROLE_READ_ACTIONS.has(a))return;e.preventDefault();e.stopImmediatePropagation();},true);
+document.addEventListener('submit',e=>{if(rolePreview()&&e.target.closest('.adm')){e.preventDefault();e.stopImmediatePropagation();}},true);
+document.addEventListener('keydown',e=>{if(rolePreview()&&typeof S.view==='string'&&(/^(admin|amb)/).test(S.view)&&!['Tab','Escape','Enter',' '].includes(e.key))e.stopImmediatePropagation();},true);
 const STAFF_PILL='<span class="staff-pill" title="A member of the Edictum team"><svg viewBox="0 0 12 14" aria-hidden="true"><path d="M6 .8 11 2.7v3.9c0 3.1-2.1 5.6-5 6.6-2.9-1-5-3.5-5-6.6V2.7Z" fill="currentColor"/><path d="m3.6 7 1.7 1.7 3.2-3.4" fill="none" stroke="var(--stamp)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Edictum staff</span>';
 const AMB_PILL='<span class="staff-pill amb" title="An ambassador of Edictum, who helps keep the chats friendly"><svg viewBox="0 0 14 14" aria-hidden="true"><circle cx="7" cy="7" r="5.9" fill="none" stroke="currentColor" stroke-width="1.4"/><ellipse cx="7" cy="7" rx="2.5" ry="5.9" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M1.2 7h11.6" stroke="currentColor" stroke-width="1.2"/></svg>Edictum Ambassador</span>';
 const MOD_PILL='<span class="staff-pill mod" title="A moderator of Edictum"><svg viewBox="0 0 12 14" aria-hidden="true"><path d="M6 .8 11 2.7v3.9c0 3.1-2.1 5.6-5 6.6-2.9-1-5-3.5-5-6.6V2.7Z" fill="currentColor"/><path d="m3.6 7 1.7 1.7 3.2-3.4" fill="none" stroke="#1f7a46" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Edictum Moderator</span>';
@@ -61276,8 +61290,8 @@ function admReports(list){
     return `<li class="adm-rep${i===ADMR.pick?' cur':''}${g.old>DAY?' old':''}" data-adm-case="${esc(g.target)}">
       <p class="adm-rep-h"><b>${esc(g.name||'A nation')}</b> · ${esc(regName(g.reg))} <span class="adm-tri-age">${only?esc(rel(first.t)):`${g.rows.length} tickets · oldest ${esc(rel(now-g.old))}`}</span></p>
       ${g.rows.map(r=>ticket(g,r)).join('')}
-      <div class="row">${!S.isOwner?'':`${hid?`<span class="hint">${S.mod[g.target].rename?'Hidden until its player chooses a new name.':'Hidden from other players.'}</span>`:`<button class="btn ghost small" data-act="adm-hide" data-id="${esc(first.id)}">Hide the nation</button>${first.kind==='post'||first.kind==='letter'?'':`<button class="btn ghost small" data-act="adm-rename" data-id="${esc(first.id)}">Ask for a new name</button>`}`}<button class="btn ghost small" data-act="adm-remove" data-id="${esc(first.id)}">Remove the nation</button><button class="btn ghost small adm-danger" data-act="adm-ban" data-id="${esc(first.id)}">Ban the player</button>`}
-        ${only?'':`<button class="btn ghost small" data-act="adm-close-all" data-id="${esc(g.target)}">Close all ${g.rows.length}</button>`}<button class="btn ghost small" data-act="admin-inspect" data-id="${esc(g.target)}">Inspect player</button></div></li>`;};
+      <div class="row">${(!S.isOwner||modPreview())?'':`${hid?`<span class="hint">${S.mod[g.target].rename?'Hidden until its player chooses a new name.':'Hidden from other players.'}</span>`:`<button class="btn ghost small" data-act="adm-hide" data-id="${esc(first.id)}">Hide the nation</button>${first.kind==='post'||first.kind==='letter'?'':`<button class="btn ghost small" data-act="adm-rename" data-id="${esc(first.id)}">Ask for a new name</button>`}`}<button class="btn ghost small" data-act="adm-remove" data-id="${esc(first.id)}">Remove the nation</button><button class="btn ghost small adm-danger" data-act="adm-ban" data-id="${esc(first.id)}">Ban the player</button>`}
+        ${only||modPreview()?'':`<button class="btn ghost small" data-act="adm-close-all" data-id="${esc(g.target)}">Close all ${g.rows.length}</button>`}<button class="btn ghost small" data-act="admin-inspect" data-id="${esc(g.target)}">Inspect player</button></div></li>`;};
   return `<h2 class="h2">Report queue${n?` <span class="chip">${n}</span>`:''}</h2>
     ${ADM.act?`<p class="hint">${esc(ADM.act)}</p>`:''}
     ${list==null?'<p class="err">The reports could not be loaded.</p>':!n?'<p class="hint">No open reports. When a player reports a post or a nation, a ticket appears here. Support tickets are under Help queries.</p>':
@@ -61581,10 +61595,10 @@ function admShell(v,body){
   const group=(label,links)=>`<section class="adm-nav-group" aria-label="${label}"><h2 class="adm-nav-label">${label}</h2>${links}</section>`;
   return `<div class="adm">
     <dialog id="adm-menu" class="adm-sidebar" role="${ADM_MOBILE.matches?'dialog':'complementary'}" aria-label="Admin navigation"${ADM_MOBILE.matches?'':' open'}>
-      <div class="adm-brand"><span class="wordmark">Edictum</span>${S.isOwner?'<span class="adm-pill">Admin</span>':'<span class="adm-pill mod">Mod</span>'}<button type="button" class="btn ghost small adm-menu-close" data-act="adm-menu-close" aria-label="Close admin menu">Close</button></div>
-      <nav class="adm-nav" aria-label="Admin portal">
+      <div class="adm-brand"><span class="wordmark">Edictum</span>${S.isOwner&&!modPreview()?'<span class="adm-pill">Admin</span>':'<span class="adm-pill mod">Mod</span>'}<button type="button" class="btn ghost small adm-menu-close" data-act="adm-menu-close" aria-label="Close admin menu">Close</button></div>
+      ${rolePicker()}<nav class="adm-nav" aria-label="Admin portal">
         ${group('Today',tab('admin-triage','Needs attention',triCount()))}
-        ${!S.isOwner?group('Moderation',tab('admin-reports','Reports',ADM.d&&ADM.d.reports&&ADM.d.reports.length)+tab('admin-chat','Region chats')+tab('admin-ambnotes','Ambassadors&rsquo; notes',abnWaiting())):`${group('World',tab('admin','Overview')+tab('admin-stats','Statistics')+tab('admin-shop','Shop statistics')+tab('admin-letters','Letter statistics')+tab('admin-feed','Live feed')+tab('admin-players','Player search')+tab('admin-online','Online players',ADMX.online&&ADMX.online.players.length)+tab('admin-alliances','Alliances')+tab('admin-watch','Watchlist &amp; alerts',AW.unseen)+tab('admin-regions','Region control'))}
+        ${(!S.isOwner||modPreview())?group('Moderation',tab('admin-reports','Reports',ADM.d&&ADM.d.reports&&ADM.d.reports.length)+tab('admin-chat','Region chats')+tab('admin-ambnotes','Ambassadors&rsquo; notes',abnWaiting())):`${group('World',tab('admin','Overview')+tab('admin-stats','Statistics')+tab('admin-shop','Shop statistics')+tab('admin-letters','Letter statistics')+tab('admin-feed','Live feed')+tab('admin-players','Player search')+tab('admin-online','Online players',ADMX.online&&ADMX.online.players.length)+tab('admin-alliances','Alliances')+tab('admin-watch','Watchlist &amp; alerts',AW.unseen)+tab('admin-regions','Region control'))}
         ${group('Moderation',tab('admin-reports','Reports',ADM.d&&ADM.d.reports&&ADM.d.reports.length)+tab('admin-chat','Region chats')+tab('admin-sus','Suspicious',AUDIT.size)+tab('admin-hidden','Hidden nations')+tab('admin-bans','Banned players'))}
         ${group('Support',tab('admin-help','Help queries',n)+tab('admin-bugs','Bug reports',BGA.n)+tab('admin-ambnotes','Ambassadors&rsquo; notes',abnWaiting())+tab('admin-gone','Recently dissolved'))}
         ${group('Game content',tab('admin-edicts','All edicts')+tab('admin-news','Development news')+tab('admin-board','Community boards')+tab('admin-flagc','Flag competition',window.fcaRep||0)+tab('admin-notes','Banknote design guide')+tab('admin-balance','Balance'))}
@@ -61593,7 +61607,7 @@ function admShell(v,body){
       ${admTzPicker()}
       <button type="button" class="btn ghost adm-return" data-act="admin-close">← Back to the game</button>
     </dialog>
-    <main class="adm-main" id="adm-main" tabindex="-1"><button type="button" id="adm-menu-toggle" class="btn ghost adm-menu-toggle" data-act="adm-menu-open" aria-haspopup="dialog" aria-controls="adm-menu">☰ Admin menu</button>${admFresh(v)}${body}</main>
+    <main class="adm-main" id="adm-main" tabindex="-1"><button type="button" id="adm-menu-toggle" class="btn ghost adm-menu-toggle" data-act="adm-menu-open" aria-haspopup="dialog" aria-controls="adm-menu">☰ Admin menu</button>${roleBanner()}${admFresh(v)}${body}</main>
   </div>`;
 }
 ADM_MOBILE.addEventListener('change',()=>{admMenuOpen=false;const m=document.getElementById('adm-menu');if(!m)return;if(m.open)m.close();m.setAttribute('role',ADM_MOBILE.matches?'dialog':'complementary');if(!ADM_MOBILE.matches)m.show();});
@@ -61606,7 +61620,7 @@ document.addEventListener('click',e=>{
   if(a==='adm-tab'){e.preventDefault();go(el.dataset.v);const m=document.getElementById('adm-main');if(m)m.focus({preventScroll:true});return;}
   if(a==='adm-menu-open'){admMenuOpen=true;admShowMenu();return;}
   if(a==='adm-menu-close'){admHideMenu();return;}
-  if(a==='admin-close'){go('nation');return;}
+  if(a==='admin-close'){ROLE_PREVIEW.role='admin';ROLE_PREVIEW.serial++;go('nation');return;}
   if(a==='admin-refresh'){admLoad(true);render();return;}
   if(a==='adm-ask-no'){ADM.ask=null;render();return;}
   if(/^adm-(delpost|delpost-yes|hide|hide-yes|rename|rename-yes|remove|remove-yes|ban|ban-yes|close|unhide|unban)$/.test(a)){if(S.isOwner||S.isMod&&/^adm-(delpost|delpost-yes|close)$/.test(a))admAct(a,el.dataset.id);return;}
@@ -61622,7 +61636,7 @@ document.addEventListener('click',e=>{
 /* ───────── staff operations ───────── */
 setInterval(()=>{if(S.isOwner&&S.view==='admin-online'&&!document.hidden&&!ADMX.busy)adminExtraLoad('admin-online');},30000);
 const ADMX={loaded:{},busy:false,err:'',q:'',reg:'',act:'',eng:'',sort:'',watchWhy:'',watchFor:'',watchBusy:false,watchMsg:'',onceFor:'',onceAsk:'',onceBusy:false,onceMsg:'',onceLink:'',query:null,search:null,player:null,health:null,audit:null,target:'',ask:null,reasons:{},modes:{},regionBusy:'',message:'',mod:null,modReason:'',modBusy:false,modMsg:'',note:'',noteFor:'',noteBusy:false,noteMsg:'',noteDrop:'',clubDays:30,clubWhy:'',clubBusy:false,clubMsg:'',packP:'',packWhy:'',packBusy:false,packMsg:''};
-async function adminRequest(data){const api=await window.claude.use('admin');if(!api)throw new Error('The admin service needs a connection.');return api.request(data);}
+async function adminRequest(data){const api=await window.claude.use('admin');if(!api)throw new Error('The admin service needs a connection.');if(modPreview()){if(!['player','ambNotes'].includes(data.op))throw new Error('The moderator preview is read-only.');data={...data,previewRole:'moderator'};}return api.request(data);}
 const adminTime=t=>t?new Date(t).toLocaleString():'No confirmed save';
 async function adminExtraLoad(v,more=false,refresh=false){
   if(ADMX.busy)return;ADMX.busy=true;ADMX.err='';ADMX.loaded[v]=true;render();
@@ -62070,7 +62084,7 @@ document.addEventListener('submit',e=>{if(e.target.id==='admin-search'||e.target
 document.addEventListener('click',async e=>{
   const el=e.target.closest('[data-act]');if(!el)return;const a=el.dataset.act,id=el.dataset.id;
   if(a==='region-recheck'){regionControls();return;}
-  if(!S.isOwner)return;
+  if(!S.isOwner||modPreview())return;
   if(a==='region-ask'){ADMX.ask=id;ADMX.modes[id]=regMode(id)==='coming_soon'?'coming_soon':'maintenance';render();return;}
   if(a==='region-cancel'){ADMX.ask=null;render();return;}
   if(a==='region-enable'||a==='region-disable'){adminSetRegion(id,a==='region-enable');return;}
@@ -62958,7 +62972,7 @@ function triLoad(force){
   TRI.busy=true;
   admLoad(force);
   if(force||!ABN.d)abnLoad(force);
-  if(S.isOwner){if(force||!ADMH.d)admhLoad();if(force||BGA.list==null)bgaLoad();if(force||!AW.a)awLoad();}
+  if(S.isOwner&&!modPreview()){if(force||!ADMH.d)admhLoad();if(force||BGA.list==null)bgaLoad();if(force||!AW.a)awLoad();}
   TRI.busy=false;TRI.at=Date.now();
 }
 /* every waiting thing as one row: what it is, who it is about, and how long it has waited */
@@ -62969,7 +62983,7 @@ function triRows(){
   /* an ambassador saw something they could not act on: a moderator reads it before the ordinary reports */
   for(const nt of ((ABN.d&&ABN.d.waiting)||[]))out.push({k:'ambnote',id:nt.target||nt.id,t:nt.t||now,
     ti:nt.name||(ABN_KIND[nt.kind]||'A note from an ambassador'),x:`${ABN_KIND[nt.kind]||'Note'} · from ${nt.nm||'an ambassador'} · ${String(nt.x||'').slice(0,120)}`});
-  if(S.isOwner){
+  if(S.isOwner&&!modPreview()){
     for(const t of ((ADMH.d&&ADMH.d.open)||[]).filter(t=>t.w!=='p'))out.push({k:'help',id:t.id,t:t.lt||t.t||now,ti:t.topic||t.tp||'A help query',x:t.nm||t.name||''});
     for(const b of (BGA.list||[]).filter(b=>b.st==='new'))out.push({k:'bug',id:b.id,t:b.t||now,ti:b.ti||'A bug report',x:b.nm||b.name||''});
     for(const a of ((AW.a&&AW.a.alerts)||[]).filter(a=>!a.seen))out.push({k:'alert',id:a.id,t:a.t||now,ti:a.ti||'An alert',x:a.x||''});
@@ -62983,7 +62997,7 @@ function adminTriageView(){
   const rows=triRows(),now=Date.now();
   if(!TRI.at)setTimeout(()=>triLoad(false),0);
   if(ADMR.pick>=rows.length)ADMR.pick=Math.max(0,rows.length-1);
-  const waiting=S.isOwner&&(!ADMH.d||BGA.list==null||!AW.a);
+  const waiting=S.isOwner&&!modPreview()&&(!ADMH.d||BGA.list==null||!AW.a);
   const row=(r,i)=>`<li class="${i===ADMR.pick?'cur ':''}${now-r.t>DAY?'old':''}">
     <p class="adm-tri-h"><span class="chip">${esc((TRI_SRC[r.k]||['Waiting'])[0])}</span> <b>${esc(String(r.ti).slice(0,120))}</b>
       <span class="adm-tri-age">waiting ${esc(rel(r.t))}</span></p>
@@ -62991,7 +63005,7 @@ function adminTriageView(){
     <div class="row"><button class="btn small" data-act="adm-tri-open" data-k="${esc(r.k)}">Open ${esc(String((TRI_SRC[r.k]||['it'])[0]).toLowerCase())}</button>${r.k==='report'?`<button class="btn ghost small" data-act="admin-inspect" data-id="${esc(r.id)}">Inspect player</button>`:''}</div></li>`;
   return admShell('admin-triage',`
     <p class="eyebrow">Admin portal</p><h1 class="display">Needs attention</h1>
-    <p class="lede">Everything waiting on the staff in one list, the longest-waiting first: reports${S.isOwner?', help queries, bug reports and alerts':''}. A row older than a day is marked.</p>
+    <p class="lede">Everything waiting on the staff in one list, the longest-waiting first: reports${S.isOwner&&!modPreview()?', help queries, bug reports and alerts':''}. A row older than a day is marked.</p>
     ${rows.length?admKeysHint('triage'):''}
     ${!rows.length&&waiting?admSkel(5):''}
     ${rows.length?`<ul class="adm-tri">${rows.map(row).join('')}</ul>`:waiting?'':'<p class="hint">Nothing is waiting. The queues are empty.</p>'}
@@ -63052,7 +63066,7 @@ shell=(f=>function(){
   if(S.view==='admin-triage'&&portalOk('admin-triage'))return adminTriageView();
   if(S.view==='admin-balance'&&S.isOwner)return adminBalanceView();
   /* the admins' own wrapper above sends only them to the extra pages; a moderator's one page comes through here */
-  if(S.view==='admin-players'&&!S.isOwner&&S.isMod)return adminExtraView('admin-players');
+  if(S.view==='admin-players'&&((!S.isOwner&&S.isMod)||modPreview()))return adminExtraView('admin-players');
   return f.apply(this,arguments);})(shell);
 /* a player's page and a stretch of the audit log can be linked to, and Back comes back to them */
 VIEW_HASH_FN['admin-players']=()=>ADMX.player?'admin-players/'+encodeURIComponent(ADMX.player.uid):'admin-players';
@@ -63077,13 +63091,13 @@ document.addEventListener('click',e=>{
   if(a==='adm-close-all'&&S.isOwner){admCloseAll(el.dataset.id);return;}
   if(a==='bal-tab'&&S.isOwner){BAL.tab=el.dataset.v;render();return;}
   /* a moderator's Inspect player: the admins' own handler is theirs alone */
-  if(a==='admin-inspect'&&!S.isOwner&&S.isMod){admInspect(el.dataset.id);return;}
+  if(a==='admin-inspect'&&((!S.isOwner&&S.isMod)||modPreview())){admInspect(el.dataset.id);return;}
 });
 document.addEventListener('change',e=>{if(e.target.id==='bal-reg'&&S.isOwner){BAL.reg=e.target.value;BAL.d=null;balLoad(false);}});
 /* A moderator's player page is the detail panel alone: no directory, no search, nothing of the account behind the
    nation (functions/admin.js, modPlayer answers them a cut-down record). */
 adminExtraView=(f=>function(v){
-  if(v==='admin-players'&&!S.isOwner&&S.isMod)
+  if(v==='admin-players'&&((!S.isOwner&&S.isMod)||modPreview()))
     return admShell(v,`<p class="eyebrow">Moderator</p><h1 class="display">${esc((ADMX.player&&ADMX.player.name)||'Player')}</h1>
       <p class="lede">The player behind a report: their nation, what has been decided about it before, and the staff's notes. The account itself — how they sign in, where from — is the admins'.</p>
       ${ADMX.err?`<p class="err" role="alert">${esc(ADMX.err)}</p>`:''}
@@ -63188,14 +63202,14 @@ const AMB={at:0,busy:false,err:'',d:null,led:null,ledAt:0,ledBusy:false,ledErr:'
   ax:'',abusy:false,amsg:''};
 /* the desk is the ambassador's own: never in a preview, never on a local save, and never a moderator's (they have
    the portal, which does all of this and more) */
-const ambOk=()=>!!S.isAmb&&!PV&&!S.isOwner&&!S.isMod&&S.mode!=='local';
-async function ambRequest(d){const api=await window.claude.use('civic');if(!api||typeof api.request!=='function')throw new Error('The desk needs a connection to the region.');return api.request(d);}
+const ambOk=()=>!PV&&S.mode!=='local'&&((!!S.isAmb&&!S.isOwner&&!S.isMod)||(S.isOwner&&ROLE_PREVIEW.role==='ambassador'));
+async function ambRequest(d){const api=await window.claude.use('civic');if(!api||typeof api.request!=='function')throw new Error('The desk needs a connection to the region.');if(rolePreview()){if(!['ambDesk','ambLedger'].includes(d.op))throw new Error('The ambassador preview is read-only.');d={...d,preview:true,...(d.op==='ambDesk'?{reg:ROLE_PREVIEW.reg}: {})};}return api.request(d);}
 function ambLoad(force){
   if(AMB.busy||!ambOk())return;
-  AMB.busy=true;AMB.err='';
-  ambRequest({op:'ambDesk',...(force?{refresh:true}:{})}).then(d=>{AMB.d=d;AMB.at=Date.now();AMB.err='';},
-    e=>{AMB.err=e.message||'The round could not be read just now.';})
-    .then(()=>{AMB.busy=false;if(AMB_VIEWS.includes(S.view))render();});
+  AMB.busy=true;AMB.err='';const serial=ROLE_PREVIEW.serial;
+  ambRequest({op:'ambDesk',...(force?{refresh:true}:{})}).then(d=>{if(serial!==ROLE_PREVIEW.serial)return;AMB.d=d;AMB.at=Date.now();AMB.err='';},
+    e=>{if(serial===ROLE_PREVIEW.serial)AMB.err=e.message||'The round could not be read just now.';})
+    .then(()=>{AMB.busy=false;if(serial!==ROLE_PREVIEW.serial&&ambOk())ambLoad(true);if(AMB_VIEWS.includes(S.view))render();});
 }
 function ambLedgerLoad(force){
   if(AMB.ledBusy||!ambOk())return;
@@ -63236,7 +63250,7 @@ function ambShell(v,body){
   return `<div class="adm amb">
     <dialog id="adm-menu" class="adm-sidebar" role="${ADM_MOBILE.matches?'dialog':'complementary'}" aria-label="Ambassador navigation"${ADM_MOBILE.matches?'':' open'}>
       <div class="adm-brand"><span class="wordmark">Edictum</span><span class="adm-pill amb">Ambassador</span><button type="button" class="btn ghost small adm-menu-close" data-act="adm-menu-close" aria-label="Close the menu">Close</button></div>
-      <nav class="adm-nav" aria-label="The Ambassador&rsquo;s Desk">
+      ${rolePicker()}<nav class="adm-nav" aria-label="The Ambassador&rsquo;s Desk">
         ${group('Today',tab('amb','Your round',ambWaiting()))}
         ${group('The region',tab('amb-welcome','Newly founded',ambNew().length)+tab('amb-rooms','Quiet rooms',d?(d.rooms||[]).filter(ambQuiet).length:0))}
         ${group('Keeping the peace',tab('amb-silences','Silences',d?(d.silences||[]).filter(s=>s.mine).length:0)+tab('amb-passed','Passed to staff'))}
@@ -63244,7 +63258,7 @@ function ambShell(v,body){
       </nav>
       <button type="button" class="btn ghost adm-return" data-act="admin-close">&larr; Back to the game</button>
     </dialog>
-    <main class="adm-main" id="adm-main" tabindex="-1"><button type="button" id="adm-menu-toggle" class="btn ghost adm-menu-toggle" data-act="adm-menu-open" aria-haspopup="dialog" aria-controls="adm-menu">&#9776; Ambassador menu</button>${ambFresh()}${body}</main>
+    <main class="adm-main" id="adm-main" tabindex="-1"><button type="button" id="adm-menu-toggle" class="btn ghost adm-menu-toggle" data-act="adm-menu-open" aria-haspopup="dialog" aria-controls="adm-menu">&#9776; Ambassador menu</button>${roleBanner()}${S.isOwner&&ROLE_PREVIEW.role==='ambassador'?`<div class="field"><label class="lbl" for="role-preview-region">Preview region</label><select class="input" id="role-preview-region">${REGIONS.map(r=>`<option value="${esc(r.id)}"${r.id===(ROLE_PREVIEW.reg||REG.id)?' selected':''}>${esc(r.name)}</option>`).join('')}</select></div>`:''}${ambFresh()}${body}</main>
   </div>`;
 }
 function ambFresh(){
@@ -63587,6 +63601,10 @@ document.addEventListener('change',e=>{
   if(t.id==='amb-pk'){AMB.pk=AMB_PASS[t.value]?t.value:'threat';}
   else if(t.id==='amb-cwhy'){AMB.cwhy=AMB_WHY[t.value]?t.value:'newcomer';}
 });
+
+/* Mark unavailable actions clearly as well as blocking them in the event handlers. */
+function roleDisable(){if(!rolePreview())return;const root=document.querySelector('.adm');if(root)root.querySelectorAll('button,input,textarea,select').forEach(el=>{if(el.id==='role-preview'||el.id==='role-preview-region'||ROLE_READ_ACTIONS.has(el.dataset.act))return;el.disabled=true;el.title='Unavailable in read-only preview';});}
+render=(f=>function(){const r=f.apply(this,arguments);roleDisable();return r;})(render);
 
 /* ───────── support tickets ─────────
    The Help page (and the founding page's help) opens a support ticket: src/shim.js shows the form and
@@ -94440,7 +94458,7 @@ function acxPaint(){
   if(l){const y=l.scrollTop,fa=document.activeElement,keep=fa&&l.contains(fa)?{act:fa.dataset.act||'',id:fa.dataset.id||''}:null;
     l.innerHTML=acxLogHTML();l.scrollTop=y;stickAll();
     if(keep&&keep.act){const b=l.querySelector(`[data-act="${CSS.escape(keep.act)}"]${keep.id?`[data-id="${CSS.escape(keep.id)}"]`:''}`);if(b)b.focus({preventScroll:true});}}
-  const r=document.getElementById('acx-regs');if(r)r.innerHTML=acxRegsHTML();
+  const r=document.getElementById('acx-regs');if(r)r.innerHTML=acxRegsHTML();roleDisable();
 }
 function acxMuteHTML(){
   const q=ACX.mute;
@@ -94476,7 +94494,7 @@ function acxView(){
     ${R?(()=>{const pk=rgcPicCan(),pb=pk?rgcPicBarHTML(ACX,'acx'):'';return `<form class="acx-f" id="acx-f" novalidate><label class="lbl" for="acx-x">Write to ${esc(R.the||R.name)} as the Edictum team</label><div class="rgc-picbar acx-picbar" id="acx-picbar"${pb?'':' hidden'}>${pb}</div><div class="acx-fr"><textarea class="input" id="acx-x" rows="2" maxlength="${RGC_TEXT}" placeholder="Players see it at once, signed Edictum team.${pk?' Paste or drop a picture to add one.':''}">${esc(ACX.x)}</textarea>${pk?rgcPicPicker('acx'):''}<button class="btn" type="submit" id="acx-go"${ACX.busy?' disabled':''}>${ACX.busy?'Sending…':'Send'}</button></div>${ACX.msg?`<p class="err" role="alert">${esc(ACX.msg)}</p>`:''}</form>`;})():''}</section>`;
   const M=ACX.mutes,mutes=`<h2 class="h3 acx-mh">Silenced players</h2>${ACX.merr?`<p class="err">${esc(ACX.merr)}</p>`:!M?'<p class="hint">Fetching them…</p>':!M.length?'<p class="hint">Nobody is silenced.</p>'
     :`<div class="tbl-wrap"><table class="tbl acx-mt"><thead><tr><th>Nation</th><th>Region</th><th>Until</th><th>Reason</th><th>Since</th><th><span class="sr">Actions</span></th></tr></thead><tbody>${M.map(x=>`<tr data-uid="${esc(x.uid)}"><td>${esc(x.nm||'A nation')}</td><td>${esc(x.reg?regName(x.reg):'—')}</td><td>${x.perm?'Until lifted':esc(fmtDate(x.until)+', '+fmtTime(x.until))}</td><td>${esc(x.why||'—')}</td><td>${esc(rel(x.t))}</td><td class="acx-mb"><button type="button" class="btn ghost small" data-act="acx-lift" data-id="${esc(x.uid)}">Lift</button><button type="button" class="linkish small" data-act="admin-inspect" data-id="${esc(x.uid)}">Inspect</button></td></tr>`).join('')}</tbody></table></div>`}`;
-  return admShell('admin-chat',head+`<div class="acx">${regs}${chat}</div>`+(S.isOwner?acxCastHTML():'')+mutes);
+  return admShell('admin-chat',head+`<div class="acx">${regs}${chat}</div>`+(S.isOwner&&!modPreview()?acxCastHTML():'')+mutes);
 }
 document.addEventListener('click',async e=>{
   const el=e.target.closest&&e.target.closest('[data-act]');if(!el||!portalOk('admin-chat'))return;const a=el.dataset.act,id=el.dataset.id||'';
@@ -104932,6 +104950,9 @@ edictTopicBadge=(f=>function(is){return f.apply(this,arguments)+(is&&/^rsv-/.tes
 /* Help › Research: a word on the edicts */
 {const H=HELP_EXT.find(h=>h.k==='research');if(H){const b=H.body;H.body=n=>b(n)+`<p><b>Research edicts.</b> Once the laboratory is open, some edicts change how fast research goes, and say so on each option: Research Credits up or down for some days, studies under way finished sooner or held up, new studies quicker or slower, research cheaper or dearer, credits spent. Four laws do it for as long as they stand (the Research Tenure Act, the Science Austerity Act, the Peer Review Act, the Fast-Track Science Act). Together, edicts and laws add at most ${Math.round(RS_RULES.edMax*100)}% to the credits, and a study is never quicker than half its time. The Research page’s overview lists the edicts at work.</p>`;}}
 if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE.rse={RSV_ISSUES,RSE_LAW,RSE_FLOOR,rseWords,rseRateParts,rseStudyShare,rseEarn,rseApply,rseClean,rseAt,rseBoxHTML,rsBal:(n,t)=>rsBal(n,t),rsAccrue:(n,t)=>rsAccrue(n,t),rsStudyMs:(n,i,t)=>rsStudyMs(n,i,t),rsDisc:(n,i,t)=>rsDisc(n,i,t),rsPrice:(n,i,t)=>rsPrice(n,i,t),rsRate:(n,t)=>rsRate(n,t),rsRateParts:(n,t)=>rsRateParts(n,t),fill:(t,n)=>fill(t,n,null),gmbOdds:(o,n)=>gmbOdds(o,n,null)};}catch(e){}
+
+/* Keep the moderator preview in moderator pages even when a URL names an admin-only page. */
+shell=(f=>function(){if(modPreview()&&typeof S.view==='string'&&S.view.startsWith('admin')&&!MOD_VIEWS.includes(S.view))return admShell('admin-reports','<p class="hint">Choose a moderator page from the menu.</p>');return f.apply(this,arguments);})(shell);
 
 if(hot&&typeof hot.snapshot==='function'){try{hot.snapshot(()=>({view:S.view,openIssue:S.openIssue,result:S.result,visit:S.visit,censusKey:S.censusKey,settings:S.settings,draft:S.draft,mapViews:S.mapViews,mapSel:S.mapSel,mapPick:S.mapPick}));}catch(e){}}
 if(hot&&typeof hot.ready==='function')hot.ready(start);else start((hot&&hot.data)||{});
