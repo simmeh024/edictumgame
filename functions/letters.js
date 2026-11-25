@@ -63,7 +63,7 @@ async function choices(db, uid) {
    says what the line says. ch: the shared chat's id ('world', 'fr', 'amb'; true is the world chat), or nothing for a region's */
 const CHAT_WHERE = { world: 'the world chat', fr: 'the French chat', amb: 'the ambassadors’ chat' };
 export async function pushChatMention(db, to, by, name, reply, ch = '') {
-  const chan = ch === true ? 'world' : CHAT_WHERE[ch] ? ch : '';
+  const chan = ch === true ? 'world' : CHAT_WHERE[ch] || /^alliance\/[\w-]{1,128}$/.test(ch) ? ch : '';
   const now = Date.now(), ref = db.doc('rcNote/' + to), s = await ref.get();
   if (s.exists && now - (s.get('t') || 0) < NOTE_GAP) return 0;
   const pres = await db.doc('presence/' + to).get();
@@ -71,7 +71,7 @@ export async function pushChatMention(db, to, by, name, reply, ch = '') {
   const c = await choices(db, to);
   if (c.bl.has(by) || c.rc === 0 || c.rcn === 0 || (chan === 'world' && c.rw === 0) || (chan === 'fr' && c.rf === 0)) return 0;
   await ref.set({ t: now });
-  const where = CHAT_WHERE[chan] || 'the region chat';
+  const where = chan.startsWith('alliance/') ? 'the alliance chat' : CHAT_WHERE[chan] || 'the region chat';
   return pushTo(db, to, { title: reply ? `${name} answered you in ${where}` : `${name} mentioned you in ${where}`, body: 'Open the chat to read it.', tag: 'chat', url: chan ? '/#chat/' + chan : '/#chat' });
 }
 async function pushTo(db, uid, payload) {

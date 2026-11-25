@@ -34,6 +34,8 @@ A live chat for each region: the nations of a region talk to each other in short
   hour: under the box the drawer says how many are left ("Guests can send 10 lines an hour: 7 are left."), and once
   they are used, when the guest can write again, each time with a **Link a sign-in** button. A Registered Nation's
   limit is 150 an hour, which no one is told of.
+- **Alliance reactions.** Both alliance channel views offer eight reactions; selecting another replaces yours, and selecting it again removes it.
+- **Alliance mentions.** In either view of an alliance channel, type @ to choose a fellow member. The member receives a bell notice and, subject to chat notification settings, a push; the server checks membership and blocks before notifying.
 - **Mentions.** A line that names the player's nation (as a word of its own, with or without @) is highlighted,
   and, with the drawer shut, told in a notice (at most one every 30 seconds).
 - **A line's menu** (⋯, on hover or focus):

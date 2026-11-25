@@ -11,7 +11,7 @@ import { alertConfig, ALERT_DEFAULTS } from './alerts.js';
 import { setComp, setGrant, packState } from './shop.js';
 import { cbDelete, rmbForget, cbForget } from './board.js';
 import { rcForget, rcShared } from './regionchat.js';
-import { alDrop } from './alliances.js';
+import { alDrop, alForgetReactions } from './alliances.js';
 import { trDrop } from './treaties.js';
 import { bdDrop } from './borders.js';
 import { jvDrop } from './ventures.js';
@@ -530,7 +530,8 @@ async function mutate(db, actor, data) {
       const writer = db.bulkWriter(), writes = posts.docs.concat(reports.docs).map(d => writer.delete(d.ref)); await Promise.all([Promise.all(writes), writer.close()]);
       await rmbForget(db, target, REGIONS);
       await cbForget(db, target);
-      await rcForget(db, target, REGIONS);
+      await alForgetReactions(db, target);
+    await rcForget(db, target, REGIONS);
       await fcForget(db, target);
     }
     // a reported comment on development news is news:<post>:<comment>; anything else is a region board post
