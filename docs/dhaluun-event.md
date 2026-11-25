@@ -106,3 +106,34 @@ The message stays as channel history after the disruption ends. No region-wide c
 
 `npm run test:dhaluun-customs` checks the deadline, stock catch-up, route allocation, exact message, atomic
 publication and the warning's desktop/mobile appearance in light and dark themes.
+
+## Saaveri's condemnation
+
+`tools/admin/dhaluun-assembly.mjs` tables **Condemnation of Dhaluun: On the Weaponisation of Customs** on behalf of
+Saaveri, Cloudspine's free-transit kingdom. It publishes the owner's approved full text and Saaveri's announcement.
+An existing player vote continues: the motion reserves the next three-day Assembly cycle, appears under Proposals,
+and has a Community Board debate immediately. Player proposals remain queued under the normal lapse rules.
+
+```sh
+node tools/admin/dhaluun-assembly.mjs --project edictum-b30de
+node tools/admin/dhaluun-assembly.mjs --project edictum-b30de --apply
+```
+
+Deploy the client and `functions/civic.js` before applying. Publication is one transaction: the reserved protected
+cycle, event record, board debate and count, Assembly revision, Saaveri's region-chat announcement, and audit entry.
+It refuses to replace another reserved vote and returns `already-applied` on a repeat. No player's votes, proposals
+or nation records are rewritten. The full motion uses the trusted protected lock; player proposal text limits stay
+at 280 characters. The normal voting weights, two-to-one condemnation threshold and seven-day censure apply.
+
+When the normal Assembly service finalises this protected count after its deadline, that same transaction posts
+Dhaluun's response in region chat and, if the debate remains available and unlocked, as a reply there:
+
+> His Imperial Loftiness acknowledges the Assembly’s concern. The wall shall be raised accordingly.
+
+The response is posted once whether the resolution passes or fails. It is a boast; it does not raise the physical
+wall or increase its defence. No browser has to stay open, and no scheduled job or external automation is involved:
+as with other Assembly results, the first normal Assembly request after the deadline finalises the count.
+
+`test/dhaluun-assembly.test.mjs` covers the protected docket, ordinary player voting, operator atomicity, replay and
+reply deadline. `test/dhaluun-assembly-page.test.mjs` renders the complete motion on desktop and mobile and at the
+vote. `test/civic.test.mjs` exercises real publication and the single reply in the closing transaction on emulators.

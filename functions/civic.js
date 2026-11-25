@@ -6,6 +6,7 @@ import { deflateNation } from './nationtext.js';
 import { identity, eligibility, nationJSON, refuse, registered, regionMessage, regionClosed, refuseBannedIdentity, DAY } from './eligibility.js';
 import { cabinetAffinity } from './affinity.js';
 import { assemblyEngine } from './assembly-engine.js';
+import { DH_ASM_EVENT, DH_ASM_TARGET, dhaluunClosingReply } from './dhaluun-assembly.js';
 import { chatDelegates } from './chat-delegates.js';
 import DATA from './civic-data.json' with { type: 'json' };
 import { cbTopic, cbReply, cbEdit, cbDelete, cbMod, cbPost, cbFollow, cbReact, cbSig, TEAM_OK, asTeam, teamMark, rmbParent, rmbReact, cbCounted } from './board.js';
@@ -475,6 +476,7 @@ async function assemblyTx(db, who, d) {
       if (st.D?.id !== who.uid) refuse('delegate_required', 'Only the current Delegate can do that.');
       if (op === 'paper') paper = await paperName(tx, db, reg, who, mine, d, now);
       else if (op === 'agenda') {
+        if (ctx.locks.some(L => L.c === ctx.c + 1)) refuse('agenda_scheduled', 'The next vote is already scheduled. These proposals remain queued for later cycles.');
         if (!queued(d.key)) refuse('invalid_target', 'Choose a queued proposal.');
         if (a.a?.k === d.key && a.a.c === ctx.c + 1) delete a.a;
         else a.a = { c: ctx.c + 1, k: d.key, t: now };
@@ -500,13 +502,28 @@ async function assemblyTx(db, who, d) {
       a.j = now;
     } else if (op !== 'state') throw new HttpsError('invalid-argument', 'Unknown political action.');
     // All reads precede writes. The region revision serializes boundary finalization, votes and elections.
-    const cbMeta = ctx.debate ? await tx.get(db.doc('cb/' + reg)) : null;
+    const closingMotion = ctx.pending.map(([, L]) => L).find(L => dhaluunClosingReply(L, now));
+    const responseRef = db.doc('rchat/' + reg + '/chat/' + DH_ASM_EVENT + '-reply');
+    const response = closingMotion ? await tx.get(responseRef) : null;
+    const replyTopic = closingMotion && !response.exists ? await tx.get(db.doc('cb/' + reg + '/posts/' + closingMotion.dt)) : null;
+    const replyOnBoard = replyTopic?.exists && !replyTopic.get('hd') && !replyTopic.get('lk');
+    const cbMeta = ctx.debate || replyOnBoard ? await tx.get(db.doc('cb/' + reg)) : null;
     for (const [ref, L] of ctx.pending) tx.set(ref, L);
     for (const [ref, entry] of ctx.book) tx.set(ref, entry);
     if (ctx.debate) {
       tx.set(db.doc('cb/' + reg + '/posts/' + ctx.debate.dt), debateTopic(reg, ctx.debate, ctx.engine.t0(ctx.debate.c + 1), now));
-      tx.set(cbMeta.ref, cbCounted(cbMeta, now, { n: 1 }));
     }
+    if (closingMotion && !response.exists) {
+      const x = dhaluunClosingReply(closingMotion, now), message = { a: DH_ASM_TARGET, nm: 'Dhaluun', x, t: now };
+      tx.create(responseRef, { ...message, exp: Timestamp.fromMillis(now + 30 * DAY) });
+      if (replyOnBoard) {
+        tx.create(replyTopic.ref.collection('posts').doc('DhaluunReply000000001'), { ...message, rg: reg });
+        tx.update(replyTopic.ref, { rc: (replyTopic.get('rc') || 0) + 1, la: now, lr: 'Dhaluun' });
+      }
+      tx.set(db.doc('worldEvents/' + DH_ASM_EVENT), { respondedAt: now, passed: !!closingMotion.ok }, { merge: true });
+      tx.create(db.doc('adminAudit/' + DH_ASM_EVENT + '-reply'), { action: 'dhaluun_condemnation_reply', actor: 'assembly', outcome: 'completed', at: FieldValue.serverTimestamp(), cycle: closingMotion.c, passed: !!closingMotion.ok });
+    }
+    if (cbMeta) tx.set(cbMeta.ref, cbCounted(cbMeta, now, { n: ctx.debate ? 1 : 0, r: replyOnBoard ? 1 : 0 }));
     if (paper) tx.set(paper.ref, paper.doc, { merge: true });
     if (action) {
       mine.n.asm = a;

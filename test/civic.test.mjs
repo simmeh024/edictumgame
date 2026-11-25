@@ -2,6 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import fs from 'node:fs';
+import {runCondemnation} from '../tools/admin/dhaluun-assembly.mjs';
+import {DH_ASM_EVENT, DH_ASM_REPLY, dhaluunMotion} from '../functions/dhaluun-assembly.js';
 const require = createRequire(new URL('../functions/package.json', import.meta.url));
 const { initializeApp } = require('firebase-admin/app');
 const { getFirestore } = require('firebase-admin/firestore');
@@ -24,6 +26,24 @@ const civic=(p,d)=>call(p,'civic',d), account=(p,d)=>call(p,'accounts',d);
 const code=()=> 'EDC-'+Array.from(crypto.getRandomValues(new Uint8Array(20))).map(n=>n.toString(16).padStart(2,'0')).join('');
 const rejects=(p,code)=>assert.rejects(p,e=>e.code===code);
 const proposal={op:'propose',title:'A test resolution',body:'A valid protected resolution for the region.',category:'trade',strength:0};
+
+test('Dhaluun’s condemnation preserves the current vote and its reply posts once in the transaction closing the count',async()=>{
+  const p=await player(true,true,'cloudspine'),before=await civic(p,{op:'state'}),root=db.doc('assemblyRegions/cloudspine');
+  await db.doc('worldEvents/dhaluun-customs-v1').set({v:1});
+  const published=await runCondemnation(db,{apply:true});assert.equal(published.cycle,before.c+1);
+  const waiting=await civic(p,{op:'state'});assert.equal(waiting.cur.k,before.cur.k);assert.ok(waiting.locks.some(L=>L.c===before.c+1&&L.k===DH_ASM_EVENT));
+  const response=db.doc('rchat/cloudspine/chat/'+DH_ASM_EVENT+'-reply');assert.equal((await response.get()).exists,false);
+  // Advance the fixture's protected lock to a past cycle; the real callable must do the closing writes.
+  const previous=dhaluunMotion(before.c-1,before.t0-2*DAY),topic=db.doc('cb/cloudspine/posts/'+previous.dt);
+  await db.doc(root.path+'/cycles/'+published.cycle).delete();
+  await db.doc(root.path+'/cycles/'+previous.c).set(previous);
+  await topic.set({a:previous.by,nm:'Saaveri',rg:'cloudspine',ti:previous.ti,x:previous.tx,tg:'assembly',t:before.t0-2*DAY,la:before.t0-2*DAY,rc:0});
+  await root.set({rev:waiting.c+1000},{merge:true});
+  const closed=await civic(p,{op:'state'}),final=closed.locks.find(L=>L.k===DH_ASM_EVENT);assert.ok(final.f);assert.equal(final.c,previous.c);
+  assert.equal((await response.get()).get('x'),DH_ASM_REPLY);assert.equal((await topic.collection('posts').get()).size,1);assert.equal((await topic.get()).get('rc'),1);
+  assert.equal((await db.doc('worldEvents/'+DH_ASM_EVENT).get()).get('passed'),!!final.ok);
+  const first=(await response.get()).get('t');await civic(p,{op:'state'});assert.equal((await response.get()).get('t'),first);assert.equal((await topic.collection('posts').get()).size,1);
+});
 
 test('chat delegate lookup reaches the real callable and follows protected leadership across regions',async()=>{
   const a=await player(true,true,'coralreach'),b=await player(true,true,'coralreach'),reader=await player();
