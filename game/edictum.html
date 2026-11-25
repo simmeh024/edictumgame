@@ -5792,6 +5792,7 @@ html.u-lock{overflow:hidden}
 .prv-cr{display:flex;flex-wrap:wrap;justify-content:space-between;gap:2px 12px;font-size:13.5px}
 .prv-cr .hint{font-size:12px}
 .prv-crb{gap:14px;margin-top:2px}
+.prv-profile{margin-top:6px}.prv-profile p{margin:4px 0 0}
 .prv-aut{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));max-width:100%}
 .prv-aut .seg-b{padding:8px 10px;font-size:13px;border-top:1px solid var(--rule-2)}
 .prv-aut .seg-b:nth-child(-n+2){border-top:0}
@@ -50500,9 +50501,16 @@ const PRV_GT={
 };
 const PRV_CLASH=[['loyal','firebrand'],['reformer','grafter'],['reformer','ironfist'],['populist','ironfist'],['green','farmer']];
 const PRV_COUNCIL=[['Treasurer','Raises the province’s revenue'],['Constable','Runs the provincial police'],['Planner','Plans roads and building sites']];
-const PRV_FA={crime:2,happy:2,civil:2,corrupt:2,edu:2,sci:2,env:2,tour:2,culture:2,mil:2,relig:2,cons:2,safety:2,pr:0.04,ar:0.05,bu:0.12,fd:40};
+/* Each council profile has a benefit and a drawback at full population share. */
+const PRV_CP=[
+  [{id:'taxhawk',name:'Tax Hawk',pro:{pr:0.015},con:{happy:-1}}, {id:'watchdog',name:'Watchdog',pro:{corrupt:-1},con:{pr:-0.01}}, {id:'investor',name:'Investor',pro:{pr:0.015},con:{cost:0.02}}],
+  [{id:'enforcer',name:'Enforcer',pro:{crime:-1},con:{civil:-1}}, {id:'community',name:'Community Officer',pro:{happy:1},con:{crime:0.5}}, {id:'inspector',name:'Inspector',pro:{corrupt:-1},con:{pr:-0.01}}],
+  [{id:'builder',name:'Builder',pro:{bu:-0.03},con:{cost:0.03}}, {id:'conservationist',name:'Conservationist',pro:{env:1},con:{bu:0.02}}, {id:'efficient',name:'Efficient Planner',pro:{cost:-0.03},con:{bu:0.015}}]
+];
+const prvProfile=(role,id)=>PRV_CP[role]&&PRV_CP[role].find(x=>x.id===id);
+const PRV_FA={cost:0.06,crime:2,happy:2,civil:2,corrupt:2,edu:2,sci:2,env:2,tour:2,culture:2,mil:2,relig:2,cons:2,safety:2,pr:0.04,ar:0.05,bu:0.12,fd:40};
 const PRV_FAK=Object.keys(PRV_FA);
-const PRV_FXN={pr:'economy',ar:'army',bu:'build times',fd:'food'};
+const PRV_FXN={pr:'economy',ar:'army',bu:'build times',cost:'construction costs',fd:'food'};
 const PRV={iss:null,notes:[],fd:null,ui:{sel:null,edit:false,tool:'move',msg:'',cur:-1,open:'',pick:'',ren:'',fix:null},memo:{T:null,k:'',v:null},side:new Map(),pop:{k:'',v:null},tpl:null,tplN:-1,cz:''};
 
 /* ── the words ── */
@@ -50544,7 +50552,7 @@ function prvNorm(d,n){
     if(same&&Array.isArray(p.m)){const m=[],seen=new Set();for(const a of p.m){if(m.length>=PRV_MAXM)break;if(!Array.isArray(a)||!cellOk(a[0])||!Number.isInteger(a[1])||a[1]<1||a[1]>=1e6||seen.has(a[0]))continue;seen.add(a[0]);m.push([a[0],a[1]]);}if(m.length)q.m=m;}
     if(Number.isInteger(p.a)&&p.a>0&&p.a<=3){q.a=p.a;if(typeof p.at==='number'&&isFinite(p.at)&&p.at>1.7e12&&p.at<=Date.now()+DAY)q.at=Math.round(p.at);}
     const g=prvGovNorm(p.g);if(g)q.g=g;
-    if(Array.isArray(p.c)){const c=[0,1,2].map(j=>prvGovNorm(p.c[j]));if(c.some(Boolean))q.c=c.map(v=>v?Object.assign(v,{tr:[]}):0);}
+    if(Array.isArray(p.c)){const c=[0,1,2].map(j=>{const v=prvGovNorm(p.c[j]),profile=v&&prvProfile(j,p.c[j].profile);if(profile)v.profile=profile.id;return v;});if(c.some(Boolean))q.c=c.map(v=>v?Object.assign(v,{tr:[]}):0);}
     const f=prvFlagNorm(p.f,n);if(f)q.f=f;
     if(Number.isInteger(p.gq)&&p.gq>0&&p.gq<1e6)q.gq=p.gq;
     ids.add(id);o.l.push(q);if(id>o.q)o.q=id;
@@ -50731,6 +50739,7 @@ function prvFxOf(n,p,N,now){
   if(c[0])add('pr',0.01*(c[0].sk-2)*w);
   if(c[1]){add('crime',-(c[1].sk-2)*w);add('safety',0.5*(c[1].sk-2)*w);}
   if(c[2])add('bu',-0.03*(c[2].sk-2)*w);
+  for(let k=0;k<3;k++){const profile=c[k]&&prvProfile(k,c[k].profile);if(profile)for(const e of [profile.pro,profile.con])for(const key in e)add(key,e[key]*w);}
   return out;
 }
 function prvTarget(n,N,now){
@@ -50810,7 +50819,14 @@ function prvGen(n,pid,key,gov){
 }
 const prvClash=(a,b)=>PRV_CLASH.some(([x,y])=>(x===a&&y===b)||(x===b&&y===a));
 /* three candidates for a seat (role 'g' for governor, 0..2 for the council); new ones after every appointment */
-function prvCands(n,q,role){return [0,1,2].map(j=>prvGen(n,q.id,role+':'+((q.gq||0)+j),role==='g'));}
+function prvCands(n,q,role){
+  const k=+role,start=role==='g'?0:hash(String((n&&n.seed)||'1')+':prv-profile:'+q.id+':'+role+':'+(q.gq||0))>>>0;
+  return [0,1,2].map(j=>{const m=prvGen(n,q.id,role+':'+((q.gq||0)+j),role==='g');if(role!=='g'&&PRV_CP[k])m.profile=PRV_CP[k][(start+j)%PRV_CP[k].length].id;return m;});
+}
+/* Show both sides at this province's share, independently of the skill bonus. */
+function prvProfileHTML(role,m,share){const x=prvProfile(+role,m.profile);if(!x)return '';const words=e=>prvFxWords(Object.fromEntries(Object.entries(e).map(([k,v])=>[k,v*share]))).join(', ')||'too small to measure';
+  return `<div class="prv-profile"><span class="chip trait">${esc(x.name)}</span><p class="hint"><b>Pro:</b> ${esc(words(x.pro))} <span aria-hidden="true">·</span> <b>Con:</b> ${esc(words(x.con))}</p></div>`;
+}
 function prvNew(n,P,seat,nm,now){const id=++P.q,g=prvGen(n,id,'g0',true);g.t=now;return {id,nm,s:seat,g};}
 
 /* ── checks ── */
@@ -51096,12 +51112,12 @@ function prvCard(n,N,p,now,own,T){
 /* ── the selected division: everything you can change ── */
 function prvSide(n,N,p,now,T){
   const id=p.id,q=p.q,t1=prvT1(n),low1=prvLow(t1),g=q.g,pick=PRV.ui.pick,aut=q.a||0;
-  const cands=(role)=>`<div class="cands" id="prv-cands-${role}"><p class="hint">${role==='g'?(g&&!g.ac?`Candidates to replace ${esc(g.nm)}. Replacing a governor in office costs the other governors 4 loyalty.`:'Candidates for governor.'):`Candidates for ${PRV_COUNCIL[+role][0]}.`}</p>
-    ${prvCands(n,q,role).map((m,j)=>`<div class="cand"><div><b>${esc(m.nm)}</b> ${role==='g'?'':`${cvSkillMeter(m.sk)}`}</div>${role==='g'?`<div class="traits">${m.tr.map(t=>`<span class="chip trait" title="${esc(PRV_GT[t][1])}">${esc(PRV_GT[t][0])}</span>`).join('')}</div><p class="hint">${esc(m.tr.map(t=>PRV_GT[t][0]+': '+prvTraitWords(t)).join('. '))}, in proportion to ${esc(p.nm)}’s ${prvPct(p.share)} of the people.</p>`:''}<button type="button" class="btn small-btn" id="prv-ap-${role}-${j}" data-act="prv-appoint" data-id="${id}" data-r="${role}" data-j="${j}">Appoint</button></div>`).join('')}</div>`;
+  const cands=(role)=>`<div class="cands" id="prv-cands-${role}"><p class="hint">${role==='g'?(g&&!g.ac?`Candidates to replace ${esc(g.nm)}. Replacing a governor in office costs the other governors 4 loyalty.`:'Candidates for governor.'):`Candidates for ${PRV_COUNCIL[+role][0]}. Skill affects their usual work; each profile adds a benefit and a drawback, scaled to ${esc(p.nm)}’s ${prvPct(p.share)} of the people.`}</p>
+    ${prvCands(n,q,role).map((m,j)=>`<div class="cand"><div><b>${esc(m.nm)}</b> ${role==='g'?'':`${cvSkillMeter(m.sk)}`}</div>${role==='g'?`<div class="traits">${m.tr.map(t=>`<span class="chip trait" title="${esc(PRV_GT[t][1])}">${esc(PRV_GT[t][0])}</span>`).join('')}</div><p class="hint">${esc(m.tr.map(t=>PRV_GT[t][0]+': '+prvTraitWords(t)).join('. '))}, in proportion to ${esc(p.nm)}’s ${prvPct(p.share)} of the people.</p>`:prvProfileHTML(role,m,p.share)}<button type="button" class="btn small-btn" id="prv-ap-${role}-${j}" data-act="prv-appoint" data-id="${id}" data-r="${role}" data-j="${j}">Appoint</button></div>`).join('')}</div>`;
   const renameForm=(role,person,label)=>PRV.ui.ren===role?`<form class="name-row prv-ren" data-prv-person="${role}" data-id="${id}"><label class="u-sr" for="prv-person-${role}">Name of the ${label}</label><input class="input" id="prv-person-${role}" maxlength="40" value="${esc(person.nm)}" autocomplete="off" required><button class="btn ghost" type="submit">Save</button><button class="linkish small" type="button" data-act="prv-person-cancel">Cancel</button></form>`:'';
   const council=PRV_COUNCIL.map(([r,d],k)=>{const m=(q.c||[])[k],open=pick===String(k);
     return `<li><div class="prv-cr"><span><b>${r}</b> <span class="hint">${d}</span></span><span>${m?`${esc(m.nm)} ${cvSkillMeter(m.sk)}`:'<span class="muted">Empty</span>'}</span></div>
-      <div class="row prv-crb"><button type="button" class="linkish small" id="prv-pk-${k}" data-act="prv-pick" data-r="${k}" aria-expanded="${open}">${open?'Close':m?'Replace…':'Appoint…'}</button>${m?`<button type="button" class="linkish small" data-act="prv-person-rename" data-r="${k}">Rename</button><button type="button" class="linkish small" id="prv-dc-${k}" data-act="prv-dismiss-c" data-id="${id}" data-r="${k}">Dismiss</button>`:''}</div>${m?renameForm(String(k),m,r):''}${open?cands(String(k)):''}</li>`;}).join('');
+      <div class="row prv-crb"><button type="button" class="linkish small" id="prv-pk-${k}" data-act="prv-pick" data-r="${k}" aria-expanded="${open}">${open?'Close':m?'Replace…':'Appoint…'}</button>${m?`<button type="button" class="linkish small" data-act="prv-person-rename" data-r="${k}">Rename</button><button type="button" class="linkish small" id="prv-dc-${k}" data-act="prv-dismiss-c" data-id="${id}" data-r="${k}">Dismiss</button>`:''}</div>${m?prvProfileHTML(k,m,p.share)+renameForm(String(k),m,r):''}${open?cands(String(k)):''}</li>`;}).join('');
   const nbs=N.prov.filter(x=>x!==p&&!x.dorm&&prvCanJoin(T,N.i,p,x)).concat(N.prov.filter(x=>x.dorm&&x!==p)),old=prvOld(p),t2=prvLow(prvT2(n));
   return `<section class="prv-side" id="prv-side" aria-labelledby="prv-side-h" style="--pc:${esc(prvTintOf(T,p))}">
     <div class="prv-sh">${prvArt(n,q,'',' prv-big')}<div><p class="eyebrow">${p.cap?'Capital '+esc(low1):esc(t1)} · ${esc(cpFmt(p.pop))}</p><h2 class="prv-sn" id="prv-side-h" tabindex="-1">${esc(p.nm)}</h2></div></div>
@@ -51408,7 +51424,7 @@ answer=(f=>function(id){const was=PRV.iss;PRV.iss=id;PRV.notes=[];try{return f.a
 geoAfter=(f=>function(){const r=f.apply(this,arguments);if(PRV.notes.length){r.push(...PRV.notes);PRV.notes=[];}return r;})(geoAfter);
 
 /* ── the economy reads the stored effects; the census gets them at each save ── */
-cabFx=(f=>function(n){const z=f.apply(this,arguments);if(bfxOff)return z;const fa=prvFa(n);if(fa&&n.prov.on){if(fa.pr)z.prosper+=fa.pr;if(fa.ar)z.army+=fa.ar;if(fa.bu)z.build=clamp(z.build+fa.bu,0.5,1.4);}return z;})(cabFx);
+cabFx=(f=>function(n){const z=f.apply(this,arguments);if(bfxOff)return z;const fa=prvFa(n);if(fa&&n.prov.on){if(fa.pr)z.prosper+=fa.pr;if(fa.ar)z.army+=fa.ar;if(fa.bu)z.build=clamp(z.build+fa.bu,0.5,1.4);if(fa.cost)z.cost=clamp(z.cost+fa.cost,0.7,1.06);}return z;})(cabFx);
 cityState=(f=>function(T){const v=f.apply(this,arguments);try{for(let i=0;i<T.list.length;i++){const x=T.list[i],a=v.agg[i];if(!a||x.npc)continue;const fa=prvFa(x.n),want=fa&&x.n.prov.on&&fa.fd||0,had=a._pfd||0;if(want!==had){a.add.food+=want-had;a._pfd=want;}}}catch(e){}return v;})(cityState);
 COMMIT_HOOKS.push((n,old,now)=>{
   if(!n||n.npc||!n.prov)return;let tgt={};
@@ -51445,7 +51461,7 @@ HELP_EXT.push({k:'provinces',t:'Provinces and states',body:n=>{const T2=n?prvT2(
   return `<p>Any player nation may divide itself into provinces, or states, counties, cantons, prefectures, departments, oblasts, shires, duchies or lands. It is off until you switch it on in <button type="button" class="linkish" data-act="prv-cz">Customise</button>, where you also choose the word. Switched on, ${esc(prvLow(n&&n.prov?T2:'they'))} get a page of their own in the menu, under Your nation. Switching off hides them and keeps everything.</p>
   <p><b>Borders.</b> Every hex you hold belongs to the ${esc(t1)} whose seat is nearest through your own land, unless you move it by hand. A capital ${esc(t1)} is made round your capital, and a second round your second city if you have one. You may have one for every ${PRV_PER} hexes you hold (up to ${PRV_MAXL}), each with at least ${PRV_MIN} hexes, and each must stay in one piece: a move that would cut one in two is refused. When you merge two, the one that remains keeps the other’s seat as an old seat, so no border moves; a new ${esc(t1)} may not cut between two of its seats until you remove its old seats from its panel on the ${esc(T2)} page. New land joins the nearest; lost land leaves; a seat lost in war moves to the nearest hex still held.</p>
   <p><b>People.</b> Each ${esc(t1)} counts the people of its cities, and a share of the countryside by its hexes and what they yield, so together they add up to the nation exactly.</p>
-  <p><b>Governors, councils and autonomy.</b> Each ${esc(t1)} has a governor with two traits (a Builder speeds construction, a Farmer adds food from its land, an Iron Fist cuts crime and costs happiness, and so on), and may have a council of a Treasurer, a Constable and a Planner. Their effects reach the nation in proportion to the ${esc(t1)}’s share of the people, and all together never move a census figure by more than 2 points. More autonomy brings local happiness and civil rights but costs economy and building speed. Loyalty drifts with autonomy, traits and how the ${esc(t1)} is doing; a disloyal governor’s traits count half. Some edicts name a ${esc(t1)} and its governor, and can sack them, test their loyalty or change their autonomy.</p>
+  <p><b>Governors, councils and autonomy.</b> Each ${esc(t1)} has a governor with two traits (a Builder speeds construction, a Farmer adds food from its land, an Iron Fist cuts crime and costs happiness, and so on), and may have a council of a Treasurer, a Constable and a Planner. Council skill gives the usual effect; new appointees also have a profile with a benefit and a drawback. Their effects reach the nation in proportion to the ${esc(t1)}’s share of the people, and all together never move a census figure by more than 2 points. More autonomy brings local happiness and civil rights but costs economy and building speed. Loyalty drifts with autonomy, traits and how the ${esc(t1)} is doing; a disloyal governor’s traits count half. Some edicts name a ${esc(t1)} and its governor, and can sack them, test their loyalty or change their autonomy.</p>
   <p><b>Flags and arms.</b> Each ${esc(t1)} flies a variant of your own flag or bears a variant of your arms until you design its own from the same patterns, emblems, shields and charges you hold.</p>
   <p><b>On the map.</b> Fine dashed lines mark the borders from mid zoom, and names appear closer in. The Provinces lens colours every player’s ${esc(t2)} in tints of its colour; the tile inspector and the tips name the ${esc(t1)}, its people and its governor.</p>`;}});
 
