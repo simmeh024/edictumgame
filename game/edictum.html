@@ -4024,7 +4024,7 @@ button.fp-cell-in:hover{border-color:var(--ink-3);background:var(--sheet-2);--fp
 .asm-vote{margin-top:24px}
 .asm-res-t{font-family:var(--f-display);font-weight:650;font-size:clamp(28px,4.2vw,40px);line-height:1.06;margin:10px 0 8px;overflow-wrap:anywhere;font-variation-settings:"opsz" 72}
 .asm-by{color:var(--ink-2);font-size:14px}
-.asm-tx{font-size:16.5px;line-height:1.65;max-width:66ch;margin-top:14px;overflow-wrap:anywhere}
+.asm-tx{font-size:16.5px;line-height:1.65;max-width:66ch;margin-top:14px;overflow-wrap:anywhere;white-space:pre-line}
 .asm-fxbox{margin:18px 0 0;padding:12px 14px;background:var(--sheet-2);border:1px solid var(--rule);border-radius:3px}
 .asm-fxbox .lbl{display:block;margin-bottom:8px}
 .asm-fxbox .hint{margin-top:8px}
@@ -34806,7 +34806,7 @@ function asmSeat(st,now){
   const given=(a.e||[]).filter(e=>!e.w).length,got=st.DD.info.get(myId());
   return `<section class="asm-seat"><p><b>${esc(n.name)} holds a seat.</b> It votes, may table one proposal at a time, supports others and endorses members. Every resolution in the rulebook binds it.</p><p class="hint">You endorse ${given===1?'one member':given+' members'} · ${got&&got.k?`${got.k} ${got.k===1?'endorsement':'endorsements'} for you`:'nobody endorses you yet'}.</p><button class="btn ghost small-btn" data-act="asm-resign-ask">Resign from the Assembly…</button></section>`;
 }
-function asmWhy(L){return L.w==='d'?'Chosen for the vote by the Delegate.':L.w==='s'?'Put to the vote as the most-supported proposal.':`No member proposed anything, so ${esc(L.bn)} tabled one of its own.`;}
+function asmWhy(L){return L.k==='dhaluun-condemnation-v1'?'Tabled following Dhaluun’s customs sabotage.':L.w==='d'?'Chosen for the vote by the Delegate.':L.w==='s'?'Put to the vote as the most-supported proposal.':`No member proposed anything, so ${esc(L.bn)} tabled one of its own.`;}
 /* the debate on the Community Board (functions/civic.js, debateTopic), with its replies so far */
 function asmDebateCount(dt){
   if(!S.db||Date.now()-(ASMX.rcAt[dt]||0)<120e3)return;ASMX.rcAt[dt]=Date.now();
@@ -34898,16 +34898,16 @@ function asmCeremony(st){
     <div class="row"><button class="btn" data-act="asm-cer-ok" data-c="${h.c}">Done</button><button class="btn ghost" data-act="asm-tab" data-v="rec">See it in the Book</button></div></section>`;
 }
 function asmQueueSec(st,now){
-  const Q=asmQueue(st),n=S.nation,me=myId(),mem=asmMemberAt(n,now),isD=!!(st.D&&st.D.id===me),a=asmA(n)||{};
+  const Q=asmQueue(st),n=S.nation,me=myId(),mem=asmMemberAt(n,now),isD=!!(st.D&&st.D.id===me),a=asmA(n)||{},scheduled=st.L.get(st.c+1);
   const fxw=x=>asmTg(x.p.c)?`Names ${esc(x.p.tn||'a nation')}: ${esc(asmMarkWords(asmTg(x.p.c),!!asmNpcOf(x.p.tg)))}.`:x.p.rp?`Repeals “${esc(x.p.rt||'a resolution')}”: ${esc(asmUndoItems(x.p.c,x.p.g).map(i=>i.t).join(', '))}.`:esc(cap1(asmFxWords(x.p.c,x.p.g)))+'.';
-  const row=(x,i)=>{const sup=x.sup.includes(me),own=x.r.me,next=i===0;
+  const row=(x,i)=>{const sup=x.sup.includes(me),own=x.r.me,next=i===0&&!scheduled;
     return `<li class="asm-p${next?' next':''}"><div class="asm-p-h">${asmKindChips(x.p)}${next?`<span class="chip ok">${x.k===Q.pick?'Delegate’s choice':'Next to the vote'}</span>`:''}${x.k===Q.pick&&!next?'<span class="chip ok">Delegate’s choice</span>':''}</div>
       <p class="asm-p-t">${esc(x.p.ti)}</p>${x.p.tx?`<p class="asm-p-x">${esc(x.p.tx)}</p>`:''}
       <p class="hint">Proposed by ${own?'you':nationLink(x.r.id,x.r.n.name,false)+shopBadge(x.r.n,1)} · ${x.sup.length} ${x.sup.length===1?'supporter':'supporters'} · if not chosen, lapses after Resolution No. ${asmNo(x.cp+ASM_LAPSE)}</p>
       <p class="hint asm-p-fx">${fxw(x)}</p>
-      <div class="row">${own?`<button class="btn ghost small-btn" data-act="asm-edit">Edit wording</button><button class="btn ghost small-btn" data-act="asm-withdraw">Withdraw</button>`:mem?(sup?`<button class="btn small-btn" data-act="asm-unsup" data-k="${esc(x.k)}" aria-pressed="true">Supported · withdraw</button>`:`<button class="btn ghost small-btn" data-act="asm-sup" data-k="${esc(x.k)}" aria-pressed="false">Support</button>`):''}${isD?`<button class="btn ghost small-btn" data-act="asm-pick" data-k="${esc(x.k)}" aria-pressed="${x.k===Q.pick}">${x.k===Q.pick?'Your choice · undo':'Choose for the next vote'}</button>`:''}</div></li>`;};
+      <div class="row">${own?`<button class="btn ghost small-btn" data-act="asm-edit">Edit wording</button><button class="btn ghost small-btn" data-act="asm-withdraw">Withdraw</button>`:mem?(sup?`<button class="btn small-btn" data-act="asm-unsup" data-k="${esc(x.k)}" aria-pressed="true">Supported · withdraw</button>`:`<button class="btn ghost small-btn" data-act="asm-sup" data-k="${esc(x.k)}" aria-pressed="false">Support</button>`):''}${isD&&!scheduled?`<button class="btn ghost small-btn" data-act="asm-pick" data-k="${esc(x.k)}" aria-pressed="${x.k===Q.pick}">${x.k===Q.pick?'Your choice · undo':'Choose for the next vote'}</button>`:''}</div></li>`;};
   const nextNpc=asmNpcRes(st.c+1),laud=NPC_NATIONS.length&&!(hash(REG.id+':asmlaud:'+(st.c+1))%ASM_NPC_LAUD);
-  const lead=Q.q.length?(Q.pick?`The Delegate has chosen what goes next.`:`Unless the Delegate chooses, the proposal with the most support goes next.`):`Nothing is waiting. Unless a member tables a proposal before the cycle ends, ${esc(nextNpc?nextNpc.bn:'a computer nation')} will table “${esc(nextNpc?nextNpc.ti:'something')}”${laud?`, or a computer nation will propose to commend the member it admires most`:''}.`;
+  const lead=scheduled?'The next vote is scheduled below. Player proposals remain in the queue for later cycles.':Q.q.length?(Q.pick?`The Delegate has chosen what goes next.`:`Unless the Delegate chooses, the proposal with the most support goes next.`):`Nothing is waiting. Unless a member tables a proposal before the cycle ends, ${esc(nextNpc?nextNpc.bn:'a computer nation')} will table “${esc(nextNpc?nextNpc.ti:'something')}”${laud?`, or a computer nation will propose to commend the member it admires most`:''}.`;
   const m=Q.mine;let own='';
   if(m&&m.status==='vote')own=`<p class="info">Your proposal “${esc(m.p.ti)}” is at the vote now. It can no longer be edited or withdrawn.</p>`;
   else if(m&&m.status==='moot'&&asmTg(m.p.c))own=`<p class="info">Your proposal naming ${esc(m.p.tn||'a nation')} cannot go to the vote: ${esc(asmTgWhy(m.p.tg,asmTg(m.p.c),st.recs,now,myId(),st.L))} <button class="linkish small" data-act="asm-withdraw">Clear it away</button></p>`;
@@ -34915,6 +34915,7 @@ function asmQueueSec(st,now){
   else if(m&&(m.status==='lapsed'||m.status==='done'))own=`<p class="info">${m.status==='lapsed'?`Your proposal “${esc(m.p.ti)}” waited three cycles without reaching the vote, and has lapsed.`:`Your proposal “${esc(m.p.ti)}” has been voted on.`} You can table a new one. <button class="linkish small" data-act="asm-withdraw">Clear it away</button></p>`;
   const canDraft=mem&&(!m||!['queue','vote','moot'].includes(m.status)||S.asmEdit);
   return `<section class="section asm-qs"><h2 class="h2">Proposals</h2><p class="muted">${lead} A proposal waits for at most three cycles. To repeal a resolution in force, open it in the Rulebook; to commend or condemn a nation, choose that kind of resolution below.</p>
+    ${scheduled?`<article class="paper asm-scheduled"><p class="form-code">Next scheduled vote · Resolution No. ${asmNo(scheduled.c)}</p><h3 class="asm-res-t">${esc(scheduled.ti)}</h3><p class="asm-by">Proposed by ${asmWho(scheduled.by,scheduled.bn)}.</p><p class="hint">Opens ${esc(fmtDate(asmT0(scheduled.c)))}, ${esc(fmtTime(asmT0(scheduled.c)))}. Closes ${esc(fmtDate(asmT0(scheduled.c+1)))}, ${esc(fmtTime(asmT0(scheduled.c+1)))}. Vote on the Assembly page once it opens.</p><p class="asm-tx">${esc(scheduled.tx||'')}</p>${scheduled.dt?asmDebateLink(scheduled.dt):''}</article>`:''}
     ${Q.q.length?`<ul class="asm-q">${Q.q.map(row).join('')}</ul>`:''}${own}${canDraft?asmDraftForm(a,now,st):!mem?(accountActionHint('proposal',true)||'<p class="hint" style="margin-top:12px">Rejoin the Assembly to table and support proposals.</p>'):''}</section>`;
 }
 function asmDraftForm(a,now,st){
@@ -103931,6 +103932,8 @@ connect=(f=>async function(){const r=await f.apply(this,arguments);
 })(connect);
 if(typeof window.EDICTUM_PROBE==='function')window.EDICTUM_PROBE.customs={state:DHC,read:dhcRead,install:dhcInstall,active:dhcActive,deal:dhcDeal,flow:(d,T,a)=>trFlow(d,T,a),economy:()=>economy(),stock:(n,st,at,now,rt)=>whAccrue(n,st,at,now,rt),rates:n=>stockRates(n),channel:A=>alChannelHTML(A),drawer:(m,by,me)=>rgcLine({...m,ally:true},false,by,me,false,{}),routes:E=>trRoutes(E,100),status:(r,t)=>trStatus(r,t)};
 } /* end Dhaluun customs */
+
+if(typeof window.EDICTUM_PROBE==='function')window.EDICTUM_PROBE.dhaluunAssembly={queue:asmQueueSec,vote:asmVoteCard,install:civicInstall};
 
 
 /* captured cities: their edicts (the capital moves, and captured cities), numbered after every other edict, as
