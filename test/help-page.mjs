@@ -75,6 +75,23 @@ try {
     check('a hit opens its section with the word marked', await until(() => page.evaluate(() => { const m = document.querySelector('mark.hq-cur'); return !!m && /firewood/i.test(m.textContent) && !m.closest('.help-b').hidden; })));
     await page.fill('#help-q', 'zqxwv');
     check('a search with no hits says so', await until(() => page.evaluate(() => /Nothing in the guide matches/.test(document.querySelector('.help-res-n')?.textContent || ''))));
+    check('a search with no hits offers the wiki, with the words asked for', await page.evaluate(() => {
+      const a = document.querySelector('.help-res-n a');
+      return !!a && a.href === 'https://edictum.fandom.com/wiki/Special:Search?query=zqxwv';
+    }));
+    const wiki = await page.evaluate(() => {
+      const note = document.querySelector('.help-wiki-note a'), out = document.querySelectorAll('a[href^="https://edictum.fandom.com/"]');
+      return {
+        note: note ? note.href : '',
+        issues: document.querySelector('#hb-issues .help-wiki')?.href || '',
+        war: !!document.querySelector('#hb-war .help-wiki'),
+        n: out.length,
+        safe: [...out].every(a => a.target === '_blank' && /noopener/.test(a.rel))
+      };
+    });
+    check('the contents point at the wiki', wiki.note === 'https://edictum.fandom.com/wiki/Edictum_Wiki', wiki.note);
+    check('a section with a wiki page links to it, one without shows no link', wiki.issues === 'https://edictum.fandom.com/wiki/Edicts' && !wiki.war, JSON.stringify(wiki));
+    check('every wiki link opens in a new tab and leaks no referrer', wiki.n > 4 && wiki.safe, JSON.stringify(wiki));
     await page.fill('#help-q', '');
     await page.screenshot({ path: path.join(OUT, 'help-founding.png') });
     check('no page errors before founding', !errors.length, errors.join(' | '));
@@ -126,6 +143,10 @@ try {
     // Still stuck?
     await page.click('#hb-issues [data-act="help-stuck"]');
     check('Still stuck? offers someone to ask (by email in local mode)', await page.evaluate(() => { const b = document.getElementById('hst-issues'); return !b.hidden && /@/.test(b.textContent); }));
+    check('Still stuck? also sends the reader to the wiki page for that section', await page.evaluate(() => {
+      const a = document.querySelector('#hst-issues a[href^="https://edictum.fandom.com/"]');
+      return !!a && a.href === 'https://edictum.fandom.com/wiki/Edicts';
+    }));
     // copy link
     await ctx.grantPermissions(['clipboard-read', 'clipboard-write']).catch(() => {});
     await page.click('#hb-issues [data-act="help-link"]');
