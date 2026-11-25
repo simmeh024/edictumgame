@@ -1,6 +1,7 @@
 // Edictum Ambassadors (functions/admin.js setAmb, functions/regionchat.js rcMute), on the emulators: an admin appoints one
 // on the player's portal page; every player sees the blue Ambassador pill on the nation card and beside their lines in
-// the chat at once; the ambassador has no portal, finds Silence in a player's line menu (and nothing to remove, and no
+// the chat at once; the ambassador has a desk of their own (#amb, functions/ambassador.js) and still none of the admin
+// portal, finds Silence in a player's line menu (and nothing to remove, and no
 // taking the last day's lines), not on staff's lines; the silenced player is told an ambassador did it, and keeps their
 // lines; stood down, the pill goes.
 //   npm run test:ambassador
@@ -60,9 +61,19 @@ check('the player’s own nation card has no pill', await until(async () => /Cha
 await M.reload(); await ready(M);
 check('reloaded, the game knows the ambassador', await until(() => M.evaluate(() => G.S.isAmb === true && !G.S.isMod && !G.S.isOwner), 15000));
 check('the ambassador’s own nation card shows the pill', await until(async () => (await text(M, '.hero-cat .staff-pill.amb')) === 'Edictum Ambassador', 15000));
-check('there is no Admin or Mod link to a portal', !(await M.$('.adm-pill')));
+check('the way in is their own blue pill, not an Admin or Mod one', !!(await M.$('.adm-pill.amb')) && !(await M.$('.adm-pill.mod')) && (await text(M, '.adm-pill')) === 'Ambassador');
 await M.evaluate(() => { location.hash = '#admin-reports'; }); await sleep(800);
 check('nor does the portal open by its address', !(await M.$('.adm-main')) && !(await M.$('.adm-nav')) && !/Reports/.test(await text(M, 'main h1')), await text(M, 'main h1'));
+
+/* ── 4b. the Ambassador's Desk opens instead: the round, and nothing that acts on a player ── */
+await M.click('.adm-pill.amb');
+check('the desk opens on Your round', await until(async () => /Your round/.test(await text(M, '.adm-main h1')), 15000), await text(M, '.adm-main h1'));
+check('its nav is the ambassador’s, not the portal’s', await until(async () => { const nav = await text(M, '.adm-nav'); return /Newly founded/.test(nav) && /Quiet rooms/.test(nav) && /Commendations/.test(nav) && !/Banned players/.test(nav) && !/Reports/.test(nav); }, 15000), await text(M, '.adm-nav'));
+check('the desk says plainly what an ambassador may not do', /Deleting a line, hiding a nation, lifting a silence/.test(await text(M, '.amb-note')), await text(M, '.amb-note'));
+check('and offers nothing that removes anything', !/Remove|Delete|Ban |Hide /.test(await text(M, '.adm-main')), (await text(M, '.adm-main')).slice(0, 300));
+await M.click('.adm-nav [data-v="amb-silences"]');
+check('the silences page says only a moderator lifts one', await until(async () => /only a moderator can lift it/.test(await text(M, '.adm-main')), 15000), await text(M, '.adm-main .lede'));
+check('a player who is not an ambassador gets nothing at that address', await (async () => { await B.evaluate(() => { location.hash = '#amb'; }); await sleep(800); const got = !(await B.$('.adm-main')) && !(await B.$('.adm-nav')); await B.evaluate(() => { location.hash = '#nation'; }); await sleep(300); return got; })());
 await M.evaluate(() => { location.hash = '#nation'; }); await sleep(300);
 await openChat(M);
 await until(async () => !!(await lineOf(M, 'Hello from Chatterly!')), 15000);
@@ -108,4 +119,8 @@ check('standing down says so', await until(async () => /No longer an ambassador\
 check('the line loses its pill', await until(async () => (await pillOn(B, 'Envoy here.')) === null, 15000));
 check('the list no longer has them', !(await restListAdmin('ambassadors')).some(d => d.id === uidM));
 check('and their Ambassadors tab goes at once', await until(async () => !(await tabsOf(M)).includes('amb'), 15000), JSON.stringify(await tabsOf(M)));
+await M.reload(); await ready(M);
+check('and the desk is gone with the role', await until(async () => !(await M.$('.adm-pill')), 15000));
+await M.evaluate(() => { location.hash = '#amb'; }); await sleep(800);
+check('its address opens nothing either', !(await M.$('.adm-main')) && !(await M.$('.adm-nav')));
 await finish();

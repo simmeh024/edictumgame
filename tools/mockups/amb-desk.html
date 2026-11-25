@@ -1,0 +1,519 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The Ambassador's Desk, mock-up</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,400;6..96,600;6..96,700&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+/* tokens: copied from game/edictum.html so the mock-up is the game's own colour */
+:root{
+  --paper:#e8eeeb; --sheet:#f8fbf9; --sheet-2:#eef3f0; --ink:#12292a; --ink-2:#45605c; --ink-3:#566b67;
+  --rule:#cdd9d4; --rule-2:#b0c2bc; --track:#dbe5e1;
+  --accent:#1d6a5c; --accent-hi:#14544a; --accent-ink:#f3fbf8; --accent-soft:#d3e7df;
+  --stamp:#6a3db3; --stamp-ink:#ffffff; --stamp-soft:#ebe3f7;
+  --up:#1b7843; --down:#b3302a; --online:#22a35a; --down-soft:#f7e3e0;
+  --amb:#1d5fa8; --amb-soft:#dce9f7;
+  --shadow:0 1px 0 rgba(18,41,42,.04), 0 10px 26px -14px rgba(18,41,42,.28);
+  --f-display:"Bodoni Moda","Bodoni 72","Didot",Georgia,serif;
+  --f-body:"Public Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+:root[data-theme="dark"]{
+  --paper:#0c1615; --sheet:#12201f; --sheet-2:#172927; --ink:#e1ebe7; --ink-2:#a0b6b1; --ink-3:#879d95;
+  --rule:#233634; --rule-2:#314b47; --track:#1c2f2c;
+  --accent:#5ec2a9; --accent-hi:#80d7c1; --accent-ink:#06231d; --accent-soft:#17362f;
+  --stamp:#b59cf5; --stamp-ink:#1b1030; --stamp-soft:#261e3b;
+  --up:#63d395; --down:#ff8577; --online:#3fcf7a; --down-soft:#3b201d;
+  --amb:#7db2ec; --amb-soft:#16293d;
+  --shadow:0 1px 0 rgba(0,0,0,.25), 0 12px 30px -14px rgba(0,0,0,.7);
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font:400 15px/1.6 var(--f-body);-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+h1,h2,h3{text-wrap:balance}
+p{margin:0}
+.wordmark{font-family:var(--f-display);font-style:italic;font-weight:600;font-size:27px;line-height:1;letter-spacing:-.01em}
+.eyebrow,.lbl{font-family:var(--f-mono);font-weight:500;text-transform:uppercase;letter-spacing:.13em;color:var(--ink-3)}
+.eyebrow{font-size:11.5px}
+.lbl{font-size:11px}
+.h2{font-family:var(--f-display);font-weight:600;font-size:28px;line-height:1.12;margin:0 0 14px}
+.display{font-family:var(--f-display);font-weight:650;font-size:clamp(40px,5.6vw,60px);line-height:.98;letter-spacing:-.018em;margin:8px 0 16px}
+.lede{font-size:17px;line-height:1.6;color:var(--ink-2);max-width:62ch}
+.hint{font-size:13px;color:var(--ink-3)}
+.muted{color:var(--ink-2)}
+.num{font-variant-numeric:tabular-nums}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;font-weight:600;font-size:14px;line-height:1.2;padding:11px 16px;border-radius:3px;border:1px solid var(--accent);background:var(--accent);color:var(--accent-ink);cursor:pointer;text-align:center}
+.btn:hover{background:var(--accent-hi);border-color:var(--accent-hi)}
+.btn.ghost{background:transparent;color:var(--ink);border-color:var(--rule-2)}
+.btn.ghost:hover{background:var(--sheet-2);border-color:var(--ink-3)}
+.btn.small{padding:7px 12px;font-size:13px}
+.btn.danger{background:transparent;color:var(--down);border-color:var(--down)}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.field{display:flex;flex-direction:column;gap:6px;min-width:0}
+.field label{font-size:13px;font-weight:600;color:var(--ink-2)}
+.input{width:100%;min-width:0;font-size:15px;padding:10px 12px;border:1px solid var(--rule-2);border-radius:3px;background:var(--sheet);color:var(--ink)}
+textarea.input{resize:vertical;min-height:112px;line-height:1.55}
+.chip{display:inline-block;font:500 10.5px/1 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;padding:4px 7px;border:1px solid var(--rule-2);border-radius:3px;color:var(--ink-2);white-space:nowrap;vertical-align:middle}
+.chip.on{border-color:var(--amb);color:var(--amb)}
+.chip.warn{border-color:var(--down);color:var(--down)}
+.staff-pill{display:inline-flex;align-items:center;gap:5px;flex:none;padding:4px 10px 4px 8px;border-radius:999px;background:var(--amb);color:#fff;font:600 11px/1.2 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;white-space:nowrap;vertical-align:middle}
+.staff-pill svg{width:12px;height:12px;flex:none}
+.mflag{display:inline-block;flex:none;width:34px;aspect-ratio:3/2;border:1px solid var(--rule-2);background:#fff;overflow:hidden;line-height:0;vertical-align:middle}
+.mflag svg{width:100%;height:100%;display:block}
+
+/* the portal shell: the same grid and nav as the admin portal */
+.adm{margin:0;padding:20px 32px 64px 14px;display:grid;grid-template-columns:256px minmax(0,1fr);gap:32px;align-items:start;min-height:100vh}
+.adm-main{min-width:0}
+.adm-sidebar{position:sticky;top:20px;max-height:calc(100dvh - 40px);padding:22px 12px;border:1px solid var(--rule);border-radius:6px;background:var(--sheet);overflow-y:auto}
+.adm-brand{display:flex;align-items:center;gap:10px;margin:0 4px 28px}
+.adm-pill{display:inline-flex;align-items:center;padding:3px 9px;border-radius:999px;background:var(--amb);color:#fff;font:600 11px/1.3 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;white-space:nowrap}
+.adm-nav{display:grid;gap:24px}
+.adm-nav-group{display:grid;gap:4px}
+.adm-nav-label{margin:0 12px 5px;color:var(--ink-2);font:600 10px/1.4 var(--f-mono);letter-spacing:.13em;text-transform:uppercase}
+.adm-nav a{display:flex;align-items:center;gap:10px;min-height:42px;padding:8px 10px;border:1px solid transparent;border-radius:4px;color:var(--ink-2);font-size:14px;font-weight:600;text-decoration:none;cursor:pointer}
+.adm-nav-ic{flex:none;display:grid;place-items:center;width:20px;height:20px;color:var(--ink-3)}
+.adm-nav-ic svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.adm-nav-l{flex:1;min-width:0}
+.adm-nav a:hover{border-color:var(--rule);background:var(--sheet-2);color:var(--ink)}
+.adm-nav a[aria-current="page"]{border-color:var(--ink);background:var(--ink);color:var(--paper)}
+.adm-nav a[aria-current="page"] .adm-nav-ic,.adm-nav a[aria-current="page"] .chip{color:inherit;border-color:currentColor}
+.adm-return{width:100%;margin-top:28px;white-space:normal;text-align:left}
+.adm-fresh{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:0 0 14px;font-size:12.5px;color:var(--ink-2)}
+.adm-fresh .adm-dot{width:7px;height:7px;border-radius:50%;background:var(--up);flex:none}
+.adm-kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(176px,1fr));gap:12px;margin:22px 0 8px}
+.adm-kpi{padding:14px 16px;border:1px solid var(--rule-2);border-radius:4px;background:var(--sheet)}
+.adm-kpi b{display:block;font:600 28px/1.1 var(--f-display);color:var(--ink);font-variant-numeric:tabular-nums}
+.adm-kpi span{display:block;margin-top:4px;font-size:13px;line-height:1.35;color:var(--ink-2)}
+.adm .h2{margin:34px 0 10px}
+.adm-tri{list-style:none;margin:14px 0;padding:0;display:grid;gap:10px}
+.adm-tri li{padding:12px 14px;border:1px solid var(--rule);border-radius:4px;background:var(--sheet);border-left:3px solid var(--rule-2)}
+.adm-tri li.new{border-left-color:var(--amb)}
+.adm-tri li.old{border-left-color:var(--down)}
+.adm-tri-h{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px;margin:0 0 6px}
+.adm-tri-age{margin-left:auto;font-size:12.5px;color:var(--ink-2);font-variant-numeric:tabular-nums}
+.adm-tri .row{gap:8px;margin-top:8px}
+.adm-quote{margin:6px 0 8px;padding:8px 10px;border-left:3px solid var(--stamp);background:var(--sheet-2);font-size:14px;white-space:pre-wrap}
+.adm-detail{margin:22px 0;padding:20px;border:1px solid var(--rule);border-radius:4px;background:var(--sheet)}
+.tbl-wrap{overflow-x:auto}
+.tbl{width:100%;border-collapse:collapse;font-size:14px}
+.tbl th,.tbl td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--rule)}
+.tbl th{font:600 10.5px/1.4 var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3)}
+.tbl td.num,.tbl th.num{text-align:right;font-variant-numeric:tabular-nums}
+.tbl tbody tr:hover{background:var(--sheet-2)}
+
+/* bits of this desk's own */
+.amb-note{display:grid;gap:8px;margin:26px 0 0;padding:16px 18px;border:1px solid var(--amb);border-radius:4px;background:var(--amb-soft)}
+.amb-note h3{margin:0;font:600 13px/1.3 var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--amb)}
+.amb-note ul{margin:0;padding-left:20px;display:grid;gap:5px;font-size:14px;color:var(--ink)}
+.amb-note ul b{font-weight:650}
+.amb-new{display:grid;gap:10px;margin:14px 0;list-style:none;padding:0}
+.amb-new li{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:14px;align-items:start;padding:14px;border:1px solid var(--rule);border-radius:4px;background:var(--sheet)}
+.amb-new li.done{opacity:.62}
+.amb-nm{margin:0 0 4px;font:600 16px/1.25 var(--f-body)}
+.amb-nm i{font-style:normal;color:var(--ink-2);font-weight:400}
+.amb-steps{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 0}
+.amb-steps span{padding:3px 9px;border:1px solid var(--rule);border-radius:999px;font-size:12px;color:var(--ink-3);background:var(--sheet-2)}
+.amb-steps span.yes{border-color:var(--up);color:var(--up);background:transparent}
+.amb-steps span.yes::before{content:"\2713\00a0"}
+.amb-steps span.no::before{content:"\00b7\00a0"}
+.amb-act{display:grid;gap:6px;justify-items:stretch;min-width:160px}
+.amb-room{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 16px;align-items:center;padding:13px 15px;border:1px solid var(--rule);border-radius:4px;background:var(--sheet);margin-bottom:10px}
+.amb-room.q{border-left:3px solid var(--down)}
+.amb-room h3{margin:0;font:650 16px/1.3 var(--f-body)}
+.amb-room .bar{grid-column:1/-1;height:8px;border-radius:2px;background:var(--track);overflow:hidden;margin-top:8px}
+.amb-room .bar i{display:block;height:100%;background:var(--accent)}
+.amb-room .bar i.q{background:var(--down)}
+.amb-dots{display:inline-flex;align-items:center;gap:5px;font-size:13px;color:var(--ink-2)}
+.amb-dots em{width:8px;height:8px;border-radius:50%;background:var(--online);display:inline-block}
+.amb-ledger{list-style:none;margin:14px 0;padding:0;display:grid;gap:10px}
+.amb-ledger li{padding:13px 15px;border:1px solid var(--rule);border-radius:4px;background:var(--sheet)}
+.amb-ledger li.run{border-left:3px solid var(--down)}
+.amb-ledger li.mine-no{opacity:.75}
+.amb-clock{display:inline-block;width:100%;max-width:260px;height:6px;border-radius:3px;background:var(--track);overflow:hidden;margin-top:8px}
+.amb-clock i{display:block;height:100%;background:var(--down)}
+.amb-tally{list-style:none;margin:14px 0;padding:0;display:grid;gap:8px}
+.amb-tally li{display:grid;grid-template-columns:48px minmax(0,1fr) auto;gap:14px;align-items:center;padding:11px 15px;border:1px solid var(--rule);border-radius:4px;background:var(--sheet)}
+.amb-tally b{font:600 22px/1 var(--f-display);font-variant-numeric:tabular-nums;color:var(--amb)}
+.amb-give{display:flex;align-items:center;gap:10px;margin:0 0 4px}
+.amb-give em{font-style:normal;font:600 13px/1 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)}
+.amb-stars{display:inline-flex;gap:3px}
+.amb-stars i{width:13px;height:13px;border-radius:50%;background:var(--rule-2);display:inline-block}
+.amb-stars i.on{background:var(--amb)}
+.view{display:none}
+.view.on{display:block}
+.mockbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;padding:8px 18px;background:var(--stamp);color:var(--stamp-ink);font-size:13.5px}
+.mockbar b{font-weight:700}
+.mockbar button{margin-left:auto;padding:5px 11px;border-radius:3px;border:1px solid var(--stamp-ink);background:transparent;color:var(--stamp-ink);font-size:13px;font-weight:600;cursor:pointer}
+@media (max-width:900px){
+  .adm{grid-template-columns:1fr;padding:16px}
+  .adm-sidebar{position:static;max-height:none}
+  .amb-new li{grid-template-columns:36px minmax(0,1fr)}
+  .amb-act{grid-column:1/-1;min-width:0}
+}
+</style>
+</head>
+<body>
+<div class="mockbar">
+  <b>Mock-up.</b> Nothing here is wired to the game. Every figure is invented. Prototype for <code>game/edictum.html</code>.
+  <button type="button" id="theme">Switch to dark</button>
+</div>
+
+<div class="adm">
+<aside class="adm-sidebar" aria-label="Ambassador navigation">
+  <div class="adm-brand"><span class="wordmark">Edictum</span><span class="adm-pill">Ambassador</span></div>
+  <nav class="adm-nav" aria-label="Ambassador's desk">
+    <section class="adm-nav-group" aria-label="Today">
+      <h2 class="adm-nav-label">Today</h2>
+      <a data-v="round" aria-current="page"><span class="adm-nav-ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3.5 2"/></svg></span><span class="adm-nav-l">Your round</span> <span class="chip">5</span></a>
+    </section>
+    <section class="adm-nav-group" aria-label="The region">
+      <h2 class="adm-nav-label">The region</h2>
+      <a data-v="welcome"><span class="adm-nav-ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 13.5c1 1.6 2.4 2.4 4 2.4s3-.8 4-2.4"/><circle cx="9.3" cy="9.8" r=".9" fill="currentColor" stroke="none"/><circle cx="14.7" cy="9.8" r=".9" fill="currentColor" stroke="none"/></svg></span><span class="adm-nav-l">Newly founded</span> <span class="chip">8</span></a>
+      <a data-v="rooms"><span class="adm-nav-ic"><svg viewBox="0 0 24 24"><path d="M4 4.5h16a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1h-8l-5 4v-4H4a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1Z"/></svg></span><span class="adm-nav-l">Quiet rooms</span> <span class="chip">3</span></a>
+    </section>
+    <section class="adm-nav-group" aria-label="Keeping the peace">
+      <h2 class="adm-nav-label">Keeping the peace</h2>
+      <a data-v="silences"><span class="adm-nav-ic"><svg viewBox="0 0 24 24"><path d="M11 5.5 6.5 9H3.5v6h3L11 18.5Z"/><path d="m15.5 9.5 5 5m0-5-5 5"/></svg></span><span class="adm-nav-l">Silences</span> <span class="chip">1</span></a>
+      <a data-v="passed"><span class="adm-nav-ic"><svg viewBox="0 0 24 24"><path d="M4 12h13"/><path d="m12.5 7 5 5-5 5"/><path d="M20.5 4.5v15"/></svg></span><span class="adm-nav-l">Passed to staff</span></a>
+    </section>
+    <section class="adm-nav-group" aria-label="Worth noting">
+      <h2 class="adm-nav-label">Worth noting</h2>
+      <a data-v="praise"><span class="adm-nav-ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="9" r="5.5"/><path d="m8.5 13.5-1.5 7 5-2.5 5 2.5-1.5-7"/></svg></span><span class="adm-nav-l">Commendations</span> <span class="chip">2 left</span></a>
+      <a data-v="asks"><span class="adm-nav-ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.4 9.2a2.7 2.7 0 1 1 3.6 2.6c-.6.2-1 .8-1 1.5v.4"/><circle cx="12" cy="17" r=".9" fill="currentColor" stroke="none"/></svg></span><span class="adm-nav-l">What players ask</span> <span class="chip">5</span></a>
+    </section>
+  </nav>
+  <button type="button" class="btn ghost adm-return">&larr; Back to the game</button>
+</aside>
+
+<main class="adm-main">
+
+<!-- YOUR ROUND -->
+<section class="view on" data-view="round">
+  <p class="eyebrow">Ambassador's desk</p>
+  <h1 class="display">Your round</h1>
+  <p class="lede">Everything in the Meridian Reach that could use an ambassador this morning: the newly founded, the rooms gone quiet, and the one unkindness, longest waiting first. You are not staff: nothing on this desk punishes anybody.</p>
+  <p class="adm-fresh"><span class="adm-dot"></span> Counted 2 minutes ago &middot; Meridian Reach &middot; <span class="staff-pill"><svg viewBox="0 0 14 14"><circle cx="7" cy="7" r="5.9" fill="none" stroke="currentColor" stroke-width="1.4"/><ellipse cx="7" cy="7" rx="2.5" ry="5.9" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M1.2 7h11.6" stroke="currentColor" stroke-width="1.2"/></svg>Edictum Ambassador</span></p>
+
+  <div class="adm-kpis">
+    <div class="adm-kpi"><b>8</b><span>nations founded in three days, not yet greeted</span></div>
+    <div class="adm-kpi"><b>3</b><span>chats with no line in six hours</span></div>
+    <div class="adm-kpi"><b>5</b><span>board topics nobody has answered</span></div>
+    <div class="adm-kpi"><b>1</b><span>silence of yours still running</span></div>
+  </div>
+
+  <h2 class="h2">What is waiting</h2>
+  <ul class="adm-tri">
+    <li class="new">
+      <p class="adm-tri-h"><span class="chip on">Newly founded</span> <b>The Dominion of Ashmoor</b><span class="adm-tri-age">founded 4 hours ago</span></p>
+      <p class="hint">No capital named, no edict ruled, has not written anywhere. A nation this quiet on its first day rarely sees a second.</p>
+      <div class="row"><button class="btn small">Send a welcome</button><button class="btn ghost small">Open its page</button><button class="btn ghost small">Not now</button></div>
+    </li>
+    <li class="old">
+      <p class="adm-tri-h"><span class="chip warn">Quiet room</span> <b>Coral Reach has had no line in 9 hours</b><span class="adm-tri-age">14 nations online</span></p>
+      <p class="hint">The longest silence of any chat this week. Fourteen nations are sitting in there reading nothing.</p>
+      <div class="row"><button class="btn small">Open the chat</button><button class="btn ghost small">See the room</button></div>
+    </li>
+    <li>
+      <p class="adm-tri-h"><span class="chip">Unanswered</span> <b>&ldquo;Does anybody actually trade iron, or is it just me?&rdquo;</b><span class="adm-tri-age">waiting 2 days</span></p>
+      <p class="adm-quote">Readerland &middot; Meridian Reach board &middot; Trade &middot; no replies, 31 reads</p>
+      <div class="row"><button class="btn small">Reply on the board</button><button class="btn ghost small">Open the topic</button></div>
+    </li>
+    <li>
+      <p class="adm-tri-h"><span class="chip">Asked again</span> <b>&ldquo;How do I move my capital?&rdquo;</b><span class="adm-tri-age">4th time this week</span></p>
+      <p class="hint">Asked twice in the chat and twice on the board, by four different nations. Worth telling the developers rather than answering for ever.</p>
+      <div class="row"><button class="btn small">Add to the register</button><button class="btn ghost small">Answer it here</button></div>
+    </li>
+    <li class="old">
+      <p class="adm-tri-h"><span class="chip warn">Your silence</span> <b>Tallowmere, 1 hour of 24 gone</b><span class="adm-tri-age">set 58 minutes ago</span></p>
+      <p class="hint">You silenced this nation for the line kept in your ledger. Only a moderator can lift it.</p>
+      <div class="row"><button class="btn ghost small">Open the ledger</button><button class="btn ghost small">Ask a moderator to look</button></div>
+    </li>
+  </ul>
+
+  <div class="amb-note">
+    <h3>What an ambassador may do</h3>
+    <ul>
+      <li><b>Welcome, answer and praise.</b> The whole point of the role, and the desk makes each of them one press.</li>
+      <li><b>Silence a nation in a chat</b>, for up to 24 hours. That is the only power here that takes anything away.</li>
+      <li><b>Pass everything else up.</b> Deleting a line, hiding a nation, lifting a silence and reading an account are a moderator's, and stay a moderator's.</li>
+      <li>You see nations, never the people behind them: no email, no sign-in, no payment. Every press is written to the audit log under your name.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- NEWLY FOUNDED -->
+<section class="view" data-view="welcome">
+  <p class="eyebrow">Ambassador's desk</p>
+  <h1 class="display">Newly founded</h1>
+  <p class="lede">Every nation founded in the Meridian Reach in the last three days, the quietest first. The game already posts &ldquo;Ashmoor has been founded, welcome to #Meridian Reach!&rdquo; in the chat. This is the part only a person can do.</p>
+  <p class="adm-fresh"><span class="adm-dot"></span> 12 founded &middot; 8 not yet greeted &middot; another ambassador has taken 2</p>
+
+  <ul class="amb-new">
+    <li>
+      <span class="mflag"><svg viewBox="0 0 30 20"><rect width="30" height="20" fill="#2d3f52"/><path d="M0 13h30v7H0z" fill="#c9a227"/><circle cx="15" cy="8" r="3.4" fill="#f3f0e6"/></svg></span>
+      <div>
+        <p class="amb-nm">The Dominion of Ashmoor <i>&middot; founded 4 hours ago</i></p>
+        <p class="hint">Guest account &middot; 1.2 million people &middot; has opened the game twice</p>
+        <div class="amb-steps"><span class="no">No capital named</span><span class="no">No edict ruled</span><span class="no">Has not written anywhere</span><span class="no">No flag of its own</span></div>
+      </div>
+      <div class="amb-act"><button class="btn small">Send a welcome</button><button class="btn ghost small">Open its page</button></div>
+    </li>
+    <li>
+      <span class="mflag"><svg viewBox="0 0 30 20"><rect width="30" height="20" fill="#1e6b3a"/><rect y="7" width="30" height="6" fill="#f2f0e6"/><path d="M15 6.2 16.6 9.2h-3.2z" fill="#1e6b3a"/></svg></span>
+      <div>
+        <p class="amb-nm">The Republic of Pennyholm <i>&middot; founded 11 hours ago</i></p>
+        <p class="hint">Registered Nation &middot; 3.4 million people &middot; online now</p>
+        <div class="amb-steps"><span class="yes">Capital: Lowgate</span><span class="yes">2 edicts ruled</span><span class="no">Has not written anywhere</span><span class="no">No flag of its own</span></div>
+      </div>
+      <div class="amb-act"><button class="btn small">Send a welcome</button><button class="btn ghost small">Open its page</button></div>
+    </li>
+    <li class="done">
+      <span class="mflag"><svg viewBox="0 0 30 20"><rect width="30" height="20" fill="#8c2f39"/><rect width="11" height="20" fill="#f3f0e6"/><circle cx="20" cy="10" r="3" fill="#e8c35a"/></svg></span>
+      <div>
+        <p class="amb-nm">The Free City of Cresswick <i>&middot; founded yesterday</i></p>
+        <p class="hint">Greeted by Ambassador Velloria 6 hours ago &middot; replied &ldquo;thanks! how do I get a harbour?&rdquo;</p>
+        <div class="amb-steps"><span class="yes">Capital: Cresswick</span><span class="yes">5 edicts ruled</span><span class="yes">Posted on the board</span><span class="no">No flag of its own</span></div>
+      </div>
+      <div class="amb-act"><button class="btn ghost small">Read the reply</button></div>
+    </li>
+  </ul>
+
+  <div class="adm-detail">
+    <p class="lbl">A welcome to the Dominion of Ashmoor</p>
+    <h2 class="h2" style="margin:6px 0 14px">Write the letter</h2>
+    <div class="field">
+      <label for="wl">It goes as an ordinary letter, signed with your ambassador's mark. Edit it as you like; the template is only a start.</label>
+      <textarea class="input" id="wl">Welcome to the Meridian Reach, Ashmoor.
+
+I am one of Edictum's ambassadors, which mostly means I am the one who notices when a new nation turns up. Two things worth doing first: name your capital on the Government page, and rule on an edict or two. That is where a nation starts to become itself.
+
+If anything is baffling, say so in the chat. Somebody always answers.</textarea>
+    </div>
+    <div class="row" style="margin-top:14px">
+      <button class="btn">Send the welcome</button>
+      <button class="btn ghost">Save as my template</button>
+      <button class="btn ghost">Mark as greeted without writing</button>
+    </div>
+    <p class="hint" style="margin-top:10px">One welcome per nation. Once it is sent the other ambassadors see this nation as greeted, so nobody gets three letters in an hour.</p>
+  </div>
+</section>
+
+<!-- QUIET ROOMS -->
+<section class="view" data-view="rooms">
+  <p class="eyebrow">Ambassador's desk</p>
+  <h1 class="display">Quiet rooms</h1>
+  <p class="lede">Every region's chat and board, the deadest first, because that is where an ambassador is worth the most. A room with nations in it and nothing being said is the one to walk into.</p>
+  <p class="adm-fresh"><span class="adm-dot"></span> Live &middot; counted over the last 24 hours</p>
+
+  <h2 class="h2">The chats</h2>
+  <div class="amb-room q">
+    <h3>Coral Reach</h3>
+    <span class="amb-dots"><em></em> 14 online &middot; last line 9 hours ago</span>
+    <span class="hint">3 lines in 24 hours</span>
+    <span class="row" style="justify-content:flex-end"><button class="btn small">Open the chat</button></span>
+    <span class="bar"><i class="q" style="width:4%"></i></span>
+  </div>
+  <div class="amb-room q">
+    <h3>Jade Terraces</h3>
+    <span class="amb-dots"><em></em> 9 online &middot; last line 7 hours ago</span>
+    <span class="hint">11 lines in 24 hours</span>
+    <span class="row" style="justify-content:flex-end"><button class="btn small">Open the chat</button></span>
+    <span class="bar"><i class="q" style="width:14%"></i></span>
+  </div>
+  <div class="amb-room q">
+    <h3>Ember Isles</h3>
+    <span class="amb-dots"><em></em> 21 online &middot; last line 6 hours ago</span>
+    <span class="hint">18 lines in 24 hours</span>
+    <span class="row" style="justify-content:flex-end"><button class="btn small">Open the chat</button></span>
+    <span class="bar"><i class="q" style="width:23%"></i></span>
+  </div>
+  <div class="amb-room">
+    <h3>Meridian Reach <span class="chip on" style="margin-left:6px">Your region</span></h3>
+    <span class="amb-dots"><em></em> 63 online &middot; last line 2 minutes ago</span>
+    <span class="hint">214 lines in 24 hours</span>
+    <span class="row" style="justify-content:flex-end"><button class="btn ghost small">Open the chat</button></span>
+    <span class="bar"><i style="width:100%"></i></span>
+  </div>
+  <div class="amb-room">
+    <h3>Lantern Coast</h3>
+    <span class="amb-dots"><em></em> 38 online &middot; last line 20 minutes ago</span>
+    <span class="hint">96 lines in 24 hours</span>
+    <span class="row" style="justify-content:flex-end"><button class="btn ghost small">Open the chat</button></span>
+    <span class="bar"><i style="width:45%"></i></span>
+  </div>
+
+  <h2 class="h2">Topics nobody has answered</h2>
+  <div class="tbl-wrap">
+  <table class="tbl">
+    <thead><tr><th>Topic</th><th>Board</th><th>Asked by</th><th class="num">Waiting</th><th class="num">Reads</th><th></th></tr></thead>
+    <tbody>
+      <tr><td>Does anybody actually trade iron, or is it just me?</td><td>Meridian Reach</td><td>Readerland</td><td class="num">2 days</td><td class="num">31</td><td><button class="btn ghost small">Reply</button></td></tr>
+      <tr><td>Is the Assembly worth joining as a small nation?</td><td>Coral Reach</td><td>Little Farhaven</td><td class="num">2 days</td><td class="num">54</td><td><button class="btn ghost small">Reply</button></td></tr>
+      <tr><td>How do I move my capital?</td><td>Ember Isles</td><td>Saltmarrow</td><td class="num">31 hours</td><td class="num">12</td><td><button class="btn ghost small">Reply</button></td></tr>
+      <tr><td>My harbour says &ldquo;no sea route&rdquo;. What does that mean?</td><td>Jade Terraces</td><td>Wyke</td><td class="num">22 hours</td><td class="num">9</td><td><button class="btn ghost small">Reply</button></td></tr>
+      <tr><td>Flag competition: can I enter my national flag?</td><td>Meridian Reach</td><td>Brindlehome</td><td class="num">14 hours</td><td class="num">27</td><td><button class="btn ghost small">Reply</button></td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="hint" style="margin-top:10px">An ambassador's reply is an ordinary reply with the blue mark beside the name. It pins nothing, locks nothing and closes nothing.</p>
+</section>
+
+<!-- SILENCES -->
+<section class="view" data-view="silences">
+  <p class="eyebrow">Ambassador's desk</p>
+  <h1 class="display">Silences</h1>
+  <p class="lede">The one power the role actually has, with a record of every time you have used it. A silence stops a nation writing in the chats for a while. It removes nothing, tells nobody else, and only a moderator can lift it early.</p>
+  <p class="adm-fresh"><span class="adm-dot"></span> 1 of yours running &middot; 7 set in the last 30 days &middot; 0 overturned</p>
+
+  <h2 class="h2">Running now</h2>
+  <ul class="amb-ledger">
+    <li class="run">
+      <p class="adm-tri-h"><span class="chip warn">Yours</span> <b>Tallowmere</b><span class="adm-tri-age">1 hour of 24 gone</span></p>
+      <p class="adm-quote">&ldquo;nobody here can play this game properly, you are all [removed] and I hope the servers burn&rdquo;</p>
+      <p class="hint">Meridian Reach chat &middot; you chose <b>Unkind to other players</b> &middot; set 58 minutes ago</p>
+      <span class="amb-clock"><i style="width:4%"></i></span>
+      <div class="row" style="margin-top:10px"><button class="btn ghost small">Ask a moderator to look</button><button class="btn ghost small">Add a note</button></div>
+    </li>
+    <li class="run mine-no">
+      <p class="adm-tri-h"><span class="chip">Ambassador Velloria</span> <b>Kestrel Point</b><span class="adm-tri-age">6 hours of 24 gone</span></p>
+      <p class="hint">Coral Reach chat &middot; <b>Posting the same line over and over</b> &middot; shown so two of you never act on the same nation. You cannot change it.</p>
+      <span class="amb-clock"><i style="width:25%"></i></span>
+    </li>
+  </ul>
+
+  <h2 class="h2">Your last thirty days</h2>
+  <div class="tbl-wrap">
+  <table class="tbl">
+    <thead><tr><th>Nation</th><th>Why</th><th>Where</th><th class="num">For</th><th class="num">When</th><th>Since</th></tr></thead>
+    <tbody>
+      <tr><td>Tallowmere</td><td>Unkind to other players</td><td>Meridian chat</td><td class="num">24h</td><td class="num">today</td><td>Running</td></tr>
+      <tr><td>Mackerel Point</td><td>Same line over and over</td><td>Meridian chat</td><td class="num">6h</td><td class="num">4 days ago</td><td>Served, quiet since</td></tr>
+      <tr><td>The Wrackline</td><td>Unkind to other players</td><td>Meridian chat</td><td class="num">24h</td><td class="num">9 days ago</td><td>Banned by a moderator later</td></tr>
+      <tr><td>Spindle Isle</td><td>Same line over and over</td><td>Meridian chat</td><td class="num">6h</td><td class="num">12 days ago</td><td>Served, quiet since</td></tr>
+      <tr><td>Gull Reach</td><td>Unkind to other players</td><td>Meridian chat</td><td class="num">12h</td><td class="num">18 days ago</td><td>Served, left the game</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="amb-note">
+    <h3>The limits, in plain words</h3>
+    <ul>
+      <li>Up to <b>24 hours</b>, and you must pick a reason from the list. The nation is told an ambassador did it.</li>
+      <li>You cannot silence <b>another ambassador</b>, a moderator, or a nation in your own alliance.</li>
+      <li>You cannot <b>lift</b> a silence, your own included. If you got it wrong, pass it to a moderator and say so.</li>
+      <li>Every one of these sits in the admin audit log with your name, the line and the reason, and an admin reads them.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- PASSED TO STAFF -->
+<section class="view" data-view="passed">
+  <p class="eyebrow">Ambassador's desk</p>
+  <h1 class="display">Passed to staff</h1>
+  <p class="lede">For everything above your pay grade: a threat, a scam, somebody who needs a real person, a bug ruining a nation. You write what you saw, and it lands in the moderators' queue as an ambassador's note, read before the ordinary reports.</p>
+
+  <div class="adm-detail">
+    <p class="lbl">New note</p>
+    <div class="row" style="gap:16px;align-items:flex-start;margin:12px 0">
+      <div class="field" style="flex:1 1 240px"><label for="pk">What kind</label>
+        <select class="input" id="pk"><option>Somebody is being threatened or harassed</option><option>Looks like a scam or an advert</option><option>A player may be in real trouble</option><option>Something is broken for this nation</option><option>I think I got a silence wrong</option></select></div>
+      <div class="field" style="flex:1 1 240px"><label for="pn">Which nation</label><input class="input" id="pn" value="Tallowmere" readonly></div>
+    </div>
+    <div class="field"><label for="pt">What you saw</label><textarea class="input" id="pt" placeholder="A sentence or two. The line, the topic or the page comes attached, so you do not need to copy anything out."></textarea></div>
+    <p class="hint" style="margin-top:10px">Attached for you: the chat line and the ten around it, the nation's page, and whatever you have already done about it.</p>
+    <div class="row" style="margin-top:14px"><button class="btn">Pass it to a moderator</button><button class="btn ghost">Save and finish later</button></div>
+  </div>
+
+  <h2 class="h2">What you have passed up</h2>
+  <ul class="adm-tri">
+    <li>
+      <p class="adm-tri-h"><span class="chip">Threat</span> <b>Mewstone, &ldquo;I know where you live&rdquo;, in a letter</b><span class="adm-tri-age">3 days ago</span></p>
+      <p class="hint">Read by a moderator 20 minutes later &middot; <b>banned for 30 days.</b> &ldquo;Good catch. The account had two others doing the same.&rdquo;</p>
+    </li>
+    <li>
+      <p class="adm-tri-h"><span class="chip">Broken</span> <b>Candlewick Isle, province loyalty stuck at 0</b><span class="adm-tri-age">6 days ago</span></p>
+      <p class="hint">Read by a moderator, passed to the developers, <b>fixed in this week's update.</b></p>
+    </li>
+    <li class="old">
+      <p class="adm-tri-h"><span class="chip warn">Waiting</span> <b>Brindlehome, selling nations for real money in the chat</b><span class="adm-tri-age">waiting 14 hours</span></p>
+      <p class="hint">Not yet read. Nothing more for you to do; the queue is theirs.</p>
+    </li>
+  </ul>
+</section>
+
+<!-- COMMENDATIONS -->
+<section class="view" data-view="praise">
+  <p class="eyebrow">Ambassador's desk</p>
+  <h1 class="display">Commendations</h1>
+  <p class="lede">The one thing an ambassador can hand out. Three a week, no more, so it keeps meaning something: the nation you name gets a line in its region's chat and a small mark on its page for a month. It costs them nothing and cannot be taken back.</p>
+  <p class="adm-fresh"><span class="adm-dot"></span> <b style="font-weight:600">2 left this week</b> &middot; they come back on Monday &middot; 9 given in all</p>
+
+  <div class="adm-detail">
+    <p class="amb-give"><em>Left this week</em> <span class="amb-stars"><i class="on"></i><i class="on"></i><i></i></span></p>
+    <div class="row" style="gap:16px;align-items:flex-start;margin:12px 0">
+      <div class="field" style="flex:1 1 240px"><label for="cn">Which nation</label><input class="input" id="cn" value="The Free City of Cresswick"></div>
+      <div class="field" style="flex:1 1 240px"><label for="cw">What for</label>
+        <select class="input" id="cw"><option>Helped a new nation find its feet</option><option>Answered questions on the board all week</option><option>Kept a hard conversation civil</option><option>Made something the region enjoyed</option><option>In my own words</option></select></div>
+    </div>
+    <div class="field"><label for="cx">The line everyone will read</label><input class="input" id="cx" value="Cresswick has answered half the questions on the Meridian board this week, and never once made anyone feel daft for asking."></div>
+    <div class="row" style="margin-top:14px"><button class="btn">Commend Cresswick</button><button class="btn ghost">Preview the line</button></div>
+    <p class="hint" style="margin-top:10px">Posted in the region chat under your ambassador's mark. Not your own nation, not your alliance, and not the same nation twice in a season.</p>
+  </div>
+
+  <h2 class="h2">Lately</h2>
+  <ul class="adm-tri">
+    <li class="new"><p class="adm-tri-h"><b>Readerland</b> <span class="chip">Helped a new nation</span><span class="adm-tri-age">2 days ago</span></p><p class="hint">&ldquo;Readerland spent an hour walking Pennyholm through its first edicts, in public, where everyone else could learn from it too.&rdquo;</p></li>
+    <li class="new"><p class="adm-tri-h"><b>Little Farhaven</b> <span class="chip">Kept it civil</span><span class="adm-tri-age">6 days ago</span></p><p class="hint">&ldquo;Two alliances were an hour into a row about borders. Little Farhaven asked one good question and it stopped.&rdquo;</p></li>
+    <li><p class="adm-tri-h"><b>Saltmarrow</b> <span class="chip">By Ambassador Velloria</span><span class="adm-tri-age">8 days ago</span></p><p class="hint">&ldquo;Saltmarrow's guide to harbours has been linked forty times on four boards.&rdquo;</p></li>
+  </ul>
+</section>
+
+<!-- WHAT PLAYERS ASK -->
+<section class="view" data-view="asks">
+  <p class="eyebrow">Ambassador's desk</p>
+  <h1 class="display">What players ask</h1>
+  <p class="lede">You are the one who hears the same question for the ninth time. Press the tally and the developers get a count instead of an anecdote: the questions worth answering inside the game, rather than in the chat, over and over, by you.</p>
+  <p class="adm-fresh"><span class="adm-dot"></span> Counted across every ambassador &middot; the last 30 days</p>
+
+  <ul class="amb-tally">
+    <li><b>41</b><div><p style="font-weight:600">&ldquo;How do I move my capital?&rdquo;</p><p class="hint">Asked in 5 regions &middot; you have heard it 4 times this week &middot; <b>no page answers it</b></p></div><button class="btn small">Heard it again</button></li>
+    <li><b>33</b><div><p style="font-weight:600">&ldquo;Why does my harbour say no sea route?&rdquo;</p><p class="hint">Asked in 6 regions &middot; the help page answers it, but nobody finds the help page</p></div><button class="btn small">Heard it again</button></li>
+    <li><b>28</b><div><p style="font-weight:600">&ldquo;Can I enter my national flag in the competition?&rdquo;</p><p class="hint">Asked every month between the 12th and the 18th &middot; the entry form refuses it without saying why until you press enter</p></div><button class="btn small">Heard it again</button></li>
+    <li><b>19</b><div><p style="font-weight:600">&ldquo;Is the Assembly worth joining if I am small?&rdquo;</p><p class="hint">Asked almost entirely by nations under a week old</p></div><button class="btn small">Heard it again</button></li>
+    <li><b>12</b><div><p style="font-weight:600">&ldquo;Where did my province loyalty go?&rdquo;</p><p class="hint">Asked 9 times in 4 days &middot; <b>may be the bug passed up on Tuesday</b></p></div><button class="btn small">Heard it again</button></li>
+  </ul>
+
+  <div class="adm-detail">
+    <div class="field"><label for="nq">Something you keep hearing that is not on the list</label><input class="input" id="nq" placeholder="In the player's own words, if you can remember them"></div>
+    <div class="row" style="margin-top:14px"><button class="btn">Add it</button></div>
+  </div>
+  <p class="hint" style="margin-top:14px">The developers read this beside the bug reports. Nothing here names a player.</p>
+</section>
+
+</main>
+</div>
+
+<script>
+var links=[].slice.call(document.querySelectorAll('.adm-nav a')),views=[].slice.call(document.querySelectorAll('.view'));
+links.forEach(function(a){a.addEventListener('click',function(e){
+  e.preventDefault();
+  links.forEach(function(x){x.removeAttribute('aria-current');});
+  a.setAttribute('aria-current','page');
+  var v=a.dataset.v;
+  views.forEach(function(s){s.classList.toggle('on',s.dataset.view===v);});
+  window.scrollTo(0,0);
+});});
+var t=document.getElementById('theme');
+t.addEventListener('click',function(){
+  var dark=document.documentElement.dataset.theme==='dark';
+  document.documentElement.dataset.theme=dark?'light':'dark';
+  t.textContent=dark?'Switch to dark':'Switch to light';
+});
+</script>
+</body>
+</html>
