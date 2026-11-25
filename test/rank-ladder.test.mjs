@@ -21,9 +21,9 @@ const TIER = { b: 10, s: 25, g: 50, p: 100, x: 200, o: 500 };
 const ctx = vm.createContext({ clamp: (v, a, b) => Math.min(b, Math.max(a, v)), achPoints: n => (n && n.pts) || 0 });
 vm.runInContext([
   from('const ACH_RANKS=[[0,', ']];'), from('function achRank(p){', '\n'), from('const ACH_RANKS_V1=[', '\n'), from('function achIdxV1(p){', '\n'),
-  from('function achFloor(n,p){', '\n'), from('function achRankOf(n,p){', '\n}\n'),
-].join('\n') + '\nthis.X={ACH_RANKS,ACH_RANKS_V1,ACH_RANKS_VER,ACH_V1_RANK,achRank,achIdxV1,achFloor,achRankOf};', ctx);
-const { ACH_RANKS: R, ACH_RANKS_V1: V1, ACH_RANKS_VER: VER, ACH_V1_RANK: MAP, achRank, achRankOf } = ctx.X;
+  from('function achFloor(n,p){', '\n'), from('function achRankOf(n,p){', '\n}\n'), from('function rkMarkIdx(rk,rv){', '\n}\n'),
+].join('\n') + '\nthis.X={ACH_RANKS,ACH_RANKS_V1,ACH_RANKS_VER,ACH_V1_RANK,RK_MARK_VER,achRank,achIdxV1,achFloor,achRankOf,rkMarkIdx};', ctx);
+const { ACH_RANKS: R, ACH_RANKS_V1: V1, ACH_RANKS_VER: VER, ACH_V1_RANK: MAP, RK_MARK_VER: MV, achRank, achRankOf, rkMarkIdx } = ctx.X;
 const at = Array.from(R, r => r[0]), name = i => R[i][1];   // (Array.from: an array of this realm, so deepEqual compares it)
 const marked = (pts, rkh) => Object.assign({ pts, rkv: VER }, rkh ? { rkh } : {});
 
@@ -112,6 +112,24 @@ test('the floor is never more than the points justified on the old ladder, and t
   // looking back: a nation now at 3,300 with Eminence held Elder Statesman at 2,900 (old ladder), and Luminary at 2,600
   const n = marked(3300, 20);
   assert.equal(achRankOf(n, 2900).name, 'Elder Statesman'); assert.equal(achRankOf(n, 2600).i, 18); assert.equal(achRankOf(n, 0).i, 0);
+});
+
+test('a rank published for others to read says which numbering it is written in, and an older mark is mapped up', () => {
+  // a mark of this build's numbering is read as it stands
+  for (const i of [0, 18, 19, 48, 102]) assert.equal(rkMarkIdx(i, MV), i, String(i));
+  // one from before the middle ranks were added is a place on the ladder as it was: the same shift ACH_V1_RANK uses
+  assert.equal(rkMarkIdx(18, undefined), 18, 'nothing below Luminary moved');
+  assert.equal(name(rkMarkIdx(33, undefined)), 'Eternal', 'not Authorised Biography, which sits at 33 now');
+  assert.equal(name(rkMarkIdx(20, undefined)), 'Eminence');
+  assert.equal(name(rkMarkIdx(71, undefined)), 'Back to Page One', 'the old top rank');
+  for (let i = 0; i < 51; i++) assert.equal(rkMarkIdx(i, undefined), MAP[i], String(i));
+  // and nothing a reader is sent can point past the ladder, or be anything but a place on it
+  assert.equal(rkMarkIdx(5000, MV), R.length - 1); assert.equal(rkMarkIdx(5000, undefined), R.length - 1);
+  for (const bad of [-1, 1.5, '3', null, undefined, NaN]) assert.equal(rkMarkIdx(bad, MV), 0, String(bad));
+  // every reader of a published mark goes through it, and every publisher sends the version beside the index
+  for (const read of ['rkMarkIdx(U.rk,U.rkn)', 'rkMarkIdx(m.rk,m.rkn)', 'ACH_RANKS[rkMarkIdx(c.i,c.rkn)]']) assert.ok(html.includes(read), read);
+  assert.equal([...html.matchAll(/rkn:RK_MARK_VER/g)].length, 4, 'the board profile, a chat line, a rank card and a nation card');
+  assert.ok(html.includes('rkn:Number.isInteger(v.rkn)&&v.rkn>=0?v.rkn:0'), 'a line keeps the version it was sent with');
 });
 
 test('every rank has a border, and every reader of a nation’s rank goes through the same function', () => {

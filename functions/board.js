@@ -166,7 +166,10 @@ const audit = (b, db, who, action, extra) => b.create(db.collection('adminAudit'
    post, from the achievements it saves), its alliance, the Chancery Club and Founding Supporter marks, and the
    signature it chose (cbSig). Refreshed with every post; written only here, read by everyone. A profile written before
    the count existed is counted once from the posts already on the boards (posts where a == uid under cb/). */
-export const CB_SIG = 100, CB_RANKS = 99;
+/* CB_RANKS bounds the rank index a game may send: a sanity bound, not the ladder's length, and well clear of it (the
+   ladder was 72 ranks on 14 November 2026 and 103 on the 25th, so the top index is 102). A rank above the bound is
+   dropped, and the author's posts lose their rank mark, so this must stay ahead of every ladder the game ships. */
+export const CB_SIG = 100, CB_RANKS = 299;
 const userRef = (db, uid) => db.doc('cbUser/' + uid);
 const counts = u => u.exists && typeof u.get('n') === 'number';
 async function backCount(db, uid) {
@@ -177,8 +180,11 @@ async function backCount(db, uid) {
 function profiled(tx, db, who, d, me, u, back, now) {
   if (me.of) return;
   const rk = Number.isInteger(d.rk) && d.rk >= 0 && d.rk <= CB_RANKS ? d.rk : null, pf = me.pf || {};
+  /* rkn: which numbering rk is written in (the game: RK_MARK_VER). A profile written before the middle of the ladder
+     grew carries none, and a reader then reads rk on the older numbering. */
+  const rkn = rk != null && Number.isInteger(d.rkn) && d.rkn >= 0 && d.rkn <= 9 ? d.rkn : null;
   tx.set(userRef(db, who.uid), { n: (counts(u) ? u.get('n') : back) + 1, t: now, nm: me.nm, rg: me.rg,
-    rk: rk == null ? FieldValue.delete() : rk, al: pf.al || FieldValue.delete(), cl: pf.cl ? true : FieldValue.delete(), fd: me.fd ? true : FieldValue.delete() }, { merge: true });
+    rk: rk == null ? FieldValue.delete() : rk, rkn: rkn == null ? FieldValue.delete() : rkn, al: pf.al || FieldValue.delete(), cl: pf.cl ? true : FieldValue.delete(), fd: me.fd ? true : FieldValue.delete() }, { merge: true });
 }
 /* posts gone: each author's count drops by the posts of theirs that went (only profiles that exist) */
 async function uncount(db, tally) {
