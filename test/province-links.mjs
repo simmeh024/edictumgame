@@ -112,7 +112,7 @@ try {
   check('Fenwick offers to become the seat of its province', /^Make it the seat of /.test(await txt('#cx-seat-b') || ''), await txt('#cx-seat-b'));
   await page.click('#cx-seat-b'); await sleep(300);
   const ask = await txt('#cx-seat') || '';
-  check('asking first: what moves, and where the seat is now', new RegExp(`Move the seat of ${f0.nm} to Fenwick\\?`).test(ask) && /Its seat is now on open country, in no city\./.test(ask) && /(hexes? changes?|No border moves)/.test(ask), ask);
+  check('asking first: what moves, and where the seat is now', new RegExp(`Move the seat of ${f0.nm} to Fenwick\\?`).test(ask) && /Its seat is now on open country, in no city\./.test(ask) && /(hex(?:es)? changes?|No border moves)/.test(ask), ask);
   check('the button says the panel is open, and focus is on Move the seat', (await page.getAttribute('#cx-seat-b', 'aria-expanded')) === 'true' && await page.evaluate(() => document.activeElement && document.activeElement.id === 'cx-seat-go'));
   await page.screenshot({ path: path.join(OUT, 'province-links-seat-ask.png'), fullPage: false });
   await page.click('[data-act="cx-seat-no"]'); await sleep(300);
@@ -200,3 +200,4 @@ try {
 }
 console.log(failed ? `${failed} failed` : 'all passed');
 process.exit(failed ? 1 : 0);
+

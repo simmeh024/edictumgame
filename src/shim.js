@@ -867,6 +867,8 @@
   function lqDay() { return Math.floor(Date.now() / DAY_MS); }
   function letterDoc(uid, m) {
     var d = { by: uid, to: m.to, x: String(m.x).slice(0, 2500), t: m.t, ts: serverTime(), exp: A.fb.firestore.Timestamp.fromMillis(Date.now() + LETTER_KEEP) };
+    if (typeof m.sub === 'string' && m.sub.trim()) d.sub = m.sub.slice(0, 100);
+    if (typeof m.img === 'string' && m.img.length <= 16000 && /^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(m.img)) d.img = m.img;
     if (typeof m.k === 'string' && /^(congrats|protest|condol|friend|ultim|treaty)$/.test(m.k)) d.k = m.k;
     if (isObj(m.r) && Number.isSafeInteger(m.r.t)) d.r = { t: m.r.t, x: str(m.r.x, 160) };
     if (isObj(m.a) && /^(deal|peace|ally|city|ach)$/.test(m.a.k)) {
@@ -884,6 +886,8 @@
   }
   function letterOf(d) {
     var v = d.data({ serverTimestamps: 'estimate' }) || {}, o = { id: d.id, by: str(v.by, 128), to: str(v.to, 128), x: str(v.x, 2500), t: num(v.t), ts: millis(v.ts) || num(v.t) };
+    if (typeof v.sub === 'string') o.sub = v.sub.slice(0, 100);
+    if (typeof v.img === 'string' && v.img.length <= 16000 && /^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(v.img)) o.img = v.img;
     if (typeof v.k === 'string') o.k = v.k.slice(0, 12);
     if (isObj(v.r) && Number.isSafeInteger(v.r.t)) o.r = { t: v.r.t, x: str(v.r.x, 160) };
     if (isObj(v.a) && typeof v.a.k === 'string') { o.a = { k: v.a.k.slice(0, 12) }; if (typeof v.a.id === 'string') o.a.id = v.a.id.slice(0, 128); if (Number.isSafeInteger(v.a.c)) o.a.c = v.a.c; if (typeof v.a.nm === 'string') o.a.nm = v.a.nm.slice(0, 80); }
@@ -908,7 +912,7 @@
   async function sendBatch(list, group) {
     var u = A.auth && A.auth.currentUser;
     if (!u || A.frozen || observing()) return list.map(function () { return 'later'; });
-    var ok = list.filter(function (m) { return isObj(m) && typeof m.to === 'string' && /^[\w-]{1,128}$/.test(m.to) && m.to !== u.uid && typeof m.x === 'string' && m.x.trim() && Number.isSafeInteger(m.t); });
+    var ok = list.filter(function (m) { return isObj(m) && typeof m.to === 'string' && /^[\w-]{1,128}$/.test(m.to) && m.to !== u.uid && typeof m.x === 'string' && (m.x.trim() || (typeof m.img === 'string' && m.img.length <= 16000 && /^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(m.img))) && Number.isSafeInteger(m.t); });
     if (ok.length !== list.length || !ok.length || ok.length > 4 || (!group && ok.length > 1)) return list.map(function () { return 'no'; });
     var tos = ok.map(function (m) { return m.to; }), attempt = async function () {
       await lqLoad(u.uid, tos, !group);

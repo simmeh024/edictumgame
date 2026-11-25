@@ -910,6 +910,7 @@ header.vh:has(.sg-gear)>h1,header.vh:has(.sg-gear)>.eyebrow{padding-right:44px}
 .dm-fmt-p[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft);color:var(--ink)}
 .dm-prev{margin:8px 0 2px;max-width:none}
 .dm-prev[hidden]{display:none}
+.dm-subject{font-weight:700;margin:6px 0}.dm-letter-from{display:flex;align-items:center;gap:7px;font:500 11px/1.3 var(--f-mono);color:var(--ink-3);margin-bottom:9px}.dm-letter-from .mflag{width:27px;flex:none}.dm-image{display:block;max-width:200px;max-height:150px;width:auto;height:auto;border-radius:4px;margin:8px 0}.dm-image-preview{display:flex;gap:10px;align-items:center}.dm-emojis{display:flex;gap:4px;flex-wrap:wrap}.dm-emojis button{font-size:18px;padding:3px 6px}
 .dm-prev-h{margin:0 0 4px!important;font:500 10.5px/1.2 var(--f-mono)!important;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3)}
 .dm-fmt-h{font-size:12px}
 @media (max-width:600px){.dm-fmt-h{display:none}}
@@ -25645,7 +25646,8 @@ function landNotice(){
    next friendly letter. Which threads have been read is n.seenDm (private too); a read receipt is lseen/.
    Letters a game from before this kept in its shared record still show, until that record is saved again
    (functions/civic.js moves them). */
-const DM_PEER_KEEP=30,DM_ALL_KEEP=240,DM_SHOW=40,LT_KEEP=600,DM_GROUP_MAX=12,DM_CAP=10,DM_MAX=2500,DM_CHARS=400000,LT_CHARS=900000;
+const DM_PEER_KEEP=30,DM_ALL_KEEP=240,DM_SHOW=40,LT_KEEP=600,DM_GROUP_MAX=12,DM_CAP=10,DM_MAX=2500,DM_CHARS=400000,LT_CHARS=900000,DM_IMAGE_MAX=16000;
+function dmImageOK(x){return typeof x==='string'&&x.length<=DM_IMAGE_MAX&&/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(x);}
 const DM_NOTES={congrats:['Note of Congratulation','On behalf of the people of {ME}, I offer {THEM} our warm congratulations on '],
   protest:['Note of Protest','The government of {ME} protests in the strongest terms against '],
   condol:['Note of Condolence','The people of {ME} have learned with sorrow of '],
@@ -25718,6 +25720,7 @@ function dmPrevPaint(){const p=document.getElementById('dm-prev');if(!p)return;c
 /* the record's own copy, as normalize keeps it */
 function dmNorm(m){
   const o={w:String(m.w).slice(0,90),t:num0(m.t),x:String(m.x).slice(0,DM_MAX+100)};
+  if(typeof m.sub==='string'&&m.sub.trim())o.sub=m.sub.slice(0,100);if(dmImageOK(m.img))o.img=m.img;
   if(m.i)o.i=1;else{if(m.q)o.q=1;if(m.b)o.b=1;if(m.h==='cap'||m.h==='day'){o.h=m.h;if(Number.isInteger(m.hd))o.hd=m.hd;}if(m.nd)o.nd=1;}
   if(typeof m.k==='string'&&/^(congrats|protest|condol|friend|ultim|treaty)$/.test(m.k))o.k=m.k;
   if(m.r&&typeof m.r==='object'&&Number.isSafeInteger(m.r.t))o.r={t:m.r.t,x:String(m.r.x||'').slice(0,160),...(m.r.m?{m:1}:{})};
@@ -25733,7 +25736,7 @@ function dmxClean(x){
   const o={},ids=v=>Array.isArray(v)?[...new Set(v.filter(dmUid))].slice(0,500):[],map=(v,f)=>v&&typeof v==='object'&&!Array.isArray(v)?Object.fromEntries(Object.entries(v).filter(([k,w])=>k.length<=90&&f(w)).slice(-300)):{};
   if(x.rr===0)o.rr=0;if(x.nt===0)o.nt=0;if(x.npc===0)o.npc=0;if(x.on===0)o.on=0;if(x.np===0)o.np=0;
   const bl=ids(x.bl);if(bl.length)o.bl=bl;
-  for(const k of ['mu','pin','off']){const m=map(x[k],v=>v===1);if(Object.keys(m).length)o[k]=m;}
+  for(const k of ['mu','pin','off','ur']){const m=map(x[k],v=>v===1);if(Object.keys(m).length)o[k]=m;}
   for(const k of ['arc','del','cut']){const m=map(x[k],v=>typeof v==='number'&&isFinite(v));if(Object.keys(m).length)o[k]=m;}
   for(const k of ['nl','nw'])if(typeof x[k]==='number'&&isFinite(x[k]))o[k]=x[k];
   const lb=map(x.lb,v=>typeof v==='string'&&v.length<=8);for(const k of Object.keys(lb)){const v=DM_LABELS.map(l=>l[0]).filter(c=>lb[k].includes(c)).join('');if(v)lb[k]=v;else delete lb[k];}
@@ -25750,8 +25753,8 @@ function dmTrim(n){
   for(const a of per.values())a.slice(-DM_PEER_KEEP).forEach(i=>keep.add(i));
   /* then no more than DM_ALL_KEEP in all, and no more than DM_CHARS of text (a letter may be 2,500 characters): the
      oldest delivered letters go first */
-  let idx=[...keep].sort((a,b)=>a-b),left=idx.length,chars=idx.reduce((s,i)=>s+String(all[i].x).length,0);const drop=new Set();
-  for(const i of idx){if(left<=DM_ALL_KEEP&&chars<=DM_CHARS)break;if(all[i].q)continue;drop.add(i);left--;chars-=String(all[i].x).length;}
+  let idx=[...keep].sort((a,b)=>a-b),left=idx.length,chars=idx.reduce((s,i)=>s+(String(all[i].x).length+String(all[i].sub||'').length+String(all[i].img||'').length),0);const drop=new Set();
+  for(const i of idx){if(left<=DM_ALL_KEEP&&chars<=DM_CHARS)break;if(all[i].q)continue;drop.add(i);left--;chars-=String(all[i].x).length+String(all[i].sub||'').length+String(all[i].img||'').length;}
   idx=idx.filter(i=>!drop.has(i));
   if(idx.length===all.length)return;
   const kept=new Set(idx),lost=new Set(all.filter((m,i)=>!kept.has(i)).map(m=>m.w));
@@ -25765,7 +25768,7 @@ function dmTrim(n){
 const LT={list:[],unsub:null,sunsub:null,busy:false,at:0,uid:'',since:0,seen:{},older:{},olderEnd:{},more:{},toastAt:0,blocksAt:0,groups:{},ready:false};
 const ltApi=()=>Promise.resolve(window.claude&&typeof window.claude.use==='function'?window.claude.use('letters'):null);
 const ltKey=()=>'edictum.lt.'+(S.uid||'');
-function ltValid(l){return l&&typeof l.id==='string'&&dmUid(l.by)&&typeof l.x==='string'&&l.x&&Number.isFinite(l.t);}
+function ltValid(l){return l&&typeof l.id==='string'&&dmUid(l.by)&&typeof l.x==='string'&&(l.x||dmImageOK(l.img))&&Number.isFinite(l.t);}
 function ltLoad(){try{const o=JSON.parse(localStorage.getItem(ltKey())||'null');if(o&&o.v===1&&Array.isArray(o.l)){LT.list=o.l.filter(ltValid);LT.since=num0(o.ts);}}catch(e){}}
 function ltSave(){try{localStorage.setItem(ltKey(),JSON.stringify({v:1,ts:LT.since,l:LT.list.slice(0,LT_KEEP)}));}catch(e){}}
 function ltMerge(list){
@@ -25775,7 +25778,7 @@ function ltMerge(list){
   return fresh;
 }
 /* the newest LT_KEEP, and no more than LT_CHARS of text, so a browser's storage is never filled by letters */
-function ltCap(list){let c=0;const out=[];for(const l of list){c+=l.x.length;if(out.length>=LT_KEEP||c>LT_CHARS)break;out.push(l);}return out;}
+function ltCap(list){let c=0;const out=[];for(const l of list){c+=l.x.length+String(l.sub||'').length+String(l.img||'').length;if(out.length>=LT_KEEP||c>LT_CHARS)break;out.push(l);}return out;}
 function ltForget(pred){const before=LT.list.length;LT.list=LT.list.filter(l=>!pred(l));if(LT.list.length!==before)ltSave();}
 /* not before connect() has finished (LT.ready): the start's own reads go first */
 function ltStart(){if(hmQuiet())return;
@@ -25838,7 +25841,7 @@ function dmFlush(){
     const once=async f=>{let r=await f();sends++;if((Array.isArray(r)?r.every(v=>v==='later'):r==='later')&&sends<10){await sleep(3200);r=await f();sends++;}return r;};
     for(const m of q){
       if(sends>=10)break;
-      const base={x:m.x,t:m.t,...(m.k?{k:m.k}:{}),...(m.r?{r:{t:m.r.t,x:m.r.x}}:{}),...(m.a&&m.a.k!=='idea'?{a:m.a}:{})};
+      const base={x:m.x,t:m.t,...(m.sub?{sub:m.sub}:{}),...(m.img?{img:m.img}:{}),...(m.k?{k:m.k}:{}),...(m.r?{r:{t:m.r.t,x:m.r.x}}:{}),...(m.a&&m.a.k!=='idea'?{a:m.a}:{})};
       if(Array.isArray(m.to)&&m.g){
         const done=new Set(m.qd||[]),left=m.to.filter(id=>!done.has(id));let stop=false;
         for(let i=0;i<left.length&&!stop&&sends<10;i+=4){
@@ -26168,29 +26171,29 @@ function dmGroupId(ids){return 'gr:'+(hash([...new Set(ids)].sort().join('|'))>>
 function dmThreads(now){
   const me=myId(),n=S.nation,x=dmx(n),bl=new Set(x.bl||[]),del=x.del||{},th=new Map(),seen=new Set();
   const add=(peer,m)=>{if(bl.has(peer)||bl.has(m.from)||(del[peer]&&m.t<=del[peer])||(isOffice(peer)&&dmOff(peer)))return;const key=peer+'|'+m.from+'|'+m.t;if(seen.has(key))return;seen.add(key);let a=th.get(peer);if(!a)th.set(peer,a=[]);a.push(m);};
-  for(const m of (n&&n.dm)||[]){if(m.i){if(m.t<=now)add(m.w,{from:m.w,t:m.t,x:m.x,mine:false,k:m.k,a:m.a,npc:1});}
-    else add(m.w,{from:me,t:m.t,x:m.x,mine:true,q:!!m.q,b:!!m.b,h:m.h||'',k:m.k,r:m.r,a:m.a,to:m.to,qd:m.qd});}
+  for(const m of (n&&n.dm)||[]){if(m.i){if(m.t<=now)add(m.w,{from:m.w,t:m.t,x:m.x,sub:m.sub,img:m.img,mine:false,k:m.k,a:m.a,npc:1});}
+    else add(m.w,{from:me,t:m.t,x:m.x,sub:m.sub,img:m.img,mine:true,q:!!m.q,b:!!m.b,h:m.h||'',k:m.k,r:m.r,a:m.a,to:m.to,qd:m.qd});}
   /* letters to this nation: as letters/ documents, and any still in a sender's shared record (an older game's) */
   const here=new Set();
-  for(const y of allNations()){if(y.npc||y.me)continue;here.add(y.id);for(const m of y.n.dm||[])if(m.w===me&&!m.i)add(y.id,{from:y.id,t:m.t,x:m.x,mine:false});}
+  for(const y of allNations()){if(y.npc||y.me)continue;here.add(y.id);for(const m of y.n.dm||[])if(m.w===me&&!m.i)add(y.id,{from:y.id,t:m.t,x:m.x,sub:m.sub,img:m.img,mine:false});}
   ltStart();
   const cut=x.cut||{};
   for(const l of LT.list){if(bl.has(l.by))continue;if(!here.has(l.by)){if(l.g||!(S.isOwner||isStaff(l.by)))continue;xnLoad(l.by);}const peer=l.g?l.g.id:l.by;if(!l.g&&cut[peer]&&l.t<cut[peer])continue;
     if(l.g&&!LT.groups[peer])LT.groups[peer]={m:l.g.m,nm:l.g.nm||''};
-    add(peer,{from:l.by,t:l.t,x:l.x,mine:false,id:l.id,k:l.k,r:l.r,a:l.a});}
-  for(const [peer,a] of Object.entries(LT.older))for(const l of a){const mine=l.by===me;add(peer,{from:l.by,t:l.t,x:l.x,mine,id:l.id,k:l.k,r:l.r,a:l.a});}
+    add(peer,{from:l.by,t:l.t,x:l.x,sub:l.sub,img:l.img,mine:false,id:l.id,k:l.k,r:l.r,a:l.a});}
+  for(const [peer,a] of Object.entries(LT.older))for(const l of a){const mine=l.by===me;add(peer,{from:l.by,t:l.t,x:l.x,sub:l.sub,img:l.img,mine,id:l.id,k:l.k,r:l.r,a:l.a});}
   if(n)for(const src of DM_SOURCES){let a=[];try{a=src(n,now)||[];}catch(e){}for(const m of a)if(isOffice(m.peer)&&m.t<=now)add(m.peer,{from:m.peer,t:m.t,x:m.x,mine:false});}
   for(const a of th.values())a.sort((p,q)=>p.t-q.t);
   return th;
 }
-function dmUnreadIn(peer,a,seen){return a.filter(m=>!m.mine&&m.t>(seen[peer]||0)).length;}
+function dmUnreadIn(peer,a,seen){return a.filter(m=>!m.mine&&m.t>(seen[peer]||0)).length||((dmx(S.nation).ur||{})[peer]?1:0);}
 function dmUnread(now){const th=dmThreads(now),seen=(S.nation&&S.nation.seenDm)||{};let c=0;for(const [peer,a] of th)if(!dmMuted(peer))c+=dmUnreadIn(peer,a,seen);return c;}
 function dmPending(peer,now){return ((S.nation&&S.nation.dm)||[]).some(m=>m.i&&m.w===peer&&m.t>now&&!(m.a&&m.a.k==='idea'));}
 function dmArchived(peer,a){const t=(dmx(S.nation).arc||{})[peer];return !!t&&!!a&&a.length>0&&a[a.length-1].t<=t;}
 function markThreadRead(peer){
   const now=Date.now(),th=dmThreads(now).get(peer)||[],seen=(S.nation.seenDm||{})[peer]||0;
-  if(!th.some(m=>!m.mine&&m.t>seen))return false;
-  const n=clone(S.nation);n.seenDm=Object.assign({},n.seenDm||{},{[peer]:now});commit(n);
+  if(!th.some(m=>!m.mine&&m.t>seen)&&!(dmx(S.nation).ur||{})[peer])return false;
+  const n=clone(S.nation);n.seenDm=Object.assign({},n.seenDm||{},{[peer]:now});if(n.dmx&&n.dmx.ur)delete n.dmx.ur[peer];commit(n);
   /* a read receipt, for a player who writes to us (Settings › Letters) */
   if(dmRR()&&!dmIsGroup(peer)&&!isOffice(peer)&&!NPC_SET.has(peer)&&S.mode==='world'){const last=th.filter(m=>!m.mine).slice(-1)[0];if(last)ltApi().then(api=>{if(api&&typeof api.markSeen==='function')api.markSeen(peer,last.t);}).catch(()=>{});}
   return true;
@@ -26199,12 +26202,12 @@ function markThreadRead(peer){
 const DMD_KEY=()=>'edictum.dm.drafts.'+(S.uid||'local');
 function dmDrafts(){if(!S.dmDrafts){try{const o=JSON.parse(localStorage.getItem(DMD_KEY())||'null');S.dmDrafts=o&&typeof o==='object'?o:{};}catch(e){S.dmDrafts={};}}return S.dmDrafts;}
 function dmDraftKeep(){const p=S.msgPeer;if(!p)return;const d=dmDrafts(),c=S.dmCompose||{};
-  if((S.msgDraft||'').trim()||c.k||c.a||c.r)d[p]={x:S.msgDraft||'',k:c.k||'',a:c.a||null,r:c.r||null,t:Date.now()};else delete d[p];
+  if((S.msgDraft||'').trim()||c.k||c.a||c.r||c.sub||c.img)d[p]={x:S.msgDraft||'',k:c.k||'',a:c.a||null,r:c.r||null,sub:c.sub||'',img:c.img||'',t:Date.now()};else delete d[p];
   try{localStorage.setItem(DMD_KEY(),JSON.stringify(Object.fromEntries(Object.entries(d).sort((a,b)=>b[1].t-a[1].t).slice(0,40))));}catch(e){}}
 function dmSetPeer(id){
   if(S.msgPeer===id)return;dmDraftKeep();
   S.msgPeer=id||null;S.msgErr='';S.dmMenu=null;S.dmConfirm=null;S.dmGroupPick=false;
-  const d=id?dmDrafts()[id]:null;S.msgDraft=d?d.x:'';S.dmCompose=d?{k:d.k||'',a:d.a||null,r:d.r||null}:{};
+  const d=id?dmDrafts()[id]:null;S.msgDraft=d?d.x:'';S.dmCompose=d?{k:d.k||'',a:d.a||null,r:d.r||null,sub:d.sub||'',img:dmImageOK(d.img)?d.img:''}:{};
 }
 /* which members a group letter goes to now: the group's latest members, players only, not us */
 function dmGroupTo(id){const me=myId(),g=dmGroupMeta(id);return g.m.filter(x=>x!==me&&!NPC_SET.has(x)&&findNation(x)&&!dmBlocked(x));}
@@ -26214,10 +26217,11 @@ function sendDm(){
   const grp=dmIsGroup(peer);
   if(!peer||(!grp&&!dmFind(peer))){S.msgErr='Choose who to write to.';render();return;}
   if(isOffice(peer))return;
-  if(!x){S.msgErr='Write something first.';render();return;}
+  if(!x&&!dmImageOK(c.img)){S.msgErr='Write something or attach an image first.';render();return;}
+  if(dmImageOK(c.img)&&(S.nation.dm||[]).filter(m=>m.q).reduce((n,m)=>n+String(m.img||'').length,0)+c.img.length>128000){S.msgErr='Too many images are waiting to be delivered. Try again when your queued letters have been sent.';render();return;}
   if(!grp&&dmBlocked(peer)){S.msgErr=`You have blocked ${nameOf(peer)}. Unblock it to write.`;render();return;}
   const now=Date.now(),npc=NPC_SET.has(peer),player=!npc&&S.mode==='world',me=myId();
-  const m={w:peer,t:now,x};if(c.k&&DM_NOTES[c.k])m.k=c.k;if(c.r&&Number.isSafeInteger(c.r.t))m.r={t:c.r.t,x:String(c.r.x||'').slice(0,160),...(c.r.m?{m:1}:{})};if(c.a&&DM_ATT[c.a.k]&&c.a.k!=='idea')m.a=c.a;
+  const m={w:peer,t:now,x};if(c.sub&&c.sub.trim())m.sub=c.sub.trim().slice(0,100);if(dmImageOK(c.img))m.img=c.img;if(c.k&&DM_NOTES[c.k])m.k=c.k;if(c.r&&Number.isSafeInteger(c.r.t))m.r={t:c.r.t,x:String(c.r.x||'').slice(0,160),...(c.r.m?{m:1}:{})};if(c.a&&DM_ATT[c.a.k]&&c.a.k!=='idea')m.a=c.a;
   if(grp){const to=dmGroupTo(peer),g=dmGroupMeta(peer);if(!to.length){S.msgErr='Nobody in this conversation can receive letters just now.';render();return;}
     m.to=to;m.g={id:peer,m:[...new Set([me,...g.m.filter(id=>id===me||to.includes(id))])].slice(0,DM_GROUP_MAX+1),...(g.nm?{nm:g.nm}:{})};if(S.mode==='world')m.q=1;}
   else if(player)m.q=1;
@@ -26366,7 +26370,7 @@ function messagesView(){
     if(AF&&!a.some(m=>m.a&&m.a.k===AF&&dmAttOpen(m.a,m,id,E)))return false;
     if(F==='archived')return arc;if(arc)return false;
     if(F==='unread')return dmUnreadIn(id,a,seen)>0;if(F!=='all'&&dmKind(id)!==F)return false;
-    if(q)return nameOf(id).toLowerCase().includes(q)||a.some(m=>dmPlain(m.x).toLowerCase().includes(q));return true;
+    if(q)return nameOf(id).toLowerCase().includes(q)||a.some(m=>(dmPlain(m.x)+' '+(m.sub||'')).toLowerCase().includes(q));return true;
   }).sort((a,b)=>(pin[b]?1:0)-(pin[a]?1:0)||((th.get(b).slice(-1)[0]||{t:0}).t-(th.get(a).slice(-1)[0]||{t:0}).t));
   const others=allNations().filter(y=>!y.me).sort((a,b)=>(a.npc?1:0)-(b.npc?1:0)||a.n.name.localeCompare(b.n.name));
   const peer=S.msgPeer,po=isOffice(peer)?OFFICES[peer]:null,grp=dmIsGroup(peer),px=peer&&!po&&!grp?dmFind(peer):null,all=peer?(th.get(peer)||[]):[];
@@ -26386,7 +26390,7 @@ function messagesView(){
     const quote=m.r?`<blockquote class="dm-q">${esc(dmPlain(m.r.x))}</blockquote>`:'';
     const who=grp&&!m.mine?`<span class="bub-who">${esc(nameOf(m.from))}${dmFounder(m.from)}</span>`:!m.npc&&!isOffice(m.from)?chatDelegateBadge(m.mine?me:m.from):'';
     const tools=po?'':`<span class="bub-tools">${m.q&&m.mine?`<button type="button" class="linkish small" data-act="dm-withdraw" data-t="${m.t}">Withdraw</button>`:`<button type="button" class="linkish small" data-act="dm-reply" data-t="${m.t}" data-from="${esc(m.from)}">Reply</button>`}${!m.mine&&!m.npc&&!isOffice(m.from)&&S.mode==='world'?`<button type="button" class="linkish small" data-act="dm-report" data-t="${m.t}" data-from="${esc(m.from)}">Report</button>`:''}</span>`;
-    return `${sep}<li class="bub${m.mine?' mine':''}${st?' staff':''}${P.lp?' '+lpClass(P.lp):''}${m.k?' note':''}${P.lm?' has-pm':''}"${lpGlyph(P.lp)}>${P.lm?dmStamp(m.mine?me:m.from,P.lm,m.t):''}${st?'<span class="bub-staff">Edictum staff</span>':''}${who}${note}${quote}${m.npc||isOffice(m.from)?`<p>${esc(m.x)}</p>`:`<div class="dm-x">${scrDmWith(m.mine?me:m.from,()=>dmRich(m.x))}</div>`}${m.a?dmAttCard(m.a,m.from,m.mine,peer):''}${dmSign(m.mine?me:m.from,m.npc?'':P.lg)}${m.npc?'':scrSig(m.mine?me:m.from)}${dmWax(m.mine?me:m.from,P.ls)}<span class="bub-t" title="${esc(dmClock(m.t))}">${rel(m.t)}${status}</span>${tools}</li>`;
+    return `${sep}<li class="bub${m.mine?' mine':''}${st?' staff':''}${P.lp?' '+lpClass(P.lp):''}${m.k?' note':''}${P.lm?' has-pm':''}"${lpGlyph(P.lp)}>${P.lm?dmStamp(m.mine?me:m.from,P.lm,m.t):''}${st?'<span class="bub-staff">Edictum staff</span>':''}${who}<div class="dm-letter-from"><span class="mflag">${dmFace(m.mine?me:m.from)}</span><span>From the office of ${esc(nameOf(m.mine?me:m.from))}</span></div>${m.sub?`<p class="dm-subject">${esc(m.sub)}</p>`:''}${note}${quote}${m.npc||isOffice(m.from)?`<p>${esc(m.x)}</p>`:`<div class="dm-x">${scrDmWith(m.mine?me:m.from,()=>dmRich(m.x))}</div>`}${dmImageOK(m.img)?`<a href="${esc(m.img)}" download="letter-image.jpg"><img class="dm-image" src="${esc(m.img)}" alt="Image attached to letter"></a>`:''}${m.a?dmAttCard(m.a,m.from,m.mine,peer):''}${dmSign(m.mine?me:m.from,m.npc?'':P.lg)}${m.npc?'':scrSig(m.mine?me:m.from)}${dmWax(m.mine?me:m.from,P.ls)}<span class="bub-t" title="${esc(dmClock(m.t))}">${rel(m.t)}${status}</span>${tools}</li>`;
   }).join('');
   const more=hidden>0||(px&&!px.npc&&S.mode==='world'&&!LT.olderEnd[peer]&&all.length>=Math.min(DM_SHOW,8))?`<li class="dm-more"><button type="button" class="linkish small" data-act="dm-older"${S.dmBusy?' disabled':''}>${S.dmBusy?'Fetching earlier letters…':'Show earlier letters'}</button></li>`:'';
   /* the conversation's own menu: pin, mute, archive, delete, block */
@@ -26394,6 +26398,7 @@ function messagesView(){
   const lbHave=peer?dmLabels(peer):'';
   const menu=peer&&!po?`<div class="dm-menu">${mBtn}${mOpen?`<div class="dm-menu-p">
       <div class="dm-menu-lb" role="group" aria-label="Labels"><span class="hint">Labels, only for you</span><div class="dm-menu-lbs">${DM_LABELS.map(([k,l])=>`<button type="button" class="chip-btn dm-lbc dm-lb-${k}${lbHave.includes(k)?' on':''}" data-act="dm-label" data-id="${esc(peer)}" data-v="${k}" aria-pressed="${lbHave.includes(k)}"><i class="dm-dot dm-lb-${k}" aria-hidden="true"></i>${l}</button>`).join('')}</div></div>
+      <button type="button" class="linkish small" data-act="dm-unread" data-id="${esc(peer)}">Mark unread</button>
       <button type="button" class="linkish small" data-act="dm-pin" data-id="${esc(peer)}">${pin[peer]?'Unpin':'Pin to the top'}</button>
       <button type="button" class="linkish small" data-act="dm-mute" data-id="${esc(peer)}">${dmMuted(peer)?'Unmute':'Mute: no notices, no badge'}</button>
       <button type="button" class="linkish small" data-act="dm-arc" data-id="${esc(peer)}">${dmArchived(peer,all)?'Move back to the inbox':'Archive'}</button>
@@ -26409,7 +26414,9 @@ function messagesView(){
         ${opts.length?`<div class="dm-att"><button type="button" class="btn ghost small dm-att-b" data-act="dm-attmenu" aria-expanded="${!!S.dmAttOpen}">Attach</button>${S.dmAttOpen?`<div class="dm-att-p">${opts.map(([a,l],i)=>`<button type="button" class="linkish small" data-act="dm-attach" data-i="${i}">${esc(l)}</button>`).join('')}</div>`:''}</div>`:''}
         ${!grp&&px&&!px.npc&&!px.far?`<button type="button" class="linkish small" data-act="go" data-v="trade" data-dm-trade="${esc(peer)}">Propose a deal</button>`:''}</div>
       ${c.a?`<div class="dm-att-chip"><span>${esc(DM_ATT[c.a.k]||'Attachment')}: ${esc((opts.find(o=>JSON.stringify(o[0])===JSON.stringify(c.a))||[0,c.a.nm||''])[1])}</span><button type="button" class="linkish small" data-act="dm-unattach" aria-label="Remove the attachment">×</button></div>`:''}
+      <label class="lbl" for="dm-subject">Subject (optional)</label><input class="input" id="dm-subject" maxlength="100" value="${esc(c.sub||'')}">
       <div class="dm-lblrow"><label class="lbl" for="dm-text">${grp?`Letter to ${esc(nameOf(peer))}`:`Message to ${esc(px.n.name)}`}</label>${dmFmtBar()}</div><textarea class="input" id="dm-text" data-bind="dm" maxlength="${DM_MAX}" rows="4" placeholder="${grp?'Dear friends…':'Your Excellency…'}" aria-describedby="dm-fmt-h">${esc(S.msgDraft||'')}</textarea>${S.msgErr?`<p class="err">${esc(S.msgErr)}</p>`:''}
+      <div class="dm-emojis" aria-label="Insert emoji">${['😀','😊','🤝','❤️','🎉','🌍','🕊️','👑'].map(e=>`<button type="button" class="btn ghost" data-act="dm-emoji" data-emoji="${e}" aria-label="Insert ${e}">${e}</button>`).join('')}</div><p class="hint">Paste an image into the letter to attach it. Images are reduced to a thumbnail.</p>${dmImageOK(c.img)?`<div class="dm-image-preview"><img class="dm-image" src="${esc(c.img)}" alt="Attached image preview"><button type="button" class="linkish small" data-act="dm-image-remove">Remove image</button></div>`:''}
       <div class="dm-prev bub"${S.dmPrev&&String(S.msgDraft||'').trim()?'':' hidden'} id="dm-prev" aria-live="polite"><p class="dm-prev-h">Preview</p><div class="dm-x">${S.dmPrev?scrDmWith(myId(),()=>dmRich(S.msgDraft||'')):''}</div></div>
       ${unans>=DM_CAP-2&&!isStaff(me)?`<p class="hint dm-warn">${unans>=DM_CAP?`You have written ${DM_CAP} letters in a row. The next waits until ${esc(px.n.name)} answers.`:`You have written ${unans} letters in a row; after ${DM_CAP}, the next waits for an answer.`}</p>`:''}
       <div class="row"><button class="btn" type="submit">Send</button><span class="hint" id="dm-count">${(S.msgDraft||'').length} / ${fmt0(DM_MAX)}</span><span class="hint dm-keys">Ctrl+Enter sends</span><span class="hint dm-fmt-h" id="dm-fmt-h">**bold**, *italic*, [[in your script]], “- ” or “1. ” starts a list</span></div></form>`:'';
@@ -26449,6 +26456,9 @@ document.addEventListener('click',e=>{
   else if(a==='dm-prev'){S.dmPrev=!S.dmPrev;el.setAttribute('aria-pressed',String(S.dmPrev));dmPrevPaint();}
   else if(a==='dm-menu'){S.dmMenu=S.dmMenu===S.msgPeer?null:S.msgPeer;S.dmAttOpen=false;render();const b=document.querySelector('.dm-menu-p button');if(b)b.focus();}
   else if(a==='dm-attmenu'){S.dmAttOpen=!S.dmAttOpen;S.dmMenu=null;render();const b=document.querySelector('.dm-att-p button');if(b)b.focus();}
+  else if(a==='dm-unread'){S.dmMenu=null;dmToggle('ur',id,true);dmSetPeer(null);render();}
+  else if(a==='dm-image-remove'){delete S.dmCompose.img;dmDraftKeep();render();}
+  else if(a==='dm-emoji'){const ta=document.getElementById('dm-text');if(ta){const pos=ta.selectionStart,emoji=el.dataset.emoji;ta.setRangeText(emoji,pos,ta.selectionEnd,'end');ta.dispatchEvent(new Event('input',{bubbles:true}));ta.focus();}}
   else if(a==='dm-pin'){S.dmMenu=null;dmToggle('pin',id,!(dmx(S.nation).pin||{})[id]);}
   else if(a==='dm-mute'){S.dmMenu=null;const on=!dmMuted(id);dmToggle('mu',id,on);toast(on?'Muted: no notices or badge for this conversation.':'Unmuted.');}
   else if(a==='dm-arc'){S.dmMenu=null;const arc=dmArchived(id,dmThreads(Date.now()).get(id));dmToggle('arc',id,!arc);if(!arc){S.msgPeer=null;render();}}
@@ -26489,7 +26499,11 @@ document.addEventListener('change',e=>{const t=e.target;if(!t||!S.nation)return;
 document.addEventListener('input',e=>{const t=e.target;if(!t)return;
   if(t.id==='dm-s'){S.dmS=t.value.slice(0,60);const p=t.selectionStart;render();const i=document.getElementById('dm-s');if(i){i.focus();try{i.setSelectionRange(p,p);}catch(er){}}}
   else if(t.id==='dm-gname')S.dmGName=t.value.slice(0,60);
+  else if(t.id==='dm-subject'){S.dmCompose={...(S.dmCompose||{}),sub:t.value};dmDraftKeep();}
   else if(t.id==='dm-text'){clearTimeout(DMF.dt);DMF.dt=setTimeout(dmDraftKeep,600);S.msgDraft=t.value;if(S.dmPrev)dmPrevPaint();}
+});
+document.addEventListener('paste',e=>{
+  if(!e.target||e.target.id!=='dm-text'||!S.msgPeer)return;const item=[...(e.clipboardData&&e.clipboardData.items||[])].find(i=>i.type.startsWith('image/'));if(!item)return;e.preventDefault();const peer=S.msgPeer,file=item.getAsFile();if(!file)return;const url=URL.createObjectURL(file),img=new Image();img.onload=()=>{URL.revokeObjectURL(url);if(!img.width||!img.height)return;const cv=document.createElement('canvas'),scale=Math.min(1,360/img.width,360/img.height);cv.width=Math.max(1,Math.round(img.width*scale));cv.height=Math.max(1,Math.round(img.height*scale));const ctx=cv.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,cv.width,cv.height);ctx.drawImage(img,0,0,cv.width,cv.height);let data='';for(let q=.75;q>=.15;q-=.1){data=cv.toDataURL('image/jpeg',q);if(dmImageOK(data))break;}if(!dmImageOK(data)){toast('This image could not be reduced enough to attach.');return;}if(S.msgPeer!==peer){toast('The image was not attached because you changed conversations.');return;}S.dmCompose={...(S.dmCompose||{}),img:data};dmDraftKeep();render();};img.onerror=()=>{URL.revokeObjectURL(url);toast('Could not read that image.');};img.src=url;
 });
 document.addEventListener('keydown',e=>{const t=e.target;if(!t||t.id!=='dm-text'||!(e.ctrlKey||e.metaKey)||e.altKey)return;
   const k=e.key.toLowerCase();if(k==='b'||k==='i'){e.preventDefault();dmFmtApply(t,k);return;}
@@ -26569,7 +26583,7 @@ function notifItems(now){
   ev.push(...allianceEvents(n,me));
   ev.push(...runHooks(NOTIF_SOURCES,n,now));
   for(const c of n.cities||[])for(const b of c.b)if(b.d<=now&&now-b.d<14*DAY&&BUILDINGS[b.k])ev.push({t:b.d,k:'build',txt:`${BUILDINGS[b.k].w?'The ':''}${BUILDINGS[b.k].n} in ${cityLabel(n,c)} is complete.`,go:'cities',dl:'bld:'+c.id+':'+b.k});
-  const sd=n.seenDm||{};for(const [peer,a] of dmThreads(now))if(!dmMuted(peer))for(const m of a)if(!m.mine)ev.push({t:m.t,k:'msg',txt:`${dmIsGroup(peer)?nameOf(m.from)+' in '+nameOf(peer):nameOf(peer)}${isStaff(m.from)?' (Edictum staff)':''}: “${m.x.length>90?m.x.slice(0,88)+'…':m.x}”`,go:'messages',peer,read:m.t<=(sd[peer]||0)});
+  const sd=n.seenDm||{};for(const [peer,a] of dmThreads(now))if(!dmMuted(peer))for(const m of a)if(!m.mine)ev.push({t:m.t,k:'msg',txt:`${dmIsGroup(peer)?nameOf(m.from)+' in '+nameOf(peer):nameOf(peer)}${isStaff(m.from)?' (Edictum staff)':''}: “${m.x?(m.x.length>90?m.x.slice(0,88)+'…':m.x):'Image attached'}”`,go:'messages',peer,read:m.t<=(sd[peer]||0)});
   ev.sort((a,b)=>b.t-a.t);
   return {pin,ev:ev.slice(0,40)};
 }
@@ -53467,7 +53481,7 @@ function normalizeBase(d){
   return {v:1,_rev:Number.isSafeInteger(d._rev)&&d._rev>=0?d._rev:0,_dirty:!!d._dirty,name,pretitle:str(d.pretitle,40)||'Republic',motto:str(d.motto,80),capital:str(d.capital,40)||'the capital',leader:str(d.leader,40)||'Leader',
     currency:str(d.currency,30)||'crown',animal:str(d.animal,30)||'otter',demonym:str(d.demonym,40)||demonymOf(name),flag,founded:num(d.founded,now),capAt:num(d.capAt,0)||undefined,
     s,budget,policies,pop:clamp(num(d.pop,5),0.1,1e9),popAt:num(d.popAt,now),answered,inbox,issueClock:num(d.issueClock,now),issueSeq:num(d.issueSeq,0),
-    freq:FREQS.some(x=>x[0]===d.freq)?d.freq:FREQ_DEF,log,seed:str(d.seed,40)||'1',updatedAt:num(d.updatedAt,0),loc:validLoc(d.loc),wars,peace,conq,cv:MAP_VER,ready:Number.isInteger(d.ready)?clamp(d.ready,0,MAX_READY):READY_BASE,readyAt:num(d.readyAt,now),alli,allyOf:str(d.allyOf,60),spy,intel,deals,dealNo,trFav,trX,gm:clamp(num(d.gm,1),0.5,1.6),cities:normCities(d),cab:normCab(d,str(d.seed,40)||'1',num(d.founded,now)),cabSeq:Math.max(7,Math.floor(num(d.cabSeq,7))),cabAt:num(d.cabAt,0),la:clamp(num(d.la,45+hash((str(d.seed,40)||'1')+':la')%14),20,110),lt:num(d.lt,num(d.founded,now)),games:normGames(d),lore:d.lore&&typeof d.lore==='object'?Object.fromEntries(LORE.map(([k])=>[k,typeof d.lore[k]==='string'?d.lore[k].slice(0,2000):'']).filter(([,v])=>v.trim())):{},hist:Array.isArray(d.hist)?d.hist.filter(h=>h&&typeof h.t==='number'&&typeof h.p==='number'&&Array.isArray(h.s)&&h.s.length===STAT_KEYS.length).slice(-90).map(h=>({t:h.t,p:h.p,s:h.s.map(v=>clamp(num(v,50),0,100))})):[],claims:Array.isArray(d.claims)?(d.cv===undefined||d.cv===MAP_VER?d.claims.filter(e=>e&&Number.isInteger(e.c)&&e.c>=0&&e.c<MAP.N&&typeof e.t==='number'&&isFinite(e.t)).slice(-CLAIM_MAX).map(e=>({c:e.c,t:e.t})):[]):undefined,autoLand:!!d.autoLand,mileAck:Number.isInteger(d.mileAck)?clamp(d.mileAck,0,MILESTONES.length):undefined,seen:num(d.seen,0),dm:Array.isArray(d.dm)?d.dm.filter(m=>m&&typeof m.w==='string'&&typeof m.x==='string'&&m.x.trim()).slice(-400).map(dmNorm):[],seenDm:d.seenDm&&typeof d.seenDm==='object'?Object.fromEntries(Object.entries(d.seenDm).filter(([k,v])=>k.length<=90&&typeof v==='number'&&isFinite(v)).slice(-300)):{},stock:Object.fromEntries(RES.map(r=>[r,clamp(num(d.stock&&d.stock[r],START_STOCK[r]),0,whLoadCap(d)+xsOf(d))])),stockAt:num(d.stockAt,now),
+    freq:FREQS.some(x=>x[0]===d.freq)?d.freq:FREQ_DEF,log,seed:str(d.seed,40)||'1',updatedAt:num(d.updatedAt,0),loc:validLoc(d.loc),wars,peace,conq,cv:MAP_VER,ready:Number.isInteger(d.ready)?clamp(d.ready,0,MAX_READY):READY_BASE,readyAt:num(d.readyAt,now),alli,allyOf:str(d.allyOf,60),spy,intel,deals,dealNo,trFav,trX,gm:clamp(num(d.gm,1),0.5,1.6),cities:normCities(d),cab:normCab(d,str(d.seed,40)||'1',num(d.founded,now)),cabSeq:Math.max(7,Math.floor(num(d.cabSeq,7))),cabAt:num(d.cabAt,0),la:clamp(num(d.la,45+hash((str(d.seed,40)||'1')+':la')%14),20,110),lt:num(d.lt,num(d.founded,now)),games:normGames(d),lore:d.lore&&typeof d.lore==='object'?Object.fromEntries(LORE.map(([k])=>[k,typeof d.lore[k]==='string'?d.lore[k].slice(0,2000):'']).filter(([,v])=>v.trim())):{},hist:Array.isArray(d.hist)?d.hist.filter(h=>h&&typeof h.t==='number'&&typeof h.p==='number'&&Array.isArray(h.s)&&h.s.length===STAT_KEYS.length).slice(-90).map(h=>({t:h.t,p:h.p,s:h.s.map(v=>clamp(num(v,50),0,100))})):[],claims:Array.isArray(d.claims)?(d.cv===undefined||d.cv===MAP_VER?d.claims.filter(e=>e&&Number.isInteger(e.c)&&e.c>=0&&e.c<MAP.N&&typeof e.t==='number'&&isFinite(e.t)).slice(-CLAIM_MAX).map(e=>({c:e.c,t:e.t})):[]):undefined,autoLand:!!d.autoLand,mileAck:Number.isInteger(d.mileAck)?clamp(d.mileAck,0,MILESTONES.length):undefined,seen:num(d.seen,0),dm:Array.isArray(d.dm)?d.dm.filter(m=>m&&typeof m.w==='string'&&typeof m.x==='string'&&(m.x.trim()||dmImageOK(m.img))).slice(-400).map(dmNorm):[],seenDm:d.seenDm&&typeof d.seenDm==='object'?Object.fromEntries(Object.entries(d.seenDm).filter(([k,v])=>k.length<=90&&typeof v==='number'&&isFinite(v)).slice(-300)):{},stock:Object.fromEntries(RES.map(r=>[r,clamp(num(d.stock&&d.stock[r],START_STOCK[r]),0,whLoadCap(d)+xsOf(d))])),stockAt:num(d.stockAt,now),
     ruler:str(d.ruler,40).trim(),lang:str(d.lang,30).trim(),faith:str(d.faith,50).trim(),beliefOutlook:beliefValue(BELIEF_OUTLOOK,d.beliefOutlook),beliefGov:beliefValue(BELIEF_GOV,d.beliefGov),beliefWords:str(d.beliefWords,160).trim(),beliefOccasion:str(d.beliefOccasion,60).trim(),sport:str(d.sport,30).trim(),dish:str(d.dish,40).trim(),anthem:str(d.anthem,60).trim(),about:str(d.about,280).trim(),mapc:safeColor(d.mapc,''),topics};
 }
 /* observing another region (OBS), this browser's copy is neither read (its cells belong to another map) nor written */

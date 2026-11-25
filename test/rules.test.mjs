@@ -767,6 +767,10 @@ test('a letter may be a formal note, answer a letter, carry an attachment, or go
   await assertSucceeds(ok('A note', { k: 'protest' }));
   await assertSucceeds(ok('y'.repeat(2500)));                                                               // a long letter
   await assertFails(ok('No such note', { k: 'insult' }));
+  await assertSucceeds(ok('', { sub: 'Photograph', img: 'data:image/jpeg;base64,AAAA' }));
+  await assertFails(ok('', { img: 'data:image/svg+xml;base64,AAAA' }));
+  await assertFails(ok('x', { img: 'data:image/jpeg;base64,' + 'A'.repeat(16000) }));
+  await assertFails(ok('x', { sub: 'x'.repeat(101) }));
   await assertSucceeds(ok('An answer', { r: { t: t - 5, x: 'Your letter' } }));
   await assertFails(ok('A long answer', { r: { t: t - 5, x: 'y'.repeat(161) } }));
   await assertSucceeds(ok('A trade offer', { a: { k: 'deal', id: 'd1' } }));

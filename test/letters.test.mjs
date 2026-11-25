@@ -11,6 +11,7 @@ const line = start => { const i = src.indexOf(start), j = src.indexOf('\n', i); 
 const ctx = vm.createContext({});
 vm.runInContext(`${line('const DM_PEER_KEEP=')}
 ${line('const DM_LABELS=')}
+${line('function dmImageOK(')}
 ${line('const dmUid=')}
 ${line('const esc = ')}
 ${line('const DM_B=')}
@@ -35,6 +36,16 @@ test('the own copy keeps a letter’s note, answer, attachment and group, and no
   assert.equal(dmNorm({ w: 'bob', t: 1, x: 'x', h: 'whenever' }).h, undefined);
   assert.equal(DM_MAX, 2500);
   assert.equal(dmNorm({ w: 'bob', t: 1, x: 'z'.repeat(DM_MAX) }).x.length, DM_MAX);                     // a long letter is kept whole
+});
+
+test('subject and safe images survive normalization and count toward storage', () => {
+  const img = 'data:image/jpeg;base64,' + 'A'.repeat(15000);
+  const m = dmNorm({w:'bob',t:1,x:'',sub:'A subject',img});
+  assert.equal(m.sub,'A subject'); assert.equal(m.img,img);
+  assert.equal(dmNorm({w:'bob',t:1,x:'x',img:'data:image/svg+xml;base64,AAA'}).img,undefined);
+  assert.equal(dmNorm({w:'bob',t:1,x:'x',img:img+'A'.repeat(1000)}).img,undefined);
+  const n={dm:Array.from({length:30},(_,i)=>({w:'bob',t:i,x:'',img}))};dmTrim(n);
+  assert.ok(n.dm.reduce((sum,m)=>sum+m.img.length,0)<=DM_CHARS);
 });
 
 test('letter settings keep only what they should', () => {
