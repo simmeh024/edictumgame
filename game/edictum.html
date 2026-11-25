@@ -101952,7 +101952,8 @@ const RSV={skew:0,pend:null,sent:-1,kept:null,toast:''};
 const rsNow=()=>Date.now()-Math.max(0,RSV.skew);
 /* international cooperation's share more (at most RS_RULES.intlMax) and the nation's own (domMax), each with its parts */
 function rsIntl(n,now){
-  const parts=[],id=n===S.nation?myId():alIdOf(n);if(!id||n.npc)return {v:0,parts};
+  /* the player's own record, or a copy of it in a commit (islMine), is this player's; another's is found by its record */
+  const parts=[],id=n===S.nation||islMine(n)?myId():alIdOf(n);if(!id||n.npc)return {v:0,parts};
   try{
     for(const A of alliancesOf(id)){if(!A||!A.srv||!A.members.includes(id))continue;const D=A.doc||{},pj=k=>AL_RULES.tyPj[k]&&AL_RULES.tyPj[k]!==D.ty?0:clamp(num0((D.pj||{})[k]),0,3);
       if(D.ty==='research'){parts.push([`${A.name}, a research accord`,0.05]);if(pj('academy'))parts.push([`its Alliance Academy (level ${pj('academy')})`,0.05*pj('academy')]);
@@ -102089,7 +102090,7 @@ const rsIsIntel=r=>!!(r.fx.spy||r.fx.cspy),rsIsFin=r=>!!(r.fx.fx||r.fx.cf||(r.fx
   rsIsSoc=r=>!!(r.fx.once&&(r.fx.once.happy||r.fx.once.culture||r.fx.once.edu)),rsIsMilEng=r=>!!(r.fx.bx&&(r.fx.bx.fortress||r.fx.bx.barracks||r.fx.bx.armoury)),
   rsIsNaval=r=>!!(r.fx.bx&&(r.fx.bx.dockyard||r.fx.bx.harbour))||r.ico==='ship'||r.ico==='anchor',rsIsDef=r=>!!r.fx.def,rsIsSpace=r=>!!(r.fx.space||(r.fx.bx&&r.fx.bx.observ));
 function rsDisc(n,i,now){
-  now=now||Date.now();const r=RS[i],tk=RS_TRACKS[r.k].k,parts=[],id=n===S.nation?myId():alIdOf(n),add=(l,v)=>{if(v>0)parts.push([l,Math.round(v*1000)/1000]);};
+  now=now||Date.now();const r=RS[i],tk=RS_TRACKS[r.k].k,parts=[],id=n===S.nation||islMine(n)?myId():alIdOf(n),add=(l,v)=>{if(v>0)parts.push([l,Math.round(v*1000)/1000]);};
   try{for(const A of alliancesOf(id)){
     if(!A||!A.srv||!A.members.includes(id))continue;const D=A.doc||{},ty=D.ty,pj=k=>AL_RULES.tyPj[k]&&AL_RULES.tyPj[k]!==ty?0:clamp(num0((D.pj||{})[k]),0,3);
     if(ty==='research'||RS_TRACKS[r.k].al===ty)add(`${A.name} (${AL_TYPES[ty]?AL_TYPES[ty].n:ty})`,0.05);
