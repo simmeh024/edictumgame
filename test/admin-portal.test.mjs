@@ -30,7 +30,7 @@ vm.runInContext([
   'const REPORT_WHY={name:"Offensive name",content:"Offensive content",spam:"Spam or advertising"};',
   /* the parts of the page the queue leans on, stubbed: they are the subject of their own tests */
   'const admImpactBox=()=>"";const admWhyBox=()=>"";const admKeysHint=()=>"";',
-  'const S={isOwner:true,mod:{}};const ADM={d:null,ask:null,act:""};const ADMR={pick:0};',
+  'const S={isOwner:true,mod:{}};const ADM={d:null,ask:null,act:""};const ADMR={pick:0};const modPreview=()=>false;',
   'const ADMH={d:null},BGA={list:null},AW={a:null};',
   /* the ambassadors' notes, which a moderator sees in the queue as well (functions/ambassador.js, ambPass) */
   'const ABN={d:null};const ABN_KIND={threat:"Threat",scam:"Scam",trouble:"Trouble",broken:"Broken",silence:"Silence"};',

@@ -35,6 +35,18 @@ check('before the appointment, the envoy’s line has no pill', (await pillOn(B,
 /* ── 2. an admin appoints the ambassador on the player's portal page ── */
 await closeChat(A);
 await A.waitForSelector('.side-who .adm-pill'); await A.click('.side-who .adm-pill');
+/* An admin can inspect both role interfaces without taking actions as either role. */
+await A.selectOption('#role-preview', 'moderator');
+check('moderator preview shows its own menu and the read-only banner', await until(async () => /Moderator preview/.test(await text(A, '.adm-main')) && !!(await A.$('.adm-nav [data-v="admin-reports"]')) && !(await A.$('.adm-nav [data-v="admin-stats"]'))));
+await A.selectOption('#role-preview', 'ambassador');
+check('ambassador preview loads its own region from the server', await until(async () => /Ambassador preview/.test(await text(A, '.adm-main')) && !!(await A.$('#role-preview-region')) && /Counted/.test(await text(A, '.adm-main')), 20000));
+await A.click('.adm-nav [data-v="amb-praise"]');
+check('ambassador actions are disabled in preview', await until(async () => !!(await A.$('[data-act="amb-commend"]:disabled'))));
+const options = await A.$$eval('#role-preview-region option', es => es.map(e => e.value));
+const other = options.find(x => x !== reg);
+if (other) { await A.selectOption('#role-preview-region', other); check('the admin can preview another region', await until(async () => (await text(A, '.adm-fresh')).includes(await A.$eval('#role-preview-region', e => e.selectedOptions[0].textContent)), 20000)); }
+await A.selectOption('#role-preview', 'admin');
+check('the switch returns to the admin portal', await until(async () => !!(await A.$('.adm-nav [data-v="admin-stats"]')) && !(await A.$('#role-preview-region'))));
 await A.click('.adm-nav [data-v="admin-players"]'); await until(async () => !(await A.$('.adm-main [role="status"]')));
 await A.fill('#admin-q', uidM); await A.click('#admin-search button:not([type])');
 await until(async () => !!(await A.$(`.tbl [data-act="admin-inspect"][data-id="${uidM}"]`)), 15000);
