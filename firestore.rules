@@ -336,7 +336,9 @@ service cloud.firestore {
     // Never to a nation that blocked the writer (lblock), at most 150 a day (llimits), and, outside group letters,
     // at most ten in a row to a nation that has not answered (lpair, which the same batch counts up).
     function letterExtras(d) {
-      return (!('k' in d) || d.k in ['congrats', 'protest', 'condol', 'friend', 'ultim', 'treaty'])
+      return (!('sub' in d) || (d.sub is string && d.sub.size() <= 100))
+        && (!('img' in d) || (d.img is string && d.img.size() <= 16000 && d.img.matches('^data:image/jpeg;base64,[A-Za-z0-9+/=]+$')))
+        && (!('k' in d) || d.k in ['congrats', 'protest', 'condol', 'friend', 'ultim', 'treaty'])
         && (!('r' in d) || (d.r is map && d.r.keys().hasAll(['t', 'x']) && d.r.keys().hasOnly(['t', 'x'])
           && d.r.t is int && d.r.x is string && d.r.x.size() <= 160))
         && (!('a' in d) || (d.a is map && d.a.keys().hasAll(['k']) && d.a.keys().hasOnly(['k', 'id', 'c', 'nm'])
@@ -350,10 +352,10 @@ service cloud.firestore {
           && (!('nm' in d.g) || (d.g.nm is string && d.g.nm.size() <= 60))));
     }
     function validLetter(id, d) {
-      return d.keys().hasAll(['by', 'to', 'x', 't', 'ts', 'exp']) && d.keys().hasOnly(['by', 'to', 'x', 't', 'ts', 'exp', 'k', 'r', 'a', 'g'])
+      return d.keys().hasAll(['by', 'to', 'x', 't', 'ts', 'exp']) && d.keys().hasOnly(['by', 'to', 'x', 't', 'ts', 'exp', 'k', 'r', 'a', 'g', 'sub', 'img'])
         && d.by == request.auth.uid && d.ts == request.time
         && d.to is string && d.to.size() > 0 && d.to.size() <= 128 && d.to != d.by
-        && d.x is string && d.x.size() > 0 && d.x.size() <= 2500
+        && d.x is string && (d.x.size() > 0 || 'img' in d) && d.x.size() <= 2500
         && d.t is int && d.t <= request.time.toMillis() + 86400000 && d.t > request.time.toMillis() - 30 * 86400000
         && d.exp is timestamp && d.exp > request.time + duration.value(360, 'd') && d.exp < request.time + duration.value(370, 'd')
         && id == d.by + '~' + d.to + '~' + string(d.t)
