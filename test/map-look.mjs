@@ -67,6 +67,9 @@ const shut = page => page.evaluate(() => { const c = document.querySelector('#ma
   return { exp: c.querySelector('.mlk-tg')?.getAttribute('aria-expanded'), body: !!c.querySelector('.mlk-sws, .mlk-t, .mlk-hint'), hidden: !!c.querySelector('#mlk-b')?.hidden, sum: s && getComputedStyle(s).display !== 'none' ? s.textContent : '', h: Math.round(c.getBoundingClientRect().height) }; });
 /* where a swatch sits on screen, with the page's and the map panel's scroll */
 const swAt = (page, v) => page.evaluate(v => { const b = document.querySelector(`#map-panel .mlk-sws [data-val="${v}"]`), p = document.getElementById('map-panel'); if (!b) return null; return { top: Math.round(b.getBoundingClientRect().top), y: Math.round(scrollY), p: Math.round(p.scrollTop) }; }, v);
+/* how many colours the picture offers without an unlock: MAP_COLORS' own length, and the three the
+   Cartographer's Pack adds on top of it. Appending a colour to the free palette raises the first. */
+const FREE_MC = 18, CTG_MC_N = 3;
 /* the main map's picture, to tell whether it was drawn again */
 const mapPic = page => page.evaluate(() => { const v = document.querySelector('canvas.map-cv'); try { return v ? v.toDataURL() : ''; } catch (e) { return ''; } });
 /* the Shop as the server would have it: these three packs on sale (no Paddle prices in local mode) */
@@ -93,7 +96,7 @@ try {
     check('opened, it shows the colours, the focus stays on its button, and it is remembered', z.exp === 'true' && z.sws && z.focus && z.ls === '1', z);
     await calm(page); let c = await card(page);
     check('the map panel has "Your map look" under Your territory', c && c.h === 'Your map look' && await page.evaluate(() => { const p = document.getElementById('map-panel'), m = p.querySelector('.mlk'), b = p.querySelector('[data-act="map-me"]'); return !!b && !!(b.compareDocumentPosition(m) & Node.DOCUMENT_POSITION_FOLLOWING); }), c);
-    check('the colour comes from the flag (Match my flag pressed), with the twelve colours to pick from', c.colour === 'From your flag' && c.flag === 'true' && c.free === 12 && !c.on, c);
+    check('the colour comes from the flag (Match my flag pressed), with the eighteen free colours to pick from', c.colour === 'From your flag' && c.flag === 'true' && c.free === FREE_MC && !c.on, c);
     check('the tutorial’s Orchid is shown locked, saying which task earns it', c.lockSw.length === 1 && c.lockSw[0] === 'mlk-mc-lock:rmb' && c.locks.length === 1 && /^Orchid: Earned by the tutorial task “.+”/.test(c.locks[0]), c);
     check('with nothing for sale and nothing held, no hex backgrounds are offered', c.tiles.length === 0 && c.te === 'Plain' && !c.foot, c.tiles);
 
@@ -182,7 +185,7 @@ try {
     await calm(page); c = await card(page);
     const w = c.tiles.find(x => x.id === 'te-wash'), h = c.tiles.find(x => x.id === 'te-hatch');
     check('held: the worn finish says Wearing, another held one sits beside it unlocked, the rest stay locked under their packs', c.te === 'Hand-Coloured' && w.on && w.s === 'Wearing' && !w.lock && w.act === 'mlk-cz' && h.s === '' && !h.lock && c.tiles.find(x => x.id === 'te-fret').lock && !c.tiles[0].on && c.groups.length === 2 && /^Mayan Pack/.test(c.groups[0]), { t: c.tiles, g: c.groups });
-    check('held: the Cartographer’s colours are free to pick, and no longer in the locks', c.free === 15 && !c.locks.some(l => /Prussian/.test(l)), c);
+    check('held: the Cartographer’s colours are free to pick, and no longer in the locks', c.free === FREE_MC + CTG_MC_N && !c.locks.some(l => /Prussian/.test(l)), c);
     await calm(page); await page.click('#map-panel .mlk-t[data-id="te-hatch"]');
     check('a held finish opens Customise › Map at Land', await until(() => page.evaluate(() => { const g = document.querySelector('.cz-g-te'); if (window.__game.S.view !== 'customise' || !g || location.hash !== '#customise/map') return false; const r = g.getBoundingClientRect(); return r.top < innerHeight && r.bottom > 0; })));
     await go('map');
