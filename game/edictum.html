@@ -10881,6 +10881,15 @@ span.rs-card{cursor:default}
 .sta-i.cast .sta-svg{opacity:.38}.sta-ask{display:flex;flex-direction:column;align-items:center;gap:4px}
 .sta-form{display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap;margin-top:14px}.sta-prev .sta-svg{width:110px;height:161px;display:block}.sta-pick{flex:1;min-width:min(240px,100%)}.sta-nm{margin:10px 0 6px}
 .mp-rail-up{display:block;margin-top:2px}.mp-rail-ask{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin-top:4px}
+
+/* Dhaluun's signed warning in the alliance channel and chat drawer. */
+.al-msg.dh-warning,.rgc-l.dh-warning{max-width:100%;margin:12px 0;padding:14px 16px;border:1px solid #c39a19;border-left:5px solid #b18408;border-radius:6px;background:#fff2b8;color:#503a0b;box-shadow:0 2px 7px #72590013}
+.dh-warning-label{display:block;flex-basis:100%;margin:0 0 8px;font:700 11px/1.4 var(--f-mono);letter-spacing:.07em;text-transform:uppercase;color:#735100}
+.dh-warning-label span{font-size:16px;margin-right:5px;vertical-align:-1px}
+.dh-warning .al-msg-x,.dh-warning .rgc-x,.dh-warning .rgc-nm,.dh-warning .linkish,.dh-warning .hint,.dh-warning time{color:inherit}
+:root[data-theme="dark"] .dh-warning{background:#423719;color:#ffedb2;border-color:#b59334;border-left-color:#e2b53c}
+:root[data-theme="dark"] .dh-warning-label{color:#ffda76}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]) .dh-warning{background:#423719;color:#ffedb2;border-color:#b59334;border-left-color:#e2b53c}:root:not([data-theme="light"]) .dh-warning-label{color:#ffda76}}
 </style>
 
 <div id="app"></div>
@@ -88522,7 +88531,7 @@ function alNextLeader(A){const D=A.doc;return Object.entries(D.mem).filter(([id]
 function alChannelHTML(A){
   const C=AL.chat,me=myId(),mod=alCan(A,me,'o'),reg=civicRegistered(),U=AL_TY_UI[A.doc.ty]||AL_TY_UI.def,now=Date.now();
   const role=id=>{const r=alRoleOf(A,id);return r==='ld'||r==='o'?r:'';};
-  const msg=m=>{const r=role(m.a);return `<li class="al-msg${m.a===me?' me':''}${r?' al-r-'+r:''}"><p class="al-msg-h"><b>${m.a===me?'You':nationLink(m.a,findNation(m.a)?findNation(m.a).n.name:m.nm,false)}</b>${chatDelegateBadge(m.a)}${r?`<span class="al-msg-r">${r==='ld'?alGlyph('leader'):''}${esc(r==='ld'?U.lead:U.off)}</span>`:''}<span class="hint">${esc(rel(m.t))}</span>${m.a===me||mod?`<button type="button" class="linkish small" data-act="dp-chat-del" data-id="${esc(m.id)}" aria-label="Delete this message">Delete</button>`:''}</p><p class="al-msg-x">${rgcText(m.x,m.mn).replace(/\n/g,'<br>')}</p><div class="al-react" role="group" aria-label="React to this message">${RGC_RX.slice(0,8).map(([k,e,l])=>{const count=Object.values(m.rv||{}).filter(v=>v===k).length,mine=m.rv&&m.rv[me]===k;return `<button type="button" data-act="dp-react" data-id="${esc(m.id)}" data-k="${k}" aria-label="${esc(l)}" title="${esc(l)}" aria-pressed="${!!mine}">${e}${count?' '+count:''}</button>`;}).join('')}</div></li>`;};
+  const msg=m=>{const r=role(m.a),notice=m.id==='dhaluun-customs-v1'&&m.a==='npc-cloudspine-dhaluun';return `<li class="al-msg${notice?' dh-warning':''}${m.a===me?' me':''}${r?' al-r-'+r:''}"><p class="al-msg-h">${notice?'<span class="dh-warning-label"><span aria-hidden="true">⚠</span> Imperial customs notice</span>':''}<b>${m.a===me?'You':nationLink(m.a,findNation(m.a)?findNation(m.a).n.name:m.nm,false)}</b>${chatDelegateBadge(m.a)}${r?`<span class="al-msg-r">${r==='ld'?alGlyph('leader'):''}${esc(r==='ld'?U.lead:U.off)}</span>`:''}<span class="hint">${esc(rel(m.t))}</span>${m.a===me||mod?`<button type="button" class="linkish small" data-act="dp-chat-del" data-id="${esc(m.id)}" aria-label="Delete this message">Delete</button>`:''}</p><p class="al-msg-x">${rgcText(m.x,m.mn).replace(/\n/g,'<br>')}</p><div class="al-react" role="group" aria-label="React to this message">${RGC_RX.slice(0,8).map(([k,e,l])=>{const count=Object.values(m.rv||{}).filter(v=>v===k).length,mine=m.rv&&m.rv[me]===k;return `<button type="button" data-act="dp-react" data-id="${esc(m.id)}" data-k="${k}" aria-label="${esc(l)}" title="${esc(l)}" aria-pressed="${!!mine}">${e}${count?' '+count:''}</button>`;}).join('')}</div></li>`;};
   const ev=alEvents(A,alEvSince(C.list,now)).map(e=>({t:e.t,e}));
   const list=C.list.map(m=>({t:m.t,m})).concat(ev).sort((a,b)=>a.t-b.t).map(o=>o.m?msg(o.m):alEvLI(o.e)).join('');
   return `${alChanHead(A)}${A.doc.ty==='def'?alHornHTML(now,'ch'):''}<p class="hint">Only members of ${esc(A.name)} can read this channel. Its events stand between the messages.</p>${C.err?`<p class="err">${esc(C.err)}</p>`:''}
@@ -92839,6 +92848,7 @@ function rgcNcHTML(m,x,nm,rg,mk){
 }
 for(const [k,v] of Object.entries({'Open its page':'Voir sa page','(yours)':'(la vôtre)'}))if(!(k in FR_UI))FR_UI[k]=v;
 function rgcLine(m,run,by,me,mod,memo){
+  const notice=!!m.ally&&m.id==='dhaluun-customs-v1'&&m.a==='npc-cloudspine-dhaluun';if(notice)run=false;
   if(m.sys==='all')return rgcCastLine(m,me,mod);
   if(m.sys==='games')return gmChatLine(m);
   if(m.sys)return rgcSysLine(m,by,me,mod);
@@ -92869,7 +92879,7 @@ function rgcLine(m,run,by,me,mod,memo){
     +(can.mute?`<button type="button" role="menuitem" data-rgc="mute-ask" data-id="${i}">Silence ${esc(nm)}…</button>`:'')
     +(can.del?`<button type="button" role="menuitem" class="rgc-danger" data-rgc="${ally?'ally-del':'del-ask'}" data-id="${i}">${mine?'Delete':'Remove the line'}</button>`:'');
   const menu=items?`<div class="rgc-mw"><button type="button" class="rgc-more" data-rgc="menu" data-id="${i}" aria-expanded="${open}" aria-haspopup="menu" aria-label="Options for this line by ${esc(nm)}"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="5.5" cy="12" r="1.7" fill="currentColor"/><circle cx="12" cy="12" r="1.7" fill="currentColor"/><circle cx="18.5" cy="12" r="1.7" fill="currentColor"/></svg></button>${open?`<div class="rgc-menu" role="menu">${items}</div>`:''}</div>`:'';
-  return `<li class="rgc-l${run?' run':''}${mine?' me':''}${named?' named':''}${ally?' ally':''}${RGC.goto===m.id?' flash':''}" data-id="${i}">${head}${!ally&&m.r?rgcQuote(m.r):''}<div class="rgc-xw">${run?`<time class="rgc-rt" datetime="${new Date(m.t).toISOString()}" title="${esc(when)}">${esc(fmtTime(m.t))}</time>`:''}${rgcBody(m,nm)}${menu}</div>${rgcRxs(m,me)}${RGC.ask&&RGC.ask.id===m.id?rgcAsk(m,nm,mine):''}${RGC.who===m.id?rgcTeamWho():''}${ncOpen?rgcNcHTML(m,x,nm,rg||(x?REG.id:ally?'':RGC.reg||REG.id),pill+chatDelegateMark(m.a)+marks):''}</li>`;
+  return `<li class="rgc-l${notice?' dh-warning':''}${run?' run':''}${mine?' me':''}${named?' named':''}${ally?' ally':''}${RGC.goto===m.id?' flash':''}" data-id="${i}">${notice?'<span class="dh-warning-label"><span aria-hidden="true">⚠</span> Imperial customs notice</span>':''}${head}${!ally&&m.r?rgcQuote(m.r):''}<div class="rgc-xw">${run?`<time class="rgc-rt" datetime="${new Date(m.t).toISOString()}" title="${esc(when)}">${esc(fmtTime(m.t))}</time>`:''}${rgcBody(m,nm)}${menu}</div>${rgcRxs(m,me)}${RGC.ask&&RGC.ask.id===m.id?rgcAsk(m,nm,mine):''}${RGC.who===m.id?rgcTeamWho():''}${ncOpen?rgcNcHTML(m,x,nm,rg||(x?REG.id:ally?'':RGC.reg||REG.id),pill+chatDelegateMark(m.a)+marks):''}</li>`;
 }
 /* a new nation's welcome line (sys 'found': functions/regionchat.js, rcHello), drawn as an announcement: its flag and
    name, "has been founded, welcome to #Region!" and, for a week, a Welcome button that starts a line greeting it (Say
@@ -103862,6 +103872,53 @@ if(typeof window.EDICTUM_PROBE==='function')window.EDICTUM_PROBE.dhaluun={state:
   load:rows=>{S.nation=null;S.uid='';S.mode='world';S.world={};HIDN.w={};for(const x of rows){const n=normalize(x.n);if(!n||n.reg!==REG.id)continue;auditNation(n,x.n,x.id,Date.now(),false);if(isDormant(n))continue;if(x.hidden)HIDN.w[x.id]=n;else S.world[x.id]=n;}passForget();terrCache.clear();}};
 
 } /* end Dhaluun event */
+
+/* Dhaluun: imperial customs notice */
+if(typeof trFlow==='function'&&typeof trStatus==='function'&&typeof whAccrue==='function'&&typeof economy==='function'&&typeof stockRates==='function'&&typeof connect==='function'){
+const DHC={id:'dhaluun-customs-v1',by:'npc-cloudspine-dhaluun',data:null,clock:null,epoch:'',busy:false,rates:new WeakMap()};
+function dhcRead(d){
+  const id=x=>typeof x==='string'&&/^[\w-]{1,128}$/.test(x);
+  if(!d||d.v!==1||d.reg!=='cloudspine'||d.by!==DHC.by||!id(d.aid)||!Number.isFinite(d.t)||d.t<=0||d.u!==d.t+DAY||d.factor!==0.5||d.t>Date.now()+60000||!Array.isArray(d.routes)||!d.routes.length||d.routes.length>2000)return null;
+  const seen=new Set();for(const r of d.routes){if(!r||!id(r.id)||!id(r.a)||!id(r.b)||r.a===r.b||!Number.isFinite(r.dt)||seen.has(r.id))return null;seen.add(r.id);}
+  return {t:d.t,u:d.u,aid:d.aid,routes:d.routes.map(r=>({id:r.id,a:r.a,b:r.b,dt:r.dt}))};
+}
+function dhcTime(){return DHC.clock==null?Date.now():DHC.clock;}
+function dhcActive(t=dhcTime()){const d=DHC.data;return REG.id==='cloudspine'&&d&&t>=d.t&&t<d.u?d:null;}
+function dhcDeal(d,t=dhcTime()){
+  if(!d)return null;const e=dhcActive(t);return e&&e.routes.some(r=>r.id===d.id&&r.dt===d.t&&((r.a===d.a&&r.b===d.b)||(r.a===d.b&&r.b===d.a)))?e:null;
+}
+function dhcEpoch(){const d=DHC.data;return d?d.t+':'+(dhcActive()?'on':'off'):'';}
+function dhcSync(){const key=dhcEpoch();if(DHC.epoch!==key){DHC.epoch=key;econMemo={T:null,k:'',at:0,v:null};passForget();}}
+function dhcInstall(raw){DHC.data=dhcRead(raw);DHC.epoch='';DHC.rates=new WeakMap();dhcSync();trMemo={E:null,sk:'',v:null};}
+trFlow=(f=>function(d,T,active){const base=f.apply(this,arguments),e=dhcDeal(d);delete d.dhCustoms;
+  if(!e)return base;d.dhCustoms={t:e.t,until:e.u};d.bk=base*0.5;return d.bk;
+})(trFlow);
+economy=(f=>function(){dhcSync();return f.apply(this,arguments);})(economy);
+/* Split accrual at the attack's boundaries: never backdate the loss, and honour the full day for an offline nation. */
+whAccrue=(f=>function(n,st,at,now,rt){
+  const d=DHC.data;if(DHC.busy||REG.id!=='cloudspine'||!d||now<=d.t||at>=d.u||!(now>at))return f.apply(this,arguments);
+  const id=alIdOf(n);if(!id||!d.routes.some(r=>r.a===id||r.b===id))return f.apply(this,arguments);
+  const live=economy();let memo=DHC.rates.get(n);if(!memo||memo.live!==live||memo.data!==d){memo={live,data:d,rates:{}};DHC.rates.set(n,memo);}
+  memo.rates[dhcActive()?'on':'off']={...rt};
+  const savedClock=DHC.clock,savedEpoch=DHC.epoch,savedMemo=econMemo;let out={...st},start=at;DHC.busy=true;
+  try{const cuts=[d.t,d.u,now].filter(t=>t>at&&t<=now).sort((a,b)=>a-b);
+    for(const end of cuts){if(end<=start)continue;const on=start>=d.t&&start<d.u,key=on?'on':'off';
+      if(!memo.rates[key]){DHC.clock=on?d.t:d.u;memo.rates[key]={...stockRates(n)};}
+      out=f.call(this,n,out,start,end,memo.rates[key]);start=end;}
+    return out;
+  }finally{DHC.clock=savedClock;DHC.epoch=savedEpoch;econMemo=savedMemo;DHC.busy=false;passForget();}
+})(whAccrue);
+trStatus=(f=>function(r,now){const out=f.apply(this,arguments),e=dhcDeal(r.d,now);
+  if(e)out.push(`Dhaluun’s customs sabotage: trade reduced by 50% until ${fmtDate(e.u)}, ${fmtTime(e.u)}`);return out;
+})(trStatus);
+connect=(f=>async function(){const r=await f.apply(this,arguments);
+  if(REG.id==='cloudspine'&&S.db)quietListen(S.db.doc('worldEvents/'+DHC.id),s=>{dhcInstall(s&&s.exists?s.data():null);quietRender(()=>{render();redrawMaps();});},()=>{});
+  return r;
+})(connect);
+if(typeof window.EDICTUM_PROBE==='function')window.EDICTUM_PROBE.customs={state:DHC,read:dhcRead,install:dhcInstall,active:dhcActive,deal:dhcDeal,flow:(d,T,a)=>trFlow(d,T,a),economy:()=>economy(),stock:(n,st,at,now,rt)=>whAccrue(n,st,at,now,rt),rates:n=>stockRates(n),channel:A=>alChannelHTML(A),drawer:(m,by,me)=>rgcLine({...m,ally:true},false,by,me,false,{}),routes:E=>trRoutes(E,100),status:(r,t)=>trStatus(r,t)};
+} /* end Dhaluun customs */
+
+
 /* captured cities: their edicts (the capital moves, and captured cities), numbered after every other edict, as
    Willow Street's letters are (wsPush): an edict's number is its place (edict-order) */
 if(typeof CC_ISSUES!=='undefined'&&typeof ISSUES!=='undefined')for(const is of CC_ISSUES){if(ISSUE_BY_ID[is.id])continue;is.fo=1;ISSUES[ISSUES.length]=is;is.no=ISSUES.length;ISSUE_BY_ID[is.id]=is;is.nbx=false;}
