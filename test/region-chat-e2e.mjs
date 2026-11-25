@@ -383,7 +383,7 @@ check('and it reads there', await until(async () => /Allies, to the iron mines!/
 // Both members see alliance reactions; the sender can change and remove theirs.
 const allyLine = await B.$eval('#rgc-list .rgc-l:has-text("Allies, to the iron mines!")', el => el.dataset.id);
 await B.click(`#rgc-list .rgc-more[data-id="${allyLine}"]`);
-check('an alliance line offers eight reactions', (await B.$('.rgc-menu .rgc-rxp button')).length === 8);
+check('an alliance line offers eight reactions', await until(async () => await B.locator('.rgc-menu .rgc-rxp button').count() === 8));
 await B.click('.rgc-menu .rgc-rxp [data-k="hear"]');
 check('an alliance reaction reaches both members', await until(async () => await B.getAttribute(`#rgc-list .rgc-l[data-id="${allyLine}"] .rgc-rx[data-k="hear"]`, 'aria-pressed') === 'true' && /1/.test(await text(C, `#rgc-list .rgc-l[data-id="${allyLine}"] .rgc-rx[data-k="hear"]`)), 15000));
 check('the alliance reaction is saved on the message', await until(async () => (await restListAdmin(`alliances/${aid}/chat`)).find(d => d.id === allyLine)?.fields.rv?.mapValue?.fields?.[uidB]?.stringValue === 'hear'));
