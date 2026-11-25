@@ -6,6 +6,20 @@
 import { player, open, found, register, until, check, finish, text, clearEmulators, sleep, nav, nationDoc, FS_HOST, PROJECT } from './lib.mjs';
 await clearEmulators();
 const B = await player('writer'), C = await player('reader');
+/* Mobile browsers can resize the visual viewport without resizing the layout viewport. Keep a controllable
+   visual viewport around the native one, so the keyboard case is exercised without a physical keyboard. */
+await C.addInitScript(() => {
+  const real = window.visualViewport, fake = new EventTarget();
+  fake.mockHeight = null; fake.mockTop = null; fake.mockScale = null;
+  Object.defineProperties(fake, {
+    height: { get: () => fake.mockHeight ?? real.height },
+    offsetTop: { get: () => fake.mockTop ?? real.offsetTop },
+    scale: { get: () => fake.mockScale ?? real.scale }
+  });
+  for (const name of ['resize', 'scroll']) real.addEventListener(name, () => fake.dispatchEvent(new Event(name)));
+  Object.defineProperty(window, 'visualViewport', { configurable: true, value: fake });
+  window.chatTestViewport = fake;
+});
 const uidB = await open(B); await found(B, 'Chatterly');
 const uidC = await open(C); await found(C, 'Quillmark');
 await register(B); await register(C);
@@ -124,5 +138,23 @@ await C.click('.rgc-btn'); await C.waitForSelector('#rgc-dock:not([hidden])'); a
 check('on a phone it opens on the newest line', await until(async () => await atEnd(C, '#rgc-body') && await newestSeen(C)), String(await gap(C, '#rgc-body')));
 await C.setViewportSize({ width: 390, height: 460 });
 check('and a screen made shorter (a keyboard opening) keeps the newest line in sight', await until(async () => await atEnd(C, '#rgc-body') && await newestSeen(C)), String(await gap(C, '#rgc-body')));
+
+/* The layout viewport stays tall on iOS and some Android keyboards; only the visual viewport moves. */
+await C.setViewportSize({ width: 390, height: 760 }); await C.focus('#rgc-x');
+await C.evaluate(() => { const v=window.chatTestViewport;v.mockHeight=400;v.mockTop=20;v.mockScale=1;v.dispatchEvent(new Event('resize')); });
+const rects = () => C.evaluate(() => {const d=document.querySelector('#rgc-dock').getBoundingClientRect(),i=document.querySelector('#rgc-x').getBoundingClientRect();return {top:d.top,bottom:d.bottom,inputBottom:i.bottom};});
+check('a keyboard that only shrinks the visual viewport leaves the composer above it', await until(async () => {const r=await rects();return Math.abs(r.top-20)<2&&r.bottom<=421&&r.inputBottom<=421;}), JSON.stringify(await rects()));
+check('the resized drawer keeps the newest line when following', await until(async () => await atEnd(C, '#rgc-body') && await newestSeen(C)));
+await C.evaluate(() => {const f=document.querySelector('#rgc-foot'),extra=document.createElement('div');extra.id='keyboard-extra';extra.style.height='200px';f.insertBefore(extra,document.querySelector('#rgc-form'));const t=document.querySelector('#rgc-x');t.value='A long draft '.repeat(40);t.dispatchEvent(new Event('input',{bubbles:true}));});
+check('a growing draft stays visible when the footer has tall content', await until(() => C.evaluate(() => {const f=document.querySelector('#rgc-foot').getBoundingClientRect(),t=document.querySelector('#rgc-x').getBoundingClientRect();return t.bottom<=f.bottom+1&&t.top>=f.top-1;})));
+await C.evaluate(() => {document.querySelector('#keyboard-extra').remove();const t=document.querySelector('#rgc-x');t.value='';t.dispatchEvent(new Event('input',{bubbles:true}));});
+await wheelUp(C, '#rgc-body'); const phoneHeld=await C.$eval('#rgc-body',b=>b.scrollTop);
+await C.evaluate(() => {const v=window.chatTestViewport;v.mockHeight=360;v.mockTop=30;v.dispatchEvent(new Event('scroll'));});
+check('the keyboard moving does not pull a reader back down', await until(async () => Math.abs((await rects()).top-30)<2) && Math.abs((await C.$eval('#rgc-body',b=>b.scrollTop))-phoneHeld)<=2 && await jumpShown(C));
+await C.evaluate(() => {const v=window.chatTestViewport;v.mockScale=2;v.dispatchEvent(new Event('resize'));});
+check('pinch zoom is left to the browser', await until(() => C.$eval('#rgc-dock', d => !d.style.height && !d.style.top && !d.style.bottom)));
+await C.evaluate(() => {const v=window.chatTestViewport;v.mockScale=1;v.mockHeight=400;v.mockTop=20;v.dispatchEvent(new Event('resize'));});
+await C.click('[data-rgc="close"]');
+check('closing the drawer clears the keyboard positioning', await C.$eval('#rgc-dock',d=>!d.style.height&&!d.style.top&&!d.style.bottom));
 
 await finish();
