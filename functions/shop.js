@@ -244,9 +244,10 @@ async function settle(cfg, uid) {
     }
     const comp = compDoc.exists ? { at: compDoc.get('at'), until: compDoc.get('until') } : null;
     const prizes = prizeDoc.exists ? Object.values(prizeDoc.get('m') || {}).map(Number) : [];
+    const shortPrizes = prizeDoc.exists ? Object.values(prizeDoc.get('d3') || {}).map(Number) : [];
     const fgift = fgDoc.exists ? { p: fgDoc.get('p'), at: Number(fgDoc.get('at')) || 0 } : null;
     const grants = grantDoc.exists ? Object.fromEntries(Object.entries(grantDoc.get('p') || {}).map(([p, g]) => [p, Number(g && g.at) || 0])) : {};
-    const now = clock(cfg), picks = shop.get('picks') || {}, e = entitlement({ txs, adjs, subs: subMap, picks, now, comp, prizes, fgift, grants });
+    const now = clock(cfg), picks = shop.get('picks') || {}, e = entitlement({ txs, adjs, subs: subMap, picks, now, comp, prizes, shortPrizes, fgift, grants });
     /* who gave what: the giving nation's name, as it is now */
     const from = [...new Set(e.gifts.map(g => g.from))], names = from.length ? Object.fromEntries((await tx.getAll(...from.map(u => db.doc('nations/' + u)))).map(s => [s.id, String(s.get('name') || '').slice(0, 60)])) : {};
     const reg = (nation.exists && nation.get('reg')) || shop.get('reg') || '';
@@ -639,8 +640,27 @@ export async function grantPrizeMonth(uid, key, at) {
   return { ok: true, fresh, vip: e.vip };
 }
 
+/* The first-month present is recorded before settlement, so a failed response is safe to retry. */
+async function anniversaryClub(uid) {
+  const db = getFirestore(), cfg = await settings(false), now = clock(cfg), who = await identity(uid);
+  const ref = db.doc('shopPrize/' + uid), key = 'anniversary-2026';
+  const at = await db.runTransaction(async tx => {
+    const [prize] = await tx.getAll(ref);
+    await eligibility(tx, who, { linked: false });
+    const previous = Number((prize.get('d3') || {})[key]) || 0;
+    if (previous) return previous;
+    if (now < Date.UTC(2026, 10, 27) || now >= Date.UTC(2026, 11, 4))
+      refuse('anniversary_closed', 'The anniversary gift is available from 27 November through 3 December UTC.');
+    tx.set(ref, { d3: { [key]: now } }, { merge: true });
+    return now;
+  });
+  const e = await settle(cfg, uid);
+  return { ok: true, at, vip: e.vip };
+}
+
 export async function shopStep(uid, d) {
   const db = getFirestore();
+  if (d.step === 'anniversary') return anniversaryClub(uid);
   if (d.step === 'status') {
     const cfg = await settings(false), [shop, nation] = await db.getAll(db.doc('shop/' + uid), db.doc('nations/' + uid));
     /* a nation founded in another region since: the projection follows it; a membership kept before its months were

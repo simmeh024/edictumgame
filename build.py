@@ -419,6 +419,11 @@ def main():
 
     ver = firebase_version()
     game = read(args.game)
+    # The first-month event lives separately so the temporary celebration can be retired independently.
+    anniversary_marker = "if(hot&&typeof hot.snapshot"
+    if game.count(anniversary_marker) != 1:
+        fail('the game no longer marks the startup position for the anniversary event')
+    game = game.replace(anniversary_marker, read(os.path.join(SRC, 'anniversary.js')) + '\n' + anniversary_marker, 1)
     game_head, game_body = split_game(game)
 
     if os.path.isdir(out):
