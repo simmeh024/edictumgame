@@ -56,6 +56,17 @@ await click('[data-act="mw-build"]');
 const built = await G(() => { const g = window.__game, n = g.S.nation, m = g.MW().mwOf(n); return { b: m.b, fl: m.fl, timber: Math.round(g.S.nation.stock.timber), pop: n.pop }; });
 ok(built.b && built.b.f === 2 && built.fl === 1 && built.timber < 400 && built.pop >= 11.9, 'building the first floor takes materials, keeps every citizen, and starts the builders', JSON.stringify(built));
 ok(/opens in/.test(await main()), 'the Entrance Hall says when it opens');
+ok(/36 hours/.test(await main()), 'the first floor takes 36 hours, and the wait says so', await main());
+// the wait is read from the hour the builders started, so it only ever falls: a clock that was wrong when the
+// work was ordered, or corrected since, once made it grow between visits (the Museum, b.t0)
+const wait = await G(() => { const g = window.__game, M = g.MW(), b = g.S.nation.mw.b, H = 3600e3, now = Date.now();
+  const far = { ...b, t1: b.t0 + 400 * H };                     // a due hour days beyond the floor's own length
+  const back = { ...b, t0: b.t0 - 20 * H, t1: b.t1 - 20 * H };   // twenty hours into the work
+  return { full: M.mwLeft(b, now) / H, far: M.mwLeft(far, now) / H, back: M.mwLeft(back, now) / H,
+    older: M.mwLeft({ f: 2, t1: now + 40 * H }, now) / H }; });   // ordered when the first floor took 48 hours
+ok(Math.abs(wait.full - 36) < 0.1 && Math.abs(wait.far - 36) < 0.1, 'the wait is never longer than the floor’s own hours', JSON.stringify(wait));
+ok(Math.abs(wait.back - 16) < 0.1, 'the wait falls with the hours worked', JSON.stringify(wait));
+ok(Math.abs(wait.older - 28) < 0.1, 'work ordered before the hours were cut has the quarter taken off it too', JSON.stringify(wait));
 // the builders finish: the next save opens the floor
 await G(() => { const g = window.__game, n = g.S.nation; n.mw.b.t1 = Date.now() - 1; g.commit(g.clone(n)); g.render(); });
 ok(await G(() => window.__game.MW().mwOf(window.__game.S.nation).fl) === 2 && await G(() => window.__game.MW().mwSlots(window.__game.S.nation)) === 8, 'once finished, the first floor opens with eight cases');
