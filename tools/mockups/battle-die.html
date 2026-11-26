@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The referee’s die, mock-up</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,400;6..96,600;6..96,700&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+/* tokens: copied from game/edictum.html so the mock-up is the game’s own colour */
+:root{
+  --paper:#e8eeeb; --sheet:#f8fbf9; --sheet-2:#eef3f0; --ink:#12292a; --ink-2:#45605c; --ink-3:#566b67;
+  --rule:#cdd9d4; --rule-2:#b0c2bc; --track:#dbe5e1;
+  --accent:#1d6a5c; --accent-hi:#14544a; --accent-ink:#f3fbf8; --accent-soft:#d3e7df;
+  --stamp:#6a3db3; --stamp-ink:#ffffff; --stamp-soft:#ebe3f7;
+  --up:#1b7843; --down:#b3302a; --online:#22a35a; --down-soft:#f7e3e0;
+  --shadow:0 1px 0 rgba(18,41,42,.04), 0 10px 26px -14px rgba(18,41,42,.28);
+  --f-display:"Bodoni Moda","Bodoni 72","Didot",Georgia,serif;
+  --f-body:"Public Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+:root[data-theme="dark"]{
+  --paper:#0c1615; --sheet:#12201f; --sheet-2:#172927; --ink:#e1ebe7; --ink-2:#a0b6b1; --ink-3:#879d95;
+  --rule:#233634; --rule-2:#314b47; --track:#1c2f2c;
+  --accent:#5ec2a9; --accent-hi:#80d7c1; --accent-ink:#06231d; --accent-soft:#17362f;
+  --stamp:#b59cf5; --stamp-ink:#1b1030; --stamp-soft:#261e3b;
+  --up:#63d395; --down:#ff8577; --online:#3fcf7a; --down-soft:#3b201d;
+  --shadow:0 1px 0 rgba(0,0,0,.25), 0 12px 30px -14px rgba(0,0,0,.7);
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font:400 15px/1.6 var(--f-body);-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit}
+p{margin:0}
+h1,h2,h3{text-wrap:balance}
+
+/* ── copied from the game ── */
+.eyebrow{font-family:var(--f-mono);font-weight:500;text-transform:uppercase;letter-spacing:.13em;color:var(--ink-3);font-size:11.5px}
+.h2{font-family:var(--f-display);font-weight:600;font-size:28px;line-height:1.12;margin:0 0 14px;font-variation-settings:"opsz" 48}
+.mp-h{font-family:var(--f-display);font-weight:600;font-size:22px;line-height:1.15;margin:4px 0 8px}
+.mp-dl{margin:12px 0 0}
+.mp-dl>div{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:8px 0;border-top:1px solid var(--rule);font-size:13.5px}
+.mp-dl dt{color:var(--ink-2);flex:none}
+.mp-dl dd{margin:0;font-weight:600;text-align:right}
+.mp-note{margin-top:14px;font-size:13.5px;color:var(--ink-2)}
+.muted{color:var(--ink-2)}
+.hint{font-size:13px;color:var(--ink-3)}
+.num{font-variant-numeric:tabular-nums}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;font-weight:600;font-size:14px;line-height:1.2;padding:11px 16px;border-radius:3px;border:1px solid var(--accent);background:var(--accent);color:var(--accent-ink);cursor:pointer}
+.btn.ghost{background:transparent;color:var(--ink);border-color:var(--rule-2)}
+.btn.danger.solid{background:var(--down);color:var(--sheet);border-color:var(--down)}
+.btn.sm{padding:7px 11px;font-size:13px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.wr3-br{margin:14px 0 0;padding:12px 14px;border:1px solid var(--down);border-radius:4px;background:var(--down-soft)}
+.wr3-br.won{border-color:var(--accent);background:var(--sheet-2)}
+.wr3-br h2{margin:2px 0 6px}
+.wr3-br-f ul{margin:6px 0 0;padding-left:18px}
+.wr3-br-f li{margin:2px 0;font-size:13.5px;color:var(--ink-2)}
+.wr3-br-f summary{font-size:13px;color:var(--ink-3);cursor:pointer}
+
+/* the die, exactly the component the Intelligence card uses */
+.die{position:relative;flex:none;width:104px;height:104px}
+.die svg{display:block;width:100%;height:100%;overflow:visible;transform-origin:50% 50%}
+.die-o{fill:var(--sheet-2);stroke:var(--ink);stroke-width:2.4;stroke-linejoin:round}
+.die-i{fill:var(--stamp-soft);stroke:var(--ink);stroke-width:1.6;stroke-linejoin:round}
+.die-l{fill:none;stroke:var(--ink-3);stroke-width:1.2}
+.die-n{position:absolute;left:0;right:0;top:56%;transform:translateY(-50%);text-align:center;font-family:var(--f-display);font-weight:700;font-size:19px;line-height:1;color:var(--ink)}
+.die.rolling svg{animation:roll .35s linear infinite}
+@keyframes roll{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.die.rolling svg{animation:none}}
+/* new: the war die is the referee’s, so it takes the war colours, not the spy’s purple */
+.die.war .die-i{fill:var(--sheet-2)}
+.die.war.rolling .die-i{fill:var(--down-soft)}
+.die.war.won .die-i{fill:var(--accent-soft)}
+.die.war.lost .die-i{fill:var(--down-soft);stroke:var(--down)}
+.die.war.won .die-n{color:var(--accent-hi)}
+.die.war.lost .die-n{color:var(--down)}
+/* a frozen frame of the spin, for a still picture */
+.die.spun svg{transform:rotate(13deg)}
+.die-n.rest{font-size:14px;color:var(--ink-3)}
+
+/* ── new: the threshold scale, the battle’s answer to the spy’s odds table ── */
+.thr{margin:16px 0 0}
+.thr-bar{position:relative;height:12px;border-radius:6px;background:var(--down-soft)}
+.thr-bar i{position:absolute;left:0;top:0;bottom:0;border-radius:6px 0 0 6px;background:var(--accent-soft);border-right:2px solid var(--accent)}
+.thr-pin{position:absolute;top:-7px;width:2px;height:26px;background:var(--ink)}
+.thr-pin::after{content:"";position:absolute;left:-4px;top:-4px;width:10px;height:10px;border-radius:50%;background:var(--ink)}
+.thr-sc{display:flex;justify-content:space-between;margin-top:7px;font:500 11px/1 var(--f-mono);color:var(--ink-3)}
+.thr-k{display:flex;gap:16px;margin-top:10px;font-size:12.5px;color:var(--ink-2);flex-wrap:wrap}
+.thr-k span{display:flex;align-items:center;gap:6px}
+.thr-k i{width:12px;height:12px;border-radius:3px;flex:none}
+.thr-win{background:var(--accent-soft);border:1px solid var(--accent)}
+.thr-lose{background:var(--down-soft);border:1px solid var(--down)}
+.thr-roll{font:600 13px/1 var(--f-mono);color:var(--ink);margin-top:10px}
+
+/* the sheet */
+.sheet{max-width:1420px;margin:0 auto;padding:30px 24px 50px}
+.states{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:20px;align-items:start}
+@media (max-width:1180px){.states{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:680px){.states{grid-template-columns:minmax(0,1fr)}}
+.panel{padding:16px 18px;background:var(--sheet);border:1px solid var(--rule);border-radius:4px;min-width:0}
+.panel>.eyebrow{display:block;margin-bottom:4px}
+.step{font:600 11px/1 var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--stamp);margin-bottom:10px;display:block}
+.die-wrap{display:flex;align-items:center;gap:16px;margin:14px 0 0}
+.die-say{font-size:13.5px;color:var(--ink-2);min-width:0}
+.note{max-width:1420px;margin:0 auto;padding:0 24px 34px;color:var(--ink-3);font-size:13px}
+h1.title{font-family:var(--f-display);font-weight:650;font-size:38px;line-height:1.05;margin:4px 0 8px;font-variation-settings:"opsz" 96}
+.lede{color:var(--ink-2);max-width:78ch;margin-bottom:28px}
+</style>
+</head>
+<body>
+<div class="sheet">
+  <p class="eyebrow">Attack target · map panel</p>
+  <h1 class="title">The referee’s die</h1>
+  <p class="lede">The Intelligence card already rolls a die in front of the player and marks the row it landed on. An attack costs far more and shows nothing but a line of text, although the referee returns the roll. The four panels are the same attack, one state each: the forecast, the roll, a win and a loss. The attack factors move out of the paragraph and into a list, so the forecast and the report read the same way.</p>
+
+  <div class="states">
+
+    <!-- 1. before -->
+    <section class="panel">
+      <span class="step">1 · the forecast</span>
+      <p class="eyebrow">Attack target</p>
+      <h2 class="mp-h">Lowland on Arnmoor</h2>
+      <p class="muted">Held by Tessandria.</p>
+      <dl class="mp-dl">
+        <div><dt>Your attacking force</dt><dd class="num">318</dd></div>
+        <div><dt>Their defence</dt><dd class="num">214</dd></div>
+        <div><dt>Chance of success</dt><dd class="num">71%</dd></div>
+      </dl>
+      <!-- idea 3: the factors as a list, the way the battle report already shows them -->
+      <div class="wr3-br-f" style="margin-top:14px">
+        <p class="eyebrow">What counts</p>
+        <ul>
+          <li>Your army, 42 brigades, 3 hexes from your capital; Tessandria’s, 28, at 6.</li>
+          <li>Borders: 4 of the hexes around it yours or your allies’, 2 theirs.</li>
+          <li>1 hex of open ground crossed: −15%.</li>
+          <li>Allies in the assault: Sarentine.</li>
+        </ul>
+      </div>
+      <div class="thr">
+        <p class="eyebrow">The referee’s die</p>
+        <div class="thr-bar"><i style="width:71%"></i></div>
+        <div class="thr-sc"><span>0</span><span>71</span><span>99</span></div>
+        <div class="thr-k"><span><i class="thr-win"></i>Under 71 takes the hex</span><span><i class="thr-lose"></i>71 and over is repelled</span></div>
+      </div>
+      <div class="die-wrap">
+        <div class="die war" id="die"><svg viewBox="0 0 100 100" aria-hidden="true"><polygon class="die-o" points="50,3 91,27 91,73 50,97 9,73 9,27"/><polygon class="die-i" points="50,24 75,66 25,66"/><path class="die-l" d="M50,3L50,24M91,27L50,24M91,27L75,66M91,73L75,66M50,97L75,66M50,97L25,66M9,73L25,66M9,27L25,66M9,27L50,24"/></svg><span class="die-n rest">d100</span></div>
+        <p class="die-say">The die is cast on the server. Uses 1 readiness point; you have 3 of 5.</p>
+      </div>
+      <div class="row" style="margin-top:14px"><button class="btn danger solid">Attack</button><button class="btn ghost">Cancel</button></div>
+    </section>
+
+    <!-- 2. rolling -->
+    <section class="panel">
+      <span class="step">2 · the roll</span>
+      <p class="eyebrow">Attack target</p>
+      <h2 class="mp-h">Lowland on Arnmoor</h2>
+      <p class="muted">Held by Tessandria.</p>
+      <dl class="mp-dl">
+        <div><dt>Your attacking force</dt><dd class="num">318</dd></div>
+        <div><dt>Their defence</dt><dd class="num">214</dd></div>
+        <div><dt>Chance of success</dt><dd class="num">71%</dd></div>
+      </dl>
+      <div class="thr">
+        <p class="eyebrow">The referee’s die</p>
+        <div class="thr-bar"><i style="width:71%"></i></div>
+        <div class="thr-sc"><span>0</span><span>71</span><span>99</span></div>
+      </div>
+      <div class="die-wrap">
+        <div class="die war rolling spun"><svg viewBox="0 0 100 100" aria-hidden="true"><polygon class="die-o" points="50,3 91,27 91,73 50,97 9,73 9,27"/><polygon class="die-i" points="50,24 75,66 25,66"/><path class="die-l" d="M50,3L50,24M91,27L50,24M91,27L75,66M91,73L75,66M50,97L75,66M50,97L25,66M9,73L25,66M9,27L25,66M9,27L50,24"/></svg><span class="die-n" aria-live="polite">63</span></div>
+        <p class="die-say">The referee is rolling the dice…</p>
+      </div>
+      <div class="row" style="margin-top:14px"><button class="btn danger solid" disabled>Attack</button><button class="btn ghost" disabled>Cancel</button></div>
+      <p class="hint" style="margin-top:10px">The number tumbles for about a second, as the spy’s does, then settles on what the referee sent back.</p>
+    </section>
+
+    <!-- 3. won -->
+    <section class="panel">
+      <span class="step">3 · a win</span>
+      <div class="die-wrap" style="margin-top:0">
+        <div class="die war won"><svg viewBox="0 0 100 100" aria-hidden="true"><polygon class="die-o" points="50,3 91,27 91,73 50,97 9,73 9,27"/><polygon class="die-i" points="50,24 75,66 25,66"/><path class="die-l" d="M50,3L50,24M91,27L50,24M91,27L75,66M91,73L75,66M50,97L75,66M50,97L25,66M9,73L25,66M9,27L25,66M9,27L50,24"/></svg><span class="die-n">38</span></div>
+        <div class="die-say"><b style="color:var(--accent-hi)">38 against 71.</b><br>The hex is yours.</div>
+      </div>
+      <div class="thr">
+        <div class="thr-bar"><i style="width:71%"></i><span class="thr-pin" style="left:38%"></span></div>
+        <div class="thr-sc"><span>0</span><span>38 rolled</span><span>99</span></div>
+        <p class="thr-roll">Needed under 71 · rolled 38</p>
+      </div>
+      <section class="wr3-br won">
+        <p class="eyebrow">Battle report</p>
+        <h2 class="mp-h">Victory on Arnmoor</h2>
+        <p class="mp-note">Against Tessandria. The dice came up <b>38</b>; anything under <b>71</b> would win.</p>
+        <dl class="mp-dl">
+          <div><dt>Your attacking force</dt><dd class="num">318</dd></div>
+          <div><dt>Their defence</dt><dd class="num">214</dd></div>
+          <div><dt>Chance</dt><dd class="num">71%</dd></div>
+        </dl>
+        <details class="wr3-br-f" open><summary>What counted</summary>
+          <ul>
+            <li>Your army, 42 brigades, 3 hexes from your capital; Tessandria’s, 28, at 6.</li>
+            <li>Borders: 4 of the hexes around it yours or your allies’, 2 theirs.</li>
+            <li>1 hex of open ground crossed: −15%.</li>
+            <li>Allies in the assault: Sarentine.</li>
+          </ul>
+        </details>
+        <div class="row" style="margin-top:12px"><button class="btn ghost sm">Close the report</button></div>
+      </section>
+    </section>
+
+    <!-- 4. lost -->
+    <section class="panel">
+      <span class="step">4 · a loss</span>
+      <div class="die-wrap" style="margin-top:0">
+        <div class="die war lost"><svg viewBox="0 0 100 100" aria-hidden="true"><polygon class="die-o" points="50,3 91,27 91,73 50,97 9,73 9,27"/><polygon class="die-i" points="50,24 75,66 25,66"/><path class="die-l" d="M50,3L50,24M91,27L50,24M91,27L75,66M91,73L75,66M50,97L75,66M50,97L25,66M9,73L25,66M9,27L25,66M9,27L50,24"/></svg><span class="die-n">84</span></div>
+        <div class="die-say"><b style="color:var(--down)">84 against 71.</b><br>Thirteen over. The attack is thrown back.</div>
+      </div>
+      <div class="thr">
+        <div class="thr-bar"><i style="width:71%"></i><span class="thr-pin" style="left:84%"></span></div>
+        <div class="thr-sc"><span>0</span><span>84 rolled</span><span>99</span></div>
+        <p class="thr-roll">Needed under 71 · rolled 84</p>
+      </div>
+      <section class="wr3-br">
+        <p class="eyebrow">Battle report</p>
+        <h2 class="mp-h">Repelled on Arnmoor</h2>
+        <p class="mp-note">Against Tessandria. The dice came up <b>84</b>; it needed under <b>71</b> to win. The referee held the odds to 71%, not the 74% your page worked out: it goes by both armies as last saved.</p>
+        <dl class="mp-dl">
+          <div><dt>Your attacking force</dt><dd class="num">318</dd></div>
+          <div><dt>Their defence</dt><dd class="num">214</dd></div>
+          <div><dt>Chance</dt><dd class="num">71%</dd></div>
+        </dl>
+        <details class="wr3-br-f" open><summary>What counted</summary>
+          <ul>
+            <li>Your army, 42 brigades, 3 hexes from your capital; Tessandria’s, 28, at 6.</li>
+            <li>Borders: 4 of the hexes around it yours or your allies’, 2 theirs.</li>
+            <li>1 hex of open ground crossed: −15%.</li>
+            <li>Allies in the assault: Sarentine.</li>
+          </ul>
+        </details>
+        <div class="row" style="margin-top:12px"><button class="btn ghost sm">Close the report</button></div>
+      </section>
+    </section>
+
+  </div>
+</div>
+<p class="note">Mock-up, 26 November 2026. Nothing here is wired up. The die is the Intelligence card’s component with the war colours; the threshold scale is new, and stands in for the spy’s odds table, which a two-outcome roll has no use for.</p>
+</body>
+</html>
