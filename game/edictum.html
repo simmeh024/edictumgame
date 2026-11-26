@@ -104786,7 +104786,17 @@ if(typeof wsPush==='function')wsPush(WS_ACT1,WS_N);
 if(typeof grow==='function'&&typeof cvIndex==='function'&&typeof collectConquests==='function'&&typeof connect==='function'){
 /* Dhaluun's one-off Cloudspine event. Installing this code does not launch it:
    the operator must create worldEvents/dhaluun-cloudspine-v1 with the admin tool. */
-const DHALUUN={id:'dhaluun-cloudspine-v1',by:'npc-cloudspine-dhaluun',reg:'cloudspine',data:null};
+const DHALUUN={id:'dhaluun-cloudspine-v1',by:'npc-cloudspine-dhaluun',reg:'cloudspine',data:null,layout:false};
+const DH_SURVEY_NAME='Imperial Survey Station No. 1';
+const DH_HAALESH={id:'npc-cloudspine-haalesh',bloc:'bloc-snows',s:{civil:20,econ:50,pol:10,corrupt:88,equal:30,happy:42},on:['censorship','noElections','idCards'],off:['unionRecognition','minimumWage','rightToDisconnect'],pretitle:'Emergency Directorate',leader:'Chairman of the National Continuity Council',motto:'Continuity Above Scrutiny'};
+function dhaluunHaaleshRead(h,t){return h&&h.v===1&&Number.isFinite(h.t)&&h.t>=t&&h.t<=Date.now()&&typeof h.h==='string'&&h.h.trim()&&h.h.length<=160&&typeof h.b==='string'&&h.b.trim()&&h.b.length<=1200?{v:1,t:h.t,h:h.h,b:h.b}:null;}
+function dhaluunNorthRead(n,t){
+  const id=x=>typeof x==='string'&&/^[\w-]{1,128}$/.test(x),cell=c=>Number.isInteger(c)&&c>=0&&c<MAP.N&&MAP.T[c]>=2;
+  if(!n||n.v!==1||!Number.isFinite(n.t)||n.t<t||n.t>Date.now()||!Array.isArray(n.land)||!n.land.length||n.land.length>1000||new Set(n.land).size!==n.land.length||!n.land.every(cell))return null;
+  const c=n.city,s=n.scandal,a=n.anchor;
+  if(!c||c.id!=='imperial-survey-1'||c.nm!==DH_SURVEY_NAME||!n.land.includes(c.c)||!a||!cell(a.c)||!id(a.id)||a.nm!=='Morbridge'||!s||s.id!=='dhaluun-north-scandal-v1'||!id(s.tg)||s.tn!=='Kesara'||!/^scn-(nap|chat|portrait|double|moat|karaoke|memoir|shed|diploma|speech|wedding|homework)$/.test(s.is))return null;
+  return {v:1,t:n.t,land:n.land.slice(),city:{id:c.id,c:c.c,nm:c.nm},anchor:{c:a.c,id:a.id,nm:a.nm},scandal:{id:s.id,tg:s.tg,tn:s.tn,is:s.is}};
+}
 function dhaluunRead(d){
   if(!d||d.v!==1||d.reg!==DHALUUN.reg||d.by!==DHALUUN.by||d.map!==MAP_VER||!Number.isFinite(d.t)||d.t<=0||d.t>Date.now())return null;
   if(!Array.isArray(d.land)||d.land.length!==120||new Set(d.land).size!==120||d.land.some(c=>!Number.isInteger(c)||c<0||c>=MAP.N||MAP.T[c]<2))return null;
@@ -104794,26 +104804,67 @@ function dhaluunRead(d){
   const ids=new Set();
   for(const x of d.targets){if(!x||typeof x.id!=='string'||!/^[\w-]{1,128}$/.test(x.id)||x.id===DHALUUN.by||ids.has(x.id)||typeof x.nm!=='string'||!x.nm.trim()||x.nm.length>80)return null;ids.add(x.id);}
   const wall=d.wall&&d.wall.v===1&&Number.isFinite(d.wall.t)&&d.wall.t>=d.t&&d.wall.t<=Date.now()&&typeof d.wall.h==='string'&&d.wall.h.trim()&&d.wall.h.length<=160&&typeof d.wall.b==='string'&&d.wall.b.trim()&&d.wall.b.length<=1200?{v:1,t:d.wall.t,h:d.wall.h,b:d.wall.b}:null;
-  return {t:d.t,land:d.land.slice(),targets:d.targets.map(x=>({id:x.id,nm:x.nm})),...(wall?{wall}:{})};
+  const north=dhaluunNorthRead(d.north,d.t);
+  const haalesh=dhaluunHaaleshRead(d.haalesh,d.t);
+  return {t:d.t,land:d.land.slice(),targets:d.targets.map(x=>({id:x.id,nm:x.nm})),...(wall?{wall}:{}),...(north?{north}:{}),...(haalesh?{haalesh}:{})};
 }
 function dhaluunActive(at){return REG.id===DHALUUN.reg&&DHALUUN.data&&(at==null?Date.now():at)>=DHALUUN.data.t?DHALUUN.data:null;}
+function dhaluunNorthActive(at){const d=dhaluunActive(at);return d&&d.north&&(at==null?Date.now():at)>=d.north.t?d.north:null;}
+function dhaluunHaaleshActive(at){const d=dhaluunActive(at);return d&&d.haalesh&&(at==null?Date.now():at)>=d.haalesh.t?d.haalesh:null;}
+function dhaluunHaaleshForm(n,at){
+  if(!n||n.id!==DH_HAALESH.id||!dhaluunHaaleshActive(at))return n;
+  const policies={...n.policies};for(const k of DH_HAALESH.off)delete policies[k];for(const k of DH_HAALESH.on)policies[k]=1;
+  const s={...n.s,...DH_HAALESH.s};return {...n,...Object.fromEntries(['pretitle','leader','motto'].map(k=>[k,DH_HAALESH[k]])),s,policies,budget:npcBudget(s)};
+}
+allNations=(f=>function(){return f.apply(this,arguments).map(x=>x.id===DH_HAALESH.id?{...x,n:dhaluunHaaleshForm(x.n,TERR_AT)}:x);})(allNations);
+if(typeof npcAt==='function')npcAt=(f=>function(id,t){return dhaluunHaaleshForm(f.apply(this,arguments),t);})(npcAt);
 /* Reserve the annexed land before natural cores grow. Explicit player claims, cities,
    capitals and later conquests still use the normal territory rules. */
 grow=(f=>function(list,over){
   const d=dhaluunActive(TERR_AT),i=list.findIndex(x=>x.id===DHALUUN.by);
   if(!d||i<0)return f.apply(this,arguments);
   const reserved=new Map(over||[]),caps=new Set(list.map(x=>x.cap));
-  for(const c of d.land)if(!reserved.has(c)&&!caps.has(c))reserved.set(c,i);
+  const north=!DHALUUN.layout&&dhaluunNorthActive(TERR_AT);
+  for(const c of d.land.concat(north?north.land:[]))if(!reserved.has(c)&&!caps.has(c))reserved.set(c,i);
   return f.call(this,list,reserved);
 })(grow);
-collectConquests=(f=>function(at){const r=f.apply(this,arguments),d=dhaluunActive(at);return d?{...r,sig:r.sig+'|dhaluun:'+d.t}:r;})(collectConquests);
+collectConquests=(f=>function(at){const r=f.apply(this,arguments),d=dhaluunActive(at),n=dhaluunNorthActive(at);return d?{...r,sig:r.sig+'|dhaluun:'+d.t+(n?'|dhaluun-north:'+n.t:'')}:r;})(collectConquests);
 cvIndex=(f=>function(){
   const r=f.apply(this,arguments),d=dhaluunActive();if(!d)return r;
   const all=r.all.slice();
   for(const x of d.targets){const op={id:DHALUUN.id+':'+x.id,k:'g',tg:x.id,tn:x.nm,t:d.t,rg:DHALUUN.reg,p:0,x:1};
     all.push({by:DHALUUN.by,bn:'Dhaluun',bd:'Dhaluunese',op,ok:false,ex:true,key:cvKey(DHALUUN.by,op)});}
-  all.sort((a,b)=>b.op.t-a.op.t);return {all,k:r.k+'|dhaluun:'+d.t};
+  const n=dhaluunNorthActive();if(n){const s=n.scandal,op={id:s.id,k:'s',tg:s.tg,tn:s.tn,t:n.t,rg:DHALUUN.reg,p:1,x:0,is:s.is};all.push({by:DHALUUN.by,bn:'Dhaluun',bd:'Dhaluunese',op,ok:true,ex:false,key:cvKey(DHALUUN.by,op)});}
+  all.sort((a,b)=>b.op.t-a.op.t);return {all,k:r.k+'|dhaluun:'+d.t+(n?'|north:'+n.t:'')};
 })(cvIndex);
+/* A bounded northern corridor: follow free land alongside Kesara to Morbridge's latitude. */
+function dhaluunNorthPlan(T){
+  if(!dhaluunActive())throw new Error('Dhaluun’s original event must be active.');
+  if(DHALUUN.data.north)throw new Error('The northern expedition has already run.');
+  const target=allNations().filter(x=>!x.npc&&x.n.name==='Kesara');if(target.length!==1)throw new Error('Expected one active Kesara.');
+  const x=target[0],i=T.byId[DHALUUN.by],j=T.byId[x.id],cities=cityState(T).all.filter(c=>c.active),anchors=cities.filter(c=>c.fid===x.id&&c.nm==='Morbridge');
+  if(i===undefined||j===undefined||anchors.length!==1)throw new Error('Dhaluun, Kesara or Morbridge is missing.');
+  const anchor=anchors[0],ay=MAP.cy[anchor.c],ax=MAP.cx[anchor.c],held=[];
+  for(let c=0;c<MAP.N;c++)if(T.owner[c]===i)held.push(c);
+  const top=Math.min(...held.map(c=>MAP.cy[c]));if(ay>=top)throw new Error('Morbridge is not north of Dhaluun.');
+  const free=c=>c>=0&&T.owner[c]===-1&&MAP.T[c]>=2&&MAP.cy[c]>=ay&&MAP.cy[c]<=top+30&&Math.abs(MAP.cx[c]-ax)<250;
+  const goals=[];for(let c=0;c<MAP.N;c++)if(free(c)&&MAP.cy[c]===ay)goals.push(c);
+  goals.sort((a,b)=>Math.abs(MAP.cx[a]-ax)-Math.abs(MAP.cx[b]-ax)||a-b);
+  if(!goals.length||hexDist(goals[0],anchor.c)>8)throw new Error('No free northern frontier near Morbridge.');
+  const goal=goals[0],prev=new Map(),queue=[];
+  for(const c of held)for(let k=0;k<6;k++){const b=MAP.nbrFlat[c*6+k];if(free(b)&&!prev.has(b)){prev.set(b,-1);queue.push(b);}}
+  for(let q=0;q<queue.length&&!prev.has(goal);q++){const c=queue[q];for(let k=0;k<6;k++){const b=MAP.nbrFlat[c*6+k];if(free(b)&&!prev.has(b)){prev.set(b,c);queue.push(b);}}}
+  if(!prev.has(goal))throw new Error('There is no connected free corridor to Morbridge.');
+  const path=[];for(let c=goal;c>=0;c=prev.get(c))path.push(c);path.reverse();
+  const land=new Set(path),rim=path.map(c=>[c,0]);
+  for(let q=0;q<rim.length;q++){const [c,d]=rim[q];if(d>=2)continue;for(let k=0;k<6;k++){const b=MAP.nbrFlat[c*6+k];if(free(b)&&!land.has(b)){land.add(b);rim.push([b,d+1]);}}}
+  const choices=[...land].filter(c=>cities.every(z=>hexDist(c,z.c)>=CITY_MIN_DIST));
+  choices.sort((a,b)=>{const score=c=>hexDist(c,goal)+Math.abs(MAP.cy[c]-(ay+30))/15+(MAP.T[c]===2?0:2);return score(a)-score(b)||a-b;});
+  if(!choices.length)throw new Error('No room for the survey settlement.');
+  const preferred='scn-shed',is=(x.n.inbox||[]).some(q=>q.id===preferred)?cvPickScandal(x,'dhaluun-north'):preferred;
+  if(!is)throw new Error('No scandal can be planted.');
+  return {v:1,t:Date.now(),land:[...land].sort((a,b)=>a-b),anchor:{c:anchor.c,id:anchor.id,nm:'Morbridge'},city:{id:'imperial-survey-1',c:choices[0],nm:DH_SURVEY_NAME},scandal:{id:'dhaluun-north-scandal-v1',tg:x.id,tn:'Kesara',is}};
+}
 /* The operation is a snapshot: newcomers are not spied on retroactively. */
 function dhaluunPlan(T){
   if(REG.id!==DHALUUN.reg)throw new Error('Open Cloudspine to plan this event.');
@@ -104838,6 +104889,7 @@ function dhaluunPlan(T){
 }
 function dhaluunInstall(raw){
   DHALUUN.data=dhaluunRead(raw);passForget();terrCache.clear();atlasCache.clear();
+  if(typeof NPC_BLOCS!=='undefined'){const b=NPC_BLOCS.find(b=>b.id===DH_HAALESH.bloc);if(b){b.members=b.members.filter(id=>id!==DH_HAALESH.id);if(dhaluunHaaleshActive())b.members.push(DH_HAALESH.id);}if(typeof polMemo!=='undefined')polMemo={k:'',v:null};}
   if(typeof cityMemo!=='undefined')cityMemo={T:null,k:'',v:null};
   if(typeof dcCSm!=='undefined')dcCSm={T:null,t:0,v:null};
   if(typeof dcSpotMemo!=='undefined')dcSpotMemo={v:null,r:null};
@@ -104847,11 +104899,12 @@ function dhaluunInstall(raw){
    Dhaluun's version covers the whole perimeter, rather than the usual short stretch. */
 if(typeof npcCities==='function'&&typeof dcWallGeo==='function'&&typeof cityEpochKey==='function'&&typeof DISPATCH_SOURCES!=='undefined'){
 function dhaluunWallActive(at){const d=dhaluunActive(at);return d&&d.wall&&(at==null?Date.now():at)>=d.wall.t?d.wall:null;}
-npcCities=(f=>function(id){const cities=f.apply(this,arguments);
-  if(id!==DHALUUN.by||!dhaluunWallActive(TERR_AT))return cities;
-  return cities.map(c=>c.cap&&!c.b.includes('wall')?{...c,b:c.b.concat('wall')}:c);
+npcCities=(f=>function(id){const before=DHALUUN.layout;let cities;DHALUUN.layout=true;try{cities=f.apply(this,arguments);}finally{DHALUUN.layout=before;}
+  if(id!==DHALUUN.by)return cities;
+  const n=dhaluunNorthActive(TERR_AT);if(n)cities=cities.concat({...n.city,b:['market','barracks','warehouse']});
+  return dhaluunWallActive(TERR_AT)?cities.map(c=>c.cap&&!c.b.includes('wall')?{...c,b:c.b.concat('wall')}:c):cities;
 })(npcCities);
-cityEpochKey=(f=>function(now){const k=f.apply(this,arguments),wall=dhaluunWallActive(TERR_AT);return wall?k+'|dhaluun-wall:'+wall.t:k;})(cityEpochKey);
+cityEpochKey=(f=>function(now){const k=f.apply(this,arguments),wall=dhaluunWallActive(TERR_AT),n=dhaluunNorthActive(TERR_AT);return k+(wall?'|dhaluun-wall:'+wall.t:'')+(n?'|north-city:'+n.t:'');})(cityEpochKey);
 const dhaluunWallMemo=new WeakMap();
 function dhaluunWallGeo(T,o){
   let hit=dhaluunWallMemo.get(T);if(hit)return hit;
@@ -104867,6 +104920,7 @@ function dhaluunWallStory(ctx){
   return [{k:DHALUUN.id+':wall',t:wall.t,sec:'world',kick:'Behind the wall',h:wall.h,b:wall.b,who:[DHALUUN.by],w:10,go:'map'}];
 }
 DISPATCH_SOURCES.push(dhaluunWallStory);
+DISPATCH_SOURCES.push(ctx=>{const h=dhaluunHaaleshActive();return h&&ctx&&ctx.reg===DHALUUN.reg&&dspIn(ctx,h.t)?[{k:DHALUUN.id+':haalesh',t:h.t,sec:'world',kick:'Purchased cabinet',h:h.h,b:h.b,who:[DH_HAALESH.id,DHALUUN.by],w:11,go:'region'}]:[];});
 if(typeof window.EDICTUM_PROBE==='function')window.EDICTUM_PROBE.dhaluunWall={active:dhaluunWallActive,geometry:dhaluunWallGeo,story:dhaluunWallStory,cities:id=>npcCities(id),cityState:T=>cityState(T),defence:(T,o,c)=>cityDefMult(T,o,c),draw:M=>dcWalls(M),install:dhaluunInstall};
 }
 connect=(f=>async function(){const r=await f.apply(this,arguments);
@@ -104878,6 +104932,8 @@ connect=(f=>async function(){const r=await f.apply(this,arguments);
 })(connect);
 if(typeof window.EDICTUM_PROBE==='function')window.EDICTUM_PROBE.dhaluun={state:DHALUUN,read:dhaluunRead,plan:()=>dhaluunPlan(territory()),index:()=>cvIndex(),map:MAP,version:MAP_VER,
   load:rows=>{S.nation=null;S.uid='';S.mode='world';S.world={};HIDN.w={};for(const x of rows){const n=normalize(x.n);if(!n||n.reg!==REG.id)continue;auditNation(n,x.n,x.id,Date.now(),false);if(isDormant(n))continue;if(x.hidden)HIDN.w[x.id]=n;else S.world[x.id]=n;}passForget();terrCache.clear();}};
+if(typeof window.EDICTUM_PROBE==='function')window.EDICTUM_PROBE.dhaluunNorth={plan:()=>dhaluunNorthPlan(territory()),active:dhaluunNorthActive,pending:n=>cvPending(n,Date.now()),apply:n=>cvApply(n,n,Date.now()),at:t=>{const before=TERR_AT;try{TERR_AT=t;return {T:territory(),cities:npcCities(DHALUUN.by)};}finally{TERR_AT=before;}}};
+if(typeof window.EDICTUM_PROBE==='function')window.EDICTUM_PROBE.dhaluunRegime={spec:DH_HAALESH,active:dhaluunHaaleshActive,form:dhaluunHaaleshForm,blocs:()=>NPC_BLOCS,category:s=>classify(s)};
 
 } /* end Dhaluun event */
 

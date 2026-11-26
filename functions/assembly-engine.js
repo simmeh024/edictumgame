@@ -2,8 +2,8 @@
 import DATA from './civic-data.json' with {type:'json'};
 function hash(str){let h=2166136261>>>0;for(let i=0;i<str.length;i++){h^=str.charCodeAt(i);h=Math.imul(h,16777619);}return h>>>0;}
 function rng(seed){let a=seed>>>0;return()=>{a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
-export function assemblyEngine(region,records,protectedLocks=[]){
-const DAY=86400000,GAMES_EPOCH=Date.UTC(2026,0,5),REG={id:region},NPC_NATIONS=DATA.regions.find(r=>r.id===region)?.npcs.map(x=>({...x,npc:true,policies:Object.fromEntries(x.pol.map(p=>[p,1]))}))||[],NPC_BASE=Object.fromEntries(NPC_NATIONS.map(x=>[x.id,x])),npcAt=id=>NPC_NATIONS.find(x=>x.id===id),npcRev=0;
+export function assemblyEngine(region,records,protectedLocks=[],haalesh=null){
+const DAY=86400000,GAMES_EPOCH=Date.UTC(2026,0,5),REG={id:region},NPC_NATIONS=DATA.regions.find(r=>r.id===region)?.npcs.map(x=>({...x,npc:true,policies:Object.fromEntries(x.pol.map(p=>[p,1]))}))||[],NPC_BASE=Object.fromEntries(NPC_NATIONS.map(x=>[x.id,x])),npcAt=(id,t)=>{const n=NPC_NATIONS.find(x=>x.id===id);return n&&region==='cloudspine'&&haalesh?.v===1&&Number.isFinite(haalesh.t)&&t>=haalesh.t&&DATA.dhaluun?.id===id?{...n,s:{...n.s,...DATA.dhaluun.s}}:n;},npcRev=0;
 const S={mode:'server',uid:'',nation:null,world:Object.fromEntries(records.map(r=>[r.id,r.n]))},myId=()=>'',clone=x=>structuredClone(x),conflictsOf=k=>DATA.conflicts.flatMap(([a,b])=>a===k?[b]:b===k?[a]:[]);
 const affinity=(a,b)=>Math.round(Math.max(0,Math.min(100,100-(['civil','econ','pol'].reduce((v,k)=>v+Math.abs((a.s[k]??50)-(b.s[k]??50)),0)/3)+(b.civicAffinity||0)+Math.max(-20,Math.min(20,Number(b.gw?.[a.id])||0)))));
 const ASM_EPOCH=GAMES_EPOCH,ASM_P=3*DAY,ASM_NPC_W=1/3,ASM_AFF=78,ASM_REJOIN=3*DAY,ASM_LAPSE=3,ASM_BACK=6,ASM_TOMB=4*DAY,ASM_REEND=DAY,ASM_MSG_GAP=3600e3,ASM_REDRAFT=6*3600e3,ASM_HMAX=10,ASM_HTX=4,ASM_EMAX=24,ASM_SMAX=12,ASM_TI=60,ASM_TX=280,ASM_MSG=100,ASM_OX=100,ASM_ABSENT=14*DAY,ASM_DCAP=4,ASM_BOOK=5,ASM_WHY=100;

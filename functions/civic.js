@@ -220,19 +220,19 @@ async function regionRecords(tx, db, reg) {
     const u = auth.get(saved.id), valid = !!(u && !u.disabled && registered(u) && !ban.exists && !mod.get('hidden') && !(mod.get('removed') >= generation));
     records.push(civicRecord(reg, saved, account, byId.get(saved.id), valid, !!mod.get('hidden')));
   }
-  return { root, meta, records, actors: byId, locks: cycles.docs.map(s => s.data()) };
+  return { root, meta, records, actors: byId, locks: cycles.docs.map(s => s.data()), haalesh: reg === 'cloudspine' ? meta.get('haalesh') || null : null };
 }
 
 async function regionState(tx, db, reg, now) {
   const base = await regionRecords(tx, db, reg);
-  return { ...base, ...regionDue(reg, base.root, base.records, base.locks, now) };
+  return { ...base, ...regionDue(reg, base.root, base.records, base.locks, now, base.haalesh) };
 }
 
 /* what the Assembly owes at `now`: cycles past their close to finalise and cycles to lock, as writes (pending),
    also added to locks. Cycles close in order, each keeping the rulebook as it leaves it (bk, bx) and its page in the
    Book of Resolutions (book: asmBook/{c}); the cycle locked now opens its debate on the Community Board (debate) */
-function regionDue(reg, root, records, locks, now) {
-  const engine = assemblyEngine(reg, records, locks), c = engine.cycle(now);
+function regionDue(reg, root, records, locks, now, haalesh) {
+  const engine = assemblyEngine(reg, records, locks, haalesh), c = engine.cycle(now);
   const pending = [], book = [];
   let debate = null;
   const close = (L, eng) => {
@@ -249,7 +249,7 @@ function regionDue(reg, root, records, locks, now) {
   }
   const last = locks.length ? Math.max(...locks.map(L=>L.c)) : c-1;
   for(let next=Math.max(last+1,c-6);next<=c;next++){
-    const currentEngine=assemblyEngine(reg,records,locks),L=currentEngine.pick(next,new Set(locks.map(x=>x.k)));
+    const currentEngine=assemblyEngine(reg,records,locks,haalesh),L=currentEngine.pick(next,new Set(locks.map(x=>x.k)));
     if(L){
       L.lt=now;
       if(next<c)close(L,currentEngine);
@@ -257,7 +257,7 @@ function regionDue(reg, root, records, locks, now) {
       locks.push(L);pending.push([root.collection('cycles').doc(String(next)),L]);
     }
   }
-  return { pending, book, debate, c, engine: assemblyEngine(reg, records, locks) };
+  return { pending, book, debate, c, engine: assemblyEngine(reg, records, locks, haalesh) };
 }
 
 /* A finished cycle in the Book of Resolutions (assemblyRegions/{reg}/asmBook/{c}): the resolution and its count, with
@@ -338,7 +338,7 @@ async function regionView(db, who, waited) {
   const mine = civicRecord(reg, e.saved, e.account, base.actors.get(uid), who.registered && !e.moderated, !!e.mod.get('hidden'));
   const records = base.records.filter(r => r.id !== uid), at = records.findIndex(r => r.id > uid);
   records.splice(at < 0 ? records.length : at, 0, mine);  // in the query's order, by document id
-  const locks = base.locks.map(L => ({ ...L })), due = regionDue(reg, base.root, records, locks, now);
+  const locks = base.locks.map(L => ({ ...L })), due = regionDue(reg, base.root, records, locks, now, base.haalesh);
   if (!due.pending.length) return output({ records, locks, engine: due.engine }, uid, now, e);
   // a cycle to close or lock: one transaction per region at a time here, and the rest read what it wrote
   const busy = closing.get(reg);
@@ -361,7 +361,7 @@ async function observeView(db, who, reg) {
   await mayObserve(db, who);
   const now = Date.now(), meta = await db.doc('assemblyRegions/' + reg).get();
   const base = await regionBase(db, reg, rootKey(meta));
-  const records = base.records.slice(), locks = base.locks.map(L => ({ ...L })), due = regionDue(reg, base.root, records, locks, now);
+  const records = base.records.slice(), locks = base.locks.map(L => ({ ...L })), due = regionDue(reg, base.root, records, locks, now, base.haalesh);
   return output({ records, locks, engine: due.engine }, '', now, { n: { reg }, kind: 'observer', readyAt: 0, moderated: false });
 }
 
@@ -534,7 +534,7 @@ async function assemblyTx(db, who, d) {
         const p = a.p || previousProposal;
         if (p) tx.set(ctx.root.collection('proposals').doc(ctx.engine.key(who.uid,p)), { uid: who.uid, ...p, status: op === 'withdraw' ? 'withdrawn' : 'queued', at: now });
       }
-      ctx.engine = assemblyEngine(reg, ctx.records, ctx.locks);
+      ctx.engine = assemblyEngine(reg, ctx.records, ctx.locks, ctx.haalesh);
     }
     // Avoid a write on every read when nothing changed; boundary creation still owns a revision.
     if (action || ctx.pending.length) {
@@ -738,7 +738,7 @@ export const civic = onCall({ region: 'europe-west1', maxInstances: 10, cpu: 1, 
     return chatDelegates(db, d.ids, regions, async reg => {
       const now = Date.now(), meta = await db.doc('assemblyRegions/' + reg).get();
       const base = await regionBase(db, reg, rootKey(meta));
-      return assemblyEngine(reg, base.records, base.locks).delegate(base.records, now).D?.id || '';
+      return assemblyEngine(reg, base.records, base.locks, base.haalesh).delegate(base.records, now).D?.id || '';
     });
   }
   if (d.op === 'authorizeSave') return permit(db, who, d);
