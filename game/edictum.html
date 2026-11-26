@@ -25531,14 +25531,15 @@ function achRankCredits(n){try{return n&&!n.npc&&n.ach?ACH_RANK_CREDITS*achRankO
    that the nation has been told) */
 const ACH_TIER_LC={p:10,x:15,o:20};
 function achTierCredits(n){try{if(!n||n.npc||!n.ach)return 0;let k=0;for(const id of achEarnedIds(n))k+=ACH_TIER_LC[ACH_BY_ID[id].t]||0;return k;}catch(e){return 0;}}
-/* every province (state, county…) a nation adds beyond its first is worth PRV_CREDITS land credits, counted on the most it has ever held (n.prpk) so merging and re-adding earns nothing more */
+/* every province (state, county…) a nation adds beyond its first is worth PRV_CREDITS land credits, counted on the most it has ever held (n.prpk) so merging and re-adding earns nothing more. Beyond PRV_CR_FULL provinces each further one pays PRV_CREDITS_LATE instead (26 November 2026, with the cap raised to 88): the first 40 are worth 3 apiece, the 41st and up 2 */
 const PRV_CREDITS=3;
+const PRV_CR_FULL=40,PRV_CREDITS_LATE=2;
 function prvPeak(n){try{if(!n||n.npc)return 0;const k=n.prov&&n.prov.on&&Array.isArray(n.prov.l)?n.prov.l.length:0;if(k>(n.prpk||0))n.prpk=k;return n.prpk||0;}catch(e){return 0;}}
-function prvCredits(n){return PRV_CREDITS*Math.max(0,prvPeak(n)-1);}
+function prvCredits(n){const k=Math.max(0,prvPeak(n)-1),f=Math.min(k,PRV_CR_FULL-1);return PRV_CREDITS*f+PRV_CREDITS_LATE*(k-f);}
 /* the peak is part of the record, so a reload or another device keeps it. Until 2026-11-13 every load dropped it, and
    the next visit after a merge took the merged provinces' credits back (The Wandering Isles lost 54 that way). Never
-   more than the most provinces a nation can hold (PRV_MAXL, 48: test/province-credits.test.mjs holds the two equal). */
-const PRV_PEAK_MAX=48;
+   more than the most provinces a nation can hold (PRV_MAXL, 88: test/province-credits.test.mjs holds the two equal). */
+const PRV_PEAK_MAX=88;
 NORM_HOOKS.push((n,d)=>{const k=d&&d.prpk;if(Number.isInteger(k)&&k>0)n.prpk=Math.min(k,PRV_PEAK_MAX);});
 /* the outfitters (2026-11-23): every purple and gold block, tier I and tier II, is worth a land credit: 2 a track at tier I
    gold, 4 at gold II, 28 in all. Counted from the blocks on record (and one whose time in the workshop is up), so blocks
@@ -50535,7 +50536,7 @@ function b2Above(ctx,lv){
    The record, n.prov (optional, normalised by prvNorm, a few kilobytes at most):
      on    1 while switched on; switching off keeps everything, so switching on again restores it
      term  the word for a division, a key of PRV_TERMS (p Province, s State, c County …)
-     l     the divisions, at most 24: {id, nm, s, m?, a?, g?, c?, f?, gq?}
+     l     the divisions, at most PRV_MAXL (88): {id, nm, s, m?, a?, g?, c?, f?, gq?}
              id a small number, never reused; nm the name; s the seat hex; m extra seats taken in by merging
              a autonomy 0..3; g the governor {nm, tr:[2 traits], sk, lo, t, ac?} (ac: acting, after a sacking);
              c the council [Treasurer, Constable, Planner] (0 for an empty seat); f its own flag {k:'f',p,c,e,ec}
@@ -50548,7 +50549,7 @@ function b2Above(ctx,lv){
    by id, unless x says otherwise. A lost seat moves to the nearest hex still held, within six hexes; with
    none, the division lies dormant. Computer nations have none. */
 const PRV_TERMS={p:['Province','Provinces'],s:['State','States'],c:['County','Counties'],k:['Canton','Cantons'],f:['Prefecture','Prefectures'],d:['Department','Departments'],o:['Oblast','Oblasts'],h:['Shire','Shires'],u:['Duchy','Duchies'],l:['Land','Lands']};
-const PRV_MAXL=48,PRV_MAXX=400,PRV_MAXM=11,PRV_LOSTR=6,PRV_MIN=2,PRV_PER=6;
+const PRV_MAXL=88,PRV_MAXX=400,PRV_MAXM=11,PRV_LOSTR=6,PRV_MIN=2,PRV_PER=6;
 const PRV_AUT=[['Centralised','The capital runs everything.'],['Devolved','Local councils run schools, roads and parks.'],['Autonomous','Its own parliament and police.'],['Home Rule','Everything but defence and the currency.']];
 /* governors' traits, at full strength: what each would do if its province held the whole nation.
    Stat keys move the census; pr economy, ar army, bu build time (as fractions); fd food (share of the province's own land yield) */
@@ -50995,7 +50996,7 @@ function prvMoveIsle(c,toId){
   return ok;
 }
 function prvAdd(c){
-  let nm='';const pk0=prvPeak(S.nation);
+  let nm='';const pk0=prvPeak(S.nation),cr0=prvCredits(S.nation);
   const ok=prvEdit((n,P,T,i)=>{
     const N=prvNatWith(T,i,P),t1=prvLow(prvT1(n)),t2=prvLow(prvT2(n)),act=N.prov.filter(p=>!p.dorm).length;
     if(T.owner[c]!==i)return `A new ${t1} needs a seat on your own land.`;
@@ -51007,7 +51008,7 @@ function prvAdd(c){
     P.l.push(prvNew(n,P,c,nm,Date.now()));
     return prvCheckOld(T,i,P,`A new ${t1} here`);
   });
-  if(ok){const p=S.nation.prov.l[S.nation.prov.l.length-1],more=prvPeak(S.nation)>pk0&&pk0>0;PRV.ui.sel=p.id;PRV.ui.msg=`${p.nm} is founded, with ${p.g.nm} as governor.${more?` ${PRV_CREDITS} land credits come with it.`:''} Rename it below.`;render();}
+  if(ok){const p=S.nation.prov.l[S.nation.prov.l.length-1],gain=prvPeak(S.nation)>pk0&&pk0>0?prvCredits(S.nation)-cr0:0;PRV.ui.sel=p.id;PRV.ui.msg=`${p.nm} is founded, with ${p.g.nm} as governor.${gain>0?` ${gain} land credits come with it.`:''} Rename it below.`;render();}
 }
 function prvSeat(id,c){
   return prvEdit((n,P,T,i)=>{
@@ -64980,7 +64981,7 @@ render=(f=>function(){const r=f.apply(this,arguments);for(const id of nxShown())
 ppViewOpen=(f=>function(id){const r=f.apply(this,arguments);nxWant(id);return r;})(ppViewOpen);
 
 /* ───────── map development: city reach, transport and private expansion plans ───────── */
-const MP_CITY_GROW=2,MP_CITY_MAX=3,MP_SEA_REACH=14,MP_PLAN_MAX=48,MP_NET_MAX=55;
+const MP_CITY_GROW=2,MP_CITY_MAX=3,MP_SEA_REACH=14,MP_PLAN_MAX=48,MP_NET_MAX=120;
 const MP_TYPES={road:{n:'Road',cost:{timber:2,goods:1},mins:15,bonus:0.04},rail:{n:'Railway',cost:{timber:2,iron:3,goods:2},mins:30,bonus:0.10},sea:{n:'Shipping connection',cost:{timber:3,goods:2,oil:1},mins:20,bonus:0.06},bridge:{n:'Bridge',cost:{iron:18,timber:14,goods:10},mins:180,bonus:0.08}};
 /* Bridges connect owned land up to MP_BRIDGE steps apart, across land or water. */
 const MP_BRIDGE=3,MP_SHIP_REACH=10,MP_WET=k=>k==='sea'||k==='bridge';
@@ -65360,7 +65361,7 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-act]');if
   if(a==='mp-load'){S.mpDraft=S.nation.mapPlan?.reg===REG.id?S.nation.mapPlan.cells.slice():[];S.mpMsg='Saved plan loaded.';updateMapPanel();redrawMaps();}
   if(a==='mp-save')mpSavePlan();if(a==='mp-apply')mpApplyPlan();if(a==='mp-net-build')mpBuildRoute();if(a==='mp-net-remove'){S.mpRemove=el.dataset.id;updateMapPanel();}if(a==='mp-net-keep'){S.mpRemove=null;updateMapPanel();}if(a==='mp-net-remove-confirm'){mpRemoveRoute(el.dataset.id);S.mpRemove=null;}
 });
-HELP_EXT.push({k:'map-development',t:'City influence, transport and island annexation',body:n=>`<p>Cities keep a two-hex production area and grow to three hexes at two million city residents. Each owned hex is worked by its nearest city once, even where areas overlap. City population uses its original catchment so expanding production cannot inflate its own population.</p><p>Use <b>Plan expansion</b> on the Map to select up to 48 connected hexes, preview their base yields and save a private plan across devices without spending credits. <b>Claim plan</b> rechecks ownership, reach and the full remaining credit cost before claiming anything. Harbour annexation requires a completed, held coastal Harbour and a water-only route of at most 14 hexes (16 with the Blue-Water Navy law) to a free shore: on another island, or across a bay or fjord on your own landmass. You claim individual free hexes at one land credit each, then may expand over connected land from there. Shipping connections cross at most 10 hexes. Other nations' territory, protected capital areas and the claim reach limit (68 hexes from the capital, or within reach of a city) remain protected.</p><p>Transport connects your cities and resource hexes. Roads cost 2 timber and 1 goods per step and take 15 minutes per step. Railways cost 3 iron and 2 goods per step and take 30 minutes, requiring a completed Railway Station at the origin. Shipping costs 3 timber, 2 goods and 1 oil per step and takes 20 minutes, requiring a Harbour and a water route of at most 10 steps. Land routes have at most 64 steps; a nation keeps at most 24 routes. Active connections add 4%, 10% or 6% to each connected city's worked land and completed production output, using only its best connection. Military supply adds 2% per connected city, capped at 6%. A cut route or lost required building suspends those bonuses. Routes are tied to their region; moving regions leaves them behind. Removing a route returns no materials.</p><p>Policy landscapes show protected groves, cleared woodland, renewable-energy markers and industrial development. They illustrate existing policy effects, without changing terrain or granting extra resources. The landscape layer is shown in Political view; you can turn it off in the map legend.</p>`});
+HELP_EXT.push({k:'map-development',t:'City influence, transport and island annexation',body:n=>`<p>Cities keep a two-hex production area and grow to three hexes at two million city residents. Each owned hex is worked by its nearest city once, even where areas overlap. City population uses its original catchment so expanding production cannot inflate its own population.</p><p>Use <b>Plan expansion</b> on the Map to select up to 48 connected hexes, preview their base yields and save a private plan across devices without spending credits. <b>Claim plan</b> rechecks ownership, reach and the full remaining credit cost before claiming anything. Harbour annexation requires a completed, held coastal Harbour and a water-only route of at most 14 hexes (16 with the Blue-Water Navy law) to a free shore: on another island, or across a bay or fjord on your own landmass. You claim individual free hexes at one land credit each, then may expand over connected land from there. Shipping connections cross at most 10 hexes. Other nations' territory, protected capital areas and the claim reach limit (68 hexes from the capital, or within reach of a city) remain protected.</p><p>Transport connects your cities and resource hexes. Roads cost 2 timber and 1 goods per step and take 15 minutes per step. Railways cost 3 iron and 2 goods per step and take 30 minutes, requiring a completed Railway Station at the origin. Shipping costs 3 timber, 2 goods and 1 oil per step and takes 20 minutes, requiring a Harbour and a water route of at most 10 steps. Land routes have at most 64 steps; a nation keeps at most ${MP_NET_MAX} routes. Active connections add 4%, 10% or 6% to each connected city's worked land and completed production output, using only its best connection. Military supply adds 2% per connected city, capped at 6%. A cut route or lost required building suspends those bonuses. Routes are tied to their region; moving regions leaves them behind. Removing a route returns no materials.</p><p>Policy landscapes show protected groves, cleared woodland, renewable-energy markers and industrial development. They illustrate existing policy effects, without changing terrain or granting extra resources. The landscape layer is shown in Political view; you can turn it off in the map legend.</p>`});
 
 HELP_EXT.push({k:'flag-layers',t:'Designing a layered flag',body:()=>'<p>Open the <b>Flag Studio</b> (Customise › Flag, or the Studios row at the top of Customise; the founding page has the basic designer) and add layers over your design: up to '+FGL_MAX+' emblems, stripes, borders, discs, triangles and corners. Each has its own colour, position, size and rotation, and can be turned, flipped, mirrored, repeated, made see-through or locked. The layer list runs from front to back; use Bring forward or Send backward to change the stack.</p><p>Drag a shape directly on the flag, or use its numeric controls, alignment buttons and one-percent movement buttons. A selected canvas also accepts arrow keys, with Shift for five-percent steps. Dragging snaps to a five-percent grid unless you turn snapping off. Dashed outlines mark the selection and the crosshair marks the flag centre. Undo reverses an entire drag or colour adjustment in one step. National flag edits take effect when you Save changes; Discard changes restores your saved design. The same designer is available for province flags, which save as you edit.</p>'});
 
@@ -78430,7 +78431,7 @@ const aParl=x=>achM(x,'parl',()=>{try{return x.npc?null:gvParl(x.n,x.now);}catch
 [['prv-2','b','A Second Seat',2,'Govern your land as two provinces.'],['prv-5','s','Federal Republic',5,'Govern your land as five provinces.'],['prv-10','g','United Provinces',10,'Govern your land as ten provinces.']]
   .forEach(([id,t,n,g,d])=>achDef('land',id,t,n,d,g,aProvN));
 /* provinces added: the most ever held, each beyond the first worth PRV_CREDITS land credits */
-[['prv-add1','b','Lines on the Map',1,'Add a province to your nation. Three land credits come with it.'],['prv-add4','s','Provincial Planner',4,'Add four provinces to your nation over time.'],['prv-add8','g','Patchwork Realm',8,'Add eight provinces to your nation over time.'],['prv-add15','p','Federation of Many',15,'Add fifteen provinces to your nation over time.'],['prv-add23','p','Every Seat Filled',23,'Add twenty-three provinces: the most any nation may have.']]
+[['prv-add1','b','Lines on the Map',1,'Add a province to your nation. Three land credits come with it.'],['prv-add4','s','Provincial Planner',4,'Add four provinces to your nation over time.'],['prv-add8','g','Patchwork Realm',8,'Add eight provinces to your nation over time.'],['prv-add15','p','Federation of Many',15,'Add fifteen provinces to your nation over time.'],['prv-add23','p','Every Seat Filled',23,'Add twenty-three provinces to your nation over time.']]
   .forEach(([id,t,n,g,d])=>achDef('land',id,t,n,d,g,x=>Math.max(0,prvPeak(x.n)-1)));
 achDef('land','prv-gov5','s','Governor’s Ball','Appoint five governors.',5,x=>aT(x,'log:govnew'));
 achDef('land','prv-merge','b','Two Become One','Merge two provinces into one.',1,x=>aT(x,'log:provmrg'));

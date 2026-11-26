@@ -29,6 +29,7 @@ function game(used){
     ${line('const MILE_NEW=')}
     ${line('function mileCredit(n,i){')}
     ${line('const PRV_CREDITS=')}
+    ${line('const PRV_CR_FULL=')}
     ${line('function prvPeak(n){')}
     ${line('function prvCredits(n){')}
     ${block('function rdCredits(n){','\n}')}
