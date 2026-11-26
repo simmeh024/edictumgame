@@ -46,7 +46,7 @@ async function start(theme, viewport) {
     n.pop = o.pop || 50; n.popAt = now; n.stock = { food: 900, timber: 900, iron: 900, oil: 900, goods: 900 }; n.stockAt = now;
     const dig = new Set(M.COL_ITEMS.filter(a => M.DIG_SETS.includes(a.set)).slice(0, o.dug || 0).map(a => a.id));
     n.coll = Object.fromEntries(M.COL_ITEMS.filter((a, i) => dig.has(a.id) || (!M.DIG_SETS.includes(a.set) && i % (o.every || 3) === 0)).map((a, i) => [a.id, now - (i + 1) * 3600e3]));
-    n.mw = Object.assign({}, n.mw || {}, { fl: o.fl || 1, b: o.b ? { f: (o.fl || 1) + 1, t1: now + 5 * 3600e3 } : null }); if (!o.b) delete n.mw.b;
+    n.mw = Object.assign({}, n.mw || {}, { fl: o.fl || 1, b: o.b ? { f: (o.fl || 1) + 1, t0: now, t1: now + 5 * 3600e3 } : null }); if (!o.b) delete n.mw.b;
     g.S.colDetail = null; g.render(); }, o);
   const hall = h => page.evaluate(h => { const g = window.__game; g.S.view = 'museum'; g.S.museumFor = null; g.S.muHall = h; g.S.colDetail = null; g.render(); window.scrollTo(0, 0); }, h);
   const q = (sel, f) => page.evaluate(([sel, f]) => (0, eval)('(' + f + ')')(document.querySelector(sel), document), [sel, f.toString()]);

@@ -53,6 +53,8 @@ jobs:
       - run: npm ci --prefix jobs/stats
       - name: Anniversary gifts
         run: node --test test/anniversary.test.mjs
+      - name: Discord dispatch delivery
+        run: node --test test/discord-dispatch.test.mjs
       - name: Currency, tutorial rewards and cached content
         run: npm run test:fx
       - name: The rules, and the daily currency job on the emulator
@@ -218,11 +220,16 @@ jobs:
         if: steps.settings.outputs.ready == 'true'
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_STAGING }}
+          DISCORD_DISPATCH_CHANNEL_ID: ${{ vars.DISCORD_DISPATCH_STAGING_CHANNEL_ID }}
         run: |
           key="$RUNNER_TEMP/service-account.json"
           trap 'rm -f "$key"' EXIT
           printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$key"
           GOOGLE_APPLICATION_CREDENTIALS="$key" node scripts/schedule-ready.mjs --project "$PROJECT_ID"
+          if [ -n "$DISCORD_DISPATCH_CHANNEL_ID" ]; then
+            [[ "$DISCORD_DISPATCH_CHANNEL_ID" =~ ^[0-9]{15,22}$ ]] || { echo 'Invalid staging Discord channel ID'; exit 1; }
+            printf 'EDICTUM_DISCORD_ENABLED=true\nEDICTUM_DISCORD_CHANNEL_ID=%s\n' "$DISCORD_DISPATCH_CHANNEL_ID" >> "functions/.env.$PROJECT_ID"
+          fi
           GOOGLE_APPLICATION_CREDENTIALS="$key" npx firebase deploy --only functions --project "$PROJECT_ID" --non-interactive --force
 
       - name: Deploy the Firestore rules and indexes to staging
