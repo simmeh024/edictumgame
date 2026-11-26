@@ -73,7 +73,10 @@ check('the player’s own nation card has no pill', await until(async () => /Cha
 await M.reload(); await ready(M);
 check('reloaded, the game knows the ambassador', await until(() => M.evaluate(() => G.S.isAmb === true && !G.S.isMod && !G.S.isOwner), 15000));
 check('the ambassador’s own nation card shows the pill', await until(async () => (await text(M, '.hero-cat .staff-pill.amb')) === 'Edictum Ambassador', 15000));
-check('the way in is their own blue pill, not an Admin or Mod one', !!(await M.$('.adm-pill.amb')) && !(await M.$('.adm-pill.mod')) && (await text(M, '.adm-pill')) === 'Ambassador');
+/* the pill waits for the mode, not just the role: startup sets S.isAmb a few awaits before S.mode leaves 'local',
+   and the nation card's pill is read from the ambassadors list, so both checks above can pass inside that window
+   while the sidebar still has no pill to show */
+check('the way in is their own blue pill, not an Admin or Mod one', await until(async () => !!(await M.$('.adm-pill.amb')) && !(await M.$('.adm-pill.mod')) && (await text(M, '.adm-pill')) === 'Ambassador', 15000), await text(M, '.adm-pill'));
 await M.evaluate(() => { location.hash = '#admin-reports'; }); await sleep(800);
 check('nor does the portal open by its address', !(await M.$('.adm-main')) && !(await M.$('.adm-nav')) && !/Reports/.test(await text(M, 'main h1')), await text(M, 'main h1'));
 

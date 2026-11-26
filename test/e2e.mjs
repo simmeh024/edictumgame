@@ -11,7 +11,7 @@
 import path from 'node:path';
 import {
   BASE, OUT, register, check, finish, sleep, until, player, open, ready, found, establish, nav, czSection, text, sideName, localNation,
-  restGet, restList, restListAdmin, accountExists, restPatch, nationDoc, clearEmulators, setClaims, googlePopup, openAccount, errors, FS_HOST, PROJECT, regionTab, fieldsText } from './lib.mjs';
+  restGet, restList, restListAdmin, accountExists, restPatch, nationDoc, clearEmulators, setClaims, googlePopup, openAccount, errors, FS_HOST, PROJECT, regionTab, fieldsText, clickPast } from './lib.mjs';
 import { traceInit, hitDiag } from './hit-diag.mjs';
 
 await clearEmulators();
@@ -667,7 +667,9 @@ const pick = () => A.evaluate(npc => { const T = G.territory(), mi = T.byId[G.my
   return best; }, war.npc);
 const fight = async cell => {
   await A.evaluate(c => { G.S.mapTarget = c; G.S.warMsg = ''; G.updateMapPanel(); }, cell);
-  await A.click('#map-panel [data-act="attack"]');
+  /* the hand-built record loaded just above earns its achievements, and that notice can come down over Attack and
+     stay there while the pointer rests on it (CI, 26 Nov 2026): close it and try again, as elsewhere */
+  await clickPast(A, '#map-panel [data-act="attack"]');
   return until(() => A.evaluate(() => /Victory|held the line|not ready|could not be reached/.test(G.S.warMsg || '') ? G.S.warMsg : ''), 20000);
 };
 /* up to six attacks, all the page's readiness (the referee keeps one more): at odds of 70% or better, four tries all
