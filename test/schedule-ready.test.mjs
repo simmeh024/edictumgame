@@ -80,8 +80,10 @@ test('switched off, the functions firebase-tools finds have no schedule and need
     assert.ok(on.endpoints.homeLive && on.endpoints.homeLive.scheduleTrigger, 'on (no env file): the schedule is there');
     assert.ok(apis(on).includes(API));
     assert.equal(off.endpoints.homeLive, undefined, 'off: no homeLive');
+    assert.ok(on.endpoints.haaleshExileClock?.scheduleTrigger,'on: the exile server clock is scheduled');
+    assert.equal(off.endpoints.haaleshExileClock,undefined,'off: no exile server clock');
     assert.ok(!apis(off).includes(API), 'and firebase-tools has no Cloud Scheduler API to switch on');
-    assert.deepEqual(Object.keys(off.endpoints).sort(), Object.keys(on.endpoints).filter(k => k !== 'homeLive').sort(), 'every other function still goes out');
+    assert.deepEqual(Object.keys(off.endpoints).sort(), Object.keys(on.endpoints).filter(k => !['homeLive','haaleshExileClock'].includes(k)).sort(), 'every other function still goes out');
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 

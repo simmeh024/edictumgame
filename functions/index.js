@@ -50,6 +50,8 @@ export { accounts } from './accounts.js';
 export { civic } from './civic.js';
 export { paddle } from './shop.js';
 export { homeLive } from './home-live.js';
+export {haaleshExileClock} from './haalesh-exile-clock.js';
+import {EXILE_ID,refreshExileNPC} from './exile-npc.js';
 export { discordDispatch } from './discord-dispatch.js';
 import { identity, eligibility, refuse, regionClosed } from './eligibility.js';
 import { nationText } from './nationtext.js';
@@ -119,6 +121,7 @@ async function battle(uid, data) {
   const c = data.c, d = data.d, w = isId(data.w) ? data.w : '';
   if (!Number.isInteger(c) || c < 0 || c > 1e6 || !isId(d) || d === uid || typeof data.p !== 'number' || !isFinite(data.p))
     throw new HttpsError('invalid-argument', 'A battle needs a hex, a nation and the odds.');
+  if(d===EXILE_ID)await refreshExileNPC(db);
   const npc = DATA.regions.some(r => r.npcs.some(n => n.id === d));
   const help = [...new Set(Array.isArray(data.h) ? data.h.filter(isId) : [])].filter(id => id !== uid && id !== d && !id.startsWith('npc-')).slice(0, 8);
   const meRef = db.doc('nations/' + uid), armyRef = db.doc('armies/' + uid), logRef = armyRef.collection('log').doc();

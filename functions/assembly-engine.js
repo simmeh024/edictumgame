@@ -1,9 +1,10 @@
 // Generated from the trusted Assembly engine in game/edictum.html; regenerate with tools/build-civic.mjs.
 import DATA from './civic-data.json' with {type:'json'};
+import {assemblyNPCs} from './exile-npc.js';
 function hash(str){let h=2166136261>>>0;for(let i=0;i<str.length;i++){h^=str.charCodeAt(i);h=Math.imul(h,16777619);}return h>>>0;}
 function rng(seed){let a=seed>>>0;return()=>{a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
 export function assemblyEngine(region,records,protectedLocks=[],haalesh=null){
-const DAY=86400000,GAMES_EPOCH=Date.UTC(2026,0,5),REG={id:region},NPC_NATIONS=DATA.regions.find(r=>r.id===region)?.npcs.map(x=>({...x,npc:true,policies:Object.fromEntries(x.pol.map(p=>[p,1]))}))||[],NPC_BASE=Object.fromEntries(NPC_NATIONS.map(x=>[x.id,x])),npcAt=(id,t)=>{const n=NPC_NATIONS.find(x=>x.id===id);return n&&region==='cloudspine'&&haalesh?.v===1&&Number.isFinite(haalesh.t)&&t>=haalesh.t&&DATA.dhaluun?.id===id?{...n,s:{...n.s,...DATA.dhaluun.s}}:n;},npcRev=0;
+const DAY=86400000,GAMES_EPOCH=Date.UTC(2026,0,5),REG={id:region},NPC_NATIONS=assemblyNPCs(region,haalesh).map(x=>({...x,npc:true,policies:Object.fromEntries(x.pol.map(p=>[p,1]))}))||[],NPC_BASE=Object.fromEntries(NPC_NATIONS.map(x=>[x.id,x])),npcAt=(id,t)=>{const n=NPC_NATIONS.find(x=>x.id===id);return n&&region==='cloudspine'&&haalesh?.v===1&&Number.isFinite(haalesh.t)&&t>=haalesh.t&&DATA.dhaluun?.id===id?{...n,s:{...n.s,...DATA.dhaluun.s}}:n;},npcRev=0;
 const S={mode:'server',uid:'',nation:null,world:Object.fromEntries(records.map(r=>[r.id,r.n]))},myId=()=>'',clone=x=>structuredClone(x),conflictsOf=k=>DATA.conflicts.flatMap(([a,b])=>a===k?[b]:b===k?[a]:[]);
 const affinity=(a,b)=>Math.round(Math.max(0,Math.min(100,100-(['civil','econ','pol'].reduce((v,k)=>v+Math.abs((a.s[k]??50)-(b.s[k]??50)),0)/3)+(b.civicAffinity||0)+Math.max(-20,Math.min(20,Number(b.gw?.[a.id])||0)))));
 const ASM_EPOCH=GAMES_EPOCH,ASM_P=3*DAY,ASM_NPC_W=1/3,ASM_AFF=78,ASM_REJOIN=3*DAY,ASM_LAPSE=3,ASM_BACK=6,ASM_TOMB=4*DAY,ASM_REEND=DAY,ASM_MSG_GAP=3600e3,ASM_REDRAFT=6*3600e3,ASM_HMAX=10,ASM_HTX=4,ASM_EMAX=24,ASM_SMAX=12,ASM_TI=60,ASM_TX=280,ASM_MSG=100,ASM_OX=100,ASM_ABSENT=14*DAY,ASM_DCAP=4,ASM_BOOK=5,ASM_WHY=100;
@@ -38,7 +39,8 @@ const ASM_CATS={
   /* two that name one nation of the region instead (tg: c commends it, x condemns it): no effect on the members, never
      in the rulebook; a passed one marks the nation named for a week (asmMarks) */
   commend:{n:'A commendation',m:{},s:{},tg:'c'},
-  condemn:{n:'A condemnation',m:{},s:{},tg:'x'}
+  condemn:{n:'A condemnation',m:{},s:{},tg:'x'},
+  exilepetition:{n:'Recognition of a government in exile',m:{},s:{},story:1}
 };
 /* what a computer nation tables when no member has proposed anything */
 const ASM_RES=[
@@ -163,7 +165,7 @@ function asmNpcLaud(c,recs){
   if(!recs||!NPC_NATIONS.length||hash(REG.id+':asmlaud:'+c)%ASM_NPC_LAUD)return null;
   const t0=asmT0(c),mem=recs.filter(r=>!r.hidden&&asmMemberAt(r.n,t0)&&!asmAbsentAt(r.n,t0));if(!mem.length)return null;
   const L=asmLocks(recs);let best=null;
-  for(const x of NPC_NATIONS){const b=asmNpcBacks(x,mem,c);if(!b.r||asmTgWhy(b.r.id,'c',recs,t0,x.id,L))continue;
+  for(const x of NPC_NATIONS){if(x.founded&&x.founded>t0)continue;const b=asmNpcBacks(x,mem,c);if(!b.r||asmTgWhy(b.r.id,'c',recs,t0,x.id,L))continue;
     if(!best||b.a>best.a||(b.a===best.a&&asmCmp(x.id,best.x.id)<0))best=b;}
   if(!best)return null;
   const T=ASM_LAUD[hash(REG.id+':laudt:'+c)%ASM_LAUD.length],N=best.r.n.name,put=s=>s.split('{N}').join(N).split('{B}').join(best.x.name);
@@ -192,7 +194,7 @@ function asmDelegateAt(recs,T){
   const info=new Map(mem.map(r=>[r.id,{r,k:0,by:[],np:[],reach:0,ab:asmAbsentAt(r.n,T)}]));
   for(const r of here){const a=asmA(r.n);if(!a||!a.e)continue;const seen=new Set();
     for(const e of a.e){if(e.i===r.id||seen.has(e.i)||!info.has(e.i)||e.t>T||(e.w&&e.w<=T))continue;seen.add(e.i);const o=info.get(e.i);o.k++;o.by.push(r.id);o.reach=Math.max(o.reach,e.t);}}
-  const npc=NPC_NATIONS.map(x=>asmNpcBacks(x,here,c));
+  const npc=NPC_NATIONS.filter(x=>!x.founded||x.founded<=asmT0(c)).map(x=>asmNpcBacks(x,here,c));
   for(const b of npc)if(b.r){const o=info.get(b.r.id);o.k++;o.np.push(b.x.id);o.reach=Math.max(o.reach,asmT0(c));}
   for(const o of info.values()){o.by.sort(asmCmp);o.np.sort(asmCmp);}
   let best=null;
@@ -208,6 +210,7 @@ function asmSupAt(recs,k,author,T){
 /* the computer nations' ready-made resolution for a cycle, tabled by the nation it suits best */
 function asmNpcScore(x,R,c){
   const cat=R.cat||R.c,C=ASM_CATS[cat];if(!C)return 0;const e=asmFx(cat,R.g),src=npcAt(x.id,asmT0(c))||x,B=NPC_BASE[x.id];let sc=0;
+  if(cat==='exilepetition'){if(['npc-cloudspine-dhaluun','npc-cloudspine-haalesh','npc-cloudspine-kethavaar'].includes(x.id))return -9;return src.s.civil>=70?2:0;}
   /* a resolution naming a nation: by how much this one likes it (the nation named defends itself). Most like their
      neighbours well enough (affinity about 75), so a commendation of one leans for and a condemnation against */
   if(C.tg){if(R.tg===x.id)return C.tg==='c'?9:-9;const t=asmNpcOf(R.tg)||(S.world&&S.world[R.tg]);if(!t||!t.s)return 0;
@@ -221,7 +224,7 @@ function asmNpcRes(c,recs){
   const L=ASM_RES.length;if(!L||!NPC_NATIONS.length)return null;
   const lau=asmNpcLaud(c,recs);if(lau)return lau;
   const b=Math.floor(c/L),R=ASM_RES[asmPerm(L,hash(REG.id+':asmres:'+b))[c-b*L]];
-  let by=NPC_NATIONS[0],bs=-Infinity;for(const x of NPC_NATIONS){const s=asmNpcScore(x,R,c);if(s>bs){bs=s;by=x;}}
+  let by=NPC_NATIONS[0],bs=-Infinity;for(const x of NPC_NATIONS){if(x.founded&&x.founded>asmT0(c))continue;const s=asmNpcScore(x,R,c);if(s>bs){bs=s;by=x;}}
   return {c,k:'npc~'+REG.id+'~'+c,ti:R.ti,tx:R.tx,cat:R.c,g:R.g,by:by.id,bn:by.name,w:'n',lt:0};
 }
 /* the resolution that goes to the vote in cycle c, computed from the records as they stood at its start */
@@ -273,7 +276,7 @@ function asmTally(L,c,recs,T,D){
   for(const r of recs){if(!asmMemberAt(r.n,Tm))continue;const a=asmA(r.n),v=a&&a.v?a.v.find(x=>x.c===c&&x.k===L.k&&x.t>=t0&&x.t<t1&&x.t<=T):null;
     const del=!!(D&&D.id===r.id),w=del?asmDW(D.k):1,row={id:r.id,n:r.n,me:!!r.me,v:v?v.v:0,t:v?v.t:0,w,del};if(v&&v.x)row.x=asmClean(v.x,ASM_WHY);
     rows.push(row);if(v){if(v.v>0)y+=w;else if(v.v<0)no+=w;}}
-  for(const x of NPC_NATIONS){let nv=asmNpcVote(x,L,c);const s=sw.get(x.id);if(s&&s.t<nv.t)nv={...nv,v:s.v};const on=nv.t<=T;if(on)shown++;rows.push({id:x.id,n:x,npc:true,v:on?nv.v:null,t:nv.t,w:ASM_NPC_W,...(s&&s.ex&&s.t<nv.t?{sw:s.by}:{})});if(on){if(nv.v>0)y+=ASM_NPC_W;else if(nv.v<0)no+=ASM_NPC_W;}}
+  for(const x of NPC_NATIONS){if(x.founded&&x.founded>t0)continue;let nv=asmNpcVote(x,L,c);const s=sw.get(x.id);if(s&&s.t<nv.t)nv={...nv,v:s.v};const on=nv.t<=T;if(on)shown++;rows.push({id:x.id,n:x,npc:true,v:on?nv.v:null,t:nv.t,w:ASM_NPC_W,...(s&&s.ex&&s.t<nv.t?{sw:s.by}:{})});if(on){if(nv.v>0)y+=ASM_NPC_W;else if(nv.v<0)no+=ASM_NPC_W;}}
   y=Math.round(y*100)/100;no=Math.round(no*100)/100;
   /* a condemnation needs two votes for every one against */
   return {rows,y,n:no,ok:asmTg(L.cat)==='x'?y>no&&y>=2*no:y>no,shown};
@@ -283,7 +286,7 @@ function asmTally(L,c,recs,T,D){
    takes its resolution out (r). A finished cycle's lock keeps the book as it left it (bk) and what went (bx). */
 function asmBookStep(bk,L){
   let b=Array.isArray(bk)?bk.slice():[];const bx=[];
-  if(!L||!L.f||!L.ok||!L.k||asmTg(L.cat))return {bk:b,bx};
+  if(!L||!L.f||!L.ok||!L.k||asmTg(L.cat)||ASM_CATS[L.cat]?.story)return {bk:b,bx};
   if(L.rp){const i=b.findIndex(e=>e.k===L.rp);if(i>=0){bx.push({k:b[i].k,ti:b[i].ti,w:'r'});b.splice(i,1);}return {bk:b,bx};}
   for(const e of b)if(e.cat===L.cat)bx.push({k:e.k,ti:e.ti,w:'s'});
   b=b.filter(e=>e.cat!==L.cat);

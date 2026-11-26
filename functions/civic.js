@@ -7,10 +7,12 @@ import { identity, eligibility, nationJSON, refuse, registered, regionMessage, r
 import { cabinetAffinity } from './affinity.js';
 import { assemblyEngine } from './assembly-engine.js';
 import { DH_ASM_EVENT, DH_ASM_TARGET, dhaluunClosingReply } from './dhaluun-assembly.js';
+import {prepareExileOutcome,writeExileOutcome} from './haalesh-exile.js';
+import {EXILE_ID,refreshExileNPC} from './exile-npc.js';
 import { chatDelegates } from './chat-delegates.js';
 import DATA from './civic-data.json' with { type: 'json' };
 import { cbTopic, cbReply, cbEdit, cbDelete, cbMod, cbPost, cbFollow, cbReact, cbSig, TEAM_OK, asTeam, teamMark, rmbParent, rmbReact, cbCounted } from './board.js';
-import { alliance, isAllianceOp } from './alliances.js';
+import { alliance, isAllianceOp, syncNPCTable } from './alliances.js';
 import { treaty, isTreatyOp } from './treaties.js';
 import { border, isBorderOp } from './borders.js';
 import { flagOp, isFlagOp } from './flagcomp.js';
@@ -220,7 +222,7 @@ async function regionRecords(tx, db, reg) {
     const u = auth.get(saved.id), valid = !!(u && !u.disabled && registered(u) && !ban.exists && !mod.get('hidden') && !(mod.get('removed') >= generation));
     records.push(civicRecord(reg, saved, account, byId.get(saved.id), valid, !!mod.get('hidden')));
   }
-  return { root, meta, records, actors: byId, locks: cycles.docs.map(s => s.data()), haalesh: reg === 'cloudspine' ? meta.get('haalesh') || null : null };
+  return { root, meta, records, actors: byId, locks: cycles.docs.map(s => s.data()), worldNations: nations.docs, haalesh: reg === 'cloudspine' ? meta.get('haalesh') || null : null };
 }
 
 async function regionState(tx, db, reg, now) {
@@ -416,14 +418,19 @@ async function paperName(tx, db, reg, who, mine, d, now) {
   if (s.get('by') === who.uid && now - (Number(s.get('t')) || 0) < 6 * 3600000) refuse('paper_cooldown', 'The Delegate can rename the paper once every six hours.');
   return { ref, doc: { nm, mo, by: who.uid, bn: text(mine?.n?.name, 40), t: now } };
 }
-async function assemblyTx(db, who, d) {
+export async function settleAssemblyRegion(db,reg,now=Date.now()){
+  if(!regions.has(reg))throw new Error('Unknown Assembly region.');
+  return assemblyTx(db,{system:true,uid:''},{op:'state',reg},now);
+}
+async function assemblyTx(db, who, d, systemNow) {
   const action = d.op !== 'state';
   let written = '', paper = null;
   const out = await db.runTransaction(async tx => {
-    const now = Date.now();
-    const e = await eligibility(tx, who, { linked: action, age: action ? DAY : 0, hidden: !action });
+    const now = who.system ? systemNow : Date.now();
+    if(who.system&&d.op!=='state')throw new Error('The server clock cannot take player actions.');
+    const e = who.system ? {n:{reg:d.reg},kind:'system',readyAt:0,moderated:false} : await eligibility(tx, who, { linked: action, age: action ? DAY : 0, hidden: !action });
     const reg = e.n.reg, ctx = await regionState(tx, db, reg, now), mine = ctx.records.find(r => r.id === who.uid);
-    const st = ctx.engine.state(now), a = structuredClone(mine.n.asm), previousProposal = a.p, op = d.op;
+    const st = ctx.engine.state(now), a = mine ? structuredClone(mine.n.asm) : {r:reg,e:[],s:[],v:[]}, previousProposal = a.p, op = d.op;
     if (action && a.o && (!a.j || a.j <= a.o) && op !== 'rejoin') refuse('resigned', 'Rejoin the Assembly before taking political actions.');
     const queue = ctx.records.filter(r => r.n.asm.p).map(r => ({ r, p: r.n.asm.p, k: ctx.engine.key(r.id, r.n.asm.p) }));
     const queued = k => queue.find(x => x.k === k && ctx.engine.cycle(x.p.t) >= ctx.c - 2 && !ctx.locks.some(L => L.k === k));
@@ -441,7 +448,7 @@ async function assemblyTx(db, who, d) {
         if (!repeal) refuse('repeal_gone', 'That resolution is no longer in the rulebook.');
         category = repeal.cat; strength = repeal.g ? 1 : 0;
       }
-      if (ti.length < 4 || body.length < 10 || !own(ctx.engine.cats, category) || ![0,1].includes(strength)) throw new HttpsError('invalid-argument', 'Choose a category, title and proposal text.');
+      if (ti.length < 4 || body.length < 10 || !own(ctx.engine.cats, category) || ctx.engine.cats[category].story || ![0,1].includes(strength)) throw new HttpsError('invalid-argument', 'Choose a category, title and proposal text.');
       const current = a.p && queued(ctx.engine.key(who.uid, a.p));
       if (d.edit) {
         if (!current) refuse('proposal_locked', 'This proposal can no longer be edited.');
@@ -508,7 +515,8 @@ async function assemblyTx(db, who, d) {
     const response = closingMotion ? await tx.get(responseRef) : null;
     const replyTopic = closingMotion && !response.exists ? await tx.get(db.doc('cb/' + reg + '/posts/' + closingMotion.dt)) : null;
     const replyOnBoard = replyTopic?.exists && !replyTopic.get('hd') && !replyTopic.get('lk');
-    const cbMeta = ctx.debate || replyOnBoard ? await tx.get(db.doc('cb/' + reg)) : null;
+    const exileOutcome = who.system ? await prepareExileOutcome(tx,db,ctx,now) : null;
+    const cbMeta = ctx.debate || replyOnBoard || exileOutcome?.replyOnBoard ? await tx.get(db.doc('cb/' + reg)) : null;
     for (const [ref, L] of ctx.pending) tx.set(ref, L);
     for (const [ref, entry] of ctx.book) tx.set(ref, entry);
     if (ctx.debate) {
@@ -524,7 +532,8 @@ async function assemblyTx(db, who, d) {
       tx.set(db.doc('worldEvents/' + DH_ASM_EVENT), { respondedAt: now, passed: !!closingMotion.ok }, { merge: true });
       tx.create(db.doc('adminAudit/' + DH_ASM_EVENT + '-reply'), { action: 'dhaluun_condemnation_reply', actor: 'assembly', outcome: 'completed', at: FieldValue.serverTimestamp(), cycle: closingMotion.c, passed: !!closingMotion.ok });
     }
-    if (cbMeta) tx.set(cbMeta.ref, cbCounted(cbMeta, now, { n: ctx.debate ? 1 : 0, r: replyOnBoard ? 1 : 0 }));
+    if(exileOutcome){writeExileOutcome(tx,db,ctx,exileOutcome,now);ctx.engine=assemblyEngine(reg,ctx.records,ctx.locks,ctx.haalesh);}
+    if (cbMeta) tx.set(cbMeta.ref, cbCounted(cbMeta, now, { n: ctx.debate ? 1 : 0, r: (replyOnBoard ? 1 : 0)+(exileOutcome?.replyOnBoard ? 1 : 0) }));
     if (paper) tx.set(paper.ref, paper.doc, { merge: true });
     if (action) {
       mine.n.asm = a;
@@ -537,13 +546,13 @@ async function assemblyTx(db, who, d) {
       ctx.engine = assemblyEngine(reg, ctx.records, ctx.locks, ctx.haalesh);
     }
     // Avoid a write on every read when nothing changed; boundary creation still owns a revision.
-    if (action || ctx.pending.length) {
+    if (action || ctx.pending.length || exileOutcome) {
       const D = ctx.engine.state(now).D;
       tx.set(ctx.root.collection('leadership').doc('current'), { id: D?.id || '', endorsements: D?.k || 0, at: now });
     }
     if (op === 'vote' && Date.now() >= st.t1) refuse('vote_closed', 'This vote has closed. Refresh the Assembly.');
-    if (action || ctx.pending.length) tx.set(ctx.root, { rev: (ctx.meta.get('rev') || 0) + 1, startCycle: ctx.meta.get('startCycle') ?? ctx.c, at: now }, { merge: true });
-    written = action || ctx.pending.length ? reg : '';
+    if (action || ctx.pending.length || exileOutcome) tx.set(ctx.root, { rev: (ctx.meta.get('rev') || 0) + 1, startCycle: ctx.meta.get('startCycle') ?? ctx.c, at: now, ...(exileOutcome?.nation?{haalesh:ctx.haalesh}:{}) }, { merge: true });
+    written = action || ctx.pending.length || exileOutcome ? reg : '';
     return output(ctx, who.uid, now, e);
   });
   // other instances see the root document change; this one need not wait for the read
@@ -733,6 +742,7 @@ export const civic = onCall({ region: 'europe-west1', maxInstances: 10, cpu: 1, 
     catch { throw new HttpsError('unavailable', 'Who is online cannot be told just now.'); }
   }
   const db = getFirestore(), who = await identity(uid);
+  if([d.id,d.to,d.d].includes(EXILE_ID)||(typeof d.record?.j==='string'&&d.record.j.includes(EXILE_ID))){const n=await refreshExileNPC(db);if(n){syncNPCTable();npcIds.add(EXILE_ID);}}
   if (d.op === 'chatDelegates') {
     await mayObserve(db, who);
     return chatDelegates(db, d.ids, regions, async reg => {

@@ -15,6 +15,7 @@ import { logger } from 'firebase-functions';
 import { getFirestore, Timestamp } from 'firebase-admin/firestore';
 import { runHome } from './home.js';
 import DATA from './civic-data.json' with { type: 'json' };
+import {refreshExileNPC} from './exile-npc.js';
 
 export const HOME_SCHEDULE = '*/5 * * * *';
 
@@ -34,6 +35,7 @@ export const homeLive = !SCHEDULES_ON ? undefined : onSchedule({
   retryCount: 0,
 }, async () => {
   /* a run that fails is not retried: the next one, five minutes on, starts from the memory the last good one wrote */
+  await refreshExileNPC(getFirestore());
   const report = await runHome(getFirestore(), { regions: homeRegions(), Timestamp });
   logger.info('home/live written', report);
 });
