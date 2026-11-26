@@ -255,7 +255,7 @@ test('what wars cost: each war more than the last (k^1.5), and a garrison for ea
 });
 
 test('wartime losses: growth slows with each war, and the people fall a share a day', () => {
-  const ctx = vm.createContext({ Math, DAY, myId: () => 'me', clamp: (v, a, b) => Math.max(a, Math.min(b, v)), economy: () => ({ T: { byId: { me: 0 } }, ratio: { food: [0.5] } }) });
+  const ctx = vm.createContext({ Math, DAY, WW_OR_TOP: 120, myId: () => 'me', clamp: (v, a, b) => Math.max(a, Math.min(b, v)), economy: () => ({ T: { byId: { me: 0 } }, ratio: { food: [0.5] } }) });
   vm.runInContext(['wrWeary', 'wrPopFx'].map(fn).join('\n'), ctx);
   ctx.wrWarsOf = () => [];assert.deepEqual(J(ctx.wrPopFx({})), { m: 1, l: 0 }, 'at peace: nothing');
   ctx.wrWarsOf = () => [{}, {}];const x = ctx.wrPopFx({ wwy: 50 });
@@ -271,7 +271,7 @@ test('wartime losses: growth slows with each war, and the people fall a share a 
 
 test('cities at war: shortages and weariness sour them, occupation too, and an edict can win them back', () => {
   const now = 1e12;
-  const ctx = vm.createContext({ Math, DAY, clamp: (v, a, b) => Math.max(a, Math.min(b, v)), wrShort: () => ({ q: 0.5, r: 'iron' }) });
+  const ctx = vm.createContext({ Math, DAY, WW_OR_TOP: 120, clamp: (v, a, b) => Math.max(a, Math.min(b, v)), wrShort: () => ({ q: 0.5, r: 'iron' }) });
   vm.runInContext(['wrWeary', 'wrCityMood'].map(fn).join('\n'), ctx);
   const T = { owner: [0, 1], list: [{ id: 'me', n: { wwy: 50, wmb: { v: 8, u: now + 1 } } }, { id: 'them', n: {} }], byId: { me: 0, them: 1 }, tk: [0, now - DAY] };
   ctx.wrWarsOf = id => id === 'me' ? [{ id: 'them', g: 'c' }] : [];
@@ -332,13 +332,13 @@ test('an attack: a little weariness, and on land never its own it ends the attac
 test('the record keeps what the war adds, within bounds', () => {
   const hook = cut('NORM_HOOKS.push((n,d)=>{\n  const now=Date.now(),ok=', '\n/* ── edict effects');
   const ctx = vm.createContext({ NORM_HOOKS: [], Date, Math, MAP: { N: 100 }, MAP_VER: 5, clamp: (v, a, b) => Math.max(a, Math.min(b, v)), DAY,
-    TRIB_MS: 14 * DAY, GRACE_MS: 3 * DAY, SHIELD_MS: 7 * DAY, FORT_MAX: 4 });
+    TRIB_MS: 14 * DAY, GRACE_MS: 3 * DAY, SHIELD_MS: 7 * DAY, FORT_MAX: 4, WW_OR_TOP: 120 });
   vm.runInContext(hook, ctx);const now = Date.now(), n = {};
   ctx.NORM_HOOKS[0](n, { founded: now, shd: now + 7 * DAY, surr: { a: now }, trib: [{ to: 'a', t: now, u: now + 14 * DAY }, { to: 'b', t: now, u: now + 40 * DAY }],
     grc: { t: now, u: now + 3 * DAY, k: 2 }, fort: { 5: now + 3600000, 500: now + 3600000, 6: now - 1 }, wwy: 140, wwyAt: now, pwl: 0.9,
     raid: [{ c: 3, t: now, d: 'v', s2: 'x' }], cv: 5, fel: { ft: now, by: 'a', bn: 'Axe', nm: 'Vesad', cap: 'Adler', reg: 'meridian', df: 1 }, wmb: { v: 99, u: now + DAY } });
   assert.equal(n.shd, now + 7 * DAY);assert.deepEqual(J(n.surr), { a: now });assert.equal(n.trib.length, 1, 'a tribute longer than 14 days is dropped');
-  assert.deepEqual(J(Object.keys(n.fort)), ['5'], 'live forts on the map only');assert.equal(n.wwy, 100);assert.equal(n.pwl, 0.2);
+  assert.deepEqual(J(Object.keys(n.fort)), ['5'], 'live forts on the map only');assert.equal(n.wwy, 120, 'weariness is kept up to the ceiling an overrule can buy');assert.equal(n.pwl, 0.2);
   assert.equal(n.raid.length, 1);assert.equal(n.fel.nm, 'Vesad');assert.equal(n.wmb.v, 20);assert.equal(n.grc.k, 2);
   const m = {};ctx.NORM_HOOKS[0](m, { founded: now, shd: now + 30 * DAY, grc: { t: now, u: now + 10 * DAY } });
   assert.equal(m.shd, undefined, 'a shield longer than the game gives');assert.equal(m.grc, undefined);
