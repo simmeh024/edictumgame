@@ -3858,6 +3858,17 @@ html[lang="fr"] .id-tilt{font-size:9px;letter-spacing:0}
 .paper.edict:has(.edict-dam){border-top:5px solid var(--dam-blue)}
 .paper.edict:has(.edict-dam) .h1{color:var(--dam-blue)}
 .wd-ph-r.dam-ed{color:var(--dam-blue)}
+/* the Hall of Edicts' edicts: purple on the desk and on the page */
+:root{--hall-purple:#6e3f8f}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--hall-purple:#c09ae0}}
+:root[data-theme="dark"]{--hall-purple:#c09ae0}
+.edict-hall{font:600 10.5px/1.4 var(--f-mono);padding:3px 6px;border-radius:3px;background:var(--hall-purple);color:var(--sheet);letter-spacing:.06em;text-transform:uppercase;margin-left:6px}
+.issue-item:has(.edict-hall) .issue-card{border-color:var(--hall-purple);box-shadow:inset 4px 0 0 var(--hall-purple);background:color-mix(in srgb,var(--hall-purple) 7%,var(--sheet))}
+.paper.edict:has(.edict-hall){border-top:5px solid var(--hall-purple)}
+.paper.edict:has(.edict-hall) .h1{color:var(--hall-purple)}
+.wd-ph-r.hal-ed{color:var(--hall-purple)}
+.hl-arl{list-style:none;margin:6px 0 10px;padding:0}.hl-arl li{display:grid;grid-template-columns:92px minmax(0,1fr);gap:10px;padding:6px 0;border-top:1px solid var(--rule)}
+.hl-arl .when{font:12px/1.35 var(--f-mono);color:var(--ink-3)}
 :root{--isl-sand:#a87a2e}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--isl-sand:#e0b46a}}
 :root[data-theme="dark"]{--isl-sand:#e0b46a}
@@ -34801,6 +34812,10 @@ function asmTally(L,c,recs,T,D){
   /* a condemnation needs two votes for every one against */
   return {rows,y,n:no,ok:asmTg(L.cat)==='x'?y>no&&y>=2*no:y>no,shown};
 }
+/* how many resolutions the rulebook holds when cycle c closes: ASM_BOOK, and one more in a region whose Hall of Edicts had
+   opened by then (asmBookPlus, set by the hall; tools/build-civic.mjs gives the server's engine its own, from the hall's records) */
+let asmBookPlus=c=>false;
+function asmBookMax(c){let p=false;try{p=!!asmBookPlus(c);}catch(e){p=false;}return ASM_BOOK+(p?1:0);}
 /* the rulebook: the resolutions in force, at most ASM_BOOK and one a category. A passed resolution enters it, and
    pushes out one of the same category (s, superseded) and then, past ASM_BOOK, the oldest (o, retired); a passed repeal
    takes its resolution out (r). A finished cycle's lock keeps the book as it left it (bk) and what went (bx). */
@@ -34811,7 +34826,7 @@ function asmBookStep(bk,L){
   for(const e of b)if(e.cat===L.cat)bx.push({k:e.k,ti:e.ti,w:'s'});
   b=b.filter(e=>e.cat!==L.cat);
   b.push({k:L.k,c:L.c,ti:L.ti,tx:L.tx||'',cat:L.cat,g:L.g?1:0,by:L.by,bn:L.bn||''});
-  while(b.length>ASM_BOOK){const e=b.shift();bx.push({k:e.k,ti:e.ti,w:'o'});}
+  while(b.length>asmBookMax(L.c)){const e=b.shift();bx.push({k:e.k,ti:e.ti,w:'o'});}
   return {bk:b,bx};
 }
 /* the book in force during cycle c (as cycle c-1 left it): the latest finished lock that keeps one, and the cycles
@@ -35351,7 +35366,7 @@ function asmBookSec(st,now,bk){
   const why={r:'repealed by',s:'replaced by',o:'retired when this passed:'};
   const gone=[...st.L.values()].filter(L=>L.f&&L.c<st.c&&Array.isArray(L.bx)&&L.bx.length).sort((a,b)=>b.c-a.c).flatMap(L=>L.bx.map(g=>({g,L}))).slice(0,6)
     .map(({g,L})=>`<li><span class="when">No. ${asmNo(L.c)}<br>${esc(fmtDate(asmT0(L.c+1)))}</span><span>“${esc(g.ti||'A resolution')}” left the rulebook, ${why[g.w]||'retired:'} “${esc(L.ti)}”.</span></li>`).join('');
-  return `<section class="section"><h2 class="h2">In force</h2><p class="muted">${bk.length?`${bk.length} of at most ${ASM_BOOK} resolutions are in force.`:'Nothing is in force yet: the next resolution to pass enters the rulebook.'} A passed resolution binds every member while it stays in the book. A newer one on the same subject replaces it; when a ${ordinal(ASM_BOOK+1)} passes, the oldest retires; a passed repeal takes it out. Whatever leaves the book is lifted from every member, though a law it made stays on the books. A nation that takes its seat follows the whole book; one that resigns, none of it.</p>
+  return `<section class="section"><h2 class="h2">In force</h2><p class="muted">${bk.length?`${bk.length} of at most ${asmBookMax(st.c)} resolutions are in force.`:'Nothing is in force yet: the next resolution to pass enters the rulebook.'} A passed resolution binds every member while it stays in the book. A newer one on the same subject replaces it; when a ${ordinal(asmBookMax(st.c)+1)} passes, the oldest retires; a passed repeal takes it out. Whatever leaves the book is lifted from every member, though a law it made stays on the books. A nation that takes its seat follows the whole book; one that resigns, none of it.</p>
     ${rows?`<ul class="asm-q asm-bks">${rows}</ul>`:''}</section>
     ${gone?`<section class="section"><h2 class="h2">Left the rulebook lately</h2><ul class="legis">${gone}</ul></section>`:''}`;
 }
@@ -35499,7 +35514,7 @@ function asmRules(){
     <li>Each player member votes with 1. The Delegate votes with 1 plus its endorsements, up to ${asmDW(ASM_DCAP)} in all. Each computer nation casts a third of a vote, so three players voting together outweigh all of them.</li>
     <li>More votes for than against passes it; a tie fails. Abstaining counts as attending, but not for either side.</li>
     <li>A commendation or a condemnation names one nation of the region, and never enters the rulebook. Passed, it marks that nation for ${Math.round(ASM_MARK/DAY)} days: a laurel gives its cities +${ASM_MK.c.mood} mood and better terms from computer nations; a censure gives them ${ASM_MK.x.mood} mood and worse terms. A condemnation needs two votes for every one against, and cannot name a nation in its first fortnight or one not seen for a fortnight.</li>
-    <li>A passed resolution enters the rulebook, which holds ${ASM_BOOK}, and binds every member while it is there. Mild ones move two or three census figures by 1 or 2; strong ones move three or four figures by up to 4, nudge a budget line, and may make a law.</li></ul></div></details>`;
+    <li>A passed resolution enters the rulebook, which holds ${asmBookMax(asmCyc(Date.now()))}, and binds every member while it is there. Mild ones move two or three census figures by 1 or 2; strong ones move three or four figures by up to 4, nudge a budget line, and may make a law.</li></ul></div></details>`;
 }
 function asmView(now){
   now=now||Date.now();const n=S.nation;if(!n)return '';
@@ -35729,7 +35744,7 @@ DISPATCH_SOURCES.push(ctx=>{
 HELP_EXT.push({k:'assembly',t:'The Regional Assembly',body:n=>`<p>Every region has an Assembly. Each player nation in it holds a seat unless it resigns, and every computer-run nation sits too. Members vote, table proposals, support them and endorse one another. The page has five tabs: the vote, the proposals, the members and their endorsements, the rulebook, and the records.</p>
   <p><b>The calendar.</b> A new resolution comes to the vote every three days, at 00:00 UTC, on the same clock in every region. The count closes three days later; a vote cast after that does not count, and until then you may change yours. Votes are public, and you may give a reason of up to ${ASM_WHY} characters, shown beside your vote. Each resolution at the vote has a debate on its region’s Community Board, opened by the Assembly’s clerk.</p>
   <p><b>What goes to the vote.</b> The Delegate’s choice; failing that, the proposal with the most support; failing that, a computer nation tables a ready-made resolution of its own. Each member may have one proposal waiting: a category, mild or strong, a title of up to ${ASM_TI} characters and up to ${ASM_TX} characters of text. It waits at most three cycles, then lapses. You can edit its wording or withdraw it until it reaches the vote, but not after. After withdrawing one, you wait ${ASM_REDRAFT/3600e3} hours before tabling another.</p>
-  <p><b>The rulebook.</b> A passed resolution enters the rulebook and binds every member while it stays there. The book holds ${ASM_BOOK}, one on each subject: a newer resolution on the same subject replaces the old one, and when a ${ordinal(ASM_BOOK+1)} passes the oldest retires. Any member may propose the repeal of a resolution in the book; if it passes, the resolution leaves. Whatever leaves the book is lifted from every member, on its next save, though a law it made stays on the books. A nation that takes its seat follows the whole book; one that resigns follows none of it.</p>
+  <p><b>The rulebook.</b> A passed resolution enters the rulebook and binds every member while it stays there. The book holds ${asmBookMax(asmCyc(Date.now()))}, one on each subject: a newer resolution on the same subject replaces the old one, and when a ${ordinal(asmBookMax(asmCyc(Date.now()))+1)} passes the oldest retires. Any member may propose the repeal of a resolution in the book; if it passes, the resolution leaves. Whatever leaves the book is lifted from every member, on its next save, though a law it made stays on the books. A nation that takes its seat follows the whole book; one that resigns follows none of it.</p>
   <p><b>Effects.</b> Mild resolutions move two or three census figures by 1 or 2. Strong ones move three or four figures by up to 4, may nudge a budget line, and some make a law, unless one of your own laws contradicts it. The proposal shows its effects in full.</p>
   <p><b>The count.</b> Each player member votes with 1, the Delegate with 1 plus its endorsements (up to ${asmDW(ASM_DCAP)} in all), and each computer nation with a third of a vote, by its character. More for than against passes; a tie fails. The result card on the vote tab shows how it went and what changed in your nation; the Book of Resolutions on the Records tab keeps every count, with how each member voted, and your attendance.</p>
   <p><b>Endorsements and the Delegate.</b> Endorse as many members as you like, and withdraw whenever you wish; after withdrawing you can endorse the same nation again after a day. Each computer nation backs the player member it likes best once its affinity reaches ${ASM_AFF}: shared values, your cabinet and goodwill all count. The member with the most endorsements is Delegate; a tie goes to whoever reached that count first. The Delegate chooses which proposal goes next, names the region’s newspaper and may post a message of up to ${ASM_MSG} characters, changed at most once an hour.</p>
@@ -105957,6 +105972,580 @@ helpPage=(f=>function(n,body,secs){
 /* the search is a way in of its own: "find a building", "which farm is grey" */
 if(typeof QJ_DO!=='undefined'&&Array.isArray(QJ_DO))QJ_DO.push({v:'do:cxfind',l:'Find a building in your cities',words:'search buildings grey behind upgrade which city farm',view:'cities',target:'#cxf',setup:()=>{S.cxQ='';S.cxF='';}});
 if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE.cxf={CXF_SHOW,CXF_QLEN,CXF_FILTERS,cxfFold,cxfTier,cxfCol,cxfLv,cxfLvWord,cxfPar,cxfCould,cxfRows,cxfName,cxfHay,cxfHit,cxfUpOn,cxfKeep,cxfSort,cxfFind,cxfOut,cxFindHTML,cxfGo};}catch(e){}
+
+/* ───────── the Hall of Edicts: the region's fourth wonder, begun once its Great Dam is open (2026-11-26) ─────────
+   Built like the dam, from what every player nation keeps in its own record: n.hal = {r: region id, p: {phase: {resource:
+   amount}}, ph: phases it has seen finished, t: last gift, t0: first gift, h: its latest gifts for the happenings, fx:
+   {phase: time} the phases its own gift finished, k: 1-5 its place among the five biggest givers at the opening, kn: 1
+   once it saw the opening ranked lower}; n.halx = {l: land credits earned at another region's hall, k} after a move.
+   Twenty-five phases and 35,000 resources. No nation may give more than HAL_CAP (30%) of a phase, so every phase takes at
+   least HAL_HANDS (4) nations. Every finished phase pays HAL_LAND (2) land credits to each nation that gave at least
+   HAL_SHARE (5%) of it; at the opening the five biggest givers earn HAL_TOP (20, 15, 10, 5, 3) more, and the biggest of
+   them the Portico, an icon for its arms and its flag that nothing else gives. Every five phases a hall edict (purple on
+   the desk) reaches every player nation of the region. Once open, the region's Assembly rulebook holds one resolution
+   more: asmBookPlus, which the server's Assembly engine works out from the same tally (tools/build-civic.mjs copies the
+   part between the hall-core marks into functions/assembly-engine.js, so it must stand on its own there). */
+/* hall-core */
+const HAL_PH=[
+  ['The competition','Forty architects send in designs. The jury chooses the one with the most columns, after a long argument about whether there can be too many.',{food:300,timber:100,goods:500}],
+  ['Clearing the square','The market stalls across the square from the Great Statue move one street over, grumbling, and the square is paved for the crowds to come.',{food:400,timber:300,oil:50,goods:150}],
+  ['The quarry road','A road to the marble quarry in the hills, straight where it can be and patient where it cannot.',{food:400,timber:300,iron:200,oil:100,goods:100}],
+  ['The masons’ yard','Sheds, saw benches and a canteen for the masons, who arrive with their own tools and their own opinions.',{food:450,timber:400,iron:100,oil:50,goods:150}],
+  ['The foundations','A great slab poured deep into the square, for a building meant to outlast every law it will keep.',{food:400,timber:250,iron:300,oil:100,goods:200}],
+  ['The vaults','Fireproof vaults under the square, where the original of every resolution will sleep in a dry, cool, numbered drawer.',{food:350,timber:300,iron:300,oil:100,goods:250}],
+  ['The great steps','Forty steps up to the doors, wide enough for a procession and shallow enough for a minister in a hurry.',{food:350,timber:200,iron:200,oil:100,goods:500}],
+  ['The podium','The stone platform the hall stands on, a full storey above the square, so that nobody arrives at the law by accident.',{food:350,timber:250,iron:250,oil:100,goods:450}],
+  ['The column drums','Each column is carved in drums, stacked and pinned with iron, and every drum is measured three times by people who enjoy measuring.',{food:300,timber:200,iron:300,oil:150,goods:500}],
+  ['The colonnade','The columns stand across the front, fluted and crowned, and the square already looks more important.',{food:300,timber:300,iron:350,oil:100,goods:400}],
+  ['The archive walls','Thick walls behind the colonnade, with no windows on the north side, because paper prefers the dark.',{food:300,timber:300,iron:300,oil:100,goods:500}],
+  ['The reading room','A long room under tall windows, with green lamps, long tables and a sign asking for silence in three languages.',{food:300,timber:400,iron:200,oil:100,goods:500}],
+  ['The roof','Timber trusses and lead sheets over the whole hall, tested at once by the wettest week anyone can remember.',{food:250,timber:500,iron:300,oil:100,goods:250}],
+  ['The pediment','The triangle over the columns, carved with every nation of the region, each of them sure it was given the smaller figure.',{food:250,timber:200,iron:200,oil:150,goods:700}],
+  ['The drum of the dome','A ring of stone and iron above the roof to carry the dome, with a gallery round it for the brave.',{food:250,timber:200,iron:400,oil:150,goods:400}],
+  ['The dome','A copper dome on an iron frame: green in ten years if the weather is kind, and in five if it is not.',{food:250,timber:300,iron:500,oil:200,goods:300}],
+  ['The lantern','A small glass lantern on top of the dome, lit whenever the Assembly is counting votes.',{food:200,timber:150,iron:350,oil:200,goods:600}],
+  ['The bronze doors','Two bronze doors cast with the first resolution the region ever passed, misspelt only once.',{food:200,timber:100,iron:550,oil:250,goods:350}],
+  ['The Assembly chamber','A horseshoe of seats under its own dome in the west wing, one for every nation of the region and a few spare, in hope.',{food:300,timber:400,iron:200,oil:150,goods:450}],
+  ['The shelves','Eleven kilometres of oak shelving for the archive, with ladders on rails and a librarian for each ladder.',{food:250,timber:550,iron:250,oil:100,goods:350}],
+  ['The printing house','Presses in the east wing that print every resolution on the day it passes, in a typeface made for the hall alone.',{food:250,timber:200,iron:350,oil:400,goods:450}],
+  ['The great clock','A clock in the pediment that keeps the Assembly’s three-day count, with a bell that rings when a count closes.',{food:250,timber:150,iron:350,oil:300,goods:450}],
+  ['The lawgivers','Statues of the region’s great lawgivers along the roof, chosen by a committee that took longer than the dome.',{food:300,timber:100,iron:250,oil:200,goods:700}],
+  ['Lamps and gardens','Lamps on the steps, clipped hedges round the square, and benches for reading, arguing and pigeons.',{food:350,timber:250,iron:150,oil:400,goods:350}],
+  ['The first reading','The doors open, the archivist reads the region’s first resolution aloud from the top step, and the square cheers in the right places.',{food:700,timber:100,iron:150,oil:350,goods:450}]];
+const HAL_RES=['food','timber','iron','oil','goods'],HAL_N=HAL_PH.length,HAL_CAP=0.3,HAL_HANDS=4;
+const halAmt=v=>{const x=Number(v);return Number.isFinite(x)&&x>0?Math.min(x,50000):0;},halTm=v=>typeof v==='number'&&isFinite(v)&&v>0?v:0;
+const halTot=d=>HAL_RES.reduce((s,r)=>s+(HAL_PH[d][2][r]||0),0);
+const halGave=(w,d)=>{const o=w&&w.p&&typeof w.p==='object'?w.p[d]:null;return o&&typeof o==='object'?HAL_RES.reduce((s,r)=>s+halAmt(o[r]),0):0;};
+/* the hall of a region from its player nations' records L ([{id, n: {name, hal}, me}], every n.hal of that region): phases
+   done (ph is a floor, so a finished phase never undoes), what the current phase still needs, the givers biggest first,
+   ft: when each phase was first seen finished, and at: when the hall opened (0 while it is being built) */
+function halTally(L){
+  const P=Array.from({length:HAL_N},()=>({})),H=Array.from({length:HAL_N},()=>0),ft=Array.from({length:HAL_N},()=>0),who=[];let floor=0,start=0,end=0;
+  for(const x of L){const w=x&&x.n&&x.n.hal;if(!w||typeof w!=='object')continue;
+    floor=Math.max(floor,Number.isInteger(w.ph)?Math.max(0,Math.min(HAL_N,w.ph)):0);let sum=0;const c={};
+    for(let i=0;i<HAL_N;i++){const o=w.p&&typeof w.p==='object'?w.p[i]:null;
+      if(o&&typeof o==='object'){let s=0;for(const r of HAL_RES){const v=halAmt(o[r]);if(v>0){P[i][r]=(P[i][r]||0)+v;c[r]=(c[r]||0)+v;s+=v;}}if(s>0){H[i]++;sum+=s;}}
+      const f=w.fx&&typeof w.fx==='object'?halTm(w.fx[i]):0;if(f>0&&(!ft[i]||f<ft[i]))ft[i]=f;}
+    if(sum>0){const t0=halTm(w.t0)||halTm(w.t);who.push({id:x.id,name:x.n.name,me:!!x.me,sum,c,t0});if(t0>0&&(!start||t0<start))start=t0;end=Math.max(end,halTm(w.t));}}
+  const full=d=>H[d]>=HAL_HANDS&&HAL_RES.every(r=>(P[d][r]||0)+1e-6>=(HAL_PH[d][2][r]||0));
+  let done=Math.min(HAL_N,floor);while(done<HAL_N&&full(done))done++;
+  const need={},cur=done<HAL_N?HAL_PH[done][2]:{};let want=0,have=0;
+  for(const r of HAL_RES){const q=cur[r]||0;if(!q)continue;const got=Math.min(q,P[done][r]||0);need[r]=Math.round((q-got)*10)/10;want+=q;have+=got;}
+  who.sort((a,b)=>b.sum-a.sum||a.t0-b.t0||(a.id<b.id?-1:a.id>b.id?1:0));
+  /* a phase finished without a recorded finishing gift (a record that left) is dated at the latest gift */
+  for(let i=0;i<done;i++)if(!ft[i])ft[i]=end||start;
+  return {done,need,frac:want?have/want:1,hands:done<HAL_N?H[done]:0,who,start,end:done>=HAL_N?end:0,ft,at:done>=HAL_N?ft[HAL_N-1]||end||start||1:0};
+}
+/* hall-core end */
+const HAL_LAND=2,HAL_SHARE=0.05,HAL_HAP_N=10,HAL_TOP=[20,15,10,5,3],HAL_MEDAL=['gold','silver','bronze','fourth','fifth'];
+const HAL_TOTAL=HAL_PH.reduce((s,p,i)=>s+halTot(i),0);
+const halCapOf=d=>Math.floor(halTot(d)*HAL_CAP),halShareOf=d=>Math.ceil(halTot(d)*HAL_SHARE);
+const halName=()=>regText('The Hall of Edicts of the Meridian Reach');
+const halThe=()=>halName().replace(/^The /,'the ');
+const halMine=n=>!!(n&&n.hal&&n.hal.r===REG.id);
+const halSum=w=>w&&w.p?Object.keys(w.p).reduce((s,k)=>s+halGave(w,k),0):0;
+const halRes=w=>{const c={};if(w&&w.p)for(const o of Object.values(w.p))for(const r of RES){const v=num0(o&&o[r]);if(v>0)c[r]=(c[r]||0)+v;}return c;};
+let halMemo={k:'',v:null};
+function halState(){
+  const L=allNations().filter(x=>!x.npc&&x.n&&halMine(x.n));
+  const key=REG.id+'|'+L.map(x=>x.id+':'+x.n.hal.t+':'+(x.n.hal.ph||0)+(x.me?'*':'')).join(',');if(halMemo.k===key)return halMemo.v;
+  halMemo={k:key,v:halTally(L)};return halMemo.v;
+}
+/* the hall opens once the dam is open (or someone has already given to it); once open it stays open */
+let halOpenMemo={r:'',v:false,t:0};
+function halOpen(){
+  const now=Date.now();if(halOpenMemo.r===REG.id&&(halOpenMemo.v||now-halOpenMemo.t<1500))return halOpenMemo.v;
+  let v=false;try{v=damState().done>=DAM_N||halState().who.length>0;}catch(e){v=false;}
+  halOpenMemo={r:REG.id,v,t:now};return v;
+}
+const halDone=()=>{try{return halOpen()&&halState().done>=HAL_N;}catch(e){return false;}};
+/* when the dam opened (its last phase first seen finished), or when the hall's first gift came if the dam's records left */
+function damEndAt(){try{const L=damState();return L.done>=DAM_N?Math.max(L.end||0,L.ft[DAM_N-1]||0):0;}catch(e){return 0;}}
+const halOpenAt=()=>{const a=damEndAt();if(a)return a;try{return halState().start;}catch(e){return 0;}};
+/* the time the hall opened in this region, or 0: the Assembly's rulebook holds one more resolution from the cycle it opened in */
+const halOpenedAt=()=>{try{return halOpen()?halState().at||0:0;}catch(e){return 0;}};
+asmBookPlus=c=>{const at=halOpenedAt();return at>0&&at<asmT0(c+1);};
+
+function halGive(r,amt){
+  const n0=S.nation;if(!n0||n0.npc||OBS||!RES.includes(r))return;
+  if(!halOpen()){toast('The Hall of Edicts waits until the Great Dam is open.');return;}
+  const W=halState(),d=W.done;if(d>=HAL_N){toast('The Hall of Edicts is already open.');return;}
+  const left=W.need[r]||0;if(left<=0){toast(`This phase needs no more ${resName(r)}.`);return;}
+  const room=halCapOf(d)-(halMine(n0)?halGave(n0.hal,d):0);
+  if(room<1){toast(`${n0.name} has given all it may to this phase: no nation may give more than ${Math.round(HAL_CAP*100)}% of one. The rest must come from other nations.`);return;}
+  const now=Date.now(),st=stockNow(n0,now),give=Math.floor(Math.min(amt,left,room,st[r]));if(give<1){toast(`You have no ${resName(r)} to spare.`);return;}
+  const n=clone(n0);
+  /* the first gift to another region's hall: what was earned at the old one is kept (n.halx) */
+  if(n.hal&&!halMine(n))halKeep(n);
+  const w=halMine(n)?clone(n.hal):{r:REG.id,p:{},ph:0,t:0};
+  st[r]-=give;n.stock=roundStock(st);n.stockAt=now;n._stockSet=true;
+  w.p=Object.assign({},w.p);const pd=w.p[d]=Object.assign({},w.p[d]);pd[r]=Math.round((num0(pd[r])+give)*10)/10;
+  if(!w.t0)w.t0=now;w.t=now;
+  /* the record's short list of gifts for the happenings: a gift to the same phase within the hour joins the one before */
+  const h=(Array.isArray(w.h)?w.h:[]).map(e=>({...e,c:{...e.c}})),top=h[0];
+  if(top&&!top.f&&top.d===d&&now-top.t<WND_HAP_JOIN){top.c[r]=Math.round((num0(top.c[r])+give)*10)/10;top.t=now;}
+  else h.unshift({t:now,d,c:{[r]:give}});
+  w.h=h.slice(0,HAL_HAP_N);n.hal=w;
+  commit(n);const after=halState();
+  if(after.done>d){const m=clone(S.nation);if(m.hal.h&&m.hal.h[0])m.hal.h[0].f=1;m.hal.fx=Object.assign({},m.hal.fx,{[d]:now});const got=halRaise(m,after.done,now);commit(m);
+    toast(after.done>=HAL_N?`${halName()} is open, and ${n.name} finished it.${got.length?' '+got.join(' '):''}`:`Phase ${after.done} of ${HAL_N} of the Hall of Edicts is finished: ${HAL_PH[d][0].toLowerCase()}. Next: ${HAL_PH[after.done][0].toLowerCase()}.${got.length?' '+got.join(' '):''}`);}
+  else{const mine=halGave(n.hal,d),sh=halShareOf(d);
+    toast(`${n.name} gave ${give} ${resName(r)} to ${halThe()}.${mine>=sh?'':` Give ${fmt0(sh-mine)} more to this phase to earn its ${HAL_LAND} land credits.`}`);}
+  render();
+}
+/* a record sees phases finish (ph rises): each one it gave at least HAL_SHARE of pays HAL_LAND land credits, noted in its
+   log; at the opening its place among the five biggest givers is kept (k), or kn when it is lower */
+function halRaise(n,d,now){
+  const w=n.hal,was=w.ph||0;if(!(d>was)&&!(d>=HAL_N&&!w.k&&!w.kn))return [];
+  w.ph=Math.max(was,d);const out=[],t=now||Date.now();n.log=n.log||[];
+  for(let i=was;i<d&&i<HAL_N;i++)if(halGave(w,i)>=halShareOf(i)){n.log.unshift({t,k:'halr',a:String(i)});out.push(halRewardText(i));}
+  if(d>=HAL_N&&!w.k&&!w.kn){let i=-1;try{i=halState().who.findIndex(x=>x.me);}catch(e){}
+    if(i>=0&&i<5){w.k=i+1;n.log.unshift({t,k:'halk',a:String(i+1)});out.push(halTopText(i+1));}else if(i>=5)w.kn=1;}
+  n.log=n.log.slice(0,60);return out;
+}
+const halRewardText=i=>`Phase ${i+1} of ${HAL_N} of ${halThe()} is finished. For your part: ${HAL_LAND} land credits.`;
+const halTopText=k=>`${halName()} is open, and your nation gave the ${['most','second most','third most','fourth most','fifth most'][k-1]} towards it: its name is on the plaque in ${HAL_MEDAL[k-1]}, with ${HAL_TOP[k-1]} more land credits${k===1?', and the Portico is yours for your arms and your flag in Customise':''}.`;
+const halRewarded=w=>{if(!w)return [];const o=[];for(let i=0;i<Math.min(w.ph||0,HAL_N);i++)if(halGave(w,i)>=halShareOf(i))o.push(i);return o;};
+const halLandOf=w=>w?HAL_LAND*halRewarded(w).length+(w.k>=1&&w.k<=5?HAL_TOP[w.k-1]:0):0;
+const halLand=n=>n&&!n.npc?(n.hal?halLandOf(n.hal):0)+(n.halx&&Number.isInteger(n.halx.l)?n.halx.l:0):0;
+const halTop=n=>{if(!n||n.npc)return 0;const a=n.hal&&n.hal.k,b=n.halx&&n.halx.k;return Math.min(a>=1&&a<=5?a:9,b>=1&&b<=5?b:9)%9;};
+function halKeep(n){const x=n.halx||{l:0},k=Math.min(x.k||9,n.hal.k||9);n.halx={l:(x.l||0)+halLandOf(n.hal)};if(k<=5)n.halx.k=k;}
+landEarned=(f=>function(n){return f.apply(this,arguments)+halLand(n);})(landEarned);
+earnedAt=(f=>function(n){return f.apply(this,arguments)+halLand(n);})(earnedAt);
+COMMIT_HOOKS.push((n,prev,now)=>{if(!halMine(n)||n.npc)return [];try{return halRaise(n,halState().done,now);}catch(e){return [];}});
+NORM_HOOKS.push((n,d)=>{
+  const w=d&&d.hal;if(!w||typeof w!=='object'||typeof w.r!=='string'||w.r.length>40)return;
+  const amts=o=>{const a={};for(const r of RES){const v=halAmt(o&&o[r]);if(v>0)a[r]=v;}return a;};
+  const o={r:w.r,p:{},ph:Number.isInteger(w.ph)?clamp(w.ph,0,HAL_N):0,t:halTm(w.t)};
+  if(w.p&&typeof w.p==='object'&&!Array.isArray(w.p))for(const [k,v] of Object.entries(w.p)){const i=+k;if(!Number.isInteger(i)||i<0||i>=HAL_N||!v||typeof v!=='object')continue;const a=amts(v);if(Object.keys(a).length)o.p[i]=a;}
+  if(halTm(w.t0))o.t0=w.t0;
+  if(Array.isArray(w.h)){const h=[];for(const e of w.h.slice(0,HAL_HAP_N)){if(!e||typeof e!=='object'||!halTm(e.t))continue;const g=amts(e.c);if(!Object.keys(g).length)continue;
+    const x={t:e.t,d:Number.isInteger(e.d)?clamp(e.d,0,HAL_N-1):0,c:g};if(e.f===1)x.f=1;h.push(x);}if(h.length)o.h=h;}
+  if(w.fx&&typeof w.fx==='object'&&!Array.isArray(w.fx)){const fx={};for(const [k,v] of Object.entries(w.fx)){const i=+k;if(Number.isInteger(i)&&i>=0&&i<HAL_N&&halTm(v))fx[i]=v;}if(Object.keys(fx).length)o.fx=fx;}
+  if(w.kn===1)o.kn=1;
+  if(Number.isInteger(w.k)&&w.k>=1&&w.k<=5)o.k=w.k;
+  n.hal=o;
+});
+NORM_HOOKS.push((n,d)=>{const x=d&&d.halx;if(!x||typeof x!=='object')return;n.halx={l:Number.isInteger(x.l)?clamp(x.l,0,999):0};if(Number.isInteger(x.k)&&x.k>=1&&x.k<=5)n.halx.k=x.k;});
+
+/* ── the Portico: an icon for the arms and the flag of the nation that gave the most, earned no other way ── */
+Object.assign(UNLOCKS,{'c-portico':{k:'charge',n:'Portico',src:'wonder'},'e-portico':{k:'emblem',n:'Portico',src:'wonder'}});
+EMBLEMS['e-portico']='Portico';if(!CZ_EMBS.includes('e-portico'))CZ_EMBS.push('e-portico');CZ_CHB.portico='a portico';
+UNLOCK_SOURCES.push({earned:n=>halTop(n)===1?['c-portico','e-portico']:[],how:id=>id==='c-portico'||id==='e-portico'?'Give the most to your region’s Hall of Edicts by the day its doors open.':null});
+uxUnlockInfo=(f=>function(id){return id==='c-portico'||id==='e-portico'?{label:'Visit the hall',view:'wonder',target:'.wd-who'}:f.apply(this,arguments);})(uxUnlockInfo);
+/* a temple front on three steps: four fluted columns with capitals and bases, an architrave on dentils, and a pediment
+   with a seal in it and an ornament on each corner */
+czCharge=(f=>function(k,c,d,flat){
+  if(k!=='portico')return f.apply(this,arguments);
+  const L=(p,w)=>`<path d="${p}" fill="none" stroke="${d}" stroke-width="${w||1.5}" stroke-linecap="round" stroke-linejoin="round"/>`,C=[17,35,53,71];
+  return czSil([['M46.5,11.5L50,5.5L53.5,11.5Z',0],['M7.5,34.5L10.5,29L13.5,34.5Z',0],['M86.5,34.5L89.5,29L92.5,34.5Z',0],['M9,35L50,11L91,35Z',0],['M6,35H94V40.5H6Z',0],['M10,40.5H90V48H10Z',0],
+    ...C.map(x=>[`M${x-1.5},48H${x+13.5}V51.5H${x-1.5}Z`,0]),...C.map(x=>[`M${x+1.4},51.5H${x+10.6}L${x+11.3},73H${x+0.7}Z`,0]),...C.map(x=>[`M${x-1},73H${x+13}V76.5H${x-1}Z`,0]),
+    ['M7,76.5H93V81.5H7Z',0],['M4,81.5H96V87H4Z',0],['M1.5,87H98.5V93H1.5Z',0]],c,d,flat)
+    +L('M19,33.6L50,15.4L81,33.6',1)+L('M50,27.6m-4.3,0a4.3,4.3 0 1 0 8.6,0a4.3,4.3 0 1 0 -8.6,0',1.3)+L('M50,25.6V29.6M48,27.6H52',1)
+    +L(Array.from({length:20},(_,i)=>`M${11.5+i*4},40.5V42.6`).join(''),.9)+L('M10,45H90',.9)
+    +L(C.map(x=>`M${x+4},54V71M${x+6},54V71M${x+8},54V71`).join(''),.8)+L('M7,81.5H93M4,87H96',.9);
+})(czCharge);
+czEmblemSVG=(f=>function(e,x,y,r,col){if(e!=='e-portico')return f.apply(this,arguments);const s=r/40;return `<g transform="translate(${(x-50*s).toFixed(2)},${(y-50*s).toFixed(2)}) scale(${s.toFixed(4)})">${czCharge('portico',col,'rgba(0,0,0,.28)',1)}</g>`;})(czEmblemSVG);
+
+/* ── the hall edicts: one every five phases, purple on the desk, to every player nation of the region. They come after
+   every other edict in ISSUES, since a record keeps the numbers of the edicts it has seen (test/edict-order.test.mjs) ── */
+const HAL_ISSUES=[
+{id:'hall-vaults',c:'culture',hal:1,at:5,t:'What Goes in the Vaults?',q:'Five phases in, the vaults under the Hall of Edicts are dry, cool and empty, and the archivists want to know what to put in them first. Every nation of the region has been asked to send its papers. The {D} archives hold three centuries of laws, two treaties nobody remembers signing and a box marked “Do not open”. The archivists have asked {CAP} what to send.',o:[
+ {t:'“Everything, the box too,” says historian Philippa Marchbanks-Oduya. “If the region is to keep its laws, let it keep all of ours, including the embarrassing ones. Especially those.”',h:'sent its whole archive, the sealed box too',e:{culture:3,civil:2,safety:-1,dmst:{goods:-40}},fx:'{N} sent its whole archive to the Hall of Edicts, the box marked “Do not open” too, which the archivists opened'},
+ {t:'“Only what does us credit,” says Interior Minister {INT}. “The treaties we won, the laws that worked. Nobody needs to read about the tax on hats.”',h:'sent only the papers that flatter it',e:{pol:1,civil:-2,corrupt:1},fx:'{N} sent the Hall of Edicts a slim, flattering selection of its papers, and kept the tax on hats at home'},
+ {t:'“Copies, not originals,” says the National Archivist, Cuthbert Ilunga-Hargreaves. “We copy every page by hand, beautifully, and the originals never leave the country.”',h:'sent careful copies and kept the originals',e:{culture:1,sci:1,econ:-1,dmst:{timber:-40}},fx:'{N} copied its archive by hand for the Hall of Edicts, beautifully, and kept the originals at home'}]},
+{id:'hall-pediment',c:'culture',hal:1,at:10,t:'A Figure for the Pediment',q:'Ten phases in, the sculptors of the Hall of Edicts are drawing the pediment, and every nation of the region may send one figure to stand in it. The committee has asked {N} what its figure should be, and would like an answer before the marble is cut, because marble does not take corrections.',o:[
+ {t:'“Our leader, in marble, looking wise,” says Interior Minister {INT}. “It is a hall of laws. Who makes the laws?”',h:'sent a statue of its leader',e:{pol:2,civil:-1,culture:1},fx:'{N}’s leader stands in the pediment of the Hall of Edicts, in marble, looking wise'},
+ {t:'“A farmer, a teacher and a nurse,” says Culture Minister {CUL}. “The people who keep the laws, not the people who write them.”',h:'sent a farmer, a teacher and a nurse',e:{equal:2,happy:2,culture:1},fx:'{N} sent a farmer, a teacher and a nurse to the pediment of the Hall of Edicts, which the sculptors called a squeeze'},
+ {t:'“An owl,” says Foreign Minister {FOR}. “An owl offends nobody, and it looks as if it has read everything.”',h:'sent an owl',e:{weird:2,happy:1,pol:1},fx:'{N} sent an owl to the pediment of the Hall of Edicts, which every child in the square now points at'}]},
+{id:'hall-dome',c:'econ',hal:1,at:15,t:'Copper or Glass?',q:'Fifteen phases in, the dome of the Hall of Edicts is framed in iron, and the region cannot agree what to cover it with. Copper is traditional and turns green; glass lets light into the reading room and lets the pigeons look in. The building committee has asked every nation to vote with its stores.',o:[
+ {t:'“Copper, and patience,” says the hall’s architect, Ottilie Fairweather-Mbeki. “In ten years it will be the greenest dome in the region, and the pigeons will have to read the papers like everyone else.”',h:'paid towards a copper dome',e:{culture:2,cons:1,dmst:{iron:-50}},fx:'{N} paid towards a copper dome for the Hall of Edicts, which is already turning a little green'},
+ {t:'“Glass, and light,” says the head librarian, Ingrid Achterberg. “A reading room should be read in. Let the sun in and the lamp bills down.”',h:'paid towards a glass dome',e:{sci:2,happy:1,env:1,dmst:{goods:-50}},fx:'{N} paid towards a glass dome for the Hall of Edicts, and the reading room has needed no lamps since'},
+ {t:'“Whatever is cheapest, painted to look like the other one,” says Finance Minister {FIN}.',h:'asked for the cheapest dome, painted',e:{econ:2,culture:-2},fx:'{N} asked for the cheapest dome the Hall of Edicts could have, painted, and the paint is already peeling'}]},
+{id:'hall-secrets',c:'gov',hal:1,at:20,t:'The Sealed Drawer',q:'Twenty phases in, the archivists sorting the region’s papers for the Hall of Edicts have found a drawer of {D} documents nobody listed: a secret treaty, a tax that was never collected and a letter from a former leader apologising for something unclear. Under the hall’s rules each nation decides whether its own secrets go on the open shelves.',o:[
+ {t:'“Open the drawer, all of it,” says transparency campaigner Moira Delacroix-Tembo. “A hall of laws with secrets in it is a cupboard.”',h:'put its secret papers on the open shelves',e:{civil:3,corrupt:-2,pol:-1},fx:'{N} put its secret papers on the open shelves of the Hall of Edicts, and the reading room was full for a month'},
+ {t:'“Seal it for fifty years,” says Interior Minister {INT}. “Our grandchildren can be shocked. We have work to do.”',h:'sealed its papers for fifty years',e:{safety:2,civil:-2},fx:'{N} sealed its papers in the Hall of Edicts for fifty years, with a ribbon and a very large wax seal'},
+ {t:'“Publish them ourselves, with notes,” says Culture Minister {CUL}. “If the story is told, let us be the ones who tell it.”',h:'published its secret papers itself, with footnotes',e:{culture:2,civil:1,tour:1,dmst:{goods:-40}},fx:'{N} published its secret papers itself, with footnotes, and the book sold out twice'}]},
+{id:'hall-reading',c:'culture',hal:1,at:25,t:'The First Reading',q:'The Hall of Edicts is finished. Tomorrow its bronze doors open, and the archivist will read the region’s first resolution aloud from the top step. Every nation has been offered a place on the steps, and the organisers want to know what {N} will bring.',o:[
+ {t:'“A choir and a feast in the square,” says festival director Benedetta Ravensworth. “Laws are better heard on a full stomach.”',h:'brought a choir and a feast to the steps',e:{happy:4,culture:2,tour:2,dmst:{food:-150}},fx:'{N} brought a choir and a feast to the first reading at the Hall of Edicts, and the square sang the resolution back'},
+ {t:'“Our oldest law, read in our own language,” says the National Archivist. “Let the region hear where we began.”',h:'read its oldest law aloud on the steps',e:{culture:3,pol:1},fx:'{N} read its oldest law aloud on the steps of the Hall of Edicts, and nobody in the square understood a word, beautifully'},
+ {t:'“Send the minister, sign the book, come home,” says Finance Minister {FIN}.',h:'sent a minister to sign the book',e:{econ:1,cons:1},fx:'{N} sent one minister to the first reading at the Hall of Edicts, who signed the book and left before the choir'}]}];
+for(const is of HAL_ISSUES){is.fo=1;ISSUES.push(is);is.no=ISSUES.length;ISSUE_BY_ID[is.id]=is;is.nbx=false;}
+/* due: a hall edict whose phase the region has finished, which this nation has neither on its desk nor seen; it lands
+   dated when that phase finished, outside the edict clock (only if the desk has room for it to stay) */
+function halDue(n){
+  if(!n||n.npc||OBS||!Array.isArray(n.inbox)||!(n.founded>0)||!halOpen())return [];
+  let L;try{L=halState();}catch(e){return [];}if(L.done<5)return [];
+  const seen=issLast(n),on=new Set(n.inbox.map(x=>x.id));
+  return HAL_ISSUES.filter(is=>L.done>=is.at&&!on.has(is.id)&&!seen.has(is.id)).map(is=>({id:is.id,at:Math.max(n.founded,L.ft[is.at-1]||Date.now())}));
+}
+syncInbox=(f=>function(n,now){
+  const m=f.apply(this,arguments),due=halDue(m);if(!due.length)return m;
+  const out=m===n?clone(m):m;for(const x of due)if(deskN(out.inbox)<EDICT_KEEP)out.inbox.push(x);return out;
+})(syncInbox);
+edictTopicBadge=(f=>function(is){return f.apply(this,arguments)+(is&&is.hal?'<span class="edict-hall">Hall of Edicts</span>':'');})(edictTopicBadge);
+HAP_SOURCES.push((x,now)=>{const n=x&&x.n;if(!n||n.npc||!halMine(n)||!Array.isArray(n.answered))return [];
+  const nm=nationLink(x.id,n.name,x.me),out=[];
+  for(const a of n.answered){const is=ISSUE_BY_ID[a.id];if(!is||!is.hal||!(a.o>=0)||!(a.t<=now))continue;const o=is.o[a.o];if(o&&o.h)out.push({t:a.t,txt:`On the Hall of Edicts’ “${esc(is.t)}”, ${nm} ${esc(o.h)}.`});}
+  return out;});
+
+/* ── drawing: the hall, phase by phase, in a 240 × 320 box. Every phase is a list of layers [z, path, paint], and all the
+   layers of all the phases are drawn back to front by z, so the wall stands behind the columns and the drum of the dome
+   behind the pediment. Finished phases are solid, the phase being built fills from the bottom as its phase fills, and
+   later ones are faint outlines. The light comes from the upper left. While it is built a crane and scaffolding stand
+   at the part going up; once open, the hall is shown at dusk, lit from inside, with the square full ── */
+const HAL_CX=[60,84,108,132,156,180],HAL_WX=[72,96,144,168];
+const halR=(x0,y0,x1,y1)=>`M${x0},${y0}H${x1}V${y1}H${x0}Z`;
+const halArch=(x,w,top,bot)=>`M${x-w/2},${bot}V${top}A${w/2},${w/2} 0 0 1 ${x+w/2},${top}V${bot}Z`;
+const halDot=(x,y,r)=>`M${x-r},${y}a${r},${r} 0 1 0 ${2*r},0a${r},${r} 0 1 0 ${-2*r},0Z`;
+/* a robed figure standing on y, h tall; m: facing the other way */
+const halFig=(x,y,h,m)=>{const s=h/10,k=m?-1:1,X=v=>(x+k*v*s).toFixed(1),Y=v=>(y-v*s).toFixed(1);
+  return `M${X(-2.3)},${Y(0)}L${X(-1.7)},${Y(6)}Q${X(-1.5)},${Y(7.7)} ${X(0)},${Y(7.8)}Q${X(1.7)},${Y(7.6)} ${X(2.1)},${Y(5.6)}L${X(3.4)},${Y(4.4)}L${X(3.1)},${Y(3.7)}L${X(1.9)},${Y(4.5)}L${X(2.5)},${Y(0)}Z`+halDot(+X(0.1),+Y(8.9),+(1.05*s).toFixed(2));};
+const HAL_PARTS=(()=>{
+  const P=[],cols=f=>HAL_CX.map(f).join(''),wins=f=>HAL_WX.map(f).join('');
+  const per=(xb,y)=>(120+(xb-120)*(y-262)/58).toFixed(1);
+  /* 1 the competition: the architect's easel with the winning design, and the architect */
+  P.push({x:[6,40],y:[260,292],g:halR(9,262,31,279),L:[[1,'M11,292L15,279M29,292L25,279M20,279V292M20,259V262','-#6b5a44:1.1'],[1,halR(9,262,31,279),'paper'],
+    [1.1,'M12,276H28M13.5,276V270.5M17,276V270.5M20.5,276V270.5M24,276V270.5M27,276V270.5M12.5,270.5L20,267L27.5,270.5M17.5,267.4A2.6,2.6 0 0 1 22.5,267.4','-#3d5a80:.7'],
+    [1.1,halFig(36,292,13,1),'#4d5866']]});
+  /* 2 clearing the square: the paving, laid towards the hall */
+  P.push({x:[0,240],y:[292,320],g:'',L:[[0.2,[-160,-60,20,70,120,170,220,300,400].map(x=>`M${per(x,292)},292L${x},320`).join('')+'M0,296.5H240M0,302H240M0,309H240M0,317.5H240','-#a99d84:.6']]});
+  /* 3 the quarry road, to the marble in the hills, with a cart on it */
+  P.push({x:[196,240],y:[238,302],g:'M240,302C228,296 219,288 216,278L221,278C224,287 231,294 240,297Z',L:[[0.3,'M206,247L213,239H226L233,247Z','marble'],[0.3,'M209,247L214,241H219L216,247Z','#d8d2c4'],
+    [0.4,'M240,302C228,296 219,288 216,278L221,278C224,287 231,294 240,297Z','road'],
+    [0.5,halR(225,287,235,292),'marble'],[0.5,halDot(227.5,293,2.2)+halDot(233,293,2.2),'#6b5a44'],[0.5,'M224,290H217','-#6b5a44:1']]});
+  /* 4 the masons' yard: a shed, stacked blocks and a drum on its side */
+  P.push({x:[196,238],y:[258,292],g:halR(200,270,230,292)+'M197,270L215,259L233,270Z',L:[[1,halR(200,270,230,292),'wood'],[1.05,'M197,270L215,259L233,270Z','roof'],[1.1,halR(210,279,218,292),'#5c4630'],
+    [1.2,halR(214,284,224,292)+halR(224,284,234,292)+halR(219,278,229,284),'marble'],[1.2,'M200,292a4,6 0 0 1 0,-12h10a4,6 0 0 1 0,12Z','marble'],[1.25,'M200,280a4,6 0 0 0 0,12','-#a69d89:.7']]});
+  /* 5 the foundations */
+  P.push({x:[34,206],y:[286,292],g:halR(34,286,206,292),L:[[2,halR(34,286,206,292),'stD'],[2.05,'M34,286.5H206','-#efe9dc:.8']]});
+  /* 6 the vaults: a cut into the square shows the numbered drawers under it */
+  P.push({x:[60,180],y:[296,316],g:halR(60,296,180,316),L:[[0.6,halR(60,296,180,316),'#8a7f70'],
+    [0.7,[64,83,102,121,140,159].map(x=>halArch(x+8,16,305,316)).join(''),'#a39887'],
+    [0.75,[64,83,102,121,140,159].map(x=>`M${x+2},309H${x+14}M${x+2},312.5H${x+14}M${x+5},305V316M${x+8},304V316M${x+11},305V316`).join(''),'-#c3b9a8:.45'],
+    [0.8,'M60,296H180','-#5e564b:1']]});
+  /* 7 the great steps: four treads, lit on top, shaded on the risers */
+  P.push({x:[28,212],y:[274,286],g:'M28,286V283H34V280H40V277H46V274H194V277H200V280H206V283H212V286Z',L:[[3,halR(28,283,212,286)+halR(34,280,206,283)+halR(40,277,200,280)+halR(46,274,194,277),'st'],
+    [3.05,'M28,283.4H212M34,280.4H206M40,277.4H200M46,274.4H194','-#fbf8f0:.9'],[3.05,'M28,285.6H212M34,282.6H206M40,279.6H200M46,276.6H194','-#a99f8a:.5']]});
+  /* 8 the podium, with its moulding */
+  P.push({x:[46,194],y:[262,274],g:halR(46,262,194,274),L:[[3,halR(48,264,192,274),'st'],[3.05,halR(46,262,194,264.5),'stL'],[3.1,'M48,271.5H192M48,264.5H192','-#b2a891:.6']]});
+  /* 9 the column drums: the lower halves and the bases, and the shadows they throw on the wall */
+  P.push({x:[52,188],y:[232,262],g:cols(c=>`M${c-5},258L${c-4.75},232H${c+4.75}L${c+5},258Z`),L:[[4.6,cols(c=>`M${c+5},214H${c+10}V258H${c+5}Z`),'shade'],
+    ...HAL_CX.map(c=>[6,`M${c-5},258L${c-4.75},232H${c+4.75}L${c+5},258Z`,'col']),
+    [6.1,cols(c=>halR(c-6.5,258,c+6.5,262)+halR(c-6,256,c+6,258)),'stL'],[6.15,cols(c=>`M${c-4.8},241H${c+4.8}M${c-4.9},250H${c+4.9}`),'-#b9af9a:.5']]});
+  /* 10 the colonnade: the upper halves, fluted, under Ionic capitals */
+  P.push({x:[52,188],y:[202,232],g:cols(c=>`M${c-4.75},232L${c-4.5},208H${c+4.5}L${c+4.75},232Z`+halR(c-7.5,203.8,c+7.5,208.2)),L:[...HAL_CX.map(c=>[6,`M${c-4.75},232L${c-4.5},208H${c+4.5}L${c+4.75},232Z`,'col']),
+    [6.1,cols(c=>`M${c-2.4},210V256M${c},210V256M${c+2.4},210V256`),'-#b3a993:.45'],[6.15,cols(c=>`M${c-4.7},223H${c+4.7}`),'-#b9af9a:.5'],
+    [6.2,cols(c=>halR(c-6,206,c+6,208.2)+halR(c-7.5,203.8,c+7.5,206)),'stL'],[6.25,cols(c=>halDot(c-6,207.6,1.7)+halDot(c+6,207.6,1.7)),'stL']]});
+  /* 11 the archive walls, recessed behind the colonnade, with the shadow of the entablature on them */
+  P.push({x:[52,188],y:[204,262],g:halR(52,204,188,262),L:[[4,halR(52,204,188,262),'wall'],[4.1,[214,222,230,238,246,254].map(y=>`M52,${y}H188`).join(''),'-#aca28c:.4'],[4.5,halR(52,204,188,216),'shadeV']]});
+  /* 12 the reading room: tall arched windows with stone surrounds, mullions and keystones */
+  P.push({x:[64,176],y:[208,248],g:wins(x=>halArch(x,13,216,247)),L:[[5,wins(x=>halArch(x,13,216,247)),'stL'],[5.1,wins(x=>halArch(x,10,216,246)),'glass'],
+    [5.3,wins(x=>`M${x},211V246M${x-5},229H${x+5}M${x-5},238H${x+5}`),'-#6f6658:.6'],[5.35,wins(x=>halR(x-7.5,246,x+7.5,248.5)+`M${x-1.6},209L${x+1.6},209L${x+1.1},212H${x-1.1}Z`),'stL']]});
+  /* 13 the roof: architrave, a frieze with the hall's motto, and a cornice on its dentils */
+  {let den='';for(let x=43.5;x<197;x+=3.2)den+=halR(+x.toFixed(1),189,+(x+1.7).toFixed(1),190.8);
+  P.push({x:[42,198],y:[184,204],g:halR(42,184,198,204),L:[[7,halR(46,196,194,204),'st'],[7.05,'M46,199H194M46,201.6H194','-#b8ae98:.6'],[7.1,halR(46,189,194,196),'stL'],
+    [7.15,{t:'·  LEX  ·  EDICTVM  ·  REGIO  ·',x:120,y:194.7,fs:4.6,ls:1.3,c:'#8b806b'}],[7.2,halR(42,184,198,189),'st'],[7.25,den,'stD'],[7.3,'M42,184.4H198','-#fbf8f0:.8']]});}
+  /* 14 the pediment: a raking cornice round a recessed tympanum, carved with the nations of the region and a roundel */
+  P.push({x:[38,202],y:[154,184],g:'M38,184L120,154L202,184Z',L:[[8,'M38,184L120,154L202,184Z','st'],[8.05,'M38,183.6L120,154.4','-#fbf8f0:.9'],[8.1,'M50,184L120,160.5L190,184Z','wall'],
+    [8.15,[[64,6],[76,8.5],[88,11],[100,13.5]].map(([x,h])=>halFig(x,183.5,h,0)+halFig(240-x,183.5,h,1)).join('')+'M52,183.5c2,-3 8,-4 11,-2.2L62,183.5Z'+'M188,183.5c-2,-3 -8,-4 -11,-2.2L178,183.5Z','stL'],
+    [8.2,halDot(120,172.5,6.8),'stD']]});
+  /* 15 the drum of the dome: pilasters, small arched windows and a cornice, behind the pediment */
+  P.push({x:[90,150],y:[124,176],g:halR(92,124.5,148,176),L:[[1.5,halR(92,128,148,176),'st'],[1.55,'M98,130V176M110,130V176M130,130V176M142,130V176','-#c4baa5:1.6'],[1.6,halArch(104,5,137,149)+halArch(120,5,137,149)+halArch(136,5,137,149),'glass'],
+    [1.65,halR(90,124.5,150,128.5),'stL'],[1.66,'M92,150H148','-#b2a891:.5']]});
+  /* 16 the dome: copper on ribs, catching the light on its left shoulder */
+  P.push({x:[93,147],y:[92,125],g:'M93,125C93,101 106,92 120,92C134,92 147,101 147,125Z',L:[[1.7,'M93,125C93,101 106,92 120,92C134,92 147,101 147,125Z','cu'],
+    [1.75,'M120,92V125M120,92C111,95 104,106 102.5,125M120,92C129,95 136,106 137.5,125M120,92C115,95 109.5,108 109.5,125M120,92C125,95 130.5,108 130.5,125','-#4c7465:.7'],
+    [1.8,'M99,117C100,104 107,96.5 115,94','-rgba(255,255,255,.45):2.2']]});
+  /* 17 the lantern: a little glass temple on the dome, a cap and a gilded finial */
+  P.push({x:[110,130],y:[66,93],g:halR(111,80,129,93)+'M111.5,80.5C111.5,74 128.5,74 128.5,80.5Z',L:[[1.85,halR(111,90,129,93),'stL'],[1.86,halR(113,80,127,90),'glass'],[1.87,'M114.5,80V90M120,80V90M125.5,80V90','-#d9d2c2:1.4'],
+    [1.88,'M111.5,80.5C111.5,74 128.5,74 128.5,80.5Z','cu'],[1.89,'M120,74.5V69','-#a8873d:1.2'],[1.9,halDot(120,68.6,1.6),'gold']]});
+  /* 18 the bronze doors, in a surround with its own small cornice */
+  P.push({x:[108,132],y:[224,262],g:halR(108,224,132,262),L:[[7,halR(110,227,130,262),'stL'],[7.05,halR(108,224,132,227.5),'st'],[7.1,halArch(120,15,236,262),'bz'],
+    [7.15,'M120,229.5V262M114,243H126M114,252H126','-#5d4122:.6'],[7.2,halDot(118.5,248,.7)+halDot(121.5,248,.7),'gold']]});
+  /* 19 the Assembly chamber: the west wing under its own small dome */
+  P.push({x:[4,50],y:[214,292],g:halR(6,232.5,48,292)+'M12,232.5C12,219 42,219 42,232.5Z',L:[[2,halR(6,236,48,292),'st'],[2.05,'M6,274H48M6,280H48M6,286H48','-#b8ae98:.5'],[2.1,halR(4,232.5,50,236.5),'stL'],
+    [2.15,'M12,232.5C12,219 42,219 42,232.5Z','cu'],[2.16,'M16,231C16.5,224 21,221 26,220.5','-rgba(255,255,255,.4):1.4'],[2.17,halR(25,214.5,29,221),'stL'],
+    [2.2,halArch(16,7,247,266)+halArch(38,7,247,266),'glass'],[2.25,halArch(27,9,276,292),'wall']]});
+  /* 20 the shelves: oak shelving and the spines of the archive, seen through the reading-room windows */
+  P.push({x:[66,174],y:[218,246],g:'',L:[[5.15,wins(x=>`M${x-5},224.5H${x+5}M${x-5},233.5H${x+5}M${x-5},242.5H${x+5}`),'-#7a5a3a:.9'],
+    [5.2,wins(x=>[0,1,2].map(r=>{const y=224.3+r*9;let s='';for(let i=0;i<6;i++){const bx=x-4.6+i*1.55,h=3.6+((i*7+r*3+x)%5)*0.5;s+=halR(+bx.toFixed(2),+(y-h).toFixed(2),+(bx+1.2).toFixed(2),y);}return s;}).join('')),'books']]});
+  /* 21 the printing house: the east wing, with a lead roof and a chimney */
+  P.push({x:[190,236],y:[212,292],g:halR(192,232.5,234,292)+'M193,232.5L213,221.5L233,232.5Z',L:[[2,halR(192,236,234,292),'st'],[2.05,'M192,274H234M192,280H234M192,286H234','-#b8ae98:.5'],[2.1,halR(190,232.5,236,236.5),'stL'],
+    [2.12,'M193,232.5L213,221.5L233,232.5Z','roof'],[2.11,halR(222,212,228,228),'stD'],[2.2,halR(198,246,208,258)+halR(218,246,228,258),'glass'],
+    [2.25,'M203,246V258M198,252H208M223,246V258M218,252H228','-#6f6658:.6'],[2.3,halR(207,272,219,292),'wood'],[2.31,'M213,272V292','-#5c4630:.6']]});
+  /* 22 the great clock, in the roundel of the pediment */
+  P.push({x:[112,128],y:[165,180],g:halDot(120,172.5,5.6),L:[[8.25,halDot(120,172.5,5.6),'paper'],[8.3,'M120,172.5m-5.6,0a5.6,5.6 0 1 0 11.2,0a5.6,5.6 0 1 0 -11.2,0','-#a8873d:1.1'],
+    [8.35,'M120,168.4V169.6M120,175.4V176.6M115.9,172.5H117.1M122.9,172.5H124.1','-#4a4036:.6'],[8.4,'M120,172.5V168.9M120,172.5L122.8,174','-#2b241c:.8']]});
+  /* 23 the lawgivers: statues on the apex and the corners of the pediment */
+  P.push({x:[34,206],y:[139,184],g:halFig(120,151,13,0)+halFig(40,180,10,0)+halFig(200,180,10,1),L:[[8.5,halR(115,151,125,155)+halR(35,180,45,184)+halR(195,180,205,184),'st'],
+    [8.55,halFig(120,151,13,0)+halFig(40,180,10,0)+halFig(200,180,10,1),'marble'],[8.6,'M122.6,145.4l2.4,-1.4M42,175.6l2,-1.2M198,175.6l-2,-1.2','-#c9a24a:1']]});
+  /* 24 lamps and gardens: cast-iron lamps by the steps, clipped hedges and two bay trees */
+  P.push({x:[0,240],y:[256,292],g:'M2,292V284.5H42V292ZM198,292V284.5H238V292Z'+halDot(55,277,5.5)+halDot(185,277,5.5),L:[[9,'M43.5,292V266M196.5,292V266','-#2f2b27:1.3'],[9.05,halR(40.5,259,46.5,266)+halR(193.5,259,199.5,266),'lamp'],[9.06,'M40,259L43.5,256L47,259ZM193,259L196.5,256L200,259Z','#2f2b27'],
+    [9.1,'M2,292V287.5Q2,284.5 5,284.5H39Q42,284.5 42,287.5V292ZM198,292V287.5Q198,284.5 201,284.5H235Q238,284.5 238,287.5V292Z','hedge'],
+    [9.15,halDot(55,277,5.5)+halDot(185,277,5.5),'tree'],[9.16,'M55,282V292M185,282V292','-#5c4630:1.2'],[9.2,halR(51,287,59,292)+halR(181,287,189,292),'wood']]});
+  /* 25 the first reading: purple and gold bunting, banners on the wings, a flag on the lantern and the archivist on the top step */
+  {const fl=['',''];const sw=(x0,x1,y,dip)=>{const pt=t=>[x0+(x1-x0)*t,y+dip*4*t*(1-t)];
+    for(let i=0;i<10;i++){const [ax,ay]=pt(i/10),[bx,by]=pt((i+0.8)/10);fl[i%2]+=`M${ax.toFixed(1)},${ay.toFixed(1)}L${bx.toFixed(1)},${by.toFixed(1)}L${((ax+bx)/2).toFixed(1)},${((ay+by)/2+4.5).toFixed(1)}Z`;}};
+  sw(48,120,262,5);sw(120,192,262,5);
+  P.push({x:[10,230],y:[56,276],g:'',L:[[9.3,'M48,262Q84,272 120,262Q156,272 192,262','-#6b5a44:.5'],[9.35,fl[0],'purple'],[9.36,fl[1],'gold'],
+    [9.4,'M20,238H28V262L24,258L20,262ZM212,238H220V262L216,258L212,262Z','purple'],[9.45,'M20,241H28M212,241H220','-#c9a24a:1'],
+    [9.5,'M120,69V57','-#2f2b27:.8'],[9.55,'M120,57L130,60L120,63Z','purple'],[9.6,halFig(127,274,11,1),'#4a2f63'],[9.65,halR(121,265.5,125,267),'paper']]});}
+  return P;
+})();
+/* where the crowd stands: three rows on each side of the square and a row on the lower steps; [x, y, scale, colour],
+   in the order they arrive (a fixed shuffle, so a part-filled square looks scattered, not filled from one corner) */
+const HAL_SPOTS=(()=>{const o=[];
+  for(const [y,s,x0,x1,dx] of [[300,.9,7,53,7.5],[308.5,1,4,56,8],[317.5,1.12,8,52,9]])for(let x=x0;x<=x1;x+=dx){const j=(y*3)%4;o.push([+(x+j).toFixed(1),y,s]);o.push([+(240-x-j).toFixed(1),y,s]);}
+  for(let x=58;x<=102;x+=8.8){o.push([+x.toFixed(1),283,.72]);o.push([+(240-x).toFixed(1),283,.72]);}
+  return o.map((p,i)=>[...p,(i*5+Math.round(p[0]))%7,(i*7919)%97]).sort((a,b)=>a[4]-b[4]).map(p=>p.slice(0,4));})();
+function halSVG(done,frac,o){
+  o=o||{};const id='hl'+(++czSeq),open=done>=HAL_N,dusk=open;
+  const F={st:`url(#${id}a)`,stL:'#f4efe4',stD:'#c6bca7',wall:`url(#${id}w)`,col:`url(#${id}c)`,cu:`url(#${id}u)`,glass:`url(#${id}g)`,bz:`url(#${id}b)`,
+    shade:'rgba(70,58,36,.16)',shadeV:`url(#${id}v)`,gold:'#c9a24a',roof:'#8e8b86',wood:'#9c7a52',paper:'#fbf7ec',road:'#d3c6a8',marble:'#f3efe6',
+    hedge:'#6c8b57',tree:'#5f804b',purple:'#6e3f8f',books:'#8a5a3c',lamp:dusk?'#ffd98a':'#e9e4d6'};
+  const one=(l,cls)=>{const p=l[2];if(l[1]&&typeof l[1]==='object'){const T=l[1];return `<text x="${T.x}" y="${T.y}" text-anchor="middle" font-family="Georgia,serif" font-size="${T.fs}" letter-spacing="${T.ls}" fill="${T.c}" class="${cls}">${esc(T.t)}</text>`;}
+    if(p[0]==='-'){const [c,w]=p.slice(1).split(':');return `<path d="${l[1]}" class="${cls}" fill="none" stroke="${c}" stroke-width="${w}" stroke-linecap="round"/>`;}
+    return `<path d="${l[1]}" class="${cls}" fill="${F[p]||p}"${p==='shade'||p==='shadeV'?'':' stroke="#7d7464" stroke-width=".45"'}/>`;};
+  /* every layer of every phase, back to front; the phase being built is clipped from the bottom */
+  const all=[];HAL_PARTS.forEach((P,i)=>{P.L.forEach((l,j)=>all.push({l,i,k:j}));if(P.g)all.push({l:[P.L[0][0]-0.001,P.g,'ghost'],i,k:-1});});all.sort((a,b)=>a.l[0]-b.l[0]||a.i-b.i||a.k-b.k);
+  let body='',clip='';
+  if(done<HAL_N){const P=HAL_PARTS[done],cut=P.y[1]-(P.y[1]-P.y[0])*frac;clip=`<clipPath id="${id}k"><rect x="0" y="${cut.toFixed(1)}" width="240" height="320"/></clipPath>`;}
+  for(const {l,i} of all){
+    if(l[2]==='ghost'){if(i>=done)body+=`<path d="${l[1]}" class="wd-ghost"/>`;}
+    else if(i<done)body+=one(l,'wd-on');
+    else if(i===done)body+=`<g clip-path="url(#${id}k)">${one(l,'wd-on')}</g>`;}
+  /* the site: a gold tower crane over the hall, its hook at the part going up, and scaffolding round that part */
+  let site='';
+  if(done>=4&&done<HAL_N-1){const P=HAL_PARTS[done],hx=Math.max(54,Math.min(196,(P.x[0]+P.x[1])/2)),hy=Math.max(66,P.y[0]-10);
+    let lat='';for(let y=292;y>66;y-=10)lat+=`M224,${y}L232,${y-10}M232,${y}L224,${y-10}`;
+    site+=`<g class="wd-crane"><path d="M224,292V56M232,292V56M224,56H232${lat}"/><path d="M228,48L50,56M228,48L238,56M228,40V48M228,40L60,56M228,40L238,56M50,56H238"/>`
+      +`<rect x="232" y="56" width="6" height="7"/><path d="M${hx},56V${hy}"/><rect x="${hx-2.5}" y="${hy}" width="5" height="3"/><rect x="${hx-4}" y="${hy+3}" width="8" height="4" fill="#f3efe6" stroke="#c8902a" stroke-width=".7"/></g>`;
+    if(P.x[1]-P.x[0]<200&&P.y[1]<=292&&P.y[1]-P.y[0]>=14){const x0=P.x[0]-3,x1=P.x[1]+3,y0=Math.max(60,P.y[0]-4);let s=`M${x0},292V${y0}M${x1},292V${y0}`;for(let y=P.y[1];y>=y0;y-=10)s+=`M${x0-2},${y}H${x1+2}`;
+      site+=`<g class="wd-crane" opacity=".6"><path d="${s}"/></g>`;}}
+  /* the crowd: a few people once the last phase is under way, the whole square at the opening */
+  let crowd='';const ppl=open?HAL_SPOTS.length:done===HAL_N-1?Math.round(HAL_SPOTS.length*frac):0,PC=['#6e3f8f','#3d5a80','#8a3b2e','#4d5866','#7a6a3a','#2f5d50','#a0673a'];
+  for(const [x,y,s,c] of HAL_SPOTS.slice(0,ppl).sort((a,b)=>a[1]-b[1]||a[0]-b[0]))
+    crowd+=`<g transform="translate(${x},${y}) scale(${s})"><path d="M-3,0C-3,-5 3,-5 3,0Z" fill="${PC[c]}"/><circle cx="0" cy="-6.3" r="1.9" fill="#3a332c"/></g>`;
+  /* dusk once open: the sky, the stars, the city lit, light from the windows and the lantern */
+  const sky=dusk?`<stop offset="0" stop-color="#27304a"/><stop offset=".55" stop-color="#5a4f6b"/><stop offset="1" stop-color="#e3a86d"/>`:`<stop offset="0" stop-color="#cfe0ea"/><stop offset="1" stop-color="#f1efe6"/>`;
+  let stars='';if(dusk)for(let i=0;i<14;i++)stars+=`<circle cx="${(i*67)%232+4}" cy="${(i*41)%96+8}" r="${i%3?.6:.9}" fill="#fff" opacity=".8"/>`;
+  const clouds=dusk?'':`<path d="M24,58a9,6 0 0 1 16,-5a11,8 0 0 1 20,2a7,5 0 0 1 3,10H26a5,4 0 0 1 -2,-7Z" fill="#fff" opacity=".75"/><path d="M170,34a7,5 0 0 1 12,-4a9,7 0 0 1 16,2a6,4 0 0 1 2,8H172a4,4 0 0 1 -2,-6Z" fill="#fff" opacity=".6"/>`;
+  const city=`<path d="M0,292V252H9V246H17V252H24V240L29,235L34,240V252H44V247H54V292ZM186,292V249H195V243H203V249H214V238L219,232L224,238V249H233V245H240V292Z" fill="${dusk?'#3c3f55':'#bfc5b4'}"/>`
+    +(dusk?`<path d="${[[5,256],[13,250],[30,244],[38,262],[49,258],[191,255],[199,247],[219,243],[229,252],[236,262]].map(([x,y])=>halR(x,y,x+2,y+2.4)).join('')}" fill="#ffd98a" opacity=".85"/>`:'');
+  const glow=dusk?`<ellipse cx="120" cy="300" rx="110" ry="22" fill="url(#${id}p)"/><circle cx="120" cy="85" r="26" fill="url(#${id}h)"/>`
+    +`<circle cx="43.5" cy="262.5" r="9" fill="url(#${id}h)"/><circle cx="196.5" cy="262.5" r="9" fill="url(#${id}h)"/>`:'';
+  const door=open?`<path d="${halArch(120,15,236,262)}" fill="url(#${id}g)"/><path d="M112.5,262V236.5L110.6,235.6V262ZM127.5,262V236.5L129.4,235.6V262Z" fill="url(#${id}b)"/><path d="M118,262V250A2,2 0 0 1 122,250V262Z" fill="#6b4a2a" opacity=".5"/>`:'';
+  const lab=o.label||`${halName()}: ${open?'open':`phase ${done+1} of ${HAL_N}, ${Math.floor(frac*100)}% built`}`;
+  return `<svg class="wd-svg${o.cls?' '+o.cls:''}" viewBox="0 0 240 320" role="img" aria-label="${esc(lab)}"><defs>
+    <linearGradient id="${id}s" x1="0" y1="0" x2="0" y2="1">${sky}</linearGradient>
+    <linearGradient id="${id}a" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="${dusk?'#efe2c8':'#f3eee3'}"/><stop offset="1" stop-color="${dusk?'#b9a98c':'#d0c7b3'}"/></linearGradient>
+    <linearGradient id="${id}w" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="${dusk?'#c9b79a':'#d6cdb9'}"/><stop offset="1" stop-color="${dusk?'#9f8f74':'#bdb39e'}"/></linearGradient>
+    <linearGradient id="${id}c" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#bdb39f"/><stop offset=".32" stop-color="#fbf7ee"/><stop offset=".6" stop-color="#e4dccb"/><stop offset="1" stop-color="#a49b87"/></linearGradient>
+    <linearGradient id="${id}u" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#a9d2c2"/><stop offset=".55" stop-color="#6e9e8e"/><stop offset="1" stop-color="#47705f"/></linearGradient>
+    <linearGradient id="${id}g" x1="0" y1="0" x2="1" y2="1">${dusk?'<stop offset="0" stop-color="#fff0b8"/><stop offset="1" stop-color="#f0a24c"/>':'<stop offset="0" stop-color="#e8f1f4"/><stop offset=".5" stop-color="#b9cfd8"/><stop offset="1" stop-color="#8fa9b6"/>'}</linearGradient>
+    <linearGradient id="${id}b" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#b98a4f"/><stop offset=".45" stop-color="#8d6233"/><stop offset="1" stop-color="#5f3f1f"/></linearGradient>
+    <linearGradient id="${id}v" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="rgba(60,48,28,.32)"/><stop offset="1" stop-color="rgba(60,48,28,0)"/></linearGradient>
+    <radialGradient id="${id}h"><stop offset="0" stop-color="#ffe6a8" stop-opacity=".85"/><stop offset="1" stop-color="#ffe6a8" stop-opacity="0"/></radialGradient>
+    <radialGradient id="${id}p"><stop offset="0" stop-color="#ffd98a" stop-opacity=".45"/><stop offset="1" stop-color="#ffd98a" stop-opacity="0"/></radialGradient>${clip}</defs>
+    <rect width="240" height="320" fill="url(#${id}s)"/>${stars}${clouds}
+    <path d="M0,246Q40,228 80,240T160,236T240,240V292H0Z" fill="${dusk?'#4b4c63':'#c9cdb9'}"/>${city}
+    <path d="M0,292H240V320H0Z" fill="${dusk?'#a8987d':'#ddd5c3'}"/>${glow}${body}${door}${site}${crowd}</svg>`;
+}
+/* ── the page: the hall being built, its rules, the plaque, the archive, and the region's past projects below ── */
+const halMedal=k=>k>=1&&k<=5?`<span class="wd-mt wd-mt${Math.min(k,3)}">${cap1(HAL_MEDAL[k-1])}</span>`:'';
+function halPlaque(L,open){
+  if(!L.who.length)return '<p class="hint">No nation has given anything yet. The first gift puts your name at the top of the plaque.</p>';
+  return `<ol class="wd-who">${L.who.slice(0,12).map((x,i)=>`<li class="${x.me?'me ':''}${i<3?'wd-m'+(i+1):''}"><span>${nationLink(x.id,x.name,x.me)}${i<5?' '+halMedal(i+1):''}</span><span class="hint">${esc(costText(Object.fromEntries(RES.filter(r=>x.c[r]>0).map(r=>[r,Math.round(x.c[r])]))))}</span></li>`).join('')}</ol>${L.who.length>12?`<p class="hint">And ${L.who.length-12} more.</p>`:''}
+    <p class="hint">${open?'The five biggest givers when the doors opened are named on the plaque, and the first of them has the Portico for its arms and its flag.':`When the doors open, the five biggest givers are named on the plaque and earn ${list(HAL_TOP.map(String))} more land credits; the first of them also earns the Portico, an icon for its arms and its flag that nothing else gives.`}</p>`;
+}
+/* the archive: the resolutions the region's Assembly has passed, latest first, from the counts the Assembly keeps */
+function halArchive(open){
+  let rows=[];try{const st=asmState(Date.now());rows=[...st.L.values()].filter(x=>x&&x.f&&x.ok&&x.c<st.c&&x.ti).sort((a,b)=>b.c-a.c).slice(0,8);}catch(e){rows=[];}
+  const li=rows.map(x=>`<li><span class="when">No. ${asmNo(x.c)}<br>${esc(fmtDate(asmT0(x.c+1)))}</span><span>“${esc(x.ti)}”</span></li>`).join('');
+  return `<section class="wd-box hl-arch"><h2 class="h2">The archive</h2><p class="hint">${open?`Every resolution the Assembly of ${esc(REG.the)} passes is printed, read and shelved here, and its rulebook holds ${ASM_BOOK+1} resolutions instead of ${ASM_BOOK}.`:`When the hall opens, its archive keeps every resolution the Assembly of ${esc(REG.the)} passes, and the Assembly’s rulebook holds ${ASM_BOOK+1} resolutions instead of ${ASM_BOOK}.`} ${rows.length?'The latest passed:':'The Assembly has not passed a resolution yet.'}</p>${li?`<ul class="hl-arl">${li}</ul>`:''}<button type="button" class="linkish small" data-act="go" data-v="assembly">Open the Assembly</button></section>`;
+}
+function damPast(n){
+  let L;try{L=damState();}catch(e){return '';}if(L.done<DAM_N)return '';
+  const mine=L.who.find(x=>x.me),k=damTop(n),land=n&&damMine(n)?damLandOf(n.dam):0;
+  return `<section class="wd-box wd-past" id="wd-past"><h2 class="h2">Past projects</h2>
+    <article class="wd-pp"><div class="wd-pp-fig">${damSVG(DAM_N,1,{label:`${damName()}: open`})}</div><div class="wd-pp-b">
+      <h3 class="h3">${esc(damName())}</h3><p class="hint">Opened${L.end?' on '+fmtDate(L.end):''} · ${DAM_N} phases · ${L.who.length===1?'one nation':L.who.length+' nations'} on the plaque.</p>
+      <p>${mine?`${esc(n.name)} gave ${esc(costText(Object.fromEntries(RES.filter(r=>mine.c[r]>0).map(r=>[r,Math.round(mine.c[r])]))))}${land?`, which earned it ${land} land credits`:''}${k?`, and is on the plaque in ${DAM_MEDAL[k-1]}`:''}.`:'Your nation gave nothing towards it.'}</p>
+      <details class="wd-pd"><summary>The plaque</summary>${damPlaque(L,true)}</details>
+    </div></article></section>`;
+}
+function halView(now){
+  const n=S.nation;if(!n)return '';const L=halState(),open=L.done>=HAL_N,d=L.done,st=stockNow(n,now),mine=L.who.find(x=>x.me);
+  const my=i=>halMine(n)?halGave(n.hal,i):0,earned=halMine(n)?halRewarded(n.hal).length:0;
+  const ph=HAL_PH.map(([t,ds,c],i)=>{const s=i<d?'done':i===d?'now':'later',g=my(i),sh=halShareOf(i),ed=HAL_ISSUES.find(x=>x.at===i+1);
+    return `<li class="wd-ph ${s}"><span class="wd-ph-n num" aria-hidden="true">${i<d?'✓':i+1}</span><span class="wd-ph-b"><b>${esc(t)}</b><span class="hint">${esc(ds)}</span><span class="wd-ph-c">${esc(costText(c))}</span>${g>0?`<span class="wd-ph-r">You gave ${fmt0(g)}${g>=sh?`: ${HAL_LAND} land credits ${i<d?'earned':'when it is finished'}`:`; ${fmt0(sh)} earns ${HAL_LAND} land credits`}</span>`:''}${ed?`<span class="wd-ph-r hal-ed">When it is finished: the hall edict “${esc(ed.t)}” for every nation of the region</span>`:''}${s==='now'?`<span class="bar" role="img" aria-label="${Math.floor(L.frac*100)}% built"><i style="width:${(L.frac*100).toFixed(1)}%"></i></span>`:''}</span></li>`;}).join('');
+  let give='';
+  if(!open&&!OBS){const g=my(d),cap=halCapOf(d),room=Math.max(0,cap-g),sh=halShareOf(d);
+    const rows=RES.filter(r=>(L.need[r]||0)>0).map(r=>{const left=L.need[r],have=Math.floor(st[r]),b=(k,l)=>{const v=Math.min(k,left,have,room);return `<button type="button" class="btn ${k===Infinity?'':'ghost '}sm" data-act="hl-give" data-r="${r}" data-v="${k===Infinity?'max':k}"${v<1?' disabled':''}>${l}</button>`;};
+      return `<div class="wd-give"><span class="wd-gr"><b>${esc(cap1(resName(r)))}</b><span class="hint">${fmtAmt(left)} still needed · you have ${have}</span></span><span class="wd-gb">${b(10,'Give 10')}${b(50,'Give 50')}${b(Infinity,'Give what I can')}</span></div>`;}).join('');
+    give=`<section class="wd-box"><h2 class="h2">Give to this phase</h2>
+      <p class="hint hl-share">${g>=sh?`You have given ${fmt0(g)} to this phase: its ${HAL_LAND} land credits are yours when it is finished.`:`Give ${fmt0(sh-g)} more to this phase (${fmt0(sh)} in all) to earn its ${HAL_LAND} land credits when it is finished.`} ${room>0?`You may give ${fmt0(room)} more to this phase; no nation may give more than ${fmt0(cap)}.`:'That is all one nation may give to this phase; the rest must come from other nations.'}${earned?` The hall has paid your nation ${HAL_LAND*earned} land credits so far.`:''}</p>
+      <p class="hint hl-hands">${L.hands?`${L.hands===1?'One nation has':`${L.hands} nations have`} given to this phase`:'No nation has given to this phase yet'}${L.hands<HAL_HANDS?`: it needs at least ${HAL_HANDS} before it can be finished`:''}.</p>${rows}</section>`;}
+  else if(!open)give=`<section class="wd-box"><h2 class="h2">Gifts</h2><p class="hint">The players of ${esc(REG.the)} give to this phase from here. ${obsWord()}, you see the hall as they do.</p></section>`;
+  const k=halTop(n),fin=open?`<section class="wd-box"><h2 class="h2">Open</h2><p>The Hall of Edicts stands across the square from the Great Statue, and keeps every resolution the Assembly of ${esc(REG.the)} passes. Its rulebook now holds ${ASM_BOOK+1} resolutions. ${mine?`${esc(n.name)} is on the plaque${k?`, in ${HAL_MEDAL[k-1]} place${k===1?', and the Portico is in Customise for its arms and its flag':''}`:''}${earned?`, and the hall paid it ${HAL_LAND*earned+(k?HAL_TOP[k-1]:0)} land credits`:''}.`:'Your nation gave nothing towards it, which the guides mention on every tour.'}</p></section>`:'';
+  return `<header class="vh"><p class="eyebrow">A wonder of ${esc(REG.the)}</p><h1>${esc(halName())}</h1><p>With the Great Dam open, the Office of Monuments has come back to the square across from the Great Statue, to build a home for the region’s laws. The hall is built in twenty-five phases. No nation may give more than ${Math.round(HAL_CAP*100)}% of a phase, so every phase needs at least ${HAL_HANDS} nations.</p></header>${open?'':c3Strip(n,now)}
+  <div class="wd-grid">
+    <figure class="wd-fig paper">${halSVG(d,L.frac,{cls:'wd-big'})}<figcaption><span class="lbl">${open?'Open':`Phase ${d+1} of ${HAL_N}`}</span><b>${esc(open?'Open, and the lantern is lit':HAL_PH[d][0])}</b>${open?'':`<span class="hint">${Math.floor(L.frac*100)}% of this phase is built.</span>`}</figcaption></figure>
+    <div class="wd-side">
+      ${fin}${give}
+      <section class="wd-box hl-rules"><h2 class="h2">How it is built</h2><ul class="lt-rl">
+        <li>Twenty-five phases, from the architects’ competition to the first reading: ${fmt0(HAL_TOTAL)} resources in all.</li>
+        <li>No nation may give more than ${Math.round(HAL_CAP*100)}% of a phase, so it takes at least ${HAL_HANDS} nations to finish one.</li>
+        <li>Every finished phase pays ${HAL_LAND} land credits to each nation that gave at least ${Math.round(HAL_SHARE*100)}% of it.</li>
+        <li>When the doors open, the five biggest givers earn ${list(HAL_TOP.map(String))} more land credits and a place on the plaque, and the first of them the Portico for its arms and its flag.</li>
+        <li>Every five phases, a hall edict reaches the desk of every nation of the region, in purple.</li>
+        <li>Once open, the Assembly’s rulebook holds ${ASM_BOOK+1} resolutions instead of ${ASM_BOOK}.</li></ul></section>
+      <section class="wd-box"><h2 class="h2">The plaque</h2>${halPlaque(L,open)}</section>
+      ${halArchive(open)}
+    </div>
+  </div>
+  <section class="wd-box wd-phs"><h2 class="h2">Twenty-five phases</h2><ol class="wd-phl">${ph}</ol></section>
+  ${damPast(n)}${lthPast(n).replace('<h2 class="h2">Past projects</h2>','').replace(' id="wd-past"','')}${wndPast(n).replace('<h2 class="h2">Past projects</h2>','').replace(' id="wd-past"','')}`;
+}
+VIEWS_EXT.wonder=(f=>now=>halOpen()?halView(now):f(now))(VIEWS_EXT.wonder);
+document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-act="hl-give"]');if(!el||!S.nation)return;halGive(el.dataset.r,el.dataset.v==='max'?Infinity:+el.dataset.v);});
+const HAL_ICON=NAV_SVG('<path d="M3 20.5h18"/><path d="M4 9.5 12 4l8 5.5Z"/><path d="M4.5 9.5h15M4.5 18h15"/><path d="M6.5 12v6M10.2 12v6M13.8 12v6M17.5 12v6"/>');
+Object.defineProperty(NAV_LABELS,'wonder',{get:()=>halOpen()?'Hall of Edicts':damOpen()?'Great Dam':lthOpen()?'Great Lighthouse':'Great Statue',enumerable:true,configurable:true,set(){}});
+Object.defineProperty(NAV_ICONS,'wonder',{get:()=>halOpen()?HAL_ICON:damOpen()?DAM_ICON:lthOpen()?LTH_ICON:WND_ICON,enumerable:true,configurable:true,set(){}});
+NAV_WORDS.wonder+=' hall edicts archive library portico';
+Object.defineProperty(OFFICES['office-monuments'],'go',{get:()=>['wonder',halOpen()?'Visit the hall':damOpen()?'Visit the dam':lthOpen()?'Visit the lighthouse':'Visit the statue'],enumerable:true,configurable:true,set(){}});
+rgnStatueCard=(f=>function(){
+  if(!halOpen())return f.apply(this,arguments);let L;try{L=halState();}catch(e){return '';}
+  const open=L.done>=HAL_N,pct=Math.max(0,Math.min(100,Math.round((L.done+(open?0:L.frac))/HAL_N*100))),link=!OBS&&!!S.nation&&pgAvailable(S.nation,'wonder');
+  return `<section class="rgn-card" aria-labelledby="rgn-st-h"><p class="eyebrow">Region wonder</p><h2 class="h3" id="rgn-st-h">${esc(halName())}</h2>
+    <p>${open?'Open, and the lantern is lit.':`Phase ${L.done+1} of ${HAL_N}: ${esc(HAL_PH[L.done][0].replace(/^The /,'the '))}.`}</p>
+    <div class="rgn-bar" role="progressbar" aria-label="How far the hall has risen" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><i style="width:${pct}%"></i></div>
+    <p class="hint">${pct}% built${L.who.length?` · ${L.who.length} ${L.who.length===1?'nation has':'nations have'} given towards it`:' · no nation has given towards it yet'}. The Great Statue, the Great Lighthouse and the Great Dam are finished.</p>
+    ${link?`<button type="button" class="linkish small" data-act="go" data-v="wonder">${open?'See the Hall of Edicts':'Give towards it'}</button>`:''}</section>`;
+})(rgnStatueCard);
+
+/* ── on the map: the hall stands across the square from the Great Statue, on the first open land two hexes or more from
+   it (the nearest by hex steps, then the lowest cell number), never on the lighthouse's or the dam's hex ── */
+let halCellMemo={m:null,c:-1};
+function halCell(){
+  if(halCellMemo.m===MAP)return halCellMemo.c;let from=-1;try{from=wndCell();}catch(e){from=-1;}if(from<0||!MAP||!MAP.nbr)return -1;
+  const skip=new Set([from]);try{skip.add(lthCell());}catch(e){}try{skip.add(damCell());}catch(e){}
+  const ok=c=>c>=0&&MAP.T[c]>=2&&MAP.T[c]!==4&&!(MAP.chart&&MAP.chart[c]<0)&&!skip.has(c);
+  let ring=[from],best=-1;const seen=new Set([from]);
+  for(let dist=1;dist<=8&&best<0&&ring.length;dist++){const next=[];
+    for(const c of ring)for(let k=0;k<6;k++){const j=MAP.nbr[c*6+k];if(j>=0&&!seen.has(j)){seen.add(j);next.push(j);}}
+    if(dist>=2){const cand=next.filter(ok).sort((a,b)=>a-b);if(cand.length)best=cand[0];}ring=next;}
+  halCellMemo={m:MAP,c:best};return best;
+}
+MAP_LAYERS.push({stage:'top',kinds:['main','visit'],draw:M=>{
+  if(!halOpen())return;const c=halCell();if(c<0)return;const [x,y]=M.scr(c);if(x<-60||y<-50||x>M.w+60||y>M.h+30)return;
+  const L=halState(),open=L.done>=HAL_N,d=L.done,g=M.g,ink=M.col.ink,st='#e9e3d4',fillR=(x0,y0,w,h,f)=>{g.fillStyle=f;g.fillRect(x0,y0,w,h);g.strokeRect(x0,y0,w,h);};
+  g.save();g.translate(x,y);g.lineJoin='round';g.strokeStyle=ink;g.lineWidth=.8;
+  /* its shadow on the ground, then from the steps up: what is finished, nothing more */
+  g.fillStyle='rgba(0,0,0,.16)';g.beginPath();g.ellipse(1.5,1.5,13,3,0,0,Math.PI*2);g.fill();
+  if(open){const h=g.createRadialGradient(0,-19,0,0,-19,10);h.addColorStop(0,'rgba(255,226,150,.9)');h.addColorStop(1,'rgba(255,226,150,0)');g.fillStyle=h;g.beginPath();g.arc(0,-19,10,0,Math.PI*2);g.fill();}
+  if(d>=19)fillR(-15,-6,5,7,st);
+  if(d>=21)fillR(10,-6,5,7,st);
+  fillR(-10,-1,20,2,d>=7?st:M.col.sheet);
+  if(d>=8)fillR(-9,-3,18,2,st);
+  if(d>=15)fillR(-3.2,-15.5,6.4,4,st);
+  if(d>=16){const u=g.createLinearGradient(-3.5,-20,3.5,-15);u.addColorStop(0,'#a9d2c2');u.addColorStop(1,'#47705f');g.fillStyle=u;g.beginPath();g.arc(0,-15.5,3.5,Math.PI,0);g.closePath();g.fill();g.stroke();}
+  if(d>=17){g.fillStyle=open?'#ffd98a':'#cfe0e6';g.fillRect(-.9,-21,1.8,2);g.fillStyle='#c9a24a';g.beginPath();g.arc(0,-21.8,.8,0,Math.PI*2);g.fill();}
+  if(d>=11)fillR(-7.5,-9,15,6,'#d6cdb9');
+  if(d>=10){g.strokeStyle='#8a8070';g.lineWidth=1.1;g.beginPath();for(let i=0;i<5;i++){g.moveTo(-6+i*3,-3);g.lineTo(-6+i*3,-9);}g.stroke();g.strokeStyle=ink;g.lineWidth=.8;}
+  if(d>=13)fillR(-8.5,-10.5,17,1.6,st);
+  if(d>=14){g.fillStyle=st;g.beginPath();g.moveTo(-9,-10.5);g.lineTo(0,-14);g.lineTo(9,-10.5);g.closePath();g.fill();g.stroke();}
+  if(open){g.strokeStyle=ink;g.beginPath();g.moveTo(0,-22.5);g.lineTo(0,-26.5);g.stroke();g.fillStyle='#6e3f8f';g.beginPath();g.moveTo(0,-26.5);g.lineTo(3.4,-25.4);g.lineTo(0,-24.3);g.closePath();g.fill();}
+  /* while it is built: a small gold tower crane beside it, as on the wonder page */
+  else if(d>=4){g.strokeStyle='#c8902a';g.lineWidth=.9;g.beginPath();g.moveTo(12,1);g.lineTo(12,-24);g.moveTo(-6,-22);g.lineTo(15,-22);g.moveTo(12,-24);g.lineTo(-4,-22);g.moveTo(1,-22);g.lineTo(1,-14);g.stroke();g.fillStyle='#c8902a';g.fillRect(13,-22,2.4,2);}
+  if(M.s*HEX_W>=13){g.font='italic 600 11.5px '+MAP_FONT;g.textAlign='left';g.fillStyle=ink;g.fillText(open?'The Hall of Edicts':`The Hall of Edicts · ${d}/${HAL_N}`,17,-6);}
+  g.restore();
+}});
+MAP_TIP.push(ctx=>ctx.cell>=0&&(ctx.kind==='main'||ctx.kind==='visit')&&halOpen()&&ctx.cell===halCell()?(()=>{const d=halState().done;return `${halName()} · ${d>=HAL_N?'open':`phase ${d+1} of ${HAL_N}`}`;})():null);
+MAP_PANEL.push(ctx=>{if(ctx.cell==null||!halOpen()||ctx.cell!==halCell())return '';const L=halState();
+  return `<div class="wd-pn"><p class="eyebrow">A wonder of the region</p><p><b>${esc(halName())}</b>: ${L.done>=HAL_N?'open.':`phase ${L.done+1} of ${HAL_N}, ${Math.floor(L.frac*100)}% built.`}</p><div class="row"><button type="button" class="btn ghost" data-act="go" data-v="wonder">Visit the hall</button></div></div>`;});
+MAP_LEGEND.push(()=>halOpen()?`<span class="lg"><svg width="16" height="14" viewBox="0 0 16 14" aria-hidden="true"><path d="M2 6 8 2l6 4Z" fill="#e4dfd2" stroke="currentColor" stroke-width=".8"/><path d="M3.5 6.5v5M6.5 6.5v5M9.5 6.5v5M12.5 6.5v5M1.5 12.5h13" stroke="currentColor" stroke-width=".9"/></svg>The Hall of Edicts</span>`:'');
+
+/* ── notices: a phase's land credits, the place on the plaque, and a phase finished ── */
+NOTIF_SOURCES.push(n=>(n.log||[]).filter(l=>(l.k==='halr'&&HAL_PH[+l.a])||(l.k==='halk'&&+l.a>=1&&+l.a<=5)).map(l=>l.k==='halr'?{t:l.t,k:'halr',kl:'The Hall of Edicts',txt:halRewardText(+l.a),go:'wonder'}
+  :{t:l.t,k:'halk',kl:'The Hall of Edicts',txt:halTopText(+l.a),go:'wonder',links:+l.a===1?[{kind:'unlock',id:'c-portico'}]:[]}));
+NOTIF_SOURCES.push(n=>{if(!halMine(n))return [];const L=halState();return L.done>(n.hal.ph||0)?[{t:Date.now(),k:'hal',kl:'The Hall of Edicts',txt:L.done>=HAL_N?`${halName()} is open.`:`Phase ${L.done} of ${HAL_N} of ${halThe()} is finished.`,go:'wonder'}]:[];});
+{const g=NTF_GROUPS.find(x=>x[0]==='wnd');if(g){g[1]='The Great Statue, the Great Lighthouse, the Great Dam and the Hall of Edicts';g[2].push('hal','halr','halk');}}
+HAP_SOURCES.push((x,now)=>{const n=x&&x.n;if(!n||n.npc||!halMine(n)||!Array.isArray(n.hal.h))return [];
+  const nm=nationLink(x.id,n.name,x.me),st=`<button type="button" class="linkish" data-act="go" data-v="wonder">${esc(halThe())}</button>`;
+  return n.hal.h.filter(e=>e.t<=now).map(e=>({t:e.t,txt:`${nm} gave ${list(RES.filter(r=>e.c[r]>0).map(r=>fmt0(e.c[r])+' '+resName(r)))} to ${st}.${e.f&&HAL_PH[e.d]?(e.d===HAL_N-1?' That opened the hall.':` That finished phase ${e.d+1} of ${HAL_N}: ${esc(HAL_PH[e.d][0].toLowerCase())}.`):''}`}));
+});
+if(typeof ST_LOG==='object'&&ST_LOG){ST_LOG.halr=['cult','Took a share of the Hall of Edicts'];ST_LOG.halk=['cult','Was named on the plaque of the Hall of Edicts'];}
+DM_SOURCES.push(n=>{
+  if(!halOpen())return [];const t0=halOpenAt();if(!t0)return [];const L=halState(),the=REG.the,nm=halThe();
+  const out=[{peer:'office-monuments',t:t0+60000,x:`To every nation of ${the},
+
+${cap1(damName().replace(/^The /,'the '))} is open, and this office has chosen the region’s fourth wonder. It comes home, to the square across from the Great Statue.
+
+Work begins on ${nm}: a hall to keep every resolution the region’s Assembly passes, with a reading room, an archive, a chamber for the Assembly and a dome over all of it. It is built in twenty-five phases, from the architects’ competition to the first reading on its steps, and needs ${fmt0(HAL_TOTAL)} resources in all.
+
+No nation may give more than ${Math.round(HAL_CAP*100)}% of any phase, so every phase needs at least ${HAL_HANDS} nations. Every finished phase pays ${HAL_LAND} land credits to each nation that gave at least ${Math.round(HAL_SHARE*100)}% of it. When the doors open, the five nations that gave the most earn ${list(HAL_TOP.map(String))} more, and the one that gave the most the Portico, an icon for its arms and its flag that nothing else gives.
+
+Once the hall is open, the Assembly’s rulebook holds ${ASM_BOOK+1} resolutions instead of ${ASM_BOOK}.
+
+Every five phases the hall will raise a question for every nation of the region. You will find it on your desk, in purple.
+
+Give what your stores can spare on the Hall of Edicts page, under Abroad.
+
+The Office of Monuments and Public Works, ${REG.name}`}];
+  if(L.done>=HAL_N&&L.at){const top=L.who.slice(0,5);
+    out.push({peer:'office-monuments',t:L.at,x:`To every nation of ${the},
+
+${cap1(nm)} is open. At noon the bronze doors swung back, the archivist read the region’s first resolution aloud from the top step, and the square cheered in most of the right places. From today the Assembly’s rulebook holds ${ASM_BOOK+1} resolutions.
+
+${L.who.length} nations gave towards it.${top.length?` The plaque names ${list(top.map((x,i)=>`${x.name} in ${HAL_MEDAL[i]} place`))}.`:''}
+
+This office has now built four wonders, and will write again when it has chosen the region’s next project.
+
+The Office of Monuments and Public Works, ${REG.name}`});}
+  return out;
+});
+
+/* ── the Dispatch: work begun, each phase finished, and the opening on the front page with its top five ── */
+Object.defineProperty(DSP_GO,'wonder',{get:()=>halOpen()?'The Hall of Edicts':damOpen()?'The Great Dam':lthOpen()?'The Great Lighthouse':'The Great Statue',enumerable:true,configurable:true,set(){}});
+DISPATCH_SOURCES.push(ctx=>{
+  if(!ctx||ctx.reg!==REG.id)return [];
+  const players=allNations().filter(x=>!x.npc&&x.n&&x.n.name&&halMine(x.n));if(!players.length)return [];
+  const out=[],inW=t=>typeof t==='number'&&t>=ctx.from&&t<ctx.to&&t<=ctx.now,ph=new Map(),name=halName(),kick='The Hall of Edicts';
+  for(const x of players){const w=x.n.hal,mv=x.n.mvAt||0;
+    for(const [k,t] of Object.entries(w.fx||{})){const i=+k;if(!Number.isInteger(i)||i<0||i>=HAL_N||!inW(t)||t<mv)continue;const g=ph.get(i);ph.set(i,{t:g?Math.min(g.t,t):t});}}
+  let L=null;try{L=halState();}catch(e){}
+  if(L&&inW(L.start)){const f=players.find(x=>(x.n.hal.t0||0)===L.start);if(f)out.push({k:'hal:begun',t:L.start,sec:'culture',kick,h:`Work begins on ${name}`,b:`${dspClean(f.n.name,40)} has sent the first cartloads to the square across from the Great Statue, where ${name.replace(/^The /,'the ')} is to stand. It has twenty-five phases, and the first is a competition for its design.`,who:[f.id],w:6,go:'wonder'});}
+  for(const [i,g] of ph){const P=HAL_PH[i],last=i===HAL_N-1,who=players.filter(x=>halGave(x.n.hal,i)>0).map(x=>x.id),top=last&&L?L.who.slice(0,5):[];
+    out.push({k:'hal:ph:'+i,t:g.t,sec:last?'front':'culture',kick,h:last?`${cap1(name)} is open`:`The Hall of Edicts reaches phase ${i+1} of ${HAL_N}: ${P[0].toLowerCase()}`,
+      b:`${P[1]} ${who.length===1?'One nation':who.length+' nations'} gave to this phase.${top.length?` The plaque names ${list(top.map((x,k)=>`${dspClean(x.name,40)} in ${HAL_MEDAL[k]} place`))}.`:''}`,who:(top.length?top.map(x=>x.id):who).slice(0,8),w:last?9:(i+1)%5===0?6:4,go:'wonder'});}
+  return out;
+});
+dspPic=(f=>function(s,size,byId){
+  if(!s||!/Hall of Edicts/.test(s.kick||''))return f.apply(this,arguments);
+  try{const L=halState(),nm=halName(),d=Math.min(L.done,HAL_N),fig=(cls,plate,cap)=>`<figure class="dsp-pic dsp-pic-${cls}">${plate}<figcaption class="dsp-cap">${cap}</figcaption></figure>`,k=size==='l'?'p':'s';
+    return fig(k,dspPlate(k,dspFit(halSVG(L.done,L.frac,{}),...DSP_PLATE[k]),nm),`${esc(nm)}${d>=HAL_N?', open.':`, at phase ${d+1} of ${HAL_N}: ${esc(HAL_PH[d][0].toLowerCase())}.`}`);}catch(e){return '';}
+})(dspPic);
+
+/* ── help, achievements and the French words ── */
+HELP_EXT.push({k:'hall',t:'The Hall of Edicts',body:()=>`<p>Once a region’s Great Dam is open, its player nations begin a fourth wonder: the Hall of Edicts, across the square from the Great Statue, which keeps every resolution the region’s Assembly passes. The <button type="button" class="linkish" data-act="go" data-v="wonder">same page</button> under Abroad then shows the hall, with the dam, the lighthouse and the statue under Past projects. The hall has twenty-five phases and needs ${fmt0(HAL_TOTAL)} resources. No nation may give more than ${Math.round(HAL_CAP*100)}% of a phase, so each phase needs at least ${HAL_HANDS} nations. Every finished phase pays ${HAL_LAND} land credits to each nation that gave at least ${Math.round(HAL_SHARE*100)}% of it, and when the doors open the five that gave the most earn ${list(HAL_TOP.map(String))} more and a place on the plaque; the one that gave the most also earns the Portico, an icon for its arms and its flag. Every five phases a hall edict, in purple, reaches every nation of the region. Once open, the Assembly’s rulebook holds ${ASM_BOOK+1} resolutions instead of ${ASM_BOOK}.</p>`});
+{const c=HELP_CH.find(x=>x[0]==='reg');if(c&&!c[2].includes('hall')){const i=c[2].indexOf('dam');c[2].splice(i<0?c[2].length:i+1,0,'hall');}}
+HELP_SUM.hall='The fourth wonder, after the Dam: the Hall of Edicts.';
+const aHal=x=>achM(x,'hal',()=>halSum(x.n&&x.n.hal));
+const aHalVoice=x=>achM(x,'halv',()=>!x.n||x.npc?0:HAL_ISSUES.filter(i=>(x.n.answered||[]).some(a=>a.id===i.id&&a.o>=0)).length);
+achDef('bld','bld-wonders4','g','Four Wonders','Give to your region’s Great Statue, its Great Lighthouse, its Great Dam and its Hall of Edicts.',1,x=>achYes(aGifts(x)>0&&aLth(x)>0&&aDam(x)>0&&aHal(x)>0),{fm:'bool'});
+achDef('bld','bld-hall1500','g','Hall Builder','Give 1,500 resources towards the Hall of Edicts.',1500,aHal);
+achDef('bld','bld-hallread','s','The First Reading','Give to the last phase of your region’s Hall of Edicts, the first reading.',1,x=>achYes(!!(x.n&&x.n.hal&&halGave(x.n.hal,HAL_N-1)>0)),{fm:'bool'});
+achDef('bld','bld-halltop','g','Top Five of the Hall','Be one of the five nations that gave the most when your region’s Hall of Edicts opens.',1,x=>achYes(halTop(x.n)>0),{fm:'bool'});
+achDef('bld','bld-hallvoice','s','Keeper of the Record','Answer all five of the Hall of Edicts’ edicts.',5,aHalVoice);
+for(const [k,v] of Object.entries({'Hall of Edicts':'Palais des Édits','Visit the hall':'Visiter le palais','The Hall of Edicts':'Le Palais des Édits',
+  'The Great Statue, the Great Lighthouse, the Great Dam and the Hall of Edicts':'La Grande Statue, le Grand Phare, le Grand Barrage et le Palais des Édits'}))if(!(k in FR_UI))FR_UI[k]=v;
+
+/* the browser tests' window into the hall (EDICTUM_PROBE.hal) */
+if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE.hal={state:halState,tally:halTally,give:halGive,open:halOpen,openedAt:halOpenedAt,land:n=>halLand(n),top:n=>halTop(n),
+  PH:HAL_PH,N:HAL_N,cap:halCapOf,share:halShareOf,TOTAL:HAL_TOTAL,cell:halCell,svg:halSVG,due:halDue,ISSUES:HAL_ISSUES,bookMax:c=>asmBookMax(c),cyc:t=>asmCyc(t),
+  charge:()=>czCharge('portico','#333','#000'),reopen:()=>{halOpenMemo.t=0;halOpenMemo.v=false;halMemo.k='';},reg:()=>REG.id};}catch(e){}
 
 /* Keep the moderator preview in moderator pages even when a URL names an admin-only page. */
 shell=(f=>function(){if(modPreview()&&typeof S.view==='string'&&S.view.startsWith('admin')&&!MOD_VIEWS.includes(S.view))return admShell('admin-reports','<p class="hint">Choose a moderator page from the menu.</p>');return f.apply(this,arguments);})(shell);
