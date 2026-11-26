@@ -11017,6 +11017,30 @@ span.rs-card{cursor:default}
 :root[data-theme="dark"] .dh-warning{background:#423719;color:#ffedb2;border-color:#b59334;border-left-color:#e2b53c}
 :root[data-theme="dark"] .dh-warning-label{color:#ffda76}
 @media(prefers-color-scheme:dark){:root:not([data-theme="light"]) .dh-warning{background:#423719;color:#ffedb2;border-color:#b59334;border-left-color:#e2b53c}:root:not([data-theme="light"]) .dh-warning-label{color:#ffda76}}
+/* finding a building in any of your cities (2026-11-26): the search above every city at a glance */
+.cxf{margin:0 0 18px;padding:14px;border:1px solid var(--rule);border-radius:4px;background:var(--sheet)}
+.cxf>.lbl-h{margin:0 0 8px}
+.cxf-q{display:flex;align-items:center;gap:8px;position:relative}
+.cxf-i{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--ink-3);pointer-events:none}
+.cxf-in{flex:1;min-width:0;padding-left:34px}
+.cxf-x{flex:none;white-space:nowrap}
+.cxf-f{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 0}
+.cxf-h{margin:10px 0 0}
+.cxf-n{margin:12px 0 2px;font:600 12px/1.5 var(--f-mono);letter-spacing:.04em;color:var(--ink-3)}
+.cxf-l{list-style:none;margin:0;padding:0}
+.cxf-r{display:flex;align-items:flex-start;gap:10px;padding:9px 2px;border-top:1px solid var(--rule)}
+.cxf-r:first-child{border-top:0}
+.cxf-r .b-ic{flex:none;margin-top:2px}
+.cxf-m{flex:1;min-width:0}
+.cxf-t{display:flex;flex-wrap:wrap;align-items:center;gap:4px 7px}
+.cxf-t b{font-weight:650}
+.cxf-t .ugb{margin:0}
+.cxf-b{color:var(--ink-2)}
+.cxf-s{display:block;margin-top:2px;font-size:12.5px;line-height:1.5;color:var(--ink-2)}
+.cxf-r.behind .cxf-s{color:var(--down)}
+.cxf-r>.btn{flex:none;align-self:center}
+.cxf-more{margin:8px 0 0}
+@media (max-width:560px){.cxf-r{flex-wrap:wrap}.cxf-r>.btn{align-self:flex-start;margin-left:34px}}
 </style>
 
 <div id="app"></div>
@@ -105322,6 +105346,224 @@ edictTopicBadge=(f=>function(is){return f.apply(this,arguments)+(is&&/^rsv-/.tes
 /* Help › Research: a word on the edicts */
 {const H=HELP_EXT.find(h=>h.k==='research');if(H){const b=H.body;H.body=n=>b(n)+`<p><b>Research edicts.</b> Once the laboratory is open, some edicts change how fast research goes, and say so on each option: Research Credits up or down for some days, studies under way finished sooner or held up, new studies quicker or slower, research cheaper or dearer, credits spent. Four laws do it for as long as they stand (the Research Tenure Act, the Science Austerity Act, the Peer Review Act, the Fast-Track Science Act). Together, edicts and laws add at most ${Math.round(RS_RULES.edMax*100)}% to the credits, and a study is never quicker than half its time. The Research page’s overview lists the edicts at work.</p>`;}}
 if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE.rse={RSV_ISSUES,RSE_LAW,RSE_FLOOR,rseWords,rseRateParts,rseStudyShare,rseEarn,rseApply,rseClean,rseAt,rseBoxHTML,rsBal:(n,t)=>rsBal(n,t),rsAccrue:(n,t)=>rsAccrue(n,t),rsStudyMs:(n,i,t)=>rsStudyMs(n,i,t),rsDisc:(n,i,t)=>rsDisc(n,i,t),rsPrice:(n,i,t)=>rsPrice(n,i,t),rsRate:(n,t)=>rsRate(n,t),rsRateParts:(n,t)=>rsRateParts(n,t),fill:(t,n)=>fill(t,n,null),gmbOdds:(o,n)=>gmbOdds(o,n,null)};}catch(e){}
+
+/* ───────── finding a building in any of your cities (2026-11-26) ─────────
+   A nation can hold a couple of dozen cities, auto-named and mostly alike, and nothing on the page
+   answered the only question a player asks of them all at once: which of my twelve farms is still
+   grey. The Cities page gets a search over every building in every city the player holds: a field,
+   a row of chips, and a flat list of matches, each opening the building where it stands. It reads
+   the records and jumps. It builds nothing, upgrades nothing and spends nothing, so no rule here
+   can be bent by using it. Its one judgement is what counts as behind: the level most of your
+   cities keep a kind of building at, the higher one where two levels tie, and anything under that.
+   ── */
+/* cxf:logic */
+const CXF_SHOW=40,CXF_QLEN=48;
+/* the chips that are not colours, in the order they are drawn */
+const CXF_FILTERS=[['behind','Behind the others'],['ready','Can upgrade now'],['wip','Being worked on'],['none','Not built here'],['max','All five done']];
+const cxfFold=s=>fkAscii(String(s==null?'':s)).toLowerCase();
+/* the tier a city's building has reached, and the blocks filled inside that tier (the Buildings tab's own reading) */
+const cxfTier=(ct,k)=>ct.tr&&ct.tr[k]?ct.tr[k].t:1;
+const cxfCol=(ct,k)=>(ct.ug&&ct.ug[k])|0;
+/* how far a building has come, so one city's can be set beside another's: five blocks to a tier, and
+   a tier II with no blocks is worth what gold was at tier I */
+const cxfLv=(ct,k)=>(cxfTier(ct,k)-1)*CX_UG_MAX+cxfCol(ct,k);
+/* a level in words: the colour of its blocks, and its tier where it has one */
+function cxfLvWord(lv){
+  if(!(lv>0))return 'no upgrades';
+  const t=Math.floor((lv-1)/CX_UG_MAX)+1,g=lv-(t-1)*CX_UG_MAX;
+  return t>1?`tier ${TIER_ROMAN[t]} at ${CX_UG[g-1].c}`:CX_UG[g-1].c;
+}
+/* the level most of your cities keep each kind of building at, and how many of them have one */
+function cxfPar(all){
+  const lvs=new Map();
+  for(const ct of all||[])for(const k of ct.done){if(!BUILDINGS[k])continue;const a=lvs.get(k);if(a)a.push(cxfLv(ct,k));else lvs.set(k,[cxfLv(ct,k)]);}
+  const par=new Map();
+  for(const [k,a] of lvs){
+    const c=new Map();for(const v of a)c.set(v,(c.get(v)||0)+1);
+    let lv=0,q=0;for(const [v,m] of c)if(m>q||(m===q&&v>lv)){lv=v;q=m;}
+    par.set(k,{lv,n:a.length});
+  }
+  return par;
+}
+/* the cheap half of buildProblem: whether this city could take the building at all. Only what can be
+   answered from the city and the map, so a gap row is never offered where the land forbids it. */
+function cxfCould(n,ct,k){
+  const B=BUILDINGS[k];if(!B||B.w||B.one||B.lead||k==='warehouse')return false;
+  try{if(!bldUnlocked(n,k))return false;}catch(e){}
+  try{
+    if(B.need==='coast')return isCoastal(ct.c);
+    if(B.need==='hills')return ct.dist.some(c=>MAP.T[c]>=3||IRON_DEP[c]);
+    if(B.need==='flat')return !ct.dist.some(c=>MAP.T[c]>=3);
+    if(B.need==='oil')return ct.dist.some(c=>CELL_RES.oil[c]>0)||!!depOf(n,ct).oil;
+    if(B.need==='sci')return n.s.sci>=60;
+  }catch(e){return false;}
+  return true;
+}
+/* one row per building in every city the player holds, plus one per gap: a kind two or more of their
+   cities have and this one has not */
+function cxfRows(T,all,now){
+  const n=S.nation,me=myId(),rows=[];
+  if(!n)return rows;
+  const runs=ct=>ct.fid===me&&cxOk(ct,T);
+  /* only the cities the player runs set the standard: a captured enemy city's grey farm is not what
+     their own cities keep, and its buildings cannot be upgraded while it is held */
+  const par=cxfPar((all||[]).filter(runs));
+  for(const ct of all||[]){
+    const ok=runs(ct),up=ok?cxUpNow(ct,now):null,here=new Set();
+    for(const k of ct.done){
+      if(!BUILDINGS[k]||here.has(k))continue;here.add(k);
+      const P=par.get(k)||{lv:0,n:0},col=cxfCol(ct,k);
+      rows.push({ct,k,ok,gap:false,wip:null,tier:cxfTier(ct,k),col,lv:cxfLv(ct,k),up:up&&up.k===k?up:null,par:P,
+        d:ok?Math.max(0,P.lv-cxfLv(ct,k)):0,max:cxUpgradable(k)&&col>=CX_UG_MAX});
+    }
+    for(const b of ct.prog){
+      if(!BUILDINGS[b.k]||here.has(b.k))continue;here.add(b.k);
+      rows.push({ct,k:b.k,ok,gap:false,wip:b,tier:1,col:0,lv:-1,up:null,par:par.get(b.k)||{lv:0,n:0},d:0,max:false});
+    }
+    if(!ok)continue;
+    for(const [k,P] of par){
+      if(here.has(k)||P.n<2||!cxfCould(n,ct,k))continue;
+      rows.push({ct,k,ok,gap:true,wip:null,tier:1,col:0,lv:-1,up:null,par:P,d:P.lv+1,max:false});
+    }
+  }
+  return rows;
+}
+/* a building's name in the city it stands in: a retooled one goes by its line's name */
+const cxfName=r=>(r.tier>1?bEff(r.k,r.tier,r.ct.tr[r.k].ln):BUILDINGS[r.k]).n;
+/* everything about a row the search can hit */
+function cxfHay(r){
+  const B=BUILDINGS[r.k],w=[r.ct.nm,B.n,cxfName(r),r.k];
+  const cat=BLD_CATS.find(c=>c[0]===B.c);if(cat)w.push(cat[1]);
+  if(B.w)w.push('wonder');
+  if(r.ct.cap)w.push('capital');
+  if(r.ct.fid!==myId())w.push('captured');
+  if(!r.ok)w.push('occupied');
+  if(r.gap)w.push('not built missing none gap');
+  else if(r.wip)w.push('under way going up');
+  else{w.push(r.col?cxUgWord(r.col):'plain no upgrades');if(r.tier>1)w.push('tier '+TIER_ROMAN[r.tier]);}
+  if(r.up)w.push('busy upgrading');
+  if(r.d>0)w.push('behind lagging');
+  if(r.max)w.push('all five done');
+  return cxfFold(w.join(' '));
+}
+const cxfHit=(hay,terms)=>terms.every(t=>hay.includes(t));
+/* the chips: a colour keeps the buildings standing at it, the others keep a state */
+function cxfKeep(r,f,n,st,now){
+  if(!f)return true;
+  if(f==='behind')return r.d>0;
+  if(f==='none')return r.gap;
+  if(f==='wip')return !!r.wip||!!r.up;
+  if(f==='max')return r.max;
+  if(f==='ready')return !r.gap&&!r.wip&&!r.up&&r.ok&&cxUpgradable(r.k)&&r.col<CX_UG_MAX&&!cxUpProblem(n,r.ct,r.k,st,now);
+  const i=CX_UG.findIndex(u=>u.c===f);
+  return i>=0&&!r.gap&&!r.wip&&r.col===i+1;
+}
+/* whatever is behind first, and the furthest behind of those, then by building and by city, so a search
+   for your farms puts the grey one at the top of the twelve */
+const cxfSort=rows=>rows.sort((a,b)=>b.d-a.d||cxfName(a).localeCompare(cxfName(b))||String(a.ct.nm).localeCompare(String(b.ct.nm)));
+/* the matches, in the order they are listed */
+function cxfFind(T,all,now,q,f){
+  const n=S.nation;if(!n)return [];
+  const terms=cxfFold(q||'').split(/\s+/).filter(Boolean),st=stockNow(n,now);
+  let rows=cxfRows(T,all,now).filter(r=>cxfKeep(r,f,n,st,now));
+  if(terms.length)rows=rows.filter(r=>cxfHit(cxfHay(r),terms));
+  return cxfSort(rows);
+}
+/* cxf:ui */
+/* one match: where it stands, how far it has come, and what it is waiting for */
+function cxfRowHTML(r,n,st,now){
+  const B=BUILDINGS[r.k],note=[];let bar='';
+  if(r.gap){
+    note.push(`Not built here. ${r.par.n} of your cities have one, most at ${cxfLvWord(r.par.lv)}`);
+    const p=buildProblem(n,r.ct,r.k,st);if(p&&p.t&&p.k!=='have')note.push(esc(p.t));
+  }else if(r.wip){
+    note.push(`Going up: ${fmtDur(Math.max(0,r.wip.d-now))} left`);
+  }else{
+    const wip=r.up&&/upgrade$/.test(r.up.w)?CX_UG.findIndex(u=>u.c===r.up.c)+1:0;
+    if(cxUpgradable(r.k))bar=(r.tier>1?tierBadge(r.k,r.ct.tr[r.k]):'')+cxUgBar(r.col,wip);
+    if(r.up)note.push(`${cap1(r.up.w)}: ${fmtDur(Math.max(0,r.up.d-now))} left`);
+    else if(!cxUpgradable(r.k))note.push(B.w?'A wonder, which takes no upgrades':'Takes no upgrades');
+    else if(r.col>=CX_UG_MAX)note.push(`All five upgrades done${r.tier>1?' at tier '+TIER_ROMAN[r.tier]:''}`);
+    else note.push(`${r.col} of ${CX_UG_MAX} upgrades`);
+    if(r.d>0)note.push(`${r.d} ${r.d===1?'block':'blocks'} behind the ${cxfLvWord(r.par.lv)} your other cities keep`);
+    /* and whether it can be put right from here, which is the whole point of having found it */
+    if(r.ok&&!r.up&&cxUpgradable(r.k)&&r.col<CX_UG_MAX){const p=cxUpProblem(n,r.ct,r.k,st,now);note.push(p?esc(p):`Ready for its ${CX_UG[r.col].c} upgrade`);}
+  }
+  if(!r.ok)note.unshift('Occupied');
+  else if(r.ct.fid!==myId())note.unshift('Captured');
+  return `<li class="cxf-r${r.d>0?' behind':''}">${bldIco(r.k,'b-ic-xs')}<span class="cxf-m"><span class="cxf-t"><b>${esc(r.ct.nm)}</b>${r.ct.cap?' <span class="chip">Capital</span>':''} <span class="cxf-b">${esc(cxfName(r))}</span>${bar}</span><span class="cxf-s">${note.join(' · ')}</span></span><button type="button" class="btn ghost small-btn" data-act="cxf-go" data-id="${esc(r.ct.id)}" data-k="${esc(r.k)}"${r.gap?' data-m="1"':''}>${r.gap?'Plans':'Open'}</button></li>`;
+}
+/* the list under the field, or, with nothing asked for yet, a word on what is behind */
+function cxfOut(T,all,now){
+  const n=S.nation,q=S.cxQ||'',f=S.cxF||'';
+  if(!cxfFold(q).trim()&&!f){
+    const b=cxfRows(T,all,now).filter(r=>r.d>0).length;
+    return `<p class="hint cxf-h">Try a building, a city, an upgrade colour, or a word like <b>behind</b>. ${b?`<button type="button" class="linkish" data-act="cxf-f" data-k="behind">${b===1?'One building is':b+' buildings are'} behind your other cities</button>`:'Every kind of building you have stands at the same colour in each of your cities.'}</p>`;
+  }
+  const st=stockNow(n,now),rows=cxfFind(T,all,now,q,f);
+  if(!rows.length)return `<p class="hint cxf-h">Nothing in your cities matches. Clear the chips, or try the name of a building, a city or a colour.</p>`;
+  const cities=new Set(rows.map(r=>r.ct.id)).size,shown=rows.slice(0,CXF_SHOW);
+  return `<p class="cxf-n">${rows.length} ${rows.length===1?'building':'buildings'} in ${cities} ${cities===1?'city':'cities'}${rows.filter(r=>r.d>0).length?` · ${rows.filter(r=>r.d>0).length} behind the rest`:''}</p>
+    <ul class="cxf-l">${shown.map(r=>cxfRowHTML(r,n,st,now)).join('')}</ul>${rows.length>CXF_SHOW?`<p class="hint cxf-more">and ${rows.length-CXF_SHOW} more: narrow it down with a chip or a longer word.</p>`:''}`;
+}
+function cxfBarHTML(){
+  const f=S.cxF||'',chips=CX_UG.map(u=>[u.c,cap1(u.c),1]).concat(CXF_FILTERS.map(([k,l])=>[k,l,0]));
+  return chips.map(([k,l,c])=>`<button type="button" class="chip-btn${f===k?' on':''}" data-act="cxf-f" data-k="${k}" aria-pressed="${f===k}">${c?`<i class="ugb-dot ugb-${k}" aria-hidden="true"></i>`:''}${l}</button>`).join('');
+}
+function cxFindHTML(T,all,now){
+  const n=S.nation;
+  if(!n||n.npc||OBS||!all||all.length<2)return '';
+  const q=S.cxQ||'',set=!!(q||S.cxF);
+  return `<section class="cxf" id="cxf" aria-labelledby="cxf-h"><h2 class="lbl-h" id="cxf-h">Find a building</h2>
+    <div class="cxf-q" role="search"><svg class="cxf-i" viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true" focusable="false"><circle cx="7" cy="7" r="4.8"/><path d="m10.6 10.6 3.6 3.6"/></svg><input class="input cxf-in" id="cxf-q" type="search" value="${esc(q)}" placeholder="A building, a city or a colour" aria-label="Find a building in any of your cities" autocomplete="off" spellcheck="false" enterkeyhint="search" maxlength="${CXF_QLEN}"><button type="button" class="linkish small cxf-x" id="cxf-clr" data-act="cxf-clear"${set?'':' hidden'}>Clear</button></div>
+    <div class="cxf-f" id="cxf-bar" role="group" aria-label="Narrow what is listed">${cxfBarHTML()}</div>
+    <div id="cxf-out">${cxfOut(T,all,now)}</div></section>`;
+}
+/* the list is repainted on its own so the field keeps the cursor while you type */
+function cxfPaint(){
+  const out=document.getElementById('cxf-out');
+  if(!out||S.view!=='cities'){render();return;}
+  let T;try{T=territory();}catch(e){render();return;}
+  const {mine,held}=myCityStates(),all=cpSorted(mine,T).concat(cpSorted(held,T));
+  out.innerHTML=cxfOut(T,all,Date.now());
+  const bar=document.getElementById('cxf-bar');
+  if(bar)for(const b of bar.querySelectorAll('[data-act="cxf-f"]')){const on=b.dataset.k===(S.cxF||'');b.classList.toggle('on',on);b.setAttribute('aria-pressed',on);}
+  const x=document.getElementById('cxf-clr');if(x)x.hidden=!(S.cxQ||S.cxF);
+  RENDER_LAST.k=null;
+}
+/* open the building where it stands: its row in the city's Buildings tab, or its plan in the Build tab */
+function cxfGo(id,k,gap){
+  if(!id||!BUILDINGS[k])return;
+  if(gap){uxOpen('cities',()=>{S.cxSel=id;S.cityOpen=id;S.cxTab='b';S.cxCat='all';S.cxAfford=false;S.cityMsg='';},'#bk-'+k);return;}
+  uxOpen('cities',()=>{S.cxSel=id;S.cityOpen=null;S.cxTab='b';S.cityMsg='';S.confirmDemo=null;},dlId('bld-'+id+'-'+k));
+}
+document.addEventListener('input',e=>{const t=e.target;if(!t||t.id!=='cxf-q')return;S.cxQ=String(t.value||'').slice(0,CXF_QLEN);cxfPaint();});
+document.addEventListener('keydown',e=>{const t=e.target;if(!t||t.id!=='cxf-q')return;
+  if(e.key==='Escape'&&t.value){e.preventDefault();S.cxQ='';t.value='';cxfPaint();}
+  else if(e.key==='Enter')e.preventDefault();});
+document.addEventListener('click',e=>{
+  const el=e.target.closest&&e.target.closest('[data-act="cxf-f"],[data-act="cxf-go"],[data-act="cxf-clear"]');
+  if(!el)return;
+  const a=el.dataset.act;
+  if(a==='cxf-go'){cxfGo(el.dataset.id,el.dataset.k,el.dataset.m==='1');return;}
+  if(a==='cxf-clear'){S.cxQ='';S.cxF='';const i=document.getElementById('cxf-q');if(i)i.value='';cxfPaint();if(i)try{i.focus({preventScroll:true});}catch(err){}return;}
+  const k=el.dataset.k;S.cxF=S.cxF===k?'':k;cxfPaint();
+  requestAnimationFrame(()=>{const b=document.querySelector(`[data-act="cxf-f"][data-k="${k}"]`);if(b)try{b.focus({preventScroll:true});}catch(err){}});
+});
+/* above every city at a glance, which answers the other half of the question */
+cxOverview=(f=>function(T,all,sel,now){return cxFindHTML(T,all,now)+f.apply(this,arguments);})(cxOverview);
+/* Help > Cities and buildings: a word on the search, before the link to the page */
+helpPage=(f=>function(n,body,secs){
+  try{
+    if(body&&typeof body.cities==='string'&&!/cxf-help/.test(body.cities))
+      body.cities=body.cities.replace(/<p class="help-go">/,
+        `<p class="cxf-help"><b>Finding one building among many.</b> Once you hold two cities, the Cities page opens with a search over every building in all of them. Type a building, a city, an upgrade colour or a word like <b>behind</b>, or use a chip, and every match is listed with how far it has come and what it is waiting for; the button beside it opens that building in its own city. A building is <b>behind</b> when it stands below the level most of your cities keep that kind at, and a city that lacks what two or more of your others have is listed too. The search only looks: it builds, upgrades and spends nothing.</p><p class="help-go">`);
+  }catch(e){}
+  return f.apply(this,arguments);
+})(helpPage);
+/* the search is a way in of its own: "find a building", "which farm is grey" */
+if(typeof QJ_DO!=='undefined'&&Array.isArray(QJ_DO))QJ_DO.push({v:'do:cxfind',l:'Find a building in your cities',words:'search buildings grey behind upgrade which city farm',view:'cities',target:'#cxf',setup:()=>{S.cxQ='';S.cxF='';}});
+if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE.cxf={CXF_SHOW,CXF_QLEN,CXF_FILTERS,cxfFold,cxfTier,cxfCol,cxfLv,cxfLvWord,cxfPar,cxfCould,cxfRows,cxfName,cxfHay,cxfHit,cxfKeep,cxfSort,cxfFind,cxfOut,cxFindHTML,cxfGo};}catch(e){}
 
 /* Keep the moderator preview in moderator pages even when a URL names an admin-only page. */
 shell=(f=>function(){if(modPreview()&&typeof S.view==='string'&&S.view.startsWith('admin')&&!MOD_VIEWS.includes(S.view))return admShell('admin-reports','<p class="hint">Choose a moderator page from the menu.</p>');return f.apply(this,arguments);})(shell);
