@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Diplomacy, the Wars section, mock-up</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,400;6..96,600;6..96,700&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+/* tokens: copied from game/edictum.html so the mock-up is the game’s own colour */
+:root{
+  --paper:#e8eeeb; --sheet:#f8fbf9; --sheet-2:#eef3f0; --ink:#12292a; --ink-2:#45605c; --ink-3:#566b67;
+  --rule:#cdd9d4; --rule-2:#b0c2bc; --track:#dbe5e1;
+  --accent:#1d6a5c; --accent-hi:#14544a; --accent-ink:#f3fbf8; --accent-soft:#d3e7df;
+  --stamp:#6a3db3; --stamp-ink:#ffffff; --stamp-soft:#ebe3f7;
+  --up:#1b7843; --down:#b3302a; --online:#22a35a; --down-soft:#f7e3e0;
+  --shadow:0 1px 0 rgba(18,41,42,.04), 0 10px 26px -14px rgba(18,41,42,.28);
+  --f-display:"Bodoni Moda","Bodoni 72","Didot",Georgia,serif;
+  --f-body:"Public Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+:root[data-theme="dark"]{
+  --paper:#0c1615; --sheet:#12201f; --sheet-2:#172927; --ink:#e1ebe7; --ink-2:#a0b6b1; --ink-3:#879d95;
+  --rule:#233634; --rule-2:#314b47; --track:#1c2f2c;
+  --accent:#5ec2a9; --accent-hi:#80d7c1; --accent-ink:#06231d; --accent-soft:#17362f;
+  --stamp:#b59cf5; --stamp-ink:#1b1030; --stamp-soft:#261e3b;
+  --up:#63d395; --down:#ff8577; --online:#3fcf7a; --down-soft:#3b201d;
+  --shadow:0 1px 0 rgba(0,0,0,.25), 0 12px 30px -14px rgba(0,0,0,.7);
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font:400 15px/1.6 var(--f-body);-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+h1,h2,h3{text-wrap:balance}
+p{margin:0}
+
+/* ── type and components, copied from the game ── */
+.eyebrow,.lbl,.lbl-h{font-family:var(--f-mono);font-weight:500;text-transform:uppercase;letter-spacing:.13em;color:var(--ink-3)}
+.eyebrow{font-size:11.5px}
+.lbl-h{font-size:11.5px;margin:0 0 12px}
+.h2{font-family:var(--f-display);font-weight:600;font-size:28px;line-height:1.12;margin:0 0 14px;font-variation-settings:"opsz" 48}
+.muted{color:var(--ink-2)}
+.num{font-variant-numeric:tabular-nums}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;font-weight:600;font-size:14px;line-height:1.2;padding:11px 16px;border-radius:3px;border:1px solid var(--accent);background:var(--accent);color:var(--accent-ink);cursor:pointer;text-align:center}
+.btn.ghost{background:transparent;color:var(--ink);border-color:var(--rule-2)}
+.btn.danger{background:transparent;color:var(--down);border-color:var(--down)}
+.btn.danger.solid{background:var(--down);color:var(--sheet)}
+.btn.sm{padding:7px 11px;font-size:13px}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.linkish{border:0;background:none;padding:0;font-weight:600;color:var(--ink);cursor:pointer;text-align:left;text-decoration:underline;text-decoration-color:var(--rule-2);text-underline-offset:3px}
+.linkish.small{font-size:12.5px;font-weight:500;color:var(--ink-3)}
+.hint{font-size:13px;color:var(--ink-3)}
+.chip{display:inline-block;font:500 10.5px/1 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;padding:4px 7px;border:1px solid var(--rule-2);border-radius:3px;color:var(--ink-2);white-space:nowrap;vertical-align:middle}
+.chip.war{border-color:var(--down);color:var(--down)}
+.chip.ok{border-color:var(--accent);color:var(--accent)}
+.mflag{display:block;width:34px;height:22px;border:1px solid var(--rule-2);line-height:0;overflow:hidden;flex:none}
+.dip-sec{margin-bottom:40px}
+.field{display:flex;flex-direction:column;gap:6px}
+.input{padding:10px 12px;border:1px solid var(--rule-2);border-radius:3px;background:var(--sheet);color:var(--ink);min-width:0}
+.name-row{display:flex;gap:10px;align-items:stretch}
+.name-row .input{flex:1;min-width:0}
+
+/* the member row, as the Wars section uses it today */
+.mems{list-style:none;padding:0;margin:12px 0 0}
+.mem{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;padding:10px 0;border-top:1px solid var(--rule)}
+.mem-n{flex:1;min-width:0;display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px}
+.mem-s{flex-basis:100%;font-size:13px;color:var(--ink-2)}
+.mem-b{display:flex;gap:8px;flex-wrap:wrap}
+
+/* ── new to the Wars section ── */
+/* One row for each war, carrying what the war office knows in four figures. A list, not a stack of
+   cards: the war office owns the cards, and the two pages should not look like each other. */
+.wars{list-style:none;margin:14px 0 0;padding:0}
+.war-r{padding:14px 0;border-top:1px solid var(--rule)}
+.war-r:first-child{border-top:0;padding-top:4px}
+/* the head: flag, name, what kind of war and when it began, and the state as chips */
+.war-r-h{display:flex;align-items:flex-start;gap:11px}
+.war-r-n{flex:1;min-width:0}
+.war-r-n b{font-family:var(--f-display);font-weight:650;font-size:20px;line-height:1.15;font-variation-settings:"opsz" 48;display:block;overflow-wrap:anywhere}
+.war-r-meta{display:block;font-size:12.5px;color:var(--ink-2);margin-top:1px}
+.war-r-chips{display:flex;flex-wrap:wrap;gap:5px;justify-content:flex-end;max-width:46%}
+/* the four figures: won of fought, hexes gained and lost, and who holds whose land */
+.war-f{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,104px),1fr));gap:2px 14px;margin:11px 0 0;padding:10px 12px;background:var(--sheet-2);border-radius:3px}
+.war-f dt{font-size:11.5px;color:var(--ink-2)}
+.war-f dd{margin:0;font-weight:600;font-size:14px;font-variant-numeric:tabular-nums}
+.war-f dd.down{color:var(--down)}
+.war-f dd .of{font-weight:400;color:var(--ink-2)}
+/* the cap a border war runs into, which decides whether to fight on */
+.war-cap{display:block;height:5px;margin-top:5px;border-radius:3px;background:var(--track);overflow:hidden}
+.war-cap i{display:block;height:100%;background:var(--accent)}
+.war-cap.full i{background:var(--down)}
+/* the clock on an unanswered offer: the war ends by itself when it runs out */
+.war-when{margin:10px 0 0;font-size:13.5px;line-height:1.5;color:var(--ink-2);padding-left:11px;border-left:2px solid var(--rule-2)}
+.war-when.offer{border-left-color:var(--accent);color:var(--ink)}
+.war-when b{font-weight:650;font-variant-numeric:tabular-nums}
+.war-r .row{margin-top:11px}
+/* an ally’s war, and a war joined through an alliance: the same row, quieter */
+.war-r.calm .war-r-n b{font-size:17px;font-family:var(--f-body);font-weight:650}
+@media (max-width:520px){
+  .war-r-h{flex-wrap:wrap}
+  .war-r-chips{max-width:none;justify-content:flex-start;flex-basis:100%}
+  .war-f{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+
+/* the mock-up sheet itself */
+.sheet-wrap{max-width:1180px;margin:0 auto;padding:30px 28px 10px}
+.sheet-wrap h1{font-family:var(--f-display);font-weight:650;font-size:clamp(30px,4vw,40px);line-height:1.05;margin:6px 0 10px;font-variation-settings:"opsz" 96}
+.sheet-wrap>p{color:var(--ink-2);max-width:68ch}
+.panes{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,520px),1fr));gap:40px;max-width:1180px;margin:0 auto;padding:22px 28px 10px;align-items:start}
+.pane{min-width:0}
+.pane-k{margin:0 0 14px;padding-bottom:8px;border-bottom:2px solid var(--rule-2)}
+.col{max-width:580px}
+.sheet-note{max-width:1180px;margin:0 auto;padding:16px 28px 34px;color:var(--ink-3);font-size:13px}
+@media (max-width:900px){.sheet-wrap,.panes,.sheet-note{padding-left:16px;padding-right:16px}.panes{gap:34px}}
+</style>
+</head>
+<body>
+
+<div class="sheet-wrap">
+  <p class="eyebrow">Foreign office · mock-up</p>
+  <h1>Diplomacy, the Wars section</h1>
+  <p>The section sits in the left column of the Diplomacy page, so it is drawn here at the width it really gets. Ideas 1, 2, 3, 4, 5, 9 and 10: the figures of each war on its row, the aim it is fought for, rows ordered by what needs an answer, the state as chips, the clock on an unanswered offer, an empty state that does not contradict itself, and an ally’s war drawn by the same component the war office uses.</p>
+</div>
+
+<div class="panes">
+
+  <!-- ─────────── as it is today ─────────── -->
+  <div class="pane">
+    <p class="pane-k"><span class="eyebrow">As it is today</span></p>
+    <div class="col">
+      <section class="dip-sec">
+        <h2 class="h2">Wars</h2>
+        <div class="row" style="margin-bottom:12px"><button class="btn ghost sm">Open the war office</button></div>
+        <ul class="mems">
+          <li class="mem">
+            <span class="mflag" aria-hidden="true"><svg viewBox="0 0 30 20" width="34" height="22"><rect width="30" height="20" fill="#20486f"/><rect x="12" width="6" height="20" fill="#f2f2ee"/><rect y="7" width="30" height="6" fill="#f2f2ee"/></svg></span>
+            <span class="mem-n"><button class="linkish">Tessandria</button><span class="mem-s">You declared war on 22 November (4 days ago).</span></span>
+            <span class="mem-b"><button class="btn ghost">Map</button><button class="btn ghost">Make peace on current lines</button><button class="btn ghost">Withdraw and make peace</button></span>
+          </li>
+          <li class="mem">
+            <span class="mflag" aria-hidden="true"><svg viewBox="0 0 30 20" width="34" height="22"><rect width="30" height="20" fill="#9b2d26"/><rect y="7" width="30" height="6" fill="#e8d9a8"/><circle cx="15" cy="10" r="3" fill="#9b2d26"/></svg></span>
+            <span class="mem-n"><button class="linkish">Khorasia</button><span class="mem-s">Declared war on you on 14 November (12 days ago). They offer peace.</span></span>
+            <span class="mem-b"><button class="btn ghost">Map</button><button class="btn">Accept peace</button><button class="btn ghost">Withdraw and accept</button></span>
+          </li>
+          <li class="mem">
+            <span class="mflag" aria-hidden="true"><svg viewBox="0 0 30 20" width="34" height="22"><rect width="30" height="20" fill="#5a4a7a"/><rect width="30" height="7" fill="#ded5e6"/><rect y="13" width="30" height="7" fill="#ded5e6"/></svg></span>
+            <span class="mem-n"><button class="linkish">Dunmarch</button><span class="mem-s">Alliance war: Dunmarch attacked your ally Sarentine.</span></span>
+            <span class="mem-b"><button class="btn ghost">Map</button></span>
+          </li>
+        </ul>
+        <h3 class="lbl-h" style="margin-top:20px">Your allies’ wars</h3>
+        <ul class="mems">
+          <li class="mem">
+            <span class="mem-n">Sarentine is at war with Mirenor</span>
+            <button class="btn danger">Join the war</button>
+          </li>
+        </ul>
+        <p class="hint" style="margin-top:14px">Truces in force with Valmoor, Pellbridge.</p>
+        <div class="field" style="margin-top:20px">
+          <label class="lbl-h" for="wp1">Declare war</label>
+          <div class="name-row"><select class="input" id="wp1"><option>Valmoor (computer)</option></select><button class="btn danger">Review…</button></div>
+          <p class="hint">Opens the nation on the map, where you see its army and allies before you confirm.</p>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <!-- ─────────── proposed ─────────── -->
+  <div class="pane">
+    <p class="pane-k"><span class="eyebrow">Proposed</span></p>
+    <div class="col">
+      <section class="dip-sec">
+        <h2 class="h2">Wars</h2>
+        <div class="row" style="margin-bottom:4px"><button class="btn ghost sm">Open the war office</button><span class="hint">Three wars on. Ordered by what needs an answer.</span></div>
+
+        <ul class="wars">
+
+          <!-- 3: the war with an offer on the table comes first, because a clock is running on it -->
+          <li class="war-r">
+            <div class="war-r-h">
+              <span class="mflag" aria-hidden="true"><svg viewBox="0 0 30 20" width="34" height="22"><rect width="30" height="20" fill="#9b2d26"/><rect y="7" width="30" height="6" fill="#e8d9a8"/><circle cx="15" cy="10" r="3" fill="#9b2d26"/></svg></span>
+              <span class="war-r-n">
+                <b>Khorasia</b>
+                <!-- 2: the aim, which the section never named -->
+                <span class="war-r-meta">Conquest · they declared war on 14 November, 12 days ago</span>
+              </span>
+              <!-- 4: the state as chips, the vocabulary the war office and the nation page already use -->
+              <span class="war-r-chips"><span class="chip war">At war</span><span class="chip ok">Offers peace</span></span>
+            </div>
+            <!-- 1: what the game already stores in n.wst, which the row never showed -->
+            <dl class="war-f">
+              <div><dt>Battles</dt><dd>5 <span class="of">won of</span> 9</dd></div>
+              <div><dt>Hexes</dt><dd>+4 / −1</dd></div>
+              <div><dt>You hold</dt><dd>4 of theirs</dd></div>
+              <div><dt>They hold</dt><dd class="down">1 of yours</dd></div>
+            </dl>
+            <!-- 5: the deadline, which only the nation page mentioned -->
+            <p class="war-when offer">Peace on current lines. Unless you answer first it takes effect by itself in <b>14h 22m</b>, and you keep the four hexes you hold.</p>
+            <div class="row">
+              <button class="btn">Accept peace</button>
+              <button class="btn ghost">Withdraw from 4 hexes and accept</button>
+              <button class="btn ghost sm">Map</button>
+            </div>
+          </li>
+
+          <!-- a border war of your own, with the cap that decides whether to fight on -->
+          <li class="war-r">
+            <div class="war-r-h">
+              <span class="mflag" aria-hidden="true"><svg viewBox="0 0 30 20" width="34" height="22"><rect width="30" height="20" fill="#20486f"/><rect x="12" width="6" height="20" fill="#f2f2ee"/><rect y="7" width="30" height="6" fill="#f2f2ee"/></svg></span>
+              <span class="war-r-n">
+                <b>Tessandria</b>
+                <span class="war-r-meta">Border war · you declared war on 22 November, 4 days ago · computer</span>
+              </span>
+              <span class="war-r-chips"><span class="chip war">At war</span></span>
+            </div>
+            <dl class="war-f">
+              <div><dt>Battles</dt><dd>2 <span class="of">won of</span> 3</dd></div>
+              <div><dt>Hexes</dt><dd>+2 / −0</dd></div>
+              <div><dt>You hold</dt><dd>2 of theirs</dd></div>
+              <!-- 2: a border war stops at its cap, so the row says how close it is -->
+              <div><dt>Border cap</dt><dd>2 <span class="of">of</span> 6<span class="war-cap"><i style="width:33%"></i></span></dd></div>
+            </dl>
+            <p class="war-when">Tessandria will not make peace while you hold its land, unless you withdraw or the war drags on.</p>
+            <div class="row">
+              <button class="btn ghost">Make peace on current lines</button>
+              <button class="btn ghost">Withdraw from 2 hexes and make peace</button>
+              <button class="btn ghost sm">Map</button>
+            </div>
+          </li>
+
+          <!-- a war joined through the alliance: no peace to make separately, so the row says how it ends -->
+          <li class="war-r calm">
+            <div class="war-r-h">
+              <span class="mflag" aria-hidden="true"><svg viewBox="0 0 30 20" width="34" height="22"><rect width="30" height="20" fill="#5a4a7a"/><rect width="30" height="7" fill="#ded5e6"/><rect y="13" width="30" height="7" fill="#ded5e6"/></svg></span>
+              <span class="war-r-n">
+                <b>Dunmarch</b>
+                <span class="war-r-meta">They attacked your ally Sarentine on 19 November, 7 days ago</span>
+              </span>
+              <span class="war-r-chips"><span class="chip war">Alliance war</span></span>
+            </div>
+            <dl class="war-f">
+              <div><dt>Battles</dt><dd>none fought</dd></div>
+              <div><dt>Hexes</dt><dd>+0 / −0</dd></div>
+              <div><dt>You hold</dt><dd>none of theirs</dd></div>
+              <div><dt>They hold</dt><dd>none of yours</dd></div>
+            </dl>
+            <p class="war-when">It ends when Sarentine makes peace. You cannot make peace with Dunmarch on your own.</p>
+            <div class="row"><button class="btn ghost sm">Map</button><button class="btn ghost sm">Open Sarentine</button></div>
+          </li>
+        </ul>
+
+        <!-- 10: an ally’s war you have not joined, drawn by the same row the war office uses -->
+        <h3 class="lbl-h" style="margin-top:24px">Your allies’ wars</h3>
+        <ul class="wars">
+          <li class="war-r calm">
+            <div class="war-r-h">
+              <span class="mflag" aria-hidden="true"><svg viewBox="0 0 30 20" width="34" height="22"><rect width="30" height="20" fill="#2f6b4f"/><polygon points="15,4 18,16 6,9 24,9 12,16" fill="#f0e3b2"/></svg></span>
+              <span class="war-r-n">
+                <b>Mirenor</b>
+                <span class="war-r-meta">Your ally Sarentine declared war on it on 24 November · you have not joined</span>
+              </span>
+              <span class="war-r-chips"><span class="chip">Ally’s war</span></span>
+            </div>
+            <div class="row"><button class="btn danger">Join the war</button><button class="btn ghost sm">Open Mirenor</button></div>
+          </li>
+        </ul>
+
+        <p class="hint" style="margin-top:16px">Truces in force with Valmoor, Pellbridge.</p>
+        <div class="field" style="margin-top:20px">
+          <label class="lbl-h" for="wp2">Declare war</label>
+          <div class="name-row"><select class="input" id="wp2"><option>Valmoor (computer)</option></select><button class="btn danger">Review…</button></div>
+          <p class="hint">Opens the nation on the map, where you see its army and allies before you confirm.</p>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<!-- ─────────── idea 9: the empty state that contradicted itself ─────────── -->
+<div class="panes">
+  <div class="pane">
+    <p class="pane-k"><span class="eyebrow">At peace today · an ally is not</span></p>
+    <div class="col">
+      <section class="dip-sec">
+        <h2 class="h2">Wars</h2>
+        <p class="muted">You are at peace with everyone.</p>
+        <h3 class="lbl-h" style="margin-top:20px">Your allies’ wars</h3>
+        <ul class="mems">
+          <li class="mem">
+            <span class="mem-n">Sarentine is at war with Mirenor</span>
+            <button class="btn danger">Join the war</button>
+          </li>
+        </ul>
+      </section>
+    </div>
+  </div>
+  <div class="pane">
+    <p class="pane-k"><span class="eyebrow">At peace, proposed</span></p>
+    <div class="col">
+      <section class="dip-sec">
+        <h2 class="h2">Wars</h2>
+        <p class="muted">Your own borders are quiet. Your ally Sarentine is at war with Mirenor, and you may join it or stay out.</p>
+        <ul class="wars" style="margin-top:18px">
+          <li class="war-r calm">
+            <div class="war-r-h">
+              <span class="mflag" aria-hidden="true"><svg viewBox="0 0 30 20" width="34" height="22"><rect width="30" height="20" fill="#2f6b4f"/><polygon points="15,4 18,16 6,9 24,9 12,16" fill="#f0e3b2"/></svg></span>
+              <span class="war-r-n">
+                <b>Mirenor</b>
+                <span class="war-r-meta">Your ally Sarentine declared war on it on 24 November · you have not joined</span>
+              </span>
+              <span class="war-r-chips"><span class="chip">Ally’s war</span></span>
+            </div>
+            <div class="row"><button class="btn danger">Join the war</button><button class="btn ghost sm">Open Mirenor</button></div>
+          </li>
+        </ul>
+        <p class="hint" style="margin-top:16px">Truces in force with Valmoor, Pellbridge.</p>
+        <div class="field" style="margin-top:20px">
+          <label class="lbl-h" for="wp3">Declare war</label>
+          <div class="name-row"><select class="input" id="wp3"><option>Valmoor (computer)</option></select><button class="btn danger">Review…</button></div>
+          <p class="hint">Opens the nation on the map, where you see its army and allies before you confirm.</p>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<p class="sheet-note">Mock-up, 26 November 2026. Nothing here is wired up. Figures are made up; the colours, type and components are the game’s own. Idea 6, confirming peace away from the row, is deliberately not in this sheet: the peace buttons stay where they are today.</p>
+</body>
+</html>

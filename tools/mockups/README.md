@@ -12,8 +12,11 @@ before the game is touched.
   the odds, and what the war layer draws, in one place (26 Nov 2026). Self-contained: open it.
 - `battle-die.html` — the referee's die in front of the player when an attack is rolled, in four states, with the
   attack's factors as a list (26 Nov 2026). Self-contained: open it.
-- `render-war.mjs` — shoots both of those, light and dark, plus the war office at phone width. Run
-  `node tools/mockups/render-war.mjs`.
+- `dip-wars.html` — the Wars section of the Diplomacy page as it is today beside what it could be: each war's
+  figures and aim on its row, the rows ordered by what needs an answer, the state as chips, the clock on an
+  unanswered peace offer, and an ally's war drawn by one component (26 Nov 2026). Self-contained: open it.
+- `render-war.mjs` — shoots all three, light and dark, plus the war office and the Wars section at phone width.
+  Run `node tools/mockups/render-war.mjs`.
 - `built/` — what the last run produced. Generated; delete it whenever.
 
 Nothing here is served or tested. `test/ambassador-desk.test.mjs` is the version of this that runs in CI.
