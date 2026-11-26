@@ -1860,6 +1860,37 @@ html.map-full-open,html.map-full-open body{overflow:hidden}
 .mem-s{flex-basis:100%;font-size:13px;color:var(--ink-2)}
 .mem-v{font:500 12.5px/1 var(--f-mono);color:var(--ink-2)}
 .mem-b{display:flex;gap:8px;flex-wrap:wrap}
+/* one row for each war, on the Wars tab: the figures the war office keeps, the aim, the state as chips and the
+   clock on an offer. A list, not a stack of cards: the war office owns the cards. */
+.wars{list-style:none;margin:14px 0 0;padding:0}
+.war-r{padding:14px 0;border-top:1px solid var(--rule)}
+.war-r:first-child{border-top:0;padding-top:4px}
+.war-r-h{display:flex;align-items:flex-start;gap:11px}
+.war-r-n{flex:1;min-width:0}
+.war-r-n b{font-family:var(--f-display);font-weight:650;font-size:20px;line-height:1.15;font-variation-settings:"opsz" 48;display:block;overflow-wrap:anywhere}
+.war-r-n b .linkish{font:inherit;font-variation-settings:inherit}
+.war-r-meta{display:block;font-size:12.5px;color:var(--ink-2);margin-top:1px}
+.war-r-chips{display:flex;flex-wrap:wrap;gap:5px;justify-content:flex-end;max-width:46%}
+/* two columns, not as many as fit: this column is about 370px wide beside the war room, and wider only when
+   the page falls to one column, so a rule that counts on the viewport would be wrong at both ends */
+.war-f{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px 14px;margin:11px 0 0;padding:10px 12px;background:var(--sheet-2);border-radius:3px}
+.war-f dt{font-size:11.5px;color:var(--ink-2)}
+.war-f dd{margin:0;font-weight:600;font-size:14px;font-variant-numeric:tabular-nums}
+.war-f dd.down{color:var(--down)}
+.war-f dd .of,.front .wr3-dl .of{font-weight:400;color:var(--ink-2)}
+.front .wr3-dl dd.down{color:var(--down)}
+.war-cap{display:block;height:5px;margin-top:5px;border-radius:3px;background:var(--track);overflow:hidden}
+.war-cap i{display:block;height:100%;background:var(--accent)}
+.war-cap.full i{background:var(--down)}
+.war-when{margin:10px 0 0;font-size:13.5px;line-height:1.5;color:var(--ink-2);padding-left:11px;border-left:2px solid var(--rule-2)}
+.war-when.offer{border-left-color:var(--accent);color:var(--ink)}
+.war-when b{font-weight:650;font-variant-numeric:tabular-nums}
+.war-r .row{margin-top:11px}
+.war-r.calm .war-r-n b{font-family:var(--f-body);font-weight:650;font-size:17px}
+@media (max-width:520px){
+  .war-r-h{flex-wrap:wrap}
+  .war-r-chips{max-width:none;justify-content:flex-start;flex-basis:100%}
+}
 .al-inv{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 16px;padding:14px 16px;margin-bottom:14px;border:1px solid var(--stamp);border-radius:4px;background:var(--stamp-soft)}
 .al-form{display:flex;flex-direction:column;gap:6px}
 .blocs{margin:0;padding-left:18px;font-size:14px;color:var(--ink-2)}
@@ -23845,20 +23876,95 @@ function allianceSection(){
   const blocs=NPC_BLOCS.map(b=>`<li><b>${esc(b.name)}</b>: ${esc(list(b.members.map(nameOf)))}</li>`).join('');
   return `<section class="dip-sec"><h2 class="h2" id="dip-al-h">Alliance</h2>${msg}${body}<h3 class="lbl-h" style="margin-top:22px">Computer alliances</h3><ul class="blocs">${blocs}</ul><p class="hint">Attack one member of an alliance and the others defend it.</p></section>`;
 }
+/* an ally's war this nation has not joined. One list and one wording for the Wars tab and the war office,
+   so the two cannot drift apart. */
+function allyWars(){
+  const me=myId(),out=[];
+  if(!S.nation)return out;
+  for(const a of alliesOf(me))for(const x of allNations()){
+    if(x.me||x.id===a||sameAlliance(me,x.id)||warWith(x.id).war)continue;
+    const w=pairWar(a,x.id);if(!w.war||w.agg!==a)continue;
+    out.push({a,x,since:w.since,tr:warWith(x.id).truceUntil||0});
+  }
+  return out;
+}
+function allyWarMeta(j){return `Your ally ${esc(nameOf(j.a))} declared war on it on ${esc(fmtDate(j.since))}${relDays(j.since)} · you have not joined`;}
+function allyWarCtl(j,now){
+  return pol(S.nation).pacifistConstitution?'<p class="hint">Your pacifist constitution forbids joining.</p>'
+    :j.tr>(now||Date.now())?`<p class="hint">A truce holds until ${esc(fmtTime(j.tr))}.</p>`
+    :`<button type="button" class="btn danger" data-act="war-declare" data-id="${esc(j.x.id)}">Join the war</button>`;
+}
+/* what a war has come to, in four figures: the battles fought, the ground won and lost, and who holds whose
+   land. A border war stops at its cap, so that takes the fourth place and carries a bar. */
+function warFigs(x,T,now){
+  const me=myId(),ws=warWith(x.id),mi=T.byId[me],ei=T.byId[x.id],s=(S.nation.wst||{})[x.id],out=[];
+  if(s)out.push({k:'Battles',v:s.a?`${s.w} <span class="of">won of</span> ${s.a}${s.r?` (${s.r} ${s.r===1?'raid':'raids'})`:''}`:'none fought'});
+  if(s){let h=null;try{h=wr3Hexes(S.nation,me,x.id,s.t,now);}catch(e){}if(h)out.push({k:'Hexes',v:`+${h.tk} / −${h.ls}`});}
+  const mine=occupiedFrom(T,mi,ei).length,theirs=occupiedFrom(T,ei,mi).length;
+  out.push({k:'You hold',v:mine?`${mine} of theirs`:'none of theirs'});
+  if(ws.direct&&ws.byMe&&ws.g==='b'){const tk=wrTakenIn(S.nation,x.id,ws.since);
+    out.push({k:'Border cap',v:`${tk} <span class="of">of</span> ${BORDER_CAP}<span class="war-cap${tk>=BORDER_CAP?' full':''}"><i style="width:${Math.min(100,Math.round(tk/BORDER_CAP*100))}%"></i></span>`});}
+  else out.push({k:'They hold',v:theirs?`${theirs} of yours`:'none of yours',down:theirs>0});
+  return out;
+}
+/* the one line that says where a war stands, and the clock on an offer nobody has answered yet */
+function warWhen(x,T,now){
+  const me=myId(),ws=warWith(x.id),nm=esc(x.n.name);
+  if(!ws.direct)return ws.attacker===me
+    ?{t:`${nm} joined the war to defend its ally. It ends when you make peace with ${esc(nameOf(ws.defending))}.`}
+    :{t:`It ends when ${esc(nameOf(ws.defending))} makes peace. You cannot make peace with ${nm} on your own.`};
+  const mine=occupiedFrom(T,T.byId[me],T.byId[x.id]).length;
+  const clock=ws.ends>now?` It takes effect by itself in <b class="num" data-mvcd="${ws.ends}">${esc(fmtWait(ws.ends-now))}</b>.`:'';
+  if(ws.iOffered)return {t:`You offered peace${((S.nation.pterm||{})[x.id])==='return'?' and withdrew from their land':''}. Your army holds its fire until ${nm} answers.${clock}`};
+  if(ws.theyOffered){const pt=x.npc?null:((x.n.pterm||{})[me]);
+    return {offer:true,t:`${nm} has offered peace${pt==='return'?' and withdrawn from your land':x.npc?' on current lines':''}.${clock}${mine?` You keep the ${hexWord(mine)} you hold.`:''}`};}
+  if(mine&&x.npc)return {t:`${nm} will not make peace while you hold its land, unless you withdraw or the war drags on.`};
+  return null;
+}
+/* One row for each war, ordered by what needs an answer rather than by where the nations sit on the map:
+   an offer waiting on you, then an offer of yours running out, then a war in which they hold your land. */
+function warRank(x,T){
+  const w=warWith(x.id);
+  if(!w.direct)return 4;
+  if(w.theyOffered&&!w.iOffered)return 0;
+  if(w.iOffered)return 1;
+  return occupiedFrom(T,T.byId[x.id],T.byId[myId()]).length?2:3;
+}
+function warRow(x,T,now){
+  const ws=warWith(x.id),chips=[`<span class="chip war">${ws.direct?'At war':'Alliance war'}</span>`];
+  if(ws.direct&&ws.theyOffered&&!ws.iOffered)chips.push('<span class="chip ok">Offers peace</span>');
+  else if(ws.direct&&ws.iOffered)chips.push('<span class="chip">You offered peace</span>');
+  const G=WAR_GOALS[ws.g];
+  const meta=ws.direct
+    ?`${G?esc(G.n)+' · ':''}${ws.byMe?'you declared war':'they declared war'} on ${esc(fmtDate(ws.since))}${relDays(ws.since)}${x.npc?' · computer':''}`
+    :`${ws.attacker===myId()?`You attacked their ally ${esc(nameOf(ws.defending))}`:`${esc(nameOf(ws.attacker))} attacked your ally ${esc(nameOf(ws.defending))}`} on ${esc(fmtDate(ws.since))}${relDays(ws.since)}`;
+  let figs=[],when=null;
+  try{figs=warFigs(x,T,now);when=warWhen(x,T,now);}catch(e){}
+  return `<li class="war-r${ws.direct?'':' calm'}"><div class="war-r-h"><span class="mflag">${flagSVG(x.n.flag,'Flag of '+x.n.name)}</span>
+    <span class="war-r-n"><b>${nationLink(x.id,x.n.name,false)}</b><span class="war-r-meta">${meta}</span></span>
+    <span class="war-r-chips">${chips.join('')}</span></div>
+    ${figs.length?`<dl class="war-f">${figs.map(f=>`<div><dt>${esc(f.k)}</dt><dd${f.down?' class="down"':''}>${f.v}</dd></div>`).join('')}</dl>`:''}
+    ${when?`<p class="war-when${when.offer?' offer':''}">${when.t}</p>`:''}
+    <div class="row"><button type="button" class="btn ghost sm" data-act="map-open" data-id="${esc(x.id)}">Map</button>${ws.direct?peaceButtons(x,ws,false):`<button type="button" class="btn ghost sm" data-act="map-open" data-id="${esc(ws.defending)}">Open ${esc(nameOf(ws.defending))}</button>`}</div></li>`;
+}
 function warsSection(){
-  const me=myId(),en=enemies(),now=Date.now();
-  const rows=en.map(x=>{const w=warWith(x.id);let st,btn='';
-    if(!w.direct)st=w.attacker===me?`Alliance war: you attacked their ally ${esc(nameOf(w.defending))}`:`Alliance war: ${esc(nameOf(w.attacker))} attacked your ally ${esc(nameOf(w.defending))}`;
-    else{st=w.byMe?`You declared war on ${fmtDate(w.since)}${relDays(w.since)}`:`Declared war on you on ${fmtDate(w.since)}${relDays(w.since)}`;
-      if(w.theyOffered&&!w.iOffered)st+='. They offer peace';else if(w.iOffered)st+='. You offered peace';
-      btn=peaceButtons(x,w,true);}
-    return `<li class="mem"><span class="mflag">${flagSVG(x.n.flag,'Flag of '+x.n.name)}</span><span class="mem-n">${nationLink(x.id,x.n.name,false)}<span class="mem-s">${st}.</span></span><span class="mem-b"><button class="btn ghost" data-act="map-open" data-id="${esc(x.id)}">Map</button>${btn}</span></li>`;}).join('');
-  const joins=[];
-  for(const a of alliesOf(me))for(const x of allNations()){if(x.me||x.id===a||sameAlliance(me,x.id)||warWith(x.id).war)continue;const w=pairWar(a,x.id);if(w.war&&w.agg===a)joins.push({a,x});}
-  const truces=allNations().filter(x=>!x.me&&!warWith(x.id).war&&(warWith(x.id).truceUntil||0)>now);
-  return `<section class="dip-sec"><h2 class="h2">Wars</h2>${en.length?'<div class="row" style="margin-bottom:12px"><button class="btn ghost sm" data-act="go" data-v="war">Open the war office</button></div>':''}${rows?`<ul class="mems">${rows}</ul>`:'<p class="muted">You are at peace with everyone.</p>'}
-    ${joins.length?`<h3 class="lbl-h" style="margin-top:20px">Your allies’ wars</h3><ul class="mems">${joins.map(j=>`<li class="mem"><span class="mem-n">${esc(nameOf(j.a))} is at war with ${esc(j.x.n.name)}</span>${pol(S.nation).pacifistConstitution?'':(warWith(j.x.id).truceUntil||0)>Date.now()?`<span class="hint">Truce until ${fmtTime(warWith(j.x.id).truceUntil)}</span>`:`<button class="btn danger" data-act="war-declare" data-id="${esc(j.x.id)}">Join the war</button>`}</li>`).join('')}</ul>`:''}
-    ${truces.length?`<p class="hint" style="margin-top:14px">Truces in force with ${esc(list(truces.map(x=>x.n.name)))}.</p>`:''}${warPicker()}</section>`;
+  const now=Date.now();let T=null;try{T=territory();}catch(e){}
+  if(!S.nation||!T)return `<section class="dip-sec"><h2 class="h2">Wars</h2><p class="muted">You are at peace with everyone.</p></section>`;
+  const en=enemies().slice().sort((a,b)=>warRank(a,T)-warRank(b,T)||warWith(b.id).since-warWith(a.id).since);
+  const joins=allyWars(),truces=allNations().filter(x=>!x.me&&!warWith(x.id).war&&(warWith(x.id).truceUntil||0)>now);
+  const rows=en.map(x=>warRow(x,T,now)).join('');
+  /* at peace, the section no longer says you are at peace with everyone and then lists an ally's war */
+  const lede=en.length?'':joins.length
+    ?`<p class="muted">Your own borders are quiet. ${joins.length===1?`Your ally ${esc(nameOf(joins[0].a))} is at war with ${esc(joins[0].x.n.name)}, and you may join it or stay out.`:'Your allies are at war, and you may join them or stay out.'}</p>`
+    :'<p class="muted">You are at peace with everyone.</p>';
+  const head=en.length?`<div class="row" style="margin-bottom:4px"><button class="btn ghost sm" data-act="go" data-v="war">Open the war office</button><span class="hint">${en.length===1?'One war is on':en.length+' wars are on'}. Ordered by what needs an answer.</span></div>`:'';
+  const allyRows=joins.map(j=>`<li class="war-r calm"><div class="war-r-h"><span class="mflag">${flagSVG(j.x.n.flag,'Flag of '+j.x.n.name)}</span>
+    <span class="war-r-n"><b>${nationLink(j.x.id,j.x.n.name,false)}</b><span class="war-r-meta">${allyWarMeta(j)}</span></span>
+    <span class="war-r-chips"><span class="chip">Ally’s war</span></span></div>
+    <div class="row">${allyWarCtl(j,now)}<button type="button" class="btn ghost sm" data-act="map-open" data-id="${esc(j.x.id)}">Open ${esc(j.x.n.name)}</button></div></li>`).join('');
+  return `<section class="dip-sec"><h2 class="h2">Wars</h2>${head}${rows?`<ul class="wars">${rows}</ul>`:lede}
+    ${allyRows?`${en.length?'<h3 class="lbl-h" style="margin-top:24px">Your allies’ wars</h3>':''}<ul class="wars"${en.length?'':' style="margin-top:18px"'}>${allyRows}</ul>`:''}
+    ${truces.length?`<p class="hint" style="margin-top:16px">Truces in force with ${esc(list(truces.map(x=>x.n.name)))}.</p>`:''}${warPicker()}</section>`;
 }
 function spySection(now){
   const n=S.nation,ag=agents(n,now),targets=allNations().filter(x=>!x.me);
@@ -87568,7 +87674,7 @@ mapBox=(f=>function(kind){const h=f.apply(this,arguments),n=S.nation;if(kind!=='
 
 /* the browser tests' window into the game: test/lib.mjs sets EDICTUM_PROBE before the page loads (a
    player's own browser can reach all of this anyway) */
-if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({RPATCH,SC:()=>scProbe(),WR3:()=>({CQ_ISSUES,cqFall,cqFalls,cqPairs,cqFallOf,cqAct,wrSackFix,MON_FIRST,monSites,monCard,monInfo,monIsFirst,monNorm,monRisen,cqDue,cqTake,cityFounded,cqBuildings,openMapAt,WAR3_ISSUES,wr3WarsSection,wr3BattleCard,wr3MapData,wr3Econ,wr3Close,wr3VetDue,wr3WindToggle,wr3MunOn,wr3Reserve,wr3Factors,wr3On,wr3DieSpin,warOfficeView,woTargets,thrHTML}),WR2:()=>({wrFallenCard,WR,WAR_GOALS,WAR2_ISSUES,wrSiege,wrSiegesOn,wrFallsAt,myFall,wrSiegeWhy,wrCapExposed,wrUnrest,wrWarsOf,wrPopFx,wrTribute,wrForts,wrFortify,wrSurrender,wrSiegeStart,wrRise,wrCarry,wrEdictDue,wrSafe,wrNotice,territory,frontier,economy,warControls,targetPanel,armyBlock,warNotice,warWith,pairWar,nationView,rgnOverview,hxCard}),HELPX:()=>({HLP,HELP_CH,HELP_SUM,HELP_FOR,WIKI,WIKI_PAGE,wikiHref,wikiSearch,GLOSS,helpFind,helpIndex,helpSecList,helpForYou,helpChapters,rgcCmd,rgcCardOf,rgcCardHTML,admhHs,admhHsCount}),MTP:()=>({MTP,MTP_PAD,TBMP_SCALE,redrawMaps,mapScale,viewOf}),SCR:()=>({scrOf,scrClean,scrDef,scrFamOf,scrEdParse,scrGlyphs,scrLay,scrChars,scrSVG,scrLine,scrCard,scrCharterSVG,scrFmt,scrFor,dmRich,dmPlain,scrDmWith,SCR_FAM,SCR_ABC,SCS}),BDX:()=>bdProbe(),LDX:()=>ldProbe(),FLY:()=>({flagSVG,fgSplit,fgFused}),RD:()=>rdProbe(),JV:()=>jvProbe(),M100P:()=>({M100,M100_N,M100_MC,M100_MCN,m100Bits,m100Got,m100In,m100Due,m100Count,m100Show,m100Open,ctgMcOk,nationColor,czShOk,czShieldPath,unlocksOf,czPatSVG,xsMax}),M200P:()=>({M200,M200_N,M200_MC,M200_MCN,M200_U,m200Bits,m200Got,m200In,m200Due,m200Count,m200Show,m200Open,ctgMcOk,nationColor,czShOk,czShieldPath,unlocksOf,czPatSVG,czStampArt,czFrameArt,czCharge,czFramed,flagSVG,xsMax,ACH_BY_ID,achEarnedIds}),WTN:()=>({WN,wbMap,wnKind,wnWaters,wnSync,wnAt,wnRename,wnReset,wnNameProblem,wnTaken,wnPanel,wnLabels,lakeMap,isLake,cellAt,WN_REACH,WTN_MAX,REG,RV,rvData,hexDist,territory,MAP,HEX_W,updateMapPanel,logLine}),RVN:()=>({RV,rvData,rvSync,rvKey,rvHeld,rvStretch,rvMost,rvEdgeHolder,rvAt,rvNameAt,rvLabelAt,rvParts,rvRename,rvReset,rvNameProblem,rvTidy,rvLabel,rvnPanel,logLine,RVN_MAX,RVN_LEN,updateMapPanel,hexDist,HEX_W,REG}),CP2:()=>({BLD_ICO,bldIco,bldLead,cxDefTotal,cxOrder,qjBuilding,BUILDINGS}),PRVC:()=>({cxPrvOf,cxPrvSeatTrial,cxOvwCols,prvSeat,prvMine,prvOfCell,prvSetAut,prvAppoint,PRV}),NPX:()=>({fbTrend,fbYesterday,heroLead,heroOpen,opOf,OPEN_TO,hnOf,hnFill,hnLine,nbSection,ppWho,ppWhoHTML,ppHash,ppCarried,economy,territory,bordersOf,fillDeal,findNation,clsHide,MAP,hexDist,STAT_KEYS,popNow,myId}),PT:()=>ptProbe(),LTH:()=>lthProbe(),DAM:()=>damProbe(),CHAT:()=>({RGC,RGW,RGF,RGA,tab:rgcTab(),count:rgcCount(),region:rgcUnread(),world:rgwUnread(),named:rgwNamedUnread(),fr:rgwUnread(RGF),frNamed:rgwNamedUnread(RGF),frOn:rgfOn(),amb:rgwUnread(RGA),ambOn:rgaOn(),tabs:rgcTabs().map(x=>x[0]),hidden:document.hidden}),UXP2:()=>({edictDesk,edictStep,edictOpen,fill,ISSUE_BY_ID,ACH,keysOpen,dmOthers,dmPickList,stGroups,stTabLast,navRecent,vhData,VH_KEY,VH_AFTER,QJ_DO,qjItems:q=>navQjItems(q),NAV_REC_KEY,ST_KEY}),HID:()=>({HIDN,hidMask,iAmHidden,frontier,mapPanel,warControls}),WG:()=>({wgTakers,wgForField,wgForPick,warGiveHex,warGive,occupiedFrom,attack,offerPeace,declareWar,collectConquests,dedupeConq}),WAKE:()=>({dormFresh,dormQuiet,dormWelcome,moveTo,RSTAT,REGIONS,REG,regDisabled}),HMB:()=>({RCTRL,hmBake,hmAutoFlag,fxDraw,capHolder,FX_DEF,DEF_FLAG,hmRle,hmLiveNorm,hmMapNorm,hmSel,hmRegions,hmBlocked,hmEngaged:()=>hmEngaged,HM,REG,MAP}),LAND:()=>({landWait,capLift,capWrong,capNote,raceKnown,RACE,worldHeardAt:()=>worldHeardAt,landQ:()=>S.landQ,landQueued,fdSites:(n,T)=>fdSites(n,T)}),BG:{gain:bldGain,html:bldGainHtml},IB:()=>({agRoster,agPick,agStatus,heatOf,cvRoll,cvKey,cvBlock,cvOdds,buLv,buGap,buAll,BU,BU_KEYS,BU2,BU2_KEYS,buLine,bu2Lv,bb,bu2Cost,bu2Hours,bu2Why,buCredits,buHoldK,agRestMs,cvSwayOdds,ibTurnChance,mhChance,landEarned,ibFile,ibWanted,ibChatter,HEAT_MAX,DD_TASKS,DD_LEG,findNation,allNations,cvProtected}),VL:()=>({VL_SECS,VL_DEF,CLS,CLS_OPS,CLS_READ,vlOrder,clsOf,clsRaw,clsMax,clsSeen,clsHide,clsRead,vlSave,findNation}),IFC:()=>({plan:ifcPlan,works:ifcWorks,line:ifcLine,tab:ifcTab}),XP:()=>({BUILDINGS,XU,XU_KEYS,XU_TOTAL,LOST_KINDS,LOST_ORDER,XU2,XU2_KEYS,LOST2_KINDS,LOST2_ORDER,xuLine,xu2Lv,xb,xu2Cost,xu2Hours,xu2Why,xu2Start,xuCredits,xuMapsLv,xuFlK,xuFindK,xuParty,xuTimeK,xuReach,xuCostK,xuCurio,flSoon,landEarned,xuLv,xuWhy,xuHave,xuStart,xuCost,xuGear,xpSeen,expFree,xpTeamOpen,nationBuilt,expBackTeam,SITES,SITE_KINDS,expPlan,expOdds,expRuns,expRange,flRange,flAlive,flPlan,flDebug,flNow,discoveries,sendExpedition,hearReport,xpRoute,xpRivals,xpRivalText,xpFinds,flOdds,territory}),SVC:()=>({SVC,SVC_N,SVC_V,SVC_NEED,svcPlan,svcOpen,svcDig,svcShort,svcRoll,svcAmt,svcDayOf,svcRoom,svcNext}),FLC:()=>({FLC,FLC_RULES,FLC_CAT,flcId,flcTimes,flcPhase,flcPrev,flcView,flcLoad,flcChamp,flcTodo,flcClaims,flcLand,flcStreak,flcAllDone,flcSeen,flcDuty,flcDeskOn,flcDraftPush,FCA}),LK:{lakeMap,isLake,claimLand,lakeShore,fillHeld,LAKE_MAX,LAKE_A,freeCell,claimFrontier,blockPlan,autoPlan,terrCount,placePhrase,claimWhy,swapCheck,inspectPanel,writeClaims,landCredits:n=>landCredits(n)},PST:()=>({PST,PST_LOOKS,PST_SHAPES,PST_SIZES,pstBar,pstKm,pstView,pstBox,pstPlace,pstKeyOf,pstRender,pstShow,pstHide,pstLocked,pstOffered,pstSizeOffered,pstPrintK,pstSealId,pstPhys,pstCrc}),DIG:()=>({DIG_SETS,DIG_FIRST,DIG_POOL,DIG_SITES,DIG_LEN,DIG_EVENTS,DIG_SCH,digSet,digHeld,digDone,digRew,digCredits,digOrder,digActive,digRetired,digOpenedAt,digPlan,digSend,digOpen,digChoose,digMod,digEvent,digPity,digGround,digInvites,digJoin,digJointOn,digGiftsIn,digTake,digGiveSpare,digSellSpare,digHire,digRegionFinds,digFirsts,landEarned:n=>landEarned(n),REG,REGIONS,COL_BY_ID}),MW:()=>({mwOf,mwLeft,mwDue,mwPoints,mwVisitors,mwTakings,mwExhibit,mwExhibitItems,mwRanking,mwWorn,mwSlots,mwOnShow,COL_BY_ID,COL_ITEMS,DIG_SETS,MW_FLOORS}),GM:()=>({gamesResults,edOf,b1Now,gevWhy,baseScores,entryOf,medalsIn,gamesRecords,gamesCeremony,unlocksOf,myId,formOf,GAME_EVENTS,clone,commit}),GM2:()=>({GAMES_V2,GTAC,TRAIN_PTS,TRAIN_MAX,BOY_GW,edOf,edStart,entryOf,gamesHost,gamesBids,edEvents,edDrawn,gmSwapOf,gmMascOf,gmChatLines,gmChatLine,gmTrCost,gevWhy,formOf,gamesResults,dspBuild,dspNoOf,c3MyBid,gcerSeen,stockNow,stockCap,canFeature,myId,clone,commit}),GB:()=>({IRON_DEP,IRON_DEP_YIELD,CELL_RES,MAP_T:MAP.T,mapAt:c=>{centerMain(c,NEAR_Z*1.6);},stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,FOOD_SPOIL,FOOD_EAT,FOOD_TIERS,FOOD_LAND,foodTier,TIMBER_BURN,foodGrowth,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({dspShown,dspRegShown,dspRegs,dspPic,dspLocator,dspHtDefs,pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),ASMX:()=>({ASMX,ASMX_TABS,asmBookAt,asmState,asmArcLoad,REG}),RGNX:()=>({RGN,RGN_PAGE,notifItems,ONL,onlRefresh}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals,seatsOf,alliancesOf,alMineAll,alClashes,alFest,alWornOf,alGuardsOf,alSeatsFor,allianceOf,AL_TY_UI,alStripHTML,alArmsSVG,alArmsAuto,alPzKeys,alMoCheck,alOpenPage,alWeekData,alLvOpens}),TYX:()=>({TY,TY_RULES,TY_K,tyOf,tyList,tyWarBlock,tyIncoming,affinity,alPactLive,alRelationsHTML,econOf,armyPower,armyRaw,attackMult,readyMs,drWords,drNote,drBroken,relationCard}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,npcIdeaNow,npcDealFor,npcAsk,npcReply,npcVerdict,npcTradeTalk,dealSlots,maxDeals,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,achTierCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC,step:rcStepCheck,head:rcHead,sponsoring:rcSponsoring,qr:qrMatrix,card:rcCardDraw,invCap:rcInvCap,free:rcFreeLand,STEPS:RC_STEPS,UNL:RC_UNLOCKS}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend,card:n=>tutCard(n),phase:n=>tutPhase(n),picks:(n,ph)=>tutPicks(n,ph),group:(n,k)=>tutGroup(n,tutL(k)),hid:n=>tutHid(n)},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours,
+if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({RPATCH,SC:()=>scProbe(),WR3:()=>({CQ_ISSUES,cqFall,cqFalls,cqPairs,cqFallOf,cqAct,wrSackFix,MON_FIRST,monSites,monCard,monInfo,monIsFirst,monNorm,monRisen,cqDue,cqTake,cityFounded,cqBuildings,openMapAt,WAR3_ISSUES,wr3WarsSection,wr3BattleCard,wr3MapData,wr3Econ,wr3Close,wr3VetDue,wr3WindToggle,wr3MunOn,wr3Reserve,wr3Factors,wr3On,wr3DieSpin,warOfficeView,woTargets,thrHTML,warsSection,warFigs,warRow,warRank,allyWars}),WR2:()=>({wrFallenCard,WR,WAR_GOALS,WAR2_ISSUES,wrSiege,wrSiegesOn,wrFallsAt,myFall,wrSiegeWhy,wrCapExposed,wrUnrest,wrWarsOf,wrPopFx,wrTribute,wrForts,wrFortify,wrSurrender,wrSiegeStart,wrRise,wrCarry,wrEdictDue,wrSafe,wrNotice,territory,frontier,economy,warControls,targetPanel,armyBlock,warNotice,warWith,pairWar,nationView,rgnOverview,hxCard}),HELPX:()=>({HLP,HELP_CH,HELP_SUM,HELP_FOR,WIKI,WIKI_PAGE,wikiHref,wikiSearch,GLOSS,helpFind,helpIndex,helpSecList,helpForYou,helpChapters,rgcCmd,rgcCardOf,rgcCardHTML,admhHs,admhHsCount}),MTP:()=>({MTP,MTP_PAD,TBMP_SCALE,redrawMaps,mapScale,viewOf}),SCR:()=>({scrOf,scrClean,scrDef,scrFamOf,scrEdParse,scrGlyphs,scrLay,scrChars,scrSVG,scrLine,scrCard,scrCharterSVG,scrFmt,scrFor,dmRich,dmPlain,scrDmWith,SCR_FAM,SCR_ABC,SCS}),BDX:()=>bdProbe(),LDX:()=>ldProbe(),FLY:()=>({flagSVG,fgSplit,fgFused}),RD:()=>rdProbe(),JV:()=>jvProbe(),M100P:()=>({M100,M100_N,M100_MC,M100_MCN,m100Bits,m100Got,m100In,m100Due,m100Count,m100Show,m100Open,ctgMcOk,nationColor,czShOk,czShieldPath,unlocksOf,czPatSVG,xsMax}),M200P:()=>({M200,M200_N,M200_MC,M200_MCN,M200_U,m200Bits,m200Got,m200In,m200Due,m200Count,m200Show,m200Open,ctgMcOk,nationColor,czShOk,czShieldPath,unlocksOf,czPatSVG,czStampArt,czFrameArt,czCharge,czFramed,flagSVG,xsMax,ACH_BY_ID,achEarnedIds}),WTN:()=>({WN,wbMap,wnKind,wnWaters,wnSync,wnAt,wnRename,wnReset,wnNameProblem,wnTaken,wnPanel,wnLabels,lakeMap,isLake,cellAt,WN_REACH,WTN_MAX,REG,RV,rvData,hexDist,territory,MAP,HEX_W,updateMapPanel,logLine}),RVN:()=>({RV,rvData,rvSync,rvKey,rvHeld,rvStretch,rvMost,rvEdgeHolder,rvAt,rvNameAt,rvLabelAt,rvParts,rvRename,rvReset,rvNameProblem,rvTidy,rvLabel,rvnPanel,logLine,RVN_MAX,RVN_LEN,updateMapPanel,hexDist,HEX_W,REG}),CP2:()=>({BLD_ICO,bldIco,bldLead,cxDefTotal,cxOrder,qjBuilding,BUILDINGS}),PRVC:()=>({cxPrvOf,cxPrvSeatTrial,cxOvwCols,prvSeat,prvMine,prvOfCell,prvSetAut,prvAppoint,PRV}),NPX:()=>({fbTrend,fbYesterday,heroLead,heroOpen,opOf,OPEN_TO,hnOf,hnFill,hnLine,nbSection,ppWho,ppWhoHTML,ppHash,ppCarried,economy,territory,bordersOf,fillDeal,findNation,clsHide,MAP,hexDist,STAT_KEYS,popNow,myId}),PT:()=>ptProbe(),LTH:()=>lthProbe(),DAM:()=>damProbe(),CHAT:()=>({RGC,RGW,RGF,RGA,tab:rgcTab(),count:rgcCount(),region:rgcUnread(),world:rgwUnread(),named:rgwNamedUnread(),fr:rgwUnread(RGF),frNamed:rgwNamedUnread(RGF),frOn:rgfOn(),amb:rgwUnread(RGA),ambOn:rgaOn(),tabs:rgcTabs().map(x=>x[0]),hidden:document.hidden}),UXP2:()=>({edictDesk,edictStep,edictOpen,fill,ISSUE_BY_ID,ACH,keysOpen,dmOthers,dmPickList,stGroups,stTabLast,navRecent,vhData,VH_KEY,VH_AFTER,QJ_DO,qjItems:q=>navQjItems(q),NAV_REC_KEY,ST_KEY}),HID:()=>({HIDN,hidMask,iAmHidden,frontier,mapPanel,warControls}),WG:()=>({wgTakers,wgForField,wgForPick,warGiveHex,warGive,occupiedFrom,attack,offerPeace,declareWar,collectConquests,dedupeConq}),WAKE:()=>({dormFresh,dormQuiet,dormWelcome,moveTo,RSTAT,REGIONS,REG,regDisabled}),HMB:()=>({RCTRL,hmBake,hmAutoFlag,fxDraw,capHolder,FX_DEF,DEF_FLAG,hmRle,hmLiveNorm,hmMapNorm,hmSel,hmRegions,hmBlocked,hmEngaged:()=>hmEngaged,HM,REG,MAP}),LAND:()=>({landWait,capLift,capWrong,capNote,raceKnown,RACE,worldHeardAt:()=>worldHeardAt,landQ:()=>S.landQ,landQueued,fdSites:(n,T)=>fdSites(n,T)}),BG:{gain:bldGain,html:bldGainHtml},IB:()=>({agRoster,agPick,agStatus,heatOf,cvRoll,cvKey,cvBlock,cvOdds,buLv,buGap,buAll,BU,BU_KEYS,BU2,BU2_KEYS,buLine,bu2Lv,bb,bu2Cost,bu2Hours,bu2Why,buCredits,buHoldK,agRestMs,cvSwayOdds,ibTurnChance,mhChance,landEarned,ibFile,ibWanted,ibChatter,HEAT_MAX,DD_TASKS,DD_LEG,findNation,allNations,cvProtected}),VL:()=>({VL_SECS,VL_DEF,CLS,CLS_OPS,CLS_READ,vlOrder,clsOf,clsRaw,clsMax,clsSeen,clsHide,clsRead,vlSave,findNation}),IFC:()=>({plan:ifcPlan,works:ifcWorks,line:ifcLine,tab:ifcTab}),XP:()=>({BUILDINGS,XU,XU_KEYS,XU_TOTAL,LOST_KINDS,LOST_ORDER,XU2,XU2_KEYS,LOST2_KINDS,LOST2_ORDER,xuLine,xu2Lv,xb,xu2Cost,xu2Hours,xu2Why,xu2Start,xuCredits,xuMapsLv,xuFlK,xuFindK,xuParty,xuTimeK,xuReach,xuCostK,xuCurio,flSoon,landEarned,xuLv,xuWhy,xuHave,xuStart,xuCost,xuGear,xpSeen,expFree,xpTeamOpen,nationBuilt,expBackTeam,SITES,SITE_KINDS,expPlan,expOdds,expRuns,expRange,flRange,flAlive,flPlan,flDebug,flNow,discoveries,sendExpedition,hearReport,xpRoute,xpRivals,xpRivalText,xpFinds,flOdds,territory}),SVC:()=>({SVC,SVC_N,SVC_V,SVC_NEED,svcPlan,svcOpen,svcDig,svcShort,svcRoll,svcAmt,svcDayOf,svcRoom,svcNext}),FLC:()=>({FLC,FLC_RULES,FLC_CAT,flcId,flcTimes,flcPhase,flcPrev,flcView,flcLoad,flcChamp,flcTodo,flcClaims,flcLand,flcStreak,flcAllDone,flcSeen,flcDuty,flcDeskOn,flcDraftPush,FCA}),LK:{lakeMap,isLake,claimLand,lakeShore,fillHeld,LAKE_MAX,LAKE_A,freeCell,claimFrontier,blockPlan,autoPlan,terrCount,placePhrase,claimWhy,swapCheck,inspectPanel,writeClaims,landCredits:n=>landCredits(n)},PST:()=>({PST,PST_LOOKS,PST_SHAPES,PST_SIZES,pstBar,pstKm,pstView,pstBox,pstPlace,pstKeyOf,pstRender,pstShow,pstHide,pstLocked,pstOffered,pstSizeOffered,pstPrintK,pstSealId,pstPhys,pstCrc}),DIG:()=>({DIG_SETS,DIG_FIRST,DIG_POOL,DIG_SITES,DIG_LEN,DIG_EVENTS,DIG_SCH,digSet,digHeld,digDone,digRew,digCredits,digOrder,digActive,digRetired,digOpenedAt,digPlan,digSend,digOpen,digChoose,digMod,digEvent,digPity,digGround,digInvites,digJoin,digJointOn,digGiftsIn,digTake,digGiveSpare,digSellSpare,digHire,digRegionFinds,digFirsts,landEarned:n=>landEarned(n),REG,REGIONS,COL_BY_ID}),MW:()=>({mwOf,mwLeft,mwDue,mwPoints,mwVisitors,mwTakings,mwExhibit,mwExhibitItems,mwRanking,mwWorn,mwSlots,mwOnShow,COL_BY_ID,COL_ITEMS,DIG_SETS,MW_FLOORS}),GM:()=>({gamesResults,edOf,b1Now,gevWhy,baseScores,entryOf,medalsIn,gamesRecords,gamesCeremony,unlocksOf,myId,formOf,GAME_EVENTS,clone,commit}),GM2:()=>({GAMES_V2,GTAC,TRAIN_PTS,TRAIN_MAX,BOY_GW,edOf,edStart,entryOf,gamesHost,gamesBids,edEvents,edDrawn,gmSwapOf,gmMascOf,gmChatLines,gmChatLine,gmTrCost,gevWhy,formOf,gamesResults,dspBuild,dspNoOf,c3MyBid,gcerSeen,stockNow,stockCap,canFeature,myId,clone,commit}),GB:()=>({IRON_DEP,IRON_DEP_YIELD,CELL_RES,MAP_T:MAP.T,mapAt:c=>{centerMain(c,NEAR_Z*1.6);},stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,FOOD_SPOIL,FOOD_EAT,FOOD_TIERS,FOOD_LAND,foodTier,TIMBER_BURN,foodGrowth,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({dspShown,dspRegShown,dspRegs,dspPic,dspLocator,dspHtDefs,pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),ASMX:()=>({ASMX,ASMX_TABS,asmBookAt,asmState,asmArcLoad,REG}),RGNX:()=>({RGN,RGN_PAGE,notifItems,ONL,onlRefresh}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals,seatsOf,alliancesOf,alMineAll,alClashes,alFest,alWornOf,alGuardsOf,alSeatsFor,allianceOf,AL_TY_UI,alStripHTML,alArmsSVG,alArmsAuto,alPzKeys,alMoCheck,alOpenPage,alWeekData,alLvOpens}),TYX:()=>({TY,TY_RULES,TY_K,tyOf,tyList,tyWarBlock,tyIncoming,affinity,alPactLive,alRelationsHTML,econOf,armyPower,armyRaw,attackMult,readyMs,drWords,drNote,drBroken,relationCard}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,npcIdeaNow,npcDealFor,npcAsk,npcReply,npcVerdict,npcTradeTalk,dealSlots,maxDeals,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,achTierCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC,step:rcStepCheck,head:rcHead,sponsoring:rcSponsoring,qr:qrMatrix,card:rcCardDraw,invCap:rcInvCap,free:rcFreeLand,STEPS:RC_STEPS,UNL:RC_UNLOCKS}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend,card:n=>tutCard(n),phase:n=>tutPhase(n),picks:(n,ph)=>tutPicks(n,ph),group:(n,k)=>tutGroup(n,tutL(k)),hid:n=>tutHid(n)},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours,
   SV:MC_SV,XS:MC_XS,QUEUE:MC_QUEUE,DISH:MC_DISH,FINDS:MC_FINDS,CHART_MS:MC_CHART_MS,repSecs:mcRepSecs,repKind:mcRepKind,fold:mcFold,lane:mcLane,dish:mcDish,
   finds:mcFinds,findAt:mcFindAt,bits:mcBitsList,charted:mcCharted,chartedNow:mcChartedNow,unqueue:mcUnqueue,dishBuild:mcDishBuild,bringHome:mcBringHome,
   secSite:mcSecSite,prefOk:mcPrefOk,prefTile:mcPrefTile,setPref:mcSetPref,startProblem:mcStartProblem,wfKey:mcWfKey,osKey:mcOsKey},WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,ACT1:WS_ACT1,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond,real:wsReal,mask:wsMask,ansN:wsAnsN},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR,bell:now=>notifItems(now||Date.now())},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},TIER:()=>({BTIER,bEff,bTier,bTierNext,bTierLine,tierQuote,tierProblem,cxTier,cxTrMap,tierSettle,tierReady,cxGoldNow,cxUpQuote,cxUpList,cxUps,mktSlots,mktSlotsOf,maxDeals,bldAggOf}),CX:{upgradable:cxUpgradable,mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState,UG:CX_UG,LV:CX_LV,ups:cxUps,upMap:cxUpMap,extras:cxBldExtras,quote:cxUpQuote},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo,unlockTarget,unlockShow,unlockFresh,unlockQueue,ULK,UNLOCKS,unlocksOf,toast:m=>toast(m)},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{coinBackSVG:cuCoinBackSVG,noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,coinSVG:cuCoinSVG,guide:cuGuideHTML,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,drawMap,sfKey,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ACH_RANKS_V1,ID_BD,achVal,achCtx,achEvalNew,achState,stockRates:n=>stockRates(n),achPoints,achRank,achRankOf,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,flagNorm:(f,n)=>flagNorm(f,n),flagSVG:(f,l)=>flagSVG(f,l),mapTip:id=>{const T=mapTerr('main'),i=T.list.findIndex(x=>x.id===id);if(i<0)return '';const cell=Array.prototype.indexOf.call(T.owner,i);return MAP_TIP.map(h=>{try{return h({kind:'main',cell,cv:null,x:0,y:0});}catch(e){return '';}}).filter(x=>typeof x==='string').join(' | ');},cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
@@ -100858,37 +100964,27 @@ function woFront(x,T,now){
   const G=WAR_GOALS[ws.g];
   const meta=ws.direct?`${G?esc(G.n)+' · ':''}${ws.byMe?'you declared war':'they declared war'} on ${esc(fmtDate(ws.since))}${relDays(ws.since)}${x.npc?' · computer':''}`
     :ws.attacker===me?`You attacked their ally ${esc(nameOf(ws.defending))}`:`${esc(nameOf(ws.attacker))} attacked your ally ${esc(nameOf(ws.defending))}`;
-  const s=(S.nation.wst||{})[x.id],figs=[];
-  if(s)figs.push(['Battles',s.a?`${s.w} won of ${s.a}${s.r?` (${s.r} ${s.r===1?'raid':'raids'})`:''}`:'none fought']);
-  if(s){let h=null;try{h=wr3Hexes(S.nation,me,x.id,s.t,now);}catch(e){}if(h)figs.push(['Hexes',`+${h.tk} / −${h.ls}`]);}
-  const mine=occupiedFrom(T,mi,ei).length,theirs=occupiedFrom(T,ei,mi).length;
-  figs.push(['You hold',mine?`${mine} of theirs`:'none of theirs']);
-  figs.push(['They hold',theirs?`${theirs} of yours`:'none of yours']);
-  if(ws.direct&&ws.byMe&&ws.g==='b')figs.push(['Border war cap',`${wrTakenIn(S.nation,x.id,ws.since)} of ${BORDER_CAP} taken`]);
+  const s=(S.nation.wst||{})[x.id];
+  /* the same four figures the Wars tab puts on its rows */
+  const figs=warFigs(x,T,now);
   const bill=[];
   if(s){const mt=RES.filter(r=>s.m&&s.m[r]>=1).map(r=>`<b>${fmt0(s.m[r])} ${r}</b>`);
     if(mt.length)bill.push(`Spent so far: ${list(mt)}`);
     if(s.p>0)bill.push(`People lost: <b>${esc(fmtPopShort(s.p))}</b>`);}
   return `<article class="front"><div class="front-h"><span class="mflag">${flagSVG(x.n.flag,'Flag of '+x.n.name)}</span>
     <span class="front-nm"><b>${esc(x.n.name)}</b><span class="front-meta">${meta}</span></span><span class="front-chips">${chips.join('')}</span></div>
-    <div class="front-b"><dl class="wr3-dl">${figs.map(([k,v])=>`<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>
+    <div class="front-b"><dl class="wr3-dl">${figs.map(f=>`<div><dt>${esc(f.k)}</dt><dd${f.down?' class="down"':''}>${f.v}</dd></div>`).join('')}</dl>
     ${warControls(x)}
     <div class="row" style="margin-top:12px"><button class="btn ghost" data-act="map-open" data-id="${esc(x.id)}">Open the front on the map</button></div>
     ${bill.length?`<p class="bill">${bill.map(t=>`<span>${t}</span>`).join('')}</p>`:''}</div></article>`;
 }
-/* an ally's war this nation has not joined */
+/* an ally's war this nation has not joined: the list, the wording and the control come from the Wars tab's
+   own helpers (allyWars), so the two pages cannot drift apart */
 function woJoins(T,now){
-  const me=myId(),out=[];
-  for(const a of alliesOf(me))for(const x of allNations()){
-    if(x.me||x.id===a||sameAlliance(me,x.id)||warWith(x.id).war)continue;
-    const w=pairWar(a,x.id);if(!w.war||w.agg!==a)continue;
-    const tr=warWith(x.id).truceUntil||0;
-    out.push(`<article class="front calm"><div class="front-h"><span class="mflag">${flagSVG(x.n.flag,'Flag of '+x.n.name)}</span>
-      <span class="front-nm"><b>${esc(x.n.name)}</b><span class="front-meta">Your ally ${esc(nameOf(a))} is at war with it · you are not</span></span>
+  return allyWars().map(j=>`<article class="front calm"><div class="front-h"><span class="mflag">${flagSVG(j.x.n.flag,'Flag of '+j.x.n.name)}</span>
+      <span class="front-nm"><b>${esc(j.x.n.name)}</b><span class="front-meta">${allyWarMeta(j)}</span></span>
       <span class="front-chips"><span class="chip">Ally’s war</span></span></div>
-      <div class="front-b"><div class="row">${pol(S.nation).pacifistConstitution?'<p class="hint">Your pacifist constitution forbids joining.</p>':tr>now?`<p class="hint">A truce holds until ${esc(fmtTime(tr))}.</p>`:`<button class="btn danger" data-act="war-declare" data-id="${esc(x.id)}">Join the war</button>`}<button class="btn ghost" data-act="map-open" data-id="${esc(x.id)}">Open on the map</button></div></div></article>`);
-  }
-  return out.join('');
+      <div class="front-b"><div class="row">${allyWarCtl(j,now)}<button class="btn ghost" data-act="map-open" data-id="${esc(j.x.id)}">Open on the map</button></div></div></article>`).join('');
 }
 /* every enemy hex within reach, priced once and ranked, so a target is chosen and not hunted for */
 let woTgMemo={T:null,k:'',v:null};

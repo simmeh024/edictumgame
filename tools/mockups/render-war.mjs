@@ -15,6 +15,9 @@ const jobs = [
   ['war-office-mobile', 'war-office.html', 'light', 390, 844],
   ['battle-die', 'battle-die.html', 'light', 1420, 980],
   ['battle-die-dark', 'battle-die.html', 'dark', 1420, 980],
+  ['dip-wars', 'dip-wars.html', 'light', 1280, 900],
+  ['dip-wars-dark', 'dip-wars.html', 'dark', 1280, 900],
+  ['dip-wars-mobile', 'dip-wars.html', 'light', 390, 844],
 ];
 
 const b = await chromium.launch();

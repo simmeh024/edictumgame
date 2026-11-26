@@ -91,6 +91,34 @@ try {
   await ev(() => window.__game.render());
   await sleep(400);
 
+  /* the Wars tab of the Diplomacy page: the rows, their figures and the clock on an offer.
+     The war stats go back in first: the tick files them under war reports once a peace offer stands. */
+  await ev(p => {
+    const G = window.__game, n = G.clone(G.S.nation), now = Date.now(), DAY = 86400000;
+    n.wst = {
+      [p.D]: { t: now - 12 * DAY, a: 9, w: 5, r: 0, m: { food: 412, iron: 188, oil: 96 }, p: 1.2 },
+      ...(p.E ? { [p.E]: { t: now - 4 * DAY, a: 3, w: 2, r: 0, m: { food: 96, iron: 44 }, p: 0.28 } } : {}),
+    };
+    G.commit(n);
+  }, plan);
+  await go('diplomacy');
+  await ev(() => { const b = document.querySelector('.dp-tab[data-v="wars"]'); if (b) b.click(); });
+  await sleep(500);
+  await page.locator('#dp-p-wars').screenshot({ path: path.join(OUT, 'dip-wars-live.png') });
+  await ev(() => { document.documentElement.dataset.theme = 'dark'; });
+  await sleep(400);
+  await page.locator('#dp-p-wars').screenshot({ path: path.join(OUT, 'dip-wars-live-dark.png') });
+  await ev(() => { document.documentElement.dataset.theme = 'light'; });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await ev(() => window.__game.render());
+  await sleep(500);
+  await ev(() => { const b = document.querySelector('.dp-tab[data-v="wars"]'); if (b) b.click(); });
+  await sleep(400);
+  await page.locator('#dp-p-wars').screenshot({ path: path.join(OUT, 'dip-wars-live-phone.png') });
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await ev(() => window.__game.render());
+  await sleep(400);
+
   /* the attack panel: the forecast, the die while the referee answers, and the report */
   const cell = await ev(p => { const G = window.__game, T = G.territory(), di = T.byId[p.D]; for (const c of G.frontier(T).keys()) if (T.owner[c] === di) return c; return -1; }, plan);
   if (!(cell >= 0)) throw new Error('no hex of theirs on the front');
