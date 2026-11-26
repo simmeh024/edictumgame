@@ -1,0 +1,366 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The War Office, mock-up</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,400;6..96,600;6..96,700&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+/* tokens: copied from game/edictum.html so the mock-up is the game’s own colour */
+:root{
+  --paper:#e8eeeb; --sheet:#f8fbf9; --sheet-2:#eef3f0; --ink:#12292a; --ink-2:#45605c; --ink-3:#566b67;
+  --rule:#cdd9d4; --rule-2:#b0c2bc; --track:#dbe5e1;
+  --accent:#1d6a5c; --accent-hi:#14544a; --accent-ink:#f3fbf8; --accent-soft:#d3e7df;
+  --stamp:#6a3db3; --stamp-ink:#ffffff; --stamp-soft:#ebe3f7;
+  --up:#1b7843; --down:#b3302a; --online:#22a35a; --down-soft:#f7e3e0;
+  --shadow:0 1px 0 rgba(18,41,42,.04), 0 10px 26px -14px rgba(18,41,42,.28);
+  --f-display:"Bodoni Moda","Bodoni 72","Didot",Georgia,serif;
+  --f-body:"Public Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+:root[data-theme="dark"]{
+  --paper:#0c1615; --sheet:#12201f; --sheet-2:#172927; --ink:#e1ebe7; --ink-2:#a0b6b1; --ink-3:#879d95;
+  --rule:#233634; --rule-2:#314b47; --track:#1c2f2c;
+  --accent:#5ec2a9; --accent-hi:#80d7c1; --accent-ink:#06231d; --accent-soft:#17362f;
+  --stamp:#b59cf5; --stamp-ink:#1b1030; --stamp-soft:#261e3b;
+  --up:#63d395; --down:#ff8577; --online:#3fcf7a; --down-soft:#3b201d;
+  --shadow:0 1px 0 rgba(0,0,0,.25), 0 12px 30px -14px rgba(0,0,0,.7);
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font:400 15px/1.6 var(--f-body);-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+h1,h2,h3{text-wrap:balance}
+p{margin:0}
+
+/* ── type and components, copied from the game ── */
+.eyebrow,.lbl,.lbl-h{font-family:var(--f-mono);font-weight:500;text-transform:uppercase;letter-spacing:.13em;color:var(--ink-3)}
+.eyebrow{font-size:11.5px}
+.lbl-h{font-size:11.5px;margin:0 0 12px}
+.h2{font-family:var(--f-display);font-weight:600;font-size:28px;line-height:1.12;margin:0 0 14px;font-variation-settings:"opsz" 48}
+.muted{color:var(--ink-2)}
+.num{font-variant-numeric:tabular-nums}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;font-weight:600;font-size:14px;line-height:1.2;padding:11px 16px;border-radius:3px;border:1px solid var(--accent);background:var(--accent);color:var(--accent-ink);cursor:pointer;text-align:center}
+.btn.ghost{background:transparent;color:var(--ink);border-color:var(--rule-2)}
+.btn.danger{background:transparent;color:var(--down);border-color:var(--down)}
+.btn.danger.solid{background:var(--down);color:var(--sheet)}
+.btn.sm{padding:7px 11px;font-size:13px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.linkish{border:0;background:none;padding:0;font-weight:600;color:var(--ink);cursor:pointer;text-align:left;text-decoration:underline;text-decoration-color:var(--rule-2);text-underline-offset:3px}
+.linkish.small{font-size:12.5px;font-weight:500;color:var(--ink-3)}
+.hint{font-size:13px;color:var(--ink-3)}
+.chip{display:inline-block;font:500 10.5px/1 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;padding:4px 7px;border:1px solid var(--rule-2);border-radius:3px;color:var(--ink-2);white-space:nowrap;vertical-align:middle}
+.chip.war{border-color:var(--down);color:var(--down)}
+.chip.ok{border-color:var(--accent);color:var(--accent)}
+.pill{display:inline-block;font:600 11px/1 var(--f-mono);letter-spacing:.06em;text-transform:uppercase;padding:4px 7px;border-radius:3px;background:var(--sheet-2);color:var(--ink-2)}
+.pill.up{background:var(--accent-soft);color:var(--accent-hi)}
+.pill.down{background:var(--down-soft);color:var(--down)}
+.vh{margin-bottom:26px}
+.vh h1{font-family:var(--f-display);font-weight:650;font-size:clamp(34px,5vw,46px);line-height:1.04;margin:6px 0 10px;font-variation-settings:"opsz" 96}
+.vh p{color:var(--ink-2);max-width:64ch}
+.st-card{padding:16px 18px;background:var(--sheet);border:1px solid var(--rule);border-radius:4px;min-width:0}
+.st-h{font-size:15px;font-weight:650;margin:0 0 12px}
+.mp-dl{margin:12px 0 0}
+.mp-dl>div{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:8px 0;border-top:1px solid var(--rule);font-size:13.5px}
+.mp-dl dt{color:var(--ink-2);flex:none}
+.mp-dl dd{margin:0;font-weight:600;text-align:right;min-width:0}
+.pips{display:inline-flex;gap:4px;vertical-align:middle}
+.pip{display:inline-block;width:10px;height:10px;border-radius:50%;border:1.5px solid var(--ink-3)}
+.pip.on{background:var(--accent);border-color:var(--accent)}
+.wr-ww{display:inline-block;width:80px;height:8px;border-radius:4px;background:var(--rule);vertical-align:middle;overflow:hidden}
+.wr-ww i{display:block;height:100%;background:var(--down)}
+.wr3-dl{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,150px),1fr));gap:4px 14px;margin:6px 0 0}
+.wr3-dl dt{font-size:.78rem;color:var(--ink-2)}
+.wr3-dl dd{margin:0;font-weight:600}
+.front .wr3-dl{grid-template-columns:repeat(4,minmax(0,1fr))}
+@media (max-width:560px){.front .wr3-dl{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.wr3-rep{padding:10px 0;border-top:1px solid var(--rule)}
+.wr3-rep-h{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.wr3-rep .hint{margin:4px 0}
+.wr3-reps{list-style:none;margin:6px 0 0;padding:0}
+.mflag{display:block;width:34px;height:22px;border:1px solid var(--rule-2);line-height:0;overflow:hidden;flex:none}
+
+/* ── new to the war office ── */
+.wo{max-width:1180px;margin:0 auto;padding:34px 28px 60px}
+/* the state of the army: one strip, so the map panel no longer has to carry it */
+.wo-strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,196px),1fr));gap:0;background:var(--sheet);border:1px solid var(--rule);border-radius:4px;overflow:hidden;margin-bottom:34px}
+.wo-cell{padding:14px 18px;border-left:1px solid var(--rule);min-width:0}
+.wo-cell:first-child{border-left:0}
+.wo-cell .eyebrow{display:block;margin-bottom:7px}
+.wo-v{font-family:var(--f-display);font-weight:650;font-size:25px;line-height:1.05;font-variation-settings:"opsz" 48}
+.wo-v.sm{font-size:19px}
+.wo-sub{font-size:12.5px;color:var(--ink-3);margin-top:4px}
+.wo-grid{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:38px;align-items:start}
+@media (max-width:900px){.wo-grid{grid-template-columns:minmax(0,1fr);gap:28px}.wo{padding:24px 16px 48px}}
+
+/* one card per front */
+.front{padding:0;background:var(--sheet);border:1px solid var(--down);border-radius:4px;margin-bottom:16px;overflow:hidden}
+.front.calm{border-color:var(--rule)}
+.front-h{display:flex;align-items:flex-start;gap:12px;padding:14px 16px 12px;background:var(--down-soft)}
+.front.calm .front-h{background:var(--sheet-2)}
+.front-nm{flex:1;min-width:0}
+.front-nm b{font-family:var(--f-display);font-weight:650;font-size:21px;line-height:1.15;font-variation-settings:"opsz" 48;display:block}
+.front-meta{font-size:12.5px;color:var(--ink-2);margin-top:2px}
+.front-chips{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end}
+.front-b{padding:12px 16px 14px}
+/* the one line that says where the war stands, in place of a paragraph of branches */
+.front-state{font-weight:600;font-size:14px;line-height:1.45;padding:10px 12px;border-radius:3px;background:var(--sheet-2);margin:12px 0}
+.front-state.offer{background:var(--accent-soft);color:var(--accent-hi)}
+.front-state .num{font-variant-numeric:tabular-nums}
+.front details{margin:0 0 12px}
+.front summary{font-size:13px;color:var(--ink-3);cursor:pointer}
+.front details p{margin-top:8px;font-size:13.5px;color:var(--ink-2)}
+/* the running bill: what the war has cost so far, beside what it costs a day */
+.bill{display:flex;flex-wrap:wrap;gap:4px 18px;margin:10px 0 0;padding-top:10px;border-top:1px solid var(--rule);font-size:13px;color:var(--ink-2)}
+.bill b{font-family:var(--f-mono);font-weight:600;color:var(--ink)}
+
+/* the front: reachable hexes ranked by the odds, so the map is a choice and not a search */
+.tg{list-style:none;margin:12px 0 0;padding:0}
+.tg li{display:flex;align-items:center;gap:12px;padding:9px 0;border-top:1px solid var(--rule)}
+.tg-n{flex:1;min-width:0}
+.tg-n b{font-weight:600;font-size:14px}
+.tg-n span{display:block;font-size:12.5px;color:var(--ink-2)}
+.tg-o{flex:none;width:108px;display:block}
+.tg-bar{display:block;height:7px;border-radius:4px;background:var(--track);overflow:hidden}
+.tg-bar i{display:block;height:100%;background:var(--accent)}
+.tg-bar.poor i{background:var(--down)}
+.tg-bar.fair i{background:#b8892b}
+.tg-p{font:600 12px/1 var(--f-mono);color:var(--ink-2);margin-top:5px;display:block}
+.tg-sel{background:var(--sheet-2)}
+
+/* what the war layer draws, in words as well as pixels */
+.ground{list-style:none;margin:6px 0 0;padding:0;font-size:13.5px}
+.ground li{display:flex;gap:10px;align-items:baseline;padding:6px 0;border-top:1px solid var(--rule)}
+.ground li:first-child{border-top:0}
+.ground i{flex:none;width:14px;height:14px;border-radius:2px;margin-top:4px}
+.g-siege{border:2px dashed var(--down);border-radius:50%!important}
+.g-fort{background:var(--sheet);border:1.5px solid var(--accent);border-radius:2px 2px 7px 7px!important}
+.g-bt{background:linear-gradient(45deg,transparent 42%,var(--down) 42% 58%,transparent 58%),linear-gradient(-45deg,transparent 42%,var(--down) 42% 58%,transparent 58%)}
+.g-raid{background:rgba(60,60,60,.45)}
+.g-mem{background:#b8892b;clip-path:polygon(50% 0,72% 18%,75% 85%,100% 85%,100% 100%,0 100%,0 85%,25% 85%,28% 18%)}
+.ground b{font-weight:600}
+.sheet-note{max-width:1180px;margin:0 auto;padding:0 28px 34px;color:var(--ink-3);font-size:13px}
+</style>
+</head>
+<body>
+<div class="wo">
+
+  <header class="vh">
+    <p class="eyebrow">Ministry of war</p>
+    <h1>The war office</h1>
+    <p>Two wars are on. Everything the army can tell you is here; the map is where you strike.</p>
+  </header>
+
+  <!-- the state of the army: the rows the map panel’s army block carries today, in one strip -->
+  <div class="wo-strip">
+    <div class="wo-cell">
+      <span class="eyebrow">Army</span>
+      <span class="wo-v num">42</span>
+      <p class="wo-sub">brigades · 18% of the budget</p>
+    </div>
+    <div class="wo-cell">
+      <span class="eyebrow">Readiness</span>
+      <span class="pips" role="img" aria-label="3 of 5 ready"><i class="pip on"></i><i class="pip on"></i><i class="pip on"></i><i class="pip"></i><i class="pip"></i></span>
+      <p class="wo-sub">The next point arrives in <b class="num">2h 14m</b></p>
+    </div>
+    <div class="wo-cell">
+      <span class="eyebrow">War weariness</span>
+      <span class="wo-v sm num">38 <span class="wr-ww" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="38" aria-label="War weariness"><i style="width:38%"></i></span></span>
+      <p class="wo-sub">At 100 the government sues for peace</p>
+    </div>
+    <div class="wo-cell">
+      <span class="eyebrow">War upkeep</span>
+      <span class="wo-v sm num">24.6 food</span>
+      <p class="wo-sub">11.2 iron, 8.4 oil a day · 2 garrisons</p>
+    </div>
+    <div class="wo-cell">
+      <span class="eyebrow">War industry</span>
+      <span class="wo-v sm">Munitions</span>
+      <p class="wo-sub">Army +12%, 18.4 fewer goods a day · <button class="linkish small">Back to goods</button></p>
+    </div>
+  </div>
+
+  <div class="wo-grid">
+    <div>
+
+      <section style="margin-bottom:38px">
+        <h2 class="h2">Fronts</h2>
+
+        <!-- a front where the enemy has offered peace: the state line carries the deadline -->
+        <article class="front">
+          <div class="front-h">
+            <span class="mflag" aria-hidden="true"><svg viewBox="0 0 30 20" width="34" height="22"><rect width="30" height="20" fill="#9b2d26"/><rect y="7" width="30" height="6" fill="#e8d9a8"/><circle cx="15" cy="10" r="3" fill="#9b2d26"/></svg></span>
+            <span class="front-nm">
+              <b>Khorasia</b>
+              <span class="front-meta">Conquest · they declared war on 14 November, 12 days ago</span>
+            </span>
+            <span class="front-chips"><span class="chip war">At war</span><span class="chip ok">Offers peace</span></span>
+          </div>
+          <div class="front-b">
+            <dl class="wr3-dl">
+              <div><dt>Battles</dt><dd>5 won of 9</dd></div>
+              <div><dt>Hexes</dt><dd>+4 / −1</dd></div>
+              <div><dt>You hold</dt><dd>4 of theirs</dd></div>
+              <div><dt>They hold</dt><dd>1 of yours</dd></div>
+            </dl>
+            <p class="front-state offer">Khorasia has offered peace on current lines. Unless you answer first, it takes effect by itself at <span class="num">14:30 tomorrow</span>.</p>
+            <details>
+              <summary>What that means</summary>
+              <p>You keep the four hexes you hold. Accepting ends the war at once and starts a truce of 48 hours, in which neither of you may declare war again. Withdrawing from their land first costs you the four hexes but earns goodwill with every nation of the region.</p>
+            </details>
+            <div class="row">
+              <button class="btn">Accept peace</button>
+              <button class="btn ghost">Withdraw from 4 hexes and accept</button>
+              <button class="btn ghost">Open the front</button>
+            </div>
+            <p class="bill"><span>Spent so far: <b>412 food</b>, <b>188 iron</b>, <b>96 oil</b></span><span>People lost: <b>1.2 million</b></span><span>Today: <b>14.1 food</b> a day</span></p>
+          </div>
+        </article>
+
+        <!-- a front you are prosecuting -->
+        <article class="front">
+          <div class="front-h">
+            <span class="mflag" aria-hidden="true"><svg viewBox="0 0 30 20" width="34" height="22"><rect width="30" height="20" fill="#20486f"/><rect x="12" width="6" height="20" fill="#f2f2ee"/><rect y="7" width="30" height="6" fill="#f2f2ee"/></svg></span>
+            <span class="front-nm">
+              <b>Tessandria</b>
+              <span class="front-meta">Border war · you declared war on 22 November, 4 days ago · computer</span>
+            </span>
+            <span class="front-chips"><span class="chip war">At war</span></span>
+          </div>
+          <div class="front-b">
+            <dl class="wr3-dl">
+              <div><dt>Battles</dt><dd>2 won of 3</dd></div>
+              <div><dt>Hexes</dt><dd>+2 / −0</dd></div>
+              <div><dt>Border war cap</dt><dd>2 of 6 taken</dd></div>
+              <div><dt>Their capital</dt><dd>Safe</dd></div>
+            </dl>
+            <p class="front-state">Your army holds 2 hexes of theirs. Six hexes within reach, the best at 71%. Tessandria will not make peace while you hold its land.</p>
+            <details>
+              <summary>What that means</summary>
+              <p>A border war takes up to six hexes and the enemy capital is safe. Tessandria strikes back whenever the referee rolls for it. Withdrawing from the two hexes you hold would let its generals accept peace at once.</p>
+            </details>
+            <div class="row">
+              <button class="btn ghost">Make peace on current lines</button>
+              <button class="btn ghost">Withdraw from 2 hexes and make peace</button>
+              <button class="btn ghost">Open the front</button>
+            </div>
+            <p class="bill"><span>Spent so far: <b>96 food</b>, <b>44 iron</b></span><span>People lost: <b>280 thousand</b></span><span>Today: <b>10.5 food</b> a day</span></p>
+          </div>
+        </article>
+
+        <!-- an ally’s war you could join, which today is a bare row in Diplomacy -->
+        <article class="front calm">
+          <div class="front-h">
+            <span class="mflag" aria-hidden="true"><svg viewBox="0 0 30 20" width="34" height="22"><rect width="30" height="20" fill="#2f6b4f"/><polygon points="15,4 18,16 6,9 24,9 12,16" fill="#f0e3b2"/></svg></span>
+            <span class="front-nm">
+              <b>Mirenor</b>
+              <span class="front-meta">Your ally Sarentine is at war with it · you are not</span>
+            </span>
+            <span class="front-chips"><span class="chip">Ally’s war</span></span>
+          </div>
+          <div class="front-b">
+            <p class="front-state">Sarentine declared war on Mirenor on 24 November. You may join it, or stay out.</p>
+            <div class="row">
+              <button class="btn danger">Join the war</button>
+              <button class="btn ghost sm">Open Mirenor</button>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <!-- idea 4, folded in: the reachable hexes ranked, instead of clicking the map hex by hex -->
+      <section class="st-card" style="margin-bottom:30px">
+        <h3 class="st-h">The front, by the odds</h3>
+        <p class="hint">Every enemy hex your army can reach. Your army reaches 3 hexes past your border or your allies’.</p>
+        <ul class="tg">
+          <li class="tg-sel">
+            <span class="tg-n"><b>Lowland on Arnmoor</b><span>Tessandria · 4 of the hexes around it are yours · 1 hex of open ground · Sarentine joins the assault</span></span>
+            <span class="tg-o"><span class="tg-bar"><i style="width:71%"></i></span><span class="tg-p">71%</span></span>
+            <button class="btn danger solid sm">Target</button>
+          </li>
+          <li>
+            <span class="tg-n"><b>Hills on Khorr Vale</b><span>Khorasia · fortified · defender +25% for the hills</span></span>
+            <span class="tg-o"><span class="tg-bar fair"><i style="width:48%"></i></span><span class="tg-p">48%</span></span>
+            <button class="btn ghost sm">Target</button>
+          </li>
+          <li>
+            <span class="tg-n"><b>Coast on Saltmarrow</b><span>Khorasia · by sea, −25% without a dockyard</span></span>
+            <span class="tg-o"><span class="tg-bar fair"><i style="width:44%"></i></span><span class="tg-p">44%</span></span>
+            <button class="btn ghost sm">Target</button>
+          </li>
+          <li>
+            <span class="tg-n"><b>Lowland on Veldersk</b><span>Tessandria · a city of 2.1 million · Fortress</span></span>
+            <span class="tg-o"><span class="tg-bar poor"><i style="width:23%"></i></span><span class="tg-p">23%</span></span>
+            <button class="btn ghost sm">Target</button>
+          </li>
+          <li>
+            <span class="tg-n"><b>Mountains on Carrowfell</b><span>Khorasia · defender +50% for the mountains · 2 hexes of open ground</span></span>
+            <span class="tg-o"><span class="tg-bar poor"><i style="width:14%"></i></span><span class="tg-p">14%</span></span>
+            <button class="btn ghost sm">Target</button>
+          </li>
+        </ul>
+        <p class="hint" style="margin-top:12px">An attack uses 1 readiness point. You have 3 of 5.</p>
+      </section>
+
+    </div>
+
+    <div>
+      <!-- idea 9, folded in: what the war layer draws, in text, so it reads without the map -->
+      <section class="st-card" style="margin-bottom:22px">
+        <h3 class="st-h">On the ground</h3>
+        <ul class="ground">
+          <li><i class="g-siege"></i><span><b>Your capital is under siege.</b> Khorasia’s assault comes in <span class="num">9h 40m</span>.</span></li>
+          <li><i class="g-bt"></i><span><b>3 hexes</b> were fought over today.</span></li>
+          <li><i class="g-raid"></i><span><b>2 of your hexes</b> were raided and yield nothing until tomorrow.</span></li>
+          <li><i class="g-fort"></i><span><b>4 of your hexes</b> are fortified.</span></li>
+          <li><i class="g-mem"></i><span><b>1 war memorial</b> stands in your capital.</span></li>
+        </ul>
+        <div class="row" style="margin-top:14px"><button class="btn ghost sm">Show the war layer on the map</button></div>
+      </section>
+
+      <section class="st-card" style="margin-bottom:22px">
+        <h3 class="st-h">Cities at war</h3>
+        <ul class="ground">
+          <li><span><b>Hallowmere</b> is restless: short of iron.</span></li>
+          <li><span><b>Oldwharf</b> is on strike and produces nothing.</span></li>
+          <li><span class="muted">Three other cities are steady.</span></li>
+        </ul>
+        <p class="hint" style="margin-top:10px">A city whose mood falls under 25 stops work. While cities complain, war edicts land on your desk.</p>
+      </section>
+
+      <section class="st-card">
+        <h3 class="st-h">War reports</h3>
+        <ul class="wr3-reps">
+          <li class="wr3-rep">
+            <div class="wr3-rep-h"><b>Conquest with Aubrenne</b> <span class="pill up">Gained ground</span></div>
+            <p class="hint">2 November to 9 November (7 days). Peace was made.</p>
+            <dl class="wr3-dl">
+              <div><dt>Battles</dt><dd>6 won of 8</dd></div>
+              <div><dt>Hexes</dt><dd>+5 / −1</dd></div>
+              <div><dt>Materials spent</dt><dd>302 food, 140 iron</dd></div>
+              <div><dt>People lost</dt><dd>2.1 million</dd></div>
+            </dl>
+          </li>
+          <li class="wr3-rep">
+            <div class="wr3-rep-h"><b>Raid with Pellmoor</b> <span class="pill">Stalemate</span></div>
+            <p class="hint">18 October to 21 October (3 days). A peace offer took effect.</p>
+            <dl class="wr3-dl">
+              <div><dt>Battles</dt><dd>2 won of 4 (2 raids)</dd></div>
+              <div><dt>Hexes</dt><dd>+0 / −0</dd></div>
+              <div><dt>Materials spent</dt><dd>88 food, 30 iron</dd></div>
+              <div><dt>People lost</dt><dd>410 thousand</dd></div>
+            </dl>
+          </li>
+        </ul>
+        <div class="row" style="margin-top:12px"><button class="btn ghost sm">Declare war…</button></div>
+      </section>
+    </div>
+  </div>
+</div>
+<p class="sheet-note">Mock-up, 26 November 2026. Nothing here is wired up. Figures are made up; the colours, type and components are the game’s own.</p>
+</body>
+</html>
