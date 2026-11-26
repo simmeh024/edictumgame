@@ -156,11 +156,11 @@ test('a rare task every day, harder than the three and not one of them where it 
   let m=nation();m.dd={...fixedDesk(D),r:{k:'iss',g:3,c:0,p:0}};m.stk={n:1,d:D.ddDay(NOW)};
   let [a,old]=next(m,x=>{x.tly.iss=7;});D.save(a,old);assert.equal(a.dd.r.c,2);assert.equal(a.dd.r.p,0);
   [a,old]=next(a,x=>{x.tly.iss=8;});const notes=D.save(a,old);
-  assert.ok(notes.some(s=>/Rare task done: Answer 3 edicts\. \+5 iron, \+10 oil, \+20 timber, \+30 food, \+15 goods and \+3 land credits/.test(s)),notes.join(' | '));
+  assert.ok(notes.some(s=>/Rare task done: Answer 3 edicts\. \+30 food, \+20 timber, \+5 iron, \+10 oil, \+15 goods and \+3 land credits/.test(s)),notes.join(' | '));
   assert.equal(a.dd.r.p,1);assert.equal(a.ddr,1);assert.equal(D.earned(a),BASE+3,'three land credits');
   assert.equal(a.stock.goods,35,'15 goods with the rare task');
   [a,old]=next(a,x=>{x.tly.iss=12;});D.save(a,old);assert.equal(a.ddr,1,'paid once');
-  eq(D.reload(a).dd.r,{k:'iss',g:3,c:3,p:1});assert.equal(D.reload(a).ddr,1);
+  eq(D.reload(a).dd.r,{k:'iss',g:3,c:3,p:1,a:[30,20,5,10,15]},'with the reward it was drawn with');assert.equal(D.reload(a).ddr,1);
 });
 test('a desk drawn before the rare task existed gains one at its next save',()=>{
   const D=desk(),n=nation();n.dd=fixedDesk(D);n.stk={n:1,d:D.ddDay(NOW)};const [a,old]=next(n,()=>{});D.save(a,old);assert.ok(a.dd.r&&D.DD_RARE[a.dd.r.k]);
@@ -430,6 +430,28 @@ test('rewards grow with the nation: a quarter of a day’s income for a task, ne
   assert.ok(D.DDJ.a&&D.DDJ.a.k.includes('q0'),'the desk remembers what it just paid');assert.equal(D.DDJ.a.from.timber,20);assert.equal(D.DDJ.a.to.timber,120);
   const small=desk();[a,old]=next(nation({dd:fixedDesk(small)}),x=>{x.tly.iss=7;});const n2=small.save(a,old);
   assert.ok(n2.some(t=>/\+3 timber and \+5 iron/.test(t)),'with no income known, the old amounts');
+});
+
+test('a reward is fixed when the task goes on the desk: what the card shows is what the save pays, in the game’s order of resources',()=>{
+  /* the owner, 26 Nov 2026: a rare task showed +481 iron and the store took +495 (income had moved between the two) */
+  const S={nation:{name:'Deskland'}};let rates={food:400,timber:400,iron:100,oil:40,goods:60};
+  const D=desk({S,stockRates:()=>rates});
+  const m=nation({dd:{...fixedDesk(D),q:[['iss',2,'iron','timber'],['dm',1,'oil','goods'],['visit',1,'timber','goods']],r:{k:'iss',g:3,c:0,p:0}}});m.stk={n:1,d:D.ddDay(NOW)};
+  let [a,old]=next(m,x=>{x.tly.iss=6;});D.save(a,old);
+  eq(a.dd.q[0],['iss',2,'iron','timber',25,100],'a row keeps its two amounts after its resources');eq(a.dd.q[1].slice(4),[10,15]);
+  eq(a.dd.r.a,[200,200,50,20,30],'the rare task’s, in DD_RARE_GIFT’s order');
+  eq(D.reload(a).dd.q[0],['iss',2,'iron','timber',25,100],'kept on reload');eq(D.reload(a).dd.r.a,[200,200,50,20,30]);
+  rates={food:4000,timber:40,iron:1000,oil:400,goods:600};
+  [a,old]=next(a,x=>{x.tly.iss=8;});const notes=D.save(a,old);
+  assert.ok(notes.some(t=>/^Desk task done: Answer 2 edicts\. \+100 timber and \+25 iron\.$/.test(t)),'pays what it was drawn with, timber before iron: '+notes.join(' | '));
+  assert.ok(notes.some(t=>/^Rare task done: Answer 3 edicts\. \+200 food, \+200 timber, \+50 iron, \+20 oil, \+30 goods and \+3 land credits\.$/.test(t)),notes.join(' | '));
+  eq(a.dd.q[0].slice(4),[25,100],'and keeps showing it once done');
+  const back=D.reload({...a,dd:{...a.dd,q:[['iss',2,'iron','timber',-1,5],['dm',1,'oil','goods',2.5,1],['visit',1,'timber','goods',3]],r:{...a.dd.r,a:[1,2,3]}}});
+  eq(back.dd.q.map(q=>q.length),[4,4,4],'amounts that cannot be are dropped');assert.equal(back.dd.r.a,undefined);
+  /* a desk from before: its open rows are fixed at the next save, at that moment's income */
+  const legacy=nation({dd:{...fixedDesk(D),r:{k:'claim',g:3,c:0,p:0}}});legacy.dd.p=[1,0,0];
+  [a,old]=next(legacy,()=>{});D.save(a,old);
+  assert.equal(a.dd.q[0].length,4,'a row already paid is not given a figure it was not paid');eq(a.dd.q[1].slice(4),[100,150]);eq(a.dd.r.a,[2000,20,500,200,300]);
 });
 
 test('the week’s count: what each save adds, kept in the record and held to what a week can hold',()=>{
