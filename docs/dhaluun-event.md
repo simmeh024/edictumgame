@@ -178,3 +178,43 @@ overwritten. No extra region-chat message is published by this stage.
 `test/dhaluun-north.test.mjs` checks publication, concurrency, replay and dated Assembly backing. The full-game
 browser test checks borders, city, historical views, exactly-once scandal delivery, government, pact and the visible
 Dispatch article. The civic emulator suite checks that Haalesh cannot be recruited away through the API.
+
+## Haalesh's delayed Assembly petition
+
+The server publishes `haalesh-exile-v1` at **2026-11-27 18:32:25 UTC** (27 November, 19:32 Amsterdam),
+25 hours after the owner's original request. Deploy first, then arm the private timer:
+
+```sh
+node tools/admin/haalesh-exile.mjs --project edictum-b30de --publish-at 2026-11-27T18:32:25Z
+node tools/admin/haalesh-exile.mjs --project edictum-b30de --publish-at 2026-11-27T18:32:25Z --apply
+```
+
+Arming writes only `serverEvents/haalesh-exile-v1` and an audit entry. The server-only collection remains covered
+by the default deny rule. The Cloud Scheduler function `haaleshExileClock` checks once a minute in UTC. It needs
+neither an open browser nor an app automation. Verify the deployed scheduler is enabled before arming.
+The old app reminder is paused to prevent duplicate work. Re-running the operator command preserves its original deadline.
+
+At the deadline, the server protects the current Assembly count and reserves the earliest free future cycle, leaving
+existing votes and the Dhaluun condemnation intact. It publishes the full petition, a board discussion and Saaveri's
+region-chat announcement atomically. The public event contains the voting window. The normal Assembly weights and
+simple majority apply; a tie fails. Players cannot submit this special category themselves. It changes no rulebook stats.
+
+The server closes the vote at its usual deadline, even with every player offline. A normal player request may settle
+the count first; the next server tick still executes the outcome exactly once. Passage creates **Free Haalesh**, a
+small NPC provisional republic, with capital **Refuge**, an initial population of 120,000, and exactly seven connected,
+currently unclaimed hexes near Haalesh. The same transaction records Haalesh's revenge threat and the new country.
+The Dispatch then covers recognition and the threat. No war begins automatically. Rejection or a tie creates no nation,
+changes no borders, and posts Dhaluun's satisfied response. The new country joins no pact automatically.
+
+The allocator runs the exact trusted game model from the deployed source, verifies protected conquests and current
+claim stamps, includes hidden nations and sieges, and checks that every previously occupied hex keeps its owner.
+`tools/build-exile-world.mjs` packages that source into `functions/exile-world-source.gz` at Firebase predeploy;
+the generated archive is not committed. It contains no player inputs or executable database content.
+The immutable territory descriptor supplies the client map and the native NPC registry. The nation participates in
+normal city, profile, alliance and battle systems, and later Assembly cycles. Historical maps and its own recognition
+count omit it. Its initial territory stays at seven hexes.
+
+`test/haalesh-exile.test.mjs` checks delay, preservation of occupied dockets, both outcomes, retries, native map/city
+allocation and historical voting. `test/haalesh-exile-ops.test.mjs` runs the real timed publication, closure, both outcomes
+and native alliance invitation against emulators. `test/haalesh-exile-page.test.mjs` checks both dockets and the voting
+card on desktop/mobile, pending/rejected absence, and the seven-hex native country after passage.

@@ -41,6 +41,7 @@ import { AL_TYPES, AL_ACCESS, AL_RES, AL_PROJECTS, AL_OFFICERS, AL_XP, AL_ALLY_M
    referee's allyOf/ agree while a region moves over. Every member of an alliance defends the others; its type adds a
    bonus, and its renown (xp) levels, member places and projects follow functions/alliance-rules.js. */
 export const NPC = new Map(DATA.regions.flatMap(r => r.npcs.map(n => [n.id, { ...n, reg: r.id }])));
+export function syncNPCTable(){for(const r of DATA.regions)for(const n of r.npcs)if(!NPC.has(n.id))NPC.set(n.id,{...n,reg:r.id});}
 /* the computer nations' own alliances (NPC_BLOCS in the game): their members cannot be invited */
 const BLOC = new Set(['npc-vellmark', 'npc-karvesk', 'npc-lucanto', 'npc-ilsund', 'npc-marrowmere']);
 const line = (x, max) => typeof x === 'string' ? x.replace(/[\u0000-\u001f\u007f<>]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max) : '';

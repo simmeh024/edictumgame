@@ -34411,7 +34411,8 @@ const ASM_CATS={
   /* two that name one nation of the region instead (tg: c commends it, x condemns it): no effect on the members, never
      in the rulebook; a passed one marks the nation named for a week (asmMarks) */
   commend:{n:'A commendation',m:{},s:{},tg:'c'},
-  condemn:{n:'A condemnation',m:{},s:{},tg:'x'}
+  condemn:{n:'A condemnation',m:{},s:{},tg:'x'},
+  exilepetition:{n:'Recognition of a government in exile',m:{},s:{},story:1}
 };
 for(const k of Object.keys(ASM_CATS))if(ASM_CATS[k].p&&!POLICIES[ASM_CATS[k].p])delete ASM_CATS[k].p;
 /* what a computer nation tables when no member has proposed anything */
@@ -34537,7 +34538,7 @@ function asmNpcLaud(c,recs){
   if(!recs||!NPC_NATIONS.length||hash(REG.id+':asmlaud:'+c)%ASM_NPC_LAUD)return null;
   const t0=asmT0(c),mem=recs.filter(r=>!r.hidden&&asmMemberAt(r.n,t0)&&!asmAbsentAt(r.n,t0));if(!mem.length)return null;
   const L=asmLocks(recs);let best=null;
-  for(const x of NPC_NATIONS){const b=asmNpcBacks(x,mem,c);if(!b.r||asmTgWhy(b.r.id,'c',recs,t0,x.id,L))continue;
+  for(const x of NPC_NATIONS){if(x.founded&&x.founded>t0)continue;const b=asmNpcBacks(x,mem,c);if(!b.r||asmTgWhy(b.r.id,'c',recs,t0,x.id,L))continue;
     if(!best||b.a>best.a||(b.a===best.a&&asmCmp(x.id,best.x.id)<0))best=b;}
   if(!best)return null;
   const T=ASM_LAUD[hash(REG.id+':laudt:'+c)%ASM_LAUD.length],N=best.r.n.name,put=s=>s.split('{N}').join(N).split('{B}').join(best.x.name);
@@ -34566,7 +34567,7 @@ function asmDelegateAt(recs,T){
   const info=new Map(mem.map(r=>[r.id,{r,k:0,by:[],np:[],reach:0,ab:asmAbsentAt(r.n,T)}]));
   for(const r of here){const a=asmA(r.n);if(!a||!a.e)continue;const seen=new Set();
     for(const e of a.e){if(e.i===r.id||seen.has(e.i)||!info.has(e.i)||e.t>T||(e.w&&e.w<=T))continue;seen.add(e.i);const o=info.get(e.i);o.k++;o.by.push(r.id);o.reach=Math.max(o.reach,e.t);}}
-  const npc=NPC_NATIONS.map(x=>asmNpcBacks(x,here,c));
+  const npc=NPC_NATIONS.filter(x=>!x.founded||x.founded<=asmT0(c)).map(x=>asmNpcBacks(x,here,c));
   for(const b of npc)if(b.r){const o=info.get(b.r.id);o.k++;o.np.push(b.x.id);o.reach=Math.max(o.reach,asmT0(c));}
   for(const o of info.values()){o.by.sort(asmCmp);o.np.sort(asmCmp);}
   let best=null;
@@ -34582,6 +34583,7 @@ function asmSupAt(recs,k,author,T){
 /* the computer nations' ready-made resolution for a cycle, tabled by the nation it suits best */
 function asmNpcScore(x,R,c){
   const cat=R.cat||R.c,C=ASM_CATS[cat];if(!C)return 0;const e=asmFx(cat,R.g),src=npcAt(x.id,asmT0(c))||x,B=NPC_BASE[x.id];let sc=0;
+  if(cat==='exilepetition'){if(['npc-cloudspine-dhaluun','npc-cloudspine-haalesh','npc-cloudspine-kethavaar'].includes(x.id))return -9;return src.s.civil>=70?2:0;}
   /* a resolution naming a nation: by how much this one likes it (the nation named defends itself). Most like their
      neighbours well enough (affinity about 75), so a commendation of one leans for and a condemnation against */
   if(C.tg){if(R.tg===x.id)return C.tg==='c'?9:-9;const t=asmNpcOf(R.tg)||(S.world&&S.world[R.tg]);if(!t||!t.s)return 0;
@@ -34595,7 +34597,7 @@ function asmNpcRes(c,recs){
   const L=ASM_RES.length;if(!L||!NPC_NATIONS.length)return null;
   const lau=asmNpcLaud(c,recs);if(lau)return lau;
   const b=Math.floor(c/L),R=ASM_RES[asmPerm(L,hash(REG.id+':asmres:'+b))[c-b*L]];
-  let by=NPC_NATIONS[0],bs=-Infinity;for(const x of NPC_NATIONS){const s=asmNpcScore(x,R,c);if(s>bs){bs=s;by=x;}}
+  let by=NPC_NATIONS[0],bs=-Infinity;for(const x of NPC_NATIONS){if(x.founded&&x.founded>asmT0(c))continue;const s=asmNpcScore(x,R,c);if(s>bs){bs=s;by=x;}}
   return {c,k:'npc~'+REG.id+'~'+c,ti:R.ti,tx:R.tx,cat:R.c,g:R.g,by:by.id,bn:by.name,w:'n',lt:0};
 }
 /* the resolution that goes to the vote in cycle c, computed from the records as they stood at its start */
@@ -34651,7 +34653,7 @@ function asmTally(L,c,recs,T,D){
   for(const r of recs){if(!asmMemberAt(r.n,Tm))continue;const a=asmA(r.n),v=a&&a.v?a.v.find(x=>x.c===c&&x.k===L.k&&x.t>=t0&&x.t<t1&&x.t<=T):null;
     const del=!!(D&&D.id===r.id),w=del?asmDW(D.k):1,row={id:r.id,n:r.n,me:!!r.me,v:v?v.v:0,t:v?v.t:0,w,del};if(v&&v.x)row.x=asmClean(v.x,ASM_WHY);
     rows.push(row);if(v){if(v.v>0)y+=w;else if(v.v<0)no+=w;}}
-  for(const x of NPC_NATIONS){let nv=asmNpcVote(x,L,c);const s=sw.get(x.id);if(s&&s.t<nv.t)nv={...nv,v:s.v};const on=nv.t<=T;if(on)shown++;rows.push({id:x.id,n:x,npc:true,v:on?nv.v:null,t:nv.t,w:ASM_NPC_W,...(s&&s.ex&&s.t<nv.t?{sw:s.by}:{})});if(on){if(nv.v>0)y+=ASM_NPC_W;else if(nv.v<0)no+=ASM_NPC_W;}}
+  for(const x of NPC_NATIONS){if(x.founded&&x.founded>t0)continue;let nv=asmNpcVote(x,L,c);const s=sw.get(x.id);if(s&&s.t<nv.t)nv={...nv,v:s.v};const on=nv.t<=T;if(on)shown++;rows.push({id:x.id,n:x,npc:true,v:on?nv.v:null,t:nv.t,w:ASM_NPC_W,...(s&&s.ex&&s.t<nv.t?{sw:s.by}:{})});if(on){if(nv.v>0)y+=ASM_NPC_W;else if(nv.v<0)no+=ASM_NPC_W;}}
   y=Math.round(y*100)/100;no=Math.round(no*100)/100;
   /* a condemnation needs two votes for every one against */
   return {rows,y,n:no,ok:asmTg(L.cat)==='x'?y>no&&y>=2*no:y>no,shown};
@@ -34661,7 +34663,7 @@ function asmTally(L,c,recs,T,D){
    takes its resolution out (r). A finished cycle's lock keeps the book as it left it (bk) and what went (bx). */
 function asmBookStep(bk,L){
   let b=Array.isArray(bk)?bk.slice():[];const bx=[];
-  if(!L||!L.f||!L.ok||!L.k||asmTg(L.cat))return {bk:b,bx};
+  if(!L||!L.f||!L.ok||!L.k||asmTg(L.cat)||ASM_CATS[L.cat]?.story)return {bk:b,bx};
   if(L.rp){const i=b.findIndex(e=>e.k===L.rp);if(i>=0){bx.push({k:b[i].k,ti:b[i].ti,w:'r'});b.splice(i,1);}return {bk:b,bx};}
   for(const e of b)if(e.cat===L.cat)bx.push({k:e.k,ti:e.ti,w:'s'});
   b=b.filter(e=>e.cat!==L.cat);
@@ -34753,6 +34755,7 @@ const asmLockOf=(L,now)=>Object.assign({c:L.c,k:L.k,ti:L.ti,tx:L.tx,cat:L.cat,g:
 /* what a member reads once a resolution is decided */
 function asmResultText(h,n,bound){
   const t=`“${h.ti}”`,sc=`${asmVotes(h.ok?h.y:h.n)} to ${asmW(h.ok?h.n:h.y)}`;
+  if(h.cat==='exilepetition')return h.ok?`The Assembly passed ${t}, ${sc}. The server grants Free Haalesh its seven-hex homeland. The rulebook and members’ laws stay as they were.`:`The Assembly rejected ${t}, ${sc}. No nation is created and no borders change.`;
   if(h.tg&&asmTg(h.cat))return asmMarkResult(h,n);
   if(!h.ok)return `The Assembly rejected ${t}, ${sc}. Nothing changes.`;
   if(h.rp)return `The Assembly passed ${t}, ${sc}: “${h.rt||'the resolution'}” leaves the rulebook${h.m?`, and what it asked of ${n.name} is lifted`:''}.`;
@@ -35040,7 +35043,7 @@ function asmSeat(st,now){
   const given=(a.e||[]).filter(e=>!e.w).length,got=st.DD.info.get(myId());
   return `<section class="asm-seat"><p><b>${esc(n.name)} holds a seat.</b> It votes, may table one proposal at a time, supports others and endorses members. Every resolution in the rulebook binds it.</p><p class="hint">You endorse ${given===1?'one member':given+' members'} · ${got&&got.k?`${got.k} ${got.k===1?'endorsement':'endorsements'} for you`:'nobody endorses you yet'}.</p><button class="btn ghost small-btn" data-act="asm-resign-ask">Resign from the Assembly…</button></section>`;
 }
-function asmWhy(L){return L.k==='dhaluun-condemnation-v1'?'Tabled following Dhaluun’s customs sabotage.':L.w==='d'?'Chosen for the vote by the Delegate.':L.w==='s'?'Put to the vote as the most-supported proposal.':`No member proposed anything, so ${esc(L.bn)} tabled one of its own.`;}
+function asmWhy(L){return L.k==='haalesh-exile-v1'?'A petition from Haalesh’s former ministers, sponsored by Saaveri.':L.k==='dhaluun-condemnation-v1'?'Tabled following Dhaluun’s customs sabotage.':L.w==='d'?'Chosen for the vote by the Delegate.':L.w==='s'?'Put to the vote as the most-supported proposal.':`No member proposed anything, so ${esc(L.bn)} tabled one of its own.`;}
 /* the debate on the Community Board (functions/civic.js, debateTopic), with its replies so far */
 function asmDebateCount(dt){
   if(!S.db||Date.now()-(ASMX.rcAt[dt]||0)<120e3)return;ASMX.rcAt[dt]=Date.now();
@@ -35088,11 +35091,11 @@ function asmVoteCard(st,now){
   /* a player who abstained has a vote on record (t); one who has not voted has none */
   const vw=r=>r.v===null?'<span class="chip">Undeclared</span>':r.v>0?'<span class="chip ok">For</span>':r.v<0?'<span class="chip war">Against</span>':r.npc||r.t?'<span class="chip">Abstains</span>':'<span class="chip">Not yet</span>';
   const pl=V.rows.filter(r=>!r.npc),np=V.rows.filter(r=>r.npc),away=id=>{const o=st.DD.info.get(id);return !!(o&&o.ab);};
-  const mk=asmTg(L.cat),fx=mk?asmMarkFx(mk,L.tg,`If it passes, ${esc(L.tn||'the nation named')}`):L.rp?`<div class="asm-fxbox"><p class="lbl">If it passes, “${esc(L.rt||'the resolution')}” leaves the rulebook, and every member loses what it gave</p>${asmUndoList(L.cat,L.g)}<p class="hint">A law it made stays on the books.</p></div>`
+  const mk=asmTg(L.cat),fx=L.cat==='exilepetition'?'<div class="asm-fxbox"><p class="lbl">If it passes</p><p>Free Haalesh becomes a small computer-run nation on seven unclaimed hexes, with its capital at Refuge. No existing nation loses land. Haalesh’s government will swear revenge.</p><p class="hint">A simple majority passes; a tie fails. Rejection creates no nation and changes no borders. The server settles the result when the count closes.</p></div>':mk?asmMarkFx(mk,L.tg,`If it passes, ${esc(L.tn||'the nation named')}`):L.rp?`<div class="asm-fxbox"><p class="lbl">If it passes, “${esc(L.rt||'the resolution')}” leaves the rulebook, and every member loses what it gave</p>${asmUndoList(L.cat,L.g)}<p class="hint">A law it made stays on the books.</p></div>`
     :`<div class="asm-fxbox"><p class="lbl">If it passes, it enters the rulebook, and every member</p>${asmFxList(L.cat,L.g)}${L.g&&ASM_CATS[L.cat].p?'<p class="hint">The law is skipped in a nation whose own laws contradict it.</p>':''}</div>`;
   const had=(mine&&mine.x)||'',why=S.asmWhy!=null?S.asmWhy:had;
   const reason=mem?`<div class="asm-why-f"><label class="lbl" for="asm-why">Your reason <span class="asm-opt">optional, shown beside your vote</span></label><div class="name-row"><input class="input" id="asm-why" data-asm="why" maxlength="${ASM_WHY}" value="${esc(why)}" placeholder="For the ducks, who cannot vote for themselves." autocomplete="off">${cast?`<button class="btn ghost" type="button" data-act="asm-why-save"${why===had?' disabled':''}>Save reason</button>`:''}</div>${cast?'':'<p class="hint">It goes with your vote when you choose For, Against or Abstain.</p>'}</div>`:'';
-  return `<section class="asm-vote paper"><p class="form-code">At the vote · Resolution No. ${asmNo(st.c)} · ${L.rp?'Repeal':mk?ASM_MK[mk].n:esc(ASM_CATS[L.cat].n)}${L.rp||mk?'':' · '+asmG(L.g)}</p>
+  return `<section class="asm-vote paper"><p class="form-code">At the vote · Resolution No. ${asmNo(st.c)} · ${L.rp?'Repeal':mk?ASM_MK[mk].n:esc(ASM_CATS[L.cat].n)}${L.rp||mk||ASM_CATS[L.cat].story?'':' · '+asmG(L.g)}</p>
     <h2 class="asm-res-t">${esc(L.ti)}</h2><p class="asm-by">Proposed by ${asmWho(L.by,L.bn)}. ${asmWhy(L)}</p>
     ${mk?`<p class="asm-tgl asm-mkb ${mk}">${asmMarkIcon(mk)}<span>${mk==='c'?'Commends':'Condemns'} ${asmFlag((asmTgRec(L.tg,st.recs)||{}).n)}${asmWho(L.tg,L.tn)}${L.tg===myId()?' <span class="chip you">You</span>':''}</span></p>`:''}
     ${L.tx?`<p class="asm-tx">${esc(L.tx)}</p>`:''}${L.dt?asmDebateLink(L.dt):''}
@@ -35116,7 +35119,7 @@ function asmCeremony(st){
   const L=st.L.get(h.c),gone=((L&&L.bx)||[]),tot=h.y+h.n,py=tot?h.y/tot*100:0;
   const my=h.mv===undefined?(h.m?'You did not vote in this count.':`${esc(n.name)} had no seat in this count.`):`You voted ${h.mv>0?'for':h.mv<0?'against':'to abstain'}${h.mv&&(h.mv>0)===!!h.ok?', and your side carried the day':h.mv?', and lost the count':''}.`;
   const why={r:'repealed',s:'replaced',o:'retired as the oldest'};
-  const mk=h.tg&&asmTg(h.cat),book=mk?(h.ok?`<li>${esc(h.tn||'The nation named')} is ${ASM_MK[mk].verb} until ${esc(fmtDate(asmT0(h.c+1)+ASM_MARK))}.</li>`:`<li>${esc(h.tn||'The nation named')} is not ${ASM_MK[mk].verb}.</li>`)+'<li>The rulebook stays as it was.</li>':h.ok?(h.rp?`<li>“${esc(h.rt||'The resolution')}” leaves the rulebook.</li>`:`<li>“${esc(h.ti)}” enters the rulebook.</li>`)+gone.filter(g=>g.w!=='r').map(g=>`<li>“${esc(g.ti||'A resolution')}” leaves it, ${why[g.w]||'retired'}.</li>`).join(''):'<li>The rulebook stays as it was.</li>';
+  const mk=h.tg&&asmTg(h.cat),book=h.cat==='exilepetition'?(h.ok?'<li>The request for Free Haalesh passed. The server grants its seven-hex homeland.</li><li>The rulebook stays as it was.</li>':'<li>The request failed. No nation is created and no borders change.</li>'):mk?(h.ok?`<li>${esc(h.tn||'The nation named')} is ${ASM_MK[mk].verb} until ${esc(fmtDate(asmT0(h.c+1)+ASM_MARK))}.</li>`:`<li>${esc(h.tn||'The nation named')} is not ${ASM_MK[mk].verb}.</li>`)+'<li>The rulebook stays as it was.</li>':h.ok?(h.rp?`<li>“${esc(h.rt||'The resolution')}” leaves the rulebook.</li>`:`<li>“${esc(h.ti)}” enters the rulebook.</li>`)+gone.filter(g=>g.w!=='r').map(g=>`<li>“${esc(g.ti||'A resolution')}” leaves it, ${why[g.w]||'retired'}.</li>`).join(''):'<li>The rulebook stays as it was.</li>';
   const dx=(h.dx||[]).filter(x=>STATS[x[0]]).map(([k,a,b])=>`<li><span>${esc(STATS[k].n)}</span><b class="num">${asmF1(a)} → ${asmF1(b)}</b><span class="${b>a?'up':'down'}">${b>a?'+':'−'}${asmF1(Math.abs(b-a))}</span></li>`).join('');
   const anim=ASMX.cerAnim!==h.c;ASMX.cerAnim=h.c;
   return `<section class="asm-cer${h.ok?' ok':' no'}${anim?' anim':''}" aria-labelledby="asm-cer-h">
@@ -35131,8 +35134,9 @@ function asmCeremony(st){
     ${dx?`<p class="lbl">What changed in ${esc(n.name)}</p><ul class="asm-cer-dx">${dx}</ul>`:''}
     <div class="row"><button class="btn" data-act="asm-cer-ok" data-c="${h.c}">Done</button><button class="btn ghost" data-act="asm-tab" data-v="rec">See it in the Book</button></div></section>`;
 }
+function asmScheduledCard(L,first){return `<article class="paper asm-scheduled"><p class="form-code">${first?'Next scheduled vote':'Later scheduled vote'} · Resolution No. ${asmNo(L.c)}</p><h3 class="asm-res-t">${esc(L.ti)}</h3><p class="asm-by">Proposed by ${asmWho(L.by,L.bn)}.</p><p class="hint">Opens ${esc(fmtDate(asmT0(L.c)))}, ${esc(fmtTime(asmT0(L.c)))}. Closes ${esc(fmtDate(asmT0(L.c+1)))}, ${esc(fmtTime(asmT0(L.c+1)))}. Vote on the Assembly page once it opens.</p><p class="asm-tx">${esc(L.tx||'')}</p>${L.dt?asmDebateLink(L.dt):''}</article>`;}
 function asmQueueSec(st,now){
-  const Q=asmQueue(st),n=S.nation,me=myId(),mem=asmMemberAt(n,now),isD=!!(st.D&&st.D.id===me),a=asmA(n)||{},scheduled=st.L.get(st.c+1);
+  const Q=asmQueue(st),n=S.nation,me=myId(),mem=asmMemberAt(n,now),isD=!!(st.D&&st.D.id===me),a=asmA(n)||{},scheduled=st.L.get(st.c+1),upcoming=[...st.L.values()].filter(L=>L.c>st.c&&!L.f).sort((a,b)=>a.c-b.c);
   const fxw=x=>asmTg(x.p.c)?`Names ${esc(x.p.tn||'a nation')}: ${esc(asmMarkWords(asmTg(x.p.c),!!asmNpcOf(x.p.tg)))}.`:x.p.rp?`Repeals “${esc(x.p.rt||'a resolution')}”: ${esc(asmUndoItems(x.p.c,x.p.g).map(i=>i.t).join(', '))}.`:esc(cap1(asmFxWords(x.p.c,x.p.g)))+'.';
   const row=(x,i)=>{const sup=x.sup.includes(me),own=x.r.me,next=i===0&&!scheduled;
     return `<li class="asm-p${next?' next':''}"><div class="asm-p-h">${asmKindChips(x.p)}${next?`<span class="chip ok">${x.k===Q.pick?'Delegate’s choice':'Next to the vote'}</span>`:''}${x.k===Q.pick&&!next?'<span class="chip ok">Delegate’s choice</span>':''}</div>
@@ -35149,7 +35153,7 @@ function asmQueueSec(st,now){
   else if(m&&(m.status==='lapsed'||m.status==='done'))own=`<p class="info">${m.status==='lapsed'?`Your proposal “${esc(m.p.ti)}” waited three cycles without reaching the vote, and has lapsed.`:`Your proposal “${esc(m.p.ti)}” has been voted on.`} You can table a new one. <button class="linkish small" data-act="asm-withdraw">Clear it away</button></p>`;
   const canDraft=mem&&(!m||!['queue','vote','moot'].includes(m.status)||S.asmEdit);
   return `<section class="section asm-qs"><h2 class="h2">Proposals</h2><p class="muted">${lead} A proposal waits for at most three cycles. To repeal a resolution in force, open it in the Rulebook; to commend or condemn a nation, choose that kind of resolution below.</p>
-    ${scheduled?`<article class="paper asm-scheduled"><p class="form-code">Next scheduled vote · Resolution No. ${asmNo(scheduled.c)}</p><h3 class="asm-res-t">${esc(scheduled.ti)}</h3><p class="asm-by">Proposed by ${asmWho(scheduled.by,scheduled.bn)}.</p><p class="hint">Opens ${esc(fmtDate(asmT0(scheduled.c)))}, ${esc(fmtTime(asmT0(scheduled.c)))}. Closes ${esc(fmtDate(asmT0(scheduled.c+1)))}, ${esc(fmtTime(asmT0(scheduled.c+1)))}. Vote on the Assembly page once it opens.</p><p class="asm-tx">${esc(scheduled.tx||'')}</p>${scheduled.dt?asmDebateLink(scheduled.dt):''}</article>`:''}
+    ${upcoming.map((L,i)=>asmScheduledCard(L,i===0)).join('')}
     ${Q.q.length?`<ul class="asm-q">${Q.q.map(row).join('')}</ul>`:''}${own}${canDraft?asmDraftForm(a,now,st):!mem?(accountActionHint('proposal',true)||'<p class="hint" style="margin-top:12px">Rejoin the Assembly to table and support proposals.</p>'):''}</section>`;
 }
 function asmDraftForm(a,now,st){
@@ -35166,7 +35170,7 @@ function asmDraftForm(a,now,st){
       ${S.asmErr?`<p class="err" role="alert">${esc(S.asmErr)}</p>`:''}
       <div class="row"><button class="btn" type="submit">${ed?'Save the wording':'Table the repeal'}</button><button type="button" class="btn ghost" data-act="${ed?'asm-edit-no':'asm-rp-no'}">Cancel</button></div></form>`;
   }
-  const mk=asmTg(d.cat),catOpt=k=>`<option value="${k}"${k===d.cat?' selected':''}>${esc(ASM_CATS[k].n)}</option>`,ks=Object.keys(ASM_CATS).filter(k=>k===d.cat||typeof rsAsmOk!=='function'||rsAsmOk(S.nation,k));
+  const mk=asmTg(d.cat),catOpt=k=>`<option value="${k}"${k===d.cat?' selected':''}>${esc(ASM_CATS[k].n)}</option>`,ks=Object.keys(ASM_CATS).filter(k=>!ASM_CATS[k].story&&(k===d.cat||typeof rsAsmOk!=='function'||rsAsmOk(S.nation,k)));
   return `<form id="asm-form" class="asm-form" novalidate><p class="lbl-h">${ed?'Edit your proposal':'Table a proposal'}</p>
     <div class="fields"><div class="field"><label for="asm-cat">Category</label><select class="input" id="asm-cat" data-asm="cat"${ed?' disabled':''}><optgroup label="A law for every member">${ks.filter(k=>!asmTg(k)).map(catOpt).join('')}</optgroup><optgroup label="Name one nation">${ks.filter(k=>asmTg(k)).map(catOpt).join('')}</optgroup></select></div>
       ${mk?`<div class="field"><label for="asm-tg">${mk==='c'?'The nation to commend':'The nation to condemn'}</label><select class="input" id="asm-tg" data-asm="tg"${ed?' disabled':''}>${asmTgOptions(d,st,now)}</select></div>`:`<div class="field"><span class="flabel" id="asm-g-l">Strength</span><div class="seg" role="group" aria-labelledby="asm-g-l">${[0,1].map(g=>`<button type="button" class="seg-b${(d.g?1:0)===g?' on':''}" data-act="asm-g" data-g="${g}" aria-pressed="${(d.g?1:0)===g}"${ed?' disabled':''}>${asmG(g)}</button>`).join('')}</div></div>`}
@@ -104936,6 +104940,58 @@ if(typeof window.EDICTUM_PROBE==='function')window.EDICTUM_PROBE.dhaluunNorth={p
 if(typeof window.EDICTUM_PROBE==='function')window.EDICTUM_PROBE.dhaluunRegime={spec:DH_HAALESH,active:dhaluunHaaleshActive,form:dhaluunHaaleshForm,blocs:()=>NPC_BLOCS,category:s=>classify(s)};
 
 } /* end Dhaluun event */
+
+/* Haalesh: an Assembly petition creates a homeland only after a passing protected count. */
+if(typeof grow==='function'&&typeof npcCities==='function'&&typeof connect==='function'){
+const DH_EXILE_SPEC={id:'npc-cloudspine-free-haalesh',name:'Free Haalesh',pretitle:'Provisional Republic',motto:'A Voice Beyond the Mountains',capital:'Refuge',leader:'Council of Former Ministers',currency:'mandate',animal:'lammergeier',demonym:'Free Haaleshi',flag:{p:'tri-h',c:['#345A78','#F4F0DF','#6B8965'],e:'star',ec:'#F2C230'},s:{civil:60,econ:30,pol:75,wealth:30,equal:80,health:55,edu:60,safety:55,crime:20,env:70,relig:35,cons:35,happy:55,mil:15,corrupt:15,tax:45,culture:55,tour:25,sci:40,weird:45},pol:['unionRecognition','minimumWage','universalHealth','compulsoryVoting'],pop:0.12,room:1.6,sport:'mountain walking',dish:'shared lentil stew',faith:'the Right to Return',lang:'Haaleshi'};
+const HE={id:'haalesh-exile-v1',data:null};
+function heRead(d){
+  if(!d||d.v!==1||d.reg!=='cloudspine'||!['published','passed','rejected'].includes(d.phase)||!Number.isInteger(d.c)||d.c<0||d.ends!==asmT0(d.c+1)||!Number.isFinite(d.t)||d.t<=0||d.t>Date.now())return null;
+  const out={v:1,reg:d.reg,phase:d.phase,c:d.c,t:d.t,ends:d.ends};
+  if(d.phase==='passed'){
+    const n=d.nation;if(!n||n.id!==DH_EXILE_SPEC.id||n.map!==MAP_VER||!Number.isFinite(n.t)||n.t<d.ends||n.t>Date.now()||!Array.isArray(n.land)||n.land.length!==7||new Set(n.land).size!==7||!n.land.includes(n.cap)||n.land.some(c=>!Number.isInteger(c)||c<0||c>=MAP.N||MAP.T[c]<2))return null;
+    const seen=new Set([n.cap]);let changed=true;while(changed){changed=false;for(const c of n.land)if(!seen.has(c)&&Array.from(MAP.nbrFlat.slice(c*6,c*6+6)).some(j=>seen.has(j))){seen.add(c);changed=true;}}if(seen.size!==7)return null;
+    out.nation={id:n.id,map:n.map,t:n.t,cap:n.cap,land:n.land.slice()};
+  }return out;
+}
+function heActive(at){const d=HE.data;return REG.id==='cloudspine'&&d&&d.phase==='passed'&&(at==null?Date.now():at)>=d.nation.t?d.nation:null;}
+function heInstall(raw){
+  HE.data=heRead(raw);const active=heActive(),id=DH_EXILE_SPEC.id,idx=NPC_NATIONS.findIndex(n=>n.id===id);
+  if(active&&idx<0){
+    const q=DH_EXILE_SPEC,n={...q,npc:true,s:{...q.s},budget:npcBudget(q.s),policies:Object.fromEntries(q.pol.map(k=>[k,1])),popAt:active.t,founded:active.t,loc:locOf(active.cap),answered:[],inbox:[],log:[],laws:[],extra:{},_ld:Math.floor((active.t-NPC_EPOCH)/DAY),_hist:[{t:active.t,s:{...q.s}}]};
+    NPC_NATIONS.push(n);NPC_BY_ID[id]=n;NPC_SET.add(id);NPC_BASE[id]={s:{...n.s},pol:q.pol.slice(),fx:[]};MAP.npcLoc[id]=active.cap;NPC_ROOM[id]=q.room;NPC_HAWK[id]=0.05;NPC_SPORT[id]=q.sport;NPC_CULTURE[id]={dish:q.dish,faith:q.faith,lang:q.lang};NPC_VOICE[id]={sign:'The Provisional Council, Refuge',open:'Your letter has reached us in exile.',lines:['Recognition is a beginning. We still hope to go home.']};
+  }else if(!active&&idx>=0){NPC_NATIONS.splice(idx,1);NPC_SET.delete(id);delete NPC_BY_ID[id];delete NPC_BASE[id];delete MAP.npcLoc[id];}
+  npcRev++;passForget();terrCache.clear();atlasCache.clear();cityMemo={T:null,k:'',v:null};polMemo={k:'',v:null};dcCSm={T:null,t:0,v:null};dcSpotMemo={v:null,r:null};dspMemo.clear();dspXRev++;
+}
+allNations=(f=>function(){return f.apply(this,arguments).filter(x=>x.id!==DH_EXILE_SPEC.id||!!heActive(TERR_AT));})(allNations);
+npcAt=(f=>function(id,t){return id===DH_EXILE_SPEC.id&&!heActive(t)?null:f.apply(this,arguments);})(npcAt);
+npcPop=(f=>function(n,now){const a=n&&n.id===DH_EXILE_SPEC.id&&heActive(now);if(!a)return f.apply(this,arguments);const p=DH_EXILE_SPEC.pop,k=p*DH_EXILE_SPEC.room,t=Math.max(0,(now||Date.now())-a.t)/DAY;return k/(1+(k-p)/p*Math.exp(-0.012*t));})(npcPop);
+grow=(f=>function(list,over){const a=heActive(TERR_AT),i=list.findIndex(x=>x.id===DH_EXILE_SPEC.id);if(!a||i<0)return f.apply(this,arguments);
+  const reserved=new Map(over||[]),caps=new Set(list.filter((_,j)=>j!==i).map(x=>x.cap));for(const c of a.land)if(!reserved.has(c)&&!caps.has(c))reserved.set(c,i);
+  return f.call(this,list.map((x,j)=>j===i?{...x,budget:0}:x),reserved);
+})(grow);
+collectConquests=(f=>function(at){const r=f.apply(this,arguments),a=heActive(at);return a?{...r,sig:r.sig+'|free-haalesh:'+a.t}:r;})(collectConquests);
+npcCities=(f=>function(id){const a=heActive(TERR_AT);if(id===DH_EXILE_SPEC.id)return a?[{id:'cap',c:a.cap,nm:DH_EXILE_SPEC.capital,cap:true,b:['farm','market','library']}]:[];
+  const idx=NPC_NATIONS.findIndex(n=>n.id===DH_EXILE_SPEC.id),n=idx>=0?NPC_NATIONS.splice(idx,1)[0]:null;try{return f.apply(this,arguments);}finally{if(n)NPC_NATIONS.splice(idx,0,n);}
+})(npcCities);
+cityEpochKey=(f=>function(now){const k=f.apply(this,arguments),a=heActive(TERR_AT);return a?k+'|free-haalesh:'+a.t:k;})(cityEpochKey);
+function hePlan(){
+  const T=territory(),cities=cityState(T).all.filter(c=>c.active),h=T.list[T.byId['npc-cloudspine-haalesh']];if(!h)throw new Error('Haalesh is missing.');
+  const candidates=[];for(let c=0;c<MAP.N;c++){if(MAP.T[c]<2||T.owner[c]!==-1||cities.some(x=>hexDist(c,x.c)<CITY_MIN_DIST+2)||T.list.some(x=>hexDist(c,x.cap)<MIN_CAP_DIST+2))continue;
+    const land=[c,...Array.from(MAP.nbrFlat.slice(c*6,c*6+6))];if(land.length===7&&new Set(land).size===7&&land.every(j=>j>=0&&MAP.T[j]>=2&&T.owner[j]===-1))candidates.push(c);}
+  candidates.sort((a,b)=>hexDist(a,h.cap)-hexDist(b,h.cap)||a-b);
+  if(!candidates.length)throw new Error('No unclaimed seven-hex homeland is available.');
+  const cap=candidates[0];return {id:DH_EXILE_SPEC.id,map:MAP_VER,cap,land:[cap,...Array.from(MAP.nbrFlat.slice(cap*6,cap*6+6))]};
+}
+DISPATCH_SOURCES.push(ctx=>{const n=heActive();return n&&ctx&&ctx.reg==='cloudspine'&&dspIn(ctx,n.t)?[{k:HE.id+':founded',t:n.t,sec:'world',kick:'Government in exile',h:'Assembly recognises Free Haalesh; Haalesh vows revenge',b:'The Assembly has recognised Haalesh’s former ministers and granted their provisional republic seven unclaimed hexes. Free Haalesh has established its capital at Refuge. Haalesh’s ruling council denounced the decision and promised a reckoning. No war has been declared.',who:[DH_EXILE_SPEC.id,'npc-cloudspine-haalesh'],w:11,go:'region'}]:[];});
+connect=(f=>async function(){const r=await f.apply(this,arguments);if(REG.id==='cloudspine'&&S.db)quietListen(S.db.doc('worldEvents/'+HE.id),s=>{heInstall(s&&s.exists?s.data():null);quietRender(()=>{render();redrawMaps();});},()=>{});return r;})(connect);
+if(typeof window.EDICTUM_PROBE==='function')window.EDICTUM_PROBE.exile={spec:DH_EXILE_SPEC,install:heInstall,read:heRead,active:heActive,plan:hePlan,
+  loadWorld:p=>{window.EDICTUM_PROBE.dhaluun.load(p.rows);for(const x of p.sieges||[])wrPut(x.id,x.d);for(const x of p.stamps||[])RACE.t.set(x.key,x.t);window.EDICTUM_PROBE.dhaluunWall.install(p.dhaluun);heInstall(p.exile||null);},
+  claimReads:()=>{const out=[];for(const [uid,n] of Object.entries({...S.world,...HIDN.w}))for(const e of n.claims||[]){const stamp=raceCK(e);out.push({uid,stamp,key:stamp+':'+uid});}return out;},
+  setStamps:a=>{for(const x of a)RACE.t.set(x.key,x.t);RACE.rev++;terrCache.clear();},
+  verifyWorld:async k=>{let key=null;if(k)key=await crypto.subtle.importKey('spki',unb64(k),{name:'ECDSA',namedCurve:'P-256'},false,['verify']);for(const [id,n] of Object.entries({...S.world,...HIDN.w}))for(const e of n.conq||[])if(!e.n&&e.t>=REF_EPOCH){if(!key)throw new Error('The referee public key is unavailable.');REF.ok.set(refK(id,e),await refVerify(key,id,e,n.reg,n.cv));}S.db={};ccMemo[0]=null;ccMemo[1]=null;terrCache.clear();passForget();},
+  snapshot:()=>{const T=territory();return {ids:T.list.map(x=>x.id),owner:Array.from(T.owner),cities:cityState(T).all.filter(c=>c.active).map(c=>({id:c.id,fid:c.fid,c:c.c,nm:c.nm})),map:MAP_VER};}};
+} /* end Haalesh exile */
 
 /* Dhaluun: imperial customs notice */
 if(typeof trFlow==='function'&&typeof trStatus==='function'&&typeof whAccrue==='function'&&typeof economy==='function'&&typeof stockRates==='function'&&typeof connect==='function'){
