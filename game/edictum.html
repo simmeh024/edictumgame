@@ -100246,8 +100246,10 @@ function wrWarsOf(id){try{return wrWarMap().get(id)||[];}catch(e){return [];}}
 /* how fast war wears a nation down: its wars, each weighed by its aim, more than adding up */
 function wrWarWeight(id){let s=0;for(const w of wrWarsOf(id))s+=(WAR_GOALS[w.g]||WAR_GOALS.c).w;return s>0?Math.pow(s,1.3):0;}
 /* a war's upkeep, a day, as a share of what the nation uses in peacetime; k wars cost k^1.5 times one. A garrison holds
-   each occupied city. */
-const WAR_UP={food:0.12,timber:0.08,iron:0.18,oil:0.15,goods:0.1},GARRISON={food:6,iron:3,goods:2};
+   each occupied city, and its cost is per city rather than per war, so it is left as it was.
+   2026-11-26: doubled. War was cheap enough to run on the side, and the material bill is what makes a long war a
+   choice rather than a habit. */
+const WAR_UP={food:0.24,timber:0.16,iron:0.36,oil:0.3,goods:0.2},GARRISON={food:6,iron:3,goods:2};
 function wrUpkeep(T,CSt,dem,L){
   const war=Object.fromEntries(RES.map(r=>[r,new Float64Array(L)])),gar=new Int32Array(L),wars=new Int32Array(L);
   T.list.forEach((x,i)=>{if(x.npc||x.hid)return;const k=wrWarsOf(x.id).length;if(!k)return;wars[i]=k;const z=econSize(x),f=Math.pow(k,1.5);for(const r of RES){const v=z*DEMAND[r]*WAR_UP[r]*f;dem[r][i]+=v;war[r][i]+=v;}});

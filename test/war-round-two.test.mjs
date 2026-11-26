@@ -247,7 +247,7 @@ test('what wars cost: each war more than the last (k^1.5), and a garrison for ea
   const k = { a: 1, b: 2, c: 3, d: 0 };ctx.wrWarsOf = id => Array(k[id] || 0).fill({ g: 'c' });
   const T = { list: ['a', 'b', 'c', 'd'].map(id => ({ id, n: {} })) }, L = 4, dem = Object.fromEntries(ctx.RES.map(r => [r, new Float64Array(L)]));
   const U = ctx.wrUpkeep(T, { all: [{ active: true, hi: 3, fi: 0 }, { active: true, hi: 3, fi: 3 }] }, dem, L);
-  assert.ok(Math.abs(U.war.iron[0] - 18) < 1e-9, 'one war: 18% more iron');
+  assert.ok(Math.abs(U.war.iron[0] - 36) < 1e-9, 'one war: 36% more iron');
   assert.ok(Math.abs(U.war.iron[1] / U.war.iron[0] - Math.pow(2, 1.5)) < 1e-9, 'two wars: 2.8 times one');
   assert.ok(Math.abs(U.war.iron[2] / U.war.iron[0] - Math.pow(3, 1.5)) < 1e-9, 'three: 5.2 times');
   assert.equal(U.war.food[3], 6, 'at peace, only the garrison of one occupied city');assert.equal(U.gar[3], 1);
