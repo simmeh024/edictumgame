@@ -24675,10 +24675,10 @@ function catalog(ct,n,st){
   const card=([k,p])=>{
     const B=BUILDINGS[k],blocked=full||qfull||!!p,bc=bCost(n,k);
     const cost=p?.k==='have'?esc(costText(bc)):uxCostRequirements(bc,st);
-    return `<li class="opt${p&&p.k!=='cost'?' off':''}" id="bk-${k}"><div class="opt-h">${bldIco(k)}<span class="opt-hn"><b>${esc(B.n)}</b>${bldTag(k)}</span><span class="opt-t">${qbMs(n,k)?esc(fmtDur(qbMs(n,k))):cxHours(n,ct,k)+' h'}</span></div>${bldTop(k,n)}<p class="opt-d">${esc(B.d)}</p>${(h=>h?`<p class="opt-d opt-gain">${h}</p>`:'')(bldGainHtml(ct,k,ct.tT,'In '+ct.nm))}${(q=>q?`<p class="opt-d xp-bnote">${esc(q)}</p>`:"")(xpBldNote(k))}${B.need&&!(p&&p.k==='need')?`<p class="opt-need">${esc(NEED_TXT[B.need])}</p>`:''}<div class="opt-c">${cost}</div>${uxBuildRequirements(ct,B,p||(full?{k:'room'}:null))}${p&&p.k!=='room'?`<p class="opt-why">${esc(p.t)}</p>`:''}<button class="btn${blocked?' ghost':''}" data-act="ct-build" data-id="${esc(ct.id)}" data-k="${k}"${blocked?' disabled':''}>${p&&p.k==='have'?(ct.done.includes(k)?'Built':'Planned'):p&&(p.k==='lock'||p.k==='lead')?'Locked':busy?'Queue':'Build'}</button></li>`;
+    return `<li class="opt${p&&p.k!=='cost'?' off':''}" id="bk-${k}"><div class="opt-h">${bldIco(k)}<span class="opt-hn"><b>${esc(B.n)}</b>${bldTag(k)}</span><span class="opt-t">${qbMs(n,k)?esc(fmtDur(qbMs(n,k))):cxHours(n,ct,k)+' h'}</span></div>${bldTop(k,n)}<p class="opt-d">${esc(B.d)}</p>${(h=>h?`<p class="opt-d opt-gain">${h}</p>`:'')(bldGainHtml(ct,k,ct.tT,'In '+ct.nm))}${(q=>q?`<p class="opt-d xp-bnote">${esc(q)}</p>`:"")(xpBldNote(k))}${B.need&&!(p&&p.k==='need')?`<p class="opt-need">${esc(NEED_TXT[B.need])}</p>`:''}<div class="opt-c">${cost}</div>${uxBuildRequirements(ct,B,p||(full?{k:'room'}:null),k)}${p&&p.k!=='room'?`<p class="opt-why">${esc(p.t)}</p>`:''}<button class="btn${blocked?' ghost':''}" data-act="ct-build" data-id="${esc(ct.id)}" data-k="${k}"${blocked?' disabled':''}>${p&&p.k==='have'?(ct.done.includes(k)?'Built':'Planned'):p&&(p.k==='lock'||p.k==='lead')?'Locked':busy?'Queue':'Build'}</button></li>`;
   };
   const line=([k,p])=>{const B=BUILDINGS[k],here=ct.done.includes(k)||ct.prog.some(b=>b.k===k),have=here||p&&p.k==='have';
-    return `<li class="opt opt-line${have?' opt-have':' off'}" id="bk-${k}">${bldIco(k,'b-ic-s')}<span class="opt-ln"><b>${esc(B.n)}</b>${bldTag(k)}<span class="opt-why">${esc(here?(ct.done.includes(k)?'Built here.':'Under way or queued here.'):p?p.t:'')}</span>${bldBoostHtml(k,n)}</span>${have?'':uxBuildRequirements(ct,B,p)}<button class="btn ghost small-btn" data-act="ct-build" data-id="${esc(ct.id)}" data-k="${k}" disabled>${have?(ct.done.includes(k)?'Built':'Planned'):p&&(p.k==='lock'||p.k==='lead')?'Locked':'Not here'}</button></li>`;};
+    return `<li class="opt opt-line${have?' opt-have':' off'}" id="bk-${k}">${bldIco(k,'b-ic-s')}<span class="opt-ln"><b>${esc(B.n)}</b>${bldTag(k)}<span class="opt-why">${esc(here?(ct.done.includes(k)?'Built here.':'Under way or queued here.'):p?p.t:'')}</span>${bldBoostHtml(k,n)}</span>${have?'':uxBuildRequirements(ct,B,p,k)}<button class="btn ghost small-btn" data-act="ct-build" data-id="${esc(ct.id)}" data-k="${k}" disabled>${have?(ct.done.includes(k)?'Built':'Planned'):p&&(p.k==='lock'||p.k==='lead')?'Locked':'Not here'}</button></li>`;};
   const sec=(id,t,L)=>L.length?`<h4 class="lbl-h cat-h cat-g" id="${id}">${t} <span class="cat-n">${L.length}</span></h4><ul class="opts">${L.map(card).join('')}</ul>`:'';
   const fold=(id,t,L,h)=>L.length?`<details class="cat-fold" id="${id}"><summary><span class="lbl-h">${t}</span><span class="cat-n">${L.length}</span>${h?`<span class="hint cat-fh">${h}</span>`:''}</summary><ul class="opts opts-l">${L.map(line).join('')}</ul></details>`:'';
   const room=!(full||qfull),ready=sec('cat-ready',room?'Ready to build':'Ready once there is room',S.cxAfford&&!room?[]:G.ready);
@@ -65648,8 +65648,9 @@ function uxAddUnlocks(){
 function uxCostRequirements(cost,stock){
   return `<ul class="ux-requirements" aria-label="Required materials">${RES.filter(r=>cost[r]>0).map(r=>{const met=num0(stock[r])+1e-6>=cost[r],need=Math.max(0,Math.ceil(cost[r]-num0(stock[r])));return `<li class="${met?'met':'missing'}"><span class="ux-req-mark" aria-label="${met?'Available':'Missing'}">${met?'✓':'○'}</span><span>${esc(RES_INFO[r][0])} <b>${fmtStock(stock[r])}/${cost[r]}</b></span>${met?'':`<button type="button" class="linkish small" data-act="ux-resource" data-r="${r}" data-need="${need}">Trade for ${esc(resName(r))}</button>`}</li>`;}).join('')}</ul>`;
 }
-function uxBuildRequirements(ct,B,p){
-  if(!p)return '';if(p.k==='lock')return '<button type="button" class="linkish small" data-act="ux-milestones">View population milestones</button>';
+function uxBuildRequirements(ct,B,p,k){
+  /* a research building is not waiting on people: send the player to the Research Lab, not to the milestones */
+  if(!p)return '';if(p.k==='lock')return RS_BLD[k]?'<button type="button" class="linkish small" data-act="ux-research">View the research it needs</button>':'<button type="button" class="linkish small" data-act="ux-milestones">View population milestones</button>';
   if(p.k==='lead')return '<button type="button" class="linkish small" data-act="ux-government">View government requirements</button>';
   if(p.k==='need')return `<button type="button" class="linkish small" data-act="ux-map-city" data-cell="${ct.c}">View this city’s terrain</button>`;
   if(p.k==='room')return `<button type="button" class="linkish small" data-act="ux-city-blocks" data-id="${esc(ct.id)}">View city building space</button>`;return '';
@@ -65669,6 +65670,7 @@ document.addEventListener('click',e=>{
   if(a==='ux-resource'){const r=el.dataset.r,need=+el.dataset.need;if(RES.includes(r)&&Number.isFinite(need)&&need>0){UXP.resource={r,need,back:S.view};uxOpen('trade',null,'.ux-resource-notice');}}
   if(a==='ux-material-back'){const back=UXP.resource?.back||'cities';UXP.resource=null;go(back);}
   if(a==='ux-milestones')uxOpen('nation',null,'.miles');
+  if(a==='ux-research')uxOpen('research',null,'.vh');
   if(a==='ux-government')uxOpen('government',null,'.ldr-gov');
   if(a==='ux-science')uxOpen('stats',()=>{S.statsTab='overview';},'.vh');
   if(a==='ux-map-city'){const c=+el.dataset.cell;if(Number.isInteger(c)&&c>=0&&c<MAP.N)uxOpen('map',()=>{centerMain(c,NEAR_Z);S.mapCell=c;},'[data-map="main"]');}
@@ -103135,7 +103137,7 @@ const RS_BLD_RC={techcol:1,datacen:1,scipark:3};
 /* the research buildings' credits: only those at work in a city the nation holds (functions/research-rules.js allows at most RS_BLD_RC_MAX) */
 function rsBldRc(n){let s=0;try{for(const [k,v] of Object.entries(RS_BLD_RC))if(nbWorks(n,k))s+=v;}catch(e){}return s;}
 const rsKnows=(n,id)=>{const p=rsOf(n),r=RS_BY[id];return !!(p&&r&&rsHas(rsBits(p.k),r.i));};
-bldUnlocked=(f=>function(n,key){if(RS_BLD[key])return rsKnows(n,RS_BLD[key]);return f.apply(this,arguments);})(bldUnlocked);
+bldUnlocked=(f=>function(n,key){if(RS_BLD[key])return rsKnows(n,RS_BLD[key])||cvBlueOk(n,key);return f.apply(this,arguments);})(bldUnlocked);
 buildProblem=(f=>function(n,ct,key,st){const r=f.apply(this,arguments);if(RS_BLD[key]&&r&&r.k==='lock'){const T=RS_BY[RS_BLD[key]];r.t=`Unlocked by research: ${T.n} (${RS_TRACKS[T.k].n}, Tier ${roman(T.t)}).`;}return r;})(buildProblem);
 Object.assign(DC_GLYPH,{
   techcol:{w:5.6,h:3.6,f:(q,x)=>{q.box('face',x,4.2,2.2,{win:1});dcRoof(q,{x,w:4.2,h:2.2,roof:'hip'});q.rect('cut',x+1.8,-0.9,0.6,0.9);q.ln('ink',0.18,[[x+4.8,0],[x+4.8,-3.4]]);q.poly('back',[[x+4.4,-3.4],[x+5.4,-3.4],[x+5.6,-2.9],[x+4.2,-2.9]],{ol:1});}},

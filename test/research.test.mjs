@@ -310,3 +310,37 @@ test('alliances and licences: the same rules in the game and on the server', () 
   assert.match(al, /if \(!p \|\| p\.a !== aid \|\| !Number\.isFinite\(p\.t\) \|\| p\.t <= lt/, 'a pledge is credited once (watermark)');
   assert.match(readFileSync(new URL('../firestore.rules', import.meta.url), 'utf8'), /match \/rsLic\/\{lid\} \{ allow read: if request\.auth != null && request\.auth\.uid in resource\.data\.p; \}/);
 });
+
+/* The research buildings and stolen plans. The research section wraps bldUnlocked for the six RS_BLD buildings;
+   that wrapper must still fall through to the covert unlock, or a blueprint stolen for one of them can never be
+   spent and the Cities page shows it locked. */
+test('a stolen blueprint opens a research building, and only while the blueprint is live', () => {
+  const D = 864e5, now = 1_800_000_000_000, ctx = {
+    Math, Object, Array, Number, JSON, String, Set, Map, isFinite, console,
+    DAY: D, Date: { now: () => now }, REG: { id: 'meridian' },
+    cvRoll: () => ({ ok: true }),
+    RS_BY: { 'g-renewable-energy': { i: 0 }, 'g-national-innovation': { i: 1 } },
+    rsOf: n => (n.rs ? { k: n.rs } : null), rsBits: k => k, rsHas: (bits, i) => !!bits[i] };
+  vm.createContext(ctx);
+  vm.runInContext([
+    cut('const CV_GAP=', '\n'),
+    cut('function cvBlueOk(', 'function cvBlueprints('),
+    cut('const RS_BLD={', '\n'),
+    cut('const rsKnows=', '\n'),
+    /* the base check as the game has it before the research section wraps it: the people, or stolen plans */
+    'var bldUnlocked=(n,key)=>n.pop>=1e9||cvBlueOk(n,key);',
+    cut('bldUnlocked=(f=>function(n,key){if(RS_BLD[key])', '\n')].join('\n'), ctx);
+  const nation = (cov, rs) => ({ pop: 1e6, cov, ...(rs ? { rs } : {}) });
+  const plans = (b, o = {}) => [{ k: 'b', b, t: now - D, rg: 'meridian', ...o }];
+
+  assert.equal(ctx.bldUnlocked(nation([]), 'windfarm'), false, 'no research and no plans: locked');
+  assert.equal(ctx.bldUnlocked(nation([], [1]), 'windfarm'), true, 'Renewable Energy opens it');
+  assert.equal(ctx.bldUnlocked(nation(plans('windfarm')), 'windfarm'), true, 'stolen plans open it too');
+  assert.equal(ctx.bldUnlocked(nation(plans('windfarm', { u: 1 })), 'windfarm'), false, 'spent plans do not');
+  assert.equal(ctx.bldUnlocked(nation(plans('windfarm', { t: now - 8 * D })), 'windfarm'), false, 'after 7 days they do not');
+  assert.equal(ctx.bldUnlocked(nation(plans('windfarm', { rg: 'kalderi' })), 'windfarm'), false, 'plans stolen in another region do not');
+  assert.equal(ctx.bldUnlocked(nation(plans('windfarm')), 'scipark'), false, 'they open that building and no other');
+  /* a building with no research gate still answers to the base check */
+  assert.equal(ctx.bldUnlocked(nation([]), 'housing'), false);
+  assert.equal(ctx.bldUnlocked(nation(plans('housing')), 'housing'), true);
+});
