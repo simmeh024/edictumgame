@@ -18,6 +18,9 @@ const jobs = [
   ['dip-wars', 'dip-wars.html', 'light', 1280, 900],
   ['dip-wars-dark', 'dip-wars.html', 'dark', 1280, 900],
   ['dip-wars-mobile', 'dip-wars.html', 'light', 390, 844],
+  ['weariness', 'weariness.html', 'light', 1280, 900],
+  ['weariness-dark', 'weariness.html', 'dark', 1280, 900],
+  ['weariness-mobile', 'weariness.html', 'light', 390, 844],
 ];
 
 const b = await chromium.launch();

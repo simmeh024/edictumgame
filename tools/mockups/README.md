@@ -15,7 +15,10 @@ before the game is touched.
 - `dip-wars.html` — the Wars section of the Diplomacy page as it is today beside what it could be: each war's
   figures and aim on its row, the rows ordered by what needs an answer, the state as chips, the clock on an
   unanswered peace offer, and an ally's war drawn by one component (26 Nov 2026). Self-contained: open it.
-- `render-war.mjs` — shoots all three, light and dark, plus the war office and the Wars section at phone width.
+- `weariness.html` — war weariness in the war office: the rate it climbs at and the day it reaches 100, what makes it
+  climb, what it costs in mood and people, the warning past 75, what would bring it down, and the recovery at peace
+  (26 Nov 2026). Three states, strip cell and card. Self-contained: open it.
+- `render-war.mjs` — shoots all four, light and dark, plus the war office and the Wars section at phone width.
   Run `node tools/mockups/render-war.mjs`.
 - `built/` — what the last run produced. Generated; delete it whenever.
 

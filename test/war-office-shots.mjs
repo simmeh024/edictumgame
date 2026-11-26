@@ -91,6 +91,30 @@ try {
   await ev(() => window.__game.render());
   await sleep(400);
 
+  /* war weariness: climbing, past the warning line, and falling again once the wars are over */
+  await go('war');
+  await page.locator('.wo-strip').screenshot({ path: path.join(OUT, 'ww-strip.png') });
+  await page.locator('#ww-card').screenshot({ path: path.join(OUT, 'ww-card.png') });
+  await ev(() => { const G = window.__game, n = G.clone(G.S.nation); n.wwy = 82; n.wwL = 9; G.commit(n); G.render(); });
+  await sleep(400);
+  await page.locator('.wo-strip').screenshot({ path: path.join(OUT, 'ww-strip-warn.png') });
+  await page.locator('#ww-card').screenshot({ path: path.join(OUT, 'ww-card-warn.png') });
+  /* the government overrules the call for peace: the ceiling stands at 120 and bleeds back to 100 */
+  await ev(() => { const G = window.__game; const b = document.querySelector('#ww-card [data-act="ww-fight"]'); if (b && !b.disabled) b.click(); });
+  await sleep(500);
+  await page.locator('#ww-card').screenshot({ path: path.join(OUT, 'ww-card-overruled.png') });
+  await page.locator('.wo-strip').screenshot({ path: path.join(OUT, 'ww-strip-overruled.png') });
+  /* a day and a half in, with the ceiling half drained and weariness past 100 */
+  await ev(() => { const G = window.__game, n = G.clone(G.S.nation); n.wwo = Date.now() - 1.5 * 86400000; n.wwy = 109; G.commit(n); G.render(); });
+  await sleep(400);
+  await page.locator('#ww-card').screenshot({ path: path.join(OUT, 'ww-card-overruled-late.png') });
+  await ev(() => { const G = window.__game, n = G.clone(G.S.nation); n.wars = {}; n.wwy = 44; delete n.wwo; G.commit(n); G.render(); });
+  await sleep(400);
+  await page.locator('#ww-card').screenshot({ path: path.join(OUT, 'ww-card-peace.png') });
+  await ev(p => { const G = window.__game, n = G.clone(G.S.nation), now = Date.now(), DAY = 86400000;
+    n.wars = { [p.D]: { t: now - 12 * DAY, g: 'c' }, ...(p.E ? { [p.E]: { t: now - 4 * DAY, g: 'b' } } : {}) }; n.wwy = 38; G.commit(n); G.render(); }, plan);
+  await sleep(400);
+
   /* the Wars tab of the Diplomacy page: the rows, their figures and the clock on an offer.
      The war stats go back in first: the tick files them under war reports once a peace offer stands. */
   await ev(p => {
