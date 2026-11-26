@@ -20,12 +20,12 @@ ${line('function sOfH(')}
 ${line('const LVL = ')}
 ${fn('govCatsHeld')}
 ${line('function gcsNorm(')}
-${line('COMMIT_HOOKS.push(n=>{if(n.npc)return [];const all=gcsNorm')}
+${block('COMMIT_HOOKS.push((n,old)=>{if(n.npc)return [];const was=', 'return [];});')}
 ${line('NORM_HOOKS.push((n,d)=>{const a=gcsNorm')}
 ${line('function aClasses(')}
 function achM(x,k,f){return f();}
 function aCls(x){return classify(x.n.s);}
-this.api={CATS,classify,govCatsHeld,gcsNorm,aClasses,commit:n=>{for(const h of COMMIT_HOOKS)h(n);return n;},norm:d=>{const n={};for(const h of NORM_HOOKS)h(n,d);return n;}};`, ctx);
+this.api={CATS,classify,govCatsHeld,gcsNorm,aClasses,commit:(n,old)=>{for(const h of COMMIT_HOOKS)h(n,old);return n;},norm:d=>{const n={};for(const h of NORM_HOOKS)h(n,d);return n;}};`, ctx);
 const { CATS, classify, govCatsHeld, gcsNorm, aClasses, commit, norm } = ctx.api;
 const plain = o => JSON.parse(JSON.stringify(o));
 const S = (civil, econ, pol) => ({ civil, econ, pol });
@@ -50,6 +50,16 @@ test('every save adds what the nation is and was lately, and never takes a paper
   assert.deepEqual(plain(n.gcs), plain(gcsNorm([...first, classify(n.s)])));
   // a save with nothing new leaves the list as it was
   const before = n.gcs; commit(n); assert.equal(n.gcs, before);
+});
+
+test('the snapshot this very save trims is still counted, from the record before it', () => {
+  const old = { founded: 7, s: S(50, 50, 50), hist: [{ t: 1, s: [90, 90, 90] }, { t: 2, s: [50, 50, 50] }] };
+  const n = { founded: 7, s: S(50, 50, 50), hist: [{ t: 2, s: [50, 50, 50] }, { t: 3, s: [50, 50, 50] }] };
+  commit(n, old);
+  assert.ok(n.gcs.includes(classify(S(90, 90, 90))));
+  // a nation founded anew takes nothing from the one before it
+  const fresh = { founded: 8, s: S(50, 50, 50) }; commit(fresh, old);
+  assert.deepEqual(plain(fresh.gcs), [classify(S(50, 50, 50))]);
 });
 
 test('computer nations get no list', () => {

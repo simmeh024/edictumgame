@@ -88764,7 +88764,10 @@ function govCatsHeld(n){
 }
 /* in CATS order, only the Bureau's names, each once */
 function gcsNorm(a){const s=new Set(Array.isArray(a)?a.filter(c=>typeof c==='string'):[]);return CATS.filter(c=>s.has(c));}
-COMMIT_HOOKS.push(n=>{if(n.npc)return [];const all=gcsNorm([...govCatsHeld(n)]);if(all.length>gcsNorm(n.gcs).length)n.gcs=all;return [];});
+/* with the record before this save too (the same founding's): commit trims the history before its hooks run, so the
+   snapshot this save drops is only there */
+COMMIT_HOOKS.push((n,old)=>{if(n.npc)return [];const was=old&&!old.npc&&old.founded===n.founded?[...govCatsHeld(old)]:[];
+  const all=gcsNorm([...govCatsHeld(n),...was]);if(all.length>gcsNorm(n.gcs).length)n.gcs=all;return [];});
 NORM_HOOKS.push((n,d)=>{const a=gcsNorm(d&&d.gcs);if(a.length)n.gcs=a;});
 UNLOCK_SOURCES.push({earned:n=>n&&!n.npc?[...govCatsHeld(n)].map(c=>LP_CAT[c]):[],
   how:id=>{const v=LP_X[id];return v&&v.cat?`Be classed as “${v.cat}” by the Bureau.`:null;}});
