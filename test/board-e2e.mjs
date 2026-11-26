@@ -257,4 +257,20 @@ check('another player sees the picture, and it opens over the page', await until
 await C.keyboard.press('Escape');
 check('Propose this deal opens the Trade page filled in from their side', await until(async () => !!(await C.$('.cb-post .cb-offer [data-act="cb-deal"]'))) && (await C.click('.cb-post .cb-offer [data-act="cb-deal"]'), await until(() => C.evaluate(uid => { const t = G.S.trade || {}; return G.S.view === 'trade' && t.w === uid && t.gr === 'food' && +t.ga === 8 && t.rr === 'iron' && +t.ra === 10; }, uidB))), await C.evaluate(() => JSON.stringify(G.S.trade)));
 await B.screenshot({ path: OUT + '/board-following.png' });
+
+// the daily picture limit (2026-11-26, Balbosa): with six pictures in the last 24 hours a seventh is refused, and the
+// toast says why and when the next can go up (not "could not be saved"); without the picture the words still post
+await unpace(uidB);
+const t0 = Date.now(), toasts = p => p.evaluate(() => [...document.querySelectorAll('.toast')].map(t => t.textContent).join(' | '));
+await fetch(`http://${FS_HOST}/v1/projects/${PROJECT}/databases/(default)/documents/cbPicPace/${uidB}`, { method: 'PATCH', headers: { authorization: 'Bearer owner', 'content-type': 'application/json' },
+  body: JSON.stringify({ fields: { p: { arrayValue: { values: [0, 1, 2, 3, 4, 5].map(i => ({ integerValue: String(t0 - 20 * 3600000 + i * 60000) })) } } } }) });
+await B.waitForSelector('#cb-r-x'); await B.fill('#cb-r-x', 'Our seventh picture today.');
+await B.setInputFiles('#cb-r-x-file', { name: 'p.png', mimeType: 'image/png', buffer: png });
+check('a picture is prepared beside the reply', await until(async () => /Picture added/.test(await text(B, '#cb-r-x-picbar'))));
+await clickPast(B, '#cb-rf button[type="submit"]');
+check('a seventh picture in 24 hours says why, and when the next can go up', await until(async () => /6 pictures on the boards in the last 24 hours.*next can go up in about 4 hours.*Remove the picture/.test(await toasts(B)), 30000), await toasts(B));
+check('the refused reply keeps its words and its picture', await B.$eval('#cb-r-x', t => t.value) === 'Our seventh picture today.' && /Picture added/.test(await text(B, '#cb-r-x-picbar')));
+await B.click('[data-act="cb-pic-no"][data-for="cb-r-x"]'); await unpace(uidB);
+await clickPast(B, '#cb-rf button[type="submit"]');
+check('without the picture the words post', await until(async () => /Our seventh picture today\./.test(await text(B, '.cb-reps'))), await toasts(B));
 await finish();
