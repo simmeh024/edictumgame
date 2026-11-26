@@ -531,7 +531,12 @@ def main():
         '<html lang="en-GB">',
         '<head>',
         '<meta charset="utf-8">',
-        '<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">',
+        # interactive-widget: since Chrome 108 an Android keyboard shrinks only the visual viewport by default, so
+        # 100dvh, position:fixed and scrolling all keep the old tall page and the keyboard covers whatever is at the
+        # bottom (the chat's writing box). resizes-content shrinks the layout viewport with it, as Android used to,
+        # so every box above the keyboard stays in sight without any script. iOS ignores the key: there the chat
+        # drawer follows window.visualViewport itself (rgcViewport in game/edictum.html).
+        '<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,interactive-widget=resizes-content">',
         '<!-- Edictum: built by build.py from game/edictum.html (sha256 %s) with Firebase %s -->' % (stamp, ver),
         '<meta name="edictum-build" content="%s">' % BUILD_MARK,
         '<style>html{background:#e8eeeb;color-scheme:light}body{margin:0;background:inherit;font:14px system-ui}'
