@@ -5,7 +5,9 @@ import { getFirestore } from 'firebase-admin/firestore';
 import { randomUUID } from 'node:crypto';
 import { dispatchMessages, isPublication, nonceFor, sendPart } from './discord-dispatch-core.js';
 
-const token = defineSecret('DISCORD_BOT_TOKEN');
+const enabled = process.env.EDICTUM_DISCORD_ENABLED === 'true';
+// Do not register a secret parameter at all in projects where the integration is disabled.
+const token = enabled ? defineSecret('DISCORD_BOT_TOKEN') : null;
 const LEASE_MS = 60000;
 
 export async function deliverDispatch(event, { db, key, channelId, send = sendPart }) {
@@ -63,7 +65,7 @@ export async function deliverDispatch(event, { db, key, channelId, send = sendPa
   }
 }
 
-export const discordDispatch = process.env.EDICTUM_DISCORD_ENABLED !== 'true' ? undefined : onDocumentWritten({
+export const discordDispatch = !enabled ? undefined : onDocumentWritten({
   document: 'devnews/{postId}',
   region: 'europe-west1',
   secrets: [token],
