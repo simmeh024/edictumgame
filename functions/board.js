@@ -37,9 +37,10 @@ export const CB_TITLE = 120, CB_TEXT = 4000;
          CB_ARMS characters. The flag needs nothing more: every post keeps the author's flag already (fl).
      pc  {w, h, k}: a picture, kept beside the post: its small copy in cbPic/{postId} {a, reg, tid, ch?, th, w, h, fw,
          fh, k, t} and the picture in cbPicD/{postId} {a, ch?, d} (both checked as the chat's are, rcPicIn), so a board's list of topics stays small;
-         readers fetch it on opening the topic. At most CB_PIC_DAY pictures a player a day (cbPicPace/{uid} {p}).
+         readers fetch it on opening the topic. At most CB_PIC_DAY pictures a player in any 24 hours (cbPicPace/{uid}
+         {p}); 6 until 2026-11-26, when the owner raised it to 12 for players posting their achievements.
    Deleting the post, its topic, the nation or the account deletes the picture too. */
-export const CB_ARMS = 4000, CB_PIC_DAY = 6;
+export const CB_ARMS = 4000, CB_PIC_DAY = 12;
 const picRef = (db, id) => db.doc('cbPic/' + id), picDRef = (db, id) => db.doc('cbPicD/' + id);
 function armsIn(d, x) {
   if (!/\[my arms\]/i.test(x) || !d.am || typeof d.am !== 'object' || Array.isArray(d.am)) return {};
