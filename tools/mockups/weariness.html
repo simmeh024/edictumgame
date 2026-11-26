@@ -1,0 +1,371 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>War weariness, mock-up</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,400;6..96,600;6..96,700&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+/* tokens: copied from game/edictum.html so the mock-up is the game’s own colour */
+:root{
+  --paper:#e8eeeb; --sheet:#f8fbf9; --sheet-2:#eef3f0; --ink:#12292a; --ink-2:#45605c; --ink-3:#566b67;
+  --rule:#cdd9d4; --rule-2:#b0c2bc; --track:#dbe5e1;
+  --accent:#1d6a5c; --accent-hi:#14544a; --accent-ink:#f3fbf8; --accent-soft:#d3e7df;
+  --stamp:#6a3db3; --stamp-ink:#ffffff; --stamp-soft:#ebe3f7;
+  --up:#1b7843; --down:#b3302a; --online:#22a35a; --down-soft:#f7e3e0;
+  --shadow:0 1px 0 rgba(18,41,42,.04), 0 10px 26px -14px rgba(18,41,42,.28);
+  --f-display:"Bodoni Moda","Bodoni 72","Didot",Georgia,serif;
+  --f-body:"Public Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+:root[data-theme="dark"]{
+  --paper:#0c1615; --sheet:#12201f; --sheet-2:#172927; --ink:#e1ebe7; --ink-2:#a0b6b1; --ink-3:#879d95;
+  --rule:#233634; --rule-2:#314b47; --track:#1c2f2c;
+  --accent:#5ec2a9; --accent-hi:#80d7c1; --accent-ink:#06231d; --accent-soft:#17362f;
+  --stamp:#b59cf5; --stamp-ink:#1b1030; --stamp-soft:#261e3b;
+  --up:#63d395; --down:#ff8577; --online:#3fcf7a; --down-soft:#3b201d;
+  --shadow:0 1px 0 rgba(0,0,0,.25), 0 12px 30px -14px rgba(0,0,0,.7);
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font:400 15px/1.6 var(--f-body);-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit}
+h1,h2,h3{text-wrap:balance}
+p{margin:0}
+
+/* ── type and components, copied from the game ── */
+.eyebrow,.lbl-h{font-family:var(--f-mono);font-weight:500;text-transform:uppercase;letter-spacing:.13em;color:var(--ink-3)}
+.eyebrow{font-size:11.5px}
+.lbl-h{font-size:11.5px;margin:0 0 12px}
+.h2{font-family:var(--f-display);font-weight:600;font-size:28px;line-height:1.12;margin:0 0 14px;font-variation-settings:"opsz" 48}
+.muted{color:var(--ink-2)}
+.num{font-variant-numeric:tabular-nums}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;font-weight:600;font-size:14px;line-height:1.2;padding:11px 16px;border-radius:3px;border:1px solid var(--accent);background:var(--accent);color:var(--accent-ink);cursor:pointer}
+.btn.ghost{background:transparent;color:var(--ink);border-color:var(--rule-2)}
+.btn.danger{background:transparent;color:var(--down);border-color:var(--down)}
+.btn.sm{padding:7px 11px;font-size:13px}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.linkish{border:0;background:none;padding:0;font-weight:600;color:var(--ink);cursor:pointer;text-decoration:underline;text-decoration-color:var(--rule-2);text-underline-offset:3px}
+.linkish.small{font-size:12.5px;font-weight:500;color:var(--ink-3)}
+.hint{font-size:13px;color:var(--ink-3)}
+.chip{display:inline-block;font:500 10.5px/1 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;padding:4px 7px;border:1px solid var(--rule-2);border-radius:3px;color:var(--ink-2);white-space:nowrap;vertical-align:middle}
+.chip.war{border-color:var(--down);color:var(--down)}
+.chip.ok{border-color:var(--accent);color:var(--accent)}
+.st-card{padding:16px 18px;background:var(--sheet);border:1px solid var(--rule);border-radius:4px;min-width:0;margin-bottom:22px}
+.st-h{font-size:15px;font-weight:650;margin:0 0 12px}
+.wo-strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,196px),1fr));gap:0;background:var(--sheet);border:1px solid var(--rule);border-radius:4px;overflow:hidden;margin-bottom:26px}
+.wo-cell{padding:14px 18px;border-left:1px solid var(--rule);min-width:0}
+.wo-cell:first-child{border-left:0}
+.wo-cell .eyebrow{display:block;margin-bottom:7px}
+.wo-v{font-family:var(--f-display);font-weight:650;font-size:25px;line-height:1.05;font-variation-settings:"opsz" 48}
+.wo-v.sm{font-size:19px}
+.wo-sub{font-size:12.5px;color:var(--ink-3);margin-top:4px}
+.pips{display:inline-flex;gap:4px;vertical-align:middle}
+.pip{display:inline-block;width:10px;height:10px;border-radius:50%;border:1.5px solid var(--ink-3)}
+.pip.on{background:var(--accent);border-color:var(--accent)}
+
+/* ── new to weariness ── */
+/* the strip cell: the number, the meter with its marks, and the rate it is moving at */
+.ww-cell .wo-v{display:block}
+.wo-cell.warn{background:var(--down-soft)}
+.wo-cell.warn .wo-sub{color:var(--down)}
+.wo-cell.calm .wo-sub b{color:var(--accent-hi)}
+/* the meter: a fill, a mark where the edict comes, a mark where the warning band starts */
+.ww-m{display:block;position:relative;height:9px;border-radius:5px;background:var(--track);margin:7px 0 0;overflow:hidden}
+.ww-m i{display:block;height:100%;border-radius:5px 0 0 5px;background:var(--down)}
+.ww-m.calm i{background:var(--accent)}
+.ww-m.sm{height:7px}
+.ww-k{position:absolute;top:0;bottom:0;width:2px;background:var(--sheet);opacity:.85}
+/* the big meter on the card, with its marks named underneath */
+.ww-big{margin:4px 0 0}
+.ww-big .ww-m{height:14px;border-radius:7px}
+.ww-sc{position:relative;height:17px;margin-top:5px;font:500 11px/1 var(--f-mono);color:var(--ink-3)}
+.ww-sc span{position:absolute;top:0;transform:translateX(-50%);white-space:nowrap}
+.ww-sc span:first-child{transform:none}
+.ww-sc span:last-child{transform:translateX(-100%)}
+/* the lines that say where it stands and what it is doing */
+.ww-say{margin:14px 0 0;font-size:14px;line-height:1.5}
+.ww-say b{font-variant-numeric:tabular-nums}
+.ww-warn{margin:14px 0 0;padding:11px 13px;border-radius:3px;background:var(--down-soft);border-left:3px solid var(--down);font-size:13.5px;line-height:1.5}
+.ww-warn b{font-weight:650}
+.ww-calm{margin:14px 0 0;padding:11px 13px;border-radius:3px;background:var(--accent-soft);border-left:3px solid var(--accent);font-size:13.5px;line-height:1.5;color:var(--accent-hi)}
+/* why it climbs: each war with the weight its aim carries, then what they come to together */
+.ww-why{list-style:none;margin:8px 0 0;padding:0;font-size:13.5px}
+.ww-why li{display:flex;align-items:baseline;gap:10px;padding:7px 0;border-top:1px solid var(--rule)}
+.ww-why li:first-child{border-top:0}
+.ww-why .n{flex:1;min-width:0}
+.ww-why .v{flex:none;font:600 13px/1 var(--f-mono);font-variant-numeric:tabular-nums;color:var(--ink-2)}
+.ww-why li.sum{border-top:1px solid var(--rule-2);font-weight:650}
+.ww-why li.sum .v{color:var(--ink)}
+/* what it costs today, as two figures rather than a sentence */
+.ww-cost{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px 14px;margin:8px 0 0;padding:10px 12px;background:var(--sheet-2);border-radius:3px}
+.ww-cost dt{font-size:11.5px;color:var(--ink-2)}
+.ww-cost dd{margin:0;font-weight:600;font-size:14px;font-variant-numeric:tabular-nums;color:var(--down)}
+/* what would bring it down */
+.ww-lv{list-style:none;margin:8px 0 0;padding:0;font-size:13.5px}
+.ww-lv li{display:flex;align-items:baseline;gap:10px;padding:7px 0;border-top:1px solid var(--rule)}
+.ww-lv li:first-child{border-top:0}
+.ww-lv .n{flex:1;min-width:0}
+.ww-lv .v{flex:none;font:600 13px/1 var(--f-mono);color:var(--accent-hi);font-variant-numeric:tabular-nums}
+.ww-sec{margin-top:18px}
+.ww-sec:first-of-type{margin-top:14px}
+
+/* the mock-up sheet itself */
+.sheet-wrap{max-width:1180px;margin:0 auto;padding:30px 28px 10px}
+.sheet-wrap h1{font-family:var(--f-display);font-weight:650;font-size:clamp(30px,4vw,40px);line-height:1.05;margin:6px 0 10px;font-variation-settings:"opsz" 96}
+.sheet-wrap>p{color:var(--ink-2);max-width:68ch}
+.panes{max-width:1180px;margin:0 auto;padding:16px 28px 10px}
+.pane{margin-bottom:40px}
+.pane-k{margin:0 0 14px;padding-bottom:8px;border-bottom:2px solid var(--rule-2)}
+.cols{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:38px;align-items:start}
+@media (max-width:900px){.cols{grid-template-columns:minmax(0,1fr);gap:24px}.sheet-wrap,.panes{padding-left:16px;padding-right:16px}}
+.card-col{max-width:430px}
+.sheet-note{max-width:1180px;margin:0 auto;padding:6px 28px 34px;color:var(--ink-3);font-size:13px}
+</style>
+</head>
+<body>
+
+<div class="sheet-wrap">
+  <p class="eyebrow">Ministry of war · mock-up</p>
+  <h1>War weariness</h1>
+  <p>Today the war office gives weariness one cell: a number out of 100, a bar, and the words “at 100 the government sues for peace”. The model behind it says far more. Ideas 1, 2, 3, 4, 6, 9 and 11: the rate it climbs at and the day it reaches 100, what makes it climb, what it is costing right now, a warning before the cliff, what would bring it down, marks on the meter, and the recovery after the war. The strip keeps the glance; a card in the right-hand column carries the rest.</p>
+</div>
+
+<div class="panes">
+
+  <!-- ─────────── 1. climbing ─────────── -->
+  <div class="pane">
+    <p class="pane-k"><span class="eyebrow">Two wars on · climbing</span></p>
+
+    <div class="wo-strip">
+      <div class="wo-cell">
+        <span class="eyebrow">Army</span>
+        <span class="wo-v num">42</span>
+        <p class="wo-sub">brigades · 18% of the budget</p>
+      </div>
+      <div class="wo-cell">
+        <span class="eyebrow">Readiness</span>
+        <span class="pips" role="img" aria-label="3 of 5 ready"><i class="pip on"></i><i class="pip on"></i><i class="pip on"></i><i class="pip"></i><i class="pip"></i></span>
+        <p class="wo-sub">The next point arrives in <b class="num">2h 14m</b></p>
+      </div>
+      <!-- the cell as it is today, for comparison -->
+      <div class="wo-cell">
+        <span class="eyebrow">War weariness · today</span>
+        <span class="wo-v sm num">38 <span class="ww-m sm" style="width:80px;display:inline-block;vertical-align:middle;margin:0"><i style="width:38%"></i></span></span>
+        <p class="wo-sub">At 100 the government sues for peace</p>
+      </div>
+      <!-- 1 and 9: the same cell with the rate, the day, and marks on the meter -->
+      <div class="wo-cell ww-cell">
+        <span class="eyebrow">War weariness · proposed</span>
+        <span class="wo-v num">38</span>
+        <span class="ww-m" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="38" aria-label="War weariness, 38 of 100"><i style="width:38%"></i><span class="ww-k" style="left:40%"></span><span class="ww-k" style="left:75%"></span></span>
+        <p class="wo-sub"><b class="num">+13.2</b> a day · 100 on <b>1 Dec</b></p>
+      </div>
+    </div>
+
+    <div class="cols">
+      <div>
+        <p class="hint">The strip answers the glance. The card below sits in the right-hand column of the war office, under the cities and above the war reports.</p>
+      </div>
+      <div class="card-col">
+        <section class="st-card">
+          <div class="row" style="justify-content:space-between;margin-bottom:10px">
+            <h3 class="st-h" style="margin:0">War weariness</h3>
+            <span class="chip war">Climbing</span>
+          </div>
+
+          <div class="ww-big">
+            <div class="ww-m" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="38" aria-label="War weariness, 38 of 100"><i style="width:38%"></i><span class="ww-k" style="left:40%"></span><span class="ww-k" style="left:75%"></span></div>
+            <!-- 9: the marks named, so the meter can be read -->
+            <div class="ww-sc"><span>0</span><span style="left:40%">40 the mothers march</span><span style="left:75%">75</span><span style="left:100%">100 peace</span></div>
+          </div>
+
+          <p class="ww-say">At <b>38 of 100</b>, climbing <b>13.2</b> a day. It reaches 100 on <b>1 December</b>, in <b>4 days 17 hours</b>.</p>
+
+          <!-- 2: where the rate comes from, which nothing in the game says -->
+          <div class="ww-sec">
+            <p class="eyebrow">Why it climbs</p>
+            <ul class="ww-why">
+              <li><span class="n">Conquest with Khorasia</span><span class="v">1.5</span></li>
+              <li><span class="n">Border war with Tessandria</span><span class="v">1.0</span></li>
+              <li class="sum"><span class="n">Two wars at once</span><span class="v">×3.3</span></li>
+              <li><span class="n">4 a day for a single war, so</span><span class="v">13.2</span></li>
+              <li><span class="n">Each hex they take adds a point. Three lost so far</span><span class="v">+3</span></li>
+            </ul>
+            <p class="hint" style="margin-top:7px">A raid counts half a border war, a conquest half as much again, and wars together count more than they do apart.</p>
+          </div>
+
+          <!-- 3: the cost nobody is shown -->
+          <div class="ww-sec">
+            <p class="eyebrow">What it is costing today</p>
+            <dl class="ww-cost">
+              <div><dt>Mood, every city</dt><dd>−8</dd></div>
+              <div><dt>People, a day</dt><dd>−0.38%</dd></div>
+            </dl>
+            <p class="hint" style="margin-top:7px">Weariness takes a fifth of itself off the mood of every city you hold. Under 15 a city stops work.</p>
+          </div>
+
+          <!-- 6: the levers, with what each one is worth -->
+          <div class="ww-sec">
+            <p class="eyebrow">What would bring it down</p>
+            <ul class="ww-lv">
+              <li><span class="n">Peace with Tessandria</span><span class="v">13.2 → 6.8 a day</span></li>
+              <li><span class="n">Peace with both</span><span class="v">−6 a day</span></li>
+              <li><span class="n">A memorial, if the edict comes</span><span class="v">−15 at once</span></li>
+              <li><span class="n">A government of national unity</span><span class="v">−10 at once</span></li>
+            </ul>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─────────── 2. the warning band ─────────── -->
+  <div class="pane">
+    <p class="pane-k"><span class="eyebrow">Three wars on · past 75</span></p>
+
+    <div class="wo-strip">
+      <div class="wo-cell">
+        <span class="eyebrow">Army</span>
+        <span class="wo-v num">38</span>
+        <p class="wo-sub">brigades · 22% of the budget</p>
+      </div>
+      <div class="wo-cell">
+        <span class="eyebrow">Readiness</span>
+        <span class="pips" role="img" aria-label="1 of 5 ready"><i class="pip on"></i><i class="pip"></i><i class="pip"></i><i class="pip"></i><i class="pip"></i></span>
+        <p class="wo-sub">The next point arrives in <b class="num">3h 40m</b></p>
+      </div>
+      <!-- 4: the cell turns, and says when -->
+      <div class="wo-cell ww-cell warn">
+        <span class="eyebrow">War weariness</span>
+        <span class="wo-v num">82</span>
+        <span class="ww-m" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="82" aria-label="War weariness, 82 of 100"><i style="width:82%"></i><span class="ww-k" style="left:40%"></span><span class="ww-k" style="left:75%"></span></span>
+        <p class="wo-sub"><b class="num">+24.3</b> a day · peace forced in <b>17 hours</b></p>
+      </div>
+      <div class="wo-cell">
+        <span class="eyebrow">War upkeep</span>
+        <span class="wo-v sm num">31.4 food</span>
+        <p class="wo-sub">14.8 iron, 11.2 oil a day · 2 garrisons</p>
+      </div>
+    </div>
+
+    <div class="cols">
+      <div>
+        <p class="hint">Past 75 the cell turns and counts down. The card says what the forced peace will do, while there is still time to make a better one.</p>
+      </div>
+      <div class="card-col">
+        <section class="st-card" style="border-color:var(--down)">
+          <div class="row" style="justify-content:space-between;margin-bottom:10px">
+            <h3 class="st-h" style="margin:0">War weariness</h3>
+            <span class="chip war">Near breaking</span>
+          </div>
+
+          <div class="ww-big">
+            <div class="ww-m" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="82" aria-label="War weariness, 82 of 100"><i style="width:82%"></i><span class="ww-k" style="left:40%"></span><span class="ww-k" style="left:75%"></span></div>
+            <div class="ww-sc"><span>0</span><span style="left:40%">40 the mothers march</span><span style="left:75%">75</span><span style="left:100%">100 peace</span></div>
+          </div>
+
+          <p class="ww-say">At <b>82 of 100</b>, climbing <b>24.3</b> a day. It reaches 100 in <b>17 hours</b>.</p>
+
+          <!-- 4: what the cliff actually does, before it does it -->
+          <div class="ww-warn">
+            <b>At 100 the government sues for peace itself.</b> It offers all three enemies peace on the lines you hold at that moment, and you keep nothing more. Peace you make yourself can take their land or trade a withdrawal for goodwill across the region.
+          </div>
+
+          <div class="ww-sec">
+            <p class="eyebrow">Why it climbs</p>
+            <ul class="ww-why">
+              <li><span class="n">Conquest with Khorasia</span><span class="v">1.5</span></li>
+              <li><span class="n">Conquest with Dunmarch</span><span class="v">1.5</span></li>
+              <li><span class="n">Border war with Tessandria</span><span class="v">1.0</span></li>
+              <li class="sum"><span class="n">Three wars at once</span><span class="v">×6.1</span></li>
+              <li><span class="n">4 a day for a single war, so</span><span class="v">24.3</span></li>
+              <li><span class="n">Each hex they take adds a point. Nine lost so far</span><span class="v">+9</span></li>
+            </ul>
+          </div>
+
+          <div class="ww-sec">
+            <p class="eyebrow">What it is costing today</p>
+            <dl class="ww-cost">
+              <div><dt>Mood, every city</dt><dd>−16</dd></div>
+              <div><dt>People, a day</dt><dd>−0.82%</dd></div>
+            </dl>
+          </div>
+
+          <div class="ww-sec">
+            <p class="eyebrow">What would bring it down</p>
+            <ul class="ww-lv">
+              <li><span class="n">Peace with Tessandria</span><span class="v">24.3 → 13.2 a day</span></li>
+              <li><span class="n">Peace with all three</span><span class="v">−6 a day</span></li>
+              <li><span class="n">A memorial, if the edict comes</span><span class="v">−15 at once</span></li>
+            </ul>
+            <div class="row" style="margin-top:12px"><button class="btn danger sm">Offer peace to all three</button></div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─────────── 3. recovering ─────────── -->
+  <div class="pane">
+    <p class="pane-k"><span class="eyebrow">At peace · recovering</span></p>
+
+    <div class="wo-strip">
+      <div class="wo-cell">
+        <span class="eyebrow">Army</span>
+        <span class="wo-v num">40</span>
+        <p class="wo-sub">brigades · 14% of the budget</p>
+      </div>
+      <div class="wo-cell">
+        <span class="eyebrow">Readiness</span>
+        <span class="pips" role="img" aria-label="5 of 5 ready"><i class="pip on"></i><i class="pip on"></i><i class="pip on"></i><i class="pip on"></i><i class="pip on"></i></span>
+        <p class="wo-sub">Every point is ready</p>
+      </div>
+      <!-- 11: the recovery, which the game never shows -->
+      <div class="wo-cell ww-cell calm">
+        <span class="eyebrow">War weariness</span>
+        <span class="wo-v num">44</span>
+        <span class="ww-m calm" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="44" aria-label="War weariness, 44 of 100"><i style="width:44%"></i><span class="ww-k" style="left:40%"></span><span class="ww-k" style="left:75%"></span></span>
+        <p class="wo-sub"><b class="num">−6</b> a day · clear on <b>4 Dec</b></p>
+      </div>
+    </div>
+
+    <div class="cols">
+      <div>
+        <p class="hint">At peace the card stops warning and starts counting down to nothing, which is the only time the number is good news.</p>
+      </div>
+      <div class="card-col">
+        <section class="st-card">
+          <div class="row" style="justify-content:space-between;margin-bottom:10px">
+            <h3 class="st-h" style="margin:0">War weariness</h3>
+            <span class="chip ok">Falling</span>
+          </div>
+
+          <div class="ww-big">
+            <div class="ww-m calm" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="44" aria-label="War weariness, 44 of 100"><i style="width:44%"></i><span class="ww-k" style="left:40%"></span><span class="ww-k" style="left:75%"></span></div>
+            <div class="ww-sc"><span>0</span><span style="left:40%">40 the mothers march</span><span style="left:75%">75</span><span style="left:100%">100 peace</span></div>
+          </div>
+
+          <p class="ww-say">At <b>44 of 100</b>, falling <b>6</b> a day now the guns are quiet. Nothing is left of it by <b>4 December</b>, in <b>7 days</b>.</p>
+
+          <div class="ww-calm">The war with Khorasia ended on 24 November. Weariness falls while you stay at peace, and a new war starts it climbing from where it stands, not from nothing.</div>
+
+          <div class="ww-sec">
+            <p class="eyebrow">What it is still costing</p>
+            <dl class="ww-cost">
+              <div><dt>Mood, every city</dt><dd>−9</dd></div>
+              <div><dt>People, a day</dt><dd>−0.44%</dd></div>
+            </dl>
+            <p class="hint" style="margin-top:7px">Both fall with the number. Two of your cities are still restless.</p>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p class="sheet-note">Mock-up, 26 November 2026. Nothing here is wired up. The figures are worked from the game’s own constants: 4 a day for a single war, the weights 0.5, 1 and 1.5 for a raid, a border war and a conquest, wars together raised to the power 1.3, 6 a day back at peace, a point for every hex lost, and a fifth of the number off the mood of every city.</p>
+</body>
+</html>
