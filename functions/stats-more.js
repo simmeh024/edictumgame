@@ -1,6 +1,7 @@
 // More statistics for the admin portal's Statistics page (functions/admin.js, ops 'stats' and 'statsExport'):
 //   content use   – edicts enacted now (nation.policies), achievement rarity (nation.ach), the daily desk by task
-//                   kind (nation.dd), how far the newer parts of the game reach (museum, press, Mission Control …)
+//                   kind (nation.dd), how far the newer parts of the game reach (museum, press, Mission Control …),
+//                   deep-sea finds: hauls by the Harbour that sent the ship and by depth (nation.tly ds…, nation.fl)
 //   regions/social – fill and growth per region, alliance sizes, players with no contact at all, board posts by day
 //   operations    – save reports (saveHealth, kept 7 days): tabs, errors, conflicts, sessions per player, pages
 //                   visited; bug reports and support tickets: volume, backlog, time to the team's first answer
@@ -27,7 +28,16 @@ export const REACH = {
 };
 const DESK_RX = /^\d{4}-\d{2}-\d{2}$/;
 
-/* one nation's extra numbers: the edicts in force, achievements earned, its latest daily desk */
+/* the deep sea (2026-11-26): the game counts every haul a salvage ship brings home in the tally, by the level of the
+   Harbour it sailed from (ds:h0 … ds:h5 for its upgrade blocks, ds:h6 a Grand Port, ds:h7 a Salvage Port) and the depth
+   (ds:b0 the shelf, ds:b1 deep water, ds:b2 the abyss); its voyages of the last week are in n.fl with a harbour (hb) */
+export const DS_LEVELS = 8;
+function rowDeep(r) {
+  const T = obj(r.tly) || {}, n = num(T.ds), v = arr(r.fl).filter(e => e && Number.isInteger(e.hb)).length;
+  return { ds: n > 0 ? { n, h: Array.from({ length: DS_LEVELS }, (_, i) => num(T['ds:h' + i])), b: [0, 1, 2].map(i => num(T['ds:b' + i])), leg: num(T['ds:leg']), al: num(T['ds:abyss:leg']) } : null, dsv: v };
+}
+
+/* one nation's extra numbers: the edicts in force, achievements earned, its latest daily desk, its deep-sea hauls */
 export function rowMore(r, now) {
   const f2 = [];
   for (const [k, ok] of Object.entries(REACH)) { try { if (ok(r)) f2.push(k); } catch { /* odd record */ } }
@@ -43,7 +53,7 @@ export function rowMore(r, now) {
   return {
     pol: Object.keys(obj(r.policies) || {}).slice(0, 400).map(k => k.slice(0, 40)),
     ach: Object.keys(obj(r.ach) || {}).slice(0, 600).map(k => k.slice(0, 40)),
-    dd, f2,
+    dd, f2, ...rowDeep(r),
   };
 }
 
@@ -94,6 +104,12 @@ export function moreSummary(g, m, reg = '', now = g.at) {
     for (const [k, done] of x.dd || []) { const e = desk[k] || (desk[k] = { shown: 0, done: 0 }); e.shown++; e.done += done; }
   }
   const deskDays = act30.filter(x => x.dd && x.dd.length), deskClear = deskDays.filter(x => x.dd.filter(t => !t[0].startsWith('rare:')).every(t => t[1])).length;
+  /* deep-sea finds: every haul so far, by Harbour level and depth; and who sent a ship in the last week */
+  const ds = { nations: 0, hauls: 0, h: Array(DS_LEVELS).fill(0), b: [0, 0, 0], leg: 0, al: 0, sailing: 0 };
+  for (const x of R) {
+    if (x.ds) { ds.nations++; ds.hauls += x.ds.n; x.ds.h.forEach((v, i) => { if (i < DS_LEVELS) ds.h[i] += v; }); x.ds.b.forEach((v, i) => { if (i < 3) ds.b[i] += v; }); ds.leg += x.ds.leg; ds.al += x.ds.al; }
+    if (x.dsv > 0 && x.t > since(30)) ds.sailing++;
+  }
 
   /* regions: nations, the active and the founded per week for the last eight weeks (the page forecasts the fill) */
   const today = Date.parse(dayKey(now)), monday = today - ((new Date(today).getUTCDay() + 6) % 7) * DAY;
@@ -151,7 +167,7 @@ export function moreSummary(g, m, reg = '', now = g.at) {
   return {
     content: {
       edicts, ach, nations: R.length, active30: act30.length, reach,
-      desk, deskNations: deskDays.length, deskClear,
+      desk, deskNations: deskDays.length, deskClear, ds,
     },
     regions: regs,
     social: { alliances: A.length, sizes, types, allied, loners, writers, traders, active30: act30.length,
