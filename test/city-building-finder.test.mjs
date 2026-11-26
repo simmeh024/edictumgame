@@ -11,7 +11,7 @@ const source=readFileSync(new URL('../game/edictum.html',import.meta.url),'utf8'
 const cut=(from,to)=>{const a=source.indexOf(from),b=source.indexOf(to,a);assert(a>0&&b>a,`the game still has ${from}`);return source.slice(a,b);};
 const DAY=864e5,NOW=1_800_000_000_000;
 /* what the block declares, lifted onto the context: a vm script's const and function stay lexical */
-const EXPORTS=['CXF_SHOW','CXF_QLEN','CXF_FILTERS','cxfFold','cxfTier','cxfCol','cxfLv','cxfLvWord','cxfPar','cxfCould','cxfRows','cxfName','cxfHay','cxfHit','cxfKeep','cxfSort','cxfFind'];
+const EXPORTS=['CXF_SHOW','CXF_QLEN','CXF_FILTERS','cxfFold','cxfTier','cxfCol','cxfLv','cxfLvWord','cxfPar','cxfCould','cxfRows','cxfName','cxfHay','cxfHit','cxfUpOn','cxfKeep','cxfSort','cxfFind'];
 /* arrays made inside the context belong to its own realm, so they are copied before being compared */
 const arr=x=>Array.from(x);
 
@@ -265,7 +265,8 @@ test('a retooled building goes by its line’s name, and can be found by its tie
     'still found by the plain name, and the retooled one reads last under its own');
 });
 
-test('finding changes nothing: no record is touched and no material is spent', () => {
+/* the Upgrade button on a row calls the city's own cxUpgrade; searching and listing stay a read */
+test('searching changes nothing: listing touches no record and spends nothing', () => {
   const G=load();
   const all=twelve();
   const before=JSON.stringify(all.map(ct=>({done:ct.done,prog:ct.prog,ug:ct.ug,tr:ct.tr,rec:ct.rec})));
@@ -275,8 +276,43 @@ test('finding changes nothing: no record is touched and no material is spent', (
   assert.equal(JSON.stringify(all.map(ct=>({done:ct.done,prog:ct.prog,ug:ct.ug,tr:ct.tr,rec:ct.rec}))),before);
   assert.equal(JSON.stringify(G.S.nation),nation);
   assert.equal(typeof G.cxfFind,'function');
-  for(const k of ['cxfRows','cxfPar','cxfFind','cxfKeep','cxfHay'])
-    assert(!/\b(commit|cxPay|clone)\s*\(/.test(String(G[k])),`${k} does not write`);
+  for(const k of ['cxfRows','cxfPar','cxfFind','cxfKeep','cxfHay','cxfUpOn','cxfSort','cxfCould'])
+    assert(!/\b(commit|cxPay|clone|cxUpgrade)\s*\(/.test(String(G[k])),`${k} does not write`);
+});
+
+test('a row carries its own Upgrade button only where that upgrade could be started', () => {
+  const G=load();
+  const ct=city('Dunmoss',{done:['farm','cathedral'],ug:{farm:1}});
+  const rows=G.cxfRows({},[ct,city('B',{done:['farm','cathedral'],ug:{farm:4}}),city('C',{done:['farm','cathedral'],ug:{farm:4}})],NOW);
+  const of=(nm,k)=>rows.find(r=>r.ct.nm===nm&&r.k===k);
+  assert.equal(G.cxfUpOn(of('Dunmoss','farm')),true,'yours, standing, upgradable, blocks left');
+  assert.equal(G.cxfUpOn(of('Dunmoss','cathedral')),false,'a wonder takes no upgrades');
+  /* every other state it must keep its hands off */
+  const maxed=G.cxfRows({},[city('A',{done:['farm'],ug:{farm:5}}),city('B',{done:['farm'],ug:{farm:5}})],NOW);
+  assert.equal(G.cxfUpOn(maxed[0]),false,'all five done');
+  const busy=city('Busy',{done:['farm'],ug:{farm:2}});
+  busy.upNow={k:'farm',s:NOW-1,d:NOW+1,c:'blue',w:'blue upgrade'};
+  assert.equal(G.cxfUpOn(G.cxfRows({},[busy,city('B',{done:['farm'],ug:{farm:2}})],NOW)[0]),false,'the builders are on it already');
+  const going=city('Going',{prog:[{k:'farm',s:NOW-DAY,d:NOW+DAY}]});
+  assert.equal(G.cxfUpOn(G.cxfRows({},[going],NOW)[0]),false,'it is still going up');
+  const taken=G.cxfRows({},[city('A',{done:['farm'],ug:{farm:4}}),city('B',{done:['farm'],ug:{farm:4}}),city('Brollingham',{fid:'them',done:['farm'],ug:{farm:1}}),city('Held',{occ:true,done:['farm'],ug:{farm:1}})],NOW);
+  for(const nm of ['Brollingham','Held'])assert.equal(G.cxfUpOn(taken.find(r=>r.ct.nm===nm)),false,`${nm} is not yours to upgrade`);
+  /* and a gap has nothing standing to upgrade */
+  assert.equal(taken.filter(r=>r.gap).every(r=>!G.cxfUpOn(r)),true);
+});
+
+test('“can upgrade now” is that same rule plus the game’s own price check', () => {
+  const asked=[];
+  const G=load({cxUpProblem:(n,ct,k)=>{asked.push(ct.nm+':'+k);return ct.nm==='Dunmoss'?'You need 4 timber more.':null;}});
+  const all=twelve();
+  const rows=G.cxfRows({},all,NOW);
+  const ready=G.cxfFind({},all,NOW,'','ready');
+  /* the chip keeps exactly the rows that carry a button and have no problem */
+  const want=rows.filter(r=>G.cxfUpOn(r)&&r.ct.nm!=='Dunmoss');
+  assert.equal(ready.length,want.length);
+  assert.equal(ready.some(r=>r.ct.nm==='Dunmoss'),false,'short of materials: the button is there but disabled, and the chip drops it');
+  assert.equal(asked.every(x=>rows.some(r=>G.cxfUpOn(r)&&r.ct.nm+':'+r.k===x)),true,
+    'the game’s rule is asked only about rows that could carry a button');
 });
 
 test('the search is capped, and the chips are the ones the page draws', () => {

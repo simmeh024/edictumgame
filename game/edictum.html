@@ -11038,9 +11038,12 @@ span.rs-card{cursor:default}
 .cxf-b{color:var(--ink-2)}
 .cxf-s{display:block;margin-top:2px;font-size:12.5px;line-height:1.5;color:var(--ink-2)}
 .cxf-r.behind .cxf-s{color:var(--down)}
-.cxf-r>.btn{flex:none;align-self:center}
+.cxf-a{flex:none;align-self:center;display:flex;align-items:center;gap:6px}
+.cxf-up{white-space:nowrap}
+.cxf-up .ugb-dot{margin-right:5px;vertical-align:0}
+.cxf-up[disabled]{opacity:.5}
 .cxf-more{margin:8px 0 0}
-@media (max-width:560px){.cxf-r{flex-wrap:wrap}.cxf-r>.btn{align-self:flex-start;margin-left:34px}}
+@media (max-width:560px){.cxf-r{flex-wrap:wrap}.cxf-a{align-self:flex-start;margin-left:34px}}
 </style>
 
 <div id="app"></div>
@@ -105351,10 +105354,12 @@ if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE.rse={RSV_IS
    A nation can hold a couple of dozen cities, auto-named and mostly alike, and nothing on the page
    answered the only question a player asks of them all at once: which of my twelve farms is still
    grey. The Cities page gets a search over every building in every city the player holds: a field,
-   a row of chips, and a flat list of matches, each opening the building where it stands. It reads
-   the records and jumps. It builds nothing, upgrades nothing and spends nothing, so no rule here
-   can be bent by using it. Its one judgement is what counts as behind: the level most of your
-   cities keep a kind of building at, the higher one where two levels tie, and anything under that.
+   a row of chips, and a flat list of matches, each opening the building where it stands and, where
+   one can be started, offering its next upgrade on the spot. That button calls the city's own
+   cxUpgrade, so the rule, the price and the toast are the city's; nothing here is a second way to
+   build, and no rule can be bent by using it. Its one judgement is what counts as behind: the level
+   most of your cities keep a kind of building at, the higher one where two levels tie, and anything
+   under that.
    ── */
 /* cxf:logic */
 const CXF_SHOW=40,CXF_QLEN=48;
@@ -105447,6 +105452,10 @@ function cxfHay(r){
   return cxfFold(w.join(' '));
 }
 const cxfHit=(hay,terms)=>terms.every(t=>hay.includes(t));
+/* whether a row carries an Upgrade button of its own: the city is yours and you are running it, the building
+   stands finished and takes upgrades, it has blocks left, and nothing is being fitted to it already. Whether the
+   upgrade can start this minute is cxUpProblem's to say, and the button is disabled with its reason. */
+const cxfUpOn=r=>!!r.ok&&!r.gap&&!r.wip&&!r.up&&cxUpgradable(r.k)&&r.col<CX_UG_MAX;
 /* the chips: a colour keeps the buildings standing at it, the others keep a state */
 function cxfKeep(r,f,n,st,now){
   if(!f)return true;
@@ -105454,7 +105463,7 @@ function cxfKeep(r,f,n,st,now){
   if(f==='none')return r.gap;
   if(f==='wip')return !!r.wip||!!r.up;
   if(f==='max')return r.max;
-  if(f==='ready')return !r.gap&&!r.wip&&!r.up&&r.ok&&cxUpgradable(r.k)&&r.col<CX_UG_MAX&&!cxUpProblem(n,r.ct,r.k,st,now);
+  if(f==='ready')return cxfUpOn(r)&&!cxUpProblem(n,r.ct,r.k,st,now);
   const i=CX_UG.findIndex(u=>u.c===f);
   return i>=0&&!r.gap&&!r.wip&&r.col===i+1;
 }
@@ -105472,7 +105481,7 @@ function cxfFind(T,all,now,q,f){
 /* cxf:ui */
 /* one match: where it stands, how far it has come, and what it is waiting for */
 function cxfRowHTML(r,n,st,now){
-  const B=BUILDINGS[r.k],note=[];let bar='';
+  const B=BUILDINGS[r.k],note=[];let bar='',up='';
   if(r.gap){
     note.push(`Not built here. ${r.par.n} of your cities have one, most at ${cxfLvWord(r.par.lv)}`);
     const p=buildProblem(n,r.ct,r.k,st);if(p&&p.t&&p.k!=='have')note.push(esc(p.t));
@@ -105486,12 +105495,18 @@ function cxfRowHTML(r,n,st,now){
     else if(r.col>=CX_UG_MAX)note.push(`All five upgrades done${r.tier>1?' at tier '+TIER_ROMAN[r.tier]:''}`);
     else note.push(`${r.col} of ${CX_UG_MAX} upgrades`);
     if(r.d>0)note.push(`${r.d} ${r.d===1?'block':'blocks'} behind the ${cxfLvWord(r.par.lv)} your other cities keep`);
-    /* and whether it can be put right from here, which is the whole point of having found it */
-    if(r.ok&&!r.up&&cxUpgradable(r.k)&&r.col<CX_UG_MAX){const p=cxUpProblem(n,r.ct,r.k,st,now);note.push(p?esc(p):`Ready for its ${CX_UG[r.col].c} upgrade`);}
+    /* and the button that puts it right from here, which is the whole point of having found it: the same
+       cxUpgrade the city's own Buildings tab calls, so the price, the rule and the toast are one and the same */
+    if(cxfUpOn(r)){
+      const p=cxUpProblem(n,r.ct,r.k,st,now),U=CX_UG[r.col],q=cxUpQuote(n,r.ct,r.k,r.col+1,r.tier);
+      note.push(p?esc(p):`Ready for its ${U.c} upgrade`);
+      const say=p||`Upgrade the ${cxfName(r)} in ${r.ct.nm} to ${U.c}, ${r.col+1} of ${CX_UG_MAX}: ${costText(q.cost)}, ${q.hours} h`;
+      up=`<button type="button" class="btn small-btn cxf-up" data-act="cxf-up" data-id="${esc(r.ct.id)}" data-k="${esc(r.k)}"${p?' disabled':''} title="${esc(say)}" aria-label="${esc(say)}"><i class="ugb-dot ugb-${U.c}" aria-hidden="true"></i>Upgrade</button>`;
+    }
   }
   if(!r.ok)note.unshift('Occupied');
   else if(r.ct.fid!==myId())note.unshift('Captured');
-  return `<li class="cxf-r${r.d>0?' behind':''}">${bldIco(r.k,'b-ic-xs')}<span class="cxf-m"><span class="cxf-t"><b>${esc(r.ct.nm)}</b>${r.ct.cap?' <span class="chip">Capital</span>':''} <span class="cxf-b">${esc(cxfName(r))}</span>${bar}</span><span class="cxf-s">${note.join(' · ')}</span></span><button type="button" class="btn ghost small-btn" data-act="cxf-go" data-id="${esc(r.ct.id)}" data-k="${esc(r.k)}"${r.gap?' data-m="1"':''}>${r.gap?'Plans':'Open'}</button></li>`;
+  return `<li class="cxf-r${r.d>0?' behind':''}">${bldIco(r.k,'b-ic-xs')}<span class="cxf-m"><span class="cxf-t"><b>${esc(r.ct.nm)}</b>${r.ct.cap?' <span class="chip">Capital</span>':''} <span class="cxf-b">${esc(cxfName(r))}</span>${bar}</span><span class="cxf-s">${note.join(' · ')}</span></span><span class="cxf-a">${up}<button type="button" class="btn ghost small-btn" data-act="cxf-go" data-id="${esc(r.ct.id)}" data-k="${esc(r.k)}"${r.gap?' data-m="1"':''}>${r.gap?'Plans':'Open'}</button></span></li>`;
 }
 /* the list under the field, or, with nothing asked for yet, a word on what is behind */
 function cxfOut(T,all,now){
@@ -105542,10 +105557,12 @@ document.addEventListener('keydown',e=>{const t=e.target;if(!t||t.id!=='cxf-q')r
   if(e.key==='Escape'&&t.value){e.preventDefault();S.cxQ='';t.value='';cxfPaint();}
   else if(e.key==='Enter')e.preventDefault();});
 document.addEventListener('click',e=>{
-  const el=e.target.closest&&e.target.closest('[data-act="cxf-f"],[data-act="cxf-go"],[data-act="cxf-clear"]');
+  const el=e.target.closest&&e.target.closest('[data-act="cxf-f"],[data-act="cxf-go"],[data-act="cxf-up"],[data-act="cxf-clear"]');
   if(!el)return;
   const a=el.dataset.act;
   if(a==='cxf-go'){cxfGo(el.dataset.id,el.dataset.k,el.dataset.m==='1');return;}
+  /* the city's own rule, price and toast: this only saves the trip to the city to press the same button */
+  if(a==='cxf-up'){cxUpgrade(el.dataset.id,el.dataset.k);return;}
   if(a==='cxf-clear'){S.cxQ='';S.cxF='';const i=document.getElementById('cxf-q');if(i)i.value='';cxfPaint();if(i)try{i.focus({preventScroll:true});}catch(err){}return;}
   const k=el.dataset.k;S.cxF=S.cxF===k?'':k;cxfPaint();
   requestAnimationFrame(()=>{const b=document.querySelector(`[data-act="cxf-f"][data-k="${k}"]`);if(b)try{b.focus({preventScroll:true});}catch(err){}});
@@ -105557,13 +105574,13 @@ helpPage=(f=>function(n,body,secs){
   try{
     if(body&&typeof body.cities==='string'&&!/cxf-help/.test(body.cities))
       body.cities=body.cities.replace(/<p class="help-go">/,
-        `<p class="cxf-help"><b>Finding one building among many.</b> Once you hold two cities, the Cities page opens with a search over every building in all of them. Type a building, a city, an upgrade colour or a word like <b>behind</b>, or use a chip, and every match is listed with how far it has come and what it is waiting for; the button beside it opens that building in its own city. A building is <b>behind</b> when it stands below the level most of your cities keep that kind at, and a city that lacks what two or more of your others have is listed too. The search only looks: it builds, upgrades and spends nothing.</p><p class="help-go">`);
+        `<p class="cxf-help"><b>Finding one building among many.</b> Once you hold two cities, the Cities page opens with a search over every building in all of them. Type a building, a city, an upgrade colour or a word like <b>behind</b>, or use a chip, and every match is listed with how far it has come and what it is waiting for. Where its next upgrade could be started, an <b>Upgrade</b> button beside it starts that one, at the same price and under the same rule as the city's own Buildings tab, and <b>Open</b> takes you to the building there for anything else. A building is <b>behind</b> when it stands below the level most of your cities keep that kind at, and a city that lacks what two or more of your others have is listed too. Nothing here puts up a new building, and nothing is spent until you press Upgrade.</p><p class="help-go">`);
   }catch(e){}
   return f.apply(this,arguments);
 })(helpPage);
 /* the search is a way in of its own: "find a building", "which farm is grey" */
 if(typeof QJ_DO!=='undefined'&&Array.isArray(QJ_DO))QJ_DO.push({v:'do:cxfind',l:'Find a building in your cities',words:'search buildings grey behind upgrade which city farm',view:'cities',target:'#cxf',setup:()=>{S.cxQ='';S.cxF='';}});
-if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE.cxf={CXF_SHOW,CXF_QLEN,CXF_FILTERS,cxfFold,cxfTier,cxfCol,cxfLv,cxfLvWord,cxfPar,cxfCould,cxfRows,cxfName,cxfHay,cxfHit,cxfKeep,cxfSort,cxfFind,cxfOut,cxFindHTML,cxfGo};}catch(e){}
+if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE.cxf={CXF_SHOW,CXF_QLEN,CXF_FILTERS,cxfFold,cxfTier,cxfCol,cxfLv,cxfLvWord,cxfPar,cxfCould,cxfRows,cxfName,cxfHay,cxfHit,cxfUpOn,cxfKeep,cxfSort,cxfFind,cxfOut,cxFindHTML,cxfGo};}catch(e){}
 
 /* Keep the moderator preview in moderator pages even when a URL names an admin-only page. */
 shell=(f=>function(){if(modPreview()&&typeof S.view==='string'&&S.view.startsWith('admin')&&!MOD_VIEWS.includes(S.view))return admShell('admin-reports','<p class="hint">Choose a moderator page from the menu.</p>');return f.apply(this,arguments);})(shell);
