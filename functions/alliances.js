@@ -443,6 +443,10 @@ async function alInvite(db, who, d) {
       const npc = NPC.get(id);
       if (npc.reg !== A.reg) refuse('al_region', 'That nation is in another region.');
       if (BLOC.has(id)) refuse('al_bloc', 'That computer nation belongs to an alliance of its own.');
+      if (id === 'npc-cloudspine-haalesh') {
+        const story = await tx.get(db.doc('assemblyRegions/cloudspine')), h = story.get('haalesh');
+        if (h?.v === 1 && Number.isFinite(h.t) && now >= h.t) refuse('al_bloc', 'Haalesh belongs to The Pact of Eternal Snows.');
+      }
       const [S, leader] = await Promise.all([seats(tx, db, id), tx.get(db.doc('nations/' + A.ld))]);
       const L = nationJSON(leader), ty = seatTy(A.ty), have = S.s[ty];
       if (held(S).includes(aid)) return { ok: true };

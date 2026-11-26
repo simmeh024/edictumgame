@@ -137,3 +137,44 @@ as with other Assembly results, the first normal Assembly request after the dead
 `test/dhaluun-assembly.test.mjs` covers the protected docket, ordinary player voting, operator atomicity, replay and
 reply deadline. `test/dhaluun-assembly-page.test.mjs` renders the complete motion on desktop and mobile and at the
 vote. `test/civic.test.mjs` exercises real publication and the single reply in the closing transaction on emulators.
+
+## The northern survey and Haalesh's purchased cabinet
+
+`tools/admin/dhaluun-north.mjs` plans the next owner-approved escalation from the current map. Dhaluun takes a
+connected strip of unclaimed land north alongside Kesara, ending at Morbridge's latitude. A shortest free path is
+widened by two hexes, bounded to that frontier, and every occupied hex is preserved, including hidden nations.
+The new NPC city **Imperial Survey Station No. 1** stands near Morbridge, with a Market Hall, Barracks and Warehouse.
+It participates in normal city population, districts, production and defence. Existing imperial cities retain their
+locations; the Great Wall follows the enlarged perimeter. Earlier atlas dates omit the new land and city.
+
+The same stage plants one successful, undetected scandal against Kesara. It uses the ordinary scandal system,
+preferring the finance minister's shed/helipad story and choosing another if that story is already on the desk.
+The target receives the edict once through normal incident processing, including the usual 72-hour arrival window
+for an absent player. The planner tests actual delivery to an offline copy of Kesara's current desk. It does not
+rewrite the player's saved nation, choose the player's answer, or apply an invented extra resource/stat loss.
+
+Haalesh becomes an **Emergency Directorate**, classified **Corrupt Dictatorship** (civil 20, economy 50, political
+freedom 10, corruption 88). Its purchased cabinet suspends elections and press freedom, ends several labour
+protections, and admits Dhaluun's advisers. It joins the existing **Pact of Eternal Snows**, retaining Dhaluun and
+Kethavaar as the original members. The Dispatch carries the purchased-cabinet article. Haalesh's name, capital,
+population, land, cities and military statistic stay the same.
+
+The protected Assembly region keeps the regime's activation timestamp. Its NPC backing/voting uses the new values
+only for cycles that start after that timestamp, preserving counts already in progress and historical results.
+The alliance service refuses invitations that would recruit Haalesh out of its NPC pact. The generated server data
+and model take the regime values directly from the client declaration (`node tools/build-civic.mjs`).
+
+```sh
+node tools/admin/dhaluun-north.mjs --project edictum-b30de
+node tools/admin/dhaluun-north.mjs --project edictum-b30de --apply
+```
+
+Deploy the tested client and functions first. Activation updates only the original world-event document and the
+Assembly region's regime metadata/revision, and creates one audit entry, atomically. Original spy failures, western
+land, wall, and Assembly votes are preserved. A nation/moderation or world-event change during planning aborts all
+writes; replay returns `already-applied`. Partial pre-existing escalation data requires inspection instead of being
+overwritten. No extra region-chat message is published by this stage.
+
+`test/dhaluun-north.test.mjs` checks publication, concurrency, replay and dated Assembly backing. The full-game
+browser test checks borders, city, historical views, exactly-once scandal delivery, government, pact and the visible
+Dispatch article. The civic emulator suite checks that Haalesh cannot be recruited away through the API.

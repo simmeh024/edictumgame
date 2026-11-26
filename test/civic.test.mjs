@@ -27,6 +27,14 @@ const code=()=> 'EDC-'+Array.from(crypto.getRandomValues(new Uint8Array(20))).ma
 const rejects=(p,code)=>assert.rejects(p,e=>e.code===code);
 const proposal={op:'propose',title:'A test resolution',body:'A valid protected resolution for the region.',category:'trade',strength:0};
 
+test('Haalesh in the Pact of Eternal Snows cannot be recruited away through the alliance service',async()=>{
+  const p=await player(true,true,'cloudspine'),{aid}=await civic(p,{op:'alFound',name:'Snow test '+crypto.randomUUID().slice(0,8)}),root=db.doc('assemblyRegions/cloudspine'),t=Date.now()-1000;
+  await root.set({haalesh:{v:1,t},rev:Date.now()},{merge:true});
+  await rejects(civic(p,{op:'alInvite',aid,id:'npc-cloudspine-haalesh'}),'al_bloc');
+  const state=await civic(p,{op:'state'});assert.equal(state.reg,'cloudspine');assert.equal((await root.get()).get('haalesh').t,t);
+  assert.equal((await db.doc('alliances/'+aid).get()).get('npc')['npc-cloudspine-haalesh'],undefined);
+});
+
 test('Dhaluun’s condemnation preserves the current vote and its reply posts once in the transaction closing the count',async()=>{
   const p=await player(true,true,'cloudspine'),before=await civic(p,{op:'state'}),root=db.doc('assemblyRegions/cloudspine');
   await db.doc('worldEvents/dhaluun-customs-v1').set({v:1});
