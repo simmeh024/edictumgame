@@ -72,7 +72,7 @@ try {
   const d = await start('dark', { width: 1280, height: 900 }), { page } = d;
   await d.go('explore');
   check('the page draws with no script errors', d.errors.length === 0, d.errors);
-  check('the expedition comes first, the fleeting party beside it', await S(page, () => { const c = [...document.querySelectorAll('.xp-top>.xp-card')]; return c.length === 2 && c[0].classList.contains('xp-exp') && c[1].classList.contains('xp-party'); }));
+  check('the expedition comes first, the fleeting party beside it, then the salvage ship (deep-sea finds)', await S(page, () => { const c = [...document.querySelectorAll('.xp-top>.xp-card')]; return c.length === 3 && c[0].classList.contains('xp-exp') && c[1].classList.contains('xp-party') && c[2].classList.contains('xp-ship'); }));
   check('the stockpile sits under the two cards', await S(page, () => { const t = document.querySelector('.xp-top'), s = document.querySelector('.xp>.stk-strip'); return !!s && t.compareDocumentPosition(s) & Node.DOCUMENT_POSITION_FOLLOWING; }));
   const base = await S(page, () => { const b = document.querySelector('.xp-exp [data-act="exp-send"]'); return b ? { t: b.textContent, s: +b.dataset.s } : null; });
   check('at base camp, the card offers the best odds within reach', !!base && /^Send to the /.test(base.t), base);

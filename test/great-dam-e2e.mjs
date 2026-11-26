@@ -56,9 +56,13 @@ check('the biggest giver (2,260) is first: 4 + 5 land credits and the Floodgate'
 check('the second (1,700) is second: 4 + 4', pC && pC.k === 2 && pC.land === 8 && pC.flood, JSON.stringify(pC));
 check('the third (1,500) is third: 4 + 3', pA && pA.k === 3 && pA.land === 7, JSON.stringify(pA));
 check('the fourth gave only 380, below the 1,105 share: 0 + 2', pD && pD.k === 4 && pD.s === 0 && pD.land === 2, JSON.stringify(pD));
+/* once open, the page moves on to the Hall of Edicts, and the dam's plaque is under Past projects */
 await nav(D, 'wonder');
-check('the plaque names the top givers', /Sluiceby\s*Gold/.test(await text(D, '.wd-side .wd-who li.wd-m1')), await text(D, '.wd-side .wd-who'));
-await D.locator('.wd-side .wd-who').screenshot({ path: OUT + '/dam-plaque.png' });
+const PL = '#wd-past .wd-who';
+check('the page moves on to the Hall of Edicts once the dam is open', await until(async () => { await D.evaluate(() => G.render()); return /Hall of Edicts/.test(await text(D, '.vh h1')); }, 10000), await text(D, '.vh h1'));
+await D.evaluate(() => document.querySelectorAll('#wd-past details').forEach(d => { d.open = true; }));
+check('the plaque names the top givers', /Sluiceby\s*Gold/.test(await text(D, PL + ' li.wd-m1')), await text(D, PL));
+await D.locator(PL).first().screenshot({ path: OUT + '/dam-plaque.png' });
 
 /* the dam edicts: all four reach the desk, blue, outside the edict clock */
 const desk = p => p.evaluate(() => { const n = G.syncInbox(G.S.nation, Date.now()); G.commit(n); G.render(); return G.S.nation.inbox.map(x => x.id).filter(id => /^dam-/.test(id)); });

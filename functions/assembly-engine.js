@@ -281,6 +281,62 @@ function asmTally(L,c,recs,T,D){
   /* a condemnation needs two votes for every one against */
   return {rows,y,n:no,ok:asmTg(L.cat)==='x'?y>no&&y>=2*no:y>no,shown};
 }
+/* how many resolutions the rulebook holds when cycle c closes: ASM_BOOK, and one more in a region whose Hall of Edicts had
+   opened by then (asmBookPlus, set by the hall; tools/build-civic.mjs gives the server's engine its own, from the hall's records) */
+/* hall-core */
+const HAL_PH=[
+  ['The competition','Forty architects send in designs. The jury chooses the one with the most columns, after a long argument about whether there can be too many.',{food:300,timber:100,goods:500}],
+  ['Clearing the square','The market stalls across the square from the Great Statue move one street over, grumbling, and the square is paved for the crowds to come.',{food:400,timber:300,oil:50,goods:150}],
+  ['The quarry road','A road to the marble quarry in the hills, straight where it can be and patient where it cannot.',{food:400,timber:300,iron:200,oil:100,goods:100}],
+  ['The masons’ yard','Sheds, saw benches and a canteen for the masons, who arrive with their own tools and their own opinions.',{food:450,timber:400,iron:100,oil:50,goods:150}],
+  ['The foundations','A great slab poured deep into the square, for a building meant to outlast every law it will keep.',{food:400,timber:250,iron:300,oil:100,goods:200}],
+  ['The vaults','Fireproof vaults under the square, where the original of every resolution will sleep in a dry, cool, numbered drawer.',{food:350,timber:300,iron:300,oil:100,goods:250}],
+  ['The great steps','Forty steps up to the doors, wide enough for a procession and shallow enough for a minister in a hurry.',{food:350,timber:200,iron:200,oil:100,goods:500}],
+  ['The podium','The stone platform the hall stands on, a full storey above the square, so that nobody arrives at the law by accident.',{food:350,timber:250,iron:250,oil:100,goods:450}],
+  ['The column drums','Each column is carved in drums, stacked and pinned with iron, and every drum is measured three times by people who enjoy measuring.',{food:300,timber:200,iron:300,oil:150,goods:500}],
+  ['The colonnade','The columns stand across the front, fluted and crowned, and the square already looks more important.',{food:300,timber:300,iron:350,oil:100,goods:400}],
+  ['The archive walls','Thick walls behind the colonnade, with no windows on the north side, because paper prefers the dark.',{food:300,timber:300,iron:300,oil:100,goods:500}],
+  ['The reading room','A long room under tall windows, with green lamps, long tables and a sign asking for silence in three languages.',{food:300,timber:400,iron:200,oil:100,goods:500}],
+  ['The roof','Timber trusses and lead sheets over the whole hall, tested at once by the wettest week anyone can remember.',{food:250,timber:500,iron:300,oil:100,goods:250}],
+  ['The pediment','The triangle over the columns, carved with every nation of the region, each of them sure it was given the smaller figure.',{food:250,timber:200,iron:200,oil:150,goods:700}],
+  ['The drum of the dome','A ring of stone and iron above the roof to carry the dome, with a gallery round it for the brave.',{food:250,timber:200,iron:400,oil:150,goods:400}],
+  ['The dome','A copper dome on an iron frame: green in ten years if the weather is kind, and in five if it is not.',{food:250,timber:300,iron:500,oil:200,goods:300}],
+  ['The lantern','A small glass lantern on top of the dome, lit whenever the Assembly is counting votes.',{food:200,timber:150,iron:350,oil:200,goods:600}],
+  ['The bronze doors','Two bronze doors cast with the first resolution the region ever passed, misspelt only once.',{food:200,timber:100,iron:550,oil:250,goods:350}],
+  ['The Assembly chamber','A horseshoe of seats under its own dome in the west wing, one for every nation of the region and a few spare, in hope.',{food:300,timber:400,iron:200,oil:150,goods:450}],
+  ['The shelves','Eleven kilometres of oak shelving for the archive, with ladders on rails and a librarian for each ladder.',{food:250,timber:550,iron:250,oil:100,goods:350}],
+  ['The printing house','Presses in the east wing that print every resolution on the day it passes, in a typeface made for the hall alone.',{food:250,timber:200,iron:350,oil:400,goods:450}],
+  ['The great clock','A clock in the pediment that keeps the Assembly’s three-day count, with a bell that rings when a count closes.',{food:250,timber:150,iron:350,oil:300,goods:450}],
+  ['The lawgivers','Statues of the region’s great lawgivers along the roof, chosen by a committee that took longer than the dome.',{food:300,timber:100,iron:250,oil:200,goods:700}],
+  ['Lamps and gardens','Lamps on the steps, clipped hedges round the square, and benches for reading, arguing and pigeons.',{food:350,timber:250,iron:150,oil:400,goods:350}],
+  ['The first reading','The doors open, the archivist reads the region’s first resolution aloud from the top step, and the square cheers in the right places.',{food:700,timber:100,iron:150,oil:350,goods:450}]];
+const HAL_RES=['food','timber','iron','oil','goods'],HAL_N=HAL_PH.length,HAL_CAP=0.3,HAL_HANDS=4;
+const halAmt=v=>{const x=Number(v);return Number.isFinite(x)&&x>0?Math.min(x,50000):0;},halTm=v=>typeof v==='number'&&isFinite(v)&&v>0?v:0;
+const halTot=d=>HAL_RES.reduce((s,r)=>s+(HAL_PH[d][2][r]||0),0);
+const halGave=(w,d)=>{const o=w&&w.p&&typeof w.p==='object'?w.p[d]:null;return o&&typeof o==='object'?HAL_RES.reduce((s,r)=>s+halAmt(o[r]),0):0;};
+/* the hall of a region from its player nations' records L ([{id, n: {name, hal}, me}], every n.hal of that region): phases
+   done (ph is a floor, so a finished phase never undoes), what the current phase still needs, the givers biggest first,
+   ft: when each phase was first seen finished, and at: when the hall opened (0 while it is being built) */
+function halTally(L){
+  const P=Array.from({length:HAL_N},()=>({})),H=Array.from({length:HAL_N},()=>0),ft=Array.from({length:HAL_N},()=>0),who=[];let floor=0,start=0,end=0;
+  for(const x of L){const w=x&&x.n&&x.n.hal;if(!w||typeof w!=='object')continue;
+    floor=Math.max(floor,Number.isInteger(w.ph)?Math.max(0,Math.min(HAL_N,w.ph)):0);let sum=0;const c={};
+    for(let i=0;i<HAL_N;i++){const o=w.p&&typeof w.p==='object'?w.p[i]:null;
+      if(o&&typeof o==='object'){let s=0;for(const r of HAL_RES){const v=halAmt(o[r]);if(v>0){P[i][r]=(P[i][r]||0)+v;c[r]=(c[r]||0)+v;s+=v;}}if(s>0){H[i]++;sum+=s;}}
+      const f=w.fx&&typeof w.fx==='object'?halTm(w.fx[i]):0;if(f>0&&(!ft[i]||f<ft[i]))ft[i]=f;}
+    if(sum>0){const t0=halTm(w.t0)||halTm(w.t);who.push({id:x.id,name:x.n.name,me:!!x.me,sum,c,t0});if(t0>0&&(!start||t0<start))start=t0;end=Math.max(end,halTm(w.t));}}
+  const full=d=>H[d]>=HAL_HANDS&&HAL_RES.every(r=>(P[d][r]||0)+1e-6>=(HAL_PH[d][2][r]||0));
+  let done=Math.min(HAL_N,floor);while(done<HAL_N&&full(done))done++;
+  const need={},cur=done<HAL_N?HAL_PH[done][2]:{};let want=0,have=0;
+  for(const r of HAL_RES){const q=cur[r]||0;if(!q)continue;const got=Math.min(q,P[done][r]||0);need[r]=Math.round((q-got)*10)/10;want+=q;have+=got;}
+  who.sort((a,b)=>b.sum-a.sum||a.t0-b.t0||(a.id<b.id?-1:a.id>b.id?1:0));
+  /* a phase finished without a recorded finishing gift (a record that left) is dated at the latest gift */
+  for(let i=0;i<done;i++)if(!ft[i])ft[i]=end||start;
+  return {done,need,frac:want?have/want:1,hands:done<HAL_N?H[done]:0,who,start,end:done>=HAL_N?end:0,ft,at:done>=HAL_N?ft[HAL_N-1]||end||start||1:0};
+}
+const HALL_AT=(()=>{try{return halTally(records.filter(r=>r&&r.n&&r.n.hal&&typeof r.n.hal==='object'&&r.n.hal.r===region)).at||0;}catch(e){return 0;}})();
+const asmBookPlus=c=>HALL_AT>0&&HALL_AT<asmT0(c+1);
+function asmBookMax(c){let p=false;try{p=!!asmBookPlus(c);}catch(e){p=false;}return ASM_BOOK+(p?1:0);}
 /* the rulebook: the resolutions in force, at most ASM_BOOK and one a category. A passed resolution enters it, and
    pushes out one of the same category (s, superseded) and then, past ASM_BOOK, the oldest (o, retired); a passed repeal
    takes its resolution out (r). A finished cycle's lock keeps the book as it left it (bk) and what went (bx). */
@@ -291,7 +347,7 @@ function asmBookStep(bk,L){
   for(const e of b)if(e.cat===L.cat)bx.push({k:e.k,ti:e.ti,w:'s'});
   b=b.filter(e=>e.cat!==L.cat);
   b.push({k:L.k,c:L.c,ti:L.ti,tx:L.tx||'',cat:L.cat,g:L.g?1:0,by:L.by,bn:L.bn||''});
-  while(b.length>ASM_BOOK){const e=b.shift();bx.push({k:e.k,ti:e.ti,w:'o'});}
+  while(b.length>asmBookMax(L.c)){const e=b.shift();bx.push({k:e.k,ti:e.ti,w:'o'});}
   return {bk:b,bx};
 }
 /* the book in force during cycle c (as cycle c-1 left it): the latest finished lock that keeps one, and the cycles

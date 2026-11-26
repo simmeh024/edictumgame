@@ -197,8 +197,9 @@ function civicRecord(reg, saved, account, actor, valid, hidden) {
   const a = actor?.get('generation') === generation ? actor.get('record') : { r: reg, e: [], s: [], v: [] };
   const n = nationJSON(saved), ts = saved.get('ts'), lastSave = ts && typeof ts.toMillis === 'function' ? ts.toMillis() : saved.updateTime ? saved.updateTime.toMillis() : 0;
   // Never import political decisions from a legacy, player-writable JSON record. lastSave, the server's time of its
-  // last save, tells an absent member (game/edictum.html asmAbsentAt)
-  return { id: saved.id, n: { name: saved.get('name'), reg, founded: born, s: savedStats(n), flag: n.flag || {}, civicAffinity: cabinetAffinity(n), gw: n.gw || {}, civicAt: valid ? born + DAY : 0, lastSave, asm: a }, generation, hidden };
+  // last save, tells an absent member (game/edictum.html asmAbsentAt). hal, the nation's gifts to the region's Hall of
+  // Edicts, only tells the engine whether the hall is open (one more resolution in the rulebook, asmBookMax)
+  return { id: saved.id, n: { name: saved.get('name'), reg, founded: born, s: savedStats(n), flag: n.flag || {}, civicAffinity: cabinetAffinity(n), gw: n.gw || {}, civicAt: valid ? born + DAY : 0, lastSave, asm: a, ...(n.hal && typeof n.hal === 'object' ? { hal: n.hal } : {}) }, generation, hidden };
 }
 
 /* the region's records as stored: every nation in it (dormant ones too: their endorsements and the computer
