@@ -11240,6 +11240,28 @@ span.rs-card{cursor:default}
 .sk-row .btn{margin-top:6px}
 .sk-hx{margin-top:12px;padding-top:10px;border-top:1px dashed var(--rule-2)}
 .sk-hx-h{margin:0 0 6px;font:600 .95rem Georgia,serif}
+/* landing parties and colonies (27 November 2026) */
+.lnd-panel{margin-top:12px;padding-top:10px;border-top:1px solid var(--rule)}
+.lnd-list{list-style:none;margin:8px 0;padding:0;display:grid;gap:6px}
+.lnd-list li{font-size:13.5px;line-height:1.45}
+.lnd-warn{display:block;color:var(--down);font-size:12.5px}
+.lnd-hv{color:var(--down)}
+.lnd-plan{margin-top:10px;padding:10px 12px;border:1px solid var(--rule);border-radius:8px;background:var(--sheet)}
+.lnd-plan.lnd-hostile{border-color:var(--down)}
+.lnd-facts{margin:6px 0 8px;padding-left:18px;font-size:13px;line-height:1.5}
+.lnd-tys{border:0;margin:8px 0;padding:0;display:grid;gap:6px}
+.lnd-tys legend{font-weight:650;font-size:13px;margin-bottom:2px}
+.lnd-ty{display:block;font-size:13px;line-height:1.4}
+.lnd-ty .hint{display:block;margin-left:22px}
+.lnd-nm{display:block;margin:8px 0;font-size:13px}
+.lnd-nm input{display:block;width:100%;max-width:280px;margin-top:3px}
+.lnd-threat{margin:10px 0;padding:10px 12px;border:1px solid var(--down);border-radius:8px;background:var(--sheet)}
+.lnd-digs{flex-wrap:wrap;gap:6px;margin:6px 0}
+.lnd-pn{margin-top:12px;padding-top:10px;border-top:1px solid var(--rule)}
+.edict-lnd{display:inline-block;margin-left:6px;padding:1px 8px;border-radius:99px;font-size:11.5px;font-weight:650;background:#d9e8f0;color:#1d4a63}
+.lg-lnd{display:inline-block;width:16px;height:10px;margin-right:5px;vertical-align:-1px}
+.lg-lnd-lane{border-top:2px dashed currentColor;opacity:.7;height:0;margin-top:4px}
+.lg-lnd-boat{background:linear-gradient(#f4efe2 0 55%,#5a4632 55% 100%);border:1px solid #2a2a2a;border-radius:0 0 6px 6px}
 </style>
 
 <div id="app"></div>
@@ -14067,7 +14089,7 @@ animalTestingBan:['Cosmetic Testing Ban','Cosmetics may not be tested on animals
 moonBase:['Lunar Base','The nation runs a permanent base on the Moon.'],
 fortifications:['Border Fortifications','Bunkers and earthworks line the frontier. Your hexes are 15% harder to take.'],
 coastalBatteries:['Coastal Batteries','Guns cover every beach. Your coastal hexes are 25% harder to take.'],
-navalFleet:['Blue-Water Navy','A fleet escorts every crossing. Your troops cross the sea without losing strength, and your harbours reach six hexes across water to claim land.'],
+navalFleet:['Blue-Water Navy','A fleet escorts every crossing. Your troops cross the sea without losing strength, and your harbours reach 20 hexes across water to claim land, not 16.'],
 mountainTroops:['Mountain Troops','Specialist units fight in high country. Hills and mountains give defenders only half their usual advantage against you.'],
 militaryAcademy:['Military Academy','Officers are trained to a high standard. Your army is 10% stronger.'],
 drones:['Combat Drones','Unmanned aircraft support every assault. Your attacks are 10% stronger.'],
@@ -23379,7 +23401,11 @@ function territory(extra){
     if(e.npc){const si=byId[e.src];if(si===undefined||cur!==si)continue;}
     else if(e.t>=FIX_EPOCH){
       if(cur<0||cur===oi||(list[cur].n.founded||0)>e.t)continue;
-      const vid=list[cur].id;if(S.db&&e.t>=SEAL2_AT&&e.d!==vid)continue;/* the seal's defender held the hex */if(!warCovers(e.src,vid,e.t)&&!(e.w&&(warCovers(e.src,e.w,e.t)||warCovers(e.w,vid,e.t))))continue;
+      const vid=list[cur].id;if(S.db&&e.t>=SEAL2_AT&&e.d!==vid)continue;/* the seal's defender held the hex */
+      /* a landing on a coast its nation had left unplayed (landing parties: the referee sealed it as w '~abandoned'
+         only after checking the time of that nation's last save) is taken without a war, from that nation alone */
+      if(e.w==='~abandoned'){if(e.d!==vid)continue;}
+      else if(!warCovers(e.src,vid,e.t)&&!(e.w&&(warCovers(e.src,e.w,e.t)||warCovers(e.w,vid,e.t))))continue;
       /* nothing is taken from a nation in its grace after coming back, or in the days after it rose again (wrShielded) */
       if(wrShielded(list[cur].n,e.t))continue;
       const q=rate.get(e.src)||[];while(q.length&&q[0]<e.t-DAY)q.shift();if(q.length>=16)continue;q.push(e.t);rate.set(e.src,q);
@@ -24274,6 +24300,9 @@ function economy(){
   let wup=null;try{wup=wrUpkeep(T,CSt,dem,L);}catch(e){wup=null;}
   /* war, round three: factories making munitions (fewer goods, a stronger army) and veterans' pensions */
   let wr3=null;try{wr3=wr3Econ(T,CSt,prod,dem,L);}catch(e){wr3=null;}
+  /* colonies across the sea: what they cost in food and goods (iron and oil for a garrison), and what they give
+     ("landing parties and colonies", near the end) */
+  let lnd=null;try{lnd=lndEcon(T,CSt,prod,dem,L);}catch(e){lnd=null;}
   /* joint military training at work, and the food and iron it uses ("treaties between nations", near the end) */
   let dr=null,drUp=null;try{dr=drPairs(T,CSt);if(dr.length)drUp=drUpkeep(dr,dem,L);}catch(e){dr=null;}
   /* import tariffs: the nation's own policy, or its trade bloc's common tariff (alliance types: imports from fellow
@@ -24317,7 +24346,7 @@ function economy(){
     prosper:(0.82+0.1*q('goods',i)+0.04*q('timber',i)+0.04*q('oil',i))*(1+a.prosper)*(1+cf.prosper),
     growth:clamp(foodGrowth(q0(i),q('food',i))*(1+a.growth)*(1+cf.growth),0.5,1.6)};});}
   finally{BFX_HAND=null;}
-  const v={T,prod,dem,exp,imp,sup,ratio,price,eff,held,eat,burn,ceat,can,active,pending:dl.pending,byDoc:new Map(T.list.map((x,i)=>[x.n,i])),dr,drUp,wup,wr3};
+  const v={T,prod,dem,exp,imp,sup,ratio,price,eff,held,eat,burn,ceat,can,active,pending:dl.pending,byDoc:new Map(T.list.map((x,i)=>[x.n,i])),dr,drUp,wup,wr3,lnd};
   econMemo={T,k,at:now,ref:S.nation,w:S.world,v};
   return v;
 }
@@ -29484,7 +29513,7 @@ function landHelp(n){
     <p><b>Staying small.</b> A nation that would rather keep its borders can pause land credit gains in Settings › Land. Credits earned meanwhile are stored, and all of them can be spent once gains are back on. ${lhLink('Land settings')}</p>
     <p><b>Swapping land.</b> Once a day you may give up a hex you claimed and take a free one instead, at no cost: select the hex on the map and choose <b>Swap this hex</b>. Hexes with a city, a road or railway, your starting core and land taken in war cannot be swapped, and nothing may be cut off from the rest of your land.</p>
     <p><b>Reclaimed land</b> comes from decisions and, once free land runs short, from your own engineers. Nations with a coast are now and then asked about dykes, polders, artificial islands, floating homes or a runway in the bay. Choosing to build turns one to three hexes of shallow sea into land, wherever the water touches only your own coast, up to ${REC_MAX} hexes in all. When fewer than ${RECW_NEAR} free hexes border your land, or less than ${Math.round(RECW_FREE*100)}% of the region is unclaimed, the Territory section on the Nation page lets you pay for more, one hex at a time, up to ${RECW_MAX}. ${rc?`${esc(n.name)} has reclaimed ${rc} ${rc===1?'hex':'hexes'} so far.`:coast?'Your coast qualifies.':`${esc(n.name)} has too little coast for these decisions to come up.`}</p>
-    <p><b>A navy</b> (the Blue-Water Navy law) also comes from decisions: coastal nations are asked from time to time whether to build a fleet, a naval base or convoy escorts. With it, expeditions travel 15 hexes further and roll +3 on islets, your troops cross the sea without losing strength, and your harbours reach ${MP_NAVY_REACH} hexes across water instead of ${MP_SEA_REACH} to claim land. No building gives you one. ${navy?`${esc(n.name)} has a navy.`:`${esc(n.name)} has no navy yet.`}</p>
+    <p><b>A navy</b> (the Blue-Water Navy law) also comes from decisions: coastal nations are asked from time to time whether to build a fleet, a naval base or convoy escorts. With it, expeditions travel 15 hexes further and roll +3 on islets, your troops cross the sea without losing strength, and your harbours reach ${MP_NAVY_REACH} hexes across water instead of ${MP_CLAIM_REACH} to claim land. No building gives you one. ${navy?`${esc(n.name)} has a navy.`:`${esc(n.name)} has no navy yet.`}</p>
   </details>`;
 }
 function landExtras(n){const T=territory();return claimList(T,n)+releaseBox(T)+landHelp(n);}
@@ -66995,9 +67024,10 @@ function mpHarbours(T){
     if(done)out.push({c:c.c,id:c.id,nm:cityLabel(x.n,c)});
   }return out;
 }
-/* how far a harbour reaches across water to claim land: four hexes, six with a navy (the Blue-Water Navy law) */
-const MP_NAVY_REACH=16;
-function mpHarbourReach(n){return pol(n).navalFleet?MP_NAVY_REACH:MP_SEA_REACH;}
+/* how far a harbour reaches across water to claim land: 16 hexes, 20 with a navy (the Blue-Water Navy law), since the
+   landing parties (27 November 2026; 14 and 16 before). Shipping routes keep MP_SEA_REACH */
+const MP_CLAIM_REACH=16,MP_NAVY_REACH=20;
+function mpHarbourReach(n){return pol(n).navalFleet?MP_NAVY_REACH:MP_CLAIM_REACH;}
 /* free shores a completed harbour reaches across water: another island, or the far side of a bay on your own coast
    (land that already touches yours is claimed the ordinary way, so it is left out) */
 function mpHarbourFrontier(T){
@@ -67190,7 +67220,7 @@ MAP_LAYERS.push({stage:'over',kinds:['main','visit'],draw:M=>{
 MAP_LAYERS.push({stage:'top',kinds:['main'],draw:M=>{if(S.mpMode!=='plan'||M.s*HEX_W<16)return;M.g.font='700 11px '+MAP_FONT;M.g.textAlign='center';M.g.textBaseline='middle';M.g.fillStyle=M.col.ink;mpDraft().forEach((c,i)=>M.g.fillText(String(i+1),...M.scr(c)));}});
 MAP_TIP.unshift(ctx=>{if(ctx.kind!=='main'||!mpCell(ctx.cell))return null;const T=territory(),isle=mpHarbourFrontier(T).get(ctx.cell);if(isle)return 'Harbour annexation from '+cityLabel(S.nation,isle.city)+' · '+(isle.path.length-1)+'-hex water route · 1 land credit';return null;});
 /* ───────── why free land is out of reach, and how far your harbours reach ───────── */
-const MP_WHY_FAR=22,MP_AREA=new Map();
+const MP_WHY_FAR=26,MP_AREA=new Map();
 /* the water hexes a harbour's routes cross on the way to land it can claim */
 function mpSeaArea(a,reach){
   const key=RECL.sig+'|'+a+'|'+reach,hit=MP_AREA.get(key);if(hit)return hit;
@@ -67317,7 +67347,7 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-act]');if
   if(a==='mp-load'){S.mpDraft=S.nation.mapPlan?.reg===REG.id?S.nation.mapPlan.cells.slice():[];S.mpMsg='Saved plan loaded.';updateMapPanel();redrawMaps();}
   if(a==='mp-save')mpSavePlan();if(a==='mp-apply')mpApplyPlan();if(a==='mp-net-build')mpBuildRoute();if(a==='mp-net-remove'){S.mpRemove=el.dataset.id;updateMapPanel();}if(a==='mp-net-keep'){S.mpRemove=null;updateMapPanel();}if(a==='mp-net-remove-confirm'){mpRemoveRoute(el.dataset.id);S.mpRemove=null;}
 });
-HELP_EXT.push({k:'map-development',t:'City influence, transport and island annexation',body:n=>`<p>Cities keep a two-hex production area and grow to three hexes at two million city residents. Each owned hex is worked by its nearest city once, even where areas overlap. City population uses its original catchment so expanding production cannot inflate its own population.</p><p>Use <b>Plan expansion</b> on the Map to select up to 48 connected hexes, preview their base yields and save a private plan across devices without spending credits. <b>Claim plan</b> rechecks ownership, reach and the full remaining credit cost before claiming anything. Harbour annexation requires a completed, held coastal Harbour and a water-only route of at most 14 hexes (16 with the Blue-Water Navy law) to a free shore: on another island, or across a bay or fjord on your own landmass. You claim individual free hexes at one land credit each, then may expand over connected land from there. Shipping connections cross at most 10 hexes. Other nations' territory, protected capital areas and the claim reach limit (68 hexes from the capital, or within reach of a city) remain protected.</p><p>Transport connects your cities and resource hexes. Roads cost 2 timber and 1 goods per step and take 15 minutes per step. Railways cost 3 iron and 2 goods per step and take 30 minutes, requiring a completed Railway Station at the origin. Shipping costs 3 timber, 2 goods and 1 oil per step and takes 20 minutes, requiring a Harbour and a water route of at most 10 steps. Land routes have at most 64 steps; a nation keeps at most ${MP_NET_MAX} routes. Active connections add 4%, 10% or 6% to each connected city's worked land and completed production output, using only its best connection. Military supply adds 2% per connected city, capped at 6%. A cut route or lost required building suspends those bonuses. Routes are tied to their region; moving regions leaves them behind. Removing a route returns no materials.</p><p>Policy landscapes show protected groves, cleared woodland, renewable-energy markers and industrial development. They illustrate existing policy effects, without changing terrain or granting extra resources. The landscape layer is shown in Political view; you can turn it off in the map legend.</p>`});
+HELP_EXT.push({k:'map-development',t:'City influence, transport and island annexation',body:n=>`<p>Cities keep a two-hex production area and grow to three hexes at two million city residents. Each owned hex is worked by its nearest city once, even where areas overlap. City population uses its original catchment so expanding production cannot inflate its own population.</p><p>Use <b>Plan expansion</b> on the Map to select up to 48 connected hexes, preview their base yields and save a private plan across devices without spending credits. <b>Claim plan</b> rechecks ownership, reach and the full remaining credit cost before claiming anything. Harbour annexation requires a completed, held coastal Harbour and a water-only route of at most 16 hexes (20 with the Blue-Water Navy law) to a free shore: on another island, or across a bay or fjord on your own landmass. You claim individual free hexes at one land credit each, then may expand over connected land from there. Shipping connections cross at most 10 hexes. Other nations' territory, protected capital areas and the claim reach limit (68 hexes from the capital, or within reach of a city) remain protected.</p><p>Transport connects your cities and resource hexes. Roads cost 2 timber and 1 goods per step and take 15 minutes per step. Railways cost 3 iron and 2 goods per step and take 30 minutes, requiring a completed Railway Station at the origin. Shipping costs 3 timber, 2 goods and 1 oil per step and takes 20 minutes, requiring a Harbour and a water route of at most 10 steps. Land routes have at most 64 steps; a nation keeps at most ${MP_NET_MAX} routes. Active connections add 4%, 10% or 6% to each connected city's worked land and completed production output, using only its best connection. Military supply adds 2% per connected city, capped at 6%. A cut route or lost required building suspends those bonuses. Routes are tied to their region; moving regions leaves them behind. Removing a route returns no materials.</p><p>Policy landscapes show protected groves, cleared woodland, renewable-energy markers and industrial development. They illustrate existing policy effects, without changing terrain or granting extra resources. The landscape layer is shown in Political view; you can turn it off in the map legend.</p>`});
 
 HELP_EXT.push({k:'flag-layers',t:'Designing a layered flag',body:()=>'<p>Open the <b>Flag Studio</b> (Customise › Flag, or the Studios row at the top of Customise; the founding page has the basic designer) and add layers over your design: up to '+FGL_MAX+' emblems, stripes, borders, discs, triangles and corners. Each has its own colour, position, size and rotation, and can be turned, flipped, mirrored, repeated, made see-through or locked. The layer list runs from front to back; use Bring forward or Send backward to change the stack.</p><p>Drag a shape directly on the flag, or use its numeric controls, alignment buttons and one-percent movement buttons. A selected canvas also accepts arrow keys, with Shift for five-percent steps. Dragging snaps to a five-percent grid unless you turn snapping off. Dashed outlines mark the selection and the crosshair marks the flag centre. Undo reverses an entire drag or colour adjustment in one step. National flag edits take effect when you Save changes; Discard changes restores your saved design. The same designer is available for province flags, which save as you edit.</p>'});
 
@@ -110005,6 +110035,746 @@ function skFkSafe(l){try{return skFkBank(l);}catch(e){return null;}}
    stockpile’s day and last of all: the state’s share, the colonies and tribute set the rate first, so a briefing’s rise or
    cut always shows, also for a nation whose income stands at the state’s share */
 stockRates=bfWrapRates(stockRates);stockNow=bfWrapNow(stockNow);
+/* ───────── landing parties and colonies (27 November 2026) ─────────
+   A nation boxed in (its capital on an island, or hardly any free land left to claim) or a large one may send a landing
+   party from a Harbour across the sea, up to LND_RULES.max hexes of open water, to plant a colony on a free coast.
+
+   The voyage (n.lnd, public: everyone in the region sees the boats and the colonies) takes LND_RULES.minPer minutes a
+   sea hex. Land credits for the beachhead are set aside while it sails (landCredits); on arrival it claims up to
+   LND_RULES.beach hexes and becomes a colony (n.cln). A colony claims onward within LND_RULES.colReach hexes of where
+   it landed (inReach), and from any city founded in it, as cities do. Each colony that grows a city opens the next
+   colony, up to LND_RULES.slots. Its land is the nation's own land joined to the landing hex (lndGeo); once it grows
+   into the homeland it is no longer a colony.
+
+   Each colony has a type chosen at the landing: a Trading Post (more goods; never a base for attacks), a Settlement
+   (its own hexes grow more food, and it costs less to keep) or a Garrison (the only kind from which an army attacks,
+   paid for in iron and oil). Every colony costs food and goods a day, more the larger and the further away it is
+   (lndEcon in economy()); a nation out of food or goods for LND_RULES.short loses a colony's outer hexes, one a day.
+   An attack from a colony is weaker the further it lies from home across the sea (BATTLE_MODS), on top of the
+   distance from the capital battle() already counts.
+
+   In a war of conquest a nation may send a hostile landing, up to LND_RULES.hReach hexes, at a coastal hex of the
+   enemy. The referee tells the defender at once (functions/index.js 'landing': a notification and a war letter); the
+   boats arrive 12 to 24 hours later and have a day to take up to LND_RULES.hHex hexes (they join the frontier), with
+   the defenders LND_RULES.hDef the stronger on the beaches, more with the beach defences they buy (n.bdf). A Shore
+   Battery keeps hostile landings LND_RULES.bat hexes off its coast. Land taken in a landing counts twice towards the
+   sixteen hexes a day; once a hex is taken the beachhead is a Garrison colony.
+
+   A peaceful landing may also come ashore on the coast of a nation not played for LND_RULES.away: the referee checks
+   the time of its last save and seals each hex as a conquest without a war (w '~abandoned', which territory() takes
+   from the very nation that held the hex). ── */
+const HOUR_MS=3600000;
+const LND_RULES={
+  reach:24,ug:4,t2:20,navy:12,max:60,
+  tech:{'t-overseas-trade':2,'t-trade-cartography':2,'t-shipbuilding':3,'w-amphibious-operations':4},
+  minPer:6,minMin:30,beach:3,
+  isle:2500,box:10,big:200,
+  colReach:8,slots:3,
+  cost:{timber:[20,1.5],food:[15,1],goods:[10,1]},gar:{iron:20,oil:10},
+  up:{food:[2,0.15],goods:[1,0.1],gar:[1,0.05],k:30},
+  set:{food:0.3,up:0.75},post:{goods:0.04},
+  short:3*DAY,
+  far:[[40,0.7],[16,0.85]],
+  hReach:30,hMin:12*HOUR_MS,hMax:24*HOUR_MS,hWin:DAY,hHex:2,hDef:1.5,hCost:{timber:40,food:40,goods:30,iron:30,oil:20},
+  bdf:[{n:'Stakes and trenches',m:1.3,cost:{timber:40,goods:20}},{n:'Guns on the shore',m:1.6,cost:{timber:60,goods:30,iron:40,oil:20}},{n:'A full shore battery',m:2,cost:{timber:80,goods:50,iron:90,oil:50}}],
+  bat:6,away:14*DAY,keep:12
+};
+const LND_AB='~abandoned',LND_TY={t:'Trading Post',s:'Settlement',g:'Garrison'};
+const LND_TY_D={t:`goods +${Math.round(LND_RULES.post.goods*100)}% at home; never a base for an attack`,s:`its hexes grow ${Math.round(LND_RULES.set.food*100)}% more food, and it costs a quarter less to keep`,g:'the only colony your army attacks from; it also costs iron and oil'};
+const lndCell=c=>Number.isInteger(c)&&c>=0&&c<MAP.N;
+const lndStr=(s,k)=>typeof s==='string'?s.replace(/[\u0000-\u001f<>]/g,'').replace(/\s+/g,' ').trim().slice(0,k):'';
+const lndId=s=>typeof s==='string'&&/^[\w-]{1,128}$/.test(s);
+function lndList(n){return Array.isArray(n&&n.lnd)?n.lnd:[];}
+function lndCols(n){return Array.isArray(n&&n.cln)?n.cln:[];}
+function lndCostClean(p){if(!p||typeof p!=='object'||Array.isArray(p))return null;const o={};for(const r of RES)if(Number.isFinite(p[r])&&p[r]>0)o[r]=Math.min(5000,Math.round(p[r]));return Object.keys(o).length?o:null;}
+/* a voyage: id, k 'p' (peaceful) or 'h' (hostile), the harbour h it sailed from, the coast c it makes for, its sea
+   distance d, set sail s, arrives a, the hexes cl it means to take, what it cost p, and st: 'sea' until it is over,
+   then 'ok' (landed), 'fail' or 'back'. A peaceful one: the colony's type ty, its name nm, and ab, the nation whose
+   abandoned coast it lands on. A hostile one: the enemy w (its name wn) and the hexes it won */
+function lndCleanV(e){
+  if(!e||typeof e!=='object'||typeof e.id!=='string'||!/^[\w-]{1,24}$/.test(e.id)||!lndCell(e.c)||!lndCell(e.h)||!(e.s>0)||!(e.a>=e.s)||e.a-e.s>3*DAY)return null;
+  const k=e.k==='h'?'h':'p',o={id:e.id,k,c:e.c,h:e.h,d:clamp(Math.round(+e.d)||1,1,LND_RULES.max+5),s:e.s,a:e.a,st:['sea','ok','fail','back'].includes(e.st)?e.st:'sea',cl:Array.isArray(e.cl)?[...new Set(e.cl.filter(lndCell))].slice(0,LND_RULES.beach):[]};
+  const p=lndCostClean(e.p);if(p)o.p=p;
+  if(k==='p'){o.ty=LND_TY[e.ty]?e.ty:'t';o.nm=lndStr(e.nm,30);if(lndId(e.ab))o.ab=e.ab;}
+  else{if(!lndId(e.w))return null;o.w=e.w;o.wn=lndStr(e.wn,40);o.cl=o.cl.slice(0,LND_RULES.hHex);if(Number.isInteger(e.won))o.won=clamp(e.won,0,LND_RULES.hHex);}
+  if(e.e>0)o.e=e.e;if(typeof e.r==='string')o.r=lndStr(e.r,24);
+  return o;
+}
+/* a colony: id (its voyage's), the landing hex c, landed t, type ty, harbour h, sea distance d, name nm; sh: short of
+   food or goods since; rl: hexes it has lost for it; pv: its province was tried; hs: won in a hostile landing */
+function lndCleanC(e){
+  if(!e||typeof e!=='object'||typeof e.id!=='string'||!/^[\w-]{1,24}$/.test(e.id)||!lndCell(e.c)||!(e.t>0))return null;
+  const o={id:e.id,c:e.c,t:e.t,ty:LND_TY[e.ty]?e.ty:'t',h:lndCell(e.h)?e.h:e.c,d:clamp(Math.round(+e.d)||1,1,LND_RULES.max+5),nm:lndStr(e.nm,30)};
+  if(e.sh>0)o.sh=e.sh;if(Number.isInteger(e.rl)&&e.rl>0)o.rl=Math.min(e.rl,999);if(e.pv===1)o.pv=1;if(e.hs===1)o.hs=1;
+  return o;
+}
+NORM_HOOKS.push((n,d)=>{
+  const v=Array.isArray(d&&d.lnd)?d.lnd.map(lndCleanV).filter(Boolean).slice(-LND_RULES.keep):[];if(v.length)n.lnd=v;
+  const c=Array.isArray(d&&d.cln)?d.cln.map(lndCleanC).filter(Boolean).slice(-LND_RULES.keep):[];if(c.length)n.cln=c;
+  /* beach defences bought against a landing (by its voyage id): level 1-3 and when; kept a few days */
+  const b=d&&d.bdf;if(b&&typeof b==='object'&&!Array.isArray(b)){const o={};for(const [k,x] of Object.entries(b).slice(-12))if(/^[\w-]{1,24}$/.test(k)&&x&&Number.isInteger(x.lv)&&x.lv>=1&&x.lv<=LND_RULES.bdf.length&&x.t>0&&Date.now()-x.t<5*DAY)o[k]=Object.assign({lv:x.lv,t:x.t},lndCell(x.c)?{c:x.c}:{});if(Object.keys(o).length)n.bdf=o;}
+  /* landings on this nation's coast it has seen off (their voyage ids) */
+  if(Array.isArray(d&&d.lnr)){const r=d.lnr.filter(x=>typeof x==='string'&&/^[\w-]{1,24}$/.test(x)).slice(-40);if(r.length)n.lnr=r;}
+});
+function lndBump(n,k){try{dsBump(n,k);}catch(e){}}
+
+/* ── where a colony is: the nation's own land joined to its landing hex, apart from the land joined to the capital ── */
+let lndGeoMemo=new WeakMap();
+function lndGeo(T,i){
+  const x=T&&T.list[i],n=x&&x.n,cs=lndCols(n);if(!cs.length)return null;
+  let m=lndGeoMemo.get(T);if(!m){m=new Map();lndGeoMemo.set(T,m);}
+  const key=i+'|'+cs.map(C=>C.id+C.c+C.ty).join(',');const hit=m.get(i);if(hit&&hit.key===key)return hit.v;
+  const P=landPatches(T,i),home=P.get(x.cap),cols=[],byCell=new Map();
+  const cities=(x.npc?[]:cityList(n)).filter(c=>c&&lndCell(c.c));
+  cs.forEach((C,k)=>{
+    const ps=new Set();for(const [c] of ringCells(C.c,LND_RULES.colReach))if(T.owner[c]===i){const p=P.get(c);if(p!==undefined)ps.add(p);}
+    const joined=home!==undefined&&ps.has(home);if(joined)ps.clear();
+    const cells=[];if(ps.size)for(const [c,p] of P)if(ps.has(p)&&!byCell.has(c)){cells.push(c);byCell.set(c,k);}
+    const set=new Set(cells),city=cities.find(ct=>set.has(ct.c))||null;
+    cols.push({col:C,k,cells,joined,city,lost:!joined&&!cells.length});
+  });
+  const v={home,cols,byCell};m.set(i,{key,v});return v;
+}
+/* the colonies that hold land apart from the homeland, and how many more may be founded */
+function lndActive(G){return G?G.cols.filter(K=>!K.joined&&K.cells.length):[];}
+function lndSlots(G){return Math.min(LND_RULES.slots,1+lndActive(G).filter(K=>K.city).length);}
+const lndFar=d=>{for(const [k,f] of LND_RULES.far)if(d>k)return f;return 1;};
+
+/* ── claim reach: within LND_RULES.colReach of a colony's landing hex, as well as the capital's and every city's ── */
+inReach=(f=>function(x,cell){
+  if(f.apply(this,arguments))return true;
+  const cs=lndCols(x&&x.n);for(const C of cs)if(hexDist(cell,C.c)<=LND_RULES.colReach)return true;
+  return false;
+})(inReach);
+
+/* ── who may land: a Harbour, and the capital on an island of at most LND_RULES.isle hexes, fewer than LND_RULES.box
+   free hexes left to claim, or LND_RULES.big hexes held ── */
+let lndRoomMemo={T:null,me:'',v:0};
+function lndRoom(T){
+  const me=myId();if(lndRoomMemo.T===T&&lndRoomMemo.me===me)return lndRoomMemo.v;
+  const seen=new Set(),q=[];for(const c of claimFrontier(T))if(MAP.T[c]>=2&&!seen.has(c)){seen.add(c);q.push(c);}
+  for(let h=0;h<q.length&&seen.size<LND_RULES.box;h++){const a=q[h];for(let d=0;d<6;d++){const nb=MAP.nbr[a*6+d];if(nb>=0&&!seen.has(nb)&&MAP.T[nb]>=2&&freeCell(T,nb)){seen.add(nb);q.push(nb);}}}
+  lndRoomMemo={T,me,v:seen.size};return seen.size;
+}
+function lndWho(T,i){
+  const x=T.list[i];if(!x)return {ok:false,why:'Settle your nation on the map first.'};
+  const k=MAP.comp[x.cap],C=k>=0?MAP.comps[k]:null,isle=!!(C&&C.size<=LND_RULES.isle),big=(T.count[i]||0)>=LND_RULES.big;
+  const room=isle||big?LND_RULES.box:lndRoom(T),boxed=room<LND_RULES.box;
+  const ok=isle||big||boxed;
+  return {ok,isle,big,boxed,why:ok?'':`Landing parties are for nations that cannot grow over land: a capital on an island of up to ${LND_RULES.isle.toLocaleString('en-US')} hexes, fewer than ${LND_RULES.box} free hexes left to claim, or ${LND_RULES.big} hexes held. ${esc(x.n.name)} holds ${T.count[i]||0}, with room to grow at home.`};
+}
+/* the nation's Harbours and how far their landing parties sail */
+function lndTech(n){let k=0;for(const [id,v] of Object.entries(LND_RULES.tech))try{if(rsKnows(n,id))k+=v;}catch(e){}return k;}
+function lndNavy(n){return !!pol(n).navalFleet||dsDock(n);}
+function lndHarbours(n){
+  if(!n)return [];let H;try{H=dsHarbours(n);}catch(e){H=[];}
+  const navy=lndNavy(n),tech=lndTech(n);
+  return H.map(h=>({c:h.c,nm:h.nm,u:h.u,big:!!(h.t2||h.sv),reach:Math.min(LND_RULES.max,LND_RULES.reach+(h.t2||h.sv?LND_RULES.t2:LND_RULES.ug*h.u)+(navy?LND_RULES.navy:0)+tech)}));
+}
+/* a coast hex and the sea hexes to it: the fewest from any harbour, within that harbour's reach */
+function lndSeaTo(H,cell){
+  let best=null;
+  for(const h of H){const D=dsSeaDist(h.c,h.reach);for(let k=0;k<6;k++){const s=MAP.nbr[cell*6+k];if(s<0||!(D[s]>=1))continue;const d=D[s];if(d<=h.reach&&(!best||d<best.d||d===best.d&&h.c<best.h.c))best={h,d};}}
+  return best;
+}
+/* the sea lane from a harbour to a coast, for the map: down the distances from the coast */
+const LND_PATH=new Map();
+function lndPath(h,c,reach){
+  const key=h+'|'+c;if(LND_PATH.has(key))return LND_PATH.get(key);
+  const D=dsSeaDist(h,Math.max(reach||LND_RULES.max,LND_RULES.max)),out=[c];let cur=-1,bd=1e9;
+  for(let k=0;k<6;k++){const s=MAP.nbr[c*6+k];if(s>=0&&D[s]>=1&&D[s]<bd){bd=D[s];cur=s;}}
+  if(cur<0){LND_PATH.set(key,null);return null;}
+  for(let g=0;cur>=0&&g<200;g++){out.push(cur);if(D[cur]===1)break;let nx=-1;for(let k=0;k<6;k++){const s=MAP.nbr[cur*6+k];if(s>=0&&D[s]===D[cur]-1){nx=s;break;}}cur=nx;}
+  out.push(h);out.reverse();if(LND_PATH.size>200)LND_PATH.clear();LND_PATH.set(key,out);return out;
+}
+
+/* ── where a landing party may go ── */
+/* a nation not played for LND_RULES.away (its last save, less any holiday it declared): its coast takes a peaceful landing */
+function lndAway(n,now){if(!n||n.npc)return false;const t=dormLast(n);if(!(t>0))return false;now=now||Date.now();let a=0;try{a=awayIn(n,t,now)||0;}catch(e){}if(n.away&&n.away.b>now)return false;return now-t-a>=LND_RULES.away;}
+/* a Shore Battery of nation j within LND_RULES.bat of a hex */
+function lndBattery(T,j,cell){try{return cityState(T).all.find(ct=>ct.hi===j&&ct.active&&ct.done.includes('shorebat')&&hexDist(ct.c,cell)<=LND_RULES.bat)||null;}catch(e){return null;}}
+/* the war in which nation x may be landed on: one of conquest this nation is in, not offering peace */
+function lndWarOn(x,now){if(!x||x.hid)return false;const w=warWith(x.id);return !!(w.war&&w.g==='c'&&!w.iOffered&&!wrSafe(x.n,now||Date.now()));}
+/* every landing the player could make now, by coast hex: {kind 'p' | 'ab' | 'h', h, d, j (the other nation's index)} */
+let lndTgMemo={k:'',T:null,v:null};
+function lndTargets(T){
+  const n=S.nation,mi=T.byId[myId()];if(!n||mi===undefined)return new Map();
+  const H=lndHarbours(n),now=Date.now(),k=H.map(h=>h.c+':'+h.reach).join(',')+'|'+Math.floor(now/60000)+'|'+(polMemo&&polMemo.k);
+  if(lndTgMemo.T===T&&lndTgMemo.k===k)return lndTgMemo.v;
+  const out=new Map(),ban=claimBan(T),cand=new Map();
+  for(const h of H){const D=dsSeaDist(h.c,h.reach);for(const s of D.cells||[]){const d=D[s];if(!(d>=1&&d<=h.reach))continue;
+    for(let e=0;e<6;e++){const c=MAP.nbr[s*6+e];if(c<0||MAP.T[c]<2)continue;const b=cand.get(c);if(!b||d<b.d)cand.set(c,{h,d});}}}
+  const touchesMe=c=>{for(let e=0;e<6;e++){const v=MAP.nbr[c*6+e];if(v>=0&&T.owner[v]===mi)return true;}return false;};
+  const warNear=c=>{for(const [v] of ringCells(c,3)){const o=T.owner[v];if(o>=0&&o!==mi&&warWith(T.list[o].id).war)return true;}return false;};
+  const awayOf=new Map(),warOf=new Map(),hasWar=enemies().length>0,home=claimFrontier(T),may=lndWho(T,mi).ok;
+  for(const [c,{h,d}] of cand){
+    if(T.isCap[c]||!claimLand(c))continue;const o=T.owner[c];
+    /* free coast: not one the nation can claim the ordinary way already, nor beside a nation it is at war with (that
+       landing is a hostile one) */
+    if(o===-1){if(!may||ban[c]||touchesMe(c)||home.has(c)||hasWar&&warNear(c))continue;out.set(c,{kind:'p',h,d});continue;}
+    if(o===mi)continue;const x=T.list[o];if(!x||x.hid)continue;
+    if(x.npc){if(!warOf.has(o))warOf.set(o,lndWarOn(x,now));if(warOf.get(o)&&d<=LND_RULES.hReach&&!lndBattery(T,o,c))out.set(c,{kind:'h',h,d,j:o});continue;}
+    if(may&&!awayOf.has(o))awayOf.set(o,lndAway(x.n,now));
+    if(awayOf.get(o)){if(ban[c]||touchesMe(c)||cityState(T).byCell.has(c))continue;out.set(c,{kind:'ab',h,d,j:o});continue;}
+    if(!warOf.has(o))warOf.set(o,lndWarOn(x,now));
+    if(warOf.get(o)&&d<=LND_RULES.hReach&&!lndBattery(T,o,c))out.set(c,{kind:'h',h,d,j:o});
+  }
+  lndTgMemo={k,T,v:out};return out;
+}
+/* why a hex takes no landing, in words */
+function lndWhyNot(T,c){
+  const mi=T.byId[myId()],o=T.owner[c];
+  if(c<0||MAP.T[c]<2)return 'Choose a hex of coast: a landing party comes ashore on land.';
+  if(o===mi)return 'That is your own land.';
+  if(T.isCap[c])return 'No landing party comes ashore on a capital.';
+  if(o>=0){const x=T.list[o];
+    if(x&&!x.npc&&lndBattery(T,o,c))return `A Shore Battery in ${esc(lndBattery(T,o,c).nm)} keeps hostile landings off this coast.`;
+    if(x&&!x.npc&&warWith(x.id).war&&warWith(x.id).g!=='c')return 'Hostile landings are made only in a war of conquest.';
+    if(x&&!x.npc&&lndWarOn(x)){const P=lndSeaTo(lndHarbours(S.nation),c);if(P&&P.d>LND_RULES.hReach)return `A hostile landing sails at most ${LND_RULES.hReach} hexes; this coast is ${P.d} away.`;}
+    return `${esc(x?x.n.name:'Another nation')} holds this coast.${x&&!x.npc?` Its coast takes a peaceful landing once it has gone ${Math.round(LND_RULES.away/DAY)} days unplayed, or a hostile landing in a war of conquest.`:''}`;}
+  if(!isCoastal(c))return 'Choose a hex on the coast.';
+  const P=lndSeaTo(lndHarbours(S.nation),c);
+  if(!P)return 'None of your Harbours reaches this coast by sea.';
+  {const w=lndWho(T,mi);if(!w.ok)return w.why;}
+  if(claimBan(T)[c])return 'Too close to another nation’s capital.';
+  return 'Land that touches your own is claimed the ordinary way, from the map.';
+}
+/* the plan for a landing at c: the hexes it takes, what it costs, how long it sails */
+function lndCost(d,kind,ty){
+  if(kind==='h'){const o={};for(const [r,v] of Object.entries(LND_RULES.hCost))o[r]=Math.round(v*(1+d/40));return o;}
+  const o={};for(const [r,[a,b]] of Object.entries(LND_RULES.cost))o[r]=Math.round(a+b*d);
+  if(ty==='g')for(const [r,v] of Object.entries(LND_RULES.gar))o[r]=(o[r]||0)+v;return o;
+}
+function lndPlan(T,c,ty){
+  const tg=lndTargets(T).get(c);if(!tg)return {ok:false,why:lndWhyNot(T,c)};
+  const mi=T.byId[myId()],cells=[c],ban=claimBan(T);
+  const fits=v=>{if(cells.includes(v)||T.isCap[v]||MAP.T[v]<2||!claimLand(v))return false;const o=T.owner[v];
+    if(tg.kind==='p')return o===-1&&!ban[v];
+    if(tg.kind==='ab')return o===tg.j&&!ban[v]&&!cityState(T).byCell.has(v);
+    return o===tg.j&&isCoastal(v)&&!lndBattery(T,o,v);};
+  const want=tg.kind==='h'?LND_RULES.hHex:LND_RULES.beach;
+  const ring=ringCells(c,1).map(([v])=>v).filter(v=>v!==c&&fits(v)).sort((a,b)=>(CELL_RES.food[b]+CELL_RES.timber[b]+CELL_RES.iron[b])-(CELL_RES.food[a]+CELL_RES.timber[a]+CELL_RES.iron[a])||a-b);
+  for(const v of ring){if(cells.length>=want)break;cells.push(v);}
+  const kind=tg.kind,cost=lndCost(tg.d,kind==='h'?'h':'p',ty),mins=Math.max(LND_RULES.minMin,tg.d*LND_RULES.minPer);
+  const ms=kind==='h'?clamp(LND_RULES.hMin+tg.d*LND_RULES.minPer*60000,LND_RULES.hMin,LND_RULES.hMax):mins*60000;
+  return {ok:true,kind,h:tg.h,d:tg.d,j:tg.j,cells,cost,ms,credits:kind==='p'?cells.length:0};
+}
+/* the landing parties at sea, the colony slots they hold, and the land credits set aside for them */
+function lndAtSea(n){return lndList(n).filter(v=>v.st==='sea');}
+function lndReserved(n){let k=0;for(const v of lndAtSea(n))if(v.k==='p'&&!v.ab)k+=v.cl.length;return k;}
+landCredits=(f=>function(n){const v=f.apply(this,arguments);if(!n||n!==S.nation)return v;const r=lndReserved(n);return r?Math.max(0,v-r):v;})(landCredits);
+/* why the player may not send another landing party now ('' when it may) */
+function lndBlocked(T){
+  const n=S.nation,mi=T.byId[myId()];if(!n||mi===undefined)return 'Settle your nation on the map first.';
+  if(iAmHidden())return HID_WAR;
+  if(!lndHarbours(n).length)return 'A landing party sails from a finished Harbour in a coastal city you hold.';
+  const G=lndGeo(T,mi),used=lndActive(G).length+lndAtSea(n).filter(v=>!lndActive(G).some(K=>K.col.id===v.id)).length,slots=lndSlots(G);
+  if(used>=slots)return slots>=LND_RULES.slots?`${esc(n.name)} has as many colonies as a nation may: ${LND_RULES.slots}.`:`Found a city in ${lndActive(G).length===1?'your colony':'one of your colonies'} to send another landing party: each colony with a city opens the next, up to ${LND_RULES.slots}.`;
+  return '';
+}
+
+/* ── sending a landing party ── */
+async function lndSend(cell){
+  const T=territory(),ty=LND_TY[S.lndTy]?S.lndTy:'t',P=lndPlan(T,cell,ty);
+  const say=m=>{S.lndMsg=m;updateMapPanel();redrawMaps();};
+  if(!P.ok)return say(P.why);
+  const why=lndBlocked(T);if(why)return say(why);
+  const mi=T.byId[myId()];
+  if(P.kind!=='h'){const who=lndWho(T,mi);if(!who.ok)return say(who.why);}
+  if(P.kind==='p'&&landCredits(S.nation)<P.credits)return say(`This landing claims ${P.credits} ${P.credits===1?'hex':'hexes'} and needs as many land credits; you have ${landCredits(S.nation)}.`);
+  let now=Date.now();const st=stockNow(S.nation,now),miss=lacking(P.cost,st);
+  if(miss.length)return say(`The landing party needs ${costText(P.cost)}. You need ${list(miss)} more.`);
+  const x=P.j!=null?T.list[P.j]:null;
+  if(P.kind==='h'){
+    if(readiness(S.nation,now).r<1)return say('Your army has no readiness left to man the boats. It returns as usual.');
+    {const cq=conqCap(S.nation,now);if(cq)return say(cq);}
+    if(S.db&&!x.npc){
+      S.lndBusy=true;say('');let res;
+      try{const api=await window.claude.use('referee');res=api&&api.landing?await api.landing({d:x.id,c:cell,at:now+P.ms,cn:landName(cell)}):{ok:true};}catch(e){res={ok:false,why:(e&&e.code)||'unavailable'};}
+      S.lndBusy=false;if(!S.nation)return;
+      if(!res||!res.ok){const w=res&&res.why;return say(w==='war'?`You are not in a war of conquest with ${x.n.name}.`:w==='grace'?`${x.n.name} is in its days of grace: nothing can be taken from it now.`:w==='hidden'?HID_WAR:w==='time'?'The referee would not take that landing time. Try again.':'The referee could not be reached. Try again in a moment.');}
+      now=Date.now();
+    }
+  }
+  const n=clone(S.nation),st2=stockNow(n,now);for(const r of RES)st2[r]-=P.cost[r]||0;n.stock=roundStock(st2);n.stockAt=now;n._stockSet=true;
+  const id='l'+now.toString(36),nm=lndStr(S.lndNm,30)||lndNameIdea(n,cell);
+  const v={id,k:P.kind==='h'?'h':'p',c:cell,h:P.h.c,d:P.d,s:now,a:now+P.ms,st:'sea',cl:P.cells,p:P.cost};
+  if(P.kind==='h'){v.w=x.id;v.wn=x.n.name;spendReady(n,now);}else{v.ty=ty;v.nm=nm;if(P.kind==='ab')v.ab=x.id;}
+  n.lnd=lndList(n).filter(e=>e.st==='sea'||now-(e.e||e.a)<30*DAY).concat(v).slice(-LND_RULES.keep);
+  n.log.unshift(P.kind==='h'?{t:now,k:'lndh',a:x.id,b:x.n.name,fx:landName(cell),c:cell}:{t:now,k:'lnds',a:nm,b:ty,fx:landName(cell),c:cell});n.log=n.log.slice(0,60);
+  lndBump(n,'lnd:v');if(P.kind==='h')lndBump(n,'lnd:hv');
+  commit(n);S.lndSel=null;S.lndNm='';S.lndMsg='';render();
+  toast(P.kind==='h'?`The landing party sails from ${P.h.nm} for the coast ${placePhrase(cell)}. It comes ashore in ${fmtDur(P.ms)}, and ${x.n.name} has been warned.`:`The landing party sails from ${P.h.nm} for the coast ${placePhrase(cell)}. It comes ashore in ${fmtDur(P.ms)}.`);
+}
+/* a name for a new colony: New (capital), Port (nation), (land) Landing … by the hex, so it does not change while chosen */
+function lndNameIdea(n,cell){
+  const cap=String((n&&n.capital)||'Haven'),l0=landName(cell),ln=/^an? /i.test(l0)?'':l0.replace(/^the /i,''),pre=/^(new|port|fort|st|saint|san|santa)\b/i.test(cap);
+  const ideas=[...(ln?[`${ln} Landing`,`Port ${ln}`,`${ln} Haven`]:[]),...(pre?[]:[`New ${cap}`,`Fort ${cap}`]),`${cap} Bay`];
+  return ideas[hash('lnd:'+cell)%ideas.length].slice(0,30);
+}
+
+/* ── the voyages at sea, each tick: landing, the hostile window, the fleet turned back ── */
+const LND={busy:false};
+function lndActiveH(n,now){return lndList(n).filter(v=>v.k==='h'&&v.st==='sea'&&now>=v.a&&now<v.a+LND_RULES.hWin);}
+async function lndTick(now){
+  const n0=S.nation;if(!n0||LND.busy||OBS)return false;
+  const V=lndAtSea(n0);if(!V.length&&!lndCols(n0).length&&!lndSeeOff(n0,now,true))return false;
+  /* nothing is decided before the region's land is known (as writeClaims waits: landWait) */
+  try{if(landWait())return false;}catch(e){}
+  const T=territory(),mi=T.byId[myId()];if(mi===undefined)return false;
+  /* a peaceful landing that has arrived */
+  const p=V.find(v=>v.k==='p'&&v.a<=now);if(p){LND.busy=true;try{await lndLand(p);}finally{LND.busy=false;}return true;}
+  /* a hostile landing: back home if the war is over before it lands; a colony from its first hex taken; over after
+     its day ashore or its hexes */
+  for(const v of V){if(v.k!=='h')continue;
+    /* the enemy's record not here yet (the page still loading): nothing to decide about this war */
+    const x=findNation(v.w);if(!x)continue;const won=v.cl.filter(c=>T.owner[c]===mi).length,w=warWith(v.w);
+    if(v.a>now){if(!w.war){lndEnd(v.id,'back','peace',0);return true;}continue;}
+    if(won&&!lndCols(n0).some(C=>C.id===v.id)){lndBeachhead(v,T,mi,now);return true;}
+    if(won>=Math.min(LND_RULES.hHex,v.cl.length)||now>=v.a+LND_RULES.hWin||!w.war){lndEnd(v.id,won?'ok':'fail',won?'':'repelled',won);return true;}
+  }
+  if(lndSupply(T,mi,now))return true;
+  if(lndProvinceTry(T,mi))return true;
+  if(lndSeeOff(n0,now,false))return true;
+  return false;
+}
+function lndEnd(id,st,r,won){
+  const now=Date.now(),n=clone(S.nation),v=lndList(n).find(e=>e.id===id);if(!v)return;
+  v.st=st;v.e=now;if(r)v.r=r;if(v.k==='h')v.won=won|0;
+  if(st==='back'&&v.p){const s=stockNow(n,now);for(const r2 of RES)if(v.p[r2])s[r2]=stockLimit(n,r2,num0(s[r2])+Math.floor(v.p[r2]/2));n.stock=roundStock(s);n.stockAt=now;n._stockSet=true;}
+  if(v.k==='h'){if(st==='ok'){lndBump(n,'lnd:h');n.log.unshift({t:now,k:'lndw',a:v.w,b:v.wn,fx:landName(v.c),c:v.c,d:String(won)});}
+    else if(st==='fail')n.log.unshift({t:now,k:'lndf',a:v.w,b:v.wn,fx:landName(v.c),c:v.c});
+    else n.log.unshift({t:now,k:'lndb',a:v.w,b:v.wn,fx:landName(v.c),c:v.c});}
+  else if(st!=='ok')n.log.unshift({t:now,k:'lndt',a:v.nm,b:v.ty,fx:landName(v.c),c:v.c});
+  n.log=n.log.slice(0,60);commit(n);render();
+  toast(v.k==='h'?(st==='ok'?`The landing on ${landName(v.c)} is over: ${won===1?'one hex':won+' hexes'} taken from ${v.wn}.`:st==='fail'?`The landing on ${landName(v.c)} failed: ${v.wn} held the beaches.`:`Peace came before the boats did: the landing party for ${landName(v.c)} has turned back, with half its stores.`)
+    :`Your landing party found the coast at ${landName(v.c)} taken and has sailed home with half its stores.`);
+}
+/* the first hex taken in a hostile landing makes the beachhead a Garrison colony */
+function lndBeachhead(v,T,mi,now){
+  const n=clone(S.nation),c=v.cl.find(x=>T.owner[x]===mi);
+  n.cln=lndCols(n).concat({id:v.id,c,t:now,ty:'g',h:v.h,d:v.d,nm:lndStr(`${S.nation.capital||'Fort'} Beachhead`,30),hs:1}).slice(-LND_RULES.keep);
+  commit(n);render();toast(`Your troops are ashore ${placePhrase(c)}: the beachhead is a Garrison colony now.`);
+}
+/* a peaceful landing comes ashore: the hexes that are still free (or, on an abandoned coast, still the same nation's
+   and sealed by the referee), as many as the credits set aside allow */
+async function lndLand(v){
+  const T=territory(),mi=T.byId[myId()],ban=claimBan(T),now=Date.now();
+  if(v.ab){
+    const x=findNation(v.ab),j=x?T.byId[x.id]:undefined;
+    let cells=j===undefined||!lndAway(x.n,now)?[]:v.cl.filter(c=>T.owner[c]===j&&!T.isCap[c]&&!ban[c]);
+    const won=[];
+    for(const c of cells){
+      let res={ok:true,t:Date.now(),w:LND_AB,d:x.id};
+      if(S.db){try{const api=await window.claude.use('referee');res=api&&api.abandon?await api.abandon({d:x.id,c}):{ok:false,why:'none'};}catch(e){res={ok:false,why:(e&&e.code)||'unavailable'};}}
+      if(!res||!res.ok){if(res&&(res.why==='active'))break;continue;}
+      const e={c,t:Number(res.t)||Date.now(),d:x.id,w:LND_AB};if(typeof res.s==='string')e.s=res.s;if(typeof res.s2==='string')e.s2=res.s2;won.push(e);
+    }
+    if(!S.nation)return;
+    if(!won.length)return lndEnd(v.id,'fail','taken',0);
+    const n=clone(S.nation),vv=lndList(n).find(e=>e.id===v.id);
+    for(const e of won){if(typeof refSig(e)==='string')REF.ok.set(refK(myId(),e),true);}
+    n.conq=dedupeConq((n.conq||[]).concat(won));
+    return lndSettle(n,vv,won[0].c,won.length,now);
+  }
+  const free=v.cl.filter(c=>T.owner[c]===-1&&!T.isCap[c]&&!ban[c]&&claimLand(c));
+  const n=clone(S.nation),vv=lndList(n).find(e=>e.id===v.id);vv.st='ok';
+  const cr=landCredits(n),room=claimRoom(n),cells=free.slice(0,Math.max(0,Math.min(cr,room)));
+  if(!cells.length)return lndEnd(v.id,'fail',free.length?'credits':'taken',0);
+  n.claims=(n.claims||[]).concat(cells.map((c,k)=>({c,t:now+k})));
+  return lndSettle(n,vv,cells.includes(v.c)?v.c:cells[0],cells.length,now);
+}
+function lndSettle(n,v,c,k,now){
+  v.st='ok';v.e=now;
+  n.cln=lndCols(n).concat({id:v.id,c,t:now,ty:v.ty||'t',h:v.h,d:v.d,nm:v.nm||lndNameIdea(n,c)}).slice(-LND_RULES.keep);
+  n.log.unshift({t:now,k:'lndp',a:v.nm||'',b:v.ty||'t',fx:landName(c),c,d:String(k)});n.log=n.log.slice(0,60);
+  lndBump(n,'lnd');if(v.d>=50)lndBump(n,'lnd:far');if(v.ab)lndBump(n,'lnd:ab');
+  commit(n);render();
+  toast(`${v.nm||'The colony'} is founded ${placePhrase(c)}: ${k===1?'one hex':k+' hexes'} ashore, ${LND_TY[v.ty||'t']}.`);
+}
+
+/* ── keeping the colonies: short of food or goods for LND_RULES.short, a colony loses its outer hexes, one a day ── */
+function lndSupply(T,mi,now){
+  const n0=S.nation,G=lndGeo(T,mi),act=lndActive(G);if(!act.length)return false;
+  const st=stockNow(n0,now),short=num0(st.food)<1||num0(st.goods)<1,todo=[];
+  for(const K of act){const C=K.col;
+    if(!short){if(C.sh)todo.push([C.id,'ok']);continue;}
+    if(!C.sh){todo.push([C.id,'short']);continue;}
+    const due=now-C.sh>=LND_RULES.short?Math.floor((now-C.sh-LND_RULES.short)/DAY)+1-(C.rl|0):0;if(due<=0)continue;
+    /* the outermost hexes first, never the landing hex or a city; claims are let go, land taken from others goes back */
+    const keep=new Set([C.c]);if(K.city)keep.add(K.city.c);
+    const out=K.cells.filter(c=>!keep.has(c)).sort((a,b)=>hexDist(b,C.c)-hexDist(a,C.c)||b-a).slice(0,due);if(out.length)todo.push([C.id,'drop',out]);
+  }
+  if(!todo.length)return false;
+  const n=clone(n0),cs=lndCols(n);
+  for(const [id,what,out] of todo){const C=cs.find(x=>x.id===id);if(!C)continue;
+    if(what==='ok'){delete C.sh;delete C.rl;continue;}
+    if(what==='short'){C.sh=now;n.log.unshift({t:now,k:'lndsh',a:C.nm,fx:landName(C.c),c:C.c});continue;}
+    const drop=new Set(out);n.claims=(n.claims||[]).filter(e=>!drop.has(e.c));n.conq=(n.conq||[]).filter(e=>!drop.has(e.c));
+    C.rl=(C.rl|0)+out.length;n.log.unshift({t:now,k:'lndx',a:C.nm,b:String(out.length),fx:landName(C.c),c:C.c});}
+  n.log=n.log.slice(0,60);commit(n);render();return true;
+}
+/* a colony's province, once, where the nation has divisions (Customise) and room for one more */
+function lndProvinceTry(T,mi){
+  const n0=S.nation;if(!n0||!n0.prov||!prvOnRec(n0))return false;
+  const C=lndCols(n0).find(x=>!x.pv&&T.owner[x.c]===mi);if(!C)return false;
+  const n=clone(n0),P=n.prov,cc=lndCols(n).find(x=>x.id===C.id);cc.pv=1;
+  try{const N=prvNatWith(T,mi,P),act=N.prov.filter(p=>!p.dorm).length,here=prvOfCell(N,C.c);
+    if(act<N.max&&P.l.length<PRV_MAXL&&!(here&&here.src.includes(C.c))){
+      P.l.push(prvNew(n,P,C.c,lndStr(`Overseas Territory of ${n0.name}`,30),Date.now()));
+      if(prvCheckOld(T,mi,P,'A new division here'))P.l.pop();else prvPrune(T,mi,P);}}catch(e){}
+  commit(n);return true;
+}
+/* landings on the player's coast that ended without a hex taken: seen off, once each (Repelled a Landing) */
+function lndSeeOff(n,now,peek){
+  const me=myId(),seen=new Set(Array.isArray(n.lnr)?n.lnr:[]),got=[];
+  for(const x of allNations()){if(x.me||x.npc)continue;for(const v of lndList(x.n))if(v.k==='h'&&v.w===me&&v.st==='fail'&&!seen.has(v.id)&&now-(v.e||v.a)<7*DAY)got.push([x,v]);}
+  if(peek||!got.length)return got.length>0;
+  const m=clone(n);m.lnr=[...seen,...got.map(([,v])=>v.id)].slice(-40);
+  for(const [x,v] of got){lndBump(m,'lnd:rep');m.log.unshift({t:now,k:'lndr',a:x.id,b:x.n.name,fx:landName(v.c),c:v.c});}
+  m.log=m.log.slice(0,60);commit(m);render();toast(`Your beaches held: ${got[0][0].n.name}’s landing ${placePhrase(got[0][1].c)} was driven back into the sea.`);return true;
+}
+
+/* ── what the colonies cost and give, for every nation (economy() calls this beside the war's upkeep) ── */
+function lndUpkeepOf(K){
+  const h=K.cells.length,f=1+K.col.d/LND_RULES.up.k,s=K.col.ty==='s'?LND_RULES.set.up:1,U=LND_RULES.up,o={};
+  o.food=(U.food[0]+U.food[1]*h)*f*s;o.goods=(U.goods[0]+U.goods[1]*h)*f*s;
+  if(K.col.ty==='g'){o.iron=(U.gar[0]+U.gar[1]*h)*f;o.oil=(U.gar[0]+U.gar[1]*h)*f;}
+  return o;
+}
+function lndEcon(T,CSt,prod,dem,L){
+  const up=Object.fromEntries(RES.map(r=>[r,new Float64Array(L)])),food=new Float64Array(L),posts=new Float64Array(L);let any=false;
+  T.list.forEach((x,i)=>{if(x.npc||!lndCols(x.n).length)return;const G=lndGeo(T,i);
+    for(const K of lndActive(G)){any=true;const o=lndUpkeepOf(K);for(const r in o){dem[r][i]+=o[r];up[r][i]+=o[r];}
+      if(K.col.ty==='s'){let f=0;for(const c of K.cells)f+=CELL_RES.food[c];f*=LND_RULES.set.food;prod.food[i]+=f;food[i]+=f;}
+      if(K.col.ty==='t')posts[i]++;}
+    if(posts[i])prod.goods[i]*=1+LND_RULES.post.goods*posts[i];});
+  return any?{up,food,posts}:null;
+}
+
+/* ── war: a colony that is not a Garrison is no base for an attack; an attack from a colony is weaker the further it
+   lies across the sea; and a hostile landing's hexes join the frontier for its day ashore ── */
+/* the colony an attack on cell comes from: none when the nation's land outside its colonies (or in a Garrison) lies
+   within four hexes, the nearest colony otherwise */
+function lndSourceCol(T,i,cell,G){
+  if(!G||!G.byCell.size)return null;let best=null,bd=9,home=false;
+  for(const [c,d] of ringCells(cell,4)){if(T.owner[c]!==i)continue;const k=G.byCell.get(c);if(k===undefined){home=true;break;}if(d<bd){bd=d;best=G.cols[k];}}
+  return home?null:best;
+}
+let lndFrMemo={r:null,k:'',v:null};
+frontier=(f=>function(T){
+  const res=f.apply(this,arguments);
+  try{const n=S.nation;if(!n||(!lndCols(n).length&&!lndList(n).length))return res;
+    const mi=T.byId[myId()];if(mi===undefined)return res;const now=Date.now(),vs=lndActiveH(n,now),G=lndCols(n).length?lndGeo(T,mi):null;
+    const blocks=G&&lndActive(G).some(K=>K.col.ty!=='g');if(!vs.length&&!blocks)return res;
+    const k=vs.map(v=>v.id).join(',')+'|'+(G?G.cols.map(K=>K.col.ty+K.cells.length).join(','):'')+'|'+Math.floor(now/60000);
+    if(lndFrMemo.r===res&&lndFrMemo.k===k)return lndFrMemo.v;
+    const out=new Map(res);
+    if(blocks)for(const c of res.keys()){if(res.get(c).cap)continue;const K=lndSourceCol(T,mi,c,G);if(K&&K.col.ty!=='g')out.delete(c);}
+    for(const v of vs)for(const c of v.cl){const o=T.owner[c];if(o<0||o===mi||T.isCap[c]||!T.list[o]||T.list[o].id!==v.w)continue;out.set(c,{gap:0,amph:true,ld:v.id});}
+    lndFrMemo={r:res,k,v:out};return out;
+  }catch(e){return res;}
+})(frontier);
+/* the hostile landing (of nation A's) that an attack on cell belongs to */
+function lndLandingAt(A,B,cell,now){return lndList(A&&A.n).find(v=>v.k==='h'&&v.st==='sea'&&v.w===B.id&&v.cl.includes(cell)&&now>=v.a&&now<v.a+LND_RULES.hWin)||null;}
+function lndBdfLv(n,id){const b=n&&n.bdf&&n.bdf[id];return b&&Date.now()-b.t<5*DAY?clamp(b.lv|0,0,LND_RULES.bdf.length):0;}
+BATTLE_MODS.push((T,cell,ai,bi)=>{
+  const A=T.list[ai],B=T.list[bi];if(!A||!B||A.npc)return null;const now=Date.now();
+  const v=lndLandingAt(A,B,cell,now);
+  if(v){const lv=B.npc?0:lndBdfLv(B.n,v.id),m=LND_RULES.hDef*(lv?LND_RULES.bdf[lv-1].m:1),f=lndFar(v.d);
+    return {att:f,def:m,note:`A landing from the sea: ${B.n.name} holds the beaches ${Math.round((m-1)*100)}% the stronger${lv?` behind ${LND_RULES.bdf[lv-1].n.toLowerCase()}`:''}${f<1?`, and your boats came ${v.d} hexes (${Math.round((1-f)*100)}% weaker)`:''}.`};}
+  if(!lndCols(A.n).length)return null;
+  const K=lndSourceCol(T,ai,cell,lndGeo(T,ai));if(!K)return null;const f=lndFar(K.col.d);if(f>=1)return null;
+  return {att:f,note:`This attack comes from ${K.col.nm||'a colony'}, ${K.col.d} hexes across the sea from home: ${Math.round((1-f)*100)}% weaker.`};
+});
+/* land taken in a hostile landing counts twice towards the sixteen hexes a day */
+conqCap=(f=>function(n,now){
+  const r=f.apply(this,arguments);if(r)return r;now=now||Date.now();const L=lndList(n).filter(v=>v.k==='h');if(!L.length)return r;
+  const t=[];for(const e of (n&&n.conq)||[]){if(!e||e.n||!(e.t>=FIX_EPOCH)||e.t<now-DAY)continue;t.push(e.t);if(L.some(v=>v.cl.includes(e.c)&&e.t>=v.a&&e.t<=v.a+LND_RULES.hWin))t.push(e.t);}
+  if(t.length<16)return '';t.sort((a,b)=>b-a);
+  return `Your army has taken 16 hexes in the last 24 hours (land taken in a landing counts twice) and must hold its gains before it advances again. The next attack is possible in ${fmtDur(t[15]+DAY-now)}.`;
+})(conqCap);
+
+/* ── the Shore Battery: no hostile landing comes ashore within LND_RULES.bat hexes of its city ── */
+Object.assign(BUILDINGS,{
+  shorebat:{n:'Shore Battery',c:'def',need:'coast',icon:'shorebat',d:`Guns over the beach: no hostile landing can come ashore within ${LND_RULES.bat} hexes of the city. Uses 1 iron a day.`,
+    q:'Four guns, a flagpole, a logbook of every sail on the horizon, and a gunner who swears he can tell a fishing boat from a landing craft by the way it rows.',cost:{timber:25,iron:35,goods:10},h:6,up:{iron:1}}
+});
+{const m=MILESTONES.find(m=>m.p===10);if(m)m.b=(m.b||[]).concat('shorebat');}
+Object.assign(DC_GLYPH,{
+  shorebat:{w:5.4,h:3.2,f:(q,x)=>{q.poly('face',[[x,0],[x+0.4,-1.6],[x+4.2,-1.6],[x+4.6,0]],{ol:1});q.rect('roof',x+0.2,-1.9,4.2,0.3,{ol:1});
+    for(const g of [0.9,2.3,3.7])q.ln('ink',0.28,[[x+g,-1.75],[x+g+0.9,-2.5]]);q.ln('ink',0.16,[[x+5,0],[x+5,-3.1]]);dcFlag(q,x+5,-1.6,0);}}
+});
+DC_GEO.shorebat='coast';
+Object.assign(BLD_ICO,{shorebat:'<path d="M3 20.5h18"/><path d="M4.5 20.5 6 14h12l1.5 6.5"/><path d="M8 14l3-4M12 14l3-4M16 14l3-4"/><path d="M3 22c1.5 0 1.5-.8 3-.8s1.5.8 3 .8 1.5-.8 3-.8 1.5.8 3 .8 1.5-.8 3-.8 1.5.8 3 .8"/>'});
+
+/* ── the defenders: landings on their way to this nation's coast, and the beach defences against them ── */
+function lndThreats(now){
+  const me=myId(),out=[];if(!S.nation)return out;now=now||Date.now();
+  for(const x of allNations()){if(x.me||x.npc)continue;for(const v of lndList(x.n))if(v.k==='h'&&v.w===me&&v.st==='sea'&&now<v.a+LND_RULES.hWin)out.push({x,v});}
+  return out.sort((a,b)=>a.v.a-b.v.a);
+}
+/* what the next level of beach defences costs: the price of that level less what the levels bought already cost */
+function lndBdfCost(from,to){const o={};const A=from?LND_RULES.bdf[from-1].cost:{},B=LND_RULES.bdf[to-1].cost;for(const r of RES){const v=(B[r]||0)-(A[r]||0);if(v>0)o[r]=v;}return o;}
+function lndDigIn(id,lv){
+  const now=Date.now(),th=lndThreats(now).find(t=>t.v.id===id);if(!th||!S.nation){toast('That landing is no longer coming.');return;}
+  if(now>=th.v.a+LND_RULES.hWin){toast('The landing is over.');return;}
+  const cur=lndBdfLv(S.nation,id);if(!(lv>cur&&lv<=LND_RULES.bdf.length))return;
+  const cost=lndBdfCost(cur,lv),st=stockNow(S.nation,now),miss=lacking(cost,st);
+  if(miss.length){toast(`${LND_RULES.bdf[lv-1].n} cost ${costText(cost)}. You need ${list(miss)} more.`);return;}
+  const n=clone(S.nation);for(const r of RES)st[r]-=cost[r]||0;n.stock=roundStock(st);n.stockAt=now;n._stockSet=true;
+  const live={};for(const [k,b] of Object.entries(n.bdf||{}))if(now-b.t<5*DAY)live[k]=b;
+  n.bdf={...live,[id]:{lv,t:now,c:th.v.c}};
+  n.log.unshift({t:now,k:'lndbd',a:th.x.id,b:th.x.n.name,fx:landName(th.v.c),c:th.v.c,d:String(lv)});n.log=n.log.slice(0,60);lndBump(n,'lnd:bd');
+  commit(n);render();toast(`${LND_RULES.bdf[lv-1].n} on the beaches ${placePhrase(th.v.c)}: the landing will meet defenders ${Math.round((LND_RULES.hDef*LND_RULES.bdf[lv-1].m-1)*100)}% the stronger.`);
+}
+function lndThreatCard(t,now){
+  const {x,v}=t,lv=lndBdfLv(S.nation,v.id),ashore=now>=v.a,m=LND_RULES.hDef*(lv?LND_RULES.bdf[lv-1].m:1);
+  const btns=LND_RULES.bdf.map((b,k)=>k+1<=lv?'':`<button type="button" class="btn${k===lv?'':' ghost'} small" data-act="lnd-dig" data-id="${esc(v.id)}" data-lv="${k+1}">${esc(b.n)} · ${esc(costText(lndBdfCost(lv,k+1)))}</button>`).join('');
+  return `<div class="lnd-threat" role="alert"><p class="eyebrow">${ashore?'A landing is ashore':'A landing is coming'}</p>
+    <p><b>${esc(x.n.name)}</b> ${ashore?'has boats on your beaches':'is sending a landing party to your coast'} ${esc(placePhrase(v.c))}${v.cl.length>1?' (two hexes)':''}. ${ashore?`Its troops can attack those hexes until ${esc(fmtTime(v.a+LND_RULES.hWin))}.`:`It comes ashore in <b>${esc(fmtDur(v.a-now))}</b> and has a day to take ${v.cl.length>1?'them':'it'}.`}</p>
+    <p class="hint">Your defenders hold those beaches ${Math.round((m-1)*100)}% the stronger${lv?`, behind ${esc(LND_RULES.bdf[lv-1].n.toLowerCase())}`:''}. Fortify the hexes too (War office), or build a Shore Battery within ${LND_RULES.bat} hexes to keep future landings off this coast.</p>
+    ${btns?`<div class="row lnd-digs">${btns}</div>`:'<p class="hint">The beaches are as ready as they can be.</p>'}
+    <div class="row"><button type="button" class="linkish" data-act="lnd-see" data-c="${v.c}">Show it on the map</button></div></div>`;
+}
+NOTIF_SOURCES.push((n,now)=>{try{return lndThreats(now).map(({x,v})=>({t:v.s,k:'lndh',kl:'War office',txt:`${x.n.name} is sending a landing party to your coast ${placePhrase(v.c)}: it comes ashore ${v.a>now?'in '+fmtDur(v.a-now):'now'}. Dig in on the beaches.`,go:'map'}));}catch(e){return [];}});
+Object.assign(NOTIF_K,{lndh:'War office',lnds:'Colonies',lndp:'Colonies',lndw:'War office',lndf:'War office',lndb:'War office',lndr:'War office',lndt:'Colonies',lndx:'Colonies',lndsh:'Colonies',lndbd:'War office'});
+warNotice=(f=>function(){
+  let pre='';try{const now=Date.now(),th=lndThreats(now);if(th.length){const t=th[0];pre=`<div class="notice war lnd-n" role="alert"><p><b>${t.v.a>now?'A landing is coming.':'A landing is ashore.'}</b> ${esc(t.x.n.name)} ${t.v.a>now?`lands ${esc(placePhrase(t.v.c))} in ${esc(fmtDur(t.v.a-now))}`:`has troops on your beaches ${esc(placePhrase(t.v.c))}`}. <button type="button" class="linkish" data-act="lnd-see" data-c="${t.v.c}">Dig in on the beaches</button></p></div>`;}}catch(e){}
+  return pre+f.apply(this,arguments);
+})(warNotice);
+
+/* ── the Map's Landing parties tool (S.mpMode 'land'): the colonies, the boats at sea, and where to send the next ── */
+mpMapToolbar=(f=>function(){
+  const h=f.apply(this,arguments);if(!h||!S.nation)return h;
+  let show=S.mpMode==='land'||lndCols(S.nation).length>0||lndList(S.nation).length>0;if(!show)try{show=lndHarbours(S.nation).length>0;}catch(e){}
+  if(!show)return h;
+  const b=`<button class="btn${S.mpMode==='land'?'':' ghost'}" data-act="mp-mode" data-v="land" aria-pressed="${S.mpMode==='land'}">Landing parties</button>`;
+  return h.replace(/(<button class="btn ghost" data-act="mp-mode" data-v="">|<\/div>$)/,m=>b+m);
+})(mpMapToolbar);
+function lndColRow(K,now){
+  const C=K.col,o=lndUpkeepOf(K),up=Object.entries(o).filter(([,v])=>v>=0.05).map(([r,v])=>fmt1(v)+' '+r).join(', ');
+  const st=K.joined?'joined to the homeland':K.lost?'lost':`${K.cells.length} ${K.cells.length===1?'hex':'hexes'}${K.city?`, with ${esc(cityLabel(S.nation,K.city))}`:', no city yet'}`;
+  const warn=C.sh&&!K.joined&&!K.lost?`<span class="lnd-warn">Short of food or goods since ${esc(fmtTime(C.sh))}: ${now-C.sh<LND_RULES.short?`the colony starts to shrink in ${esc(fmtDur(C.sh+LND_RULES.short-now))}`:'it loses a hex a day'}.</span>`:'';
+  return `<li class="lnd-col"><button type="button" class="linkish" data-act="lnd-see" data-c="${C.c}"><b>${esc(C.nm||'A colony')}</b></button> · ${esc(LND_TY[C.ty])} · ${st}<br><span class="hint">${esc(landName(C.c))}, ${C.d} hexes by sea${!K.joined&&!K.lost?` · keeps ${esc(up)} a day`:''}</span>${warn}</li>`;
+}
+function lndVoyRow(v,now){
+  const to=v.k==='h'?`a landing on ${esc(v.wn||'the enemy')} ${esc(placePhrase(v.c))}`:`${esc(v.nm||'a colony')}, ${esc(placePhrase(v.c))}${v.ab?' (an abandoned coast)':''}`;
+  const when=now<v.a?`ashore in ${esc(fmtDur(v.a-now))}`:v.k==='h'?`<b>ashore</b>: attack the marked hexes until ${esc(fmtTime(v.a+LND_RULES.hWin))}`:'coming ashore';
+  return `<li class="lnd-voy${v.k==='h'?' lnd-hv':''}"><button type="button" class="linkish" data-act="lnd-see" data-c="${v.c}">${v.k==='h'?'Hostile landing':'Landing party'}</button>: ${to} · ${when}</li>`;
+}
+function lndPanelHTML(T){
+  const n=S.nation,mi=T.byId[myId()],now=Date.now();if(mi===undefined)return '';
+  const G=lndGeo(T,mi),H=lndHarbours(n),who=lndWho(T,mi),slots=lndSlots(G),act=lndActive(G),sea=lndAtSea(n);
+  let h=`<section class="lnd-panel"><h3 class="h2">Landing parties</h3>`;
+  if(!H.length)h+=`<p class="hint">A landing party sails from a finished Harbour in a coastal city you hold.</p>`;
+  else h+=`<p class="hint">${H.map(x=>`${esc(x.nm)}: ${x.reach} hexes by sea`).join(' · ')}${lndNavy(n)?' (with your navy)':''}. Colonies: ${act.length} of ${slots}${slots<LND_RULES.slots?` (a city in a colony opens the next, up to ${LND_RULES.slots})`:''}.</p>`;
+  if(!who.ok)h+=`<p class="hint">${who.why} Hostile landings in a war of conquest are open to every nation with a Harbour.</p>`;
+  else h+=`<p class="hint">${who.isle?'Your capital stands on an island':who.boxed?'Your nation has hardly any free land left to claim':'Your nation is large'}: it may plant colonies across the sea.</p>`;
+  const cs=G?G.cols.filter(K=>!K.lost||now-K.col.t<14*DAY):[];
+  if(cs.length)h+=`<ul class="lnd-list">${cs.map(K=>lndColRow(K,now)).join('')}</ul>`;
+  if(sea.length)h+=`<ul class="lnd-list">${sea.map(v=>lndVoyRow(v,now)).join('')}</ul>`;
+  if(S.lndMsg)h+=`<div class="mp-alert" role="alert"><p>${esc(S.lndMsg)}</p><button class="linkish" data-act="lnd-msg-x" aria-label="Dismiss">×</button></div>`;
+  const c=S.lndSel;
+  if(c==null)h+=H.length?`<p class="hint">Choose a coast on the map: green for free land, amber for a coast nobody has played for ${Math.round(LND_RULES.away/DAY)} days, red for an enemy’s coast in a war of conquest (up to ${LND_RULES.hReach} hexes).</p>`:'';
+  else{const ty=LND_TY[S.lndTy]?S.lndTy:'t',P=lndPlan(T,c,ty),stop=lndBlocked(T);
+    if(!P.ok)h+=`<p class="hint">${P.why}</p>`;
+    else if(stop)h+=`<p class="hint">${stop}</p><div class="row"><button type="button" class="linkish" data-act="lnd-cancel">Choose another coast</button></div>`;
+    else if(P.kind==='h'){const x=T.list[P.j];
+      h+=`<div class="lnd-plan lnd-hostile"><p class="eyebrow">Hostile landing</p><p>On the coast of <b>${esc(x.n.name)}</b>, ${esc(placePhrase(c))}: ${P.d} hexes by sea from ${esc(P.h.nm)}.</p>
+        <ul class="lnd-facts"><li>It sails for ${esc(fmtDur(P.ms))}, and ${esc(x.n.name)} is warned at once.</li><li>Ashore, your army has a day to take ${P.cells.length===1?'this hex':`these ${P.cells.length} hexes`}, one attack at a time; the defenders hold the beaches ${Math.round((LND_RULES.hDef-1)*100)}% the stronger, more if they dig in.</li><li>Land taken counts twice towards the 16 hexes a day. The beachhead becomes a Garrison colony.</li></ul>
+        <p>Costs ${esc(costText(P.cost))} and one point of readiness.</p>
+        <div class="row"><button type="button" class="btn" data-act="lnd-send" ${S.lndBusy?'disabled':''}>Launch the landing</button><button type="button" class="linkish" data-act="lnd-cancel">Choose another coast</button></div></div>`;}
+    else{const tys=Object.keys(LND_TY).map(k=>`<label class="lnd-ty"><input type="radio" name="lnd-ty" data-lndty value="${k}"${k===ty?' checked':''}> <b>${esc(LND_TY[k])}</b> <span class="hint">${esc(LND_TY_D[k])}</span></label>`).join('');
+      const cost=lndCost(P.d,'p',ty),x=P.kind==='ab'?T.list[P.j]:null;
+      h+=`<div class="lnd-plan"><p class="eyebrow">${x?'A landing on an abandoned coast':'A new colony'}</p><p>${esc(placePhrase(c))}, ${P.d} hexes by sea from ${esc(P.h.nm)}: ${P.cells.length===1?'one hex':P.cells.length+' hexes'} ashore${x?`, from ${esc(x.n.name)}, unplayed for ${Math.floor((now-dormLast(x.n))/DAY)} days`:''}.</p>
+        <fieldset class="lnd-tys"><legend>What kind of colony</legend>${tys}</fieldset>
+        <label class="lnd-nm">Its name <input type="text" maxlength="30" data-lnd-nm value="${esc(S.lndNm||lndNameIdea(n,c))}"></label>
+        <ul class="lnd-facts"><li>It sails for ${esc(fmtDur(P.ms))}.</li><li>Costs ${esc(costText(cost))}${P.credits?` and ${P.credits} land ${P.credits===1?'credit':'credits'}, set aside while it sails`:''}.</li><li>Keeping it costs food and goods a day, more the larger and the further away it is. The colony claims onward within ${LND_RULES.colReach} hexes of where it lands, and from any city you found there.</li></ul>
+        <div class="row"><button type="button" class="btn" data-act="lnd-send" ${S.lndBusy?'disabled':''}>Send the landing party</button><button type="button" class="linkish" data-act="lnd-cancel">Choose another coast</button></div></div>`;}
+  }
+  return h+'</section>';
+}
+MAP_PANEL_TOP.push(()=>{if(S.mpMode!=='land'||!S.nation||cellOf(S.nation.loc)<0)return '';try{return lndPanelHTML(territory());}catch(e){return '';}});
+MAP_PANEL_TOP.push(()=>{if(!S.nation)return '';try{const now=Date.now();return lndThreats(now).map(t=>lndThreatCard(t,now)).join('');}catch(e){return '';}});
+/* a colony's hex, clicked on the map: what it is */
+MAP_PANEL.push(ctx=>{
+  if(ctx.cell==null)return '';try{const T=territory(),o=T.owner[ctx.cell];if(o<0)return '';const x=T.list[o];if(!lndCols(x.n).length)return '';
+    const G=lndGeo(T,o),k=G&&G.byCell.get(ctx.cell);if(k===undefined)return '';const K=G.cols[k];
+    return `<div class="lnd-pn"><p class="eyebrow">A colony</p><p><b>${esc(K.col.nm||'A colony')}</b>, ${esc(LND_TY[K.col.ty])} of ${esc(x.n.name)}: ${K.cells.length} ${K.cells.length===1?'hex':'hexes'}, ${K.col.d} hexes across the sea from home.</p></div>`;}catch(e){return '';}
+});
+MAP_CLICK.push(ctx=>{
+  if(S.mpMode!=='land'||ctx.kind!=='main'||ctx.cell==null||ctx.cell<0)return false;
+  const T=territory(),tg=lndTargets(T).get(ctx.cell);S.lndMsg='';
+  if(tg){S.lndSel=ctx.cell;S.lndNm='';}else{S.lndSel=null;S.lndMsg=lndWhyNot(T,ctx.cell).replace(/<[^>]+>/g,'');}
+  try{mapxSheet(true);}catch(e){}
+  return true;
+});
+MAP_TIP.push(ctx=>{if(S.mpMode!=='land'||ctx.kind!=='main'||ctx.cell==null||ctx.cell<0)return null;try{const tg=lndTargets(territory()).get(ctx.cell);return tg?`${tg.kind==='h'?'Hostile landing':tg.kind==='ab'?'Abandoned coast':'Free coast'} · ${tg.d} hexes by sea`:null;}catch(e){return null;}});
+
+/* ── on the map: the coasts a landing reaches (in the Landing parties tool), the sea lanes, the boats and the colonies' flags ── */
+function lndMapOn(){return mapOpt('colonies',true)!==false;}
+MAP_CONTROLS.push(()=>`<label class="mig-tog mfx-tog lnd-tog" title="Colonies across the sea, their sea lanes and landing parties under way"><input type="checkbox" data-lndmap${lndMapOn()?' checked':''}> Colonies</label>`);
+MAP_LEGEND.push(()=>lndMapOn()?`<span class="lg"><i class="lg-lnd lg-lnd-lane"></i>Sea lane to a colony</span><span class="lg"><i class="lg-lnd lg-lnd-boat"></i>Landing party</span>`:'');
+const LND_TINT={p:'rgba(46,140,87,0.38)',ab:'rgba(214,150,40,0.42)',h:'rgba(190,40,40,0.40)'};
+MAP_LAYERS.push({stage:'over',kinds:['main'],draw:M=>{
+  if(S.mpMode!=='land'||!M.T||!S.nation)return;let tg;try{tg=lndTargets(M.T);}catch(e){return;}if(!tg.size)return;const g=M.g;
+  for(const [c,t] of tg){const x=MAP.cx[c],y=MAP.cy[c];if(x<M.x0-HEX_R||x>M.x1+HEX_R||y<M.y0-HEX_R||y>M.y1+HEX_R)continue;
+    g.fillStyle=LND_TINT[t.kind];g.beginPath();for(let k=0;k<6;k++){const a=Math.PI/6+k*Math.PI/3,px=x+Math.cos(a)*HEX_R,py=y+Math.sin(a)*HEX_R;if(k)g.lineTo(px,py);else g.moveTo(px,py);}g.closePath();g.fill();}
+  if(S.lndSel!=null){const c=S.lndSel,x=MAP.cx[c],y=MAP.cy[c];g.strokeStyle='#1d1d1d';g.lineWidth=HEX_R*0.25;g.beginPath();for(let k=0;k<6;k++){const a=Math.PI/6+k*Math.PI/3,px=x+Math.cos(a)*HEX_R,py=y+Math.sin(a)*HEX_R;if(k)g.lineTo(px,py);else g.moveTo(px,py);}g.closePath();g.stroke();}
+}});
+function lndShip(g,x,y,r,col,hostile){g.save();g.translate(x,y);g.beginPath();g.moveTo(-r,0);g.lineTo(r,0);g.lineTo(r*0.65,r*0.5);g.lineTo(-r*0.65,r*0.5);g.closePath();g.fillStyle=hostile?'#8e2a22':'#5a4632';g.fill();
+  g.beginPath();g.moveTo(0,-r*1.3);g.lineTo(0,0);g.strokeStyle='#2a2a2a';g.lineWidth=1;g.stroke();g.beginPath();g.moveTo(0,-r*1.25);g.lineTo(r*0.8,-r*0.25);g.lineTo(0,-r*0.25);g.closePath();g.fillStyle=col||'#f4efe2';g.fill();g.stroke();g.restore();}
+function lndPennant(g,x,y,r,col){g.save();g.translate(x,y);g.strokeStyle='#2a2a2a';g.lineWidth=1.2;g.beginPath();g.moveTo(0,0);g.lineTo(0,-r*2);g.stroke();g.beginPath();g.moveTo(0,-r*2);g.lineTo(r*1.3,-r*1.6);g.lineTo(0,-r*1.2);g.closePath();g.fillStyle=col||'#c33';g.fill();g.stroke();g.restore();}
+MAP_LAYERS.push({stage:'top',kinds:['main','visit'],draw:M=>{
+  if(!lndMapOn()||!M.T)return;const g=M.g,now=Date.now(),z=Math.max(4,Math.min(9,M.s*HEX_R*0.4));
+  M.T.list.forEach((x,i)=>{if(x.npc)return;const V=lndList(x.n),cs=lndCols(x.n);if(!V.length&&!cs.length)return;const col=x.col||nationColor(x.n);
+    const lane=(h,c,hostile)=>{const P=lndPath(h,c);if(!P||P.length<2)return null;g.save();g.setLineDash([5,4]);g.lineWidth=1.6;g.globalAlpha=hostile?0.95:0.7;g.strokeStyle=hostile?'#d0392b':(M.col&&M.col.ink)||'#2a3540';g.beginPath();P.forEach((c2,k)=>{const [px,py]=M.scr(c2);if(k)g.lineTo(px,py);else g.moveTo(px,py);});g.stroke();g.restore();return P;};
+    if(x.me||mapOpt('colonies-all',true)!==false)for(const C of cs){if(M.T.owner[C.c]!==i)continue;if(x.me)lane(C.h,C.c,false);const [px,py]=M.scr(C.c);if(!M.off(px,py))lndPennant(g,px,py,z*0.7,col);}
+    for(const v of V){if(v.st!=='sea')continue;const P=lane(v.h,v.c,v.k==='h');if(!P)continue;
+      const f=clamp((now-v.s)/Math.max(1,v.a-v.s),0,1),k=Math.min(P.length-1,Math.floor(f*(P.length-1)));const [px,py]=M.scr(P[k]);if(!M.off(px,py))lndShip(g,px,py,z*0.8,col,v.k==='h');}
+  });
+}});
+
+/* ── clicks and typing ── */
+document.addEventListener('click',e=>{
+  const b=e.target&&e.target.closest&&e.target.closest('[data-act]');if(!b)return;const a=b.dataset.act;if(!a||a.slice(0,4)!=='lnd-'||!S.nation)return;
+  if(a==='lnd-send'){if(S.lndSel!=null&&!S.lndBusy)lndSend(S.lndSel);return;}
+  if(a==='lnd-cancel'){S.lndSel=null;S.lndMsg='';updateMapPanel();redrawMaps();return;}
+  if(a==='lnd-msg-x'){S.lndMsg='';updateMapPanel();return;}
+  if(a==='lnd-dig'){lndDigIn(b.dataset.id,+b.dataset.lv);return;}
+  if(a==='lnd-see'){const c=+b.dataset.c;if(lndCell(c)){try{centerMain(c,NEAR_Z);}catch(err){}S.mapCell=c;}go('map');return;}
+});
+document.addEventListener('change',e=>{const el=e.target;if(!el||!el.dataset)return;
+  if('lndmap' in el.dataset){setMapOpt('colonies',!!el.checked);return;}
+  if('lndty' in el.dataset&&LND_TY[el.value]){S.lndTy=el.value;updateMapPanel();}});
+document.addEventListener('input',e=>{const el=e.target;if(el&&el.dataset&&'lndNm' in el.dataset)S.lndNm=el.value;});
+/* each tick: the boats, the colonies' stores and the beaches; at most every few seconds */
+tick=(f=>function(){
+  const r=f.apply(this,arguments);
+  try{const n=S.nation,now=Date.now();if(n&&!LND.busy&&!OBS&&now-(LND.at||0)>4000&&(lndList(n).length||lndCols(n).length||lndSeeOff(n,now,true))){LND.at=now;const p=lndTick(now);if(p&&p.catch)p.catch(()=>{});}}catch(e){}
+  return r;
+})(tick);
+
+/* ── colonial edicts: nine, each once, when its moment comes (lndDue). They come after every other edict in ISSUES,
+   since a record keeps the numbers of the edicts it has seen (test/edict-order.test.mjs) ── */
+const LND_ISSUES=[
+{id:'lnd-first-boats',c:'world',lnd:'first',t:'The First Boats Home',q:'The first boats are back from {COLONY}, on the coast of {COAST}, with sunburnt sailors, a crate of strange fruit and a list of demands from the colonists. They want tools, they want news, and above all they want to know whether {N} means to stay.',o:[
+ {t:'“Send everything they ask for, and a band,” says Colonial Secretary Augustina Pellworth-Okafor. “A colony that feels forgotten is a colony that writes its own constitution.”',h:'sent its new colony everything it asked for, and a band',e:{happy:2,econ:-1,dmst:{goods:-40,timber:-30}},fx:'{N} sent {COLONY} every tool on the list, a year of newspapers and a brass band, and the colonists have stopped writing angry letters'},
+ {t:'“Tools, yes. A band, no,” says Finance Minister {FIN}. “They went to build a colony, not a concert hall.”',h:'sent its new colony tools and nothing more',e:{econ:1,dmst:{timber:-30}},fx:'{N} sent {COLONY} the tools it asked for and a polite note about the band'},
+ {t:'“Let them fend for themselves,” says Interior Minister {INT}. “Pioneers are meant to be hardy. That is the point of pioneers.”',h:'left its new colony to fend for itself',e:{econ:2,happy:-2,civil:-1},fx:'{N} left {COLONY} to fend for itself, and the colonists have taken to calling the homeland “the old country”, not fondly'}]},
+{id:'lnd-governor',c:'gov',lnd:'gov',t:'A Governor for the Colony',q:'{COLONY} has grown past the point where the captain of the first boat can settle every quarrel from a deck chair. The colonists want a governor, and three names have reached the cabinet.',o:[
+ {t:'“A soldier,” says Defence Minister {DEF}. “Colonel Hartigan-Mbeki has held worse places than a beach. Order first, then everything else.”',h:'sent a colonel to govern its colony',e:{mil:2,safety:2,civil:-2},fx:'{N} made a colonel governor of {COLONY}, and the colony now raises its flag at six sharp, every day, in any weather'},
+ {t:'“A merchant,” says Trade Minister Marguerite Oyelaran-Voss. “The colony lives by its ships. Put someone in charge who can read a ledger.”',h:'gave its colony a merchant governor',e:{econ:2,wealth:2,equal:-1},fx:'{N} gave {COLONY} a merchant governor, whose first act was to put prices on the harbour wall'},
+ {t:'“Let them elect one,” says Culture Minister {CUL}. “They crossed an ocean. They can manage a ballot box.”',h:'let its colonists elect their own governor',e:{civil:3,pol:-1,happy:1},fx:'{N} let {COLONY} elect its own governor, a retired schoolteacher who won by eleven votes and a very good speech'}]},
+{id:'lnd-charter',c:'rights',lnd:'charter',t:'The Settlers’ Charter',q:'Settlers keep arriving in {COLONY}, and nobody is sure who owns what. Some built fences, some built cabins inside other people’s fences, and one built a lighthouse on land three families claim. The colony asks {N} for a charter.',o:[
+ {t:'“Free land for every family that works it,” says Agriculture Minister Benedikt Asante-Holm. “Plough it, plant it, and it is yours.”',h:'gave its colony’s land to the families who work it',e:{equal:2,happy:2,econ:-1},fx:'{N} gave every family in {COLONY} the land it works, and the fences have mostly stopped moving at night'},
+ {t:'“A chartered company,” says Finance Minister {FIN}. “Investors pay for the roads, and take a share of the harvest. Everybody wins, some more than others.”',h:'handed its colony to a chartered company',e:{wealth:3,econ:2,equal:-2,corrupt:1},fx:'{N} handed {COLONY} to a chartered company, which has already paved a road to the harbour and nowhere else'},
+ {t:'“Crown land, leased,” says Interior Minister {INT}. “The state owns it, the settlers rent it, and the rent pays for the boats.”',h:'kept its colony as state land, leased to the settlers',e:{pol:1,econ:1,civil:-1,dmst:{goods:30}},fx:'{N} kept {COLONY} as state land and leased it to the settlers, who pay the rent on time and complain about it at length'}]},
+{id:'lnd-port',c:'econ',lnd:'port',t:'Open Port or Monopoly?',q:'The trading post at {COLONY} has become the busiest wharf on the coast of {COAST}. Foreign merchants want to trade there too, and the {D} trading houses want them kept out.',o:[
+ {t:'“Open the port to everyone,” says Trade Minister Marguerite Oyelaran-Voss. “More ships, more trade, more harbour dues. Competition is good for everyone except our competitors.”',h:'opened its colonial port to every flag',e:{econ:2,tour:1,dmst:{goods:40}},fx:'{N} opened {COLONY} to ships of every flag, and the wharf now hears nine languages before breakfast'},
+ {t:'“A monopoly for {D} houses,” says merchant Cornelius Achterberg-Lund. “We took the risk; we should take the profit.”',h:'kept its colonial port for its own merchants',e:{wealth:3,equal:-1,corrupt:1},fx:'{N} kept {COLONY} for {D} merchants alone, and the foreign ships now anchor just outside, waiting'},
+ {t:'“Free trade, with a fee,” says Finance Minister {FIN}. “Anyone may trade, and everyone pays.”',h:'opened its colonial port, for a fee',e:{econ:1,wealth:1,dmst:{goods:20}},fx:'{N} opened {COLONY} to all comers for a modest fee, collected by a harbour master with a very large ledger'}]},
+{id:'lnd-homesick',c:'society',lnd:'home',t:'Letters From the Colony',q:'A sack of letters has arrived from {COLONY}. The colonists are well, the harvest is good, and almost every letter ends the same way: they miss home. A few want to come back. Most just want the homeland to remember them.',o:[
+ {t:'“A colonial festival, here and there, on the same day,” says Culture Minister {CUL}. “The same songs on both shores.”',h:'held a festival on both shores at once',e:{happy:3,culture:2,dmst:{food:-60}},fx:'{N} held a festival in {CAP} and {COLONY} on the same day, and both sides of the sea sang the same songs, slightly out of time'},
+ {t:'“Free passage home for anyone who wants it,” says Welfare Minister Ottoline Mbatha-Greaves. “Nobody should be stuck on a beach they did not choose.”',h:'offered free passage home to homesick colonists',e:{happy:1,equal:1,econ:-1,dmst:{timber:-30}},fx:'{N} offered every colonist a free passage home, and only nine took it, two of whom came back on the next boat'},
+ {t:'“A newspaper,” says the editor of the {D} Courier. “Print the colony’s news at home and the home news in the colony. Ink is cheaper than ships.”',h:'started a newspaper for its colony',e:{culture:1,civil:2},fx:'{N} started a newspaper for {COLONY}, whose front page this week is a very large cabbage'}]},
+{id:'lnd-flag',c:'culture',lnd:'flag',t:'A Flag for the Colony',q:'{COLONY} has a city now, with a town hall, a market and a flagpole. The question is what goes on top of the flagpole. The colonists have sent three designs, and an opinion on each.',o:[
+ {t:'“The flag of {N}, nothing more,” says Interior Minister {INT}. “One nation, one flag, both shores.”',h:'flew its own flag over its colony',e:{pol:2,civil:-1},fx:'{N} flies its own flag over {COLONY}, and the colonists salute it, mostly'},
+ {t:'“Our flag, with a ship in the corner,” says vexillologist Perpetua Lindqvist-Adeyemi. “A colony that remembers where it came from, and how.”',h:'gave its colony the national flag with a ship in the canton',e:{culture:2,happy:1},fx:'{N} gave {COLONY} the national flag with a little ship in the corner, which the children draw on everything'},
+ {t:'“Let them design their own,” says Culture Minister {CUL}. “They will anyway.”',h:'let its colony design its own flag',e:{civil:2,culture:1,pol:-1},fx:'{N} let {COLONY} design its own flag, a green fish on a blue field, which nobody at home understands and everybody in the colony loves'}]},
+{id:'lnd-lost-ship',c:'world',lnd:'lost',t:'A Ship That Did Not Land',q:'A landing party from {N} came back without having set foot ashore. The coast it sailed for was taken, or the war it sailed into was over, and the crew have spent the voyage home writing a strongly worded report.',o:[
+ {t:'“Pay the crews in full, voyage or no voyage,” says Defence Minister {DEF}. “They went where we sent them.”',h:'paid its landing crews in full, landing or not',e:{happy:2,mil:1,dmst:{goods:-40}},fx:'{N} paid its landing crews in full, and the next volunteers queued round the harbour'},
+ {t:'“Better charts,” says the Admiralty’s chief cartographer, Hester Nakamura-Blythe. “Half the trouble is that our maps are older than our sailors.”',h:'paid for new sea charts',e:{sci:2,dmst:{goods:-30}},fx:'{N} paid for new charts of the sea, and found two islands and a sandbank nobody had drawn'},
+ {t:'“An inquiry,” says Interior Minister {INT}. “Somebody chose that coast. Somebody will explain.”',h:'held an inquiry into the failed landing',e:{civil:1,pol:-1,safety:1},fx:'{N} held an inquiry into the landing that never landed, which found that everybody had followed orders, mostly'}]},
+{id:'lnd-beachhead',c:'world',lnd:'beach',t:'Holding the Beachhead',q:'{N}’s troops are ashore on the coast of {LFOE}. The beachhead is a few hexes of sand, two burnt boats and a field kitchen. The generals want to know what the troops are there to do now.',o:[
+ {t:'“Dig in and hold,” says Defence Minister {DEF}. “Every hex we keep is a hex they cannot use against us.”',h:'dug in on its beachhead',e:{mil:2,safety:1,happy:-1},fx:'{N}’s troops dug in on their beachhead, and the sand now has more trenches than sand'},
+ {t:'“Treat the people there decently,” says Foreign Minister {FOR}. “We are on their coast. Let them remember us for bread, not boots.”',h:'fed the people of its beachhead',e:{civil:2,happy:1,dmst:{food:-60}},fx:'{N}’s troops shared their rations with the fishing villages on their beachhead, which has done more for the war than any gun'},
+ {t:'“Push inland while they are reeling,” says General Rosalind Achebe-Thorne. “A beachhead is a door. Open it.”',h:'pushed inland from its beachhead',e:{mil:3,safety:-1,happy:-1},fx:'{N}’s troops pushed inland from the beachhead, faster than the field kitchen could follow'}]},
+{id:'lnd-beaches-held',c:'world',lnd:'held',t:'The Beaches Held',q:'The landing party from {LFOE} has been driven back into the sea. The boats are gone, the beaches are a mess, and the coastal towns want to know what {N} will do so it never happens again.',o:[
+ {t:'“Medals for every defender,” says Defence Minister {DEF}. “And a parade along the beach they held.”',h:'held a parade on the beach it defended',e:{mil:2,happy:2,dmst:{goods:-30}},fx:'{N} held a parade along the beach its defenders held, and the medals were made from the landing boats'},
+ {t:'“Guns on every headland,” says Admiral Cassius Okonkwo-Lindgren. “Shore batteries, all along the coast. Let them try again.”',h:'promised guns on every headland',e:{mil:2,safety:2,econ:-1,dmst:{iron:-40}},fx:'{N} promised guns on every headland of its coast, and the gulls have moved further out'},
+ {t:'“Talk to them,” says Foreign Minister {FOR}. “A war that ends on a beach can end at a table.”',h:'offered talks after the landing failed',e:{civil:1,pol:1,mil:-1},fx:'{N} offered talks to {LFOE} after its landing failed, by letter, delivered by boat, which was noted'}]}];
+for(const is of LND_ISSUES){is.fo=1;ISSUES.push(is);is.no=ISSUES.length;ISSUE_BY_ID[is.id]=is;is.nbx=false;}
+/* the colony an edict speaks of, and the enemy of a landing */
+function lndColFor(n,k){const cs=lndCols(n);if(!cs.length)return null;if(k==='beach')return cs.filter(C=>C.hs).pop()||cs[cs.length-1];if(k==='port')return cs.filter(C=>C.ty==='t').pop()||cs[cs.length-1];return cs.filter(C=>!C.hs).pop()||cs[cs.length-1];}
+function lndFoeFor(n,k){
+  if(k==='held'){const l=(n&&n.log||[]).find(e=>e&&e.k==='lndr');return l&&l.b?l.b:'the enemy';}
+  const v=lndList(n).filter(v=>v.k==='h').pop();return v&&v.wn?v.wn:'the enemy';
+}
+fill=(f=>function(t,n,x){
+  if(typeof t==='string'&&/\{(COLONY|COAST|LFOE)\}/.test(t)){const nn=n||S.nation,is=x&&ISSUE_BY_ID[x.id],k=is&&is.lnd,C=lndColFor(nn,k);
+    t=t.split('{COLONY}').join(C&&C.nm?C.nm:'the colony').split('{COAST}').join(C?landName(C.c):'the far coast').split('{LFOE}').join(lndFoeFor(nn,k));}
+  return f.apply(this,[t,...[].slice.call(arguments,1)]);
+})(fill);
+/* due: each when its moment has come, dated then (a stable time: see cqDue), one at a time, never seen before */
+function lndDue(n,now){
+  if(!n||n.npc||OBS||!Array.isArray(n.inbox)||!(n.founded>0))return [];
+  const cs=lndCols(n),V=lndList(n);if(!cs.length&&!V.length&&!(Array.isArray(n.lnr)&&n.lnr.length))return [];
+  const seen=issLast(n),on=new Set(n.inbox.map(x=>x.id)),own=cs.filter(C=>!C.hs),t0=own.length?own[0].t:0,at={};
+  if(t0){at.first=t0+2*HOUR_MS;at.gov=t0+2*DAY;at.charter=t0+4*DAY;at.home=t0+7*DAY;}
+  {const P=cs.find(C=>C.ty==='t'&&!C.hs);if(P)at.port=P.t+DAY;}
+  {const lost=V.find(v=>(v.k==='p'&&v.st==='fail')||v.st==='back');if(lost)at.lost=lost.e||lost.a;}
+  {const b=cs.find(C=>C.hs);if(b)at.beach=b.t+HOUR_MS;}
+  if(Array.isArray(n.lnr)&&n.lnr.length){const f=n.tlf&&n.tlf['lnd:rep'];at.held=f>0?f:now;}
+  try{if(!at.flag&&own.length){const T=territory(),G=lndGeo(T,T.byId[myId()]);const K=G&&G.cols.find(K=>K.city&&!K.col.hs);if(K&&S.nation&&n.founded===S.nation.founded)at.flag=Math.max(K.col.t,K.city.t||K.col.t);}}catch(e){}
+  for(const is of LND_ISSUES){const a=at[is.lnd];if(!(a>0)||a>now||on.has(is.id)||seen.has(is.id))continue;return [{id:is.id,at:Math.max(n.founded,a)}];}
+  return [];
+}
+syncInbox=(f=>function(n,now){
+  const m=f.apply(this,arguments);let due=[];try{due=lndDue(m,now||Date.now());}catch(e){due=[];}if(!due.length)return m;
+  const out=m===n?clone(m):m;for(const x of due)if(deskN(out.inbox)<EDICT_KEEP)out.inbox.push(x);return out;
+})(syncInbox);
+edictTopicBadge=(f=>function(is){return f.apply(this,arguments)+(is&&is.lnd?'<span class="edict-lnd">Colonies</span>':'');})(edictTopicBadge);
+
+/* ── the record: log lines, the Dispatch, the bell's words, the admins' event list ── */
+logLine=(f=>function(l,n,id){
+  if(l&&typeof l.k==='string'&&l.k.slice(0,3)==='lnd'){const a=esc(l.a||''),b=esc(l.b||''),fx=esc(l.fx||'the far coast'),ty=LND_TY[l.b]||'colony';
+    switch(l.k){
+      case 'lnds':return `A landing party set sail for ${fx}, to found ${a||'a colony'}.`;
+      case 'lndp':return `${a||'A colony'} was founded on the coast of ${fx}, a ${esc(ty.toLowerCase())}.`;
+      case 'lndt':return `A landing party for ${fx} found the coast taken and sailed home.`;
+      case 'lndh':return `A hostile landing set sail for the coast of ${b} at ${fx}.`;
+      case 'lndw':return `Troops came ashore at ${fx} and took ${l.d==='1'?'a hex':(l.d||'two')+' hexes'} from ${b}.`;
+      case 'lndf':return `The landing at ${fx} failed: ${b} held the beaches.`;
+      case 'lndb':return `The landing party for ${fx} turned back when the war with ${b} ended.`;
+      case 'lndr':return `A landing from ${b} at ${fx} was driven back into the sea.`;
+      case 'lndbd':return `Beach defences went up at ${fx} against a landing from ${b}.`;
+      case 'lndsh':return `${a||'A colony'} ran short of food or goods.`;
+      case 'lndx':return `${a||'A colony'} lost ${l.b==='1'?'a hex':b+' hexes'} for want of food and goods.`;}}
+  return f.apply(this,arguments);
+})(logLine);
+Object.assign(ST_LOG,{lndp:['land','Founded a colony at {fx}'],lndw:['war','Took a beachhead from {b}'],lndf:['war','A landing on {b} failed'],lndr:['war','Drove back a landing from {b}'],lndh:['war','Sent a hostile landing against {b}']});
+DSP_LOG.lndp={sec:'world',w:6,kick:'Colonies',go:'map',h:['{N} plants a colony across the sea','A new colony on the coast of {FX}','{N} lands on {FX}'],b:'A landing party from {N} has come ashore on the coast of {FX} and founded {A1}. The colonists unloaded tools, seed and a flag, in that order.'};
+DSP_LOG.lndw={sec:'world',w:7,kick:'War',go:'map',h:['{N} lands troops on the coast of {B}','A beachhead on {FX}','Boats from {N} storm the beaches of {B}'],b:'Troops from {N} came ashore at {FX} and took land from {B}. The beachhead is held, for now.'};
+DSP_LOG.lndr={sec:'world',w:7,kick:'War',go:'map',h:['{N} throws back a landing','The beaches of {FX} hold','A landing from {B} ends in the sea'],b:'Defenders of {N} drove a landing from {B} back into the sea at {FX}. The boats went home lighter than they came.'};
+
+/* ── achievements ── */
+achDef('land','lnd-first','b','First Landfall','Found a colony across the sea with a landing party.',1,x=>aT(x,'lnd'));
+achDef('land','lnd-far','s','The Wide Sea','Found a colony 50 or more hexes by sea from the harbour its landing party sailed from.',1,x=>aT(x,'lnd:far'));
+achDef('land','lnd-three','g','Three Shores','Found three colonies across the sea.',3,x=>aT(x,'lnd'));
+achDef('war','lnd-beach','s','Beachhead','Take land in a hostile landing.',1,x=>aT(x,'lnd:h'));
+achDef('war','lnd-held','s','Repelled a Landing','See a hostile landing on your coast driven back into the sea.',1,x=>aT(x,'lnd:rep'));
+
+/* ── How to play ── */
+HELP_EXT.push({k:'landing',t:'Landing parties and colonies',body:n=>`<p>A nation that cannot grow over land (its capital on an island of up to ${LND_RULES.isle.toLocaleString('en-US')} hexes, or fewer than ${LND_RULES.box} free hexes left to claim) or a large one (${LND_RULES.big} hexes or more) can send a <b>landing party</b> across the sea from a finished Harbour, with the Map's <b>Landing parties</b> tool. A Harbour's boats sail ${LND_RULES.reach} hexes of open water, ${LND_RULES.ug} more for each upgrade (${LND_RULES.t2} for a Grand Port), ${LND_RULES.navy} more with a navy and a few more with sea-going research, up to ${LND_RULES.max}. They sail ${LND_RULES.minPer} minutes a hex and claim up to ${LND_RULES.beach} hexes of free coast when they land, a land credit each.</p>
+<p>A <b>colony</b> claims onward within ${LND_RULES.colReach} hexes of where it landed, and from any city you found there. Each colony that grows a city opens the next, up to ${LND_RULES.slots}. Choose its kind when it sails: a <b>Trading Post</b> (${LND_TY_D.t}), a <b>Settlement</b> (${LND_TY_D.s}) or a <b>Garrison</b> (${LND_TY_D.g}). Every colony costs food and goods a day, more the larger and the further away it is; a nation out of food or goods for three days starts to lose its colonies' outer hexes, one a day. An attack from a colony is ${Math.round((1-LND_RULES.far[1][1])*100)}% weaker beyond ${LND_RULES.far[1][0]} hexes of sea, ${Math.round((1-LND_RULES.far[0][1])*100)}% beyond ${LND_RULES.far[0][0]}.</p>
+<p>A coast whose nation has not been played for ${Math.round(LND_RULES.away/DAY)} days takes a peaceful landing too. In a war of conquest a <b>hostile landing</b> sails up to ${LND_RULES.hReach} hexes for an enemy coast. The enemy is warned at once and the boats land 12 to 24 hours later, with a day to take up to ${LND_RULES.hHex} hexes; the defenders hold the beaches ${Math.round((LND_RULES.hDef-1)*100)}% the stronger, more behind beach defences, and land taken counts twice towards the 16 hexes a day. A <b>Shore Battery</b> keeps hostile landings ${LND_RULES.bat} hexes off its city's coast.</p>
+<p>Harbours also claim free shores across the water: up to 16 hexes, 20 with the Blue-Water Navy law.</p>`});
+
+/* ── the admins' Statistics › Content: colonies and landings (functions/stats-more.js, content.lnd) ── */
+function stLanding(M){
+  const D=M&&M.lnd;if(!D||!(D.sent||D.colonies||D.repelled))return '';
+  return `<div class="adst-fig"><h3>Landing parties and colonies</h3><p class="hint">${stN(D.nations)} ${D.nations===1?'nation holds':'nations hold'} ${stN(D.colonies)} ${D.colonies===1?'colony':'colonies'} across the sea (the furthest ${stN(D.far)} hexes by sea). ${stN(D.sent)} landing ${D.sent===1?'party has':'parties have'} sailed, ${stN(D.sea)} at sea now; ${stN(D.abandoned)} came ashore on abandoned coasts. ${stN(D.hostile)} hostile ${D.hostile===1?'landing':'landings'}: ${stN(D.won)} won, ${stN(D.repelled)} driven back; beach defences went up ${stN(D.dug)} ${D.dug===1?'time':'times'}.</p>
+      <div class="adst-rows">${['Trading posts','Settlements','Garrisons'].map((l,i)=>stBar(esc(l),D.ty[i]||0,D.colonies)).join('')}${stBar('Beachheads',D.beach||0,D.colonies)}</div></div>`;
+}
+stDeep=(f=>function(M){return f.apply(this,arguments)+stLanding(M);})(stDeep);
+
+/* the browser tests' window into landings (EDICTUM_PROBE.lnd) */
+if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE.lnd={RULES:LND_RULES,TY:LND_TY,ISSUES:LND_ISSUES,AB:LND_AB,geo:(T,i)=>lndGeo(T,i),who:(T,i)=>lndWho(T,i),harbours:n=>lndHarbours(n),targets:T=>lndTargets(T),plan:(T,c,ty)=>lndPlan(T,c,ty),
+  send:c=>lndSend(c),tick:now=>lndTick(now||Date.now()),threats:now=>lndThreats(now),digIn:(id,lv)=>lndDigIn(id,lv),due:(n,now)=>lndDue(n,now||Date.now()),blocked:T=>lndBlocked(T),reserved:n=>lndReserved(n),
+  upkeep:K=>lndUpkeepOf(K),far:d=>lndFar(d),econ:()=>{const E=economy();return E.lnd;},battery:(T,j,c)=>lndBattery(T,j,c),away:(n,now)=>lndAway(n,now),path:(h,c)=>lndPath(h,c),
+  seaTo:(H,c)=>lndSeaTo(H,c),whyNot:(T,c)=>lndWhyNot(T,c),stLanding,war:id=>warWith(id),frontier:T=>frontier(T),battle:(T,c,a,b,r)=>battle(T,c,a,b,r),conqCap:(n,now)=>conqCap(n,now),attack:()=>attack(),landCredits:n=>landCredits(n),fill:(t,n,x)=>fill(t,n,x),state:()=>({sel:S.lndSel,ty:S.lndTy,msg:S.lndMsg,busy:!!S.lndBusy,LND})};}catch(e){}
 
 /* Keep the moderator preview in moderator pages even when a URL names an admin-only page. */
 shell=(f=>function(){if(modPreview()&&typeof S.view==='string'&&S.view.startsWith('admin')&&!MOD_VIEWS.includes(S.view))return admShell('admin-reports','<p class="hint">Choose a moderator page from the menu.</p>');return f.apply(this,arguments);})(shell);

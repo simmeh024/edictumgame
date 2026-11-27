@@ -236,6 +236,7 @@ export function fcLetter(cfg, { to, nation, left, duty, close, last, tok }) {
    warWord; sent for the war kind); since 24 November 2026 also fallen while the government moves on to nn ('moved') */
 export function warLetter(cfg, { to, kind, by, nation, capital, at, nn, tok }) {
   if (kind === 'moved') return movedLetter(cfg, { to, by, nation, capital, nn, tok });
+  if (kind === 'landing') return landingLetter(cfg, { to, by, nation, capital, at, tok });
   const fell = kind === 'fell', cap = capital || 'your capital', when = at ? new Date(at).toUTCString().replace(/:\d\d GMT$/, ' UTC') : '';
   const title = fell ? `${cap} has fallen` : `${by || 'An enemy'} has laid siege to ${cap}`;
   const body = fell
@@ -253,6 +254,20 @@ ${cfg.site}
 Stop these letters: ${cfg.site}/mail?t=${tok}` };
 }
 /* the capital taken, the nation not: its government has moved to nn, its biggest city, and the war goes on */
+/* landing parties (27 November 2026): a hostile landing on its way to capital (the coast it makes for), landing at at */
+function landingLetter(cfg, { to, by, nation, capital, at, tok }) {
+  const coast = capital || 'your coast', when = at ? new Date(at).toUTCString().replace(/:\d\d GMT$/, ' UTC') : 'within a day', title = `${by || 'An enemy'} is sending a landing party`;
+  const body = p(`Boats from <b>${esc(by || 'an enemy')}</b> are making for <b>${esc(coast)}</b>, on the coast of ${esc(nation || 'your nation')}.`)
+    + rows('urgent', [['&#x23F3;', `They come ashore from <b>${esc(when)}</b>, and have a day to take up to two hexes.`], ['&#x1F3D6;&#xFE0F;', 'Dig in on the beaches: stakes and trenches, guns on the shore, or a full battery. Each makes the landing harder.'], ['&#x2694;&#xFE0F;', 'A Shore Battery within six hexes keeps every hostile landing off that coast.']]);
+  return { to, subject: title, unsub: `${cfg.site}/mail?t=${tok}`,
+    html: page(cfg, { tone: 'urgent', icon: '&#x2693;', kicker: 'Urgent dispatch', title, lead: 'A landing is coming', body, cta: { href: cfg.site + '/#map', label: 'Defend the coast' }, foot: footFor(cfg, tok) }),
+    text: `${title}
+
+Boats from ${by || 'an enemy'} are making for ${coast}. They come ashore from ${when}, and have a day to take up to two hexes. Dig in on the beaches before they land.
+
+${cfg.site}/#map
+Stop these letters: ${cfg.site}/mail?t=${tok}` };
+}
 function movedLetter(cfg, { to, by, nation, capital, nn, tok }) {
   const cap = capital || 'your capital', nc = nn || 'your biggest city', title = `${cap} has fallen`;
   const body = p(`The army of <b>${esc(by || 'an enemy')}</b> has stormed <b>${esc(cap)}</b>. The government of ${esc(nation || 'your nation')} got out in time, and <b>${esc(nc)}</b> is your capital now.`)

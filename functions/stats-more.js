@@ -37,6 +37,19 @@ function rowDeep(r) {
   return { ds: n > 0 ? { n, h: Array.from({ length: DS_LEVELS }, (_, i) => num(T['ds:h' + i])), b: [0, 1, 2].map(i => num(T['ds:b' + i])), leg: num(T['ds:leg']), al: num(T['ds:abyss:leg']) } : null, dsv: v };
 }
 
+/* landing parties and colonies (2026-11-27): the colonies in n.cln (ty 't' trading post, 's' settlement, 'g' garrison;
+   hs: won in a hostile landing), the voyages of the last weeks in n.lnd, and the tally: lnd colonies founded, lnd:v
+   landing parties sent, lnd:hv hostile landings sent, lnd:h won, lnd:rep landings seen off, lnd:ab abandoned coasts,
+   lnd:bd beach defences bought */
+export const LND_TYPES = ['t', 's', 'g'];
+function rowLanding(r) {
+  const T = obj(r.tly) || {}, C = arr(r.cln).filter(c => c && typeof c === 'object'), V = arr(r.lnd).filter(v => v && typeof v === 'object');
+  const sent = num(T['lnd:v']), rep = num(T['lnd:rep']), bd = num(T['lnd:bd']);
+  if (!C.length && !sent && !rep && !bd) return { lnd: null };
+  return { lnd: { c: C.length, ty: LND_TYPES.map(k => C.filter(c => c.ty === k && c.hs !== 1).length), hs: C.filter(c => c.hs === 1).length,
+    v: sent, hv: num(T['lnd:hv']), h: num(T['lnd:h']), rep, ab: num(T['lnd:ab']), bd, far: Math.max(0, ...C.map(c => num(c.d))), sea: V.filter(v => v.st === 'sea').length } };
+}
+
 /* one nation's extra numbers: the edicts in force, achievements earned, its latest daily desk, its deep-sea hauls */
 export function rowMore(r, now) {
   const f2 = [];
@@ -53,7 +66,7 @@ export function rowMore(r, now) {
   return {
     pol: Object.keys(obj(r.policies) || {}).slice(0, 400).map(k => k.slice(0, 40)),
     ach: Object.keys(obj(r.ach) || {}).slice(0, 600).map(k => k.slice(0, 40)),
-    dd, f2, ...rowDeep(r),
+    dd, f2, ...rowDeep(r), ...rowLanding(r),
   };
 }
 
@@ -109,6 +122,15 @@ export function moreSummary(g, m, reg = '', now = g.at) {
   for (const x of R) {
     if (x.ds) { ds.nations++; ds.hauls += x.ds.n; x.ds.h.forEach((v, i) => { if (i < DS_LEVELS) ds.h[i] += v; }); x.ds.b.forEach((v, i) => { if (i < 3) ds.b[i] += v; }); ds.leg += x.ds.leg; ds.al += x.ds.al; }
     if (x.dsv > 0 && x.t > since(30)) ds.sailing++;
+  }
+
+  /* landing parties: the nations with colonies, the colonies by kind, the landings sent, won and seen off */
+  const lnd = { nations: 0, colonies: 0, ty: [0, 0, 0], beach: 0, sent: 0, hostile: 0, won: 0, repelled: 0, abandoned: 0, dug: 0, far: 0, sea: 0 };
+  for (const x of R) {
+    const L = x.lnd; if (!L) continue;
+    if (L.c > 0) lnd.nations++;
+    lnd.colonies += L.c; L.ty.forEach((v, i) => { if (i < 3) lnd.ty[i] += v; }); lnd.beach += L.hs;
+    lnd.sent += L.v; lnd.hostile += L.hv; lnd.won += L.h; lnd.repelled += L.rep; lnd.abandoned += L.ab; lnd.dug += L.bd; lnd.far = Math.max(lnd.far, L.far); lnd.sea += L.sea;
   }
 
   /* regions: nations, the active and the founded per week for the last eight weeks (the page forecasts the fill) */
@@ -167,7 +189,7 @@ export function moreSummary(g, m, reg = '', now = g.at) {
   return {
     content: {
       edicts, ach, nations: R.length, active30: act30.length, reach,
-      desk, deskNations: deskDays.length, deskClear, ds,
+      desk, deskNations: deskDays.length, deskClear, ds, lnd,
     },
     regions: regs,
     social: { alliances: A.length, sizes, types, allied, loners, writers, traders, active30: act30.length,
