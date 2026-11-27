@@ -77,6 +77,7 @@ test('the map stays put: its height on the root, from the top of the page; notes
   assert.match(SEC,/const R=document\.documentElement,was=R\.style\.getPropertyValue\('--mpr-h'\);if\(was!==h\+'px'\)\{R\.style\.setProperty\('--mpr-h',h\+'px'\);/,'never a style on the patched layout');
   assert.doesNotMatch(SEC,/L\.style\.setProperty/);
   assert.match(SEC,/const h=Math\.max\(narrow\?300:460,Math\.round\(window\.innerHeight-top-foot\)\);/,'the page\'s top, not the screen\'s: scrolling never resizes it');
+  assert.match(SEC,/let top=0;for\(let e=L;e;e=e\.offsetParent\)top\+=e\.offsetTop;/,'measured as laid out, not part way through the page\'s entrance (that drew the map twice on the next page drawn)');
   assert.match(SEC,/return top\+h\.replace\('<div class="map-layout',notes\+'<div class="mpr map-layout'\);/,'what the map box puts above the map goes above the layout');
   assert.match(SEC,/v\.cy=clamp\(cy,hh-e\.t\/s,MAP\.H-hh\+e\.b\/s\);\}\)\(clampView\);/,'the view may run past the edge by what the tools cover');
   assert.match(SEC,/const su=t\.closest\('#ml-sheet>summary'\);if\(su&&mprOn\(\)\)MPR\.layOpen=!su\.parentNode\.open;/,'the Layers stay open through a render');

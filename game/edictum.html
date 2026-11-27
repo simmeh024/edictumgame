@@ -111927,7 +111927,11 @@ updateMapPanel=(f=>function(){
 /* after drawing: the map as tall as the window, the minimap, and the view remembered */
 function mprAfter(){
   if(!mprOn())return;const L=document.querySelector('.mpr.map-layout');if(!L)return;
-  const top=L.getBoundingClientRect().top+window.scrollY,narrow=mapxNarrow(),pn=document.getElementById('map-panel');
+  /* where the layout sits in the page as laid out, transforms left out: a page just opened slides in (the page column and
+     its header moved by its entrance), and measured then, the map came out 18 px short, so the next page drawn found a
+     new height and drew the map a second time */
+  let top=0;for(let e=L;e;e=e.offsetParent)top+=e.offsetTop;
+  const narrow=mapxNarrow(),pn=document.getElementById('map-panel');
   /* on a phone the panel is a sheet over the foot of the screen: the map ends where its folded handle begins */
   const foot=narrow&&pn?(parseFloat(getComputedStyle(pn).bottom)||0)+58:16;
   /* measured from the top of the page, not of the screen, so scrolling never changes it (a map that grew and shrank
