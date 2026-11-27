@@ -296,6 +296,27 @@ await page.keyboard.press('Escape');
 check('Escape closes it', await until(() => page.evaluate(() => document.getElementById('fg-st').hidden)));
 // 18: Happenings shows a new flag beside the one it replaced (the page drawn directly: this new nation's tutorial holds the menu)
 check('Happenings shows a new flag beside the old one', await until(async () => { if (await page.evaluate(() => window.__game.S.view !== 'region')) { await page.evaluate(() => { const g = window.__game; g.S.view = 'region'; g.render(); }); return false; } if (!(await page.$('.haps'))) await page.click('#rgn-tab-happenings', { timeout: 1500 }).catch(() => {}); return page.evaluate(() => document.querySelectorAll('.hap-fl .mflag svg').length >= 2); }, 12000), await page.evaluate(() => JSON.stringify({ view: window.__game.S.view, hash: location.hash, tabs: !!document.querySelector('.rgn-tabs'), haps: (document.querySelector('.haps') || {}).textContent?.slice(0, 300) || null, main: (document.querySelector('#main') || document.body).innerText.slice(0, 200) })));
+// five shields (27 November): Horse-head, Octagon and Forked for everyone; Pelta and Engrailed earned with silver achievements
+{ const r = await page.evaluate(() => { const F = window.__game.FLY(), n = window.__game.S.nation, all = ['horse', 'octagon', 'forked', 'pelta', 'engrailed'];
+    return { names: all.map(s => F.CZ_SHIELDS[s]), free: ['horse', 'octagon', 'forked'].map(s => F.czShOk(n, s)), locked: ['pelta', 'engrailed'].map(s => F.czShOk(n, s)), how: ['pelta', 'engrailed'].map(s => F.czShHow(s)),
+      fallback: F.czCleanArms({ s: 'pelta', t: ['azure', 'or'] }, []).s, drawn: all.map(s => (F.czArmsSVG({ s, d: 'pale', t: ['gules', 'argent'], c: '', ct: 'or' }).match(/d="(M[^"]+)"/) || [])[1] || '') }; });
+  check('Horse-head, Octagon and Forked shields are there for everyone, each with its own outline', r.names.every(Boolean) && r.free.every(Boolean) && new Set(r.drawn).size === 5 && r.drawn.every(Boolean), JSON.stringify(r));
+  check('Pelta and Engrailed are locked, naming Shield Wall and Town Hall Heraldry', r.locked.every(x => !x) && /Shield Wall/.test(r.how[0]) && /Town Hall Heraldry/.test(r.how[1]), JSON.stringify(r));
+  check('arms showing a locked shield the nation does not hold fall back to the Heater', r.fallback === 'heater', r.fallback); }
+const armsStudio = () => page.evaluate(() => { const x = document.createElement('button'); x.dataset.ars = 'open'; document.body.appendChild(x); x.click(); x.remove(); });
+const asTiles = () => page.evaluate(() => Object.fromEntries(['horse', 'octagon', 'forked', 'pelta', 'engrailed'].map(s => { const b = document.querySelector('#as-s-' + s); return [s, b ? (b.classList.contains('lk') ? 'locked: ' + b.getAttribute('aria-label') : 'open') : 'missing']; })));
+await armsStudio();
+check('the Arms Studio offers the new shields, the earned two shown locked', await until(async () => { const T = await asTiles(); return T.horse === 'open' && T.octagon === 'open' && T.forked === 'open' && /Shield Wall/.test(T.pelta) && /Town Hall Heraldry/.test(T.engrailed); }), JSON.stringify(await asTiles()));
+await page.keyboard.press('Escape');
+await page.evaluate(() => { const g = window.__game, n = JSON.parse(JSON.stringify(g.S.nation)); n.ach = Object.assign({}, n.ach, { 'dip-shield': Date.now(), 'odd-crest5': Date.now() }); g.commit(n); });
+check('Shield Wall and Town Hall Heraldry open them', await until(() => page.evaluate(() => { const F = window.__game.FLY(), n = window.__game.S.nation; return F.czShOk(n, 'pelta') && F.czShOk(n, 'engrailed'); })));
+await armsStudio();
+check('and the Arms Studio shows them open', await until(async () => { const T = await asTiles(); return T.pelta === 'open' && T.engrailed === 'open'; }), JSON.stringify(await asTiles()));
+await page.click('#as-s-pelta');
+check('the Pelta can be chosen', await until(() => page.evaluate(() => document.querySelector('#as-s-pelta')?.getAttribute('aria-pressed') === 'true')));
+await page.click('#as-save');
+check('saved, the arms carry the Pelta and the record vouches for it (others see it, not the Heater)', await until(() => page.evaluate(() => { const F = window.__game.FLY(), n = window.__game.S.nation, c = n.cz || {}; return c.a && c.a.s === 'pelta' && (c.u || []).includes('sh-pelta') && F.czCleanArms(c.a, c.u).s === 'pelta'; })), await page.evaluate(() => JSON.stringify({ s: window.__game.S.nation.cz?.a?.s, u: (window.__game.S.nation.cz?.u || []).filter(x => /^sh-/.test(x)) })));
+await page.keyboard.press('Escape');
 check('no page errors', errors.length === 0, errors.join(' | '));
 await browser.close(); server.close();
 process.exit(failed ? 1 : 0);
