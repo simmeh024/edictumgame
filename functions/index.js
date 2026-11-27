@@ -279,6 +279,56 @@ async function siege(uid, data) {
   return r;
 }
 
+/* landing parties (27 November 2026, game/edictum.html "landing parties and colonies"). A hostile landing is sent in a
+   war of conquest: 'landing' checks that war, as a siege does, and tells the defender right away (a notification, and
+   a war letter for a player who takes them), so it can dig in on the beaches before the boats come in at `at`, 12 to
+   24 hours away. A peaceful landing may come ashore on the coast of a nation not played for LND_AWAY: 'abandon'
+   checks the time of its last save and seals the hex as a conquest with w LND_AB, which the game's map accepts
+   without a war (the server knows no map: the game checks that d held the hex, as it does for every sealed conquest) */
+const LND_NOTICE_MIN = 12 * 3600000 - 120000, LND_NOTICE_MAX = 24 * 3600000 + 120000, LND_AWAY = 14 * 86400000, LND_AB = '~abandoned';
+const lndLastSave = s => { const ts = s.get('ts'); return ts && typeof ts.toMillis === 'function' ? ts.toMillis() : s.updateTime ? s.updateTime.toMillis() : Date.now(); };
+async function lndPair(uid, d) {
+  const [me, foe, ban, modMe, modFoe] = await db.getAll(db.doc('nations/' + uid), db.doc('nations/' + d), db.doc('bans/' + uid), db.doc('mod/' + uid), db.doc('mod/' + d));
+  if (ban.exists) return { why: 'banned' };
+  if (!me.exists) return { why: 'nation' };
+  if (modMe.get('hidden') === true || modFoe.get('hidden') === true) return { why: 'hidden' };
+  const myReg = me.get('reg') || 'meridian';
+  if (!foe.exists || (foe.get('reg') || 'meridian') !== myReg) return { why: 'gone' };
+  const rs = await db.doc('regionStatus/' + myReg).get();
+  if (regionClosed(rs, myReg)) return { why: !rs.exists || rs.get('mode') === 'coming_soon' ? 'coming_soon' : 'maintenance' };
+  return { me, foe };
+}
+async function landing(uid, data) {
+  const who = await identity(uid);
+  const d = data.d, c = data.c, at = data.at;
+  if (!isId(d) || d === uid || d.startsWith('npc-') || !Number.isInteger(c) || c < 0 || c > 1e6 || typeof at !== 'number' || !isFinite(at))
+    throw new HttpsError('invalid-argument', 'A landing needs a nation, a hex and a time.');
+  const P = await lndPair(uid, d);
+  if (P.why) return { ok: false, why: P.why };
+  await db.runTransaction(tx => eligibility(tx, who, { linked: false }));
+  const mine = record(P.me), them = record(P.foe), now = Date.now(), w = warOf(mine, uid, them, d, now);
+  if (!who.registered && !them.wars?.[uid]) refuse('registration_required', 'A Registered Nation is required for offensive wars against players.');
+  if (!w || w.surr || w.g !== 'c' || w.offA) return { ok: false, why: 'war' };
+  if (shielded(them, now)) return { ok: false, why: 'grace' };
+  if (at - now < LND_NOTICE_MIN || at - now > LND_NOTICE_MAX) return { ok: false, why: 'time' };
+  try { await warWord(db, d, 'landing', { by: str(mine.name), nation: str(them.name), capital: str(data.cn, 60), at }); } catch (e) { /* the game shows it anyway */ }
+  return { ok: true, t: now };
+}
+async function abandon(uid, data) {
+  const who = await identity(uid);
+  const d = data.d, c = data.c;
+  if (!isId(d) || d === uid || d.startsWith('npc-') || !Number.isInteger(c) || c < 0 || c > 1e6)
+    throw new HttpsError('invalid-argument', 'A landing needs a nation and a hex.');
+  const key = await signingKey();
+  const P = await lndPair(uid, d);
+  if (P.why) return { ok: false, why: P.why };
+  await db.runTransaction(tx => eligibility(tx, who, { linked: false }));
+  const now = Date.now(), last = lndLastSave(P.foe);
+  if (now - last < LND_AWAY) return { ok: false, why: 'active', next: last + LND_AWAY - now };
+  const sign = text => crypto.sign('sha256', Buffer.from(text), { key, dsaEncoding: 'ieee-p1363' }).toString('base64url');
+  return { ok: true, t: now, w: LND_AB, d, s: sign(sealText(uid, c, now, LND_AB)), s2: sign(sealText2(uid, c, now, LND_AB, d)) };
+}
+
 async function forget(uid) {
   if ((await db.doc('nations/' + uid).get()).exists) return { ok: false, why: 'nation' };
   const ref = db.doc('armies/' + uid);
@@ -314,5 +364,7 @@ export const referee = onCall({ region: REGION, maxInstances: 20, cpu: 1, memory
   }
   if (data.op === 'siege') { pace([['rs:' + uid, 10, 1 / 60]]); return siege(uid, data); }
   if (data.op === 'forget') { pace([['rf:' + uid, 3, 1 / 60]]); return forget(uid); }
+  if (data.op === 'landing') { pace([['rl:' + uid, 6, 1 / 600]]); return landing(uid, data); }
+  if (data.op === 'abandon') { pace([['ra:' + uid, 10, 1 / 60]]); return abandon(uid, data); }
   throw new HttpsError('invalid-argument', 'Unknown request.');
 });

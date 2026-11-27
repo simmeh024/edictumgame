@@ -61,12 +61,14 @@ test('a harbour reaches across a bay to the far shore of its own landmass',()=>{
  const {ctx,n,world,b}=coastFixture();ctx.MAP.comp[b]=0;n.cities[0].b[0].d=NOW;
  assert.ok(ctx.mpHarbourFrontier(world).has(b));assert.equal(ctx.mpClaimSequence(world,[b]).blocked.length,0);
 });
-test('a navy stretches harbour reach from 14 hexes of water route to 16',()=>{
- const {ctx,n,world,cell}=fixture(),a=cell(1,4),six=cell(17,4),seven=cell(18,4);ctx.MAP.T.fill(0);for(const c of [a,six,seven])ctx.MAP.T[c]=2;
+/* since the landing parties (27 November 2026): 16 hexes, 20 with a navy (14 and 16 before); sea routes keep 14 */
+test('a navy stretches harbour reach from 16 hexes of water route to 20',()=>{
+ const {ctx,n,world,cell}=fixture(),a=cell(1,4),near=cell(17,1),far=cell(21,4),past=cell(22,4);ctx.MAP.T.fill(0);for(const c of [a,near,far,past])ctx.MAP.T[c]=2;
  world.owner.fill(-1);world.owner[a]=0;n.cities=[{id:'cap',c:a,nm:'Port',b:[{k:'harbour',d:NOW}]}];
- assert.equal(ctx.mpHarbourReach(n),14);assert.ok(!ctx.mpHarbourFrontier(world).has(six));
- n.policies.navalFleet=1;assert.equal(ctx.mpHarbourReach(n),16);
- const fr=ctx.mpHarbourFrontier(world);assert.ok(fr.has(six));assert.equal(fr.get(six).path.length-1,16);assert.ok(!fr.has(seven));
+ assert.equal(ctx.mpHarbourReach(n),16);{const fr=ctx.mpHarbourFrontier(world);assert.ok(fr.has(near));assert.equal(fr.get(near).path.length-1,16);assert.ok(!fr.has(far));}
+ n.policies.navalFleet=1;assert.equal(ctx.mpHarbourReach(n),20);ctx.clearSea();
+ const fr=ctx.mpHarbourFrontier(world);assert.ok(fr.has(far));assert.equal(fr.get(far).path.length-1,20);assert.ok(!fr.has(past));
+ assert.equal(vm.runInContext('MP_SEA_REACH',ctx),14,'shipping routes keep 14');
 });
 test('shores that already touch your land are claimed the ordinary way, not by harbour',()=>{
  const {ctx,n,world,b,cell}=coastFixture();n.cities[0].b[0].d=NOW;world.owner[cell(5,3)]=0;ctx.MAP.T[cell(5,3)]=2;
