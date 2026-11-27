@@ -133,8 +133,9 @@ try {
   check('the nation has grown: land, a second city and a road', road.hexes > 20 && road.cities === 2 && road.road, road);
   check('the key names the border, rivers and the road, and nothing the nation has not built', road.key.includes('border') && road.key.includes('river') && road.key.includes('road') && !road.key.includes('rail') && !road.key.includes('sea'), road.key);
   await sleep(300);
-  check('with the map’s tools unlocked, Poster is one of them', await page.locator('.mp-map-toolbar [data-act="poster-open"]').count() === 1 && await page.locator('.mp-map-toolbar').count() === 1);
-  await page.click('.mp-map-toolbar [data-act="poster-open"]');
+  /* since the map page's redesign (27 Nov 2026) the tool bar holds the map's modes; the poster stays among the map's controls */
+  check('with the map’s tools unlocked, the tool bar is there and the poster button stays with the map’s controls', await page.locator('.mp-map-toolbar').count() === 1 && await page.locator('.map-ctrl [data-act="poster-open"]').count() === 1);
+  await page.click('.map-ctrl [data-act="poster-open"]');
   await page.click('[data-act="pst-look"][data-v="atlas"]'); await page.click('[data-act="pst-shape"][data-v="portrait"]');
   check('its poster is drawn', !!(await drawn(page)) && (await size(page)).slice(2).join() === 'atlas,portrait');
   await page.screenshot({ path: path.join(OUT, 'poster-grown.png') });

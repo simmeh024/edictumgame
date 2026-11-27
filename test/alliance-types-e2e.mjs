@@ -135,9 +135,12 @@ check('and the old pact passes to the remaining member', await until(async () =>
 check('the nation card shows a slot for each type', await until(() => A.evaluate(id => { const h = G.ALX().alStripHTML(id); return /Lyre Union/.test(h) && /Amber Road/.test(h) && /No research accord/.test(h); }, ua), 10000));
 await nav(A, 'map');
 check('Map layers offer each type that has an alliance', await until(async () => /Defence pacts/.test(await text(A, 'main')) && /Cultural unions/.test(await text(A, 'main')), 8000));
-/* each box redraws the map as it is ticked: click it, then read it afresh */
+/* each box redraws the map as it is ticked: click it, then read it afresh. The boxes are in the Layers popover (the
+   World map redesign, 27 Nov 2026), closed until opened */
+if (!(await A.evaluate(() => !!document.getElementById('ml-sheet')?.open))) await A.click('#ml-sheet>summary');
 for (const t of ['def', 'culture']) { const box = () => A.locator(`input[data-mp-opt="al-${t}"]`).first(); if (!(await box().isChecked().catch(() => false))) await box().click(); await until(() => box().isChecked().catch(() => false), 4000); }
 check('the layers draw, and the legend says how', await until(async () => /thick outlines/.test(await text(A, 'main')) && /soft wash/.test(await text(A, 'main')), 6000));
+if (await A.evaluate(() => !!document.getElementById('ml-sheet')?.open)) await A.click('#ml-sheet>summary'); /* the Layers closed again, off the map */
 await shot(A, 'map');
 check('no page errors', !errors.length, errors.slice(0, 5).join(' | '));
 await finish();

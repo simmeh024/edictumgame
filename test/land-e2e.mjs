@@ -118,11 +118,17 @@ if (c3 != null) {
   await A.screenshot({ path: OUT + '/land-auction-map.png' });
   await openLand(B);
   await until(async () => !!await B.$(`#ld-bid-${id3}`), 10000);
-  await tap(B, '#dp-p-land [data-act="ld-bid"]');
+  /* this auction's Bid button, once it can be pressed: it stays disabled a moment while the land bought above is still
+     being handed over (a bid needs the hex to touch the bidder's land), and a click on it then did nothing */
+  const bidBtn = `#dp-p-land [data-act="ld-bid"][data-id="${id3}"]`;
+  const bidReady = async () => { const ok = await until(() => B.evaluate(sel => { const b = document.querySelector(sel); return !!b && !b.disabled; }, bidBtn), 20000); if (!ok) console.log('the Bid button stayed disabled:', (await text(B, '#dp-p-land').catch(() => '')).slice(0, 400)); return ok; };
+  await bidReady();
+  await tap(B, bidBtn);
   check('a bid at the reserve, set aside', await until(async () => ((await deal(id3)).bids || []).length === 1, 10000) && await B.evaluate(id => G.LDX().ldEscOf(G.S.nation).some(e => e.id === id && e.r.food === 3), id3));
   await sleep(400);
+  await bidReady();
   await setField(B, `#ld-bid-${id3}`, 6);
-  await tap(B, '#dp-p-land [data-act="ld-bid"]');
+  await tap(B, bidBtn);
   check('the bid raised: the top bid, and the difference set aside', await until(async () => { const b = (await deal(id3)).bids || []; return b.length === 2 && b[1].v === 6; }, 10000) && await until(() => B.evaluate(id => G.LDX().ldEscOf(G.S.nation).some(e => e.id === id && e.r.food === 6), id3), 5000));
   check('an auction with a bid cannot be withdrawn', !(await A.evaluate(id => { const D = G.LDX().LD.docs.get(id); return !!D && D.bids.length === 0; }, id3)));
 } else check('a third border hex to auction', false);
