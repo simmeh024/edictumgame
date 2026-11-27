@@ -102,7 +102,7 @@ export async function gatherFeed(db, { since, now = Date.now() }) {
     talked.docs.flatMap(d => (Array.isArray(d.get('m')) ? d.get('m') : []).filter(m => m && m.a === 'p').map(m => ({ k: 'ticketr', t: ms(m.t), uid: sid(d.get('by')), x: txt(m.x, 90), ref: d.id }))),
     bugs.docs.map(d => ({ k: 'bug', t: ms(d.get('t')), uid: sid(d.get('by')), x: txt(d.get('ti'), 90), ref: d.id })),
     postsT.docs.concat(postsN.docs).map(d => postEvent(d.ref.path, d.data())),
-    recruits.docs.map(d => ({ k: 'recruit', t: ms(d.get('t')), uid: d.id, to: sid(d.get('r')) })),
+    recruits.docs.map(d => ({ k: 'recruit', t: ms(d.get('t')), uid: d.id, to: sid(d.get('r')), ...(d.get('h') ? { h: String(d.get('h')).slice(0, 4) } : {}) })),
     // a multi-step admin action records 'started' and then its outcome: only the outcome is shown
     audit.docs.filter(d => d.get('outcome') !== 'started').map(d => ({ k: 'admin', t: ms(d.get('at')), uid: sid(d.get('target')), by: sid(d.get('actor')),
       x: txt(d.get('action'), 40).replace(/_/g, ' ') + (d.get('outcome') === 'failed' ? ' (failed)' : ''), name: txt(d.get('name'), 40), ref: d.id })).filter(e => e.x),

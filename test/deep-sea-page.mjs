@@ -65,7 +65,7 @@ const setHarbour = (d, b) => d.edit(new Function('n', 'now', `const B=${JSON.str
 
 try {
   const d = await settled({ width: 1280, height: 900 }), { page } = d;
-  check('settled on the open sea: the capital\'s harbour would reach the sea', await S(page, () => { const G = window.__game; return G.DS().seaDist(G.S.nation.cities[0].c, 55).cells.length > 0; }));
+  check('settled on the open sea: the capital\'s harbour would reach the sea', await S(page, () => { const G = window.__game; return G.DS().seaDist(G.S.nation.cities[0].c, G.DS().REACH).cells.length > 0; }));
   const grid = await S(page, () => { const P = window.__game.DS(), g = P.grid(), A = P.alive(); return { lanes: g.L, cnt: g.cnt, alive: A.length, bands: [0, 1, 2].map(b => A.filter(s => s.bd === b).length), deep: A.every(s => s.ds && window.__game.MAP.T[s.c] < 2) }; });
   check('the sea has lanes of its own and finds about at every depth, all on the water', grid.lanes >= 8 && grid.alive >= 5 && grid.deep, grid);
 
@@ -77,7 +77,7 @@ try {
 
   /* a plain Harbour reaches the shelf only */
   await setHarbour(d, {});
-  check('a plain Harbour: ×1, 55 hexes by sea, the shelf only', JSON.stringify(await harbour(page)) === JSON.stringify([{ hm: 100, reach: 55, band: 0, roll: 0, hl: 0, sv: false }]), await harbour(page));
+  check('a plain Harbour: ×1, 60 hexes by sea, the shelf only', JSON.stringify(await harbour(page)) === JSON.stringify([{ hm: 100, reach: 60, band: 0, roll: 0, hl: 0, sv: false }]), await harbour(page));
   const at = await S(page, () => { const G = window.__game, P = G.DS(), n = G.S.nation, t0 = P.flNow();
     for (let t = t0; t < t0 + 8 * 86400e3; t += 1800e3) for (const s of P.alive(t)) { const p = P.plan(n, s, t); if (!p.why) return { t, key: s.key, mins: p.mins, bd: s.bd }; } return null; });
   check('a find on the shelf comes within the plain Harbour\'s reach within eight days', !!at && at.bd === 0, at);
@@ -129,16 +129,25 @@ try {
 
   /* upgrades: gold, a Grand Port, a Salvage Port at grey and at gold II */
   await setHarbour(d, { ug: 3 });
-  check('a blue Harbour: ×1.45, 67 hexes, deep water, +1', JSON.stringify(await harbour(page)) === JSON.stringify([{ hm: 145, reach: 67, band: 1, roll: 1, hl: 3, sv: false }]), await harbour(page));
+  check('a blue Harbour: ×1.45, 72 hexes, deep water, +1', JSON.stringify(await harbour(page)) === JSON.stringify([{ hm: 145, reach: 72, band: 1, roll: 1, hl: 3, sv: false }]), await harbour(page));
   await setHarbour(d, { ug: 5 });
-  check('a gold Harbour: ×2, 75 hexes, the abyss, +2', JSON.stringify(await harbour(page)) === JSON.stringify([{ hm: 200, reach: 75, band: 2, roll: 2, hl: 5, sv: false }]), await harbour(page));
+  check('a gold Harbour: ×2, 80 hexes, the abyss, +2', JSON.stringify(await harbour(page)) === JSON.stringify([{ hm: 200, reach: 80, band: 2, roll: 2, hl: 5, sv: false }]), await harbour(page));
+  /* a gold Harbour too far away is named, with how far the find is and how far its ship sails, even while the ship is
+     busy (rw); the distance shown is from it, and the one search for every harbour agrees with the harbour's own */
+  const gap = await S(page, () => { const G = window.__game, P = G.DS(), n = G.S.nation, h = P.harbours(n)[0], t0 = P.flNow(), D = P.seaDist(h.c, 9999), F = P.farDist([h]);
+    let agree = 0, off = 0;
+    for (let t = t0; t < t0 + 4 * 86400e3; t += 3600e3) for (const s of P.alive(t)) { if (F.d[s.c] === D[s.c]) agree++; else off++;
+      const p = P.plan(n, s, t); if (D[s.c] > h.reach) return { rw: p.rw, d: p.d, dh: p.dh, far: D[s.c], reach: h.reach, agree, off }; }
+    return { agree, off }; });
+  check('a find beyond the gold Harbour: out of reach, how far, and how far its ship sails', !!gap.rw && gap.rw === `Out of reach: ${gap.far} hexes by sea from ${gap.dh}, and its ship sails 80.` && /’s gold Harbour$/.test(gap.dh) && gap.d === gap.far && gap.far > 80, gap);
+  check('the search from every harbour at once agrees with every harbour on its own', gap.agree > 0 && gap.off === 0, gap);
   await setHarbour(d, { tr: 2, ln: 'fleet' });
-  check('a Grand Port (Fishing Fleet): ×2, as far and deep as gold', JSON.stringify(await harbour(page)) === JSON.stringify([{ hm: 200, reach: 75, band: 2, roll: 2, hl: 6, sv: false }]), await harbour(page));
+  check('a Grand Port (Fishing Fleet): ×2, as far and deep as gold', JSON.stringify(await harbour(page)) === JSON.stringify([{ hm: 200, reach: 80, band: 2, roll: 2, hl: 6, sv: false }]), await harbour(page));
   await setHarbour(d, { tr: 2, ln: 'salvage', ug: 1 });
   const sv = await S(page, () => { const P = window.__game.DS(), n = window.__game.S.nation; return { h: P.harbours(n)[0], ships: P.ships(n) }; });
-  check('a Salvage Port at grey II: ×2.6, 78 hexes, two ships', sv.h.hm === 260 && sv.h.reach === 78 && sv.h.hl === 7 && sv.ships === 2, sv);
+  check('a Salvage Port at grey II: ×2.6, 83 hexes, two ships', sv.h.hm === 260 && sv.h.reach === 83 && sv.h.hl === 7 && sv.ships === 2, sv);
   await setHarbour(d, { tr: 2, ln: 'salvage', ug: 5 });
-  check('a Salvage Port at gold II: ×3, 90 hexes', JSON.stringify((await harbour(page)).map(h => [h.hm, h.reach])) === '[[300,90]]', await harbour(page));
+  check('a Salvage Port at gold II: ×3, 95 hexes', JSON.stringify((await harbour(page)).map(h => [h.hm, h.reach])) === '[[300,95]]', await harbour(page));
   const lines = await S(page, () => { const B = window.__game.DS().BTIER(); return B && B[2] ? Object.keys(B[2].lines) : null; });
   check('the Harbour retools to a Grand Port in three lines', JSON.stringify(lines) === '["fleet","merchant","salvage"]', lines);
   check('a gold Harbour\'s ship reaches more of the sea\'s finds than a plain one\'s', await S(page, () => { const G = window.__game, P = G.DS(), n = G.S.nation, U = P.reachSet(n); let k = 0; for (const s of P.alive()) if (U[s.c]) k++; return k >= 1; }));

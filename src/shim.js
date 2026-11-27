@@ -641,9 +641,10 @@
     var u = A.auth && A.auth.currentUser;
     if (!u) throw mapError({ code: 'unauthenticated' });
     var op = isObj(data) ? data.op : '';
-    /* presence and delegate badges only read, so they are asked observing as well */
+    /* presence and delegate badges only read, so they are asked observing as well; so does the World Assembly Council's page
+       (wacState), which an admin may read while observing a region */
     if (pviewing() && !(name === 'civic' && (op === 'state' && data.obs || op === 'online' || op === 'chatDelegates'))) throw readOnly();
-    if (observing() && (name === 'referee' || name === 'civic' && !/^(news|cb)/.test(op) && !(op === 'topic' && data.as === 'team') && !(op === 'state' && data.obs) && op !== 'online' && op !== 'chatDelegates' || name === 'accounts' && op === 'shop')) throw readOnly();
+    if (observing() && (name === 'referee' || name === 'civic' && !/^(news|cb)/.test(op) && !(op === 'topic' && data.as === 'team') && !(op === 'state' && data.obs) && op !== 'online' && op !== 'chatDelegates' && op !== 'wacState' || name === 'accounts' && op === 'shop')) throw readOnly();
     var r, b;
     try {
       r = await within(fetch(A.fn + '/' + name, { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + await u.getIdToken() }, body: JSON.stringify({ data: data }) }), name === 'adminConsole' ? 120000 : 20000);
@@ -1042,32 +1043,91 @@
   });
   var recruitApi = Object.freeze({
     me: function () { var u = A.auth && A.auth.currentUser; return u ? u.uid : ''; },
-    claim: function (by) {
+    /* → 'ok', 'done', 'guest', 'held', 'refused', 'retry', 'no' or 'bad' (claimx below says more) */
+    claim: function (by, o) { return recruitApi.claimx(by, o).then(function (r) { return r.res; }); },
+    /* o {dev: this browser has played as `by`, via: the channel}; → {res, e?, x?}: e founded where players are wanted,
+       x the double-rewards weekend's multiple (functions/recruit.js, recruit) */
+    claimx: function (by, o) {
       var u = A.auth && A.auth.currentUser;
-      if (!u || A.frozen || observing() || typeof by !== 'string' || !/^[A-Za-z0-9_-]{6,128}$/.test(by) || by === u.uid) return Promise.resolve('bad');
-      return call('accounts', { op: 'recruit', by: by }).then(function (r) {
-        var why = r && r.why;
-        return r && r.ok ? 'ok' : why === 'done' || why === 'guest' ? why : why === 'nation_required' || why === 'region_disabled' ? 'retry' : 'no';
-      }, function () { return 'retry'; });
+      if (!u || A.frozen || observing() || typeof by !== 'string' || !/^[A-Za-z0-9_-]{6,128}$/.test(by) || by === u.uid) return Promise.resolve({ res: 'bad' });
+      o = isObj(o) ? o : {};
+      var d = { op: 'recruit', by: by };
+      if (o.dev === true) d.dev = true;
+      if (typeof o.via === 'string' && /^[a-z]{1,8}$/.test(o.via)) d.via = o.via;
+      return call('accounts', d).then(function (r) {
+        var why = r && r.why, res = r && r.ok ? 'ok' : why === 'done' || why === 'guest' || why === 'held' || why === 'refused' ? why : why === 'nation_required' || why === 'region_disabled' ? 'retry' : 'no';
+        return { res: res, e: r && r.e ? 1 : 0, x: r && num(r.x) > 1 ? num(r.x) : 0 };
+      }, function () { return { res: 'retry' }; });
     },
+    /* the recruits naming the player: {id, t, m, h, e, x, xm, p} (h: held for a staff check, or 'no', refused; p: under the
+       recruits' pact) */
     mine: function () {
       var u = A.auth && A.auth.currentUser;
       if (!u || observing()) return Promise.resolve([]);
       return A.fs.collection('recruits').where('r', '==', u.uid).limit(200).get().then(function (q) {
-        return q.docs.map(function (d) { var t = d.get('t'); return { id: d.id, t: t && t.toMillis ? t.toMillis() : 0, m: num(d.get('m')) }; });
+        return q.docs.map(function (d) { var t = d.get('t'), h = d.get('h'); return { id: d.id, t: t && t.toMillis ? t.toMillis() : 0, m: num(d.get('m')), h: typeof h === 'string' ? h.slice(0, 4) : '', e: d.get('e') ? 1 : 0, x: num(d.get('x')), xm: num(d.get('xm')), p: d.get('p') === 1 ? 1 : 0 }; });
       }, function () { return null; });
     },
-    /* the visitor opened another player's recruiting link: on the admins' funnel (functions/accounts.js, recruitTrail) */
-    open: function (by) {
+    /* the recruits of the player's recruits (they name the player as g): {id, r, t, h?} */
+    lineage: function () {
+      var u = A.auth && A.auth.currentUser;
+      if (!u || observing()) return Promise.resolve([]);
+      return A.fs.collection('recruits').where('g', '==', u.uid).limit(200).get().then(function (q) {
+        return q.docs.map(function (d) { var t = d.get('t'), h = d.get('h'); return { id: d.id, r: String(d.get('r') || ''), t: t && t.toMillis ? t.toMillis() : 0, h: typeof h === 'string' ? h.slice(0, 4) : '' }; });
+      }, function () { return null; });
+    },
+    /* the visitor opened another player's recruiting link: on the admins' funnel (functions/recruit.js, recruitTrail) */
+    open: function (by, via) {
       var u = A.auth && A.auth.currentUser;
       if (!u || A.frozen || observing() || typeof by !== 'string' || !/^[A-Za-z0-9_-]{6,128}$/.test(by) || by === u.uid) return Promise.resolve(false);
-      return call('accounts', { op: 'recruitOpen', by: by }).then(function (r) { return !!(r && r.ok); }, function () { return false; });
+      var d = { op: 'recruitOpen', by: by };
+      if (typeof via === 'string' && /^[a-z]{1,8}$/.test(via)) d.via = via;
+      return call('accounts', d).then(function (r) { return !!(r && r.ok); }, function () { return false; });
     },
-    /* the recruit's later steps, as the server reads them from the saved nation: 2 a week of play, 4 a second city */
-    step: function () {
+    /* the recruit's later steps, as the server reads them from the saved nation: 2 a week of play, 4 a second city,
+       8 a trade with the recruiter; step() the mask, stepx() {m, xm} with the steps reached in a double-rewards weekend */
+    step: function () { return recruitApi.stepx().then(function (r) { return r ? r.m : null; }); },
+    stepx: function () {
       var u = A.auth && A.auth.currentUser;
       if (!u || A.frozen || observing()) return Promise.resolve(null);
-      return call('accounts', { op: 'recruitStep' }).then(function (r) { return r && r.ok ? num(r.m) : null; }, function () { return null; });
+      return call('accounts', { op: 'recruitStep' }).then(function (r) { return r && r.ok ? { m: num(r.m), xm: num(r.xm) } : null; }, function () { return null; });
+    },
+    /* the player's own funnel: {o opened, f founded, n filed, wait: [{id, f, name, reg}] the guests yet to link} */
+    funnel: function () {
+      var u = A.auth && A.auth.currentUser;
+      if (!u || A.frozen || observing()) return Promise.resolve(null);
+      return call('accounts', { op: 'recruitMine' }).then(function (r) { return r && r.ok ? r : null; }, function () { return null; });
+    },
+    /* the recruiter's note on their invitation: set(m) ('' clears) → {ok, m} or {ok: false, why}; of(uid) → the words */
+    note: function (m) {
+      var u = A.auth && A.auth.currentUser;
+      if (!u || A.frozen || observing() || typeof m !== 'string') return Promise.resolve({ ok: false, why: 'no' });
+      return call('accounts', { op: 'recruitNote', m: m.slice(0, 200) }).then(function (r) { return { ok: !!(r && r.ok), m: r && typeof r.m === 'string' ? r.m : '' }; },
+        function (e) { var c = e && e.details && e.details.code; return { ok: false, why: c || 'retry', msg: e && e.message ? String(e.message).slice(0, 300) : '' }; });
+    },
+    noteOf: function (uid) {
+      if (typeof uid !== 'string' || !/^[A-Za-z0-9_-]{6,128}$/.test(uid)) return Promise.resolve('');
+      return A.fs.doc('recruitNote/' + uid).get().then(function (s) { return s.exists ? String(s.get('m') || '').slice(0, 160) : ''; }, function () { return ''; });
+    },
+    /* the player's /join/ link: its slug (functions/join.js); and its preview picture, a 1200 x 630 JPEG data URL */
+    joinLink: function () {
+      var u = A.auth && A.auth.currentUser;
+      if (!u || A.frozen || observing()) return Promise.resolve('');
+      return call('accounts', { op: 'joinLink' }).then(function (r) { return r && r.ok && typeof r.s === 'string' ? r.s : ''; }, function () { return ''; });
+    },
+    joinCard: function (img) {
+      var u = A.auth && A.auth.currentUser;
+      if (!u || A.frozen || observing() || typeof img !== 'string') return Promise.resolve('');
+      return call('accounts', { op: 'joinCard', img: img }).then(function (r) { return r && r.ok ? String(r.h || '') : ''; }, function () { return ''; });
+    },
+    /* a double-rewards weekend now running: {m, from, until} or null (rcEvent/live, set from the admin portal) */
+    event: function () {
+      if (!A.fs) return Promise.resolve(null);
+      return A.fs.doc('rcEvent/live').get().then(function (s) {
+        if (!s.exists) return null;
+        var m = num(s.get('m')), f = num(s.get('from')), t = num(s.get('until'));
+        return m > 1 && t > Date.now() ? { m: Math.min(3, m), from: f, until: t } : null;
+      }, function () { return null; });
     }
   });
   /* bug reports (see firestore.rules): the game's Report a bug page sends one with send(report, screenshot?)

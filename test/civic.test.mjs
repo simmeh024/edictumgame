@@ -486,6 +486,102 @@ test('A recruit counts once, as a Registered Nation founded in the last 30 days 
   assert.deepEqual(await account(empty,{op:'recruit',by:recruiter.uid}),{ok:false,why:'nation_required'});
 });
 
+test('Recruiting, round two: held claims, the lineage, a wanted region, a weekend, the funnel, the note, /join/ links, the joint goal and the recruits’ pact',async()=>{
+  const staff=await player(true),admin=await sign('signInWithCustomToken',{token:await auth.createCustomToken(staff.uid,{admin:true})});
+  const adm=d=>call(admin,'adminConsole',d);
+  const R=await player(true);await age(R,3*DAY);
+  const sum=(p,name,reg='meridian')=>db.doc('summaries/'+p.uid).set({reg,name,pop:10,t:Date.now()});
+  const seen=(p,ip)=>db.doc('accountSeen/'+p.uid).set({ip,at:Date.now()});
+  const rec=async p=>{const s=await db.doc('recruits/'+p.uid).get();return s.exists?s.data():null;};
+  await sum(R,'Recruit Royal Test');await seen(R,'203.0.113.7');
+  // the recruit last played from the recruiter's address: held, not paid, and not under the pact yet
+  const A=await player(true);await sum(A,'Heldland');await seen(A,'203.0.113.7');
+  assert.deepEqual(await account(A,{op:'recruit',by:R.uid}),{ok:false,why:'held'});
+  let a=await rec(A);assert.equal(a.h,'ip');assert.equal(a.p,1);assert.equal(a.r,R.uid);
+  assert.deepEqual(await account(A,{op:'recruit',by:R.uid}),{ok:false,why:'held'});
+  const listed=await adm({op:'recruitHeld'});const row=listed.held.find(x=>x.id===A.uid);
+  assert.ok(row&&row.h==='ip'&&row.name==='Heldland'&&row.rname==='Recruit Royal Test',JSON.stringify(listed));
+  await assert.rejects(call(A,'adminConsole',{op:'recruitRule',uid:A.uid,ok:true}),e=>e.status==='PERMISSION_DENIED');
+  assert.deepEqual(await adm({op:'recruitRule',uid:A.uid,ok:true}),{ok:true});
+  a=await rec(A);assert.equal(a.h,undefined);assert.equal(a.hk,staff.uid);
+  assert.deepEqual(await account(A,{op:'recruit',by:R.uid}),{ok:false,why:'done'},'released: the recruit collects');
+  await assert.rejects(adm({op:'recruitRule',uid:A.uid,ok:true}),e=>e.status==='FAILED_PRECONDITION');
+  assert.ok((await db.collection('adminAudit').where('target','==',A.uid).where('action','==','recruit_released').get()).size===1);
+  // a browser that has played as the recruiter: held; refused, never paid
+  const B=await player(true);await sum(B,'Deviceland');
+  assert.deepEqual(await account(B,{op:'recruit',by:R.uid,dev:true}),{ok:false,why:'held'});
+  assert.equal((await rec(B)).h,'dev');
+  await adm({op:'recruitRule',uid:B.uid,ok:false});
+  assert.equal((await rec(B)).h,'no');
+  assert.deepEqual(await account(B,{op:'recruit',by:R.uid}),{ok:false,why:'refused'});
+  // the lineage: a recruit of a recruit names the first recruiter as g
+  const C=await player(true);await sum(C,'Grandland');
+  assert.deepEqual(await account(C,{op:'recruit',by:A.uid}),{ok:true});
+  assert.equal((await rec(C)).g,R.uid);
+  // a region that needs players: meridian at no more than 60% of the average open region, as home/live counts them
+  const live=db.doc('home/live'),was=await live.get();
+  await live.set({v:1,at:Date.now(),r:Object.fromEntries(['meridian','frostmarch','northernpale','driftlands','silentmoors','wildwood','saffron','hollow','ashen','ironsteppe','gilded','verdantbasin','coralreach','emberisles','lanterncoast','jadeterraces','highcrags','cloudspine','obsidianrim','ambershallows','sunkenkingdoms','mistral','stormwrack','longvalley','greywater','scatteredcrown','terra'].map(id=>[id,{n:id==='meridian'?1:100,a:0,w:0}]))});
+  const D=await player(true);await sum(D,'Quietland');
+  assert.deepEqual(await account(D,{op:'recruit',by:R.uid}),{ok:true,e:1});
+  assert.equal((await rec(D)).e,1);
+  if(was.exists)await live.set(was.data());else await live.delete();
+  // a double-rewards weekend: the founding gift and the steps reached during it pay twice
+  const ev=await adm({op:'rcEvent',hours:48});assert.equal(ev.ev.m,2);
+  await assert.rejects(adm({op:'rcEvent',hours:500}),e=>e.status==='INVALID_ARGUMENT');
+  const E=await player(true);await sum(E,'Weekendland');
+  const res=await account(E,{op:'recruit',by:R.uid});assert.equal(res.ok,true);assert.equal(res.x,2);
+  const ej=JSON.parse((await db.doc('nations/'+E.uid).get()).get('j'));
+  await db.doc('nations/'+E.uid).update({j:JSON.stringify({...ej,founded:Date.now()-DAY,cities:[{id:1},{id:2}]})});
+  const st=await account(E,{op:'recruitStep'});assert.equal(st.m,4);assert.equal(st.xm,4);
+  assert.equal((await adm({op:'rcEvent',hours:0})).ev,null);
+  assert.equal((await db.doc('rcEvent/live').get()).get('m'),1);
+  // the funnel: a guest opened the link through WhatsApp and founded, and waits for a sign-in
+  const G=await player();await sum(G,'Guestland');
+  assert.deepEqual(await account(G,{op:'recruitOpen',by:R.uid,via:'wa'}),{ok:true});
+  assert.deepEqual(await account(G,{op:'recruit',by:R.uid,via:'wa'}),{ok:false,why:'guest'});
+  const tr=(await db.doc('recruitTrail/'+G.uid).get()).data();assert.equal(tr.v,'wa');assert.ok(tr.o&&tr.f&&!tr.l);
+  const fun=await account(R,{op:'recruitMine'});
+  assert.ok(fun.ok&&fun.o===5&&fun.f===5&&fun.n===4,JSON.stringify(fun));
+  assert.deepEqual(fun.wait.map(w=>[w.id,w.name,w.reg]),[[G.uid,'Guestland','meridian']]);
+  // the note: plain words only, readable by anyone, taken down by the staff
+  await rejects(account(R,{op:'recruitNote',m:'Join me at www.example.com today'}),'rc_note_link');
+  await rejects(account(R,{op:'recruitNote',m:'Our server: discord.gg/abc'}),'rc_note_link');
+  assert.deepEqual(await account(R,{op:'recruitNote',m:'  Come and be my\nneighbour!  '}),{ok:true,m:'Come and be my neighbour!'});
+  assert.equal((await db.doc('recruitNote/'+R.uid).get()).get('m'),'Come and be my neighbour!');
+  await assert.rejects(adm({op:'recruitNoteClear',uid:R.uid}),e=>e.status==='INVALID_ARGUMENT');
+  await adm({op:'recruitNoteClear',uid:R.uid,reason:'Test'});
+  assert.equal((await db.doc('recruitNote/'+R.uid).get()).exists,false);
+  const info=await adm({op:'player',uid:A.uid});assert.equal(info.rc.by,R.uid);assert.equal(info.rc.byName,'Recruit Royal Test');
+  // /join/ links: one per player from the nation's name, -2 when taken, and the page and picture they serve
+  const j1=await account(R,{op:'joinLink'});assert.equal(j1.s,'recruit-royal-test');
+  assert.deepEqual(await account(R,{op:'joinLink'}),j1);
+  const twin=await player(true);await sum(twin,'Recruit Royal Test');
+  assert.equal((await account(twin,{op:'joinLink'})).s,'recruit-royal-test-2');
+  await assert.rejects(account(R,{op:'joinCard',img:'data:image/png;base64,iVBORw0KGgo='}),e=>e.status==='INVALID_ARGUMENT');
+  const jpeg=(w,h)=>'data:image/jpeg;base64,'+Buffer.from([0xff,0xd8,0xff,0xe0,0,16,...Array(14).fill(0),0xff,0xc0,0,17,8,h>>8,h&255,w>>8,w&255,3,...Array(9).fill(0),0xff,0xd9]).toString('base64');
+  await assert.rejects(account(R,{op:'joinCard',img:jpeg(600,315)}),e=>e.status==='INVALID_ARGUMENT');
+  const card=await account(R,{op:'joinCard',img:jpeg(1200,630)});assert.ok(card.ok&&card.h);
+  const page=await fetch(`http://${FN}/${PROJECT}/europe-west1/paddle/join/${j1.s}?via=qr`),html=await page.text();
+  assert.equal(page.status,200);
+  assert.match(html,/og:title" content="Recruit Royal Test invites you to found a nation in Edictum"/);
+  assert.match(html,new RegExp('location\\.replace\\("/\\?recruit='+R.uid+'&rg=meridian&via=qr"\\)'));
+  assert.match(html,/card\.jpg\?v=/);
+  const pic=await fetch(`http://${FN}/${PROJECT}/europe-west1/paddle/join/${j1.s}/card.jpg`);
+  assert.equal(pic.status,200);assert.equal(pic.headers.get('content-type'),'image/jpeg');
+  assert.equal((await fetch(`http://${FN}/${PROJECT}/europe-west1/paddle/join/no-such-slug`).then(r=>r.text())).includes('recruit='),false);
+  // the joint goal: a trade between the two within two weeks of the filing
+  const dj=JSON.parse((await db.doc('nations/'+D.uid).get()).get('j'));
+  await db.doc('nations/'+D.uid).update({j:JSON.stringify({...dj,founded:Date.now()-DAY,log:[{t:Date.now(),k:'trade',a:R.uid,b:'Recruit Royal Test'}]})});
+  assert.equal((await account(D,{op:'recruitStep'})).m&8,8);
+  // the recruits' pact: no war between a recruit and its recruiter for a month; a refused claim binds nobody
+  const record={reg:'meridian',name:R.uid,pop:10,army:1,cl:0,updatedAt:Date.now()},n={reg:'meridian',name:R.uid,pop:10};
+  const war=id=>civic(R,{op:'authorizeSave',record:{...record,j:JSON.stringify({...n,wars:{[id]:{t:Date.now()}}})},rev:1});
+  await rejects(war(D.uid),'rc_pact');
+  await rejects(war(A.uid),'rc_pact');
+  assert.ok((await war(B.uid)).permit);
+  await rejects(civic(D,{op:'authorizeSave',record:{...record,name:D.uid,j:JSON.stringify({...n,name:D.uid,wars:{[R.uid]:{t:Date.now()}}})},rev:1}),'rc_pact');
+});
+
 test('Community Board: authors and repliers follow a topic, each reply counts on the other followers’ copies, and muting stops it',async()=>{
   const a=await player(true),b=await player(true),c=await player(true),g=await player(),staff=await player(true);await auth.setCustomUserClaims(staff.uid,{admin:true});
   const t=await civic(a,{op:'cbTopic',reg:'meridian',ti:'Iron for oil?',x:'Who trades?'});
