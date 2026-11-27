@@ -61,6 +61,7 @@ import { trId, trLive, trVoid, trReadyMs, TR_FX, TR_RECORD } from './treaty-rule
 import { alRelLive } from './alliance-rules.js';
 import { warWord } from './letters.js';
 import { warOf, shielded, num, SIEGE_MS, SIEGE_MAX, milReady, milMs, memorial, successor, builtKeys } from './war-rules.js';
+import { wacForget } from './council.js';
 
 initializeApp();
 const db = getFirestore();
@@ -292,6 +293,8 @@ async function forget(uid) {
   proposals.docs.concat(votes.docs).forEach(s => writer.delete(s.ref));
   for (const q of books) for (const s of q.docs) writer.update(s.ref, new FieldPath('vm', uid), FieldValue.delete(), new FieldPath('vx', uid), FieldValue.delete(), 'vu', FieldValue.arrayRemove(uid));
   await writer.close();
+  /* the World Assembly Council (functions/council.js): its seat record, its pacing, its name on the agenda */
+  await wacForget(db, uid);
   return { ok: true };
 }
 

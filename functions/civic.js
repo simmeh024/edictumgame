@@ -10,6 +10,7 @@ import { DH_ASM_EVENT, DH_ASM_TARGET, dhaluunClosingReply } from './dhaluun-asse
 import {prepareExileOutcome,writeExileOutcome} from './haalesh-exile.js';
 import {EXILE_ID,refreshExileNPC} from './exile-npc.js';
 import { chatDelegates } from './chat-delegates.js';
+import { council, isCouncilOp } from './council.js';
 import DATA from './civic-data.json' with { type: 'json' };
 import { cbTopic, cbReply, cbEdit, cbDelete, cbMod, cbPost, cbFollow, cbReact, cbSig, TEAM_OK, asTeam, teamMark, rmbParent, rmbReact, cbCounted } from './board.js';
 import { alliance, isAllianceOp, syncNPCTable } from './alliances.js';
@@ -325,6 +326,17 @@ function regionBase(db, reg, key) {
   entry.p.then(base => { entry.key = rootKey(base.meta); }, () => { if (regionCache.get(reg) === entry) regionCache.delete(reg); });
   regionCache.set(reg, entry);
   return entry.p;
+}
+
+/* a region's Delegate as the Assembly has it now, for its seat at the World Assembly Council (council.js): the same kept
+   region view as the Assembly page's, so asking for every region costs a read of each root and nothing more within the
+   minute. fl: its flag, for the Council's seats */
+async function councilDelegate(db, reg) {
+  const meta = await db.doc('assemblyRegions/' + reg).get(), base = await regionBase(db, reg, rootKey(meta));
+  const D = assemblyEngine(reg, base.records, base.locks, base.haalesh).delegate(base.records, Date.now()).D;
+  if (!D) return null;
+  const r = base.records.find(x => x.id === D.id);
+  return { id: D.id, nm: r ? text(r.n.name, 80) : '', k: D.k || 0, fl: r && r.n.flag && typeof r.n.flag === 'object' ? r.n.flag : null };
 }
 
 /* op 'state' from the kept region; null when the transactional path must answer instead */
@@ -701,7 +713,7 @@ const CIVIC_OPS = new Set(['authorizeSave', 'carryKey', 'newsComment', 'newsMode
 export const civic = onCall({ region: 'europe-west1', maxInstances: 10, cpu: 1, memory: '512MiB', concurrency: 80, timeoutSeconds: 60 }, async req => {
   if (!req.auth) throw new HttpsError('unauthenticated', 'Sign in first.');
   const d = req.data && typeof req.data === 'object' ? req.data : {}, uid = req.auth.uid, op = typeof d.op === 'string' ? d.op : '';
-  if (!CIVIC_OPS.has(op) && !isAllianceOp(op) && !isTreatyOp(op) && !isBorderOp(op) && !isFlagOp(op) && !isRegionChatOp(op) && !isAmbOp(op) && !isSupplyOp(op) && !isLandOp(op) && !isVentureOp(op) && !isRiddleOp(op)) throw new HttpsError('invalid-argument', 'Unknown request.');
+  if (!CIVIC_OPS.has(op) && !isCouncilOp(op) && !isAllianceOp(op) && !isTreatyOp(op) && !isBorderOp(op) && !isFlagOp(op) && !isRegionChatOp(op) && !isAmbOp(op) && !isSupplyOp(op) && !isLandOp(op) && !isVentureOp(op) && !isRiddleOp(op)) throw new HttpsError('invalid-argument', 'Unknown request.');
   // a nation saves at most once a second (firestore.rules), so 30 at once and one a second is more than any game sends
   // a reaction rewrites a message every reader of the region's board listens to: 20 at once, then one every 4 seconds
   pace([['c:' + uid, 30, 1], ...ipRule(req, 'ci', 300, 15), ...(ASSEMBLY_ACTS.has(op) ? [['ca:' + uid, 20, 1 / 3]] : []), ...(op === 'topicReact' || op === 'cbReact' || op === 'newsUpvote' ? [['cr:' + uid, 20, 1 / 4]] : []),
@@ -718,6 +730,9 @@ export const civic = onCall({ region: 'europe-west1', maxInstances: 10, cpu: 1, 
     // the Ambassador's Desk (ambassador.js): the round is read on every page and kept a minute, the rest are a few
     // presses an hour, so ten at once and then one every two seconds is far more than a person can use
     ...(isAmbOp(op) ? [['ab:' + uid, 10, 1 / 2]] : []),
+    // the World Assembly Council (council.js): the page asks every minute while open; a vote, a reply or a motion is a
+    // few presses at a time, so twenty at once, then one every three seconds
+    ...(isCouncilOp(op) ? [['wc:' + uid, 20, 1 / 3]] : []),
     // a Supply Cache sent or opened (supply.js): three are sent a day, the game asks again for one not yet filed, and a
     // nation may open a pile of them in a row: twenty at once, then one every three seconds
     ...(isSupplyOp(op) ? [['sc:' + uid, 20, 1 / 3]] : []),
@@ -778,6 +793,7 @@ export const civic = onCall({ region: 'europe-west1', maxInstances: 10, cpu: 1, 
   if (isFlagOp(d.op)) return flagOp(db, who, d);
   if (isRegionChatOp(d.op)) return regionChat(db, who, d, regions);
   if (isAmbOp(d.op)) return ambassador(db, who, d, regions);
+  if (isCouncilOp(d.op)) return council(db, who, d, { regions, eligibility, delegateOf: reg => councilDelegate(db, reg) });
   if (isSupplyOp(d.op)) return supply(db, who, d);
   if (isLandOp(d.op)) return land(db, who, d);
   if (isVentureOp(d.op)) return venture(db, who, d);

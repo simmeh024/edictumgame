@@ -79,7 +79,7 @@ test('all regions have distinct stable colours; the approved seat has an accessi
   assert.equal(new Set(Object.values(X.CHAT_DEL_COLORS)).size,regions.size);
   for(const r of regions)assert.match(X.CHAT_DEL_COLORS[r],/^#[\da-f]{6}$/);
   X.chatDelegateBadge('a');X.chatDelegateBadge('b');await X.chatDelegateLoad();
-  const seat=X.chatDelegateMark('a');assert.match(seat,/role="img" aria-label="WA Delegate · Meridian Reach"/);
+  const seat=X.chatDelegateMark('a');assert.match(seat,/role="img" aria-label="WAC Delegate · Meridian Reach"/);
   assert.match(seat,/--delegate-color:#7760ad/);assert.doesNotMatch(seat,/staff-pill|<circle|<ellipse/);
   assert.match(X.chatDelegateMark('b'),/--delegate-color:#438ca9/);
 });
