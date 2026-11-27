@@ -11265,6 +11265,7 @@ span.rs-card{cursor:default}
 .wac-del.me{border-color:var(--accent)}
 .wac-del.chair{border-color:var(--wac-gold);background:color-mix(in srgb,var(--wac-gold-soft) 55%,var(--sheet))}
 .wac-del-n{display:flex;flex-direction:column;gap:2px;min-width:0}
+.wac-del-h{display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px}
 .wac-del-n b{overflow-wrap:anywhere}
 .wac-del-s{font-size:12.5px;color:var(--ink-2)}
 .wac-chip{display:inline-flex;align-items:center;gap:4px;color:var(--wac-gold);border-color:var(--wac-gold)}
@@ -11316,7 +11317,7 @@ span.rs-card{cursor:default}
 .wac-sealc{color:var(--wac-gold);border-color:var(--wac-gold)}
 .chat-delegate.wac-chair-mark{color:var(--wac-gold)}
 .wac-tabk svg{width:13px;height:13px;vertical-align:-2px}
-@media (max-width:640px){.wac-chair-n{font-size:24px;margin-right:0;margin-top:44px}.wac-seal{top:14px;right:14px}.wac-banner p:not(.eyebrow){margin-right:0}.wac-banner .eyebrow{margin-top:38px}.wac-dels{grid-template-columns:1fr}.wac-box,.wac-chair{padding:16px}}
+@media (max-width:640px){.wac-chair>.eyebrow{padding-right:104px}.wac-chair-n{font-size:24px;margin-right:0;margin-top:14px}.wac-seal{top:14px;right:14px}.wac-banner p:not(.eyebrow){margin-right:0}.wac-banner .eyebrow{margin-top:38px}.wac-dels{grid-template-columns:1fr}.wac-box,.wac-chair{padding:16px}}
 </style>
 
 <div id="app"></div>
@@ -62998,7 +62999,7 @@ function adminView(v='admin'){
 }
 /* What a reported thing is called, for the chip above a ticket and the words in its confirmation */
 const admRepKind=r=>{const p=r.post||'';return r.kind!=='post'?(r.kind==='letter'?'Letter':'Nation')
-  :/^news:/.test(p)?'News comment':/^cb:/.test(p)?'Community Board':/^ad:/.test(p)?'Classified ad':/^flk:/.test(p)?'Flock peep':/^rc:world:/.test(p)?'World chat':/^rc:fr:/.test(p)?'French chat':/^rc:amb:/.test(p)?'Ambassadors’ chat':/^rc:/.test(p)?'Region chat':'Post';};
+  :/^news:/.test(p)?'News comment':/^cb:/.test(p)?'Community Board':/^ad:/.test(p)?'Classified ad':/^flk:/.test(p)?'Flock peep':/^rc:world:/.test(p)?'World chat':/^rc:fr:/.test(p)?'French chat':/^rc:amb:/.test(p)?'Ambassadors’ chat':/^rc:wac:/.test(p)?'Council chat':/^rc:/.test(p)?'Region chat':'Post';};
 const admRepThing=r=>{const p=r.post||'';return /^news:/.test(p)?'news comment':/^cb:/.test(p)?'Community Board message':/^ad:/.test(p)?'classified advertisement':/^flk:/.test(p)?'Flock peep':/^rc:world:/.test(p)?'world chat line':/^rc:fr:/.test(p)?'French chat line':/^rc:/.test(p)?'region chat line':'post';};
 /* The report queue, one case per nation. Several players reporting the same nation is one decision, not five, so the
    tickets about it stand together and the nation's actions are taken once; closing the case closes all of them. The
@@ -95920,7 +95921,7 @@ document.addEventListener('keydown',e=>{
 },true);
 function rgcAllianceGoto(aid,id){const A=rgcAllyAll().find(a=>a.id===aid);if(!A){toast('That alliance channel is no longer available.');return;}AL.cty=A.ty;alChatConnect();RGC.goto=id||'';RGC.tab='ally';if(!RGC.open)rgcOpen(true,true);else rgcPaint();}
 /* #chat (a push notification's link) opens the drawer once the game is in the region */
-uxHashView=(f=>function(h){if(/^chat\/alliance\/[\w-]{1,128}$/.test(h)){RGC.wantAlliance=h.slice(14);return S.view&&S.view!=='chat'?S.view:'nation';}if(h==='chat'||h==='chat/world'||h==='chat/fr'||h==='chat/amb'){RGC.want=h==='chat'?true:h.slice(5);return S.view&&S.view!=='chat'?S.view:'nation';}return f.apply(this,arguments);})(uxHashView);
+uxHashView=(f=>function(h){if(/^chat\/alliance\/[\w-]{1,128}$/.test(h)){RGC.wantAlliance=h.slice(14);return S.view&&S.view!=='chat'?S.view:'nation';}if(h==='chat'||h==='chat/world'||h==='chat/fr'||h==='chat/amb'||h==='chat/wac'){RGC.want=h==='chat'?true:h.slice(5);return S.view&&S.view!=='chat'?S.view:'nation';}return f.apply(this,arguments);})(uxHashView);
 if(/^#chat\/alliance\/[\w-]{1,128}$/.test(location.hash))RGC.wantAlliance=location.hash.slice(15);else if(location.hash==='#chat')RGC.want=true;else if(location.hash==='#chat/world'||location.hash==='#chat/fr'||location.hash==='#chat/amb'||location.hash==='#chat/wac')RGC.want=location.hash.slice(6);
 setInterval(()=>{try{
     if(RGC.wantAlliance&&rgcAllyAll().some(a=>a.id===RGC.wantAlliance)){const aid=RGC.wantAlliance;RGC.wantAlliance='';rgcAllianceGoto(aid,'');}
@@ -109868,7 +109869,7 @@ function wacHemi(st){
     return `<g class="wac-seat${s?'':' empty'}${chair?' chair':''}${mine?' mine':''}"><title>${esc(tip)}</title>${chair?`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="9.6" class="wac-ring"/>`:''}<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="6.4" style="${s?`fill:${col};stroke:${col}`:`stroke:${col}`}"/></g>`;}).join('');
   const C=chReg?by[chReg]:null;
   return `<figure class="wac-hemi"><svg viewBox="-110 -108 220 128" role="img" aria-label="${esc(`The Council chamber: ${(st.seats||[]).length} of ${REGIONS.length} seats filled${C?`, ${C.nm} of ${wacRegName(chReg)} in the chair`:''}.`)}">
-    ${dots}<g class="wac-rostrum${C?' on':''}"><rect x="-17" y="2" width="34" height="14" rx="2"/><g transform="translate(-7 -12) scale(.6)" class="wac-rg">${wacGavelSVG(24).replace(/^<svg[^>]*>|<\/svg>$/g,'')}</g></g></svg>
+    ${dots}<g class="wac-rostrum${C?' on':''}"><rect x="-17" y="2" width="34" height="14" rx="2"/><g transform="translate(-7.2 -12) scale(.6)" class="wac-rg" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m14.2 3.2 6.6 6.6M11.4 6l6.6 6.6M12.8 4.6l-4.2 4.2 6.6 6.6 4.2-4.2"/><path d="M11.7 11.9 3.6 20"/><path d="M13 21h8"/></g></g></svg>
     <figcaption class="hint">${C?`The rostrum belongs to ${esc(wacRegName(chReg))}. Ringed seats are the chair’s.`:'The chair is empty.'} Hollow seats belong to regions with no Delegate.</figcaption></figure>`;
 }
 function wacChairBox(st,now){
@@ -109887,7 +109888,7 @@ function wacChamberHTML(st,now){
   const S2=wacSeatsList(st),me=st.me||{},chReg=st.ch&&S2.some(x=>x.reg===st.ch.reg)?st.ch.reg:'',filled=new Set(S2.map(x=>x.reg));
   const empty=REGIONS.filter(R=>!filled.has(R.id)).map(R=>R.name).sort();
   const rows=S2.map(x=>`<li class="wac-del${x.reg===me.reg?' me':''}${x.reg===chReg?' chair':''}"><span class="wac-dot" style="--rc:${wacCol(x.reg)}" aria-hidden="true"></span>${wacFlag(x,x.nm)}
-    <span class="wac-del-n"><b>${esc(x.nm)}</b>${x.reg===chReg?` <span class="chip wac-chip">${wacGavelSVG(12)} Chair</span>`:''}${x.reg===me.reg?' <span class="chip you">You</span>':''}<span class="wac-del-s">${esc(wacRegName(x.reg))} · in the seat since ${esc(fmtDate(x.t))} · ${x.k} ${x.k===1?'endorsement':'endorsements'}</span></span></li>`).join('');
+    <span class="wac-del-n"><span class="wac-del-h"><b>${esc(x.nm)}</b>${x.reg===chReg?`<span class="chip wac-chip">${wacGavelSVG(12)} Chair</span>`:''}${x.reg===me.reg?'<span class="chip you">You</span>':''}</span><span class="wac-del-s">${esc(wacRegName(x.reg))} · in the seat since ${esc(fmtDate(x.t))} · ${x.k} ${x.k===1?'endorsement':'endorsements'}</span></span></li>`).join('');
   return `${wacChairBox(st,now)}<section class="section"><h2 class="h2">The chamber</h2>${wacHemi(st)}</section>
     <section class="section"><h2 class="h2">The Delegates</h2>${S2.length?`<ul class="wac-dels">${rows}</ul>`:'<p class="hint">No region has a Delegate yet.</p>'}
     ${empty.length?`<details class="wac-more"><summary>${empty.length===1?'One region has':empty.length+' regions have'} no Delegate, so ${empty.length===1?'its seat is':'their seats are'} empty</summary><p class="hint">${esc(list(empty))}.</p></details>`:''}
@@ -110096,6 +110097,14 @@ NATION_SECTIONS.push((x,now)=>{
   return `<section class="asm-nsec wac-nsec${chair?' del':''}">${chair?`<span class="asm-seal sm wac-sealc" aria-hidden="true">Chair</span>`:''}<p class="eyebrow">World Assembly Council</p><p class="asm-line">${line}</p>${hon?`<p class="hint">${hon}</p>`:''}${x.me&&reg?'<button class="linkish small" data-act="go" data-v="council">Open the Council</button>':''}</section>`;
 });
 
+/* ── the passport's Observations page: the seat and the terms in the chair, as an official endorsement ── */
+ppObsSVG=(f=>function(n,d){const h=f.apply(this,arguments);try{
+  const w=n&&n.wac;if(typeof h!=='string'||!w||!w.s)return h;const terms=wacTerms(n),dark=d&&d.g&&d.g.tint==='pt-night',txt=dark?'#d6dbea':'#4d4a40';
+  const L=[`Delegate to the World Assembly Council for ${w.r?wacRegName(w.r):'its region'},`,`from ${fmtDate(w.s)}.`];
+  if(terms.length)L.push(terms.length<=2?`Chair of the Council: ${terms.map(wacMonthName).join(' and ')}.`:`Chair of the Council for ${terms.length} terms, the last ${wacMonthName(terms[terms.length-1])}.`);
+  const out=L.map((x,i)=>`<text x="26" y="${128+18*i}" font-family="'Public Sans',sans-serif" font-size="8.4" fill="${txt}">${esc(x.slice(0,60))}</text>`).join('');
+  const i=h.lastIndexOf('</svg>');return i<0?h:h.slice(0,i)+out+h.slice(i);}catch(e){return h;}})(ppObsSVG);
+
 /* ── honours ── */
 achDef('dip','wac-seat','s','A Seat at the Council','Hold your region’s seat at the World Assembly Council.',1,x=>achYes(!!(x.n&&x.n.wac&&x.n.wac.s)),{fm:'bool'});
 achDef('dip','wac-chair','g','Chair of the Council','Chair the World Assembly Council.',1,x=>wacTerms(x.n).length);
@@ -110164,7 +110173,7 @@ for(const is of WAC_ISSUES){is.fo=1;ISSUES.push(is);is.no=ISSUES.length;ISSUE_BY
 
 /* the browser tests' window into the Council (EDICTUM_PROBE.wac) */
 if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE.wac={WAC,win:wacWin,seated:wacSeated,seatReg:wacSeatReg,chairReg:wacChairReg,pubSet:wacPubSet,view:wacView,ISSUES:WAC_ISSUES,
-  set:(st)=>{WAC.st=st;WAC.at=Date.now();WAC.err='';},load:wacLoad};}catch(e){}
+  set:(st)=>{WAC.st=st;WAC.at=Date.now();WAC.err='';},load:wacLoad,reg:()=>REG.id,obs:n=>ppObsSVG(n,ppDesign(n))};}catch(e){}
 
 /* ───────── the World Assembly Council, in the portal (functions/council.js, councilAdmin) ─────────
    The edict ideas the Council passed wait here for the Edictum team: accept one (the team will write it), decline it with
@@ -110208,7 +110217,7 @@ function adminCouncilView(){
       ${done.length?`<details class="wac-more"><summary>Decided ideas (${done.length})</summary><ul class="adm-tri">${done.map(m=>idea(m,false)).join('')}</ul></details>`:''}
       <h2 class="h2">The vote for the chair, ${esc(wacMonthName(W.m||WAC_FIRST))}</h2><p class="hint">${W.on?`Open until ${esc(wacUTC(W.close))}. Seats see only how many have voted; you see every ballot.`:`Opens ${esc(wacUTC(W.open))}.`}</p>${ballots}
       ${stms?`<h3 class="help-h3">Statements on the ballot</h3><ul class="adm-tri">${stms}</ul>`:''}
-      <h2 class="h2">Seats and chair</h2><p class="hint">As last counted ${St.at?esc(rel(St.at)):'(never)'}. ${St.ch?`Chair: ${esc(St.ch.nm)} of ${rn(St.ch.reg)}.`:'The chair is empty.'}</p>${seatRows?`<ul class="wac-sh">${seatRows}</ul>`:'<p class="hint">No seats yet.</p>'}
+      <h2 class="h2">Seats and chair</h2><p class="hint">A region’s seat is noted whenever its own players load their Assembly; the record last changed ${St.at?esc(rel(St.at)):'(never)'}. ${St.ch?`Chair: ${esc(St.ch.nm)} of ${rn(St.ch.reg)}.`:'The chair is empty.'}</p>${seatRows?`<ul class="wac-sh">${seatRows}</ul>`:'<p class="hint">No seats yet.</p>'}
       ${St.msg&&St.msg.x?`<p>The chair’s address: “${esc(St.msg.x)}” <button class="btn ghost small" data-act="wca-mod" data-v="address"${dis}>Take it down</button></p>`:''}
       <h2 class="h2">Motions</h2>${mo?`<ul class="adm-tri">${mo}</ul>`:'<p class="hint">No motions yet.</p>'}
       <h2 class="h2">The agenda</h2>${ag?`<ul class="adm-tri">${ag}</ul>`:'<p class="hint">Nothing on the agenda.</p>'}`;

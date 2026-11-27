@@ -53,14 +53,14 @@ test('the ambassadors’ chat says what every shared chat says', () => {
 });
 
 test('the drawer, the bell, the push link, the Reports queue and the admin portal know the ambassadors’ chat', () => {
-  assert.match(html, /const rgsOn=C=>C===RGF\?rgfOn\(\):C===RGA\?rgaOn\(\):rgwOn\(\);/);
-  assert.match(html, /function rgcCount\(\)\{return rgcUnread\(\)\+rgcAllyAllUnread\(\)\+RGS\.reduce\(\(k,C\)=>k\+\(C===RGA\?rgwUnread\(C\):rgwNamedUnread\(C\)\),0\);\}/, 'the Chat button counts every new line there');
+  assert.match(html, /const rgsOn=C=>C===RGF\?rgfOn\(\):C===RGA\?rgaOn\(\):C===RGK\?rgkOn\(\):rgwOn\(\);/);
+  assert.match(html, /function rgcCount\(\)\{return rgcUnread\(\)\+rgcAllyAllUnread\(\)\+RGS\.reduce\(\(k,C\)=>k\+\(C===RGA\|\|C===RGK\?rgwUnread\(C\):rgwNamedUnread\(C\)\),0\);\}/, 'the Chat button counts every new line there');
   assert.match(html, /if\(W===RGA\)return out\.filter\(o=>isAmbId\(o\.id\)\|\|isStaff\(o\.id\)\);/, '@ offers only ambassadors and staff');
   assert.match(html, /if\(k==='amb'\)\{const g=\/<svg/, 'the tab carries the ambassador’s globe');
   assert.match(html, /m\.reg==='amb'\?'the ambassadors’ chat'/, 'the bell names it');
   assert.match(html, /h==='chat\/amb'/); assert.match(html, /location\.hash==='#chat\/amb'/);
   assert.match(html, /\/\^rc:amb:\/\.test\(p\)\?'Ambassadors’ chat'/);
-  assert.match(html, /const ACX_SHARED=\[ACX_WORLD,ACX_FR,ACX_AMB\]/);
+  assert.match(html, /const ACX_SHARED=\[ACX_WORLD,ACX_FR,ACX_AMB,ACX_WAC\]/);
   assert.match(html, /Only Edictum Ambassadors and staff read the ambassadors’ chat\./, 'an old mention of it says why it does not open');
   assert.match(letters, /amb: 'the ambassadors’ chat'/);
   assert.match(rules, /\|\| reg == 'amb' && exists\(\/databases\/\$\(database\)\/documents\/ambassadors\/\$\(request\.auth\.uid\)\)/);

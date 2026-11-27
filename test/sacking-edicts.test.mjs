@@ -68,7 +68,9 @@ test('the page builds them all, numbered after every older edict', () => {
   assert.deepEqual(G.failed, []);
   const ids = J('ISSUES.map(x=>x.id)'), k = ids.indexOf(SK[0].id);
   assert.ok(base.length >= 150, base.length + ' sacking edicts');
-  assert.deepEqual(ids.slice(k), SK.concat(GEN).map(i => i.id), 'the sacking edicts, then the generic follow-ups, last of all');
+  const sk = SK.concat(GEN).map(i => i.id);
+  assert.deepEqual(ids.slice(k, k + sk.length), sk, 'the sacking edicts, then the generic follow-ups, after every older edict');
+  assert.ok(ids.slice(k + sk.length).every(id => /^wac-/.test(id)), 'only edicts added since (the World Assembly Council’s) follow them');
   assert.equal(run('ISSUES_RANDOM.filter(i=>i.skx).length'), base.length, 'only the base edicts are drawn at random');
 });
 

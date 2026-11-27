@@ -39,7 +39,7 @@ export const isCouncilOp = op => WAC_OPS.includes(op);
 export const WAC_ADMIN_OPS = ['wacAdmin', 'wacMod', 'wacVoid', 'wacIdea'];
 
 export const DAY = 86400000, HOUR = 3600000;
-export const WAC_FIRST = '2026-12', WAC_VOTE_DAYS = 5, WAC_MOTION_MS = 3 * DAY, WAC_SEAT_TTL = 120000, WAC_PINS = 3;
+export const WAC_FIRST = '2026-12', WAC_VOTE_DAYS = 5, WAC_MOTION_MS = 3 * DAY, WAC_NOTE_MS = 10 * 60000, WAC_PINS = 3;
 export const WAC_TEXT = { st: 200, msg: 300, agTi: 80, agX: 1000, agR: 600, moTi: 80, moX: 1000, edQ: 700, edT: 240, edFx: 140, note: 300 };
 export const WAC_KEEP = { hist: 24, chairs: 36, sh: 60, res: 20, ideas: 30 };
 export const WAC_REACT = ['up', 'down', 'think'];
@@ -109,29 +109,32 @@ export function wacTally(v) {
   return { y: L.filter(x => x && x.v === 1).length, n: L.filter(x => x && x.v === -1).length, a: L.filter(x => x && x.v === 0).length };
 }
 
-/* ── the seats: every region's Delegate, asked of the Assembly engine through delegateOf(reg) → {id, nm, k} or null,
-   kept for WAC_SEAT_TTL in this instance ── */
-let seatMemo = { at: 0, p: null };
-export const resetCouncil = () => { seatMemo = { at: 0, p: null }; };
-async function seatsNow(regions, delegateOf, fresh) {
-  if (!fresh && seatMemo.p && Date.now() - seatMemo.at < WAC_SEAT_TTL) return seatMemo.p;
-  const at = Date.now(), p = Promise.all([...regions].map(async reg => [reg, await delegateOf(reg).catch(e => { console.warn('council: no seat read for', reg, e.message); return undefined; })]))
-    .then(rows => Object.fromEntries(rows.filter(([, s]) => s !== undefined).map(([reg, s]) => [reg, s || null])));
-  seatMemo = { at, p };
-  p.catch(() => { if (seatMemo.p === p) seatMemo = { at: 0, p: null }; });
-  return p;
+/* ── the seats. Reading every region's Delegate afresh would read every nation of every region, so nothing here does:
+   a region's seat is noted whenever its Delegate is read anyway, when a nation of the region loads its Assembly (civic.js,
+   assembly → wacNote; every game asks every ten minutes, and at once after an endorsement) or a seat acts here (its own
+   region, read afresh). A region nobody plays in keeps its seat as last noted. wacNote writes only when the seat changed,
+   or WAC_NOTE_MS after this instance last noted it (to bring the chair and a closed vote up to date) ── */
+const noted = new Map();
+export const resetCouncil = () => noted.clear();
+export async function wacNote(db, regions, reg, D) {
+  if (!regions.has(reg)) return null;
+  const id = D && D.id ? D.id : '', was = noted.get(reg), now = Date.now();
+  if (was && was.id === id && now - was.t < WAC_NOTE_MS) return null;
+  noted.set(reg, { id, t: now });
+  try { return await wacRefresh(db, regions, { [reg]: D && D.id ? D : null }); }
+  catch (e) { noted.delete(reg); console.warn('council: the seat of', reg, 'was not noted:', e.message); return null; }
 }
 
 const stateRef = db => db.doc('council/state');
-const blank = () => ({ v: 1, seats: {}, at: 0, ch: null, term: '', rank: [], hist: [], chairs: [], sh: [], msg: null, res: [], ideas: [] });
+const blank = () => ({ v: 1, seats: {}, kn: [], at: 0, ch: null, term: '', rank: [], hist: [], chairs: [], sh: [], msg: null, res: [], ideas: [] });
 const stateOf = s => Object.assign(blank(), s.exists ? s.data() : {});
 
-/* Bring council/state up to `now`: the seats as the engine has them (a region whose seat could not be read keeps what it
-   had), every vote closed since the last count, and the chair. Writes only what changed. */
-export async function wacRefresh(db, regions, delegateOf, { fresh = false } = {}) {
-  const live = await seatsNow(regions, delegateOf, fresh), now = Date.now();
+/* Bring council/state up to `now`: the seats read just now (live: {region: {id, nm, k} or null}; every other region keeps
+   its seat as last noted), every vote closed since the last count, and the chair. Writes only what changed. */
+export async function wacRefresh(db, regions, live = {}) {
+  const now = Date.now();
   return db.runTransaction(async tx => {
-    const s = await tx.get(stateRef(db)), S = stateOf(s), before = JSON.stringify(S), first = !S.at;
+    const s = await tx.get(stateRef(db)), S = stateOf(s), before = JSON.stringify({ ...S, at: 0 }), known = new Set(S.kn || []);
     const due = wacDue(S.term, now), votes = due.length ? await tx.getAll(...due.map(m => db.doc('councilVotes/' + m))) : [];
     const seats = {}, gone = [], came = [];
     for (const reg of regions) {
@@ -142,17 +145,18 @@ export async function wacRefresh(db, regions, delegateOf, { fresh = false } = {}
         if (!keep) { came.push([reg, seats[reg]]); if (was) gone.push([reg, was]); }
       } else if (was) gone.push([reg, was]);
     }
-    // the first count after launch seats everyone at once: nobody "took" a seat then, so nothing is logged
-    if (!first) {
-      for (const [reg, w] of gone) S.sh.unshift({ t: now, reg, id: seats[reg]?.id || '', nm: seats[reg]?.nm || '', p: w.id, pn: w.nm });
-      for (const [reg, x] of came) if (!S.sh.some(e => e.t === now && e.reg === reg)) S.sh.unshift({ t: now, reg, id: x.id, nm: x.nm, p: '', pn: '' });
-    }
+    // a region's seat as first noted (at launch, each region once its players load their Assembly) was held before the
+    // Council kept a record: nobody "took" it then, so nothing is logged (kn: the regions noted at least once)
+    for (const [reg, w] of gone) S.sh.unshift({ t: now, reg, id: seats[reg]?.id || '', nm: seats[reg]?.nm || '', p: w.id, pn: w.nm });
+    for (const [reg, x] of came) if (known.has(reg) && !S.sh.some(e => e.t === now && e.reg === reg)) S.sh.unshift({ t: now, reg, id: x.id, nm: x.nm, p: '', pn: '' });
+    for (const reg of Object.keys(live)) if (regions.has(reg)) known.add(reg);
+    S.kn = [...known].sort();
     S.sh = S.sh.slice(0, WAC_KEEP.sh);
     // an account holds a seat (the Council chat's rule): one record per holder, gone with the seat
     const had = new Set(Object.values(S.seats).map(x => x && x.id).filter(Boolean)), has = new Set(Object.values(seats).map(x => x.id));
     for (const id of had) if (!has.has(id)) tx.delete(db.doc('councilSeats/' + id));
     for (const [reg, x] of Object.entries(seats)) if (!S.seats[reg] || S.seats[reg].id !== x.id) tx.set(db.doc('councilSeats/' + x.id), { reg, t: x.t });
-    S.seats = seats; S.at = now;
+    S.seats = seats;
     // the votes closed since: counted in order, each one's ballots published
     due.forEach((m, i) => {
       const V = votes[i].exists ? votes[i].data() : {}, b = V.b && typeof V.b === 'object' ? V.b : {}, inc = S.ch ? S.ch.reg : (S.rank[0] || '');
@@ -170,7 +174,8 @@ export async function wacRefresh(db, regions, delegateOf, { fresh = false } = {}
       if (ch && S.chairs[0]) S.chairs[0].h = (S.chairs[0].h || []).concat({ id: ch.id, nm: ch.nm, reg: ch.reg, t: now }).slice(-12);
     }
     if (S.ch && seats[S.ch.reg]) S.ch.nm = seats[S.ch.reg].nm;
-    if (JSON.stringify(S) !== before) tx.set(stateRef(db), S);
+    // at: when the record last changed; nothing is written when nothing did
+    if (JSON.stringify({ ...S, at: 0 }) !== before) { S.at = now; tx.set(stateRef(db), S); }
     return S;
   });
 }
@@ -180,8 +185,10 @@ async function seatOf(db, who, eligibility, delegateOf) {
   const e = await db.runTransaction(tx => eligibility(tx, who, { linked: true }), { readOnly: true });
   const reg = e.n.reg || e.saved.get('reg') || '', D = reg ? await delegateOf(reg) : null;
   if (!D || D.id !== who.uid) refuse('wac_seat', 'Only a sitting Delegate has a seat at the World Assembly Council.');
-  return { reg, nm: line(D.nm, 80) || line(e.saved.get('name'), 80) || 'A nation', e };
+  return { reg, nm: line(D.nm, 80) || line(e.saved.get('name'), 80) || 'A nation', e, live: { [reg]: D } };
 }
+/* the seats as they stand, with the caller's own region read afresh */
+const fresh = (db, ctx, me) => wacRefresh(db, ctx.regions, me ? me.live : {});
 function pace(P, k, now) {
   const [max, span] = WAC_PACE[k], L = (Array.isArray(P[k]) ? P[k] : []).filter(t => now - t < span);
   if (L.length >= max) refuse('wac_paced', k === 'p' ? `A seat can put ${max} matters on the agenda a day.` : k === 'r' ? `A seat can reply ${max} times an hour.` : `A seat can table ${max} motions a day.`);
@@ -207,11 +214,11 @@ async function wacState(db, who, ctx) {
   /* staff read the page without a seat; a member of staff who is also a Delegate sits like any other */
   let mine = null;
   try { mine = await seatOf(db, who, ctx.eligibility, ctx.delegateOf); } catch (e) { if (!(who.admin || who.mod)) throw e; }
-  const S = await wacRefresh(db, ctx.regions, ctx.delegateOf), W = wacWindow(now), open = await motionsDue(db, now);
-  const [vs, done, agenda, live] = await Promise.all([db.doc('councilVotes/' + W.m).get(),
-    db.collection('councilMotions').orderBy('t', 'desc').limit(40).get(), db.collection('councilAgenda').orderBy('la', 'desc').limit(40).get(), seatsNow(ctx.regions, ctx.delegateOf)]);
+  const S = await fresh(db, ctx, mine), W = wacWindow(now), open = await motionsDue(db, now);
+  const [vs, done, agenda, flags] = await Promise.all([db.doc('councilVotes/' + W.m).get(),
+    db.collection('councilMotions').orderBy('t', 'desc').limit(40).get(), db.collection('councilAgenda').orderBy('la', 'desc').limit(40).get(),
+    ctx.flagsOf ? ctx.flagsOf(Object.values(S.seats).map(x => x.id)).catch(() => ({})) : {}]);
   const V = vs.exists ? vs.data() : {}, b = V.b || {}, st = V.st || {}, reg = mine ? mine.reg : '';
-  const flags = Object.fromEntries(Object.values(live || {}).filter(x => x && x.id).map(x => [x.id, x.fl || null]));
   return { now, win: W, first: WAC_FIRST, me: { reg, seat: !!mine, chair: !!(mine && S.ch && S.ch.reg === reg), staff: !mine },
     seats: Object.entries(S.seats).map(([r, x]) => ({ reg: r, ...x, fl: flags[x.id] || null })), ch: S.ch, term: S.term, rank: S.rank,
     vote: { m: W.m, on: W.on, mine: reg && b[reg] && b[reg].v ? { v: b[reg].v, t: b[reg].t, nm: b[reg].nm } : null,
@@ -225,7 +232,7 @@ async function wacState(db, who, ctx) {
 async function wacVote(db, who, d, ctx) {
   const now = Date.now(), W = wacWindow(now);
   if (!W.on) refuse('wac_closed', `The vote for the chair opens at 00:00 UTC on the 1st of each month and runs for ${WAC_VOTE_DAYS} days.`);
-  const me = await seatOf(db, who, ctx.eligibility, ctx.delegateOf), S = await wacRefresh(db, ctx.regions, ctx.delegateOf);
+  const me = await seatOf(db, who, ctx.eligibility, ctx.delegateOf), S = await fresh(db, ctx, me);
   const v = typeof d.v === 'string' ? d.v : '';
   if (v && !ctx.regions.has(v)) throw new HttpsError('invalid-argument', 'Choose a region.');
   if (v === me.reg) refuse('wac_self', 'A seat cannot vote for its own region.');
@@ -243,7 +250,7 @@ async function wacStatement(db, who, d, ctx) {
 /* the chair's address: once an hour; empty takes it down */
 async function wacAddress(db, who, d, ctx) {
   const me = await seatOf(db, who, ctx.eligibility, ctx.delegateOf), x = line(d.x, WAC_TEXT.msg), now = Date.now();
-  await wacRefresh(db, ctx.regions, ctx.delegateOf);
+  await fresh(db, ctx, me);
   return db.runTransaction(async tx => {
     const S = stateOf(await tx.get(stateRef(db)));
     if (!S.ch || S.ch.reg !== me.reg || S.ch.id !== who.uid) refuse('wac_chair', 'Only the Chair of the Council can do that.');
@@ -285,7 +292,7 @@ async function wacPin(db, who, d, ctx) {
   const id = id20(d.id), on = d.on !== false;
   if (!id) throw new HttpsError('invalid-argument', 'Choose a matter.');
   const me = await seatOf(db, who, ctx.eligibility, ctx.delegateOf);
-  await wacRefresh(db, ctx.regions, ctx.delegateOf);
+  await fresh(db, ctx, me);
   return db.runTransaction(async tx => {
     const S = stateOf(await tx.get(stateRef(db)));
     if (!S.ch || S.ch.reg !== me.reg) refuse('wac_chair', 'Only the Chair of the Council can pin a matter.');
@@ -300,7 +307,7 @@ async function wacClose(db, who, d, ctx) {
   const id = id20(d.id), on = d.on !== false;
   if (!id) throw new HttpsError('invalid-argument', 'Choose a matter.');
   const me = await seatOf(db, who, ctx.eligibility, ctx.delegateOf);
-  await wacRefresh(db, ctx.regions, ctx.delegateOf);
+  await fresh(db, ctx, me);
   return db.runTransaction(async tx => {
     const S = stateOf(await tx.get(stateRef(db))), ref = db.doc('councilAgenda/' + id), s = await tx.get(ref), chair = !!(S.ch && S.ch.reg === me.reg);
     if (!s.exists) refuse('wac_gone', 'That matter is no longer on the agenda.');
@@ -355,7 +362,7 @@ function motionPass(tx, db, S, ref, M, seatCount, now) {
 }
 async function wacMotion(db, who, d, ctx) {
   const M0 = motionIn(d), now = Date.now();
-  const me = await seatOf(db, who, ctx.eligibility, ctx.delegateOf), S0 = await wacRefresh(db, ctx.regions, ctx.delegateOf), seatCount = Object.keys(S0.seats).length;
+  const me = await seatOf(db, who, ctx.eligibility, ctx.delegateOf), S0 = await fresh(db, ctx, me), seatCount = Object.keys(S0.seats).length;
   return db.runTransaction(async tx => {
     const pr = db.doc('councilPace/' + who.uid), [ps, st] = await tx.getAll(pr, stateRef(db)), open = await tx.get(db.collection('councilMotions').where('st', '==', 'open'));
     const live = open.docs.filter(s => (Number(s.get('u')) || 0) > now);
@@ -372,7 +379,7 @@ async function wacMotion(db, who, d, ctx) {
 async function wacMotionVote(db, who, d, ctx) {
   const id = id20(d.id), v = [1, -1, 0].includes(d.v) ? d.v : null, now = Date.now();
   if (!id || v === null) throw new HttpsError('invalid-argument', 'Choose a motion and For, Against or Abstain.');
-  const me = await seatOf(db, who, ctx.eligibility, ctx.delegateOf), S0 = await wacRefresh(db, ctx.regions, ctx.delegateOf), seatCount = Object.keys(S0.seats).length;
+  const me = await seatOf(db, who, ctx.eligibility, ctx.delegateOf), S0 = await fresh(db, ctx, me), seatCount = Object.keys(S0.seats).length;
   return db.runTransaction(async tx => {
     const ref = db.doc('councilMotions/' + id), [s, st] = await tx.getAll(ref, stateRef(db));
     if (!s.exists) refuse('wac_gone', 'That motion is no longer before the Council.');
@@ -397,7 +404,7 @@ async function wacWithdraw(db, who, d, ctx) {
   });
 }
 
-/* ctx: {regions (Set), delegateOf(reg) → {id, nm, k, fl} | null (fl: the Delegate's flag, for the page), eligibility} */
+/* ctx: {regions (Set), delegateOf(reg) → {id, nm, k} | null (the region's Delegate now), eligibility, flagsOf(ids) → {id: flag}} */
 export function council(db, who, d, ctx) {
   switch (d.op) {
     case 'wacState': return wacState(db, who, ctx);
