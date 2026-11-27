@@ -64,7 +64,8 @@ check('harbour frontier never lists shores already next to your land', reachInfo
 /* idea 4: a navy stretches the reach */
 const navy = await p.evaluate(() => { const before = G.MD.mpHarbourFrontier(G.territory()).size; const n = G.clone(G.S.nation); n.policies = { ...(n.policies || {}), navalFleet: 1 }; G.commit(n); G.render(); const after = G.MD.mpHarbourFrontier(G.territory()).size; return { before, after, reach: G.SL.mpHarbourReach(G.S.nation) }; });
 console.log('navy', JSON.stringify(navy));
-check('the Blue-Water Navy raises harbour reach to 16 and reaches more shore', navy.reach === 16 && navy.after >= navy.before);
+/* since the landing parties (27 Nov 2026): 16 hexes of water, 20 with the navy (14 and 16 before) */
+check('the Blue-Water Navy raises harbour reach to 20 and reaches more shore', navy.reach === 20 && navy.after >= navy.before);
 
 /* idea 6: the harbour reach toggle and the inspector's reason */
 await nav(p, 'map');
@@ -86,7 +87,7 @@ const why = await p.evaluate(cap => {
   }
   return out;
 }, spot.cap);
-check('the inspector explains a shore just out of harbour reach', !!why.far && /hexes across water from your harbour at .+ Your harbours reach 16/.test(why.far));
+check('the inspector explains a shore just out of harbour reach', !!why.far && /hexes across water from your harbour at .+ Your harbours reach 20/.test(why.far));
 check('the inspector explains inland land', !!why.inland);
 
 /* idea 1 + 3: provinces with the far island */
