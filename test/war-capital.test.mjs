@@ -148,7 +148,7 @@ test('taken over as a city: on the capital\'s hex, its name or New {CAP}, its fi
 
 test('a captured city counts for nothing against the cities a nation may found', () => {
   assert.match(src, /function cityFounded\(n\)\{return cityList\(n\)\.filter\(c=>!c\.cq\)\.length;\}/);
-  assert.match(fn('cityProblem'), /have=cityList\(S\.nation\)\.filter\(c=>!c\.cq\)\.length;/, 'founding a city');
+  assert.match(fn('cityLimitProblem'), /have=cityList\(S\.nation\)\.filter\(c=>!c\.cq\)\.length;/, 'founding a city');
   assert.match(src, /have=cityList\(n\)\.filter\(c=>!c\.cq\)\.length,room=have<lim&&have<MAX_CITIES/, 'the Cities page');
   assert.match(src, /if\(Math\.min\(maxCities\(T,mi\),MAX_CITIES\)<=cityList\(n\)\.filter\(c=>!c\.cq\)\.length\)return 'Every city your nation may found stands already\.';/);
   assert.match(src, /function cityCount\(n\)\{return n&&Array\.isArray\(n\.cities\)\?n\.cities\.length:0;\}/, 'edicts about many cities still count them all');
