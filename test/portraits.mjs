@@ -246,7 +246,12 @@ try {
       await sleep(300);
       const t0 = await page.evaluate(s => {
         document.documentElement.style.overflowAnchor = 'none';
-        const o = new MutationObserver(() => { o.disconnect(); const h = document.querySelector('#cz-sec-r > h2'); if (h) h.style.marginTop = '107px'; });
+        /* armed by the change itself (the click, or the pick from a list), so a late redraw from an earlier step cannot
+           grow the heading before the control is pressed: on CI (27 Nov 2026) one did, the stepper slid 77 px and the
+           mouse clicked the empty page above it */
+        let armed = false; const arm = () => { armed = true; };
+        for (const t of ['click', 'input', 'change']) addEventListener(t, arm, { capture: true, once: true });
+        const o = new MutationObserver(() => { if (!armed) return; o.disconnect(); const h = document.querySelector('#cz-sec-r > h2'); if (h) h.style.marginTop = '107px'; });
         o.observe(document.getElementById('app'), { childList: true, subtree: true, attributes: true });
         return document.querySelector(s).getBoundingClientRect().top;
       }, sel);
