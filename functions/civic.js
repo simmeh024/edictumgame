@@ -4,6 +4,7 @@ import { getAuth } from 'firebase-admin/auth';
 import { createHash } from 'node:crypto';
 import { deflateNation } from './nationtext.js';
 import { identity, eligibility, nationJSON, refuse, registered, regionMessage, regionClosed, refuseBannedIdentity, DAY } from './eligibility.js';
+import { rcPactUntil } from './recruit-rules.js';
 import { cabinetAffinity } from './affinity.js';
 import { assemblyEngine } from './assembly-engine.js';
 import { DH_ASM_EVENT, DH_ASM_TARGET, dhaluunClosingReply } from './dhaluun-assembly.js';
@@ -118,6 +119,11 @@ async function permit(db, who, d) {
       if (!/^[\w-]{1,128}$/.test(id) || id === who.uid) throw new HttpsError('invalid-argument', 'Invalid opponent.');
       const target = await tx.get(db.doc('nations/' + id));
       if (!target.exists || target.get('reg') !== p.reg) refuse('invalid_opponent', 'Choose a nation in your region.');
+      /* the recruits' pact (functions/recruit-rules.js): no new war between a recruit and its recruiter for a month (a war
+         from before the pact, should there be one, may change and end as any other) */
+      const [theirs, mine] = before.wars?.[id] ? [null, null] : await tx.getAll(db.doc('recruits/' + id), db.doc('recruits/' + who.uid));
+      const bound = Math.max(rcPactUntil(theirs, who.uid), rcPactUntil(mine, id));
+      if (bound) refuse('rc_pact', `The recruits’ pact between you and ${String(target.get('name') || 'this nation').slice(0, 80)} holds until ${new Date(bound).toISOString().slice(0, 10)}: neither of you may declare war on the other before then.`);
     }
     // Invalid NPC-looking strings must not evade registration requirements.
     if (actor.exists && actor.get('generation') === e.generation) n.asm = actor.get('record');

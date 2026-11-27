@@ -1163,6 +1163,28 @@ test('recruits are filed only by the server; a recruiter reads the ones naming t
   await assertFails(as('alice').doc('recruits/carol').get());
 });
 
+test('the lineage reads the recruits naming it as g; the notes are public, the weekend too; /join/ records are the server’s', async () => {
+  await env.withSecurityRulesDisabled(async ctx => {
+    const db = ctx.firestore();
+    await db.doc('recruits/dave').set({ r: 'carol', g: 'bob', t: AGO(1000), p: 1 });
+    await db.doc('recruitNote/bob').set({ m: 'Come and be my neighbour', t: Date.now() });
+    await db.doc('rcEvent/live').set({ m: 2, from: Date.now() - 1000, until: Date.now() + 3600e3 });
+    await db.doc('joinSlug/bobland').set({ u: 'bob', t: Date.now() });
+    await db.doc('joinCard/bob').set({ s: 'bobland' });
+  });
+  await assertSucceeds(as('bob').collection('recruits').where('g', '==', 'bob').get());
+  await assertSucceeds(as('bob').doc('recruits/dave').get(), 'its recruiter’s recruiter');
+  await assertSucceeds(as('carol').doc('recruits/dave').get(), 'its recruiter');
+  await assertFails(as('alice').doc('recruits/dave').get());
+  await assertFails(as('alice').collection('recruits').where('g', '==', 'bob').get());
+  await assertSucceeds(as('alice').doc('recruitNote/bob').get());
+  await assertFails(as('bob').doc('recruitNote/bob').set({ m: 'Written by hand', t: Date.now() }), 'only the server writes the note');
+  await assertSucceeds(as('alice').doc('rcEvent/live').get());
+  await assertFails(as('alice').doc('rcEvent/live').set({ m: 2, from: 0, until: Date.now() + 1e9 }));
+  await assertFails(as('bob').doc('joinSlug/bobland').get());
+  await assertFails(as('bob').doc('joinCard/bob').get());
+});
+
 test('Supply Caches are written only by the server; the nation that sent one and the nation it is for read it', async () => {
   const x = Date.now() + 86400000;
   await env.withSecurityRulesDisabled(async ctx => {

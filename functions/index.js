@@ -59,6 +59,7 @@ import DATA from './civic-data.json' with { type: 'json' };
 import { pace, ipRule } from './pace.js';
 import { trId, trLive, trVoid, trReadyMs, TR_FX, TR_RECORD } from './treaty-rules.js';
 import { alRelLive } from './alliance-rules.js';
+import { rcPactUntil } from './recruit-rules.js';
 import { warWord } from './letters.js';
 import { warOf, shielded, num, SIEGE_MS, SIEGE_MAX, milReady, milMs, memorial, successor, builtKeys } from './war-rules.js';
 import { wacForget } from './council.js';
@@ -139,7 +140,8 @@ async function battle(uid, data) {
     const ixs = await tx.getAll(...[uid, ...help].map(id => db.doc('allyOf/' + id))), alliances = ixs.map(ixDef);
     /* a non-aggression pact or joint military training between the two (functions/treaties.js), and the defender's
        alliance (for a pact between the two alliances, functions/alliances.js) */
-    const [nap, drill, dIx] = await tx.getAll(db.doc('treaties/' + trId('nap', uid, d)), db.doc('treaties/' + trId('drill', uid, d)), db.doc('allyOf/' + d));
+    const [nap, drill, dIx, rcU, rcD] = await tx.getAll(db.doc('treaties/' + trId('nap', uid, d)), db.doc('treaties/' + trId('drill', uid, d)), db.doc('allyOf/' + d),
+      db.doc('recruits/' + uid), db.doc('recruits/' + (npc ? '-' : d)));
     /* the attacker's own pacts of joint training, which ready its army sooner */
     const mineTr = await tx.get(db.collection('treaties').where('p', 'array-contains', uid));
     if (ban.exists) return { ok: false, why: 'banned' };
@@ -182,6 +184,8 @@ async function battle(uid, data) {
        ends it with notice or breaks it first (a nation founded again since it signed is not bound) */
     const recs = { [uid]: mine, ...(npc ? {} : { [d]: record(foe) }) };
     for (const t of [nap, drill]) if (t.exists && trLive(t.data(), now) && !trVoid(t.data(), recs)) return { ok: false, why: 'pact' };
+    /* the recruits' pact (functions/recruit-rules.js): a recruit and its recruiter fight no battle for a month */
+    if (!npc && (rcPactUntil(rcU, d, now) || rcPactUntil(rcD, uid, now))) return { ok: false, why: 'rcpact' };
     /* a pact between any alliance of the attacker's and any of the defender's */
     const mineAl = ixAll(ixs[0]).length ? ixAll(ixs[0]) : al ? [al] : [], theirs = ixAll(dIx).filter(a => !mineAl.includes(a));
     if (mineAl.length && theirs.length) {

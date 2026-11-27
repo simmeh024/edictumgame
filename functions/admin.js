@@ -26,6 +26,7 @@ import { balanceOf } from './balance.js';
 import { letterStats } from './letter-stats.js';
 import { researchBrief } from './stats-research.js';
 import { onceAdmin, onceStatus } from './once.js';
+import { recruitHeld, recruitRule, recruitNoteClear, rcEventSet, recruitInfo } from './recruit.js';
 import { councilAdmin, WAC_ADMIN_OPS } from './council.js';
 import DATA from './civic-data.json' with { type: 'json' };
 
@@ -763,8 +764,13 @@ export const adminConsole = onCall({ region: 'europe-west1', maxInstances: 5, me
   if (d.op === 'ambNote') return ambNoteAct(db, actor, d);
   if (WAC_ADMIN_OPS.includes(d.op)) return councilAdmin(db, actor, d, 'admin');
   if (d.op === 'search') return players(db, d);
-  if (d.op === 'player') { const uid = id(d.uid), [p, lcg] = await Promise.all([player(db, uid), grantsOf(db, uid)]); return { ...p, lcg }; }
+  if (d.op === 'player') { const uid = id(d.uid), [p, lcg, rc] = await Promise.all([player(db, uid), grantsOf(db, uid), recruitInfo(db, uid).catch(() => null)]); return { ...p, lcg, rc }; }
   if (d.op === 'landCredits') return landCredits(db, actor, d);
+  // recruiting (functions/recruit.js): claims held for a check, a recruiter's note, a double-rewards weekend
+  if (d.op === 'recruitHeld') return recruitHeld(db);
+  if (d.op === 'recruitRule') return recruitRule(db, actor, d);
+  if (d.op === 'recruitNoteClear') return recruitNoteClear(db, actor, d);
+  if (d.op === 'rcEvent') return rcEventSet(db, actor, d);
   if (d.op === 'health') return health(db);
   if (d.op === 'online') return onlinePlayers(db);
   if (d.op === 'alliances') return alliancesList(db);

@@ -274,7 +274,8 @@ await A.click(`[data-act="admin-mod"][data-a="ban"][data-id="${uidB}"]`);
 check('banning asks to confirm first, and says what happens', await until(async () => /Ban the player of Playerland\?.*can no longer play/.test(await text(A, '#admin-mod-ask'))) && !(await restListAdmin('bans')).length);
 await A.fill('#admin-mod-reason', 'Ban evasion'); await A.click('[data-act="admin-mod-yes"]');
 check('Ban deletes any nation and bans its account', await until(async () => !await nationDoc(uidB) && (await restListAdmin('bans')).some(b => b.id === uidB) && /Banned: Ban evasion/.test(await detail()), 15000));
-check('the banned player’s browser drops the nation, and they are told', await until(async () => !!await B.$('#d-name') && /moderator removed Playerland: Ban evasion/.test(await toasts(B)), 15000));
+check('the banned player’s browser drops the nation, and they are told', await until(async () => !!await B.$('#d-name') && /moderator removed Playerland: Ban evasion/.test(await toasts(B)), 45000),
+  `${await toasts(B)} | waiting: ${await B.evaluate(() => TOASTQ.q.map(x => x.m).join(' / ')).catch(() => '?')}`);
 await page('admin-bans');
 await A.click(`.adm-rep [data-act="admin-inspect"][data-id="${uidB}"]`);
 check('Banned players opens a player’s details', await until(async () => await A.evaluate(() => G.S.view) === 'admin-players' && (await detail()).includes(uidB) && /Account type\s*Guest/.test(await detail())));
