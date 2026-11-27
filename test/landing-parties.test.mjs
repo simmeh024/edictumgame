@@ -13,7 +13,7 @@ import {warLetter} from '../functions/mail-core.js';
 
 const source=readFileSync(new URL('../game/edictum.html',import.meta.url),'utf8');
 const code=source.slice(source.indexOf('<script>')+8,source.lastIndexOf('</script>'));
-const SEC=(()=>{const a=code.indexOf('/* ───────── landing parties and colonies (27 November 2026)'),b=code.indexOf('/* Keep the moderator preview',a);assert.ok(a>0&&b>a,'the section');return code.slice(a,b);})();
+const SEC=(()=>{const a=code.indexOf('/* ───────── landing parties and colonies (27 November 2026)'),b=code.indexOf('/* ───────── the World Assembly Council',a);assert.ok(a>0&&b>a,'the section, which the Council’s follows');return code.slice(a,b);})();
 const J=v=>JSON.parse(JSON.stringify(v));
 const DAY=864e5,NOW=Date.UTC(2026,10,27,12);
 
