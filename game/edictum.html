@@ -2127,6 +2127,9 @@ button.stk-i:hover,button.cx-stk:hover{background:var(--sheet-2)}button.stk-i:fo
 .ifc-fx{grid-column:2;display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:4px;font-size:13.5px}.ifc-fx .hint{font-size:12.5px}
 .ifc-a{white-space:nowrap;font-weight:600;font-variant-numeric:tabular-nums}.ifc-a .r-ic{margin-right:4px}.ifc-a.ifc-wrap{white-space:normal}
 .ifc-t th .r-ic{margin-right:6px}
+/* the Canneries' food in and goods out, under the resources they are part of, and their line under a step */
+.ifc-t .ifc-sub th{padding-left:14px;font-size:12.5px}.ifc-t .ifc-sub td{font-size:12.5px;font-weight:500;color:var(--ink-2)}
+.ifc-fx .ifc-can{flex-basis:100%}.ifc-can-h{margin-top:10px}
 .ifc-go{margin-top:14px}
 .ifc-none .row{margin-top:14px}
 @media (max-width:560px){.rbd-modal{place-items:end center;padding:0}.rbd-sheet{width:100%;max-height:88vh;border-radius:10px 10px 0 0;padding:18px 16px calc(20px + env(safe-area-inset-bottom,0px))}}
@@ -3191,7 +3194,7 @@ canvas.wr-map:not([data-done]){background:linear-gradient(100deg,var(--sea) 30%,
 .sb-bar{position:relative;display:block;height:10px;border-radius:5px;background:var(--track)}.sb-bar i{position:absolute;top:50%;transform:translate(-50%,-50%)}
 .sb-avg{width:2px;height:16px;background:var(--ink-3)}.sb-top{width:0;height:0;border:6px solid transparent;border-bottom:8px solid var(--ink-2);border-top:0;transform:translate(-50%,-80%)!important}.sb-me{width:12px;height:12px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 2px var(--sheet)}
 .sb-proj{margin:12px 0 0;padding:0;list-style:none;display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px}.sb-proj li{display:flex;flex-direction:column;gap:3px;padding:12px 14px;border:1px solid var(--rule);border-radius:6px;background:var(--sheet)}.sb-proj b{font-family:var(--f-display);font-size:19px}
-.sb-flow-w{overflow-x:auto}.sb-flow td,.sb-flow th{white-space:nowrap}.sb-flow th[title]{cursor:help}
+.sb-flow-w{overflow-x:auto}.sb-can{margin-top:8px}.sb-flow td,.sb-flow th{white-space:nowrap}.sb-flow th[title]{cursor:help}
 .sbf{display:grid;gap:9px;margin-top:6px}.sbf-row{display:grid;grid-template-columns:62px minmax(0,1fr);gap:10px;align-items:center}.sbf-r{font-size:13px;color:var(--ink-2)}
 .sbf-pair{display:grid;gap:3px}.sbf-bar{display:flex;height:9px;border-radius:2px;background:var(--rule);overflow:hidden}.sbf-bar i{display:block;height:100%}
 .sbf-land{background:#3f9a7f}.sbf-bld{background:#6fc6ac}.sbf-buy{background:#5b8fd0}.sbf-short{background:#c2563f}.sbf-use{background:#c9a14a}.sbf-sold{background:#9a7bd6}.sbf-left{background:#8a958f}
@@ -7108,6 +7111,10 @@ svg.cu-note.cu-note-v{width:28%!important;min-width:56px;height:auto!important;m
 .sup>.h2{margin:0 0 6px;font-size:24px}
 .sup>p{max-width:68ch}
 .sup .row{margin-top:12px}
+.sup .sup-dc{margin-top:8px}
+.dc-ic{flex:none;color:#5865f2}
+:root[data-theme="dark"] .dc-ic{color:#8b93f8}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .dc-ic{color:#8b93f8}}
 .sup-list{list-style:none;margin:8px 0 10px;padding:0;display:grid;gap:10px}
 .sup-t{padding:10px 12px;border:1px solid var(--rule);border-radius:4px;background:var(--paper)}
 .sup-h{margin:0 0 6px;font-size:14px;color:var(--ink-2)}
@@ -10314,6 +10321,11 @@ button[disabled] .gv-cost{opacity:.6}
 .rgc-sub{margin:3px 0 0;font-size:12.5px;line-height:1.4;color:var(--ink-3)}
 .rgc-hb{flex:none;display:grid;place-items:center;width:34px;height:34px;padding:0;border:1px solid transparent;border-radius:50%;background:transparent;color:var(--ink-2);cursor:pointer}
 .rgc-hb:hover{border-color:var(--rule-2);color:var(--ink)}
+/* the buttons in a row, the Discord pill under them, on the right */
+.rgc-hside{flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+.rgc-hbs{display:flex;gap:6px}
+.rgc-dc{display:inline-flex;align-items:center;gap:6px;height:24px;margin-right:2px;padding:0 10px 0 8px;border:1px solid var(--rule-2);border-radius:999px;font:500 10.5px/1 var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--ink-2);text-decoration:none;white-space:nowrap}
+.rgc-dc:hover{border-color:var(--ink-3);color:var(--ink)}
 .rgc-body{position:relative;flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:6px 0 10px}
 .rgc-list{list-style:none;margin:0;padding:0 10px}
 .rgc-intro{margin:4px 6px 8px;padding:8px 10px;border-radius:4px;background:var(--sheet-2);font-size:12.5px;line-height:1.45;color:var(--ink-2)}
@@ -62715,6 +62727,16 @@ function modRemoved(m){
 let banTold=false;
 function banNotice(){if(banTold)return;banTold=true;setTimeout(()=>toast(`This account is banned from Edictum${S.banned&&S.banned.note?': '+S.banned.note:''}. If you think this is a mistake, create a support ticket on the Help page or write to ${CONTACT}.`),0);}
 const CONTACT='p.slettenaar@gmail.com';
+/* The Edictum Discord server (27 Nov 2026): a small pill under the region chat's buttons (rgcDock), a button in the
+   Help page's Support box (supportBox) and one in every section's "Still stuck?" panel (helpStuckHTML). Each opens
+   the invite in a new tab. The mark is Discord's own, in its blue-violet (.dc-ic); the words keep the game's colours. */
+const DISCORD_URL='https://discord.gg/2ganeH3jTx';
+const discordIc=s=>`<svg class="dc-ic" viewBox="0 0 24 24" width="${s}" height="${s}" aria-hidden="true" focusable="false"><path fill="currentColor" d="M20.317 4.37a19.79 19.79 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.865-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.74 19.74 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.1 13.1 0 0 1-1.872-.892.077.077 0 0 1-.008-.128c.126-.094.252-.192.372-.291a.074.074 0 0 1 .078-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.3 12.3 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.84 19.84 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03ZM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418Zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418Z"/></svg>`;
+const dcBtn=(t,small)=>`<a class="btn ghost${small?' small-btn':''} dc-btn" href="${DISCORD_URL}" target="_blank" rel="noopener noreferrer">${discordIc(small?15:18)}${t} ↗</a>`;
+const DC_SUP_HINT='<p class="hint sup-dc">Players and the game’s team talk on the Edictum Discord too. It opens in a new tab.</p>';
+for(const [k,v] of Object.entries({'Join our Discord ↗':'Rejoindre notre Discord ↗','Ask on Discord ↗':'Demander sur Discord ↗',
+  'Join the Edictum Discord (opens in a new tab)':'Rejoindre le Discord d’Edictum (s’ouvre dans un nouvel onglet)',
+  'Players and the game’s team talk on the Edictum Discord too. It opens in a new tab.':'Les joueurs et l’équipe du jeu discutent aussi sur le Discord d’Edictum. Il s’ouvre dans un nouvel onglet.'}))if(!(k in FR_UI))FR_UI[k]=v;
 /* A moderator's forced rename (functions/admin.js, 'rename'): the nation is hidden from the other players until it
    is saved under a new name. A card at the top of every page asks for one; once the save is in, functions/civic.js
    ('renamed') checks the saved name and shows the nation again. A new name saved but not yet confirmed (the tab
@@ -65259,7 +65281,7 @@ function supportBox(){
   if(!off&&!SUP.list&&!SUP.busy&&!SUP.err)setTimeout(supLoad,0);
   return `<section class="sup" id="sup-box" aria-labelledby="sup-h"><h2 class="h2" id="sup-h">Support</h2>
     <p>Stuck, ${S.nation?'':'found a bug, '}or have a question this guide does not answer? Create a support ticket. The game’s team replies here, and you can write back until your question is settled.${S.nation?' Found a bug? <button type="button" class="linkish" data-act="go" data-v="bugs">Report it on the Report a bug page</button>, with a screenshot if you like.':''}</p>
-    ${off?`<p class="hint">Support tickets need a connection to the game. Reload the page when you are back online, or write to <a href="mailto:${CONTACT}">${CONTACT}</a>.</p>`:`<div class="row"><button type="button" class="btn" data-act="sup-new">Create a support ticket</button></div>
+    ${off?`<p class="hint">Support tickets need a connection to the game. Reload the page when you are back online, or write to <a href="mailto:${CONTACT}">${CONTACT}</a>.</p><div class="row">${dcBtn('Join our Discord')}</div>${DC_SUP_HINT}`:`<div class="row"><button type="button" class="btn" data-act="sup-new">Create a support ticket</button>${dcBtn('Join our Discord')}</div>${DC_SUP_HINT}
     ${SUP.err?`<p class="err">${esc(SUP.err)} <button type="button" class="linkish" data-act="sup-retry">Try again</button></p>`:!SUP.list?'<p class="hint">Loading your tickets…</p>':!L.length?'':`<h3 class="help-h3">Your tickets</h3><ul class="sup-list">${L.map(supItem).join('')}</ul><p class="hint">Closed tickets are deleted 90 days after they are closed. For 14 days you can write in one to open it again.</p>`}`}
   </section>`;
 }
@@ -80135,10 +80157,16 @@ function sbBudget(x,A){
   const spend=g*((n.s&&n.s.tax)||0)/100,b=budgetSorted(n),max=(b[0]&&b[0].pct)||1;
   const T=territory(),i=T.byId[x.id],E=economy();let res='',cities='';
   if(i!==undefined&&E&&E.prod){const CS=cityState(T),ag=CS.agg[i]||{add:{}};
-    const flow=[];res=`<div class="sb-flow-w"><table class="st-table st-cols sb-flow"><thead><tr><th scope="col">A day</th><th scope="col" title="Made by your land">Land</th><th scope="col" title="Made by buildings in your cities">Buildings</th><th scope="col" title="Used by your people and building upkeep">Used</th><th scope="col" title="Sent abroad in trade deals">Sold</th><th scope="col" title="Received in trade deals">Bought</th><th scope="col" title="Left over each day">Net</th></tr></thead><tbody>${RES.map(r=>{const bld=ag.add&&ag.add[r]||0,tot=E.prod[r][i]||0,bal=(E.sup[r][i]||0)-(E.dem[r][i]||0);
-      flow.push({r,land:Math.max(0,tot-bld),bld,buy:Math.max(0,(E.sup[r][i]||0)-tot+(E.exp[r][i]||0)),use:E.dem[r][i]||0,sold:E.exp[r][i]||0,left:Math.max(0,bal),short:Math.max(0,-bal)});
-      return `<tr><th scope="row">${resIco(r,'s')}${esc(RES_INFO[r][0])}</th><td>${fmtAmt(Math.max(0,tot-bld))}</td><td>${fmtAmt(bld)}</td><td>${fmtAmt(E.dem[r][i]||0)}</td><td>${fmtAmt(E.exp[r][i]||0)}</td><td>${fmtAmt(E.imp[r][i]||0)}</td><td class="${bal<-0.05?'sb-neg':bal>0.05?'sb-pos':''}">${bal>0?'+':bal<0?'−':''}${fmtAmt(Math.abs(bal))}</td></tr>`;}).join('')}</tbody></table></div>`+sbFlowBars(flow);
-    const mine=CS.all.filter(c=>c.hi===i&&c.active).map(c=>{const nc=(n.cities||[]).find(q=>q.c===c.c),o=c.buildOutput||{},sum=RES.reduce((s,r)=>s+(o[r]||0),0);return {nm:nc?cityLabel(n,nc):landName(c.c),sum,o,b:(c.done||[]).length};}).sort((p,q)=>q.sum-p.sum);
+    /* the Canneries (2026-11-27): the food they take in is used, and the goods they put out are made by a building, not
+       the land; economy() takes the food off the supply and adds the goods to what is made, so put each in its column */
+    const cf=(E.can&&E.can[i])||0,cg=cf*CAN_RATE,canIn=r=>r==='food'?cf:0,canOut=r=>r==='goods'?cg:0;
+    const flow=[];res=`<div class="sb-flow-w"><table class="st-table st-cols sb-flow"><thead><tr><th scope="col">A day</th><th scope="col" title="Made by your land">Land</th><th scope="col" title="Made by buildings in your cities">Buildings</th><th scope="col" title="Used by your people, building upkeep and Canneries">Used</th><th scope="col" title="Sent abroad in trade deals">Sold</th><th scope="col" title="Received in trade deals">Bought</th><th scope="col" title="Left over each day">Net</th></tr></thead><tbody>${RES.map(r=>{const bld=(ag.add&&ag.add[r]||0)+canOut(r),tot=E.prod[r][i]||0,bal=(E.sup[r][i]||0)-(E.dem[r][i]||0),use=(E.dem[r][i]||0)+canIn(r);
+      flow.push({r,land:Math.max(0,tot-bld),bld,buy:Math.max(0,(E.sup[r][i]||0)+canIn(r)-tot+(E.exp[r][i]||0)),use,sold:E.exp[r][i]||0,left:Math.max(0,bal),short:Math.max(0,-bal)});
+      return `<tr><th scope="row">${resIco(r,'s')}${esc(RES_INFO[r][0])}</th><td>${fmtAmt(Math.max(0,tot-bld))}</td><td>${fmtAmt(bld)}</td><td>${fmtAmt(use)}</td><td>${fmtAmt(E.exp[r][i]||0)}</td><td>${fmtAmt(E.imp[r][i]||0)}</td><td class="${bal<-0.05?'sb-neg':bal>0.05?'sb-pos':''}">${bal>0?'+':bal<0?'−':''}${fmtAmt(Math.abs(bal))}</td></tr>`;}).join('')}</tbody></table></div>`
+      +(cf>=0.05?`<p class="hint sb-can">Used food includes the ${fmtAmt(cf)} a day your Canneries take in; the ${fmtAmt(cg)} goods they put out are under Buildings.</p>`:'')+sbFlowBars(flow);
+    /* each city's share of the canned goods: its Cannery's reach (as cxCityAgg reckons it) against all of the nation's */
+    const reach=c=>Array.isArray(c.done)&&c.done.includes('cannery')?CAN_FOOD*(c.ug&&c.ug.cannery?CX_LV[c.ug.cannery]:1)*(c.mk||1):0,rAll=ag.can||0;
+    const mine=CS.all.filter(c=>c.hi===i&&c.active).map(c=>{const nc=(n.cities||[]).find(q=>q.c===c.c),o={...(c.buildOutput||{})},k=cg>0&&rAll>0?reach(c)/rAll:0;if(k>0)o.goods=(o.goods||0)+cg*k;const sum=RES.reduce((s,r)=>s+(o[r]||0),0);return {nm:nc?cityLabel(n,nc):landName(c.c),sum,o,b:(c.done||[]).length};}).sort((p,q)=>q.sum-p.sum);
     cities=mine.length?`<ol class="sb-cities">${mine.map(c=>`<li><b>${esc(c.nm)}</b><span class="hint">${c.b} ${c.b===1?'building':'buildings'}</span><span>${c.sum>0?esc(RES.filter(r=>c.o[r]>0.05).map(r=>fmtAmt(c.o[r])+' '+resName(r)).join(', '))+' a day':'Nothing from buildings yet'}</span></li>`).join('')}</ol>`:'<p class="hint">No cities yet.</p>';}
   return `<div class="st-grid">${stCard('The money',`<div class="st-tiles sb-money"><div class="fig"><span class="lbl">Output a year</span><span class="fig-v st-v">${esc(fmtBig(g))}</span><span class="fig-s">${esc(cur)}</span></div><div class="fig"><span class="lbl">Taken in tax</span><span class="fig-v st-v">${Math.round((n.s&&n.s.tax)||0)}%</span><span class="fig-s">${esc(fmtBig(spend))} ${esc(cur)}</span></div></div>
       <p class="sb-sub">Where it goes</p>${hbars(b.map(q=>[q.name,q.pct/max*100,fmtBig(spend*q.pct/100)+' · '+pctS(q.pct)]))}`,true)}
@@ -80425,6 +80453,30 @@ function ifcFinish(w,now){
   else if(w.t==='road'){const sh=at-o.d;o.d=at;o.t+=sh;}
   return undo;
 }
+/* the Canneries' part of the day (2026-11-27, the owner: add the Cannery's input and output to the forecast): food they
+   take (f), goods they make of it (g) and the most food they could take (r, their reach). The resources' rows already
+   count them; these say how much of food and goods is the Canneries' doing. */
+function ifcCan(n){
+  try{const E=economy(),i=E.byDoc.get(n);if(i===undefined)return {f:0,g:0,r:0};const a=cityState(E.T).agg[i],f=(E.can&&E.can[i])||0;
+    return {f,g:f*CAN_RATE,r:(a&&a.can)||0};}catch(e){return {f:0,g:0,r:0};}
+}
+/* what a step (or all the works) changes in the Canneries, in words; a Cannery that will have nothing to can says why */
+function ifcCanNote(cn,works){
+  const mine=(works||[]).some(w=>w.k==='cannery'),df=cn.f;
+  if(Math.abs(df)<0.05)return mine&&cn.r>=0.05?`Your Canneries could take in up to ${fmtAmt(cn.r)} more food a day, but none is spare: your people, growth at its best and the state’s share come first. More food sets them working.`:'';
+  return (df>0?`Your Canneries take in ${fmtAmt(df)} more food a day and put out ${fmtAmt(cn.g)} more goods`:`Your Canneries take in ${fmtAmt(-df)} less food a day and put out ${fmtAmt(-cn.g)} fewer goods`)
+    +(mine&&cn.r-df>=0.05?`; they could take up to ${fmtAmt(cn.r)} more, but only spare food is canned`:'')+'.';
+}
+/* the Canneries' rows under the resources' (food in, goods out), for a nation that has a Cannery or is building one; both:
+   the now / when done / change table, else the day now */
+function ifcCanRows(P,both){
+  const a=P.base.cn,b=P.after.cn;if(!a||!(a.r>=0.05||(both&&b&&b.r>=0.05)))return '';
+  const sgn=v=>Math.abs(v)<0.05?'0':(v>0?'+':'−')+fmtAmt(Math.abs(v));
+  const row=(l,k)=>`<tr class="ifc-sub"><th scope="row">${esc(l)}</th><td>${fmtAmt(a[k])}</td>${both?`<td>${fmtAmt(b[k])}</td><td>${sgn(b[k]-a[k])}</td>`:''}</tr>`;
+  return row('Canneries: food in','f')+row('Canneries: goods out','g');
+}
+const ifcCanHint=P=>{const a=P.base.cn,b=P.after.cn,r=Math.max(a?a.r:0,b?b.r:0),moves=P.total.cn&&Math.abs(P.total.cn.f)>=0.05;
+  return r>=0.05?`<p class="hint ifc-can-h">Food and goods above already count your Canneries. They take in only food that nothing else needs, up to ${fmtAmt(r)} a day, and put out a crate of goods for every four tins.${moves?' The food and goods rows need not move by as much as the Canneries do: some of that food would have spoiled on the way anyway, and their goods can stand in for part of the state’s top-up.':''}</p>`:'';};
 /* quick: only now and when all are done (two runs of the sums, for the breakdown's line), not each work in turn */
 function ifcPlan(n,quick){
   if(!n||n.npc||OBS||n!==S.nation||cellOf(n.loc)<0)return null;
@@ -80434,14 +80486,14 @@ function ifcPlan(n,quick){
   const saved={e:econMemo,c:cityMemo},undo=[],steps=[];let base=null,prev=null,ok=true;
   /* the works are finished on the record itself, so every memo is worked out afresh: the pass's answers too (see passRun),
      or a forecast drawn with a page would read the record as it was before each work */
-  const fresh=()=>{econMemo={T:null,k:'',at:0,v:null};cityMemo={T:null,k:'',v:null};passForget();return {rt:{...stockRates(n)},cap:stockCap(n)};};
-  const diff=(a,b)=>Object.fromEntries(RES.map(r=>[r,a[r]-b[r]]));
+  const fresh=()=>{econMemo={T:null,k:'',at:0,v:null};cityMemo={T:null,k:'',v:null};passForget();return {rt:{...stockRates(n)},cap:stockCap(n),cn:ifcCan(n)};};
+  const diff=(a,b)=>Object.fromEntries(RES.map(r=>[r,a[r]-b[r]])),dcn=(a,b)=>({f:a.f-b.f,g:a.g-b.g,r:a.r-b.r});
   try{
     base=prev=fresh();
-    for(const g of groups){for(const w of g)undo.push(ifcFinish(w,now));const m=fresh();steps.push({works:g,d:g[g.length-1].d,rt:diff(m.rt,prev.rt),cap:m.cap-prev.cap});prev=m;}
+    for(const g of groups){for(const w of g)undo.push(ifcFinish(w,now));const m=fresh();steps.push({works:g,d:g[g.length-1].d,rt:diff(m.rt,prev.rt),cap:m.cap-prev.cap,cn:dcn(m.cn,prev.cn)});prev=m;}
   }catch(e){ok=false;}
   finally{for(let j=undo.length-1;j>=0;j--)undo[j]();econMemo=saved.e;cityMemo=saved.c;passForget();try{territory();}catch(e){}}
-  const v=ok&&base?{works,steps,base,after:prev,total:{rt:diff(prev.rt,base.rt),cap:prev.cap-base.cap},last:works.length?works[works.length-1].d:0}:null;
+  const v=ok&&base?{works,steps,base,after:prev,total:{rt:diff(prev.rt,base.rt),cap:prev.cap-base.cap,cn:dcn(prev.cn,base.cn)},last:works.length?works[works.length-1].d:0}:null;
   ifcMemo={k,n,q:!!quick,v};return v;
 }
 /* what is under way, in words: "2 building upgrades and a new building" */
@@ -80478,7 +80530,9 @@ function ifcLine(n,r){
   const go=`<button type="button" class="linkish small" data-act="ifc-go">See the income forecast</button>`;
   if(!P.works.length)return `<p class="rbd-fc">No upgrades are under way, so nothing new is coming in from your cities. ${go}</p>`;
   const v=P.total.rt[r]||0,now=Date.now(),what=ifcWhat(P.works),one=P.works.length===1;
-  return `<p class="rbd-fc">Under way: ${esc(what)}. ${Math.abs(v)>=0.05?`When ${one?'it is':'all are'} done, at ${esc(fmtTime(P.last)+dayTail(P.last,now))}, ${resName(r)} gains <b class="${v>0?'ifc-up':'ifc-dn'}">${v>0?'+':'−'}${fmtAmt(Math.abs(v))}</b> a day more.`:`${one?'It does not change':'None of them changes'} ${esc(resName(r))}.`} ${go}</p>`;
+  /* food and goods: what the Canneries will take and make differently, or why a Cannery under way will have nothing to can */
+  const cn=(r==='food'||r==='goods')&&P.total.cn?ifcCanNote(P.total.cn,P.works):'';
+  return `<p class="rbd-fc">Under way: ${esc(what)}. ${Math.abs(v)>=0.05?`When ${one?'it is':'all are'} done, at ${esc(fmtTime(P.last)+dayTail(P.last,now))}, ${resName(r)} gains <b class="${v>0?'ifc-up':'ifc-dn'}">${v>0?'+':''}${fmtAmt(Math.abs(v))}</b> a day ${v>0?'more':'less'}.`:`${one?'It does not change':'None of them changes'} ${esc(resName(r))}.`}${cn?' '+esc(cn):''} ${go}</p>`;
 }
 /* the Statistics tab */
 function ifcTab(x){
@@ -80488,12 +80542,16 @@ function ifcTab(x){
   const links=`<div class="row ifc-go"><button type="button" class="btn ghost" data-act="go" data-v="cities">Open Cities</button><button type="button" class="linkish small" data-act="gb-flows">See Budget &amp; flows</button></div>`;
   const sgn=v=>Math.abs(v)<0.05?'0':(v>0?'+':'−')+fmtAmt(Math.abs(v));
   if(!P.works.length)return `<div class="empty ifc-none"><p class="empty-h">No upgrades under way</p><p>Nothing is being built or upgraded in your cities right now, so your stockpile keeps gaining what it gains today. Start a building or an upgrade on the Cities page, and this page shows what it will add, and when.</p>${links}</div>
-    ${stCard('Your stockpile’s day now',`<table class="st-table st-cols ifc-t"><thead><tr><th scope="col">Resource</th><th scope="col">A day</th></tr></thead><tbody>${RES.map(r=>`<tr><th scope="row">${resIco(r,'s')}${esc(RES_INFO[r][0])}</th><td>${sgn(P.base.rt[r])}</td></tr>`).join('')}</tbody></table>`)}`;
-  const T=P.total,gains=RES.filter(r=>Math.abs(T.rt[r])>=0.05).map(r=>`${T.rt[r]>0?'+':'−'}${fmtAmt(Math.abs(T.rt[r]))} ${resName(r)}`),one=P.works.length===1;
-  const lede=`${cap1(ifcWhat(P.works))} ${one?'is':'are'} under way. When ${one?'it is':'the last is'} done, at ${fmtTime(P.last)+dayTail(P.last,now)}, ${gains.length?`your stockpile gains ${list(gains)} a day more than now`:'what your stockpile gains each day stays as it is'}${T.cap>=0.5?`, and each resource has ${fmt0(T.cap)} more storage`:''}.`;
-  const tab=`<div class="sb-flow-w"><table class="st-table st-cols ifc-t"><thead><tr><th scope="col">A day</th><th scope="col">Now</th><th scope="col">When done</th><th scope="col">Change</th></tr></thead><tbody>${RES.map(r=>{const d=T.rt[r];return `<tr><th scope="row">${resIco(r,'s')}${esc(RES_INFO[r][0])}</th><td>${sgn(P.base.rt[r])}</td><td>${sgn(P.after.rt[r])}</td><td class="${d>=0.05?'ifc-up':d<=-0.05?'ifc-dn':''}">${sgn(d)}</td></tr>`;}).join('')}${T.cap>=0.5?`<tr><th scope="row">Storage, each</th><td>${fmt0(P.base.cap)}</td><td>${fmt0(P.after.cap)}</td><td class="ifc-up">+${fmt0(T.cap)}</td></tr>`:''}</tbody></table></div>`;
-  const items=P.steps.map(s=>{const g=s.works,w=g[0],fx=ifcFx(s.rt,s.cap),[a,b]=g.length>1?[`${g.length} more works`,cap1(ifcWhat(g))]:ifcLabel(w,n);
-    return `<li><span class="ifc-when">${ifcWhen(s.d,now)}</span><span class="ifc-what"><b>${esc(a)}</b><span class="hint">${esc(b)}</span></span><span class="ifc-fx">${fx||`<span class="hint">${esc(ifcWhyNone(g))}</span>`}</span></li>`;}).join('');
+    ${stCard('Your stockpile’s day now',`<table class="st-table st-cols ifc-t"><thead><tr><th scope="col">Resource</th><th scope="col">A day</th></tr></thead><tbody>${RES.map(r=>`<tr><th scope="row">${resIco(r,'s')}${esc(RES_INFO[r][0])}</th><td>${sgn(P.base.rt[r])}</td></tr>`).join('')}${ifcCanRows(P,false)}</tbody></table>${ifcCanHint(P)}`)}`;
+  const T=P.total,one=P.works.length===1;
+  /* what the stockpile gains more, then less (a Cannery trades food for goods): "+3.6 goods a day more than now and 18 food a day less" */
+  const ups=RES.filter(r=>T.rt[r]>=0.05).map(r=>`+${fmtAmt(T.rt[r])} ${resName(r)}`),dns=RES.filter(r=>T.rt[r]<=-0.05).map(r=>`${fmtAmt(-T.rt[r])} ${resName(r)}`);
+  const gains=ups.length||dns.length?`your stockpile gains ${[ups.length?`${list(ups)} a day more than now`:'',dns.length?`${list(dns)} a day less${ups.length?'':' than now'}`:''].filter(Boolean).join(' and ')}`:'what your stockpile gains each day stays as it is';
+  const cnLede=T.cn?ifcCanNote(T.cn,P.works):'';
+  const lede=`${cap1(ifcWhat(P.works))} ${one?'is':'are'} under way. When ${one?'it is':'the last is'} done, at ${fmtTime(P.last)+dayTail(P.last,now)}, ${gains}${T.cap>=0.5?`, and each resource has ${fmt0(T.cap)} more storage`:''}.${cnLede?' '+cnLede:''}`;
+  const tab=`<div class="sb-flow-w"><table class="st-table st-cols ifc-t"><thead><tr><th scope="col">A day</th><th scope="col">Now</th><th scope="col">When done</th><th scope="col">Change</th></tr></thead><tbody>${RES.map(r=>{const d=T.rt[r];return `<tr><th scope="row">${resIco(r,'s')}${esc(RES_INFO[r][0])}</th><td>${sgn(P.base.rt[r])}</td><td>${sgn(P.after.rt[r])}</td><td class="${d>=0.05?'ifc-up':d<=-0.05?'ifc-dn':''}">${sgn(d)}</td></tr>`;}).join('')}${ifcCanRows(P,true)}${T.cap>=0.5?`<tr><th scope="row">Storage, each</th><td>${fmt0(P.base.cap)}</td><td>${fmt0(P.after.cap)}</td><td class="ifc-up">+${fmt0(T.cap)}</td></tr>`:''}</tbody></table></div>${ifcCanHint(P)}`;
+  const items=P.steps.map(s=>{const g=s.works,w=g[0],fx=ifcFx(s.rt,s.cap),cn=s.cn?ifcCanNote(s.cn,g):'',[a,b]=g.length>1?[`${g.length} more works`,cap1(ifcWhat(g))]:ifcLabel(w,n);
+    return `<li><span class="ifc-when">${ifcWhen(s.d,now)}</span><span class="ifc-what"><b>${esc(a)}</b><span class="hint">${esc(b)}</span></span><span class="ifc-fx">${fx?fx+(cn?`<span class="hint ifc-can">${esc(cn)}</span>`:''):`<span class="hint">${esc(cn||ifcWhyNone(g))}</span>`}</span></li>`;}).join('');
   return `<p class="sb-lede">${esc(lede)}</p><p class="hint">Worked out with today’s land, people, trade deals and policies. New land, edicts, deals or a change in a city’s mood before then will move these figures.</p>
     <div class="st-grid">${stCard('Your stockpile’s day, now and when the works are done',tab)}
     ${stCard('In the order they finish',`<ol class="ifc-l">${items}</ol><p class="hint">Each line is what that work adds on top of the ones that finish before it.</p>`)}</div>${links}`;
@@ -95005,10 +95063,11 @@ function rgcDock(){
   const d=document.createElement('aside');
   d.id='rgc-dock';d.className='rgc-dock';d.hidden=true;d.setAttribute('role','dialog');d.setAttribute('aria-labelledby','rgc-h');
   d.innerHTML=`<div class="rgc-head"><div class="rgc-ht"><p class="eyebrow">Region chat</p><h2 class="rgc-h" id="rgc-h"></h2><p class="rgc-sub" id="rgc-sub"></p></div>
-    <button type="button" class="rgc-hb rgc-dockb" data-rgc="dock" aria-pressed="false" aria-label="Dock beside the page" title="Dock beside the page"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="15" rx="1.8" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M14.5 4.5v15" stroke="currentColor" stroke-width="1.6"/><path d="M16.6 8.5h2M16.6 11h2M16.6 13.5h2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></button>
+    <div class="rgc-hside"><div class="rgc-hbs"><button type="button" class="rgc-hb rgc-dockb" data-rgc="dock" aria-pressed="false" aria-label="Dock beside the page" title="Dock beside the page"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="15" rx="1.8" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M14.5 4.5v15" stroke="currentColor" stroke-width="1.6"/><path d="M16.6 8.5h2M16.6 11h2M16.6 13.5h2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></button>
     <button type="button" class="rgc-hb rgc-fsb" data-rgc="full" aria-pressed="false" aria-label="Full screen" title="Full screen"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path class="rgc-fs-in" d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path class="rgc-fs-out" d="M9 4v5H4M20 9h-5V4M15 20v-5h5M4 15h5v5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
     <button type="button" class="rgc-hb" data-rgc="settings" aria-label="Chat settings" title="Chat settings"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4Z" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M19.4 13.5a7.6 7.6 0 0 0 0-3l2-1.6-2-3.4-2.4 1a7.5 7.5 0 0 0-2.6-1.5L14 2.5h-4l-.4 2.5A7.5 7.5 0 0 0 7 6.5l-2.4-1-2 3.4 2 1.6a7.6 7.6 0 0 0 0 3l-2 1.6 2 3.4 2.4-1a7.5 7.5 0 0 0 2.6 1.5l.4 2.5h4l.4-2.5a7.5 7.5 0 0 0 2.6-1.5l2.4 1 2-3.4Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg></button>
     <button type="button" class="rgc-hb" data-rgc="close" aria-label="Close the chat" title="Close (Esc)"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg></button></div>
+      <a class="rgc-dc" href="${DISCORD_URL}" target="_blank" rel="noopener noreferrer" aria-label="Join the Edictum Discord (opens in a new tab)" title="Join the Edictum Discord (opens in a new tab)">${discordIc(14)}Discord <span aria-hidden="true">↗</span></a></div></div>
     <div class="rgc-tabw"><button type="button" class="rgc-tarr" data-rgc="tabs-go" data-v="-1" tabindex="-1" aria-label="Show the tabs to the left" title="More tabs" hidden><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M10 3.5 5.5 8l4.5 4.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button><div class="rgc-tabs" id="rgc-tabs" role="tablist" aria-label="Chat"></div><button type="button" class="rgc-tarr" data-rgc="tabs-go" data-v="1" tabindex="-1" aria-label="Show the tabs to the right" title="More tabs" hidden><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div>
     <div class="rgc-body" id="rgc-body" role="tabpanel"><ol class="rgc-list" id="rgc-list"></ol><button type="button" class="rgc-jump" data-rgc="jump" hidden>Latest lines ↓</button></div>
     <p class="sr" id="rgc-live" aria-live="polite"></p>
@@ -101003,7 +101062,7 @@ function helpSecHTML(n,k,t,b,hit){
 function helpStuckHTML(n,k){
   const off=S.mode==='local',board=!!n&&S.mode==='world'&&typeof CB!=='undefined';
   return `<p>If this section did not answer your question, ask the people who can.</p>
-    <div class="row">${off?'':`<button type="button" class="btn small-btn" data-act="help-ticket" data-k="${k}">Ask the game’s team</button>`}${board?`<button type="button" class="btn ghost small-btn" data-act="help-board" data-k="${k}">Ask on the Community Board</button>`:''}<a class="btn ghost small-btn" href="${Object.hasOwn(WIKI_PAGE,k)?wikiHref(WIKI_PAGE[k]):wikiSearch(helpTxt(helpTitle(k)))}" target="_blank" rel="noopener noreferrer">Look it up on the wiki ↗</a></div>
+    <div class="row">${off?'':`<button type="button" class="btn small-btn" data-act="help-ticket" data-k="${k}">Ask the game’s team</button>`}${board?`<button type="button" class="btn ghost small-btn" data-act="help-board" data-k="${k}">Ask on the Community Board</button>`:''}${dcBtn('Ask on Discord',1)}<a class="btn ghost small-btn" href="${Object.hasOwn(WIKI_PAGE,k)?wikiHref(WIKI_PAGE[k]):wikiSearch(helpTxt(helpTitle(k)))}" target="_blank" rel="noopener noreferrer">Look it up on the wiki ↗</a></div>
     <p class="hint">${off?`Support tickets need a connection to the game. You can write to <a href="mailto:${CONTACT}">${CONTACT}</a>.`:`A ticket goes to the team and says which section you read; their reply comes back on this page.${board?' The Community Board asks every player, under the Help tag.':''}`} The Edictum Wiki is written by players and opens in a new tab.</p>`;
 }
 function helpPage(n,body,secs){
