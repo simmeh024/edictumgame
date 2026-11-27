@@ -271,9 +271,10 @@ test('the civic function, the admin console and the rules know the Council', () 
   assert.equal(rcMayUse('wac', { mod: true }), true); assert.equal(rcMayUse('wac', { amb: true }), false, 'an ambassador is not a seat');
 });
 
-test('the game: Council in the menu only for a Delegate, its edicts last, the chair’s mark in the chat', () => {
+test('the game: Council in the menu for a Delegate and for an admin, its edicts last, the chair’s mark in the chat', () => {
   assert.match(html, /EXT_PAGES\.push\('council'\);NAV_LABELS\.council='Council';/);
-  assert.match(html, /if\(NAVP\.raw\|\|wacSeated\(\)\|\|S\.view==='council'\)return g;/);
+  assert.match(html, /if\(NAVP\.raw\|\|wacSeated\(\)\|\|wacAdmin\(\)\|\|S\.view==='council'\)return g;/);
+  assert.match(html, /function wacAdmin\(\)\{try\{return !!S\.isOwner&&!PV&&!!S\.uid&&S\.mode!=='local';\}/, 'an admin, never in a role preview');
   assert.match(html, /const label='WAC Delegate · '\+R\.name;/);
   assert.match(html, /const label='WAC Chair · '\+R\.name;/);
   assert.match(html, /const RGS=\[RGW,RGF,RGA,RGK\];/);
@@ -282,4 +283,18 @@ test('the game: Council in the menu only for a Delegate, its edicts last, the ch
   const order = fs.readFileSync(new URL('./edict-order.txt', import.meta.url), 'utf8').trim().split('\n');
   assert.deepEqual(order.slice(-12), ids, 'pinned after every other edict');
   assert.ok(html.indexOf('const WAC_ISSUES=[') > html.indexOf('const SK_ISSUES=['), 'after the sacking edicts');
+});
+
+test('an admin observing a region still reads the Council; the shim keeps every Council write blocked there and in a preview', async () => {
+  const shim = fs.readFileSync(new URL('../src/shim.js', import.meta.url), 'utf8');
+  const start = shim.indexOf('  async function call(name, data)'), end = shim.indexOf('  /* battles are rolled', start);
+  for (const mode of ['player', 'observe', 'preview']) {
+    const requests = [], A = { auth: { currentUser: { getIdToken: async () => 'test-token' } }, fn: 'http://test.invalid' };
+    const call = new Function('A', 'isObj', 'pviewing', 'observing', 'readOnly', 'mapError', 'within', 'fetch', shim.slice(start, end) + '\nreturn call;')(
+      A, v => v && typeof v === 'object', () => mode === 'preview', () => mode !== 'player', () => new Error('read_only'), e => new Error(e.message || e.code), p => p,
+      async (url, init) => { requests.push(JSON.parse(init.body).data); return { ok: true, json: async () => ({ result: { ok: true } }) }; });
+    if (mode === 'preview') await assert.rejects(call('civic', { op: 'wacState' }), /read_only/, 'a role preview is never an admin');
+    else { await call('civic', { op: 'wacState' }); assert.equal(requests.length, 1, mode + ': the page is read'); }
+    if (mode !== 'player') for (const op of ['wacVote', 'wacPost', 'wacMotion', 'wacMotionVote', 'wacAddress']) await assert.rejects(call('civic', { op }), /read_only/, mode + ' ' + op);
+  }
 });

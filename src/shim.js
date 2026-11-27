@@ -641,9 +641,10 @@
     var u = A.auth && A.auth.currentUser;
     if (!u) throw mapError({ code: 'unauthenticated' });
     var op = isObj(data) ? data.op : '';
-    /* presence and delegate badges only read, so they are asked observing as well */
+    /* presence and delegate badges only read, so they are asked observing as well; so does the World Assembly Council's page
+       (wacState), which an admin may read while observing a region */
     if (pviewing() && !(name === 'civic' && (op === 'state' && data.obs || op === 'online' || op === 'chatDelegates'))) throw readOnly();
-    if (observing() && (name === 'referee' || name === 'civic' && !/^(news|cb)/.test(op) && !(op === 'topic' && data.as === 'team') && !(op === 'state' && data.obs) && op !== 'online' && op !== 'chatDelegates' || name === 'accounts' && op === 'shop')) throw readOnly();
+    if (observing() && (name === 'referee' || name === 'civic' && !/^(news|cb)/.test(op) && !(op === 'topic' && data.as === 'team') && !(op === 'state' && data.obs) && op !== 'online' && op !== 'chatDelegates' && op !== 'wacState' || name === 'accounts' && op === 'shop')) throw readOnly();
     var r, b;
     try {
       r = await within(fetch(A.fn + '/' + name, { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + await u.getIdToken() }, body: JSON.stringify({ data: data }) }), name === 'adminConsole' ? 120000 : 20000);

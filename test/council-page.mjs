@@ -118,6 +118,18 @@ async function run(theme, viewport, tag) {
   check(`${tag}: the Region page of the chair's region has the banner`, !!await go('region', '.wac-banner'));
   const obs = await page.evaluate(() => { const n = Object.assign({}, window.__game.S.nation, { wac: { s: Date.UTC(2026, 11, 2), r: 'frostmarch', c: ['2026-12', '2027-01', '2027-02'] } }); return window.EDICTUM_PROBE.wac.obs(n); });
   check(`${tag}: the passport's Observations page records the seat and the terms in the chair`, /Delegate to the World Assembly Council for Frostmarch/.test(obs) && /Chair of the Council for 3 terms, the last February 2027/.test(obs), obs.slice(-600));
+  /* an admin without a seat: Council in the menu on any page, the page read-only, a way to the admin portal */
+  const navCouncil = () => page.evaluate(() => !!document.querySelector('nav.nav [data-act="go"][data-v="council"],.tabbar [data-v="council"],#more-sheet [data-v="council"]'));
+  await go('nation', '.vh');
+  check(`${tag}: a player who is not a Delegate has no Council in the menu`, !await navCouncil());
+  await page.evaluate(([st]) => { const G = window.__game, W = window.EDICTUM_PROBE.wac; G.S.isOwner = true; G.S.uid = 'admin-uid'; G.S.mode = 'readonly';
+    W.set(Object.assign({}, st, { me: { reg: '', seat: false, chair: false, staff: true }, vote: Object.assign({}, st.vote, { mine: null }) })); G.render(); }, [st]);
+  check(`${tag}: an admin has Council in the menu without a seat`, !!await until(navCouncil));
+  check(`${tag}: the admin reads the page as the team, with a way to the portal`, !!await go('council', '.wac-chair') && await page.evaluate(() => /reading as the Edictum team/.test(document.querySelector('.vh').textContent) && !!document.querySelector('.vh [data-v="admin-council"]') && !document.querySelector('#wac-addr')));
+  await page.click('#wac-tab-vote');
+  check(`${tag}: no ballot for an admin without a seat`, !!await until(() => page.evaluate(() => !!document.querySelector('.wac-cands') && !document.querySelector('[data-act="wac-vote"]') && !document.querySelector('#wac-st'))));
+  await page.click('#wac-tab-motions');
+  check(`${tag}: no motion form or vote buttons for an admin without a seat`, !!await until(() => page.evaluate(() => !!document.querySelector('.wac-mo') && !document.querySelector('[data-act="wac-mv"]') && !document.querySelector('[data-act="wac-mk"]'))));
   check(`${tag}: no page errors`, errors.length === 0, errors);
   await ctx.close();
 }
