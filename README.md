@@ -1474,7 +1474,8 @@ Data above. What is left for later, as numbers grow:
     the stamps decide, not the times the records give themselves.
   - *The referee rolls the battles* (`functions/index.js`). An attack asks the server, which keeps the
     army's readiness (6 points, 8 with an Army Reserve, one back every 15 minutes or 10 with Rapid
-    Mobilisation, plus one for a master spy's gift), rolls the dice and signs each victory: a seal over
+    Mobilisation, plus the point a master spy's report gives, read from the saved report, one every
+    30 minutes at most: `spyGifts` in `functions/war-rules.js`), rolls the dice and signs each victory: a seal over
     the attacker, the hex, the server's time and the ally whose war it was. Every game checks the seal
     (`sealed()`) before a conquest counts, so a lost battle cannot be rolled again by reloading the
     page, and a conquest typed into a record counts nowhere. The odds are the attacker's game's own,
