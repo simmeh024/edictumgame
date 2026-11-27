@@ -7078,6 +7078,10 @@ svg.cu-note.cu-note-v{width:28%!important;min-width:56px;height:auto!important;m
 .sup>.h2{margin:0 0 6px;font-size:24px}
 .sup>p{max-width:68ch}
 .sup .row{margin-top:12px}
+.sup .sup-dc{margin-top:8px}
+.dc-ic{flex:none;color:#5865f2}
+:root[data-theme="dark"] .dc-ic{color:#8b93f8}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .dc-ic{color:#8b93f8}}
 .sup-list{list-style:none;margin:8px 0 10px;padding:0;display:grid;gap:10px}
 .sup-t{padding:10px 12px;border:1px solid var(--rule);border-radius:4px;background:var(--paper)}
 .sup-h{margin:0 0 6px;font-size:14px;color:var(--ink-2)}
@@ -10272,6 +10276,11 @@ button[disabled] .gv-cost{opacity:.6}
 .rgc-sub{margin:3px 0 0;font-size:12.5px;line-height:1.4;color:var(--ink-3)}
 .rgc-hb{flex:none;display:grid;place-items:center;width:34px;height:34px;padding:0;border:1px solid transparent;border-radius:50%;background:transparent;color:var(--ink-2);cursor:pointer}
 .rgc-hb:hover{border-color:var(--rule-2);color:var(--ink)}
+/* the buttons in a row, the Discord pill under them, on the right */
+.rgc-hside{flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+.rgc-hbs{display:flex;gap:6px}
+.rgc-dc{display:inline-flex;align-items:center;gap:6px;height:24px;margin-right:2px;padding:0 10px 0 8px;border:1px solid var(--rule-2);border-radius:999px;font:500 10.5px/1 var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--ink-2);text-decoration:none;white-space:nowrap}
+.rgc-dc:hover{border-color:var(--ink-3);color:var(--ink)}
 .rgc-body{position:relative;flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:6px 0 10px}
 .rgc-list{list-style:none;margin:0;padding:0 10px}
 .rgc-intro{margin:4px 6px 8px;padding:8px 10px;border-radius:4px;background:var(--sheet-2);font-size:12.5px;line-height:1.45;color:var(--ink-2)}
@@ -61911,6 +61920,16 @@ function modRemoved(m){
 let banTold=false;
 function banNotice(){if(banTold)return;banTold=true;setTimeout(()=>toast(`This account is banned from Edictum${S.banned&&S.banned.note?': '+S.banned.note:''}. If you think this is a mistake, create a support ticket on the Help page or write to ${CONTACT}.`),0);}
 const CONTACT='p.slettenaar@gmail.com';
+/* The Edictum Discord server (27 Nov 2026): a small pill under the region chat's buttons (rgcDock), a button in the
+   Help page's Support box (supportBox) and one in every section's "Still stuck?" panel (helpStuckHTML). Each opens
+   the invite in a new tab. The mark is Discord's own, in its blue-violet (.dc-ic); the words keep the game's colours. */
+const DISCORD_URL='https://discord.gg/2ganeH3jTx';
+const discordIc=s=>`<svg class="dc-ic" viewBox="0 0 24 24" width="${s}" height="${s}" aria-hidden="true" focusable="false"><path fill="currentColor" d="M20.317 4.37a19.79 19.79 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.865-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.74 19.74 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.1 13.1 0 0 1-1.872-.892.077.077 0 0 1-.008-.128c.126-.094.252-.192.372-.291a.074.074 0 0 1 .078-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.3 12.3 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.84 19.84 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03ZM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418Zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418Z"/></svg>`;
+const dcBtn=(t,small)=>`<a class="btn ghost${small?' small-btn':''} dc-btn" href="${DISCORD_URL}" target="_blank" rel="noopener noreferrer">${discordIc(small?15:18)}${t} ↗</a>`;
+const DC_SUP_HINT='<p class="hint sup-dc">Players and the game’s team talk on the Edictum Discord too. It opens in a new tab.</p>';
+for(const [k,v] of Object.entries({'Join our Discord ↗':'Rejoindre notre Discord ↗','Ask on Discord ↗':'Demander sur Discord ↗',
+  'Join the Edictum Discord (opens in a new tab)':'Rejoindre le Discord d’Edictum (s’ouvre dans un nouvel onglet)',
+  'Players and the game’s team talk on the Edictum Discord too. It opens in a new tab.':'Les joueurs et l’équipe du jeu discutent aussi sur le Discord d’Edictum. Il s’ouvre dans un nouvel onglet.'}))if(!(k in FR_UI))FR_UI[k]=v;
 /* A moderator's forced rename (functions/admin.js, 'rename'): the nation is hidden from the other players until it
    is saved under a new name. A card at the top of every page asks for one; once the save is in, functions/civic.js
    ('renamed') checks the saved name and shows the nation again. A new name saved but not yet confirmed (the tab
@@ -64455,7 +64474,7 @@ function supportBox(){
   if(!off&&!SUP.list&&!SUP.busy&&!SUP.err)setTimeout(supLoad,0);
   return `<section class="sup" id="sup-box" aria-labelledby="sup-h"><h2 class="h2" id="sup-h">Support</h2>
     <p>Stuck, ${S.nation?'':'found a bug, '}or have a question this guide does not answer? Create a support ticket. The game’s team replies here, and you can write back until your question is settled.${S.nation?' Found a bug? <button type="button" class="linkish" data-act="go" data-v="bugs">Report it on the Report a bug page</button>, with a screenshot if you like.':''}</p>
-    ${off?`<p class="hint">Support tickets need a connection to the game. Reload the page when you are back online, or write to <a href="mailto:${CONTACT}">${CONTACT}</a>.</p>`:`<div class="row"><button type="button" class="btn" data-act="sup-new">Create a support ticket</button></div>
+    ${off?`<p class="hint">Support tickets need a connection to the game. Reload the page when you are back online, or write to <a href="mailto:${CONTACT}">${CONTACT}</a>.</p><div class="row">${dcBtn('Join our Discord')}</div>${DC_SUP_HINT}`:`<div class="row"><button type="button" class="btn" data-act="sup-new">Create a support ticket</button>${dcBtn('Join our Discord')}</div>${DC_SUP_HINT}
     ${SUP.err?`<p class="err">${esc(SUP.err)} <button type="button" class="linkish" data-act="sup-retry">Try again</button></p>`:!SUP.list?'<p class="hint">Loading your tickets…</p>':!L.length?'':`<h3 class="help-h3">Your tickets</h3><ul class="sup-list">${L.map(supItem).join('')}</ul><p class="hint">Closed tickets are deleted 90 days after they are closed. For 14 days you can write in one to open it again.</p>`}`}
   </section>`;
 }
@@ -94196,10 +94215,11 @@ function rgcDock(){
   const d=document.createElement('aside');
   d.id='rgc-dock';d.className='rgc-dock';d.hidden=true;d.setAttribute('role','dialog');d.setAttribute('aria-labelledby','rgc-h');
   d.innerHTML=`<div class="rgc-head"><div class="rgc-ht"><p class="eyebrow">Region chat</p><h2 class="rgc-h" id="rgc-h"></h2><p class="rgc-sub" id="rgc-sub"></p></div>
-    <button type="button" class="rgc-hb rgc-dockb" data-rgc="dock" aria-pressed="false" aria-label="Dock beside the page" title="Dock beside the page"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="15" rx="1.8" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M14.5 4.5v15" stroke="currentColor" stroke-width="1.6"/><path d="M16.6 8.5h2M16.6 11h2M16.6 13.5h2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></button>
+    <div class="rgc-hside"><div class="rgc-hbs"><button type="button" class="rgc-hb rgc-dockb" data-rgc="dock" aria-pressed="false" aria-label="Dock beside the page" title="Dock beside the page"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="15" rx="1.8" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M14.5 4.5v15" stroke="currentColor" stroke-width="1.6"/><path d="M16.6 8.5h2M16.6 11h2M16.6 13.5h2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></button>
     <button type="button" class="rgc-hb rgc-fsb" data-rgc="full" aria-pressed="false" aria-label="Full screen" title="Full screen"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path class="rgc-fs-in" d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path class="rgc-fs-out" d="M9 4v5H4M20 9h-5V4M15 20v-5h5M4 15h5v5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
     <button type="button" class="rgc-hb" data-rgc="settings" aria-label="Chat settings" title="Chat settings"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4Z" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M19.4 13.5a7.6 7.6 0 0 0 0-3l2-1.6-2-3.4-2.4 1a7.5 7.5 0 0 0-2.6-1.5L14 2.5h-4l-.4 2.5A7.5 7.5 0 0 0 7 6.5l-2.4-1-2 3.4 2 1.6a7.6 7.6 0 0 0 0 3l-2 1.6 2 3.4 2.4-1a7.5 7.5 0 0 0 2.6 1.5l.4 2.5h4l.4-2.5a7.5 7.5 0 0 0 2.6-1.5l2.4 1 2-3.4Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg></button>
     <button type="button" class="rgc-hb" data-rgc="close" aria-label="Close the chat" title="Close (Esc)"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg></button></div>
+      <a class="rgc-dc" href="${DISCORD_URL}" target="_blank" rel="noopener noreferrer" aria-label="Join the Edictum Discord (opens in a new tab)" title="Join the Edictum Discord (opens in a new tab)">${discordIc(14)}Discord <span aria-hidden="true">↗</span></a></div></div>
     <div class="rgc-tabw"><button type="button" class="rgc-tarr" data-rgc="tabs-go" data-v="-1" tabindex="-1" aria-label="Show the tabs to the left" title="More tabs" hidden><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M10 3.5 5.5 8l4.5 4.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button><div class="rgc-tabs" id="rgc-tabs" role="tablist" aria-label="Chat"></div><button type="button" class="rgc-tarr" data-rgc="tabs-go" data-v="1" tabindex="-1" aria-label="Show the tabs to the right" title="More tabs" hidden><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div>
     <div class="rgc-body" id="rgc-body" role="tabpanel"><ol class="rgc-list" id="rgc-list"></ol><button type="button" class="rgc-jump" data-rgc="jump" hidden>Latest lines ↓</button></div>
     <p class="sr" id="rgc-live" aria-live="polite"></p>
@@ -100169,7 +100189,7 @@ function helpSecHTML(n,k,t,b,hit){
 function helpStuckHTML(n,k){
   const off=S.mode==='local',board=!!n&&S.mode==='world'&&typeof CB!=='undefined';
   return `<p>If this section did not answer your question, ask the people who can.</p>
-    <div class="row">${off?'':`<button type="button" class="btn small-btn" data-act="help-ticket" data-k="${k}">Ask the game’s team</button>`}${board?`<button type="button" class="btn ghost small-btn" data-act="help-board" data-k="${k}">Ask on the Community Board</button>`:''}<a class="btn ghost small-btn" href="${Object.hasOwn(WIKI_PAGE,k)?wikiHref(WIKI_PAGE[k]):wikiSearch(helpTxt(helpTitle(k)))}" target="_blank" rel="noopener noreferrer">Look it up on the wiki ↗</a></div>
+    <div class="row">${off?'':`<button type="button" class="btn small-btn" data-act="help-ticket" data-k="${k}">Ask the game’s team</button>`}${board?`<button type="button" class="btn ghost small-btn" data-act="help-board" data-k="${k}">Ask on the Community Board</button>`:''}${dcBtn('Ask on Discord',1)}<a class="btn ghost small-btn" href="${Object.hasOwn(WIKI_PAGE,k)?wikiHref(WIKI_PAGE[k]):wikiSearch(helpTxt(helpTitle(k)))}" target="_blank" rel="noopener noreferrer">Look it up on the wiki ↗</a></div>
     <p class="hint">${off?`Support tickets need a connection to the game. You can write to <a href="mailto:${CONTACT}">${CONTACT}</a>.`:`A ticket goes to the team and says which section you read; their reply comes back on this page.${board?' The Community Board asks every player, under the Help tag.':''}`} The Edictum Wiki is written by players and opens in a new tab.</p>`;
 }
 function helpPage(n,body,secs){
