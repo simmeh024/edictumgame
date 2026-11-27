@@ -121,3 +121,11 @@ test('the game wires every part in', () => {
   const acc = fs.readFileSync(new URL('../functions/accounts.js', import.meta.url), 'utf8');
   assert.ok(acc.includes('await ldDrop(db, uid);'), 'a deleted account’s land deals are called off');
 });
+
+/* a bid being typed outlives the page drawn again: the box came back at the lowest bid, and Bid then bid that (the land
+   test's raised bid of 6 went in as 4 when a snapshot came between the typing and the click, CI 27 Nov 2026) */
+test('a typed bid is kept through a redraw, and forgotten once it is placed', () => {
+  assert.match(html, /const typed=Math\.round\(\+\(\(LD\.typed\|\|\{\}\)\[D\.id\]\)\|\|0\);act=`<label class="ld-bidf">[^`]*value="\$\{typed>=min\?typed:min\}"/, 'the box shows what was typed, while it is at least the lowest bid');
+  assert.ok(html.includes("document.addEventListener('input',e=>{const f=e.target;if(f&&f.id&&f.id.startsWith('ld-bid-'))(LD.typed||(LD.typed={}))[f.id.slice(7)]=f.value;});"), 'each keystroke kept');
+  assert.match(html, /if\(LD\.typed\)delete LD\.typed\[id\];\n {2}toast\(`You bid /, 'a placed bid clears it');
+});

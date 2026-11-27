@@ -93801,8 +93801,13 @@ async function ldBidNow(id,v){
   const undo=()=>{const mine=D.bids.filter(b=>b.by===myId()).pop();const n=clone(S.nation);n._ld=mine&&before?{pk:[{id,r:{[D.cur]:mine.v}}]}:{rel:[id]};commit(n);};
   if(!ok){undo();toast('That bid could not be set aside: check your stock, then try again.');render();return;}
   const r=await ldAct('ldBid',{id,v});if(!r||r.err){undo();return;}
+  if(LD.typed)delete LD.typed[id];
   toast(`You bid ${fmt0(v)} ${resName(D.cur)}.`);
 }
+/* a bid being typed is kept while the page is drawn again (a save, a snapshot): the box used to come back at the lowest
+   bid, and Bid then bid that (the land test raising a bid to 6 bid 4 whenever a snapshot came between, 27 Nov 2026).
+   Kept only while it is at least the lowest bid; the box shows the lowest bid once another bid passes it */
+document.addEventListener('input',e=>{const f=e.target;if(f&&f.id&&f.id.startsWith('ld-bid-'))(LD.typed||(LD.typed={}))[f.id.slice(7)]=f.value;});
 
 /* ── the steps each game takes on its own: hand over its land, give back what a called-off deal brought it, let its
    payments go or take them back, take in what it is paid, pay its instalments, call in late ones, close auctions ── */
@@ -93939,7 +93944,7 @@ function ldListingHTML(D,now,inMap){
   const price=D.k==='auction'?`${top?`Top bid <b>${fmt0(top.v)} ${esc(resName(D.cur))}</b>${top.by===me?' (yours)':''}`:`Reserve <b>${fmt0(D.res)} ${esc(resName(D.cur))}</b>`} · closes in ${esc(fmtDur(D.end-now))}`:`For <b>${esc(ldPayWords(D.pb))}</b>${D.ins?`, then ${esc(ldPayWords(D.ins.r))} a day for ${D.ins.n} days`:''}`;
   let act='';
   if(D.a===me)act=s==='listed'||(s==='open'&&!D.bids.length)?`<button type="button" class="btn ghost sm" data-act="ld-wd" data-id="${esc(D.id)}"${busy}>Withdraw</button>`:'';
-  else if(D.k==='auction'){const min=ldMinBid(D);act=`<label class="ld-bidf"><span class="sr-only">Your bid</span><input class="input ld-num" type="number" min="${min}" max="${LD_RULES.max}" step="1" id="ld-bid-${esc(D.id)}" value="${min}"></label><button type="button" class="btn sm" data-act="ld-bid" data-id="${esc(D.id)}"${why?' disabled':''}${busy}>Bid</button>`;}
+  else if(D.k==='auction'){const min=ldMinBid(D);const typed=Math.round(+((LD.typed||{})[D.id])||0);act=`<label class="ld-bidf"><span class="sr-only">Your bid</span><input class="input ld-num" type="number" min="${min}" max="${LD_RULES.max}" step="1" id="ld-bid-${esc(D.id)}" value="${typed>=min?typed:min}"></label><button type="button" class="btn sm" data-act="ld-bid" data-id="${esc(D.id)}"${why?' disabled':''}${busy}>Bid</button>`;}
   else act=`<button type="button" class="btn sm" data-act="ld-buy" data-id="${esc(D.id)}"${why?' disabled':''}${busy}>Buy</button>`;
   return `<div class="ld-lst"><p>${head}. ${price}.</p><p class="hint">Land valuer: worth about ${fmt0(ldSuggest(worth,vr,now))} ${esc(resName(vr))}.${why&&D.a!==me?' '+esc(why):''}</p><div class="row">${act}${inMap?'':`<button type="button" class="btn ghost sm" data-act="ld-show" data-id="${esc(D.id)}">Show on the map</button>`}</div></div>`;
 }
