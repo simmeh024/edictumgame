@@ -37,21 +37,29 @@ export const CB_TITLE = 120, CB_TEXT = 4000;
          CB_ARMS characters. The flag needs nothing more: every post keeps the author's flag already (fl).
      pc  {w, h, k}: a picture, kept beside the post: its small copy in cbPic/{postId} {a, reg, tid, ch?, th, w, h, fw,
          fh, k, t} and the picture in cbPicD/{postId} {a, ch?, d} (both checked as the chat's are, rcPicIn), so a board's list of topics stays small;
-         readers fetch it on opening the topic. At most CB_PIC_DAY pictures a player a day (cbPicPace/{uid} {p}).
+         readers fetch it on opening the topic. At most CB_PIC_DAY pictures a player in any 24 hours (cbPicPace/{uid}
+         {p}); 6 until 2026-11-26, when the owner raised it to 12 for players posting their achievements.
    Deleting the post, its topic, the nation or the account deletes the picture too. */
-export const CB_ARMS = 4000, CB_PIC_DAY = 6;
+export const CB_ARMS = 4000, CB_PIC_DAY = 12;
 const picRef = (db, id) => db.doc('cbPic/' + id), picDRef = (db, id) => db.doc('cbPicD/' + id);
 function armsIn(d, x) {
   if (!/\[my arms\]/i.test(x) || !d.am || typeof d.am !== 'object' || Array.isArray(d.am)) return {};
   const j = JSON.stringify(d.am);
   return j.length > 2 && j.length <= CB_ARMS ? { am: j } : {};
 }
-/* the picture a post carries (rcPicIn checks it), and the player's pictures today */
+/* the picture a post carries (rcPicIn checks it), and the player's pictures in the last 24 hours. Over the limit, the
+   refusal says when the oldest of them leaves the 24 hours (wait, ms) and that the words alone can go now: the game
+   shows it as it is (2026-11-26, Balbosa only saw "could not be saved" after six achievement posts with pictures). */
+const PIC_SPAN = 86400000;
+export const cbPicWords = ms => { const m = Math.max(1, Math.ceil(ms / 60000)); return m < 60 ? m + (m === 1 ? ' minute' : ' minutes') : m < 90 ? 'about an hour' : 'about ' + Math.round(m / 60) + ' hours'; };
 async function picIn(tx, db, who, d, now) {
   if (d.pic == null) return null;
   const pic = rcPicIn(d.pic), pr = db.doc('cbPicPace/' + who.uid), ps = await tx.get(pr);
-  const p = (ps.exists && Array.isArray(ps.get('p')) ? ps.get('p') : []).filter(t => typeof t === 'number' && now - t < 86400000);
-  if (p.length >= CB_PIC_DAY) refuse('cb_pic_day', `You can post ${CB_PIC_DAY} pictures a day on the boards. Try again tomorrow.`);
+  const p = (ps.exists && Array.isArray(ps.get('p')) ? ps.get('p') : []).filter(t => typeof t === 'number' && t <= now && now - t < PIC_SPAN).sort((a, b) => a - b);
+  if (p.length >= CB_PIC_DAY) {
+    const wait = Math.max(60000, p[p.length - CB_PIC_DAY] + PIC_SPAN - now);
+    throw new HttpsError('failed-precondition', `You have posted ${CB_PIC_DAY} pictures on the boards in the last 24 hours, the most there may be. The next can go up in ${cbPicWords(wait)}. Remove the picture to post the words now.`, { code: 'cb_pic_day', wait });
+  }
   return { pic, mark: () => tx.set(pr, { p: p.concat(now) }) };
 }
 function picOut(tx, db, who, P, id, reg, tid, now) {

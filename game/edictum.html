@@ -69594,8 +69594,12 @@ NOTIF_SOURCES.push((n,now)=>{cbMnListen();
   return (CB.mns||[]).filter(m=>now-m.t<30*DAY).map(m=>({t:m.t,k:'mention',kl:'Mention',go:'community',cb:m.reg+'/'+m.tid,
     txt:`${String(m.nm||'A nation').slice(0,80)} mentioned you ${m.rid?'in a reply to':'in'} “${String(m.ti||'a topic').slice(0,80)}”: ${String(m.x||'').slice(0,120)}`}));});
 async function cbCall(data){const api=await window.claude.use('civic');if(!api)throw Object.assign(new Error('Reconnect first.'),{code:'unavailable'});return api.request(data);}
-const CB_SAY=['registration_required','moderated','banned','region_disabled','nation_required','cb_missing','cb_locked','cb_chancery','cb_paced','cb_quote_missing','cb_rx_full','cb_subs_full','resource-exhausted','permission-denied','invalid-argument'];
-function cbErr(e,what){toast(e&&CB_SAY.includes(e.code)&&e.message?e.message:`The ${what} could not be saved. Try again in a moment.`);}
+const CB_SAY=['registration_required','moderated','banned','region_disabled','nation_required','cb_missing','cb_locked','cb_chancery','cb_paced','cb_pic_day','rc_pic','cb_quote_missing','cb_rx_full','cb_subs_full','resource-exhausted','permission-denied','invalid-argument'];
+/* a refusal the server words for the player (functions: refuse, or an HttpsError with details.code) says why; only a
+   failure with no reason of its own falls back to "Try again" (2026-11-26: the daily picture limit, cb_pic_day, was
+   missing from CB_SAY, so a picture over it only said "could not be saved") */
+const cbSays=e=>!!e&&!!e.message&&(CB_SAY.includes(e.code)||!!e.details&&typeof e.details.code==='string'&&e.details.code===e.code);
+function cbErr(e,what){toast(cbSays(e)?e.message:`The ${what} could not be saved. Try again in a moment.`);}
 async function cbSendTopic(){
   const f=CB.f;if(CB.busy)return;
   if(f.ti.trim().length<3){toast('Give the topic a title of at least three characters.');return;}
