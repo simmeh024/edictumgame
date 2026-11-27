@@ -158,8 +158,12 @@ try {
     const base = e0 ? Object.assign({}, e0) : { k: P.alive()[0].key, s: now - 3600e3, a: now - 1800e3, r: 10, m: 0, hb: n.cities[0].c, hm: 100, hl: 0, h: 1, p: 1, q: 2 };
     n.fl = (n.fl || []).filter(e => e.hb == null).concat(P.CURIOS.slice(0, 4).map((cu, i) => Object.assign({}, base, { s: base.s - (i + 1) * 60000, a: base.a - (i + 1) * 60000, cu })));
     const c0 = P.credits(n0); G.commit(n); const n2 = G.S.nation;
-    return { held: P.CURIOS.filter(id => n2.coll && n2.coll[id]).length, credits: P.credits(n2) - c0 }; });
-  check('curios on voyages go on display in Treasures of the Deep, and half the set brings 2 land credits', mus.held === 4 && mus.credits === 2, mus);
+    const has = m => P.CURIOS.filter(id => m.coll && m.coll[id]);
+    return { before: has(n0), held: has(n2), want: P.CURIOS.slice(0, 4), credits: P.credits(n2) - c0 }; });
+  /* a voyage earlier in the run may have brought a curio home already (which one is picked by the nation's random id):
+     the four are all on display, with nothing else new, and half the set brings its 2 credits (CI, 27 Nov 2026: one
+     already held from a voyage made it {held:5}) */
+  check('curios on voyages go on display in Treasures of the Deep, and half the set brings 2 land credits', mus.want.every(id => mus.held.includes(id)) && mus.held.length === new Set([...mus.before, ...mus.want]).size && mus.before.length < 4 && mus.credits === 2, mus);
 
   /* the Help page */
   check('How to play explains deep-sea finds', await S(page, () => { const H = window.__game.DS().help(); return !!H && /salvage ship/.test(H.body(window.__game.S.nation)) && /×2 gold/.test(H.body(window.__game.S.nation)); }));
