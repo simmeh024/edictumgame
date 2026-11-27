@@ -60,20 +60,34 @@ import DATA from './civic-data.json' with { type: 'json' };
    ambassadors/{uid} record), so they can talk over help questions and players to look after away from the players. Its
    lines carry the same marks, it is paced on its own (rcPace b, bh), and a mention there names only an ambassador or a
    member of staff (ambassadors/{uid} or staff/{uid}), as no one else could read the line.
+   The Council chat (RC_WAC, rchat/wac/chat/{id}; 2026-11-27) is a fourth, closed one, for the World Assembly Council
+   (functions/council.js): the Delegates holding a seat (a councilSeats/{uid} record, which the Council writes and takes
+   away with the seat) and staff write, react and read there; a mention names only one of them.
    Together they are RC_SHARED, the chats that are no one region's. */
 /* RC_RANKS bounds the rank index a game may send with a line, a rank card or a nation card: a sanity bound, not the
    ladder's length, and well clear of it (the ladder was 72 ranks on 14 November 2026 and 103 on the 25th, so the top
    index is 102). A card above the bound is refused outright, so this must stay ahead of every ladder the game ships. */
-export const RC_WORLD = 'world', RC_FR = 'fr', RC_AMB = 'amb', RC_SHARED = [RC_WORLD, RC_FR, RC_AMB], RC_WORLD_GAP = 4000, RC_RANKS = 299;
+export const RC_WORLD = 'world', RC_FR = 'fr', RC_AMB = 'amb', RC_WAC = 'wac', RC_SHARED = [RC_WORLD, RC_FR, RC_AMB, RC_WAC], RC_WORLD_GAP = 4000, RC_RANKS = 299;
 /* a chat that is no one region's: the world chat, the French chat or the ambassadors' chat */
 export const rcShared = reg => RC_SHARED.includes(reg);
-/* who may write, react and read in a shared chat: everyone, but the ambassadors' chat only ambassadors and staff */
-export const rcMayUse = (reg, who) => reg !== RC_AMB || !!(who && (who.admin || who.mod || who.amb));
-const ambOnly = (reg, who) => { if (!rcMayUse(reg, who)) throw new HttpsError('permission-denied', 'Only Edictum Ambassadors and staff talk in the ambassadors’ chat.', { code: 'rc_amb_only' }); };
+/* who may write, react and read in a shared chat: everyone, but the ambassadors' chat only ambassadors and staff, and the
+   Council chat only the seats of the Council (who.wac, read by withSeat) and staff */
+export const rcMayUse = (reg, who) => reg === RC_AMB ? !!(who && (who.admin || who.mod || who.amb)) : reg === RC_WAC ? !!(who && (who.admin || who.mod || who.wac)) : true;
+const ambOnly = (reg, who) => {
+  if (rcMayUse(reg, who)) return;
+  if (reg === RC_WAC) throw new HttpsError('permission-denied', 'Only the Delegates on the World Assembly Council and staff talk in the Council chat.', { code: 'rc_wac_only' });
+  throw new HttpsError('permission-denied', 'Only Edictum Ambassadors and staff talk in the ambassadors’ chat.', { code: 'rc_amb_only' });
+};
+/* a line or a reaction in the Council chat: does this account hold a seat (councilSeats/{uid}) */
+async function withSeat(db, who, d) {
+  if (d.reg !== RC_WAC || who.admin || who.mod) return who;
+  const s = await db.doc('councilSeats/' + who.uid).get();
+  return s.exists ? { ...who, wac: true } : who;
+}
 /* each shared chat's own pacing fields in rcPace: the time and the words of the player's last line there */
-const RC_SHARED_PACE = { [RC_WORLD]: ['w', 'wh'], [RC_FR]: ['f', 'fh'], [RC_AMB]: ['b', 'bh'] };
+const RC_SHARED_PACE = { [RC_WORLD]: ['w', 'wh'], [RC_FR]: ['f', 'fh'], [RC_AMB]: ['b', 'bh'], [RC_WAC]: ['c', 'ch'] };
 /* a shared chat's name, as messages and the audit log say it */
-const RC_SHARED_NAME = { [RC_WORLD]: 'the world chat', [RC_FR]: 'the French chat', [RC_AMB]: 'the ambassadors’ chat' };
+const RC_SHARED_NAME = { [RC_WORLD]: 'the world chat', [RC_FR]: 'the French chat', [RC_AMB]: 'the ambassadors’ chat', [RC_WAC]: 'the Council chat' };
 /* a chat the browser names: a region of the game or a shared chat, or '' */
 const chatOf = (d, regions) => typeof d.reg === 'string' && (regions.has(d.reg) || rcShared(d.reg)) ? d.reg : '';
 export const RC_TEXT = 300, RC_GAP = 1500, RC_MINUTE = 12, RC_HOUR = 150, RC_GUEST_HOUR = 10, RC_SAME = 120000, RC_KEEP = 30 * 86400000;
@@ -247,9 +261,9 @@ async function rcPost(db, who, d, regions) {
     }
     /* the nations mentioned: of this region (of any, in the world chat), named after an @, not blocking the writer; and
        the author answered. In the ambassadors' chat, only those who read it: an ambassador or a member of staff */
-    const low = x.toLowerCase(), mn = {}, toTell = new Map(), closed = shared === RC_AMB, k = closed ? 4 : 2;
+    const low = x.toLowerCase(), mn = {}, toTell = new Map(), closed = shared === RC_AMB || shared === RC_WAC, k = closed ? 4 : 2;
     const ask = asked.concat(r && !r.tm && r.a !== who.uid && !asked.includes(r.a) ? [r.a] : []);
-    const got = ask.length ? await tx.getAll(...ask.flatMap(u => [db.doc('nations/' + u), db.doc('lblock/' + u + '~' + who.uid), ...(closed ? [db.doc('ambassadors/' + u), db.doc('staff/' + u)] : [])])) : [];
+    const got = ask.length ? await tx.getAll(...ask.flatMap(u => [db.doc('nations/' + u), db.doc('lblock/' + u + '~' + who.uid), ...(closed ? [db.doc((shared === RC_WAC ? 'councilSeats/' : 'ambassadors/') + u), db.doc('staff/' + u)] : [])])) : [];
     ask.forEach((u, i) => {
       const n = got[k * i], block = got[k * i + 1], nm = n.exists ? line(n.get('name'), 80) : '';
       if (!nm || block.exists || (!world && n.get('reg') !== reg)) return;
@@ -454,6 +468,6 @@ async function rcUncast(db, who, d, regions) {
 }
 
 const OPS = { rcPost, rcDelete, rcMute, rcUnmute, rcReact, rcHello, rcCast, rcUncast };
-export function regionChat(db, who, d, regions) {
-  return OPS[d.op](db, who, d, regions);
+export async function regionChat(db, who, d, regions) {
+  return OPS[d.op](db, await withSeat(db, who, d), d, regions);
 }

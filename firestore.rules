@@ -553,10 +553,12 @@ service cloud.firestore {
     // whose saved record is in that region), and admins any region's. The world chat (rchat/world) and the French chat
     // (rchat/fr) are read by every player with a saved nation, of any region. The ambassadors' chat (rchat/amb) is read
     // by staff and by the Edictum Ambassadors (an ambassadors/{uid} record, which setAmb writes and takes away with the
-    // claim). rcPace/ (the pacing of each player's lines) is the server's alone
+    // claim). The Council chat (rchat/wac) by staff and the Delegates holding a seat at the World Assembly Council (a
+    // councilSeats/{uid} record, which functions/council.js writes and takes away with the seat). rcPace/ (the pacing of each player's lines) is the server's alone
     match /rchat/{reg}/chat/{id} {
       allow read: if isStaff() || signedIn() && (reg in ['world', 'fr'] && exists(/databases/$(database)/documents/nations/$(request.auth.uid))
         || reg == 'amb' && exists(/databases/$(database)/documents/ambassadors/$(request.auth.uid))
+        || reg == 'wac' && exists(/databases/$(database)/documents/councilSeats/$(request.auth.uid))
         || region(reg) && get(/databases/$(database)/documents/nations/$(request.auth.uid)).data.reg == reg);
     }
     // the picture an admin's line carries (rcimg/{reg}/chat/{line} {a, d, k, t, exp}): read as its line is, written only by
@@ -564,6 +566,7 @@ service cloud.firestore {
     match /rcimg/{reg}/chat/{id} {
       allow read: if isStaff() || signedIn() && (reg in ['world', 'fr'] && exists(/databases/$(database)/documents/nations/$(request.auth.uid))
         || reg == 'amb' && exists(/databases/$(database)/documents/ambassadors/$(request.auth.uid))
+        || reg == 'wac' && exists(/databases/$(database)/documents/councilSeats/$(request.auth.uid))
         || region(reg) && get(/databases/$(database)/documents/nations/$(request.auth.uid)).data.reg == reg);
     }
     match /rcPace/{uid} { allow read, write: if false; }
@@ -949,6 +952,18 @@ service cloud.firestore {
     match /commended/{uid} {
       allow read: if true;
     }
+    // The World Assembly Council (functions/council.js). council/state is its public record (the seats, the chair, the
+    // counts once closed, the chair's address, passed resolutions and edict ideas), read by every signed-in game for the
+    // Council page, the Dispatch, the World and Region pages and the chair's mark. The ballots of an open vote, the
+    // motions, the agenda, who holds a seat and the pacing are the server's alone, read through the civic function.
+    match /council/{id} {
+      allow read: if id == 'state' && signedIn();
+    }
+    match /councilVotes/{m} { allow read, write: if false; }
+    match /councilMotions/{id} { allow read, write: if false; }
+    match /councilAgenda/{id} { allow read, write: if false; }
+    match /councilSeats/{uid} { allow read, write: if false; }
+    match /councilPace/{uid} { allow read, write: if false; }
     // staffPrefs: one staff member's portal clock, written by the game itself. A moderator keeps
     // their own; an admin keeps theirs and may set another staff member's. Players never read it: where staff live
     // is nobody else's business.
