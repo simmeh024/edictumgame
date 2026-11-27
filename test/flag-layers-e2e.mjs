@@ -60,7 +60,7 @@ await save(C);check('phone edits synchronize back to desktop',await until(async(
 const saved=await draft(C);await pick(C,1);await val(C,'lx',15);await C.click('#fg-st [data-fst="discard"]');
 check('discard restores every saved layer',JSON.stringify(await draft(C))===JSON.stringify(saved));
 while((await draft(C)).layers.length<24)await add(C,'disc');
-check('the Studio enforces its 24-layer limit',await C.locator('#fg-st [data-fst="add"][disabled]').count()===6&&await C.locator('#fs-dup[disabled]').count()===1);
+check('the Studio enforces its 24-layer limit',await C.locator('#fg-st [data-fst="add"][disabled]').count()===13&&await C.locator('#fs-dup[disabled]').count()===1);
 await C.click('#fg-st [data-fst="discard"]');
 check('province normalization preserves the same layer format',await A.evaluate(()=>{const n=G.S.nation,f=G.FD.prvFlagNorm({...n.flag,k:'f'},n);return f.k==='f'&&JSON.stringify(f.layers)===JSON.stringify(n.flag.layers);}));
 check('incoming flags strip unavailable locked symbols',await A.evaluate(()=>!G.FD.flagNorm({...G.S.nation.flag,layers:[{k:'emblem',e:'e-eye'}]},{cz:{u:[]}}).layers));
