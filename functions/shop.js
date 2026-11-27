@@ -68,6 +68,7 @@ import { onRequest, HttpsError } from 'firebase-functions/v2/https';
 import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { refuse, eligibility, identity, DAY } from './eligibility.js';
 import { nationText } from './nationtext.js';
+import { joinPath, joinPage } from './join.js';
 import { CATALOGUE, PRODUCTS, CLUB, GIFTABLE, GRANTABLE, REQUIRED, FOUNDER_CUTOFF, FOUNDER_GIFT, CLUB_IDS, SEALS, BASKET, BASKET_MAX, BASKETABLE, clubReleased, sealHeld, sealBest, SEAL_V, saleKey, saleDiscount, verifySignature, txFacts, txUnits, subFacts, adjFacts, entitlement, pickPeriod } from './shop-core.js';
 /* the version of what each product grants (the catalogue's grantsV): an account settled under an older one is settled again */
 const P0until = p => { const u = CATALOGUE.products[p] && CATALOGUE.products[p].until; const t = u ? Date.parse(u) : NaN; return isFinite(t) ? t : 0; };
@@ -691,8 +692,11 @@ export async function shopStep(uid, d) {
 }
 
 /* Paddle's notifications. Answered within Paddle's five seconds in the ordinary run; a failure answers 500, so
-   Paddle sends it again (live: for about two days), and a notification already handled is answered at once. */
+   Paddle sends it again (live: for about two days), and a notification already handled is answered at once.
+   The same function also answers GET /join/<slug>, the recruiting links Firebase Hosting rewrites here
+   (functions/join.js): it is the project's one public HTTP function, and a new one could not be deployed. */
 export const paddle = onRequest({ region: 'europe-west1', maxInstances: 5, memory: '256MiB', timeoutSeconds: 30, concurrency: 20 }, async (req, res) => {
+  if ((req.method === 'GET' || req.method === 'HEAD') && joinPath(req.path)) { await joinPage(req, res); return; }
   if (req.method !== 'POST') { res.status(405).send(''); return; }
   const cfg = await settings(false).catch(() => null);
   if (!cfg || !cfg.secret || !verifySignature(req.rawBody, req.get('paddle-signature'), cfg.secret)) { res.status(401).send(''); return; }

@@ -553,10 +553,12 @@ service cloud.firestore {
     // whose saved record is in that region), and admins any region's. The world chat (rchat/world) and the French chat
     // (rchat/fr) are read by every player with a saved nation, of any region. The ambassadors' chat (rchat/amb) is read
     // by staff and by the Edictum Ambassadors (an ambassadors/{uid} record, which setAmb writes and takes away with the
-    // claim). rcPace/ (the pacing of each player's lines) is the server's alone
+    // claim). The Council chat (rchat/wac) by staff and the Delegates holding a seat at the World Assembly Council (a
+    // councilSeats/{uid} record, which functions/council.js writes and takes away with the seat). rcPace/ (the pacing of each player's lines) is the server's alone
     match /rchat/{reg}/chat/{id} {
       allow read: if isStaff() || signedIn() && (reg in ['world', 'fr'] && exists(/databases/$(database)/documents/nations/$(request.auth.uid))
         || reg == 'amb' && exists(/databases/$(database)/documents/ambassadors/$(request.auth.uid))
+        || reg == 'wac' && exists(/databases/$(database)/documents/councilSeats/$(request.auth.uid))
         || region(reg) && get(/databases/$(database)/documents/nations/$(request.auth.uid)).data.reg == reg);
     }
     // the picture an admin's line carries (rcimg/{reg}/chat/{line} {a, d, k, t, exp}): read as its line is, written only by
@@ -564,6 +566,7 @@ service cloud.firestore {
     match /rcimg/{reg}/chat/{id} {
       allow read: if isStaff() || signedIn() && (reg in ['world', 'fr'] && exists(/databases/$(database)/documents/nations/$(request.auth.uid))
         || reg == 'amb' && exists(/databases/$(database)/documents/ambassadors/$(request.auth.uid))
+        || reg == 'wac' && exists(/databases/$(database)/documents/councilSeats/$(request.auth.uid))
         || region(reg) && get(/databases/$(database)/documents/nations/$(request.auth.uid)).data.reg == reg);
     }
     match /rcPace/{uid} { allow read, write: if false; }
@@ -578,13 +581,26 @@ service cloud.firestore {
     match /rcMute/{uid} {
       allow read: if isSelf(uid) || isStaff();
     }
-    // recruits/{uid} {r, t}: this player founded a nation through player r's recruiting link. Filed once, only by the
-    // server (functions/accounts.js, 'recruit': a Registered Nation, newer than the recruiter's); the recruiter reads
-    // the ones naming them (each side pays itself the bonus)
+    // recruits/{uid} {r, t, m?, g?, h?, e?, x?, xm?, v?}: this player founded a nation through player r's recruiting
+    // link. Filed once, only by the server (functions/recruit.js, 'recruit': a Registered Nation, newer than the
+    // recruiter's); h holds it for a staff check, g is r's own recruiter. The recruiter reads the ones naming them, and
+    // g the ones naming them as g (each side pays itself the bonus)
     match /recruits/{uid} {
-      allow read: if isSelf(uid) || isAdmin() || (signedIn() && resource.data.r == request.auth.uid);
+      allow read: if isSelf(uid) || isAdmin() || (signedIn() && (resource.data.r == request.auth.uid || resource.data.get('g', '') == request.auth.uid));
       allow delete: if isAdmin();
     }
+    // recruitNote/{uid} {m, t}: the recruiter's own words on their invitation, shown to whoever opens their link before
+    // founding (so readable by anyone); written only by the server (functions/recruit.js, 'recruitNote')
+    match /recruitNote/{uid} {
+      allow read: if true;
+    }
+    // joinSlug/{slug} {u, t} and joinCard/{uid} {s, img?, h?, at?}: the /join/ links and their preview pictures
+    // (functions/join.js); server only
+    // rcEvent/live {m, from, until, by}: a double-rewards weekend for recruiting, set from the admin portal
+    // (functions/recruit.js, rcEventSet); every game reads it to show and pay it
+    match /rcEvent/{id} { allow read: if true; }
+    match /joinSlug/{slug} { allow read, write: if false; }
+    match /joinCard/{uid} { allow read, write: if false; }
     // recruitTrail/{uid} {r, o?, f?, l?}: when this account opened a recruiting link, founded through it and was
     // filed (functions/accounts.js); written only by the server, for the admins' recruiting funnel
     match /recruitTrail/{uid} {
@@ -936,6 +952,18 @@ service cloud.firestore {
     match /commended/{uid} {
       allow read: if true;
     }
+    // The World Assembly Council (functions/council.js). council/state is its public record (the seats, the chair, the
+    // counts once closed, the chair's address, passed resolutions and edict ideas), read by every signed-in game for the
+    // Council page, the Dispatch, the World and Region pages and the chair's mark. The ballots of an open vote, the
+    // motions, the agenda, who holds a seat and the pacing are the server's alone, read through the civic function.
+    match /council/{id} {
+      allow read: if id == 'state' && signedIn();
+    }
+    match /councilVotes/{m} { allow read, write: if false; }
+    match /councilMotions/{id} { allow read, write: if false; }
+    match /councilAgenda/{id} { allow read, write: if false; }
+    match /councilSeats/{uid} { allow read, write: if false; }
+    match /councilPace/{uid} { allow read, write: if false; }
     // staffPrefs: one staff member's portal clock, written by the game itself. A moderator keeps
     // their own; an admin keeps theirs and may set another staff member's. Players never read it: where staff live
     // is nobody else's business.

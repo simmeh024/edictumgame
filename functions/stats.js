@@ -139,18 +139,18 @@ export async function gather(db, listUsers, { regions = [], now = Date.now(), pa
     Promise.all(regions.map(reg => Promise.all([count(db.collection('boards/' + reg + '/posts')), count(db.collection('boards/' + reg + '/posts').where('t', '>', week))]))),
     db.collection('finery').select('reg').get(),
     db.collection('statsDays').orderBy('d', 'desc').limit(SPAN).get().catch(() => ({ docs: [] })),
-    db.collection('recruits').select('r', 't').get().catch(() => ({ docs: [] })),
+    db.collection('recruits').select('r', 't', 'h', 'v').get().catch(() => ({ docs: [] })),
     db.collection('devnews').where('pub', '==', true).orderBy('t', 'desc').limit(80).get().catch(() => ({ docs: [] })),
-    db.collection('recruitTrail').select('r', 'o', 'f', 'l').get().catch(() => ({ docs: [] })),
+    db.collection('recruitTrail').select('r', 'o', 'f', 'l', 'v').get().catch(() => ({ docs: [] })),
   ]);
   return { at: now, rows, accts, limited,
     devices: health.docs.map(d => ({ id: String(d.get('uid') || ''), reg: String(d.get('reg') || ''), device: String(d.get('device') || '') })),
     posts: Object.fromEntries(regions.map((reg, i) => [reg, { all: posts[i][0], week: posts[i][1] }])),
     finery: finery.docs.map(d => String(d.get('reg') || '')),
     days: days.docs.map(d => d.data()).reverse(),
-    recruits: recruits.docs.map(d => ({ id: d.id, r: String(d.get('r') || ''), t: ms(d.get('t')) || num(d.get('t')) })).filter(x => x.r),
+    recruits: recruits.docs.map(d => ({ id: d.id, r: String(d.get('r') || ''), t: ms(d.get('t')) || num(d.get('t')), ...(d.get('h') ? { h: String(d.get('h')) } : {}), ...(d.get('v') ? { v: String(d.get('v')).slice(0, 8) } : {}) })).filter(x => x.r),
     /* the funnel's first steps (functions/accounts.js, recruitTrail): opened a recruiting link, founded a nation through it */
-    trail: trail.docs.map(d => ({ id: d.id, r: String(d.get('r') || ''), o: ms(d.get('o')), f: ms(d.get('f')) })).filter(x => x.r),
+    trail: trail.docs.map(d => ({ id: d.id, r: String(d.get('r') || ''), o: ms(d.get('o')), f: ms(d.get('f')), ...(d.get('v') ? { v: String(d.get('v')).slice(0, 8) } : {}) })).filter(x => x.r),
     news: news.docs.map(d => ({ id: d.id, t: ms(d.get('t')) || num(d.get('t')), ti: String(d.get('ti') || '').slice(0, 120), tg: String(d.get('tg') || '').slice(0, 20) })).filter(x => x.t) };
 }
 /* Recruiting: of the nations recruited through another player's link (recruits/<uid> {r, t}), how many were still
@@ -164,16 +164,24 @@ export function recruiting(R, g, now) {
   const of_ = r => per.get(r) || (per.set(r, { r, o: 0, f: 0, n: 0, of: 0, kept: 0, a7: 0, last: 0 }), per.get(r));
   let of = 0, kept = 0, opens = 0, founded = 0;
   const filed = new Set((g.recruits || []).map(c => c.id));
+  /* by channel (v, the share button the visitor's first open came through; '' a link from before channels, or copied
+     by hand): o opened, f founded, n filed, of/kept as below */
+  const chan = new Map(), ch = v => chan.get(v || '') || (chan.set(v || '', { v: v || '', o: 0, f: 0, n: 0, of: 0, kept: 0 }), chan.get(v || ''));
+  const vOf = new Map((g.trail || []).filter(t => t.v).map(t => [t.id, t.v]));
+  let held = 0;
   for (const t of g.trail || []) {
     /* a trail counts where its recruiter or its nation lives */
     if (!mine.has(t.r) && !mine.has(t.id)) continue;
     const p = of_(t.r);
-    if (t.o) { p.o++; opens++; }
-    if ((t.f || filed.has(t.id)) && byId.has(t.id)) { p.f++; founded++; }
+    if (t.o) { p.o++; opens++; ch(t.v).o++; }
+    if ((t.f || filed.has(t.id)) && byId.has(t.id)) { p.f++; founded++; ch(t.v).f++; }
   }
   for (const c of g.recruits || []) {
     const x = byId.get(c.id); if (!x || !mine.has(c.id)) continue;
+    /* held for a staff check, or refused: not a recruit (yet) */
+    if (c.h) { held += c.h === 'no' ? 0 : 1; continue; }
     recruited.add(c.id);
+    { const q = ch(c.v || vOf.get(c.id)), k = kept7(x); q.n++; if (k != null) { q.of++; q.kept += k; } }
     const p = of_(c.r), k = kept7(x);
     p.n++; if (k != null) { p.of++; p.kept += k; of++; kept += k; }
     if (x.t > now - 7 * DAY) p.a7++;
@@ -185,7 +193,8 @@ export function recruiting(R, g, now) {
   for (const x of R) { if (recruited.has(x.id)) continue; const k = kept7(x); if (k != null) { oOf++; oKept += k; } }
   const list = [...per.values()].filter(p => p.n || p.f || p.o).map(p => ({ ...p, name: byId.get(p.r)?.name || '', reg: byId.get(p.r)?.reg || '' }))
     .sort((a, b) => b.n - a.n || b.f - a.f || b.o - a.o || b.kept - a.kept || b.last - a.last).slice(0, 100);
-  return { n: recruited.size, recruiters: per.size, of, kept, opens, founded, others: { of: oOf, kept: oKept }, list };
+  const channels = [...chan.values()].filter(c => c.o || c.f || c.n).sort((a, b) => b.n - a.n || b.f - a.f || b.o - a.o);
+  return { n: recruited.size, recruiters: per.size, of, kept, opens, founded, held, others: { of: oOf, kept: oKept }, list, channels };
 }
 
 const median = a => { if (!a.length) return 0; const s = a.slice().sort((x, y) => x - y), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };

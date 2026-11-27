@@ -125,6 +125,36 @@ test('an Arsenal holds one more point, and a Drill Ground brings a point back 20
   assert.equal((await battle(g)).why, 'ready');
 });
 
+/* a master spy's gift (27 Nov 2026; functions/war-rules.js spyGifts): read from the spy reports in the private half */
+test('a master spy’s readiness point is credited from the saved report: once, one per 30 minutes, none it never gave', async () => {
+  const g = await guest(), now = Date.now(), M = 60000;
+  await nation(g.uid, { policies: {} });
+  const intel = [];
+  const spy = (t, rp) => { intel.unshift({ t, k: 'master', tg: NPC, r: 20, m: 0, ...(rp === undefined ? {} : { rp }) });
+    return doc('nationx/' + g.uid, { method: 'PATCH', body: JSON.stringify({ fields: { j: { stringValue: JSON.stringify({ intel }) }, t: { integerValue: String(Date.now()) } } }) }); };
+  for (let i = 0; i < 7; i++) assert.equal((await battle(g, { c: 400 + i })).ok, true, 'point ' + (i + 1));
+  let no = await battle(g);
+  assert.equal(no.why, 'ready');
+  assert.equal(no.gt, 0, 'no gift credited yet');
+  await spy(now - 60 * M, 1);
+  const r1 = await battle(g);
+  assert.equal(r1.ok, true, 'the gift readies one more attack');
+  assert.equal(r1.r, 0);
+  no = await battle(g);
+  assert.equal(no.why, 'ready', 'and only once');
+  assert.equal(no.gt, now - 60 * M);
+  assert.equal(Number((await read('armies/' + g.uid)).fields.gt.integerValue), now - 60 * M, 'kept with the army');
+  await spy(now - 45 * M, 1);
+  assert.equal((await battle(g)).why, 'ready', '15 minutes after the last: too soon');
+  await spy(now - 15 * M, 0);
+  await spy(now - 12 * M, -1);
+  await spy(now + 40 * M, 1);
+  assert.equal((await battle(g)).why, 'ready', 'reports that gave nothing, and one dated well ahead of the server');
+  await spy(now - 20 * M);
+  assert.equal((await battle(g)).ok, true, 'an older build’s report (no rp), 40 minutes after the last');
+  assert.equal((await battle(g)).why, 'ready');
+});
+
 test('the dice are fair: about half of the battles at 50% are won', async () => {
   const g = await guest();
   await nation(g.uid);

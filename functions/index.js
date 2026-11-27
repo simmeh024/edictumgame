@@ -12,7 +12,8 @@
         ('' in a war of its own); h the allied nations joining the assault
      → {ok: true, win, t, s?, s2?, d, p, r, roll}: t the server's time (the conquest's), s and s2 the seals of a victory,
        d the defender they name, p the odds used, r the readiness left; or {ok: false, why, next?}: why 'ready'
-       (next: ms until the next point), 'nation' (no saved nation yet), 'gone' (no such defender in the
+       (next: ms until the next point; gt the time of the last master spy's gift credited, so the game can tell whether
+       one it gave is still waiting for its save), 'nation' (no saved nation yet), 'gone' (no such defender in the
        attacker's region), 'banned', or 'hidden' (a moderator has hidden the attacker or the defender)
    referee({op: 'forget'}): a player deleting their account clears their army's record, once the nation is
      gone (before that, clearing it would refill the army)
@@ -32,7 +33,8 @@
    Storage (only this code writes it; see firestore.rules):
      referee/key            {priv, pub, at}: the signing key, made on first use; nobody else reads it
      referee/pub            {k, at}: its public half (SPKI, base64), which every game reads
-     armies/{uid}           {r, at, n, w, last}: readiness r as of at (ms); battles n, won w, the last at last
+     armies/{uid}           {r, at, n, w, last, gt?}: readiness r as of at (ms); battles n, won w, the last at last; gt the
+                            time of the last master spy's report whose readiness point was credited (functions/war-rules.js spyGifts)
      armies/{uid}/log/{id}  {d, c, p, pe, cap, roll, win, t}: every battle, for the admins
      sieges/{a}_{d}_{t}     {reg, a, d, c, t, st: 'on'|'fell', an, dn, df, cn, ft?, foes?, m?}: a siege by a of d's capital
                             (an, dn the names, df d's founding, cn its capital's name; m, once it fell, what the nation
@@ -59,8 +61,10 @@ import DATA from './civic-data.json' with { type: 'json' };
 import { pace, ipRule } from './pace.js';
 import { trId, trLive, trVoid, trReadyMs, TR_FX, TR_RECORD } from './treaty-rules.js';
 import { alRelLive } from './alliance-rules.js';
+import { rcPactUntil } from './recruit-rules.js';
 import { warWord } from './letters.js';
-import { warOf, shielded, num, SIEGE_MS, SIEGE_MAX, milReady, milMs, memorial, successor, builtKeys } from './war-rules.js';
+import { warOf, shielded, num, SIEGE_MS, SIEGE_MAX, milReady, milMs, memorial, successor, builtKeys, spyGifts } from './war-rules.js';
+import { wacForget } from './council.js';
 
 initializeApp();
 const db = getFirestore();
@@ -68,7 +72,9 @@ const db = getFirestore();
 const REGION = 'europe-west1';  // beside Firestore (eur3); src/shim.js calls it here
 const SEAL = 'edictum-battle-1', SEAL2 = 'edictum-battle-2';
 const P_MIN = 0.05, P_MAX = 0.95;      // the game's own bounds on the odds (battle() in game/edictum.html)
-const READY_BASE = 6, SLACK = 1;       // readiness as the game keeps it, plus one point for a master spy's gift
+/* readiness as the game keeps it, plus one point of slack (it stood in for a master spy's gift until the referee credited
+   the gifts themselves: spyGifts, functions/war-rules.js) */
+const READY_BASE = 6, SLACK = 1;
 /* The most the game's own factors can tilt a battle beyond the two armies: borders held around the hex,
    distance from each capital, terrain, spies, policies, buildings. Claimed odds above that are cut to it. */
 const TILT = 20;
@@ -131,6 +137,8 @@ async function battle(uid, data) {
     if (!npc) refs.push(db.doc('nations/' + d));
     help.forEach(id => refs.push(db.doc('nations/' + id)));
     const [me, st, ban, ...rest] = await tx.getAll(...refs);
+    /* the attacker's private half, for its spy reports: a master spy's gift (spyGifts below) */
+    const px = await tx.get(db.doc('nationx/' + uid));
     /* the final assault on a capital: this nation's sieges of d */
     const sieges = data.cap === 1 && !npc ? await tx.get(db.collection('sieges').where('a', '==', uid).where('d', '==', d)) : null;
     /* and every siege of d by anyone: the capitals it lost before, which its next capital cannot be */
@@ -138,7 +146,8 @@ async function battle(uid, data) {
     const ixs = await tx.getAll(...[uid, ...help].map(id => db.doc('allyOf/' + id))), alliances = ixs.map(ixDef);
     /* a non-aggression pact or joint military training between the two (functions/treaties.js), and the defender's
        alliance (for a pact between the two alliances, functions/alliances.js) */
-    const [nap, drill, dIx] = await tx.getAll(db.doc('treaties/' + trId('nap', uid, d)), db.doc('treaties/' + trId('drill', uid, d)), db.doc('allyOf/' + d));
+    const [nap, drill, dIx, rcU, rcD] = await tx.getAll(db.doc('treaties/' + trId('nap', uid, d)), db.doc('treaties/' + trId('drill', uid, d)), db.doc('allyOf/' + d),
+      db.doc('recruits/' + uid), db.doc('recruits/' + (npc ? '-' : d)));
     /* the attacker's own pacts of joint training, which ready its army sooner */
     const mineTr = await tx.get(db.collection('treaties').where('p', 'array-contains', uid));
     if (ban.exists) return { ok: false, why: 'banned' };
@@ -171,8 +180,11 @@ async function battle(uid, data) {
       if (!sg) return { ok: false, why: 'siege' };
     }
     const drills = mineTr.docs.filter(s => { const T = s.data(); return T.k === 'drill' && trLive(T, now) && !trVoid(T, { [uid]: mine }); }).length;
-    const rd = readiness(st.exists ? st.data() : {}, mine.policies || {}, now, drills, milReady(mine, now));
-    if (rd.r < 1) return { ok: false, why: 'ready', next: rd.at + (rd.g + 1) * rd.ms - now };
+    const rd = readiness(st.exists ? st.data() : {}, mine.policies || {}, now, drills, milReady(mine, now)), prev = st.exists ? st.data() : {};
+    /* the readiness points master spies gave since the last battle (functions/war-rules.js spyGifts), up to the most it holds */
+    const gf = spyGifts(record(px).intel, prev.gt, now);
+    if (gf.k) rd.r = Math.min(rd.max, rd.r + gf.k);
+    if (rd.r < 1) return { ok: false, why: 'ready', next: rd.at + (rd.g + 1) * rd.ms - now, gt: num(prev.gt) };
     /* the odds: the attacker's own, within the game's bounds, and no better than its army, with its allies'
        help, could make them against the defender's, both as their last saves declared */
     /* an alliance is the server's (allyOf/, functions/alliances.js); one not yet moved there, its founder's record's */
@@ -181,6 +193,8 @@ async function battle(uid, data) {
        ends it with notice or breaks it first (a nation founded again since it signed is not bound) */
     const recs = { [uid]: mine, ...(npc ? {} : { [d]: record(foe) }) };
     for (const t of [nap, drill]) if (t.exists && trLive(t.data(), now) && !trVoid(t.data(), recs)) return { ok: false, why: 'pact' };
+    /* the recruits' pact (functions/recruit-rules.js): a recruit and its recruiter fight no battle for a month */
+    if (!npc && (rcPactUntil(rcU, d, now) || rcPactUntil(rcD, uid, now))) return { ok: false, why: 'rcpact' };
     /* a pact between any alliance of the attacker's and any of the defender's */
     const mineAl = ixAll(ixs[0]).length ? ixAll(ixs[0]) : al ? [al] : [], theirs = ixAll(dIx).filter(a => !mineAl.includes(a));
     if (mineAl.length && theirs.length) {
@@ -226,8 +240,7 @@ async function battle(uid, data) {
       }
       tx.set(sg.ref, doc);
     }
-    const prev = st.exists ? st.data() : {};
-    tx.set(armyRef, { r: rd.r - 1, at: rd.r >= rd.max ? now : rd.at + rd.g * rd.ms, n: (prev.n || 0) + 1, w: (prev.w || 0) + (win ? 1 : 0), last: now });
+    tx.set(armyRef, { r: rd.r - 1, at: rd.r >= rd.max ? now : rd.at + rd.g * rd.ms, n: (prev.n || 0) + 1, w: (prev.w || 0) + (win ? 1 : 0), last: now, ...(gf.gt ? { gt: gf.gt } : {}) });
     tx.set(logRef, { d, c, p: data.p, pe, cap, roll, win, t: now, ...(w ? { ally: w } : {}) });
     return out;
   });
@@ -342,6 +355,8 @@ async function forget(uid) {
   proposals.docs.concat(votes.docs).forEach(s => writer.delete(s.ref));
   for (const q of books) for (const s of q.docs) writer.update(s.ref, new FieldPath('vm', uid), FieldValue.delete(), new FieldPath('vx', uid), FieldValue.delete(), 'vu', FieldValue.arrayRemove(uid));
   await writer.close();
+  /* the World Assembly Council (functions/council.js): its seat record, its pacing, its name on the agenda */
+  await wacForget(db, uid);
   return { ok: true };
 }
 

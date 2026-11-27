@@ -81,7 +81,7 @@ test('the server: admins only, 1 to 20 credits with a reason, written by the con
   assert.match(admin, /if \(!reason\) throw new HttpsError\('invalid-argument', 'A reason is required\.'\);/);
   assert.match(admin, /action: 'land_credits_given', target,/, 'in the audit log');
   assert.match(admin, /const g = was\.concat\(\{ id: event\.id, k, t: Date\.now\(\), why: reason \}\)\.slice\(-LCG_KEEP\);/);
-  assert.match(admin, /if \(d\.op === 'player'\) \{ const uid = id\(d\.uid\), \[p, lcg\] = await Promise\.all\(\[player\(db, uid\), grantsOf\(db, uid\)\]\); return \{ \.\.\.p, lcg \}; \}/);
+  assert.match(admin, /if \(d\.op === 'player'\) \{ const uid = id\(d\.uid\), \[p, lcg, rc\] = await Promise\.all\(\[player\(db, uid\), grantsOf\(db, uid\), recruitInfo\(db, uid\)\.catch\(\(\) => null\)\]\); return \{ \.\.\.p, lcg, rc \}; \}/);
   assert.match(rules, /match \/lcGrant\/\{uid\} \{ allow read: if request\.auth != null && request\.auth\.uid == uid; allow write: if false; \}/);
   assert.match(SEC, /S\.db\.doc\('lcGrant\/'\+me\)\.onSnapshot\(/, 'the game reads only its own');
 });

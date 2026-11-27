@@ -23,77 +23,10 @@ import { fcForget } from './flagcomp.js';
 import DATA from './civic-data.json' with { type: 'json' };
 import { pace, ipRule } from './pace.js';
 import { supportStep } from './support.js';
+import { recruit, recruitOpen, recruitStep, recruitMine, recruitNote, joinLink, joinCard, recruitForget } from './recruit.js';
 
 const clean = value => typeof value === 'string' ? value.toUpperCase().replace(/[\s-]/g, '') : '';
-/* Recruiting (game/edictum.html, rcClaim): a player who founded a nation through another player's link files
-   recruits/<uid> {r, t} here, once; each side's game then pays itself the bonus. A recruit counts only as a
-   Registered Nation (a linked sign-in account), founded in the last RECRUIT_DAYS and after the recruiter's own
-   nation: so a player who had a nation already, or two players opening each other's links, earn nothing.
-   → {ok: true} or {ok: false, why}: 'guest' (link an account first), 'done' (filed already), 'old', 'gone' (no such
-   recruiter), or the code eligibility() refused with ('nation_required' while the first save is on its way).
-   Later steps (recruitStep): the recruit's game asks once its nation has played a week (saved RECRUIT_WEEK after its
-   founding) or holds a second city; this reads the saved nation and adds the step to recruits/<uid>.m (2 the week,
-   4 the second city), which the recruiter's game reads with the list. Each side pays itself once per step.
-   The trail for the admins' funnel (functions/stats.js, recruiting): recruitTrail/<uid> {r, o?, f?, l?}, the first
-   recruiter whose link this account followed, and when it opened the link (recruitOpen), first claimed with a nation
-   (f, a guest's claim too) and was filed (l). Server only; the admins read it. */
-const RECRUIT_DAYS = 30, RECRUIT_WEEK = 7 * DAY;
-const RC_UID = /^[A-Za-z0-9_-]{6,128}$/;
-/* the first mark of each kind on this account's trail, naming the first recruiter only */
-async function rcTrail(db, uid, by, key) {
-  const ref = db.doc('recruitTrail/' + uid);
-  await db.runTransaction(async tx => {
-    const s = await tx.get(ref);
-    if (s.exists && (s.get('r') !== by || s.get(key))) return;
-    tx.set(ref, { r: by, [key]: FieldValue.serverTimestamp() }, { merge: true });
-  });
-}
-async function recruitOpen(db, who, by) {
-  if (typeof by !== 'string' || !RC_UID.test(by) || by === who.uid) return { ok: false };
-  await rcTrail(db, who.uid, by, 'o');
-  return { ok: true };
-}
-async function recruitStep(db, who) {
-  const ref = db.doc('recruits/' + who.uid);
-  return db.runTransaction(async tx => {
-    const [rec, saved] = await tx.getAll(ref, db.doc('nations/' + who.uid));
-    if (!rec.exists || !saved.exists) return { ok: false, why: 'none' };
-    const n = nationJSON(saved), m0 = Number(rec.get('m')) || 0, founded = Number(n.founded) || 0;
-    const at = Number(saved.get('updatedAt')) || (saved.updateTime ? saved.updateTime.toMillis() : 0);
-    let m = m0;
-    if (founded > 0 && at - founded >= RECRUIT_WEEK) m |= 2;
-    if (Array.isArray(n.cities) && n.cities.length >= 2) m |= 4;
-    if (m !== m0) tx.update(ref, { m });
-    return { ok: true, m };
-  });
-}
-const bornOf = (saved, account) => {
-  const gen = saved.createTime.toMillis(), at = account.exists && account.get('nationGeneration') === gen ? account.get('nationAt') : gen;
-  const f = Number(nationJSON(saved).founded);
-  return f > 0 ? Math.min(at, f) : at;
-};
-async function recruit(db, who, by) {
-  if (typeof by !== 'string' || !RC_UID.test(by) || by === who.uid) throw new HttpsError('invalid-argument', 'Name the player whose link you followed.');
-  if (!who.registered) {
-    /* a guest who founded a nation through the link: on the trail, unpaid until an account is linked */
-    if ((await db.doc('nations/' + who.uid).get()).exists) await rcTrail(db, who.uid, by, 'f');
-    return { ok: false, why: 'guest' };
-  }
-  const ref = db.doc('recruits/' + who.uid), trail = db.doc('recruitTrail/' + who.uid);
-  return db.runTransaction(async tx => {
-    const [filed, them, theirs] = await tx.getAll(ref, db.doc('nations/' + by), db.doc('accountIdentity/' + by));
-    if (filed.exists) return { ok: false, why: 'done' };
-    let e;
-    try { e = await eligibility(tx, who); } catch (err) { if (err.details?.code) return { ok: false, why: err.details.code }; throw err; }
-    if (!them.exists) return { ok: false, why: 'gone' };
-    const born = bornOf(e.saved, e.account);
-    if (Date.now() - born > RECRUIT_DAYS * DAY || bornOf(them, theirs) >= born) return { ok: false, why: 'old' };
-    const tr = await tx.get(trail);
-    tx.create(ref, { r: by, t: FieldValue.serverTimestamp() });
-    if (!tr.exists || tr.get('r') === by) tx.set(trail, { r: by, l: FieldValue.serverTimestamp(), ...(tr.exists && tr.get('f') ? {} : { f: FieldValue.serverTimestamp() }) }, { merge: true });
-    return { ok: true };
-  });
-}
+/* Recruiting: functions/recruit.js (the ops below pass through) */
 const digest = value => crypto.createHash('sha256').update(value).digest('hex');
 /* How a Registered Nation signs in, in the words of the game's sign-in buttons (src/shim.js, LINK_OPTIONS), for the
    recovery code of a nation that has linked a sign-in since: the ways, never the address */
@@ -191,6 +124,8 @@ export const accounts = onCall({ region: 'europe-west1', maxInstances: 10, memor
     await Promise.all(['accountSeen/', 'recruitTrail/', 'staffNotes/', 'watch/', 'limits/', 'rlimits/', 'slimits/', 'blimits/', 'llimits/', 'cbPace/', 'rcPace/', 'rcMute/', 'rcNote/', 'rcHello/', 'ambassadors/', 'ambGreet/', 'ambCred/', 'commended/'].map(c => db.doc(c + uid).delete()));
     await forgetDiscord(uid);
     await forgetMail(uid);
+    // its words on its invitation and its /join/ link with the picture (functions/recruit.js)
+    await recruitForget(db, uid);
     // its one-time sign-in links and their record (functions/once.js)
     await forgetOnce(db, uid);
     // copies of nations it dissolved (functions/gone.js); their lines, naming them, stay until they expire
@@ -237,9 +172,13 @@ export const accounts = onCall({ region: 'europe-west1', maxInstances: 10, memor
     return { ok: true };
   }
   const who = await identity(uid);
-  if (d.op === 'recruit') return recruit(db, who, d.by);
-  if (d.op === 'recruitOpen') return recruitOpen(db, who, d.by);
+  if (d.op === 'recruit') return recruit(db, who, d, address(req.rawRequest));
+  if (d.op === 'recruitOpen') return recruitOpen(db, who, d.by, d.via);
   if (d.op === 'recruitStep') return recruitStep(db, who);
+  if (d.op === 'recruitMine') return recruitMine(db, who);
+  if (d.op === 'recruitNote') return recruitNote(db, who, d);
+  if (d.op === 'joinLink') return joinLink(db, who);
+  if (d.op === 'joinCard') return joinCard(db, who, d);
   // a guest's recovery code by email (functions/mail.js)
   if (d.op === 'recoveryMail') return recoveryMail(db, who, d, String(req.rawRequest?.ip || ''));
   if (d.op === 'status') {

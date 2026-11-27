@@ -26,6 +26,8 @@ import { balanceOf } from './balance.js';
 import { letterStats } from './letter-stats.js';
 import { researchBrief } from './stats-research.js';
 import { onceAdmin, onceStatus } from './once.js';
+import { recruitHeld, recruitRule, recruitNoteClear, rcEventSet, recruitInfo } from './recruit.js';
+import { councilAdmin, WAC_ADMIN_OPS } from './council.js';
 import DATA from './civic-data.json' with { type: 'json' };
 
 /* every region, from the same list the save permit checks (civic-data.json): a list of its own here missed Terra */
@@ -743,12 +745,16 @@ export const adminConsole = onCall({ region: 'europe-west1', maxInstances: 5, me
     /* the ambassadors' notes: a moderator reads them and says what became of each (functions/ambassador.js) */
     if (req.auth.token.mod === true && d.op === 'ambNotes') return ambNotesList(db);
     if (req.auth.token.mod === true && d.op === 'ambNote') return ambNoteAct(db, actor, d);
+    /* the World Assembly Council (functions/council.js): a moderator reads it and clears words; voiding a ballot and
+       deciding an edict idea are an admin's */
+    if (req.auth.token.mod === true && (d.op === 'wacAdmin' || d.op === 'wacMod')) return councilAdmin(db, actor, d, 'mod');
     throw new HttpsError('permission-denied', 'Only Edictum admins can use the console.');
   }
   /* An admin may inspect the moderator's reduced, read-only view. */
   if (d.previewRole === 'moderator') {
     if (d.op === 'player') return modPlayer(db, id(d.uid));
     if (d.op === 'ambNotes') return ambNotesList(db);
+    if (d.op === 'wacAdmin') return councilAdmin(db, actor, d, 'mod');
     throw new HttpsError('permission-denied', 'The moderator preview is read-only.');
   }
   if (d.op === 'setMod') return setMod(db, actor, d);
@@ -756,9 +762,15 @@ export const adminConsole = onCall({ region: 'europe-west1', maxInstances: 5, me
   if (d.op === 'mods') return modsList(db);
   if (d.op === 'ambNotes') return ambNotesList(db);
   if (d.op === 'ambNote') return ambNoteAct(db, actor, d);
+  if (WAC_ADMIN_OPS.includes(d.op)) return councilAdmin(db, actor, d, 'admin');
   if (d.op === 'search') return players(db, d);
-  if (d.op === 'player') { const uid = id(d.uid), [p, lcg] = await Promise.all([player(db, uid), grantsOf(db, uid)]); return { ...p, lcg }; }
+  if (d.op === 'player') { const uid = id(d.uid), [p, lcg, rc] = await Promise.all([player(db, uid), grantsOf(db, uid), recruitInfo(db, uid).catch(() => null)]); return { ...p, lcg, rc }; }
   if (d.op === 'landCredits') return landCredits(db, actor, d);
+  // recruiting (functions/recruit.js): claims held for a check, a recruiter's note, a double-rewards weekend
+  if (d.op === 'recruitHeld') return recruitHeld(db);
+  if (d.op === 'recruitRule') return recruitRule(db, actor, d);
+  if (d.op === 'recruitNoteClear') return recruitNoteClear(db, actor, d);
+  if (d.op === 'rcEvent') return rcEventSet(db, actor, d);
   if (d.op === 'health') return health(db);
   if (d.op === 'online') return onlinePlayers(db);
   if (d.op === 'alliances') return alliancesList(db);
