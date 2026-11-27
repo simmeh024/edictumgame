@@ -30819,7 +30819,7 @@ function aStock(x){return achM(x,'stock',()=>{if(x.npc)return 0;try{const st=x.n
 function aFriends(x){return Object.values(x.n.gw||{}).filter(v=>v>=25).length;}
 function aMedals(x){const m=(x.n.games&&x.n.games.med)||{};return Math.max((m.g||0)+(m.s||0)+(m.b||0),aT(x,'medal:g')+aT(x,'medal:s')+aT(x,'medal:b'));}
 function aGolds(x){const m=(x.n.games&&x.n.games.med)||{};return Math.max(m.g||0,aT(x,'medal:g'));}
-function aClasses(x){return achM(x,'cls',()=>{const s=new Set([aCls(x)].filter(Boolean));for(const h of x.n.hist||[]){try{s.add(classify(sOfH(h)));}catch(e){}}for(const l of x.n.log||[])if(l.k==='cat'){if(l.a)s.add(l.a);if(l.b)s.add(l.b);}return s.size;});}
+function aClasses(x){return achM(x,'cls',()=>{const s=new Set([aCls(x)].filter(Boolean));for(const c of Array.isArray(x.n.gcs)?x.n.gcs:[])s.add(c);for(const h of x.n.hist||[]){try{s.add(classify(sOfH(h)));}catch(e){}}for(const l of x.n.log||[])if(l.k==='cat'){if(l.a)s.add(l.a);if(l.b)s.add(l.b);}return s.size;});}
 function aBusy(x){const t=(x.n.answered||[]).filter(a=>a.o>=0&&a.t>0).map(a=>a.t).sort((a,b)=>a-b);let best=0,j=0;for(let i=0;i<t.length;i++){while(t[i]-t[j]>DAY)j++;best=Math.max(best,i-j+1);}return best;}
 function aGoldWeek(x){let best=0;for(const l of x.n.log||[])if(l.k==='games'){const m=/(\d+) gold/.exec(l.fx||'');if(m)best=Math.max(best,+m[1]);}return best;}
 function aDq(x){const g=x.n.games;if(!g||!Array.isArray(g.en))return 0;return g.en.some(e=>e.es&&(g.cl||[]).includes(e.e)&&dqOf(x.id,e.e))?1:0;}
@@ -89192,15 +89192,25 @@ for(const [id,v] of Object.entries(LP_X))if(!(UNLOCKS[id]&&SHOP_IDS[UNLOCKS[id].
   const el=document.createElement('style');el.id='lp-papers';el.textContent=css;document.head.appendChild(el);}
 function lpClass(id){return id?(LP_X[id]?id+' lpx':id):'';}
 function lpGlyph(id){const v=id&&LP_X[id];return v&&v.g?` data-g="${esc(v.g)}"`:'';}
-/* every classification the nation has had: now, in its history, and the changes its log noted */
+/* every classification the nation has had: the ones kept for good (n.gcs), now, in its history, and the changes its
+   log noted. The history keeps a snapshot every three hours for about eleven days and the log its last 60 entries, so
+   a classification older than both used to drop out again, and its paper with it; n.gcs keeps each one once seen */
 function govCatsHeld(n){
   const s=new Set();if(!n)return s;
+  for(const c of Array.isArray(n.gcs)?n.gcs:[])s.add(c);
   try{if(n.s)s.add(classify(n.s));}catch(e){}
   for(const h of Array.isArray(n.hist)?n.hist:[]){try{s.add(classify(sOfH(h)));}catch(e){}}
   for(const l of Array.isArray(n.log)?n.log:[])if(l&&l.k==='cat'){if(l.a)s.add(l.a);if(l.b)s.add(l.b);}
   for(const c of [...s])if(!LP_CAT[c])s.delete(c);
   return s;
 }
+/* in CATS order, only the Bureau's names, each once */
+function gcsNorm(a){const s=new Set(Array.isArray(a)?a.filter(c=>typeof c==='string'):[]);return CATS.filter(c=>s.has(c));}
+/* with the record before this save too (the same founding's): commit trims the history before its hooks run, so the
+   snapshot this save drops is only there */
+COMMIT_HOOKS.push((n,old)=>{if(n.npc)return [];const was=old&&!old.npc&&old.founded===n.founded?[...govCatsHeld(old)]:[];
+  const all=gcsNorm([...govCatsHeld(n),...was]);if(all.length>gcsNorm(n.gcs).length)n.gcs=all;return [];});
+NORM_HOOKS.push((n,d)=>{const a=gcsNorm(d&&d.gcs);if(a.length)n.gcs=a;});
 UNLOCK_SOURCES.push({earned:n=>n&&!n.npc?[...govCatsHeld(n)].map(c=>LP_CAT[c]):[],
   how:id=>{const v=LP_X[id];return v&&v.cat?`Be classed as “${v.cat}” by the Bureau.`:null;}});
 UNLOCK_SOURCES.push({earned:n=>n&&n.ach?Object.keys(LP_ACH).filter(id=>n.ach[LP_ACH[id]]):[],
