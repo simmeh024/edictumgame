@@ -116,9 +116,10 @@ test('ships by name: a voyage names its ship (sh), and one from before takes the
 test('the ports a player chose: two home ports or none, and the rule (the best haul unless set)',()=>{
   const P=x=>JSON.parse(JSON.stringify(sctx.F.dsPrefs(x)));
   assert.deepEqual(P(null),{p:[null,null],r:'h'});
-  assert.deepEqual(P({dsp:{p:[5,'x'],r:'f'}}),{p:[5,null],r:'f'});
-  assert.deepEqual(P({dsp:{p:[-1,7],r:'zz'}}),{p:[null,7],r:'h'});
-  assert.deepEqual(P({dsp:'nonsense'}),{p:[null,null],r:'h'});
+  assert.deepEqual(P({shp:{p:[5,'x'],r:'f'}}),{p:[5,null],r:'f'});
+  assert.deepEqual(P({shp:{p:[-1,7],r:'zz'}}),{p:[null,7],r:'h'});
+  assert.deepEqual(P({shp:'nonsense'}),{p:[null,null],r:'h'});
+  assert.deepEqual(P({dsp:{ads:[{c:'want',x:'An ad'}]}}),{p:[null,null],r:'h'},'the Dispatch\'s classifieds (n.dsp) are not read as ports');
 });
 
 test('the share by place: 30, 25, 20, 15 and 10% of the five, times the harbour',()=>{

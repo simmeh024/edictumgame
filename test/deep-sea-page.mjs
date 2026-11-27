@@ -162,7 +162,7 @@ try {
   const two = await S(page, c2 => { const G = window.__game, P = G.DS(), n = G.clone(G.S.nation), now = Date.now();
     n.cities[0].b = [{ k: 'harbour', s: now - 2 * 864e5, d: now - 864e5, a: 1, ug: 5 }];
     n.cities = n.cities.filter(c => c.id !== 'dsport2').concat({ id: 'dsport2', c: c2, nm: 'Second Port', t: now - 3 * 864e5, b: [{ k: 'harbour', s: now - 2 * 864e5, d: now - 864e5, a: 1, ug: 1 }] });
-    delete n.dsp; G.commit(n); G.render();
+    delete n.shp; G.commit(n); G.render();
     return P.harbours(G.S.nation).map(h => ({ c: h.c, nm: h.nm, hm: h.hm, band: h.band })); }, port2[0]);
   check('two harbours: the gold one and a grey one', two.length === 2 && two[0].hm === 200 && two[1].hm === 110, two);
   const both = await S(page, () => { const G = window.__game, P = G.DS(), n = G.S.nation, t0 = P.flNow();
@@ -173,7 +173,7 @@ try {
     return ['h', 'f', 'c'].map(r => P.byRule(fit, r, s, t)[0].c).concat(P.byRule(fit, 'h', { e: t + 30 * 60000 }, t)[0].c); });
   check('the rule: the best haul, the fastest, the cheapest; a port that arrives too late comes last', JSON.stringify(rule) === '[1,2,2,2]', rule);
   if (both) {
-    const home = await S(page, ([c2, k, t]) => { const G = window.__game, P = G.DS(), n = G.clone(G.S.nation); n.dsp = { p: [c2, null], r: 'h' }; G.commit(n); const p = P.plan(G.S.nation, P.flByKey(k), t); return { hb: p.hb && p.hb.c, how: p.how, prefs: P.prefs(G.S.nation) }; }, [two[1].c, both.key, both.t]);
+    const home = await S(page, ([c2, k, t]) => { const G = window.__game, P = G.DS(), n = G.clone(G.S.nation); n.shp = { p: [c2, null], r: 'h' }; G.commit(n); const p = P.plan(G.S.nation, P.flByKey(k), t); return { hb: p.hb && p.hb.c, how: p.how, prefs: P.prefs(G.S.nation) }; }, [two[1].c, both.key, both.t]);
     check('a home port is used for every find it can reach', home.hb === two[1].c && home.how === 'home' && home.prefs.p[0] === two[1].c, home);
     const pick = await S(page, ([c1, k, t]) => { const G = window.__game, P = G.DS(); P.setPick(k, c1); const p = P.plan(G.S.nation, P.flByKey(k), t), raw = JSON.parse(localStorage.getItem('edictum.dsPort') || '{}'); G.S.dsHb = null; return { hb: p.hb && p.hb.c, how: p.how, raw: raw[k], again: P.pick(k), now: Date.now() }; }, [two[0].c, both.key, both.t]);
     check('a port chosen for a find wins over the home port, and is kept on this device until the find is gone', pick.hb === two[0].c && pick.how === 'pick' && Array.isArray(pick.raw) && pick.raw[0] === two[0].c && pick.raw[1] > pick.now && pick.again === two[0].c, pick);
@@ -210,17 +210,17 @@ try {
     check('the ship card sets a home port (none, or either harbour) and how to choose the rest', card.home === 1 && card.opts.length === 3 && card.rule && card.shown, card);
     await page.selectOption('.xp-ship select[data-dsrule]', 'f'); await sleep(300);
     await page.selectOption('.xp-ship select[data-dshp][data-i="0"]', ''); await sleep(300);
-    check('both are kept in the nation (n.dsp)', await S(page, () => { const x = window.__game.S.nation.dsp; return !!x && x.r === 'f' && x.p[0] === null; }));
+    check('both are kept in the nation (n.shp), and the Dispatch\'s n.dsp is left alone', await S(page, () => { const n = window.__game.S.nation, x = n.shp; return !!x && x.r === 'f' && x.p[0] === null && !(n.dsp && 'p' in n.dsp); }));
 
     /* the small map: the home port's reach, or the selected find's port */
-    const lab = await S(page, ([c1, c2, k]) => { const G = window.__game, P = G.DS(), n = G.clone(G.S.nation); n.dsp = { p: [c2, null], r: 'h' }; G.commit(n); G.S.xpSel = null;
+    const lab = await S(page, ([c1, c2, k]) => { const G = window.__game, P = G.DS(), n = G.clone(G.S.nation); n.shp = { p: [c2, null], r: 'h' }; G.commit(n); G.S.xpSel = null;
       const a = P.mapPorts(G.S.nation, P.flNow()); P.setPick(k, c1); G.S.xpSel = 'g' + k; const b = P.mapPorts(G.S.nation, P.flNow()); G.S.xpSel = null; P.setPick(k, null);
       return { a: a.lab, ac: a.H.map(h => h.c), b: b.lab, bc: b.H.map(h => h.c) }; }, [two[0].c, two[1].c, both.key]);
     check('the small map draws the home port\'s reach, or the selected find\'s port', JSON.stringify(lab.ac) === JSON.stringify([two[1].c]) && JSON.stringify(lab.bc) === JSON.stringify([two[0].c]) && /^Reach from /.test(lab.a) && /^Reach from /.test(lab.b), lab);
 
     /* a Salvage Port's two ships, each with a home port of its own */
     const sv2 = await S(page, ([c1, c2, k, t]) => { const G = window.__game, P = G.DS(), n = G.clone(G.S.nation), now = Date.now();
-      n.cities[0].b = [{ k: 'harbour', s: now - 2 * 864e5, d: now - 864e5, a: 1, tr: 2, ln: 'salvage', ug: 5 }]; n.dsp = { p: [c1, c2], r: 'h' }; G.commit(n); G.render();
+      n.cities[0].b = [{ k: 'harbour', s: now - 2 * 864e5, d: now - 864e5, a: 1, tr: 2, ln: 'salvage', ug: 5 }]; n.shp = { p: [c1, c2], r: 'h' }; G.commit(n); G.render();
       const n2 = G.S.nation, p = P.plan(n2, P.flByKey(k), t);
       return { ships: P.ships(n2), free: P.freeShips(n2, t), hb: p.hb && p.hb.c, sh: p.sh, selects: document.querySelectorAll('.xp-ship select[data-dshp]').length }; }, [two[0].c, two[1].c, both.key, both.t]);
     check('two ships, each with a home port: ship one sails from its own', sv2.ships === 2 && sv2.free.length === 2 && sv2.hb === two[0].c && sv2.sh === 0 && sv2.selects === 2, sv2);

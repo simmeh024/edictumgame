@@ -45545,10 +45545,10 @@ function dsFreeShips(n,t){
   const out=[];for(let i=0;i<k;i++)if(!used.has(i))out.push(i);return out;
 }
 function dsFreeAt(n,t){if(dsFreeShips(n,t).length)return 0;const B=dsVoyages(n).filter(e=>e.s<=t&&e.a+dsRest(e)>t);return B.length?Math.min(...B.map(e=>e.a+dsRest(e))):0;}
-/* the ports a player chose (n.dsp, in the private half): each ship's home port (p: a harbour city's cell, or null) and
+/* the ports a player chose (n.shp, in the private half; n.dsp is the Dispatch's classifieds): each ship's home port (p: a harbour city's cell, or null) and
    how the port is chosen when no home port can go (r: h the best haul, f the fastest voyage, c the cheapest) */
 const DS_RULES=[['h','the best haul'],['f','the fastest voyage'],['c','the cheapest voyage']];
-function dsPrefs(n){const d=n&&n.dsp&&typeof n.dsp==='object'?n.dsp:{},p=Array.isArray(d.p)?d.p:[];return {p:[0,1].map(i=>Number.isInteger(p[i])&&p[i]>=0?p[i]:null),r:DS_RULES.some(x=>x[0]===d.r)?d.r:'h'};}
+function dsPrefs(n){const d=n&&n.shp&&typeof n.shp==='object'?n.shp:{},p=Array.isArray(d.p)?d.p:[];return {p:[0,1].map(i=>Number.isInteger(p[i])&&p[i]>=0?p[i]:null),r:DS_RULES.some(x=>x[0]===d.r)?d.r:'h'};}
 const dsMins=o=>Math.max(12,Math.min(90,Math.round(15+75*Math.min(1,o.d/Math.max(1,o.reach)))));
 const dsCostSum=o=>{const c=flCost(o.d);return RES.reduce((a,r)=>a+(c[r]||0),0);};
 /* the harbours that can go, the rule's choice first; any that would arrive after the find is gone come last */
@@ -45674,7 +45674,7 @@ function dsPortFold(n,s,t,P){
   const sum=P.hb?`From ${esc(dsHbName(P.hb))} · ×${fmtAmt(P.hb.hm/100)}${w?` <small>${esc(w)}</small>`:''}`:'No port can go';
   return `<details class="ds-pp" data-dspp data-k="${esc(s.key)}"${open?' open':''}><summary class="xp-pill ds-pps${P.hb?'':' warn'}" aria-label="Sail from: ${P.hb?esc(dsHbName(P.hb)):'no port can go'}. Compare the ports">${sum}</summary>${open?dsPortList(n,s,t,P):''}</details>`;
 }
-/* the home ports (one for each ship) and the rule for the finds no home port can go to, as n.dsp keeps them */
+/* the home ports (one for each ship) and the rule for the finds no home port can go to, as n.shp keeps them */
 function dsHomeHTML(n,H){
   const PR=dsPrefs(n),k=dsShips(n),opt=i=>`<option value=""${PR.p[i]==null||!H.some(h=>h.c===PR.p[i])?' selected':''}>None</option>`+H.map(h=>`<option value="${h.c}"${PR.p[i]===h.c?' selected':''}>${esc(dsHbName(h))} · ×${fmtAmt(h.hm/100)} · ${h.reach} hexes</option>`).join('');
   const sel=(i,l)=>`<label class="ds-hl"><span>${l}</span><select data-dshp data-i="${i}">${opt(i)}</select></label>`;
@@ -45872,10 +45872,10 @@ document.addEventListener('click',e=>{
   if(a==='ds-far'){S.dsFar=!S.dsFar;render();return;}
   if(a==='ds-map'){const s=flByKey(k);if(!s)return;centerMain(s.c,NEAR_Z);S.flSel=k;S.mapSel=null;S.mapCell=null;S.mapTarget=null;S.mapSite=null;S.nwsOpen=null;S.trSel=null;go('map');return;}
 });
-/* the home ports and the rule are the nation's (n.dsp), so they follow the player to another device */
+/* the home ports and the rule are the nation's (n.shp), so they follow the player to another device */
 document.addEventListener('change',e=>{const el=e.target;if(!el||!el.dataset||(el.dataset.dshp==null&&el.dataset.dsrule==null)||!S.nation)return;
   const n=clone(S.nation),PR=dsPrefs(n);if(el.dataset.dshp!=null)PR.p[el.dataset.i==='1'?1:0]=el.value===''?null:+el.value;else PR.r=el.value;
-  n.dsp={p:PR.p,r:PR.r};commit(n);render();redrawMaps();});
+  n.shp={p:PR.p,r:PR.r};commit(n);render();redrawMaps();});
 /* a find's port picker opens one at a time; its list is drawn on opening (toggle does not bubble: caught on the way down) */
 document.addEventListener('toggle',e=>{const el=e.target;if(!el||!el.dataset||el.dataset.dspp==null)return;const k=el.dataset.k;
   if(el.open){if(S.dsPortOpen!==k){S.dsPortOpen=k;render();}}else if(S.dsPortOpen===k){S.dsPortOpen=null;render();}},true);
