@@ -127,6 +127,26 @@ try {
   check('the mission is rolled and reported', !!(await until(() => S(page, () => !window.__game.S.spyRolling && !!document.querySelector('#cv-result .report')), 8000)));
   check('the military report keeps the agent, and a dossier goes into the file', await S(page, () => { const G = window.__game, r = G.S.nation.intel[0]; return Number.isInteger(r.ai) && (!r.d || !!(G.S.nation.ifl && G.S.nation.ifl[r.tg] && G.S.nation.ifl[r.tg].a)); }));
 
+  /* a master spy's gift (27 Nov 2026): a readiness point below full readiness, one per 30 minutes, none at full; the report
+     keeps which (rp), for the referee, and says so */
+  const masterRun = async prep => {
+    await fresh(d); await d.edit(prep); await d.go('intel'); await page.click('[data-act="ib-tab"][data-t="ops"]'); await sleep(100);
+    await page.click('[data-act="cv-k"][data-k="w"]'); await sleep(150);
+    await page.evaluate(() => { const r = Math.random; Math.random = () => { Math.random = r; return 0.99; }; });
+    await page.click('[data-act="ib-mil"]');
+    await until(() => S(page, () => !window.__game.S.spyRolling && !!document.querySelector('#cv-result .report.k-master')), 8000);
+    return S(page, () => { const G = window.__game, r = G.S.nation.intel[0], el = document.querySelector('#cv-result .report'); return { k: r.k, rp: r.rp, ready: G.S.nation.ready, txt: el ? el.textContent : '' }; });
+  };
+  let m = await masterRun((n, now) => { n.intel = []; n.ready = 2; n.readyAt = now; });
+  check('a master result below full readiness gives a point, and says so', m.k === 'master' && m.rp === 1 && m.ready === 3 && /gave your army an extra readiness point/.test(m.txt), m);
+  m = await masterRun((n, now) => { n.ready = 2; n.readyAt = now; });
+  check('another within 30 minutes gives none, and says why', m.k === 'master' && m.rp === -1 && m.ready === 2 && /in the last 30 minutes/.test(m.txt), m);
+  m = await masterRun((n, now) => { n.intel = []; n.ready = 11; n.readyAt = now; });
+  check('at full readiness none, and the report says the army is already fully ready', m.k === 'master' && m.rp === 0 && /already fully ready/.test(m.txt), m);
+  await shot(page, 'desktop-master');
+  await fresh(d); await d.go('intel'); await page.click('[data-act="ib-tab"][data-t="ops"]'); await sleep(100);
+  await page.click('[data-act="cv-k"][data-k="w"]'); await sleep(150);
+
   /* home duty */
   await page.click('[data-act="ib-home"][data-i="2"]'); await sleep(150);
   check('home duty: the agent is off the planner and counted in your defences', await S(page, () => { const G = window.__game; return (G.S.nation.ag || []).some(a => a.i === 2 && a.h === 1) && !document.querySelector('.ib-chip[data-i="2"]') && /On home duty/.test(document.querySelector('.ib-ag.is-home').textContent); }));
@@ -154,12 +174,12 @@ try {
   /* the desk asks for these too */
   check('the desk has the Bureau’s tasks, and a legendary one', await S(page, () => { const T = window.__game.IB().DD_TASKS, L = window.__game.IB().DD_LEG; return ['cov', 'spy', 'gint', 'bu', 'covc'].every(k => T[k]) && T.covc.legend === 1 && !!L.covc && !!L.spy; }));
 
-  /* a reload keeps the roster, the file and the departments */
-  const before = await S(page, () => JSON.stringify({ ag: window.__game.S.nation.ag || [], f: Object.keys(window.__game.S.nation.ifl || {}), bu: window.__game.S.nation.bu }));
+  /* a reload keeps the roster, the file, the departments and what each master spy result gave (rp, for the referee) */
+  const before = await S(page, () => JSON.stringify({ ag: window.__game.S.nation.ag || [], f: Object.keys(window.__game.S.nation.ifl || {}), bu: window.__game.S.nation.bu, rp: (window.__game.S.nation.intel || []).filter(r => r.k === 'master').map(r => r.rp) }));
   await page.evaluate(() => window.__game.saveNow && window.__game.saveNow()); await sleep(800);
   await page.reload(); await page.waitForFunction(() => window.__game && window.__game.S.nation && window.__game.S.view);
-  const after = await S(page, () => JSON.stringify({ ag: window.__game.S.nation.ag || [], f: Object.keys(window.__game.S.nation.ifl || {}), bu: window.__game.S.nation.bu }));
-  check('a reload keeps the roster, the files and the departments', before === after, { before, after });
+  const after = await S(page, () => JSON.stringify({ ag: window.__game.S.nation.ag || [], f: Object.keys(window.__game.S.nation.ifl || {}), bu: window.__game.S.nation.bu, rp: (window.__game.S.nation.intel || []).filter(r => r.k === 'master').map(r => r.rp) }));
+  check('a reload keeps the roster, the files, the departments and the master reports’ gifts', before === after && /"rp":\[0\]/.test(before), { before, after });
   check('no script errors on the way', d.errors.length === 0, d.errors);
   await d.ctx.close();
 
