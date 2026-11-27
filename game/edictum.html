@@ -10187,6 +10187,35 @@ button[disabled] .gv-cost{opacity:.6}
 .xp-legend .xp-lg-ds{width:14px;height:14px}
 .xp-lg-sh{stroke:var(--accent);stroke-width:1.6;stroke-dasharray:2 3;stroke-linecap:round;opacity:.8}
 .ds-hbsel{max-width:100%;font:inherit;font-size:13px;padding:4px 6px;border:1px solid var(--rule);border-radius:4px;background:var(--sheet);color:var(--ink)}
+.ds-pp{display:inline-block;max-width:100%}
+.ds-pp[open]{display:block;flex-basis:100%}
+.ds-pps{cursor:pointer;list-style:none;max-width:100%}
+.ds-pps::-webkit-details-marker{display:none}
+.ds-pps::after{content:'';width:6px;height:6px;margin-left:2px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:translateY(-2px) rotate(45deg);flex:none}
+.ds-pp[open]>.ds-pps::after{transform:translateY(1px) rotate(225deg)}
+.ds-pps small{color:var(--ink-3);font-size:11.5px}
+.ds-pps:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.ds-prs{display:grid;gap:6px;margin-top:8px}
+.ds-pr{display:grid;gap:2px;text-align:left;width:100%;padding:8px 10px;border:1px solid var(--rule);border-radius:6px;background:var(--sheet);color:var(--ink);font:inherit;font-size:13px}
+button.ds-pr{cursor:pointer}
+button.ds-pr:hover{border-color:var(--accent)}
+.ds-pr.on{border-color:var(--accent);background:var(--accent-soft)}
+.ds-pr.off{background:var(--sheet-2);color:var(--ink-3)}
+.ds-pr-n{font-weight:600;display:flex;flex-wrap:wrap;gap:4px 6px;align-items:center}
+.ds-pr.off .ds-pr-n{font-weight:500}
+.ds-pr-f{font-size:12.5px;color:var(--ink-2)}
+.ds-pr.off .ds-pr-f{color:var(--ink-3)}
+.ds-chip{font:500 11px/1.3 var(--f-body);padding:1px 7px;border-radius:999px;background:var(--sheet-2);border:1px solid var(--rule);color:var(--ink-2)}
+.ds-pr.on .ds-chip{background:var(--sheet)}
+.ds-pr-auto{justify-self:start}
+.ds-pr-more{margin:0}
+.ds-card-ports{margin-top:10px}
+.ds-card-ports .hint{margin:0}
+.ds-home{display:flex;flex-wrap:wrap;gap:8px 14px;margin-top:12px}
+.ds-hl{display:grid;gap:3px;font-size:12.5px;color:var(--ink-2);min-width:0;flex:1 1 180px}
+.ds-hl select{max-width:100%;font:inherit;font-size:13px;padding:5px 6px;border:1px solid var(--rule);border-radius:4px;background:var(--sheet);color:var(--ink)}
+.ds-home-li{display:none}
+@media (max-width:720px){.xp-ship .ds-home{display:none}.ds-home-li{display:block}.ds-home-li .ds-home{margin-top:0}}
 .xp-list{flex:3 1 480px;list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px;min-width:0}
 .xp-item{background:var(--sheet);border:1px solid var(--rule);border-radius:6px;padding:16px 18px;display:grid;grid-template-columns:48px minmax(0,1fr);gap:16px;align-items:start;scroll-margin:90px 0 24px}
 .xp-item:focus{outline:none}
@@ -45508,12 +45537,13 @@ function dsSeaDist(c,reach){
   for(let h=0;h<q.length;h++){const a=q[h];if(d[a]>=reach)continue;for(let k=0;k<6;k++){const j=MAP.nbr[a*6+k];if(j>=0&&d[j]<0&&sea(j)){d[j]=d[a]+1;q.push(j);}}}
   d.cells=q;if(DS_SD.size>=16)DS_SD.delete(DS_SD.keys().next().value);DS_SD.set(key,d);return d;
 }
-/* the sea every harbour's ship reaches, as one mask */
-let DSU={k:'',v:null};
-function dsReachSet(n){
-  const H=n?dsHarbours(n):[],k=REG.id+'|'+H.map(h=>h.c+':'+h.reach).join(',');if(DSU.k===k&&DSU.v)return DSU.v;
-  const U=new Uint8Array(MAP.N);for(const h of H)for(const c of dsSeaDist(h.c,h.reach).cells)U[c]=1;DSU={k,v:U};return U;
+/* the sea some harbours' ships reach, as one mask (every harbour's, or the ports the small map shows); a few kept */
+const DSU=new Map();
+function dsReachSetOf(H){
+  const k=REG.id+'|'+H.map(h=>h.c+':'+h.reach).join(',');let U=DSU.get(k);if(U)return U;
+  U=new Uint8Array(MAP.N);for(const h of H)for(const c of dsSeaDist(h.c,h.reach).cells)U[c]=1;if(DSU.size>=4)DSU.delete(DSU.keys().next().value);DSU.set(k,U);return U;
 }
+function dsReachSet(n){return dsReachSetOf(n?dsHarbours(n):[]);}
 /* the harbours whose ship reaches a find, with the distance (d): those deep enough first, the richest haul first */
 function dsReachOf(s,H){const out=[];for(const h of H){const d=dsSeaDist(h.c,h.reach)[s.c];if(d>=1&&d<=h.reach)out.push(Object.assign({d},h));}return out;}
 function dsFit(s,H){return dsReachOf(s,H).filter(o=>o.band>=s.bd).sort((a,b)=>b.hm-a.hm||a.d-b.d);}
@@ -45524,7 +45554,38 @@ const dsRest=e=>e.r===1?DS_DMG_CD:DS_CD;
 function dsAtSea(n,t){return dsVoyages(n).filter(e=>e.a>t);}
 function dsInDock(n,t){return dsVoyages(n).filter(e=>e.a<=t&&e.a+dsRest(e)>t);}
 function dsDue(n,t){return dsVoyages(n).filter(e=>!e.h&&e.a<=t);}
-function dsFreeAt(n,t){const B=dsVoyages(n).filter(e=>e.s<=t&&e.a+dsRest(e)>t);if(B.length<dsShips(n))return 0;return Math.min(...B.map(e=>e.a+dsRest(e)));}
+/* which ships are free in port at t, by index: a voyage names its ship (sh: 0, or 1 for a Salvage Port's second); one
+   sent before ships had names takes the first ship not named */
+function dsFreeShips(n,t){
+  const k=dsShips(n),B=dsVoyages(n).filter(e=>e.s<=t&&e.a+dsRest(e)>t),used=new Set();
+  for(const e of B)if(e.sh===0||e.sh===1)used.add(e.sh);
+  for(const e of B)if(e.sh!==0&&e.sh!==1)for(let i=0;i<2;i++)if(!used.has(i)){used.add(i);break;}
+  const out=[];for(let i=0;i<k;i++)if(!used.has(i))out.push(i);return out;
+}
+function dsFreeAt(n,t){if(dsFreeShips(n,t).length)return 0;const B=dsVoyages(n).filter(e=>e.s<=t&&e.a+dsRest(e)>t);return B.length?Math.min(...B.map(e=>e.a+dsRest(e))):0;}
+/* the ports a player chose (n.shp, in the private half; n.dsp is the Dispatch's classifieds): each ship's home port (p: a harbour city's cell, or null) and
+   how the port is chosen when no home port can go (r: h the best haul, f the fastest voyage, c the cheapest) */
+const DS_RULES=[['h','the best haul'],['f','the fastest voyage'],['c','the cheapest voyage']];
+function dsPrefs(n){const d=n&&n.shp&&typeof n.shp==='object'?n.shp:{},p=Array.isArray(d.p)?d.p:[];return {p:[0,1].map(i=>Number.isInteger(p[i])&&p[i]>=0?p[i]:null),r:DS_RULES.some(x=>x[0]===d.r)?d.r:'h'};}
+const dsMins=o=>Math.max(12,Math.min(90,Math.round(15+75*Math.min(1,o.d/Math.max(1,o.reach)))));
+const dsCostSum=o=>{const c=flCost(o.d);return RES.reduce((a,r)=>a+(c[r]||0),0);};
+/* the harbours that can go, the rule's choice first; any that would arrive after the find is gone come last */
+function dsByRule(fit,r,s,t){
+  const late=o=>t+dsMins(o)*60000>=s.e?1:0,key=r==='f'?(a,b)=>dsMins(a)-dsMins(b):r==='c'?(a,b)=>dsCostSum(a)-dsCostSum(b):()=>0;
+  return fit.slice().sort((a,b)=>late(a)-late(b)||key(a,b)||b.hm-a.hm||a.d-b.d);
+}
+/* the port chosen for a find, kept on this device until the find is gone (S.dsHb by key, S.dsHbE when each ends) */
+const DS_PICK_KEY='edictum.dsPort';
+function dsPicks(){
+  if(!S.dsHb){const v={},E={};try{const o=JSON.parse(localStorage.getItem(DS_PICK_KEY)||'{}')||{},now=Date.now();for(const k in o){const q=o[k];if(Array.isArray(q)&&Number.isInteger(q[0])&&q[1]>now){v[k]=q[0];E[k]=q[1];}}}catch(e){}S.dsHb=v;S.dsHbE=E;}
+  return S.dsHb;
+}
+function dsPick(k){const v=dsPicks()[k];return Number.isInteger(v)?v:null;}
+function dsSetPick(k,c){
+  dsPicks();const s=flByKey(k),v=Object.assign({},S.dsHb),E=Object.assign({},S.dsHbE||{});
+  if(c==null){delete v[k];delete E[k];}else{v[k]=c;E[k]=s&&s.e?s.e:Date.now()+2*DAY;}
+  S.dsHb=v;S.dsHbE=E;try{const o={},now=Date.now();for(const q in v)if(E[q]>now)o[q]=[v[q],E[q]];localStorage.setItem(DS_PICK_KEY,JSON.stringify(o));}catch(e){}
+}
 /* the roll's modifiers at sea: science and education as for a party, the navy, a Naval Dockyard, the Harbour (blue +1,
    gold or a Grand Port +2), a genius, and the weather over the find on arrival (calm seas +1) */
 function dsParts(n,s,hb,ta){
@@ -45561,15 +45622,22 @@ function dsFarWhy(s,H,all){
   if(deep.length)return {g,why:`No sea route leads there from ${deep.length>2?'your deeper Harbours':list(deep.map(dsHbName))}, and ${near} ${all.length>1?'are':'is'} too shallow: ${need}.`};
   return {g,why:`Too deep for your harbours: ${need}.`};
 }
-/* everything about sending a ship to a find now: the harbour (the one asked for if it fits, or the best), the voyage, the
-   cost, the roll, and why not; why the find is beyond every harbour's reach (rw), even while the ship is busy, so the
-   list still files it among those out of reach; with no harbour to sail from, the distance (d) is from the harbour that
-   comes nearest to sailing (dh names it) */
+/* everything about sending a ship to a find now: the harbour (how: the one chosen for this find if it can go, else a free
+   ship's home port if it gets there in time, else the rule's choice), the ship that sails (sh: the one whose home port it
+   is, or one whose home port cannot go), the voyage, the cost, the roll, and why not; why the find is beyond every
+   harbour's reach (rw), even while the ship is busy, so the list still files it among those out of reach; with no
+   harbour to sail from, the distance (d) is from the harbour that comes nearest to sailing (dh names it). pref left out
+   is the port remembered for the find (dsPick); null asks for none */
 function dsPlan(n,s,t,pref){
   t=t==null?flNow():t;const H=dsHarbours(n),st=flState(s,t),me=myId(),P=(n&&n.fl)||[],all=dsReachOf(s,H),fit=all.filter(o=>o.band>=s.bd).sort((a,b)=>b.hm-a.hm||a.d-b.d);
-  const hb=fit.find(o=>o.c===pref)||fit[0]||null,rg=H.length?Math.max(...H.map(h=>h.reach)):DS_REACH,lake=!hb&&H.length&&H.every(h=>!dsSeaDist(h.c,h.reach).cells.length);
+  if(pref===undefined)pref=dsPick(s.key);
+  const PR=dsPrefs(n),fs=dsFreeShips(n,t),ships=fs.length?fs:Array.from({length:dsShips(n)},(x,i)=>i),inTime=o=>t+dsMins(o)*60000<s.e;
+  let hb=fit.find(o=>o.c===pref)||null,how=hb?'pick':'';
+  if(!hb)for(const i of ships){const o=fit.find(q=>q.c===PR.p[i]&&inTime(q));if(o){hb=o;how='home';break;}}
+  if(!hb&&fit.length){hb=dsByRule(fit,PR.r,s,t)[0];how='rule';}
+  const sh=hb?(ships.find(i=>PR.p[i]===hb.c)??ships.find(i=>!fit.some(q=>q.c===PR.p[i]))??ships[0]):ships[0],rg=H.length?Math.max(...H.map(h=>h.reach)):DS_REACH,lake=!hb&&H.length&&H.every(h=>!dsSeaDist(h.c,h.reach).cells.length);
   const far=!hb&&H.length&&!lake?dsFarWhy(s,H,all):null,rw=!H.length?'Build a Harbour in a coastal city, and a salvage ship can sail from it.':lake?'Your Harbours open onto lakes, not the open sea. Build one in a city on the sea coast.':far?far.why:'',nr=all.length?all.reduce((a,o)=>o.d<a.d?o:a):null,ds=hb||(far&&far.g?Object.assign({},far.g,{d:far.g.fd}):nr),d=ds?ds.d:null,dh=ds?dsHbName(ds):'';
-  const mins=hb?Math.max(12,Math.min(90,Math.round(15+75*Math.min(1,hb.d/Math.max(1,hb.reach))))):null,ta=hb?t+mins*60000:null,cost=flCost(hb?hb.d:0),parts=hb?dsParts(n,s,hb,ta):[],mod=parts.reduce((a,q)=>a+q[1],0);
+  const mins=hb?dsMins(hb):null,ta=hb?t+mins*60000:null,cost=flCost(hb?hb.d:0),parts=hb?dsParts(n,s,hb,ta):[],mod=parts.reduce((a,q)=>a+q[1],0);
   const ahead=ta?st.list.filter(e=>e.id!==me&&e.place>=0&&e.a<=ta).length:0,fa=dsFreeAt(n,t);let why='';
   if(t>=s.e)why='It has gone.';
   else if(P.some(e=>e.k===s.key)){const e=st.list.find(q=>q.id===me);why=!e?'Your ship has been here already. Each nation may claim a find once.':e.a>t?`Your salvage ship is on its way here, arriving in ${fmtDur(e.a-t)}.`:e.place>0?`You hold the ${FL_ORD[e.place]} of its five places.`:'Your ship found it picked clean. Each nation may claim a find once.';}
@@ -45579,16 +45647,73 @@ function dsPlan(n,s,t,pref){
   else if(rw)why=rw;
   else if(ta>=s.e)why=`It vanishes in ${fmtDur(s.e-t)}, and your ship needs ${fmtDur(mins*60000)} to get there.`;
   else{const lack=lacking(cost,stockNow(n,Date.now()));if(lack.length)why=`You need ${list(lack)} more.`;}
-  return {hb,opts:fit,all,H,d,dh,rg,rw,mins,ta,fa,cost,parts,mod,why,st,ahead};
+  return {hb,how,sh,rule:PR.r,opts:fit,all,H,d,dh,rg,rw,mins,ta,fa,cost,parts,mod,why,st,ahead};
+}
+/* one search over the open sea from a find, so every harbour's distance to it is known at once (a harbour is one hex
+   beyond its nearest sea hex, as dsSeaDist counts); a few kept */
+const DS_FROM=new Map();
+function dsDistFrom(c){
+  const key=REG.id+'|'+(typeof RECL!=='undefined'&&RECL?RECL.sig:'')+'|'+c;let d=DS_FROM.get(key);if(d)return d;
+  const lk=LAKE||lakeMap(),sea=j=>MAP.T[j]<2&&!lk[j],q=[c];d=new Int16Array(MAP.N).fill(-1);d[c]=0;
+  for(let x=0;x<q.length;x++){const a=q[x];for(let k=0;k<6;k++){const j=MAP.nbr[a*6+k];if(j>=0&&d[j]<0&&sea(j)){d[j]=d[a]+1;q.push(j);}}}
+  if(DS_FROM.size>=4)DS_FROM.delete(DS_FROM.keys().next().value);DS_FROM.set(key,d);return d;
+}
+function dsHbDist(D,c){let m=-1;for(let k=0;k<6;k++){const j=MAP.nbr[c*6+k];if(j>=0&&D[j]>=0&&(m<0||D[j]+1<m))m=D[j]+1;}return m;}
+/* every harbour as a choice for a find (P from dsPlan): those that can go, with the haul, distance, voyage, cost and
+   roll, tagged the best haul, the fastest and the cheapest where they differ, and as a ship's home port; then those that
+   cannot, with why (a lake, too far, no sea route, too shallow, too slow) */
+function dsPortRows(n,s,t,P){
+  const PR=dsPrefs(n),D=dsDistFrom(s.c),rows=P.H.map(h=>{
+    const o=P.all.find(q=>q.c===h.c),home=[0,1].filter(i=>PR.p[i]===h.c);let why='';
+    if(!dsSeaDist(h.c,h.reach).cells.length)why='Opens onto a lake, not the open sea';
+    else if(!o){const fd=dsHbDist(D,h.c);why=fd>=1?`Too far: ${fd} hexes by sea, and its ship sails ${h.reach}`:'No sea route leads there';}
+    else if(o.band<s.bd)why=s.bd===2?'Too shallow: the abyss needs a gold Harbour or a Grand Port':'Too shallow: deep water needs a blue Harbour or better';
+    const mins=o?dsMins(o):null;if(!why&&t+mins*60000>=s.e)why=`Too slow: the voyage takes ${fmtDur(mins*60000)}, and the find is gone in ${fmtDur(s.e-t)}`;
+    return {h,c:h.c,d:o?o.d:null,mins,cost:o?flCost(o.d):null,sum:o?dsCostSum(o):0,mod:o&&!why?dsParts(n,s,o,t+mins*60000).reduce((a,q)=>a+q[1],0):null,why,home,tags:[],sel:!!(P.hb&&P.hb.c===h.c)};});
+  const ok=rows.filter(r=>!r.why),tag=(f,best,label)=>{const v=ok.map(f),b=best(...v);if(v.some(x=>x!==b))for(const r of ok)if(f(r)===b)r.tags.push(label);};
+  if(ok.length>1){tag(r=>r.h.hm,Math.max,'Best haul');tag(r=>r.mins,Math.min,'Fastest');tag(r=>r.sum,Math.min,'Cheapest');}
+  return ok.sort((a,b)=>b.h.hm-a.h.hm||a.d-b.d).concat(rows.filter(r=>r.why));
+}
+/* the picker's list: each port that can go as a button, each that cannot greyed with why (six at most), and a way back to
+   the game's own choice once one is chosen for this find */
+function dsPortList(n,s,t,P){
+  const R=dsPortRows(n,s,t,P),k2=dsShips(n)>1,ok=R.filter(r=>!r.why),no=R.filter(r=>r.why),no6=no.slice(0,6),key=esc(s.key);
+  const chips=r=>r.home.map(i=>k2?(i?'Ship two’s home':'Ship one’s home'):'Home port').concat(r.tags).map(x=>`<span class="ds-chip">${esc(x)}</span>`).join('');
+  const one=r=>`<button type="button" class="ds-pr${r.sel?' on':''}" data-act="ds-port" data-k="${key}" data-c="${r.c}" aria-pressed="${r.sel}"><span class="ds-pr-n">${esc(dsHbName(r.h))}${chips(r)}</span><span class="ds-pr-f">×${fmtAmt(r.h.hm/100)} haul · ${r.d} ${r.d===1?'hex':'hexes'} · ${fmtDur(r.mins*60000)} · ${esc(costText(r.cost))} · d20 ${r.mod>=0?'+':'−'} ${Math.abs(r.mod)}</span></button>`;
+  const off=r=>`<div class="ds-pr off" aria-disabled="true"><span class="ds-pr-n">${esc(dsHbName(r.h))}${chips(r)}</span><span class="ds-pr-f">${esc(r.why)}</span></div>`;
+  const back=dsPick(s.key)!=null?`<button type="button" class="linkish small ds-pr-auto" data-act="ds-port" data-k="${key}" data-c="">Forget my choice for this find</button>`:'';
+  return `<div class="ds-prs" role="group" aria-label="Sail from">${ok.map(one).join('')}${no6.map(off).join('')}${no.length>no6.length?`<p class="hint ds-pr-more">And ${no.length-no6.length} more that cannot go.</p>`:''}${back}</div>`;
+}
+/* the picker on a find's row: a fold showing the port and why it was chosen, opening to every port (S.dsPortOpen, one at
+   a time); its list is worked out only when open */
+function dsPortWhy(P){return P.how==='pick'?'your choice':P.how==='home'?'home port':P.how==='rule'&&P.opts.length>1?DS_RULES.find(x=>x[0]===P.rule)[1]:'';}
+function dsPortFold(n,s,t,P){
+  if(!P.H.length)return '';const open=S.dsPortOpen===s.key,w=dsPortWhy(P);
+  const sum=P.hb?`From ${esc(dsHbName(P.hb))} · ×${fmtAmt(P.hb.hm/100)}${w?` <small>${esc(w)}</small>`:''}`:'No port can go';
+  return `<details class="ds-pp" data-dspp data-k="${esc(s.key)}"${open?' open':''}><summary class="xp-pill ds-pps${P.hb?'':' warn'}" aria-label="Sail from: ${P.hb?esc(dsHbName(P.hb)):'no port can go'}. Compare the ports">${sum}</summary>${open?dsPortList(n,s,t,P):''}</details>`;
+}
+/* the home ports (one for each ship) and the rule for the finds no home port can go to, as n.shp keeps them */
+function dsHomeHTML(n,H){
+  const PR=dsPrefs(n),k=dsShips(n),opt=i=>`<option value=""${PR.p[i]==null||!H.some(h=>h.c===PR.p[i])?' selected':''}>None</option>`+H.map(h=>`<option value="${h.c}"${PR.p[i]===h.c?' selected':''}>${esc(dsHbName(h))} · ×${fmtAmt(h.hm/100)} · ${h.reach} hexes</option>`).join('');
+  const sel=(i,l)=>`<label class="ds-hl"><span>${l}</span><select data-dshp data-i="${i}">${opt(i)}</select></label>`;
+  return `<div class="ds-home">${sel(0,k>1?'Ship one’s home port':'Home port')}${k>1?sel(1,'Ship two’s home port'):''}<label class="ds-hl"><span>${PR.p.some(c=>c!=null&&H.some(h=>h.c===c))?'Otherwise, sail for':'Sail for'}</span><select data-dsrule>${DS_RULES.map(([v,l])=>`<option value="${v}"${PR.r===v?' selected':''}>${cap1(l)}</option>`).join('')}</select></label></div>`;
+}
+/* the harbours whose reach the small map draws: the port the selected find would sail from, else the home ports, else all */
+function dsMapPorts(n,t){
+  const H=dsHarbours(n);if(!H.length)return {H,lab:''};
+  const s=S.xpSel&&S.xpSel[0]==='g'?flByKey(S.xpSel.slice(1)):null;
+  if(s&&s.ds){const P=dsPlan(n,s,t),h=P.hb&&H.find(q=>q.c===P.hb.c);if(h)return {H:[h],lab:`Reach from ${h.nm}`};}
+  const PR=dsPrefs(n),hp=H.filter(h=>PR.p.includes(h.c));if(hp.length)return {H:hp,lab:`Reach from ${list(hp.map(h=>h.nm))}`};
+  return {H,lab:'Ship reach'};
 }
 const dsFar=why=>/^Out of reach|^Too deep|^Too far|^No sea route|^Build a Harbour|^Your Harbours open onto lakes/.test(why||'');
 function dsSend(key,pref){
-  const n0=S.nation,s=flByKey(key);if(!n0)return;if(!s||!s.ds){toast('That find has gone.');return;}
+  const n0=S.nation,s=flByKey(key);if(!n0)return;if(!s||!s.ds){toast('That find has gone.');return;}if(pref===undefined)pref=dsPick(key);
   const t=flNow(),P=dsPlan(n0,s,t,pref);if(P.why){toast(P.why);return;}
   const now=Date.now(),n=clone(n0),st=stockNow(n0,now);for(const r of RES)st[r]-=P.cost[r]||0;n.stock=roundStock(st);n.stockAt=now;n._stockSet=true;
-  n.fl=(n.fl||[]).concat({k:key,s:t,a:P.ta,r:1+hash(myId()+'|'+key+'|'+t+'|ds')%20,m:P.mod,hb:P.hb.c,hm:P.hb.hm,hl:P.hb.hl}).slice(-FL_N);
+  n.fl=(n.fl||[]).concat({k:key,s:t,a:P.ta,r:1+hash(myId()+'|'+key+'|'+t+'|ds')%20,m:P.mod,hb:P.hb.c,hm:P.hb.hm,hl:P.hb.hl,sh:P.sh}).slice(-FL_N);
   commit(n);render();redrawMaps();
-  toast(`The salvage ship sails from ${P.hb.nm} for ${flKindOf(s).a} ${placePhrase(s.c)}. It arrives in ${fmtDur(P.mins*60000)}.`);
+  toast(`${dsShips(n0)>1?(P.sh?'Your second ship':'Your first ship'):'The salvage ship'} sails from ${P.hb.nm} for ${flKindOf(s).a} ${placePhrase(s.c)}. It arrives in ${fmtDur(P.mins*60000)}.`);
 }
 function dsBump(n,k){if(!n.tly||typeof n.tly!=='object')n.tly={};n.tlf=n.tlf||{};if(Object.keys(n.tly).length>=TALLY_MAX&&!(k in n.tly))return;n.tly[k]=(n.tly[k]||0)+1;if(!n.tlf[k])n.tlf[k]=Date.now();}
 /* on hearing a ship's report (flHear, before it saves): the tally, a curio for the Museum, and the harbour's part */
@@ -45617,18 +45742,19 @@ function dsChest(g,x,y,R,col,dk){
 function dsIconSVG(cls){return `<svg class="${cls||'fl-svg'} ds-svg" width="18" height="18" viewBox="-8 -8 16 16" aria-hidden="true"><path d="M-5-.4C-5-3 -2.8-4.4 0-4.4S5-3 5-.4zM-5-.4h10v5h-10z" class="ds-cb"/><path d="M-1-1.2h2v2.6h-2z" class="ds-lk"/><circle cx="5.4" cy="-5.6" r=".95" class="ds-bb"/><circle cx="3.5" cy="-7.3" r=".6" class="ds-bb"/></svg>`;}
 /* the side panel: the find, its depth, its places, the haul from your best harbour (or the one you choose), the voyage */
 function dsCard(s){
-  const n=S.nation,t=flNow(),K=flKindOf(s),st=flState(s,t),P=dsPlan(n,s,t,S.dsHb&&S.dsHb[s.key]),me=myId(),left=s.e-t,hm=P.hb?P.hb.hm/100:1;
+  const n=S.nation,t=flNow(),K=flKindOf(s),st=flState(s,t),P=dsPlan(n,s,t),me=myId(),left=s.e-t,hm=P.hb?P.hb.hm/100:1;
   const who=st.got.map(e=>(e.id===me?'you':nameOf(e.id))+(e.first?' (first)':''));
   const fx=K.fx.filter(([q])=>q!=='rp'||typeof btRP==='function').map(([q,v,mode,h])=>`${esc(flFxText(q,v*hm))}, ${flFxRule(mode,h)}`).join('<br>');
   const row=(k,v)=>`<div><dt>${k}</dt><dd>${v}</dd></div>`;
-  const from=P.opts.length>1?`<select class="ds-hbsel" data-dshb data-k="${esc(s.key)}" aria-label="Sail from">${P.opts.map(o=>`<option value="${o.c}"${P.hb&&o.c===P.hb.c?' selected':''}>${esc(dsHbName(o))} · ×${fmtAmt(o.hm/100)} · ${o.d} hexes</option>`).join('')}</select>`:P.hb?`${esc(dsHbName(P.hb))} · ×${fmtAmt(hm)}`:'';
+  const w=dsPortWhy(P),from=P.H.length?`${P.hb?`<b>${esc(dsHbName(P.hb))}</b> · ×${fmtAmt(hm)}${w?` <span class="hint">(${esc(w)})</span>`:''}`:'<span class="hint">No port can go</span>'}`:'';
   return `<section class="fl-card ds-card" aria-labelledby="fl-card-h"><p class="nws-eb fl-eb">${dsIconSVG()}<span>Deep-sea find · ${esc(DS_BAND_S[s.bd])}${s.sea>=0?' · '+FL_SEAS[s.sea]:''}</span>${st.mine?'<span class="chip you">Claimed</span>':st.going?'<span class="chip you">On the way</span>':''}</p>
     <h2 class="mp-h" id="fl-card-h" tabindex="-1">${esc(K.n)}</h2><p class="muted">${esc(cap1(K.d))}, ${esc(placePhrase(s.c))}.${s.wx?` Sent down by ${esc(s.wx)}.`:''}</p>
     <div class="fl-time"><span class="bar fl-tbar${left<FL_H?' warn':''}"><i style="width:${(clamp(left/s.L,0,1)*100).toFixed(1)}%"></i></span><span class="hint">Gone in <b>${fmtDur(left)}</b>, at ${fmtTime(s.e)}. It turned up ${fmtDur(t-s.b)} ago.</span></div>
     <dl class="mp-dl">${row('Places',`${st.taken} of 5 taken${who.length?': '+esc(list(who)):''}${st.way.length?`<br><span class="hint">${st.way.length} ${st.way.length===1?'ship':'ships'} on the way</span>`:''}`)}
     ${row('Depth',`${esc(DS_BAND_S[s.bd])}: ${esc(DS_BAND_NEED[s.bd])}`)}
     ${row('Bonus',fx+(P.hb?`<br><span class="hint">With ×${fmtAmt(hm)} from the harbour, for a fair share in third place. First place takes ×1.5 of that, fifth ×0.5.</span>`:''))}
-    ${P.hb?row('Sails from',from)+row('Distance',`${P.d} ${P.d===1?'hex':'hexes'} by sea`)+row('Voyage',fmtDur(P.mins*60000))+row('Cost',esc(costText(P.cost)))+row('Your roll',`d20 ${P.mod>=0?'+':'−'} ${Math.abs(P.mod)}`):P.d!=null?row('Distance',`${P.d} ${P.d===1?'hex':'hexes'} by sea${P.dh?` from ${esc(P.dh)}`:''}`):''}</dl>
+    ${P.H.length?row('Sails from',from):''}${P.hb?row('Distance',`${P.d} ${P.d===1?'hex':'hexes'} by sea`)+row('Voyage',fmtDur(P.mins*60000))+row('Cost',esc(costText(P.cost)))+row('Your roll',`d20 ${P.mod>=0?'+':'−'} ${Math.abs(P.mod)}`):P.d!=null?row('Distance',`${P.d} ${P.d===1?'hex':'hexes'} by sea${P.dh?` from ${esc(P.dh)}`:''}`):''}</dl>
+    ${P.H.length>1?`<div class="ds-card-ports"><p class="hint">Compare the ports: choose one for this find.</p>${dsPortList(n,s,t,P)}</div>`:''}
     ${P.why?`<p class="hint" style="margin-top:10px">${esc(P.why)}</p>`:P.ahead?`<p class="hint" style="margin-top:10px">As things stand, ${P.ahead} ${P.ahead===1?'ship gets':'ships get'} there before yours${P.ahead>=FL_PLACES?': you would find it picked clean':''}.</p>`:''}
     <div class="row" style="margin-top:12px">${P.why?'':`<button class="btn" data-act="ds-send" data-k="${esc(s.key)}">Send the salvage ship</button>`}<button class="btn ghost" data-act="go" data-v="explore">Expeditions</button><button class="btn ghost" data-act="fl-close">Close</button></div></section>`;
 }
@@ -45650,8 +45776,9 @@ function dsShipCard(n,t){
   else{eb='Ready';h=k>1?'Two ships are provisioned':'A ship is provisioned';const c=L.length,fw=c===1?'find is':'finds are';
     lede=!c?'Nothing is about at sea just now. Something new turns up every few hours.':near?`${c} deep-sea ${fw} about, ${near} within your ships’ reach. They are in the list below.`:`${c} deep-sea ${fw} about, none within your ships’ reach. Every Harbour upgrade adds ${DS_BLOCK_R} hexes, and blue and gold Harbours reach deeper water.`;}
   const line=H.length?`<b>Salvage ship:</b> ${esc(eb.toLowerCase())}${near?`, ${near} ${near===1?'find':'finds'} in reach`:''}. <button type="button" class="linkish small" data-act="xp-f" data-v="ds">Deep sea</button>`:'';
-  const pills=best?xpPill(`Best: ${esc(dsHbName(best))}, haul ×${fmtAmt(best.hm/100)}`)+xpPill('The first five ships share each find'):xpPill('Harbour upgrades make the hauls richer');
-  return {html:`<section class="xp-card xp-ship${idle?' xp-idle':''}" aria-labelledby="xp-ds-h">${hd}<div class="xp-st">${die}<div class="xp-st-t"><p class="eyebrow xp-eb-a">${eb}</p><h2 class="xp-h" id="xp-ds-h">${h}</h2></div></div><p class="xp-lede">${lede}</p>${bar}${acts}
+  const PR=dsPrefs(n),hp=H.find(q=>q.c===PR.p[0]),pills=hp?xpPill(`Home port: ${esc(dsHbName(hp))}, haul ×${fmtAmt(hp.hm/100)}`)+xpPill('The first five ships share each find'):best?xpPill(`Best: ${esc(dsHbName(best))}, haul ×${fmtAmt(best.hm/100)}`)+xpPill('The first five ships share each find'):xpPill('Harbour upgrades make the hauls richer');
+  const home=H.length&&!lake?dsHomeHTML(n,H):'';
+  return {html:`<section class="xp-card xp-ship${idle?' xp-idle':''}" aria-labelledby="xp-ds-h">${hd}<div class="xp-st">${die}<div class="xp-st-t"><p class="eyebrow xp-eb-a">${eb}</p><h2 class="xp-h" id="xp-ds-h">${h}</h2></div></div><p class="xp-lede">${lede}</p>${bar}${acts}${home}
     <div class="xp-pills xp-foot">${pills}</div></section>`,line};
 }
 /* one deep find in the list: its time left as a ring, its places, the odds, its bonus from your best harbour, the cost */
@@ -45666,14 +45793,15 @@ function dsItemHTML(s,P,n,t){
   const fx=(K.fx||[]).filter(([q])=>q!=='rp'||typeof btRP==='function').map(([q,v,mode,h])=>`<span class="xp-pill rew" title="${esc(flFxRule(mode,h))}, a fair share in third place">${esc(flFxText(q,v*hm))}</span>`).join('');
   const cost=P.hb&&P.cost?RES.filter(r=>P.cost[r]).map(r=>`<span>${resIco(r,'s')}${P.cost[r]} ${esc(resName(r))}</span>`).join(''):'';
   const ahead=!why&&P.ahead?xpPill(`${P.ahead} ${P.ahead===1?'ship gets':'ships get'} there before yours`,P.ahead>=FL_PLACES?'warn':''):'';
-  const from=P.hb?xpPill(`${esc(dsHbName(P.hb))} · ×${fmtAmt(hm)}`):'';
+  const from=dsPortFold(n,s,t,P);
   return `<li class="xp-item xp-fl xp-ds${far?' xp-far':''}${st.mine?' mine':''}${S.xpSel===id?' is-sel':''}" id="${xpItemId(id)}" tabindex="-1">${tmr}<div class="xp-ib">
     <div class="xp-it"><div class="xp-tt"><h3>${esc(K.n)} ${xpPill(esc(DS_BAND_S[s.bd]),'sm'+(s.bd===2?' seal':''))}${s.sea>=0?' '+xpPill(esc(cap1(FL_SEAS[s.sea])),'sm'):''}${st.mine?' '+xpPill('Claimed','rew sm'):st.going?' '+xpPill('On the way','rew sm'):''}</h3><p class="xp-meta">${esc(cap1(placePhrase(s.c)))}${P.d!=null?` · ${P.d} ${P.d===1?'hex':'hexes'} by sea`:''} · <span class="xp-nw${left<FL_H?' xp-soon':''}">gone in <b data-live="exp" data-t="${s.e}">${fmtDur(left)}</b></span></p></div><div class="xp-go">${go}</div></div>
     ${odds}<div class="xp-rw"><span class="xp-places">${pips}</span>${fx}${from}${ahead}<span class="xp-cost">${cost}</span></div></div></li>`;
 }
-function dsDestList(n,t){const L=dsAlive(t),near=[],far=[];for(const s of L){const P=dsPlan(n,s,t,S.dsHb&&S.dsHb[s.key]);(dsFar(P.why)||dsFar(P.rw)?far:near).push(dsItemHTML(s,P,n,t));}return {near,far,count:L.length};}
+function dsDestList(n,t){const L=dsAlive(t),near=[],far=[];for(const s of L){const P=dsPlan(n,s,t);(dsFar(P.why)||dsFar(P.rw)?far:near).push(dsItemHTML(s,P,n,t));}return {near,far,count:L.length};}
 function dsListHTML(n,t,ds){
-  let out=(dsHarbours(n).length?'':'<li class="xp-note">Deep-sea finds are reached by a salvage ship from a Harbour. Build one in a coastal city to send it.</li>')+dsSoonHTML(n,t)+ds.near.join('');
+  const H=dsHarbours(n),lake=H.length&&H.every(h=>!dsSeaDist(h.c,h.reach).cells.length);
+  let out=(H.length?lake?'':`<li class="xp-note ds-home-li">${dsHomeHTML(n,H)}</li>`:'<li class="xp-note">Deep-sea finds are reached by a salvage ship from a Harbour. Build one in a coastal city to send it.</li>')+dsSoonHTML(n,t)+ds.near.join('');
   if(!ds.count)out+='<li class="xp-note">Nothing is about at sea just now. Something new turns up every few hours.</li>';
   else if(!S.xpNear&&ds.far.length)out+=S.dsFar?ds.far.join('')+`<li class="xp-li-more"><button type="button" class="btn ghost" data-act="ds-far">Hide the deep-sea finds out of reach</button></li>`:`<li class="xp-li-more"><button type="button" class="btn ghost" data-act="ds-far">Show ${ds.far.length} more deep-sea ${ds.far.length===1?'find':'finds'} out of reach</button></li>`;
   else if(!ds.near.length)out+='<li class="xp-note">No deep-sea find is within your ships’ reach just now.</li>';
@@ -45687,9 +45815,9 @@ function dsSoonHTML(n,t){
 }
 /* the small map: a dotted line round the sea your ships reach, and each deep find as a chest (faint out of reach) */
 function dsXpMap(M,items,sel,t){
-  const n=S.nation;if(!n||!M.scr)return;const g=M.g,col=M.col,dk=rlfDark(col),U=dsHarbours(n).length?dsReachSet(n):null;
-  if(U){const cells=[];for(let c=0;c<MAP.N;c++){if(!U[c])continue;const x=MAP.cx[c],y=MAP.cy[c];if(x<M.x0||x>M.x1||y<M.y0||y>M.y1)continue;cells.push(c);}
-    if(cells.length){g.save();g.setTransform(M.dpr*M.s,0,0,M.dpr*M.s,M.dpr*M.ox,M.dpr*M.oy);g.beginPath();edgeList(g,cells,(i,j)=>j>=0&&!U[j]&&MAP.T[j]<2);
+  const n=S.nation;if(!n||!M.scr)return;const g=M.g,col=M.col,dk=rlfDark(col),U=dsHarbours(n).length?dsReachSet(n):null,MP=U?dsMapPorts(n,t):null,O=MP&&MP.H.length?dsReachSetOf(MP.H):null;
+  if(O){const cells=[];for(let c=0;c<MAP.N;c++){if(!O[c])continue;const x=MAP.cx[c],y=MAP.cy[c];if(x<M.x0||x>M.x1||y<M.y0||y>M.y1)continue;cells.push(c);}
+    if(cells.length){g.save();g.setTransform(M.dpr*M.s,0,0,M.dpr*M.s,M.dpr*M.ox,M.dpr*M.oy);g.beginPath();edgeList(g,cells,(i,j)=>j>=0&&!O[j]&&MAP.T[j]<2);
       g.setLineDash([2/M.s,3/M.s]);g.lineCap='round';g.strokeStyle=col.accent;g.globalAlpha=0.8;g.lineWidth=1.6/M.s;g.stroke();g.setLineDash([]);g.restore();}}
   for(const s of dsAlive(t)){const [x,y]=M.scr(s.c);if(M.off(x,y))continue;const left=clamp((s.e-t)/s.L,0,1),far=!(U&&U[s.c]);g.globalAlpha=far?0.5:1;
     g.beginPath();g.arc(x,y,9.5,0,FL_TAU);g.fillStyle=col.sheet;g.fill();g.lineWidth=2.6;g.strokeStyle=col.coast||col.ink;g.stroke();
@@ -45698,7 +45826,7 @@ function dsXpMap(M,items,sel,t){
     if(sel==='g'+s.key){g.beginPath();g.arc(x,y,16,0,FL_TAU);g.lineWidth=2.6;g.strokeStyle=col.accent;g.stroke();}
     items.push({x,y,id:'g'+s.key});}
 }
-function dsXpLegend(n){return `<span>${dsIconSVG('xp-lg-ds')}Deep-sea find</span>${dsHarbours(n).length?'<span><svg viewBox="0 0 22 14" aria-hidden="true"><path d="M1 7h20" class="xp-lg-sh"/></svg>Ship reach</span>':''}`;}
+function dsXpLegend(n){const MP=dsHarbours(n).length?dsMapPorts(n,flNow()):null;return `<span>${dsIconSVG('xp-lg-ds')}Deep-sea find</span>${MP?`<span><svg viewBox="0 0 22 14" aria-hidden="true"><path d="M1 7h20" class="xp-lg-sh"/></svg>${esc(MP.lab)}</span>`:''}`;}
 /* what the Expeditions page redraws for: the finds at sea, the ships at sea, in port and in dock */
 function dsSig(n,t){try{return dsAlive(t).map(s=>s.key).join(',')+'|'+dsAtSea(n,t).length+dsDue(n,t).length+(dsFreeAt(n,t)?1:0);}catch(e){return '';}}
 
@@ -45722,7 +45850,7 @@ DISPATCH_SOURCES.push(ctx=>{
 });
 /* ── How to play ── */
 HELP_EXT.push({k:'deepsea',t:'Deep-sea finds',body:n=>`<p>Out at sea there are fleeting finds of their own: <b>deep-sea finds</b>. Pearl beds and floating ambergris on the shelf near the coast; treasure galleons, sunken league galleys and freighters sent down by storms in deep water; and in the abyss, bullion steamers’ strongrooms, sea-floor meteorites, whale falls and lost bathyspheres. Four turn up only in their season: whales passing in spring, a coral reef spawning in summer, a wreck the autumn swell uncovers, and a ghost ship frozen into a winter iceberg. Each lasts <b>6 to 48 hours</b>, and the wider the region’s sea, the more there are.</p>
-<p><b>Salvage ships.</b> A party on foot cannot reach them: a <b>salvage ship</b> sails from one of your <b>Harbours</b>, by sea. It reaches ${DS_REACH} hexes, <b>${DS_BLOCK_R} more for each upgrade block</b> of that Harbour, and ${DS_NAVY_R} more with a navy. The shelf is open to any Harbour; deep water needs a <b>blue</b> Harbour or better, and the abyss a <b>gold</b> one. Depth and distance both count: a gold Harbour’s ship must still reach the find, and when only a shallower Harbour does, the find says which deep one falls short and by how much. The Expeditions page picks your best Harbour that reaches, and the side panel lets you choose another. A voyage costs ${esc(costText(flCost(0)))} plus a little more with distance and takes 15 to 90 minutes. One ship sails at a time, and it rests 45 minutes in dock after it arrives, or 3 hours if it rolled a 1 and scraped a reef.</p>
+<p><b>Salvage ships.</b> A party on foot cannot reach them: a <b>salvage ship</b> sails from one of your <b>Harbours</b>, by sea. It reaches ${DS_REACH} hexes, <b>${DS_BLOCK_R} more for each upgrade block</b> of that Harbour, and ${DS_NAVY_R} more with a navy. The shelf is open to any Harbour; deep water needs a <b>blue</b> Harbour or better, and the abyss a <b>gold</b> one. Depth and distance both count: a gold Harbour’s ship must still reach the find, and when only a shallower Harbour does, the find says which deep one falls short and by how much. <b>Choosing the port.</b> Each find on the Expeditions page says which Harbour its ship would sail from; open it to compare every port side by side (the haul, the distance, the voyage, the cost and the roll, with the best haul, the fastest and the cheapest marked), and to see why the others cannot go: too far, too shallow, too slow, or on a lake. A port you choose for a find is kept on this device until the find is gone. On the salvage ship’s card you can set a <b>home port</b>, used for every find it can reach in time, and say how to choose the rest: for the best haul, the fastest voyage or the cheapest. With a Salvage Port’s two ships, each has a home port of its own. The small map draws the reach of the port in use: the one the selected find would sail from, or your home ports. A voyage costs ${esc(costText(flCost(0)))} plus a little more with distance and takes 15 to 90 minutes. One ship sails at a time, and it rests 45 minutes in dock after it arrives, or 3 hours if it rolled a 1 and scraped a reef.</p>
 <p><b>Harbour upgrades raise the haul.</b> The bonus a ship brings home is multiplied by its Harbour: ×1 with no upgrades, ×1.1 grey, ×1.25 green, ×1.45 blue, ×1.7 purple and <b>×2 gold</b>. A gold Harbour can be retooled to a <b>Grand Port</b> (×2, and as far and deep as gold) in one of three lines: a Fishing Fleet, a Merchant Port, or a <b>Salvage Port</b>, whose ships haul ×2.5, rising to ×3 at gold II, sail 3 hexes further for each block, see deep finds half an hour before they appear, and come two at a time. A blue Harbour adds 1 to the roll and a gold one or a Grand Port 2.</p>
 <p><b>The first five ships.</b> As on land, the first five to arrive claim a find, and the roll sets the tier. At sea the share also depends on the place: the first ship takes ×1.5, then ×1.25, ×1, ×0.75 and ×0.5 for the fifth. The roll counts science and education, the navy (+2), a Naval Dockyard (+1), the Harbour, a genius in the cabinet, and the weather over the find on arrival: calm seas add 1, fog or a storm take it away. The deep sea’s bonuses have <b>caps of their own</b>, alongside the land’s.</p>
 <p><b>Treasures of the Deep.</b> Each haul may bring home a curio for the Museum, more often from a richer Harbour and after a legendary haul. Half the set brings 2 land credits, the whole set 7 more and the title “the Salvor”.</p>`});
@@ -45756,14 +45884,21 @@ achDef('exp','ds-abyss','g','Out of the Abyss','Bring home a legendary haul from
 /* ── clicks ── */
 document.addEventListener('click',e=>{
   const el=e.target&&e.target.closest&&e.target.closest('[data-act^="ds-"]');if(!el)return;const a=el.dataset.act,k=el.dataset.k;
-  if(a==='ds-send'){dsSend(k,S.dsHb&&S.dsHb[k]);return;}
+  if(a==='ds-send'){dsSend(k);return;}
+  if(a==='ds-port'){const c=el.dataset.c;dsSetPick(k,c===''||c==null?null:+c);S.dsPortOpen=null;if(S.view==='map')updateMapPanel();else{render();redrawMaps();}return;}
   if(a==='ds-report'){S.flShow=null;flHear(true);return;}
   if(a==='ds-far'){S.dsFar=!S.dsFar;render();return;}
   if(a==='ds-map'){const s=flByKey(k);if(!s)return;centerMain(s.c,NEAR_Z);S.flSel=k;S.mapSel=null;S.mapCell=null;S.mapTarget=null;S.mapSite=null;S.nwsOpen=null;S.trSel=null;go('map');return;}
 });
-document.addEventListener('change',e=>{const el=e.target;if(!el||!el.dataset||el.dataset.dshb==null)return;S.dsHb=Object.assign({},S.dsHb||{},{[el.dataset.k]:+el.value});if(S.view==='map')updateMapPanel();else render();});
+/* the home ports and the rule are the nation's (n.shp), so they follow the player to another device */
+document.addEventListener('change',e=>{const el=e.target;if(!el||!el.dataset||(el.dataset.dshp==null&&el.dataset.dsrule==null)||!S.nation)return;
+  const n=clone(S.nation),PR=dsPrefs(n);if(el.dataset.dshp!=null)PR.p[el.dataset.i==='1'?1:0]=el.value===''?null:+el.value;else PR.r=el.value;
+  n.shp={p:PR.p,r:PR.r};commit(n);render();redrawMaps();});
+/* a find's port picker opens one at a time; its list is drawn on opening (toggle does not bubble: caught on the way down) */
+document.addEventListener('toggle',e=>{const el=e.target;if(!el||!el.dataset||el.dataset.dspp==null)return;const k=el.dataset.k;
+  if(el.open){if(S.dsPortOpen!==k){S.dsPortOpen=k;render();}}else if(S.dsPortOpen===k){S.dsPortOpen=null;render();}},true);
 /* the browser tests' window (EDICTUM_PROBE, DS) */
-function dsProbe(){return {grid:dsGrid,lanes:dsLanes,alive:dsAlive,spawns:dsSpawns,harbours:dsHarbours,hbInfo:dsHbInfo,plan:dsPlan,send:dsSend,seaDist:dsSeaDist,reachSet:dsReachSet,farDist:dsFarDist,farWhy:dsFarWhy,
+function dsProbe(){return {grid:dsGrid,lanes:dsLanes,alive:dsAlive,spawns:dsSpawns,harbours:dsHarbours,hbInfo:dsHbInfo,plan:dsPlan,send:dsSend,seaDist:dsSeaDist,reachSet:dsReachSet,farDist:dsFarDist,farWhy:dsFarWhy,prefs:dsPrefs,freeShips:dsFreeShips,byRule:dsByRule,mins:dsMins,pick:dsPick,setPick:dsSetPick,portRows:dsPortRows,distFrom:dsDistFrom,hbDist:dsHbDist,mapPorts:dsMapPorts,
   voyages:dsVoyages,ships:dsShips,freeAt:dsFreeAt,due:dsDue,mult:dsMult,credits:dsCredits,soon:dsSoon,hear:()=>flHear(true),KINDS:DS_KEYS,PLACE:DS_PLACE,CURIOS:DS_CURIOS,REACH:DS_REACH,BLOCK_R:DS_BLOCK_R,
   flBonusList,flTotals,flHeld,flByKey,flState,flClaims,flNow,flDebug,placePhrase,me:myId,help:()=>HELP_EXT.find(h=>h.k==='deepsea'),BTIER:()=>BTIER.harbour};}
 

@@ -3,7 +3,9 @@
 // from the Deep sea list, the ship at sea, back in port, its report under the Harbour Master's stamp, the bonus counted
 // with the harbour's multiplier and the place's share, the tally, the logbook and the dock; a gold Harbour, a Grand
 // Port and a Salvage Port (two ships); the map's side panel and marker; the Museum's Treasures of the Deep and its land
-// credits; an achievement; the Help page; and a phone, where the idle ship card folds into a line.
+// credits; an achievement; the Help page; and a phone, where the idle ship card folds into a line. Choosing the port
+// (27 Nov 2026): two harbour cities, the rule, a home port, a port chosen for a find and kept on the device, the
+// picker's comparison and its greyed ports, the ship card's settings, the small map's reach, and two ships' home ports.
 //   python3 build.py
 //   node test/deep-sea-page.mjs
 // It serves public/ itself, so the game runs in its local mode (no emulators). Screenshots go to test/out/.
@@ -152,6 +154,82 @@ try {
   check('the Harbour retools to a Grand Port in three lines', JSON.stringify(lines) === '["fleet","merchant","salvage"]', lines);
   check('a gold Harbour\'s ship reaches more of the sea\'s finds than a plain one\'s', await S(page, () => { const G = window.__game, P = G.DS(), n = G.S.nation, U = P.reachSet(n); let k = 0; for (const s of P.alive()) if (U[s.c]) k++; return k >= 1; }));
 
+  /* choosing the port (27 Nov 2026): a second harbour city in the nation's own land, so two ports reach the same finds */
+  const port2 = await S(page, () => { const G = window.__game, M = G.MAP, P = G.DS(), T = G.territory(), mi = T.byId[P.me()], cap = G.S.nation.cities[0].c, lk = G.LK.lakeMap(), out = [];
+    for (let c = 0; c < M.N; c++) { if (c === cap || T.owner[c] !== mi || M.T[c] < 2) continue; let sea = 0; for (let d = 0; d < 6; d++) { const j = M.nbr[c * 6 + d]; if (j >= 0 && M.T[j] < 2 && !lk[j]) sea++; } if (sea >= 2) out.push(c); }
+    return out; });
+  check('the nation holds a second spot on the shore for a harbour city', port2.length > 0, port2.length);
+  const two = await S(page, c2 => { const G = window.__game, P = G.DS(), n = G.clone(G.S.nation), now = Date.now();
+    n.cities[0].b = [{ k: 'harbour', s: now - 2 * 864e5, d: now - 864e5, a: 1, ug: 5 }];
+    n.cities = n.cities.filter(c => c.id !== 'dsport2').concat({ id: 'dsport2', c: c2, nm: 'Second Port', t: now - 3 * 864e5, b: [{ k: 'harbour', s: now - 2 * 864e5, d: now - 864e5, a: 1, ug: 1 }] });
+    delete n.shp; G.commit(n); G.render();
+    return P.harbours(G.S.nation).map(h => ({ c: h.c, nm: h.nm, hm: h.hm, band: h.band })); }, port2[0]);
+  check('two harbours: the gold one and a grey one', two.length === 2 && two[0].hm === 200 && two[1].hm === 110, two);
+  const both = await S(page, () => { const G = window.__game, P = G.DS(), n = G.S.nation, t0 = P.flNow();
+    for (let t = t0 + 3 * 3600e3; t < t0 + 6 * 86400e3; t += 1800e3) for (const s of P.alive(t)) { const p = P.plan(n, s, t, null); if (p.opts.length === 2 && !p.why && s.e - t > 3 * 3600e3) return { t, key: s.key, hb: p.hb.c, how: p.how, sh: p.sh }; }
+    return null; });
+  check('a find both ports can go to: the rule picks the best haul, the gold Harbour', !!both && both.how === 'rule' && both.hb === two[0].c && both.sh === 0, both);
+  const rule = await S(page, () => { const P = window.__game.DS(), t = Date.now(), s = { e: t + 10 * 3600e3 }, fit = [{ c: 1, d: 60, reach: 80, hm: 200 }, { c: 2, d: 10, reach: 64, hm: 110 }];
+    return ['h', 'f', 'c'].map(r => P.byRule(fit, r, s, t)[0].c).concat(P.byRule(fit, 'h', { e: t + 30 * 60000 }, t)[0].c); });
+  check('the rule: the best haul, the fastest, the cheapest; a port that arrives too late comes last', JSON.stringify(rule) === '[1,2,2,2]', rule);
+  if (both) {
+    const home = await S(page, ([c2, k, t]) => { const G = window.__game, P = G.DS(), n = G.clone(G.S.nation); n.shp = { p: [c2, null], r: 'h' }; G.commit(n); const p = P.plan(G.S.nation, P.flByKey(k), t); return { hb: p.hb && p.hb.c, how: p.how, prefs: P.prefs(G.S.nation) }; }, [two[1].c, both.key, both.t]);
+    check('a home port is used for every find it can reach', home.hb === two[1].c && home.how === 'home' && home.prefs.p[0] === two[1].c, home);
+    const pick = await S(page, ([c1, k, t]) => { const G = window.__game, P = G.DS(); P.setPick(k, c1); const p = P.plan(G.S.nation, P.flByKey(k), t), raw = JSON.parse(localStorage.getItem('edictum.dsPort') || '{}'); G.S.dsHb = null; return { hb: p.hb && p.hb.c, how: p.how, raw: raw[k], again: P.pick(k), now: Date.now() }; }, [two[0].c, both.key, both.t]);
+    check('a port chosen for a find wins over the home port, and is kept on this device until the find is gone', pick.hb === two[0].c && pick.how === 'pick' && Array.isArray(pick.raw) && pick.raw[0] === two[0].c && pick.raw[1] > pick.now && pick.again === two[0].c, pick);
+
+    /* on the Expeditions page: each row's port, the comparison, a choice, and back to the game's own */
+    await S(page, t => { window.__game.DS().flDebug({ t }); window.__game.render(); }, both.t);
+    await d.go('explore'); await page.click('.xp-seg[data-v="ds"]').catch(() => {}); await sleep(300);
+    const fold = `details.ds-pp[data-k="${both.key}"]`;
+    const sum0 = await S(page, f => { const el = document.querySelector(f); return el ? el.querySelector('summary').textContent.replace(/\s+/g, ' ').trim() : null; }, fold);
+    check('each find\'s row says which port its ship sails from, and why', !!sum0 && /^From .+ · ×2 your choice$/.test(sum0), sum0);
+    await page.click(`${fold} > summary`); await sleep(400);
+    const opened = await S(page, f => { const el = document.querySelector(f); return el && { open: el.open, on: [...el.querySelectorAll('button.ds-pr')].map(b => b.textContent.replace(/\s+/g, ' ').trim()), back: !!el.querySelector('.ds-pr-auto') }; }, fold);
+    check('opening it compares the ports: haul, distance, voyage, cost and roll, marking the home port', !!opened && opened.open && opened.on.length === 2 && opened.on.every(x => /×[\d.]+ haul · \d+ hex(es)? · .+ · d20 [+−] \d+$/.test(x)) && opened.on.some(x => /Home port/.test(x)) && opened.back, opened);
+    await S(page, f => document.querySelector(f).scrollIntoView({ block: 'center' }), fold);
+    await page.screenshot({ path: path.join(OUT, 'deep-sea-ports.png') });
+    await page.click(`${fold} button.ds-pr:not(.on)`); await sleep(400);
+    const after = await S(page, ([f, k]) => ({ pick: window.__game.DS().pick(k), open: !!document.querySelector(f + '[open]') }), [fold, both.key]);
+    check('choosing a port from the list keeps it for that find and closes the list', after.pick === two[1].c && !after.open, after);
+    await page.click(`${fold} > summary`); await sleep(300);
+    await page.click(`${fold} .ds-pr-auto`); await sleep(300);
+    check('"Forget my choice" goes back to the home port', await S(page, ([f, k]) => window.__game.DS().pick(k) === null && /home port$/.test(document.querySelector(f + ' summary').textContent.trim()), [fold, both.key]));
+
+    /* the ports that cannot go, greyed with why */
+    const offs = await S(page, () => { const G = window.__game, P = G.DS(), n = G.S.nation, t0 = P.flNow(), out = {};
+      for (let t = t0; t < t0 + 4 * 86400e3 && !(out.shallow && out.far); t += 3600e3) for (const s of P.alive(t)) { const p = P.plan(n, s, t, null);
+        for (const r of P.portRows(n, s, t, p)) { if (!out.shallow && /^Too shallow/.test(r.why)) out.shallow = r.why;
+          if (!out.far && /^Too far/.test(r.why)) { const m = /^Too far: (\d+) hexes by sea, and its ship sails (\d+)$/.exec(r.why), D = P.seaDist(r.c, 9999)[s.c]; out.far = { why: r.why, D, ok: !!m && +m[1] === D && +m[2] === r.h.reach && D > r.h.reach }; } } }
+      return out; });
+    check('a port that cannot go is greyed with why: too shallow', !!offs.shallow, offs);
+    check('or too far, by the distance the search from the find agrees on', !!offs.far && offs.far.ok, offs);
+
+    /* the ship card: a home port and how to choose the rest, kept in the nation */
+    const card = await S(page, () => { const c = document.querySelector('.xp-ship'), h = c.querySelector('select[data-dshp]'); return { home: c.querySelectorAll('select[data-dshp]').length, opts: h ? [...h.options].map(o => o.textContent) : [], rule: !!c.querySelector('select[data-dsrule]'), shown: !!h && getComputedStyle(c.querySelector('.ds-home')).display !== 'none' }; });
+    check('the ship card sets a home port (none, or either harbour) and how to choose the rest', card.home === 1 && card.opts.length === 3 && card.rule && card.shown, card);
+    await page.selectOption('.xp-ship select[data-dsrule]', 'f'); await sleep(300);
+    await page.selectOption('.xp-ship select[data-dshp][data-i="0"]', ''); await sleep(300);
+    check('both are kept in the nation (n.shp), and the Dispatch\'s n.dsp is left alone', await S(page, () => { const n = window.__game.S.nation, x = n.shp; return !!x && x.r === 'f' && x.p[0] === null && !(n.dsp && 'p' in n.dsp); }));
+
+    /* the small map: the home port's reach, or the selected find's port */
+    const lab = await S(page, ([c1, c2, k]) => { const G = window.__game, P = G.DS(), n = G.clone(G.S.nation); n.shp = { p: [c2, null], r: 'h' }; G.commit(n); G.S.xpSel = null;
+      const a = P.mapPorts(G.S.nation, P.flNow()); P.setPick(k, c1); G.S.xpSel = 'g' + k; const b = P.mapPorts(G.S.nation, P.flNow()); G.S.xpSel = null; P.setPick(k, null);
+      return { a: a.lab, ac: a.H.map(h => h.c), b: b.lab, bc: b.H.map(h => h.c) }; }, [two[0].c, two[1].c, both.key]);
+    check('the small map draws the home port\'s reach, or the selected find\'s port', JSON.stringify(lab.ac) === JSON.stringify([two[1].c]) && JSON.stringify(lab.bc) === JSON.stringify([two[0].c]) && /^Reach from /.test(lab.a) && /^Reach from /.test(lab.b), lab);
+
+    /* a Salvage Port's two ships, each with a home port of its own */
+    const sv2 = await S(page, ([c1, c2, k, t]) => { const G = window.__game, P = G.DS(), n = G.clone(G.S.nation), now = Date.now();
+      n.cities[0].b = [{ k: 'harbour', s: now - 2 * 864e5, d: now - 864e5, a: 1, tr: 2, ln: 'salvage', ug: 5 }]; n.shp = { p: [c1, c2], r: 'h' }; G.commit(n); G.render();
+      const n2 = G.S.nation, p = P.plan(n2, P.flByKey(k), t);
+      return { ships: P.ships(n2), free: P.freeShips(n2, t), hb: p.hb && p.hb.c, sh: p.sh, selects: document.querySelectorAll('.xp-ship select[data-dshp]').length }; }, [two[0].c, two[1].c, both.key, both.t]);
+    check('two ships, each with a home port: ship one sails from its own', sv2.ships === 2 && sv2.free.length === 2 && sv2.hb === two[0].c && sv2.sh === 0 && sv2.selects === 2, sv2);
+    const sent2 = await S(page, ([k, t]) => { const G = window.__game, P = G.DS(); P.send(k); const n = G.S.nation, v = P.voyages(n).find(e => e.k === k), free = P.freeShips(n, t + 60000);
+      let other = null; for (const s of P.alive(t)) { if (s.key === k) continue; const p = P.plan(n, s, t + 60000, null); if (p.opts.length === 2 && !p.why) { other = { hb: p.hb.c, sh: p.sh, how: p.how }; break; } }
+      return { sh: v && v.sh, hb: v && v.hb, free, other }; }, [both.key, both.t]);
+    check('the voyage names its ship; the other ship then sails from its own home port', sent2.sh === 0 && sent2.hb === two[0].c && JSON.stringify(sent2.free) === '[1]' && (!sent2.other || (sent2.other.sh === 1 && sent2.other.hb === two[1].c && sent2.other.how === 'home')), sent2);
+  }
+
   /* the Museum: Treasures of the Deep, from the curios stamped on voyages; half the set brings 2 land credits */
   const mus = await S(page, () => { const G = window.__game, P = G.DS(), n0 = G.S.nation, n = G.clone(n0), now = Date.now();
     const e0 = (n.fl || []).find(e => e.hb != null);
@@ -177,6 +255,8 @@ try {
   const ph = await S(p.page, () => ({ hidden: getComputedStyle(document.querySelector('.xp-ship')).display === 'none', line: (document.querySelector('.xp-pline') || {}).textContent || '', wide: document.documentElement.scrollWidth <= window.innerWidth + 1 }));
   check('on a phone the idle ship card folds into a line, and nothing overflows', ph.hidden && /Salvage ship:/.test(ph.line) && ph.wide, ph);
   await p.page.screenshot({ path: path.join(OUT, 'deep-sea-phone.png') });
+  await p.page.click('.xp-seg[data-v="ds"]').catch(() => {}); await sleep(300);
+  check('on a phone the home port is set at the top of the Deep sea list instead, and nothing overflows', await S(p.page, () => { const li = document.querySelector('.ds-home-li'); return !!li && getComputedStyle(li).display !== 'none' && !!li.querySelector('select[data-dshp]') && document.documentElement.scrollWidth <= window.innerWidth + 1; }));
   check('no script errors on the phone', p.errors.length === 0, p.errors);
   await p.ctx.close();
 } catch (e) { console.error(e); failed++; }

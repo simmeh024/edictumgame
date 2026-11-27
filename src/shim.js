@@ -211,6 +211,9 @@
   /* the portraits' pieces earned in play (ptu) and the current leader's term (ptz, for the nicknames): the looks
      themselves (rpt, cpt, cdc) stay shared, since visitors see the cabinet */
   NX_KEYS.ptu = NX_KEYS.ptz = 1;
+  /* the salvage ships' home ports and how their port is chosen (shp): the player's own settings. Not dsp, which is
+     the Dispatch's classified advertisements and must stay shared for other readers to see them */
+  NX_KEYS.shp = 1;
   /* development news read and polls voted in, for the achievements (nwr, nwvn, nwd), and the polls whose results
      the bell tells of when they close (nwp) */
   NX_KEYS.nwr = NX_KEYS.nwvn = NX_KEYS.nwd = NX_KEYS.nwp = 1;
