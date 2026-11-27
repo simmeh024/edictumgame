@@ -53,17 +53,49 @@ test('the land\'s kinds are dealt as before: no deep kind among them',()=>{
 test('a Harbour\'s haul, reach, roll and depth by its blocks; a Grand Port; a Salvage Port',()=>{
   const ct=(ug,tr)=>({c:7,nm:'Portwick',ug:ug?{harbour:ug}:{},tr:tr?{harbour:tr}:{}});
   const row=H=>[H.hm,H.reach,H.roll,H.band,H.hl,H.sv];
-  assert.deepEqual(row(X.dsHbInfo(ct(0),false)),[100,55,0,0,0,false]);
-  assert.deepEqual(row(X.dsHbInfo(ct(1),false)),[110,59,0,0,1,false]);
-  assert.deepEqual(row(X.dsHbInfo(ct(2),false)),[125,63,0,0,2,false]);
-  assert.deepEqual(row(X.dsHbInfo(ct(3),false)),[145,67,1,1,3,false]);
-  assert.deepEqual(row(X.dsHbInfo(ct(4),false)),[170,71,1,1,4,false]);
-  assert.deepEqual(row(X.dsHbInfo(ct(5),false)),[200,75,2,2,5,false]);
-  assert.deepEqual(row(X.dsHbInfo(ct(0),true)),[100,70,0,0,0,false],'a navy sails 15 further');
-  assert.deepEqual(row(X.dsHbInfo(ct(0,{t:2,ln:'merchant'}),false)),[200,75,2,2,6,false]);
-  assert.deepEqual(row(X.dsHbInfo(ct(3,{t:2,ln:'salvage'}),false)),[280,84,2,2,7,true]);
-  assert.deepEqual(row(X.dsHbInfo(ct(5,{t:2,ln:'salvage'}),false)),[300,90,2,2,7,true]);
+  assert.deepEqual(row(X.dsHbInfo(ct(0),false)),[100,60,0,0,0,false]);
+  assert.deepEqual(row(X.dsHbInfo(ct(1),false)),[110,64,0,0,1,false]);
+  assert.deepEqual(row(X.dsHbInfo(ct(2),false)),[125,68,0,0,2,false]);
+  assert.deepEqual(row(X.dsHbInfo(ct(3),false)),[145,72,1,1,3,false]);
+  assert.deepEqual(row(X.dsHbInfo(ct(4),false)),[170,76,1,1,4,false]);
+  assert.deepEqual(row(X.dsHbInfo(ct(5),false)),[200,80,2,2,5,false]);
+  assert.deepEqual(row(X.dsHbInfo(ct(0),true)),[100,75,0,0,0,false],'a navy sails 15 further');
+  assert.deepEqual(row(X.dsHbInfo(ct(0,{t:2,ln:'merchant'}),false)),[200,80,2,2,6,false]);
+  assert.deepEqual(row(X.dsHbInfo(ct(3,{t:2,ln:'salvage'}),false)),[280,89,2,2,7,true]);
+  assert.deepEqual(row(X.dsHbInfo(ct(5,{t:2,ln:'salvage'}),false)),[300,95,2,2,7,true]);
   assert.ok(X.dsHbInfo(ct(5,{t:2,ln:'salvage'}),false).hm<=X.DS_HM_MAX,'the most a voyage may carry');
+});
+
+test('every Harbour\'s ship sails 5 hexes further than at first (27 Nov 2026): 60, and 4 more a block',()=>{
+  assert.equal(X.DS_REACH,60);assert.equal(X.DS_BLOCK_R,4);
+});
+
+/* why no harbour can sail to a find, with the sea's distances stubbed: harbours as dsHbInfo makes them */
+const FARWHY=section('function dsFarWhy(s,H,all){','\n/* everything about sending a ship');
+const LIST=line('function list(a){');
+const fctx=vm.createContext({Math,Object,Array,FD:null,dsFarDist:H=>fctx.FD(H),dsHbName:H=>`${H.nm}’s ${H.sv?'Salvage Port':H.t2?'Grand Port':['Harbour','grey Harbour','green Harbour','blue Harbour','purple Harbour','gold Harbour'][H.u]}`});
+vm.runInContext([LIST,FARWHY,'this.F={dsFarWhy};'].join('\n'),fctx);
+const hb=(nm,c,u)=>Object.assign(X.dsHbInfo({c,nm,ug:{harbour:u},tr:{}},false),{d:0});
+test('a gold Harbour too far away is named, with the find\'s distance and its ship\'s reach, not taken for a missing one',()=>{
+  const gold=hb('Pellwell',1,5),blue=hb('CoastWick',2,3),grey=hb('Muscletown',3,1),H=[gold,blue,grey],abyss={c:99,bd:2},deep={c:99,bd:1};
+  /* the Dravenhal case: a whale fall 105 hexes from the gold Harbour, 48 from the grey one, which alone reaches it */
+  fctx.FD=D=>({d:{99:D.length===1?105:75},src:{99:D.findIndex(h=>h.c===(D.length===1?1:2))}});
+  let r=fctx.F.dsFarWhy(abyss,H,[Object.assign({},grey,{d:48})]);
+  assert.equal(r.why,'Too far for Pellwell’s gold Harbour: 105 hexes by sea, and its ship sails 80. Muscletown’s grey Harbour reaches it, but the abyss needs a gold Harbour or a Grand Port.');
+  assert.equal(r.g.c,1);assert.equal(r.g.fd,105);
+  /* deep water: the blue Harbour is the nearest deep enough */
+  r=fctx.F.dsFarWhy(deep,H,[Object.assign({},grey,{d:48})]);
+  assert.match(r.why,/^Too far for CoastWick’s blue Harbour: 75 hexes by sea, and its ship sails 72\. Muscletown’s grey Harbour reaches it, but deep water needs a blue Harbour or better\.$/);
+  /* nobody reaches it: the deep-enough harbour's shortfall */
+  fctx.FD=()=>({d:{99:130},src:{99:0}});
+  assert.equal(fctx.F.dsFarWhy(abyss,H,[]).why,'Out of reach: 130 hexes by sea from Pellwell’s gold Harbour, and its ship sails 80.');
+  /* no harbour deep enough: as before */
+  assert.equal(fctx.F.dsFarWhy(abyss,[blue,grey],[Object.assign({},grey,{d:48})]).why,'Too deep for your harbours: the abyss needs a gold Harbour or a Grand Port.');
+  assert.equal(fctx.F.dsFarWhy(abyss,[blue,grey],[]).why,'Out of reach: your ships sail 72 hexes by sea.');
+  /* a gold Harbour on another sea, with no route at all */
+  fctx.FD=()=>({d:{99:-1},src:{99:-1}});
+  assert.equal(fctx.F.dsFarWhy(abyss,H,[Object.assign({},grey,{d:48}),Object.assign({},blue,{d:60})]).why,'No sea route leads there from Pellwell’s gold Harbour, and Muscletown’s grey Harbour and CoastWick’s blue Harbour are too shallow: the abyss needs a gold Harbour or a Grand Port.');
+  assert.equal(fctx.F.dsFarWhy(abyss,H,[]).why,'Out of reach: your ships sail 80 hexes by sea.');
 });
 
 test('the share by place: 30, 25, 20, 15 and 10% of the five, times the harbour',()=>{
