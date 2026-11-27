@@ -29963,6 +29963,10 @@ function toastNext(){
 }
 /* the close button ends the toast at once (the next one waiting shows); a toast's own button ends it as it goes
    (both in the page's click handler: data-act toast-x, and go from inside #toast) */
+/* a notice that goes ahead of those still waiting, which it replaces: the nation they were about is gone from this
+   browser (a moderator removed it, or it was dissolved on another device). Behind a few of them it waited ten seconds
+   and more, seen in the admin suite on 27 Nov 2026. */
+function toastFirst(msg){TOASTQ.q.length=0;TOASTQ.cur=null;toast(msg);}
 function toastClose(){
   clearTimeout(TOASTQ.t);TOASTQ.cur=null;const el=toastEl(),ae=document.activeElement;
   if(ae&&el.contains(ae))try{ae.blur();}catch(e){}
@@ -55129,7 +55133,7 @@ async function ownGone(){
   const kept=conflictCopy||keepUnsaved(n);conflictCopy=0;
   S.nation=null;saveLocal(null);S.view='nation';S.draft=newDraft();S.openIssue=null;S.result=null;S.settings=null;
   render();publishSync();
-  toast(`${n.name} is no longer saved: it was dissolved on another device. You can found a new nation.${kept?' A copy of the old one is in your account menu.':''}`);
+  toastFirst(`${n.name} is no longer saved: it was dissolved on another device. You can found a new nation.${kept?' A copy of the old one is in your account menu.':''}`);
 }
 function commit(n){passForget();if(OBS||PV||tabPassive||regBlocked())return;const act=actRecord(n),now=Date.now();migAccrue(n,now);n.pop=popNow(n,now);n.popAt=now;
   if(n.name&&!n.npc&&Array.isArray(n.log)){driftTick(n,now);const tk=[...retireTick(n,now),...npcWarTick(n,now)];allyTick(n,now);if(tk.length)setTimeout(()=>toast(tk.join(' ')),0);}
@@ -63155,7 +63159,7 @@ function modNotice(){
 function modRemoved(m){
   const nm=S.nation?S.nation.name:'Your nation';
   S.nation=null;saveLocal(null);S.view='nation';S.draft=newDraft();
-  setTimeout(()=>toast(`A moderator removed ${nm}${m.note?': '+m.note:''}. ${S.banned?'This account is banned from Edictum.':'You can found a new nation.'} If you think this is a mistake, create a support ticket on the Help page or write to ${CONTACT}.`),0);
+  setTimeout(()=>toastFirst(`A moderator removed ${nm}${m.note?': '+m.note:''}. ${S.banned?'This account is banned from Edictum.':'You can found a new nation.'} If you think this is a mistake, create a support ticket on the Help page or write to ${CONTACT}.`),0);
   render();
 }
 let banTold=false;
