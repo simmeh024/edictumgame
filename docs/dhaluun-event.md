@@ -50,7 +50,7 @@ npx firebase emulators:exec --project demo-edictum --only firestore "node --test
 
 The next stage adds a completed **Great Wall** to Dhaluun’s capital, using the existing wonder’s 12% defence bonus.
 Its crenellations and watchtowers follow every edge of the empire’s current perimeter, including the western
-expansion and coast, rather than the short stretch used by an ordinary Great Wall. It follows later border changes
+expansion and coast. (Since November 2026 every Great Wall does this; at launch an ordinary one covered a short stretch.) It follows later border changes
 and is absent from atlas dates before construction.
 
 The same event update publishes **“Behind Dhaluun’s new wall, preparations for something”** in Cloudspine’s Dispatch.
