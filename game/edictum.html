@@ -82601,6 +82601,9 @@ const CX_V2_AT=Date.UTC(2026,10,28),CX_EV_WAIT=2*DAY,CX_NW_WAIT=3*DAY,CX_RIP_HOL
 /* how far back an arrival can still count: two days waiting, then three of ripple */
 const CX_LOOK=CX_EV_WAIT+CX_RIP_HOLD+CX_RIP_FADE,CX_NW_LOOK=CX_NW_WAIT+CX_RIP_HOLD+CX_RIP_FADE;
 const CX_FX={out:'output',bld:'build speed',def:'defence'};
+/* an answer's materials cost three times its list (c) since 28 November 2026 (owner: "triple the cost of materials");
+   what an answer brings (g) is unchanged */
+const CX_COST_K=3,cxCost=o=>{if(!o||!o.c)return null;const c={};for(const r in o.c)c[r]=o.c[r]*CX_COST_K;return c;};
 const CX_BY=new Map(CX_EVENTS.map(e=>[e.k,e])),CX_NW_BY=new Map(CX_NATION_EVENTS.map(e=>[e.k,e])),CX_NW_IDX=CX_NATION_EVENTS.map((e,i)=>i);
 const CX_WAR=CX_EVENTS.map((e,i)=>i).filter(i=>CX_EVENTS[i].w==='war'&&!CX_EVENTS[i].sq);
 function cxEvAt(ct){const rec=ct.rec;return rec&&Number.isFinite(rec.ne)?rec.ne:((rec&&rec.t)||0)+DAY+hash(ct.id+':ev')%DAY;}
@@ -82778,7 +82781,7 @@ const cxHrs=h=>h%24?h+' hours':h===24?'a day':h/24+' days';
 const cxFxTxt=x=>`${CX_FX[x.f]} ${x.v>0?'+':'−'}${Math.abs(x.v)}% for ${cxHrs(x.h)}`;
 function cxOutTxt(o){const b=[];if(o.g)b.push('brings '+costText(o.g));if(o.m)b.push(`mood ${o.m>0?'+':'−'}${Math.abs(o.m)}`);if(o.x)b.push(cxFxTxt(o.x));return b.join(', ');}
 function cxOptHint(o,nw){
-  const b=[];if(o.c)b.push('Costs '+costText(o.c));
+  const b=[];if(o.c)b.push('Costs '+costText(cxCost(o)));
   if(o.p){const f=o.f||{};b.push(`${Math.round(o.p*100)}% chance: ${cxOutTxt(o)||'no change'}; otherwise ${cxOutTxt(f)||'no change'}`);}
   else{const t=cxOutTxt(o);if(t)b.push(t.charAt(0).toUpperCase()+t.slice(1));}
   if(nw&&(o.m||o.x||(o.f&&(o.f.m||o.f.x))))b.push('in every city');
@@ -82789,10 +82792,10 @@ function cxAnswer(cid,a,i,k){
   const ct=cxHeld(cid);if(!ct)return;const now=Date.now(),W=cxEvWait(ct,now),w=W.find(x=>x.a===a);
   if(!w||k&&w.k!==k){S.cityMsg=W.length?`${ct.nm} has brought a different matter since. Here it is.`:`That matter in ${ct.nm} has been settled already: the council decided it.`;render();return;}
   const o=w.ev.o[i];if(!o||!cxOptOk(ct,o))return;
-  const st=stockNow(S.nation,now);if(o.c){const miss=lacking(o.c,st);if(miss.length){S.cityMsg='You need '+list(miss)+' more for that answer.';render();return;}}
+  const st=stockNow(S.nation,now),cost=cxCost(o);if(cost){const miss=lacking(cost,st);if(miss.length){S.cityMsg='You need '+list(miss)+' more for that answer.';render();return;}}
   const n=ensureCities(clone(S.nation)),c=n.cities.find(x=>x.id===cid);if(!c)return;
   const won=o.p?Math.random()<o.p:null,R=won===false&&o.f?o.f:o,q=now<w.a+CX_QUICK;
-  for(const r of RES){st[r]-=(o.c&&o.c[r])||0;if(R.g&&R.g[r])st[r]=stockLimit(n,r,st[r]+R.g[r],st[r]);}
+  for(const r of RES){st[r]-=(cost&&cost[r])||0;if(R.g&&R.g[r])st[r]=stockLimit(n,r,st[r]+R.g[r],st[r]);}
   n.stock=roundStock(st);n.stockAt=now;n._stockSet=true;if(o.s)applyEffects(n,o.s);
   const e={a:w.a,k:w.k,o:i,t:now,v:clamp((R.m||0)+(q?1:0),-12,12)};if(q)e.q=1;if(won!==null)e.g=won?1:0;
   c.ch=[e].concat(cxChOf(c).filter(x=>x.a!==w.a)).slice(0,CX_CH_MAX);
@@ -82804,9 +82807,9 @@ function cxNwAnswer(a,i,k){
   const n0=S.nation;if(!n0||OBS)return;const now=Date.now(),W=cxNwWait(n0,now),w=W.find(x=>x.a===a);
   if(!w||k&&w.k!==k){S.cityMsg='That matter for the nation has been settled already.';render();return;}
   const o=w.ev.o[i];if(!o)return;
-  const st=stockNow(n0,now);if(o.c){const miss=lacking(o.c,st);if(miss.length){S.cityMsg='You need '+list(miss)+' more for that answer.';render();return;}}
+  const st=stockNow(n0,now),cost=cxCost(o);if(cost){const miss=lacking(cost,st);if(miss.length){S.cityMsg='You need '+list(miss)+' more for that answer.';render();return;}}
   const n=ensureCities(clone(n0)),won=o.p?Math.random()<o.p:null,R=won===false&&o.f?o.f:o,q=now<w.a+CX_QUICK;
-  for(const r of RES){st[r]-=(o.c&&o.c[r])||0;if(R.g&&R.g[r])st[r]=stockLimit(n,r,st[r]+R.g[r],st[r]);}
+  for(const r of RES){st[r]-=(cost&&cost[r])||0;if(R.g&&R.g[r])st[r]=stockLimit(n,r,st[r]+R.g[r],st[r]);}
   n.stock=roundStock(st);n.stockAt=now;n._stockSet=true;if(o.s)applyEffects(n,o.s);
   const e={a:w.a,k:w.k,o:i,t:now,v:clamp((R.m||0)+(q?1:0),-12,12)};if(q)e.q=1;if(won!==null)e.g=won?1:0;
   n.wch=[e].concat(cxChClean(n.wch,4).filter(x=>x.a!==w.a)).slice(0,4);
@@ -82843,7 +82846,7 @@ COMMIT_HOOKS.push((n,old,now)=>{
 function cxEvNext(ct,now){for(const x of cxArr(ct.id,ct.rec,now+4*DAY))if(x.a>now)return x.a;return now+DAY;}
 function cxEvCard(ct,w,st,now,o){
   o=o||{};const ev=w.ev,nw=!!w.nw,co=cxCouncilOpt(ev),quick=now<w.a+CX_QUICK;
-  const btn=([op,i],j)=>{const miss=op.c?lacking(op.c,st):[];return `<div class="cx-ev-o"><button class="btn${j?' ghost':''}" data-act="${nw?'cx-nw':'cx-ev'}"${nw?'':` data-id="${esc(ct.id)}"`} data-a="${w.a}" data-i="${i}" data-k="${esc(ev.k)}"${miss.length?' disabled':''}>${esc(op.l)}</button><span class="hint">${op.b&&BUILDINGS[op.b]?`<span class="chip cx-ev-b">Because of its ${esc(BUILDINGS[op.b].n)}</span> `:''}${esc(cxOptHint(op,nw))}${miss.length?` · you need ${esc(list(miss))} more`:''}</span></div>`;};
+  const btn=([op,i],j)=>{const miss=op.c?lacking(cxCost(op),st):[];return `<div class="cx-ev-o"><button class="btn${j?' ghost':''}" data-act="${nw?'cx-nw':'cx-ev'}"${nw?'':` data-id="${esc(ct.id)}"`} data-a="${w.a}" data-i="${i}" data-k="${esc(ev.k)}"${miss.length?' disabled':''}>${esc(op.l)}</button><span class="hint">${op.b&&BUILDINGS[op.b]?`<span class="chip cx-ev-b">Because of its ${esc(BUILDINGS[op.b].n)}</span> `:''}${esc(cxOptHint(op,nw))}${miss.length?` · you need ${esc(list(miss))} more`:''}</span></div>`;};
   const opts=ev.o.map((op,i)=>[op,i]).filter(([op])=>nw||cxOptOk(ct,op));
   const kick=nw?'A matter for the whole nation':ev.sq?'More on an earlier matter':ev.w==='war'?'A matter of war':'A matter for you';
   return `<section class="cx-sec cx-ev${o.inbox?' cx-ev-ib':''}"${o.id?` id="${o.id}"`:''}><p class="notice-k">${o.inbox&&!nw?`<span class="cx-ev-city">${esc(ct.nm)}</span> · `:''}${kick}</p><h4 class="cx-ev-h">${esc(nw?cxNwFill(ev.t,S.nation):cxFill(ev.t,ct))}</h4><p>${esc(ev.b)}</p><div class="cx-ev-os">${opts.map(btn).join('')}</div>
@@ -82880,9 +82883,10 @@ function cxInbox(T,mine,n,st,now){
   for(const ct of mine){if(!cxOk(ct,T)||ct.id===here)continue;for(const w of cxEvWait(ct,now))items.push([ct,w]);}
   const nw=cxNwWait(n,now);if(!items.length&&!nw.length)return '';
   items.sort((x,y)=>x[1].due-y[1].due);const k=items.length+nw.length;
-  return `<details class="cx-inbox" id="cx-inbox"${S.cxInboxShut?'':' open'}><summary>${k===1?'A matter waits':k+' matters wait'} for your answer</summary><p class="hint">A matter left for two days is decided for you. An answer’s mood holds for a day, then fades over two; answers add up.</p>${nw.map(w=>cxEvCard(null,w,st,now,{inbox:1,id:'cx-nw'})).join('')}${items.map(([ct,w])=>cxEvCard(ct,w,st,now,{inbox:1})).join('')}</details>`;
+  return `<details class="cx-inbox" id="cx-inbox"${S.cxInboxOpen?' open':''}><summary>${k===1?'A matter waits':k+' matters wait'} for your answer</summary><p class="hint">A matter left for two days is decided for you. An answer’s mood holds for a day, then fades over two; answers add up.</p>${nw.map(w=>cxEvCard(null,w,st,now,{inbox:1,id:'cx-nw'})).join('')}${items.map(([ct,w])=>cxEvCard(ct,w,st,now,{inbox:1})).join('')}</details>`;
 }
-document.addEventListener('toggle',e=>{const t=e.target;if(t&&t.id==='cx-inbox')S.cxInboxShut=!t.open;},true);
+/* folded until opened (owner, 28 Nov); kept as the player left it while the page stays open */
+document.addEventListener('toggle',e=>{const t=e.target;if(t&&t.id==='cx-inbox')S.cxInboxOpen=t.open;},true);
 /* the visit page's Cities: the latest answers in the nation's cities */
 vsAdd('cit',(x,now)=>{
   if(!x||x.npc||!x.n||!Array.isArray(x.n.cities))return '';const L=[];
@@ -95453,7 +95457,7 @@ function caTarget(id,tab,at){return at==='nw'?'#cx-nw':id==='new'?'#cx-new':at==
 /* runs before the bell's own click (which closes it and opens the Cities page), so the page opens on that city */
 document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-act="nt-go"][data-cx]');if(!el)return;
   const id=el.dataset.cx,tab=el.dataset.cxt||'b',target=caTarget(id,tab,el.dataset.cxa);
-  UXP.pending={view:'cities',target,setup:()=>{S.cxSel=id;S.cityMsg='';S.confirmDemo=null;S.cityOpen=tab==='build'?id:null;S.cxTab=tab==='build'||tab==='new'?'b':tab;S.caFlash=target;S.cxInboxShut=false;}};},true);
+  UXP.pending={view:'cities',target,setup:()=>{S.cxSel=id;S.cityMsg='';S.confirmDemo=null;S.cityOpen=tab==='build'?id:null;S.cxTab=tab==='build'||tab==='new'?'b':tab;S.caFlash=target;if(target==='#cx-nw')S.cxInboxOpen=true;}};},true);
 render=(f=>function(){const r=f.apply(this,arguments);if(S.caFlash&&S.view==='cities'){const sel=S.caFlash;S.caFlash=null;try{const el=document.querySelector(sel);if(el)el.classList.add('ca-flash');}catch(e){}}return r;})(render);
 /* the menu: matters waiting count on Cities, as a city to found does */
 nvxCompute=(f=>function(n,now){const out=f.apply(this,arguments);try{const k=caItems(n,now).filter(x=>x.k==='cxev').reduce((s,x)=>s+(x.c||1),0);

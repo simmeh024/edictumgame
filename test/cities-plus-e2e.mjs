@@ -89,7 +89,8 @@ await A.click(`[data-act="cx-mayor"][data-i="0"]`);
 const my=(await rec()).my;
 check('a mayor is appointed, with a trait and a letter',!!my&&!!my.tr&&/Mayor of/.test(await text(A,'.cx-letter')));
 const m0=(await city()).mood;
-await set(()=>{n.cities[0].ne=t-1000;});
+/* a full stockpile again: answers cost three times their list since 28 November */
+await set(()=>{n.cities[0].ne=t-1000;n.stock={food:390,timber:390,iron:390,oil:390,goods:390};n.stockAt=t;});
 check('a matter arrives when it is due',await until(()=>A.locator('.cx-ev').count().then(c=>c===1)));
 const ev=await A.evaluate(()=>{const h=document.querySelector('.cx-ev-h').textContent,nm=document.querySelector('.cx-detail .city-n').textContent;return G.CX.events.find(e=>e.t.replace(/\{C\}/g,nm)===h);});
 await A.click(`[data-act="cx-ev"][data-i="0"]`);
