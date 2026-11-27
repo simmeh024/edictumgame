@@ -20,7 +20,7 @@ function load(cities,{guided=false,free=0,site=true}={}){
   const ctx={S:{nation:{id:'me',loc:5,cities:cities.map(c=>({id:c.id}))}},OBS:'',
     myId:()=>'me',cellOf:l=>l,pgGuided:()=>guided,
     myCityStates:()=>({T:{byId:{me:0},list:[{id:'me'}]},mine:cities}),maxCities:()=>cities.length+free,MAX_CITIES:33,cityList:n=>n.cities,nvxCitySite:()=>site,
-    cxOk:ct=>ct.active,cxEvDue:ct=>ct.ev?{t:ct.ev}:null,cxFill:(t,ct)=>t.replace(/\{C\}/g,ct.nm),blkOf:ct=>({n:ct.n}),blkUsed:ct=>ct.done.length+ct.prog.length,
+    cxOk:ct=>ct.active,cxEvDue:ct=>ct.ev?{t:ct.ev}:null,cxEvWait:ct=>ct.ev?[{ev:{t:ct.ev}}]:[],cxNwWait:(n,now)=>n.nw||[],cxNwFill:(t,n)=>t.replace(/\{N\}/g,n.name),cxFill:(t,ct)=>t.replace(/\{C\}/g,ct.nm),blkOf:ct=>({n:ct.n}),blkUsed:ct=>ct.done.length+ct.prog.length,
     cxCityExtras:r=>({my:r&&r.my}),CSS:{escape:s=>s}};
   vm.createContext(ctx);
   vm.runInContext([line('function list(a)'),cut('function cxTodoList(','function cxTodo('),
@@ -84,9 +84,20 @@ test('during the first guided steps only matters are told, and a nation not yet 
   deq(O.caItems(O.S.nation,NOW),[],'an admin observing another region sees no reminders');
 });
 
+test('two matters in one city are told as two, and the nation’s own matter goes to the inbox',()=>{
+  const N=load([city('c1','Ash')]);N.S.nation.name='Testland';N.S.nation.nw=[{ev:{t:'{N} asks for a national holiday'},a:1}];
+  const it=N.caItems(N.S.nation,NOW).filter(x=>x.k==='cxev');
+  deq(it,[{k:'cxev',kl:'Testland',txt:'Testland asks for a national holiday. A matter for the whole nation waits for your answer.',cx:'c1',tab:'b',at:'nw',c:1}]);
+  assert.equal(N.caTarget('c1','b','nw'),'#cx-nw');
+  const M=load([city('c1','Ash')]);M.cxEvWait=ct=>[{ev:{t:'A fire in {C}'}},{ev:{t:'A flood in {C}'}}];M.myCityStates=()=>({T:{byId:{me:0},list:[{id:'me'}]},mine:[city('c1','Ash'),city('c2','Birch')]});
+  const m=M.caItems(M.S.nation,NOW).filter(x=>x.k==='cxev');
+  deq(m.map(x=>x.txt),['4 matters wait for your answer in Ash and Birch.']);assert.equal(m[0].c,4);
+});
+
 test('the Cities page and the bell read the same list',()=>{
   assert.match(cut('function cxTodo(','function cxItem('),/cxTodoList\(T,mine,now,canFound\)/);
-  assert.match(source,/<section class="cx-sec cx-ev" id="cx-matter">/);
+  assert.match(source,/cxEvCard\(ct,w,st,now,\{id:i\?'':'cx-matter'\}\)/,'the first matter on a city’s People tab is #cx-matter');
+  assert.match(source,/cx-sec cx-ev\$\{o\.inbox\?' cx-ev-ib':''\}"\$\{o\.id\?` id="\$\{o\.id\}"`:''\}/);
   assert.equal((source.match(/<section class="cx-sec" id="cx-mayor">/g)||[]).length,2,'with or without a mayor');
   assert.match(source,/\['city','City reminders: empty blocks, mayors, room for a city',\['cxtodo'\]\]/,'reminders can be left out of the bell');
 });
