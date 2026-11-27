@@ -657,7 +657,11 @@
   var refereeApi = Object.freeze({
     battle: function (d) { return A.frozen ? hang() : call('referee', Object.assign({}, isObj(d) ? d : {}, { op: 'battle' })); },
     /* war, round two: siege({d, c}) lays siege to player d's capital (functions/index.js) */
-    siege: function (d) { return A.frozen ? hang() : call('referee', Object.assign({}, isObj(d) ? d : {}, { op: 'siege' })); }
+    siege: function (d) { return A.frozen ? hang() : call('referee', Object.assign({}, isObj(d) ? d : {}, { op: 'siege' })); },
+    /* landing parties: landing({d, c, at, cn}) tells player d of a hostile landing; abandon({d, c}) seals a landing on
+       the coast of a nation not played for 14 days (functions/index.js) */
+    landing: function (d) { return A.frozen ? hang() : call('referee', Object.assign({}, isObj(d) ? d : {}, { op: 'landing' })); },
+    abandon: function (d) { return A.frozen ? hang() : call('referee', Object.assign({}, isObj(d) ? d : {}, { op: 'abandon' })); }
   });
   var civicApi = Object.freeze({ request: function(data) { return call('civic', data); } });
   /* the shop (functions/shop.js, through the accounts callable): request({step, …}); checkout({txn, env, token, theme,

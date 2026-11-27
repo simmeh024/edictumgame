@@ -68,7 +68,10 @@ test('the page builds them all, numbered after every older edict', () => {
   assert.deepEqual(G.failed, []);
   const ids = J('ISSUES.map(x=>x.id)'), k = ids.indexOf(SK[0].id);
   assert.ok(base.length >= 150, base.length + ' sacking edicts');
-  assert.deepEqual(ids.slice(k), SK.concat(GEN).map(i => i.id), 'the sacking edicts, then the generic follow-ups, last of all');
+  /* after them only the colonial edicts of the landing parties (27 November, landing-parties.test.mjs) */
+  const after = ids.slice(k + SK.length + GEN.length);
+  assert.deepEqual(ids.slice(k, k + SK.length + GEN.length), SK.concat(GEN).map(i => i.id), 'the sacking edicts, then the generic follow-ups');
+  assert.ok(after.every(id => /^lnd-/.test(id)), 'then only the colonial edicts: ' + after.filter(id => !/^lnd-/.test(id)).join(', '));
   assert.equal(run('ISSUES_RANDOM.filter(i=>i.skx).length'), base.length, 'only the base edicts are drawn at random');
 });
 
