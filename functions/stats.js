@@ -9,6 +9,7 @@ import { nationText } from './nationtext.js';
 import { rowMore } from './stats-more.js';
 import { rowActs, actSummary, actDay } from './stats-acts.js';
 import { rowResearch, researchSummary } from './stats-research.js';
+import { rowSack, sackSummary } from './stats-sack.js';
 
 export const DAY = 86400000;
 const KEEP = 30 * DAY;   // rulings older than this are not kept per nation (a record holds its latest 80 at most)
@@ -63,7 +64,7 @@ export function nationRow(id, shared, priv, now) {
     d14: days.size, r14: ans.filter(a => a[2] >= 0 && a[0] > from).length,
   };
   row.eng = engagement(row);
-  Object.assign(row, rowMore(r, now), rowActs(r, now), rowResearch(r, now));
+  Object.assign(row, rowMore(r, now), rowActs(r, now), rowResearch(r, now), rowSack(r, now));
   return row;
 }
 /* How engaged a player is, 0 to 100, from four parts: the days of the last fortnight they played (40), the edicts they
@@ -269,6 +270,8 @@ export function summarize(g, reg = '', now = g.at) {
     eng: engageBands(active30),
     /* the National Research Programme: where nations stand on the way to the laboratory and in the research (functions/stats-research.js) */
     rs: researchSummary(R, now, !reg),
+    /* sacking edicts: the fates players choose for the officials they sack (functions/stats-sack.js) */
+    sk: sackSummary(R),
   };
 }
 const FUNNEL_MAX = 3000;
