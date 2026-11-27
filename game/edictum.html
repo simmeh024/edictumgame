@@ -110875,6 +110875,9 @@ function wacMonthName(m){const [y,mo]=wacYM(m);try{return new Date(Date.UTC(y,mo
 function wacUTC(t){try{return new Date(t).toLocaleDateString('en-GB',{day:'numeric',month:'long',timeZone:'UTC'})+' at 00:00 UTC';}catch(e){return fmtDate(t);}}
 /* ── who sits ── */
 function wacSeated(){try{return S.mode==='world'&&!OBS&&!PV&&!!S.nation&&!!S.uid&&delegate(S.nation);}catch(e){return false;}}
+/* an admin has the Council in the game as well, seat or not (observing a region too, never in a role preview): to read it
+   as the Delegates see it, without a ballot or a vote unless they hold a seat themselves */
+function wacAdmin(){try{return !!S.isOwner&&!PV&&!!S.uid&&S.mode!=='local';}catch(e){return false;}}
 const wacSeats=()=>(WAC.pub&&WAC.pub.seats&&typeof WAC.pub.seats==='object')?WAC.pub.seats:{};
 /* the region whose seat this account holds in the public record ('' when none): what the Council chat's rule reads */
 function wacSeatReg(id){const me=id||myId();if(!me||me==='me')return '';for(const [r,x] of Object.entries(wacSeats()))if(x&&x.id===me)return r;return '';}
@@ -110899,7 +110902,7 @@ function wacPubSet(p){
 }
 /* a seat's fuller view of the Council */
 async function wacLoad(){
-  if(WAC.busy||!S.uid||S.mode!=='world')return;WAC.busy=true;
+  if(WAC.busy||!S.uid||S.mode==='local'||!(wacSeated()||wacAdmin()))return;WAC.busy=true;
   try{civicApi=civicApi||await window.claude.use('civic');const st=await civicApi.request({op:'wacState'});
     WAC.st=st;WAC.err='';
     wacPubSet(Object.assign({},WAC.pub||{},{seats:Object.fromEntries((st.seats||[]).map(x=>[x.reg,{id:x.id,nm:x.nm,t:x.t,k:x.k}])),ch:st.ch,term:st.term,rank:st.rank,msg:st.msg,hist:st.hist,chairs:st.chairs,sh:st.sh,res:st.res,ideas:st.ideas}));}
@@ -110921,7 +110924,7 @@ function wacSelf(){
   if(ch){const m=clone(n);m.wac=w;commit(m);saveSoon();}
 }
 setInterval(()=>{if(document.visibilityState!=='visible')return;wacPubLoad(false);
-  if(wacSeated()&&Date.now()-WAC.at>(S.view==='council'?WAC_PAGE:WAC_AWAY))wacLoad();},20000);
+  if((wacSeated()||wacAdmin()&&S.view==='council')&&Date.now()-WAC.at>(S.view==='council'?WAC_PAGE:WAC_AWAY))wacLoad();},20000);
 setTimeout(()=>{wacPubLoad(true);},4000);
 
 /* ── the menu: Council, under Abroad after the Assembly, only for a sitting Delegate ── */
@@ -110929,7 +110932,7 @@ EXT_PAGES.push('council');NAV_LABELS.council='Council';
 NAV_WORDS.council='world assembly council wac delegates chair vote election ballot motions resolutions agenda edict ideas';
 NAV_ICONS.council=NAV_SVG('<path d="m14.2 3.2 6.6 6.6M11.4 6l6.6 6.6M12.8 4.6l-4.2 4.2 6.6 6.6 4.2-4.2"/><path d="M11.7 11.9 3.6 20"/><path d="M13 21h8"/>');
 (()=>{const g=NAV_GROUPS.find(x=>x.k==='abroad');if(g&&!g.v.includes('council'))g.v.splice((g.v.indexOf('assembly')+1)||g.v.length,0,'council');})();
-{const base=navGroups;navGroups=function(){const g=base.apply(this,arguments);if(NAVP.raw||wacSeated()||S.view==='council')return g;return g.map(x=>({...x,items:x.items.filter(([v])=>v!=='council')})).filter(x=>x.items.length);};}
+{const base=navGroups;navGroups=function(){const g=base.apply(this,arguments);if(NAVP.raw||wacSeated()||wacAdmin()||S.view==='council')return g;return g.map(x=>({...x,items:x.items.filter(([v])=>v!=='council')})).filter(x=>x.items.length);};}
 VIEWS_EXT.council=now=>wacView(now||Date.now());
 
 /* ── the page ── */
@@ -110940,7 +110943,7 @@ function wacSeatsList(st){return (st&&st.seats||[]).slice().sort((a,b)=>wacRegNa
 function wacNeed(n){return Math.max(2,Math.floor(n/2)+1);}
 function wacView(now){
   const st=WAC.st,seated=wacSeated();
-  if(!seated&&!(st&&st.me&&st.me.staff))return `<header class="vh"><p class="eyebrow">World Assembly Council</p><h1>The World Assembly Council</h1><p>Every region’s Delegate holds a seat at the Council, where the regions talk over the matters between them.</p></header>
+  if(!seated&&!wacAdmin()&&!(st&&st.me&&st.me.staff))return `<header class="vh"><p class="eyebrow">World Assembly Council</p><h1>The World Assembly Council</h1><p>Every region’s Delegate holds a seat at the Council, where the regions talk over the matters between them.</p></header>
     <section class="section wac-box"><p>Only a sitting Delegate has a seat. Become your region’s Delegate in the <button class="linkish" data-act="go" data-v="assembly">Regional Assembly</button> to take it.</p></section>`;
   if(!st){if(!WAC.busy&&!WAC.err)setTimeout(wacLoad,0);
     return `<header class="vh"><p class="eyebrow">World Assembly Council</p><h1>The World Assembly Council</h1></header>${WAC.err?`<p class="err" role="alert">${esc(WAC.err)}</p><p><button class="btn ghost small" data-act="wac-reload">Try again</button></p>`:'<p class="hint">Taking your seat…</p>'}`;}
@@ -110953,7 +110956,7 @@ function wacView(now){
   try{body=WAC.tab==='vote'?wacVoteHTML(st,now):WAC.tab==='agenda'?wacAgendaHTML(st,now):WAC.tab==='motions'?wacMotionsHTML(st,now):WAC.tab==='records'?wacRecordsHTML(st,now):wacChamberHTML(st,now);}
   catch(e){console.warn('council',e);body='<p class="hint">This part of the Council could not be drawn.</p>';}
   return `<header class="vh"><p class="eyebrow">World Assembly Council</p><h1>The World Assembly Council</h1>
-    <p>Every region’s Delegate holds its region’s seat. ${n===1?'One seat is':n+' of '+REGIONS.length+' seats are'} filled.${me.seat?` You sit for ${esc(wacRegName(me.reg))}${me.chair?', and you chair the Council':''}.`:me.staff?' You are reading as the Edictum team.':''}</p></header>
+    <p>Every region’s Delegate holds its region’s seat. ${n===1?'One seat is':n+' of '+REGIONS.length+' seats are'} filled.${me.seat?` You sit for ${esc(wacRegName(me.reg))}${me.chair?', and you chair the Council':''}.`:me.staff?' You are reading as the Edictum team: you have no seat, so no ballot and no vote.':''}${S.isOwner&&!PV?' <button class="linkish" data-act="go" data-v="admin-council">Open it in the admin portal</button>':''}</p></header>
     ${WAC.err?`<p class="err" role="alert">${esc(WAC.err)}</p>`:''}
     <div class="wac" id="wac"><div class="gv-tabs" role="tablist" aria-label="World Assembly Council">${tabs}</div><div class="wac-pane" role="tabpanel" aria-labelledby="wac-tab-${WAC.tab}">${body}</div></div>`;
 }
