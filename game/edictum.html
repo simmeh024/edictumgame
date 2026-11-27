@@ -111909,9 +111909,13 @@ worldMapView=(f=>function(){
   let coach='';try{const c=lcCoachHTML();if(c&&h.includes(c)){h=h.replace(c,'');coach=c;}}catch(e){}
   const top=`<header class="vh mpr-head"><h1>World map</h1>${tabs}<div class="mpr-go">${mprGoBox()}</div></header>`;
   const over=`<div class="mpr-over">${mprModeBar()}${coach}${mprHint()}${mprMiniBox()}</div>`;
-  h=h.replace('<div class="ml-map">','<div class="ml-map">'+over);
+  /* what the map box puts above the map (the finish being tried on, with its buttons) goes above the layout, where the
+     tools and the Layers button on the map cannot cover it */
+  const MB='<div class="ml-map">',a=h.indexOf(MB),b=a<0?-1:h.indexOf('<div class="map-wrap map-main',a);let notes='';
+  if(b>a&&h.slice(a+MB.length,b).trim()){notes=h.slice(a+MB.length,b);h=h.slice(0,a+MB.length)+h.slice(b);}
+  h=h.replace(MB,MB+over);
   setTimeout(mprAfter,0);
-  return top+h.replace('<div class="map-layout','<div class="mpr map-layout');
+  return top+h.replace('<div class="map-layout',notes+'<div class="mpr map-layout');
 })(worldMapView);
 /* the land office's chip stays where it is now, on the map, when the panel is drawn again */
 updateMapPanel=(f=>function(){
@@ -111926,12 +111930,28 @@ function mprAfter(){
   const top=L.getBoundingClientRect().top+window.scrollY,narrow=mapxNarrow(),pn=document.getElementById('map-panel');
   /* on a phone the panel is a sheet over the foot of the screen: the map ends where its folded handle begins */
   const foot=narrow&&pn?(parseFloat(getComputedStyle(pn).bottom)||0)+58:16;
-  const h=Math.max(narrow?300:460,Math.round(window.innerHeight-(top-window.scrollY)-foot));
-  /* the page is drawn anew on every render: the height goes on each new layout; the maps redraw when it changed */
-  const was=L.style.getPropertyValue('--mpr-h');if(was!==h+'px'){L.style.setProperty('--mpr-h',h+'px');MPR.sized=h;redrawMaps();}
+  /* measured from the top of the page, not of the screen, so scrolling never changes it (a map that grew and shrank
+     as the page scrolled moved under every click) */
+  const h=Math.max(narrow?300:460,Math.round(window.innerHeight-top-foot));
+  /* on the root, not on the layout: a style on the layout made each render find it changed and draw the whole map
+     afresh, canvas and all; the maps redraw when it changed */
+  const R=document.documentElement,was=R.style.getPropertyValue('--mpr-h');if(was!==h+'px'){R.style.setProperty('--mpr-h',h+'px');MPR.sized=h;redrawMaps();}
   mprMiniDraw();
 }
 window.addEventListener('resize',()=>{MPR.sized=0;clearTimeout(MPR.rt);MPR.rt=setTimeout(mprAfter,120);});
+/* the tools on the map cover its top edge (on a phone, its foot): the view may run that far past the edge of the world,
+   so a hex in the top or bottom row can be brought out from under them and clicked */
+function mprEdges(cv){
+  const o=cv.closest('.ml-map'),box=o&&o.querySelector('.mpr-over');if(!box)return null;const r=cv.getBoundingClientRect();if(!r.height)return null;
+  let t=0,b=0;for(const el of box.querySelectorAll('.mpr-modes,.lc-coach,.mpr-hint')){const q=el.getBoundingClientRect();if(!q.height)continue;
+    if(q.top-r.top<r.height/2)t=Math.max(t,q.bottom-r.top+8);else b=Math.max(b,r.bottom-q.top+8);}
+  return {t:Math.min(t,r.height*.45),b:Math.min(b,r.height*.45)};
+}
+clampView=(f=>function(cv,v){
+  const cy=v.cy;f.apply(this,arguments);
+  if(!cv||cv.dataset.map!=='main'||!mprOn()||!Number.isFinite(cy)||cv.closest('.is-full'))return;
+  const s=mapScale(cv,v),hh=cv.clientHeight/2/s;if(!s||MAP.H<=2*hh)return;const e=mprEdges(cv);if(!e)return;
+  v.cy=clamp(cy,hh-e.t/s,MAP.H-hh+e.b/s);})(clampView);
 
 /* ── keys: 1-6 for the modes, Esc back to Explore (never while typing) ── */
 document.addEventListener('keydown',e=>{
@@ -111958,6 +111978,14 @@ document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest
 MAP_CONTROLS.push(()=>mprOn()?`<label class="mig-tog mfx-tog" title="Rings round your capital, cities and colonies for how far they claim, and the sea your boats reach"><input type="checkbox" data-mpr-opt="rings"${mapOpt('mpr-rings',false)?' checked':''}> Reach</label>`:'');
 document.addEventListener('change',e=>{const el=e.target;if(el&&el.dataset&&el.dataset.mprOpt==='rings')setMapOpt('mpr-rings',!!el.checked);});
 document.addEventListener('toggle',e=>{const d=e.target;if(d&&d.id==='ml-sheet'&&mprOn())MPR.layOpen=d.open;},true);
+/* a page's "Show on the map" (the Diplomacy lens) opens the Layers with the lens's key */
+document.addEventListener('click',e=>{const t=e.target;if(!t.closest)return;if(t.closest('[data-act="dp-lens"]'))MPR.layOpen=true;
+  /* the Layers button's own click, at once: the toggle event comes a moment later, and a render in between closed it */
+  const su=t.closest('#ml-sheet>summary');if(su&&mprOn())MPR.layOpen=!su.parentNode.open;},true);
+/* the open tool's own button keeps it open (Explore or Esc closes it): a bar of modes, not of switches. A tool that came
+   back open after a reload was closed again by the click meant to open it */
+document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('.mpr-modes [data-act="mp-mode"]');if(!b||!mprOn())return;
+  if(b.dataset.v&&S.mpMode===b.dataset.v){e.preventDefault();e.stopPropagation();}},true);
 const MPR_GROUPS=[['lens','Borders and lens',/data-lens|data-mp-opt="(borders|landsale|tz)"|mp-al|data-al/],['move','Movement',/data-bind="migmap"|data-trmap|data-mp-opt="networks"|data-lndmap/],
   ['war','Military',/data-wr3map|data-mp-opt="reach"|data-mpr-opt/],['eco','Economy',/data-mp-opt="(landscape|influence)"/],['world','World',/./]];
 function mprGroupToggles(html){

@@ -134,7 +134,9 @@ check('a completed railway station enables a real railway build',(await localNat
 await A.selectOption('#mp-net-kind','sea');await A.selectOption('#mp-net-from',String(coast.cap));await A.selectOption('#mp-net-to',String(island));
 check('harbour annexation can be connected by a real shipping route',await A.locator('[data-act="mp-net-build"]:not([disabled])').count()===1);await A.click('[data-act="mp-net-build"]');await saved();
 check('shipping route uses at most four water-route steps',(await localNation(A)).infra.some(r=>r.k==='sea'&&r.path.length<=5));
-await A.check('[data-mp-opt="influence"]');await A.evaluate(c=>{G.MD.centerMain(c,18);G.render();},coast.cap);await settle(A);await A.screenshot({path:OUT+'/map-networks-1280.png',fullPage:true});
+/* the switches are in the Layers popover (the World map redesign, 27 Nov 2026), closed until opened */
+if(!(await A.evaluate(()=>!!document.getElementById('ml-sheet')?.open)))await A.click('#ml-sheet>summary');
+await A.check('[data-mp-opt="influence"]');if(await A.evaluate(()=>!!document.getElementById('ml-sheet')?.open))await A.click('#ml-sheet>summary');await A.evaluate(c=>{G.MD.centerMain(c,18);G.render();},coast.cap);await settle(A);await A.screenshot({path:OUT+'/map-networks-1280.png',fullPage:true});
 await A.locator('canvas[data-map="main"]').screenshot({path:OUT+'/map-network-detail.png'});
 check('map options retain the policy and infrastructure visual layers',await A.locator('[data-mp-opt="landscape"]:checked').count()===1&&await A.locator('[data-mp-opt="networks"]:checked').count()===1);
 await nav(A,'nation');await nav(A,'map');check('leaving the map ends tool mode without changing saved preferences',await A.evaluate(()=>!G.S.mpMode)&&await A.locator('[data-mp-opt="influence"]:checked').count()===1);

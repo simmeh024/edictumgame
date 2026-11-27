@@ -70,9 +70,12 @@ check('the Blue-Water Navy raises harbour reach to 20 and reaches more shore', n
 /* idea 6: the harbour reach toggle and the inspector's reason */
 await nav(p, 'map');
 await p.evaluate(c => { G.MD.centerMain(c, 4); G.render(); }, spot.cap);
+/* the map's switches are in its Layers popover (the World map redesign, 27 Nov 2026), closed until opened */
+if (!(await p.evaluate(() => !!document.getElementById('ml-sheet')?.open))) await p.click('#ml-sheet>summary');
 const tog = p.locator('[data-mp-opt="reach"]');
 check('the map key offers Harbour reach once you hold a finished harbour', await tog.count() === 1);
 if (await tog.count()) { await tog.check(); await sleep(400); }
+if (await p.evaluate(() => !!document.getElementById('ml-sheet')?.open)) await p.click('#ml-sheet>summary'); /* the Layers closed again, off the map */
 /* a late re-render (an achievement, a notice) can swap the canvas: retry on a fresh one */
 for (let k = 0; k < 5; k++) { try { await p.locator('canvas[data-map="main"]').scrollIntoViewIfNeeded({ timeout: 3000 }); break; } catch (e) { if (k === 4) throw e; await sleep(400); } }
 await p.screenshot({ path: OUT + '/reach-on.png' });

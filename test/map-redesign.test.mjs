@@ -69,3 +69,17 @@ test('the page: slim header, the old tool row out, the tools, chip, hint and min
   assert.match(css,/\.mpr \.map-wrap\.map-main:not\(\.is-full\)\{height:var\(--mpr-h,/,'the map as tall as the window');
   assert.match(css,/@media \(max-width:1100px\)\{[\s\S]*\.mpr-modes\{top:auto;bottom:10px;/,'on a phone the tools at the map\'s foot');
 });
+
+/* PR #607's first CI run: the map's height set on the layout made every render find the layout changed and draw the
+   whole map afresh, canvas and all (clicks on the map timed out, a canvas read after a render was 0 wide); the height
+   followed the scroll; the tools covered the "Trying on" note above the map and the hexes in the top row */
+test('the map stays put: its height on the root, from the top of the page; notes above it; every hex clear of the tools',()=>{
+  assert.match(SEC,/const R=document\.documentElement,was=R\.style\.getPropertyValue\('--mpr-h'\);if\(was!==h\+'px'\)\{R\.style\.setProperty\('--mpr-h',h\+'px'\);/,'never a style on the patched layout');
+  assert.doesNotMatch(SEC,/L\.style\.setProperty/);
+  assert.match(SEC,/const h=Math\.max\(narrow\?300:460,Math\.round\(window\.innerHeight-top-foot\)\);/,'the page\'s top, not the screen\'s: scrolling never resizes it');
+  assert.match(SEC,/return top\+h\.replace\('<div class="map-layout',notes\+'<div class="mpr map-layout'\);/,'what the map box puts above the map goes above the layout');
+  assert.match(SEC,/v\.cy=clamp\(cy,hh-e\.t\/s,MAP\.H-hh\+e\.b\/s\);\}\)\(clampView\);/,'the view may run past the edge by what the tools cover');
+  assert.match(SEC,/const su=t\.closest\('#ml-sheet>summary'\);if\(su&&mprOn\(\)\)MPR\.layOpen=!su\.parentNode\.open;/,'the Layers stay open through a render');
+  assert.match(SEC,/if\(t\.closest\('\[data-act="dp-lens"\]'\)\)MPR\.layOpen=true;/,'Show on the map opens the lens\'s key');
+  assert.match(SEC,/if\(b\.dataset\.v&&S\.mpMode===b\.dataset\.v\)\{e\.preventDefault\(\);e\.stopPropagation\(\);\}/,'the open tool\'s button keeps it open, even after it came back with a reload');
+});
