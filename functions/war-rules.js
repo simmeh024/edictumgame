@@ -57,6 +57,25 @@ export function milReady(rec, now) {
 /* a point's time with the cut, rounded as the game rounds it (after a training pact's) */
 export const milMs = (ms, cut) => cut > 0 ? Math.round(ms * (1 - cut)) : ms;
 
+/* A master spy's gift (27 November 2026; game/edictum.html sendSpy and spyGiftRule). A master result adds a readiness
+   point to the game's own count; before this the referee never heard of it and only kept one point of slack, so the first
+   gift of a war was covered and later ones were refused at the last attack ("the referee counts no readiness left").
+   Now the referee credits the gifts from the spy reports in the private half (nationx/<uid>, intel), at the next battle:
+   each report of kind 'master' that gave a point (rp 1; one from an older build has no rp and counts), no older than
+   SPY_GIFT_AGE, and at least SPY_GIFT_GAP after the last one credited (gt, kept in armies/<uid>). The game keeps the same
+   gap, so it shows no point the referee will not credit, and a record typed with made-up reports gains one point per
+   SPY_GIFT_GAP at most. The reports carry the game's own times, so a few minutes ahead of the server's are allowed.
+   → {k: the points to credit, gt: the time of the last report credited (gt itself when none)} */
+export const SPY_GIFT_GAP = 30 * 60000, SPY_GIFT_AGE = 6 * 3600000, SPY_GIFT_SKEW = 10 * 60000;
+export const spyGave = r => !!r && typeof r === 'object' && r.k === 'master' && (r.rp === undefined || r.rp === 1);
+export function spyGifts(intel, gt, now) {
+  let last = num(gt), k = 0;
+  const ts = (Array.isArray(intel) ? intel.slice(0, 40) : []).filter(spyGave).map(r => num(r.t))
+    .filter(t => t > now - SPY_GIFT_AGE && t <= now + SPY_GIFT_SKEW).sort((a, b) => a - b);
+  for (const t of ts) if (t > last && (!last || t >= last + SPY_GIFT_GAP)) { k++; last = t; }
+  return { k, gt: last };
+}
+
 /* the capital moves (24 November 2026, the owner: "if there are other cities, the capital moves to the 2nd largest city,
    so the war keeps on going"). When a capital falls and its nation has another city, the government moves there and the
    nation fights on; only a nation with no city left falls. The new capital is its biggest city: the most finished

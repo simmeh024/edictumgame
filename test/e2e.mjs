@@ -685,6 +685,25 @@ check('and another player’s game counts it, having checked the seal', won != n
 // the conquest's seal, copied onto hexes it was not made for below; with no victory there is none, and those checks fail
 const sealed = own ? own.e : {};
 await A.screenshot({ path: path.join(OUT, 'referee-victory.png') });
+/* a master spy's gift (27 Nov 2026, functions/war-rules.js spyGifts): with both counts at 0, a master result gives A a
+   point and the attack goes in at once, before the report's save lands. The referee credits it from the saved report
+   (the game saves it and asks once more), so the battle is fought; before, the referee knew nothing of the gift */
+{
+  const v = x => ({ integerValue: String(x) });
+  await ownerDoc('armies/' + uidA + '?updateMask.fieldPaths=r&updateMask.fieldPaths=at', { method: 'PATCH', body: JSON.stringify({ fields: { r: v(0), at: v(Date.now()) } }) });
+  const tg = await pick();
+  await A.evaluate(npc => { const n = G.clone(G.S.nation); n.ready = 0; n.readyAt = Date.now(); n.intel = []; G.commit(n);
+    G.S.cvTg = npc; const r = Math.random; Math.random = () => { Math.random = r; return 0.99; };
+    const b = document.createElement('button'); b.dataset.act = 'ib-mil'; document.body.appendChild(b); b.click(); b.remove(); }, war.npc);
+  const gift = await A.evaluate(() => { const r = (G.S.nation.intel || [])[0] || {}; return { k: r.k, rp: r.rp, t: r.t, ready: G.readiness(G.S.nation, Date.now()).r }; });
+  check('a master spy result gives A a readiness point', gift.k === 'master' && gift.rp === 1 && gift.ready === 1, gift);
+  const m2 = tg ? await fight(tg.cell) : '';
+  check('and the referee counts it, though the attack went in before the report was saved', /^Victory|held the line/.test(m2 || ''), m2);
+  const a2 = await ownerFields('armies/' + uidA);
+  check('the referee keeps the time of the gift it credited', !!a2.gt && Number(a2.gt.integerValue) === gift.t, JSON.stringify(a2));
+  /* the referee's readiness as it was, for the battles below */
+  await ownerDoc('armies/' + uidA + '?updateMask.fieldPaths=r&updateMask.fieldPaths=at', { method: 'PATCH', body: JSON.stringify({ fields: { r: army.r || v(6), at: v(Date.now()) } }) });
+}
 // Keep the sender from overwriting the administrator's tamper fixture during the observer assertion.
 await A.evaluate(()=>{G.S.mode='readonly';G.render();});
 // conquests typed into A's record past the game: one without a seal, one with the seal of another hex
