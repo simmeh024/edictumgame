@@ -68,7 +68,7 @@ await page.click('#fg-st [data-fst="add"][data-v="border"]'); await fval('lb', 5
 await page.locator('#fs-l-c').evaluate(el => { el.value = '#1c4d9e'; el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); });
 check('layer colour and border line', (await fdraft()).layers[3].c === '#1C4D9E' && (await fdraft()).layers[2].c !== '#1C4D9E' && (await fdraft()).layers[2].b === 5);
 while ((await fdraft()).layers.length < 24) await page.click('#fg-st [data-fst="add"][data-v="disc"]');
-check('twenty-four layers at most', await page.locator('#fg-st [data-fst="add"][disabled]').count() === 6 && await page.locator('#fs-dup[disabled]').count() === 1);
+check('twenty-four layers at most', await page.locator('#fg-st [data-fst="add"][disabled]').count() === 13 && await page.locator('#fs-dup[disabled]').count() === 1);
 await page.click('#fg-st [data-fst="discard"]'); check('discard returns to the flying flag', !(await fdraft()).layers);
 await page.click('#fg-st [data-fst="tab"][data-v="charges"]'); await page.click('#fg-st [data-fst="set"][data-f="e"][data-v="star"]');
 const hit = await page.$('#fg-st .cst-ov [data-fpart="emb"]'), bb = await hit.boundingBox();
@@ -94,7 +94,7 @@ check('the flag is back on its pole', await page.evaluate(() => !!document.query
 await page.click('#fg-st [data-fst="tab"][data-v="var"]');
 check('the four variants are drawn', await page.evaluate(() => document.querySelectorAll('#fg-st .fs-vfig > svg').length === 4));
 await page.screenshot({ path: path.join(OUT, 'flag-studio.png') });
-await page.selectOption('#fg-st [data-fst-sel="ver"]', 'save');
+await page.click('#fg-st .fs-bar [data-fst="tab"][data-v="hist"]'); await page.click('#fs-vsave');
 check('a version is saved on the nation', await until(() => page.evaluate(() => (window.__game.S.nation.fgV || []).length === 1)));
 await page.click('#fg-st [data-fst="save"]');
 const saved = await until(() => page.evaluate(() => { const f = window.__game.S.nation.flag; return f.p === 'stripes' && f.pr === 'swt' && f.bd === 'frame' && f.ca === 'rows' && f.ea === 'cons' ? JSON.stringify(f) : false; }));
@@ -130,6 +130,12 @@ await page.keyboard.press('Control+z');
 await page.setViewportSize({ width: 390, height: 844 });
 const wide = await page.evaluate(() => { const e = document.getElementById('fg-st'); return { ok: e.scrollWidth <= innerWidth + 1, sw: e.scrollWidth, who: [...e.querySelectorAll('*')].filter(x => x.getBoundingClientRect().right > innerWidth + 1).slice(0, 4).map(x => x.tagName + '.' + (x.className.baseVal ?? x.className) + '#' + x.id + ':' + Math.round(x.getBoundingClientRect().right)) }; });
 check('on a phone the Studio does not scroll sideways', wide.ok, JSON.stringify(wide));
+{ const ph = await page.evaluate(() => { const q = s => document.querySelector('#fg-st ' + s), pr = q('.cst-proof'), sv = q('.fs-save'), fl = q('.fs-flag'), mo = q('.fs-more'), sw = q('.cst-stsw').getBoundingClientRect(), un = q('[data-fst="undo"]').getBoundingClientRect();
+    return { proof: pr ? getComputedStyle(pr).position : 'none', save: getComputedStyle(sv).position, saveBottom: Math.round(innerHeight - sv.getBoundingClientRect().bottom), flagTop: Math.round(fl.getBoundingClientRect().top), more: getComputedStyle(mo).display, apart: sw.right <= un.left + 1 || sw.left >= un.right - 1 || sw.bottom <= un.top + 1 || sw.top >= un.bottom - 1 }; });
+  check('on a phone the flag comes first, the check sits below it, and Undo and Save wait at the foot', ph.proof === 'static' && ph.save === 'fixed' && ph.saveBottom <= 1 && ph.flagTop < 200 && ph.more === 'none' && ph.apart, JSON.stringify(ph)); }
+await page.click('#fg-st [data-fst="more"]');
+check('More opens the rest of the tools', await page.evaluate(() => getComputedStyle(document.querySelector('#fg-st .fs-more')).display !== 'none' && !!document.querySelector('#fg-st .fs-more [data-fst="surprise"]')));
+await page.click('#fg-st [data-fst="more"]');
 await page.screenshot({ path: path.join(OUT, 'flag-studio-phone.png') });
 await page.setViewportSize({ width: 1280, height: 900 });
 // Separate into layers: the fused base becomes layers that look the same and move on their own
@@ -159,8 +165,123 @@ await page.click('#fs-fx'); check('Flip mirrors a layer', (await fdraft()).layer
   await page.mouse.move(rb.x + rb.width / 2, rb.y + rb.height / 2); await page.mouse.down(); await page.mouse.move(cx + 80, cy, { steps: 6 }); await page.mouse.up();
   check('the round handle turns a layer', Math.abs((await fdraft()).layers[nl].r - 90) <= 1, String((await fdraft()).layers[nl].r)); }
 await page.click('#fs-back'); check('To the back', (await fdraft()).layers[0].fx === 1);
+// ── round four (2026-11-27): the bugs, and ideas 4-7, 9-14, 18-20 of the owner's list ──
+const setDraft = f => page.evaluate(f => { const g = window.__game; g.S.czFlag = JSON.parse(JSON.stringify(f)); g.FLY().FS.multi.clear(); g.FLY().FS.sel = 'emb'; g.FLY().fsPaint(); }, f);
+const FSs = () => page.evaluate(() => { const F = window.__game.FLY().FS; return { sel: F.sel, multi: [...F.multi], zoom: F.zoom, drop: F.drop, keys: F.keys, guide: F.guide, pickC: F.pickC, cmpN: F.cmpN && F.cmpN.nm, clip: F.clip ? F.clip.length : 0 }; });
+const chips = () => page.evaluate(() => [...document.querySelectorAll('#fg-st .cst-proof li')].map(l => l.textContent).join(' | '));
+const flagBox = () => page.locator('#fg-st .fs-flag > svg').first().boundingBox();
+const setColour = (sel, v) => page.locator(sel).evaluate((el, v) => { el.value = v; el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); }, v);
+{ const ov = await page.evaluate(() => { const a = document.querySelector('#fg-st .cst-stsw').getBoundingClientRect(), b = document.querySelector('#fg-st [data-fst="undo"]').getBoundingClientRect(); return { w: Math.round(a.width), apart: a.right <= b.left + 1 || a.left >= b.right - 1 || a.bottom <= b.top + 1 || a.top >= b.bottom - 1 }; });
+  check('the Other Studios switcher no longer lies over Undo', ov.w > 60 && ov.apart, JSON.stringify(ov)); }
+check('the layers count says it counts the extra layers', /\d+ \/ 24 extra/.test(await page.textContent('#fg-st #fs-left .cst-ph')));
+// 4: the patterns in named groups
+await setDraft({ p: 'tri-v', c: ['#C8102E', '#FFFFFF', '#152450'], e: 'none', ec: '#F2C230' });
+await F('[data-fst="tab"][data-v="style"]');
+{ const pg = await page.evaluate(() => ({ groups: [...document.querySelectorAll('#fg-st .fs-pg')].map(x => x.textContent), named: document.querySelectorAll('#fg-st .fs-ptiles .fs-tn').length }));
+  check('the patterns stand in five named groups, each tile with its name', pg.groups.length === 5 && pg.named >= 40, JSON.stringify(pg)); }
+// 7: the canton's shape, and an inspector of its own
+await F('[data-fst="set"][data-f="cnon"][data-v="1"]'); await F('#fs-right [data-fst="set"][data-f="cs"][data-v="sq"]');
+check('the canton can be square', (await fdraft()).cs === 'sq' && /<rect width="100" height="100" fill=/.test(await flagNow()));
+await F('[data-fst="pick"][data-k="cn"]');
+check('the canton has an inspector: its colour, shape and corner', await page.locator('#fs-i-cn').count() === 1 && await page.locator('#fg-st #fs-left [data-f="cs"][data-v="h"]').count() === 1);
+await F('#fs-left [data-f="cs"][data-v="h"]');
+check('a full-height canton runs the height of the hoist', (await fdraft()).cs === 'h' && /<rect width="100" height="200" fill=/.test(await flagNow()));
+await F('#fs-left [data-f="cp"][data-v="fly"]');
+check('at the fly it moves to the far edge', /translate\(200 0\)/.test(await flagNow()));
+await F('[data-fst="set"][data-f="cnon"][data-v="0"]'); check('taking the canton off drops its shape', !(await fdraft()).cs && !(await fdraft()).cn);
+// 9: the emblem's box holds what it draws
+await setDraft({ p: 'tri-v', c: ['#C8102E', '#FFFFFF', '#152450'], e: 'star', ec: '#F2C230', ea: 'row', ek: 5 });
+await F('[data-fst="pick"][data-k="emb"]');
+{ const ew = await page.evaluate(() => +document.querySelector('#fg-st .cst-ov [data-fpart="emb"]').getAttribute('width'));
+  check('the emblem box holds a whole row of charges', ew > 200, String(ew)); }
+// 5: fixes on the check
+await setDraft({ p: 'tri-v', c: ['#C8102E', '#FFFFFF', '#152450'], e: 'star', ec: '#C8102E', tx: 'Hello', layers: [{ k: 'disc', x: 20, y: 20, w: 10, h: 10, r: 0, c: '#1B7F3B' }, { k: 'disc', x: 80, y: 80, w: 10, h: 10, r: 0, c: '#1D8240' }, { k: 'disc', x: 50, y: 80, w: 10, h: 10, r: 0, c: '#E86A10' }] });
+{ const ch = await chips();
+  check('the check offers fixes', /6 colours/.test(ch) && await page.locator('#fg-st [data-fst="fix"][data-v="merge"]').count() === 1 && await page.locator('#fg-st [data-fst="fix"][data-v="emb"]').count() === 1 && await page.locator('#fg-st [data-fst="fix"][data-v="words"]').count() === 1, ch); }
+await F('[data-fst="fix"][data-v="merge"]');
+check('Merge the two closest makes the two greens one', await until(async () => /5 colours/.test(await chips()) && (await fdraft()).layers[0].c === (await fdraft()).layers[1].c), await chips());
+await F('[data-fst="fix"][data-v="emb"]');
+check('A colour that shows changes the emblem colour', await until(async () => !/barely shows/.test(await chips()) && (await fdraft()).ec !== '#C8102E'), await chips());
+await F('[data-fst="fix"][data-v="words"]');
+check('Remove them takes the words off', !(await fdraft()).tx);
+await F('[data-fst="undo"]'); check('a fix is one Undo step', (await fdraft()).tx === 'Hello');
+// 6: one colour everywhere, and a colour picked off the flag
+await setDraft({ p: 'tri-v', c: ['#C8102E', '#FFFFFF', '#152450'], e: 'none', ec: '#F2C230', layers: [{ k: 'disc', x: 20, y: 20, w: 10, h: 10, r: 0, c: '#C8102E' }] });
+await F('[data-fst="tab"][data-v="colour"]');
+check('the Colour tab lists every colour with where it is used', await page.locator('#fg-st .fs-ev').count() === 3 && /field, layers/.test(await page.textContent('#fg-st .fs-every')));
+await setColour('#fs-ev-C8102E', '#7a2e2e');
+check('a colour changes everywhere it is used', (await fdraft()).c[0] === '#7A2E2E' && (await fdraft()).layers[0].c === '#7A2E2E', JSON.stringify(await fdraft()));
+await F('#fs-drop');
+{ const b = await flagBox(); await page.mouse.click(b.x + b.width * .85, b.y + b.height * .5); }
+check('Pick a colour reads the colour off the flag', await until(async () => (await FSs()).pickC === '#152450' && await page.evaluate(() => document.activeElement?.id === 'fs-ev-152450')), JSON.stringify(await FSs()));
+// 10: several layers: Shift-click, line up, space, group, drag and nudge together, ungroup
+await setDraft({ p: 'plain', c: ['#152450', '#FFFFFF', '#C8102E'], e: 'none', ec: '#F2C230', layers: [[20, 30], [30, 40], [80, 50]].map(([x, y]) => ({ k: 'disc', x, y, w: 10, h: 10, r: 0, c: '#F2C230' })) });
+await F('[data-fst="pick"][data-k="l0"]'); await page.click('#fg-st [data-fst="pick"][data-k="l1"]', { modifiers: ['Shift'] }); await page.click('#fg-st [data-fst="pick"][data-k="l2"]', { modifiers: ['Shift'] });
+check('Shift-click picks several layers', (await FSs()).multi.length === 3 && /3 layers/.test(await page.textContent('#fg-st #fs-left .fs-mh')), JSON.stringify(await FSs()));
+await F('#fs-mal-t'); check('Tops lines them up', (await fdraft()).layers.every(l => l.y === 30), JSON.stringify((await fdraft()).layers));
+await F('#fs-dist-x'); check('Space evenly across', JSON.stringify((await fdraft()).layers.map(l => l.x)) === '[20,50,80]', JSON.stringify((await fdraft()).layers.map(l => l.x)));
+await F('#fs-grp'); check('Group gives them one group', new Set((await fdraft()).layers.map(l => l.g)).size === 1 && (await fdraft()).layers[0].g >= 1);
+await F('[data-fst="pick"][data-k="l2"]'); check('picking one of a group picks the group', (await FSs()).multi.length === 3);
+{ const b = await flagBox(), L0 = (await fdraft()).layers;
+  await page.mouse.move(b.x + b.width * L0[0].x / 100, b.y + b.height * L0[0].y / 100); await page.mouse.down(); await page.mouse.move(b.x + b.width * (L0[0].x + 10) / 100, b.y + b.height * (L0[0].y + 20) / 100, { steps: 6 }); await page.mouse.up();
+  const L1 = (await fdraft()).layers, dx = L1[0].x - L0[0].x, dy = L1[0].y - L0[0].y;
+  check('dragging one of a group moves them all alike', dx > 5 && dy > 5 && L1.every((l, i) => Math.abs(l.x - L0[i].x - dx) < .2 && Math.abs(l.y - L0[i].y - dy) < .2), JSON.stringify(L1.map(l => [l.x, l.y])));
+  await page.locator('#fs-cv').focus(); await page.keyboard.press('ArrowLeft');
+  check('arrow keys move the group', (await fdraft()).layers.every((l, i) => Math.abs(l.x - (L1[i].x - 1)) < .01), JSON.stringify((await fdraft()).layers.map(l => l.x))); }
+await F('#fs-ungrp'); check('Ungroup', (await fdraft()).layers.every(l => !l.g));
+// 11: copy and paste, style, Delete, Ctrl+A, the shortcuts
+await F('[data-fst="pick"][data-k="l0"]'); await page.locator('#fs-cv').focus();
+await page.keyboard.press('Control+c'); await page.keyboard.press('Control+v');
+check('Ctrl+C and Ctrl+V paste a copy beside it', (await fdraft()).layers.length === 4 && Math.abs((await fdraft()).layers[3].x - (await fdraft()).layers[0].x - 3) < .01 && (await FSs()).sel === 'l3', JSON.stringify(await FSs()));
+await setColour('#fs-l-c', '#1c4d9e'); await F('#fs-cstyle'); await F('[data-fst="pick"][data-k="l1"]'); await F('#fs-pstyle');
+check('Copy style and Paste style carry a colour across', (await fdraft()).layers[1].c === '#1C4D9E');
+await page.locator('#fs-cv').focus(); await page.keyboard.press('Delete'); check('Delete removes the picked layer', (await fdraft()).layers.length === 3);
+await page.locator('#fs-cv').focus(); await page.keyboard.press('Control+a'); check('Ctrl+A picks every layer', (await FSs()).multi.length === 3);
+await page.locator('#fs-cv').focus(); await page.keyboard.press('?'); check('? shows the shortcuts', await page.locator('#fg-st .fs-keys kbd').count() >= 10);
+await page.keyboard.press('Escape'); check('Escape closes the shortcuts first, not the Studio', await page.locator('#fg-st .fs-keys').count() === 0 && await page.evaluate(() => !document.getElementById('fg-st').hidden));
+// 12: zoom
+{ const w0 = (await page.locator('#fg-st .fs-flagrow').boundingBox()).width; await F('#fs-zin'); const w1 = (await page.locator('#fg-st .fs-flagrow').boundingBox()).width;
+  check('Zoom in makes the flag bigger and the canvas scrolls', w1 > w0 * 1.4 && await page.locator('#fs-cv.fs-zoomed').count() === 1, `${w0} → ${w1}`); }
+await page.locator('#fs-cv').hover(); await page.keyboard.down('Control'); await page.mouse.wheel(0, -300); await page.keyboard.up('Control');
+check('Ctrl and the wheel zoom too', await until(async () => (await FSs()).zoom > 1.5), JSON.stringify(await FSs()));
+await page.locator('#fs-cv').focus(); await page.keyboard.press('0');
+check('0 goes back to 100%', (await FSs()).zoom === 1 && await page.locator('#fs-cv.fs-zoomed').count() === 0);
+// 13: the new shapes
+await setDraft({ p: 'plain', c: ['#152450', '#FFFFFF', '#C8102E'], e: 'none', ec: '#F2C230' });
+for (const k of ['cross', 'saltire', 'ring', 'chevron', 'crescent', 'star', 'rays']) await F(`[data-fst="add"][data-v="${k}"]`);
+check('seven new shapes join the layers and are drawn', JSON.stringify((await fdraft()).layers.map(l => l.k)) === JSON.stringify(['cross', 'saltire', 'ring', 'chevron', 'crescent', 'star', 'rays']) && (await flagNow()).split('data-fgl-layer=').length === 8);
+await fval('ln', 24); check('rays take a count', (await fdraft()).layers[6].n === 24);
+await F('[data-fst="pick"][data-k="l5"]'); await fval('ln', 7);
+{ const pts = await page.evaluate(() => { const g = document.querySelector('#fg-st .fs-flag > svg [data-fgl-layer="5"] polygon'); return g ? g.getAttribute('points').trim().split(/\s+/).length : 0; });
+  check('a star takes its number of points', (await fdraft()).layers[5].n === 7 && pts === 14, String(pts)); }
+await F('[data-fst="pick"][data-k="l0"]'); await fval('lb', 44); check('a cross takes its line', (await fdraft()).layers[0].b === 44 && /stroke-width="44"/.test(await flagNow()));
+// 14: a flag like a neighbour's is named, and can be compared
+{ const nb = await page.evaluate(() => { const T = window.__game.WR2().territory(), x = (T.list || []).find(x => x && x.n && !x.me && x.n.flag && x.n !== window.__game.S.nation); return x ? { nm: x.n.name, f: x.n.flag } : null; });
+  if (!nb) check('a neighbour to compare with', false, 'no other nation in the region');
+  else { await setDraft(nb.f);
+    check('a flag like a neighbour’s is flagged, by name', await until(async () => (await chips()).includes('Looks a lot like the flag of ' + nb.nm), 10000), await chips());
+    await F('[data-fst="fix"][data-v="alike"]');
+    check('Compare shows their flag beside yours', await until(async () => (await page.textContent('#fg-st .fs-cmp figcaption').catch(() => '')).includes(nb.nm))); } }
+// 19: versions as pictures
+await F('[data-fst="tab"][data-v="hist"]');
+check('Versions shows the saved designs as flags', await page.locator('#fg-st .fs-vf svg').count() >= 1 && await page.locator('#fg-st [data-fst="vcmp"]').count() >= 1);
+await F('[data-fst="vcmp"][data-v="0"]'); check('a version compares beside the flag', await page.locator('#fg-st .fs-cmp').count() === 1 && (await FSs()).cmpN === null);
+await F('[data-fst="vcmp"][data-v="0"]');
+// 20: a first flag in five steps
+await page.evaluate(() => { const g = window.__game; g.S.czFlag = JSON.parse(JSON.stringify(g.S.nation.flag)); g.FLY().fsPaint(); });
+await F('.fs-bar [data-fst="guide"]');
+check('Guide me opens step 1 of 5', /Step 1 of 5/.test(await page.textContent('#fg-st .fs-guide')) && await page.locator('#fg-st .cst-tab').count() === 0);
+await F('.fs-guide [data-fst="trad"][data-v="nordic"]'); check('step 1 sets a tradition', (await fdraft()).p === 'cross');
+await F('#fs-gnext'); await F('.fs-guide [data-fst="gpal"][data-v="1"]'); check('step 2 sets the colours', (await fdraft()).c[0] === '#0F6E67');
+await F('#fs-gnext'); await F('.fs-guide [data-fst="set"][data-f="e"][data-v="sun"]'); check('step 3 picks an emblem', (await fdraft()).e === 'sun');
+await F('#fs-gnext'); check('step 4 shows the check', await page.locator('#fg-st .fs-gchk li').count() >= 3);
+await F('#fs-gnext');
+{ const h1 = await page.evaluate(() => (window.__game.S.nation.fgH || []).length); await F('.fs-guide [data-fst="save"]');
+  check('step 5 flies it and the guide closes', await until(() => page.evaluate(h => (window.__game.S.nation.fgH || []).length === Math.min(12, h + 1) && window.__game.S.nation.flag.e === 'sun' && window.__game.S.nation.flag.p === 'cross', h1)) && await page.locator('#fg-st .cst-tab').count() === 8); }
 await page.keyboard.press('Escape');
 check('Escape closes it', await until(() => page.evaluate(() => document.getElementById('fg-st').hidden)));
+// 18: Happenings shows a new flag beside the one it replaced (the page drawn directly: this new nation's tutorial holds the menu)
+check('Happenings shows a new flag beside the old one', await until(async () => { if (await page.evaluate(() => window.__game.S.view !== 'region')) { await page.evaluate(() => { const g = window.__game; g.S.view = 'region'; g.render(); }); return false; } if (!(await page.$('.haps'))) await page.click('#rgn-tab-happenings', { timeout: 1500 }).catch(() => {}); return page.evaluate(() => document.querySelectorAll('.hap-fl .mflag svg').length >= 2); }, 12000), await page.evaluate(() => JSON.stringify({ view: window.__game.S.view, hash: location.hash, tabs: !!document.querySelector('.rgn-tabs'), haps: (document.querySelector('.haps') || {}).textContent?.slice(0, 300) || null, main: (document.querySelector('#main') || document.body).innerText.slice(0, 200) })));
 check('no page errors', errors.length === 0, errors.join(' | '));
 await browser.close(); server.close();
 process.exit(failed ? 1 : 0);
