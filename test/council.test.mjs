@@ -148,7 +148,8 @@ test('the seats follow the Assembly; a new Delegate takes the seat and the chair
   // secret while open: a seat sees its own ballot and how many have voted
   const open = await at(D(2026, 12, 3), () => council(db, { uid: 'un' }, { op: 'wacState' }, ctx));
   assert.equal(open.vote.cast, 4); assert.deepEqual(open.vote.mine.v, 'south'); assert.equal(open.hist.length, 0);
-  assert.equal(JSON.stringify(open).includes('"west"') && JSON.stringify(open.vote).includes('west'), false, 'no other seat’s ballot');
+  assert.deepEqual([...open.vote.who].sort(), ['east', 'north', 'south', 'west'], 'which seats have voted, for the chamber’s ticks');
+  assert.ok(!/"v":/.test(JSON.stringify({ ...open.vote, mine: null })), 'but never what any seat but its own chose');
   // counted after the close: south holds the chair, the ballots are published
   resetCouncil();
   S = await at(D(2026, 12, 6, 1), () => wacRefresh(db, ctx.regions, ctx.all()));
