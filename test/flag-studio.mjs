@@ -179,6 +179,20 @@ await setDraft({ p: 'tri-v', c: ['#C8102E', '#FFFFFF', '#152450'], e: 'none', ec
 await F('[data-fst="tab"][data-v="style"]');
 { const pg = await page.evaluate(() => ({ groups: [...document.querySelectorAll('#fg-st .fs-pg')].map(x => x.textContent), named: document.querySelectorAll('#fg-st .fs-ptiles .fs-tn').length }));
   check('the patterns stand in five named groups, each tile with its name', pg.groups.length === 5 && pg.named >= 40, JSON.stringify(pg)); }
+// the five patterns of 27 November: Bendy, Dancetty fess and Orle for everyone; Hoist sun and Bordure compony earned
+check('Bendy, Dancetty fess and Orle are there for everyone', await page.locator('#c-p-bendy').count() === 1 && await page.locator('#c-p-dancetty').count() === 1 && await page.locator('#c-p-orle').count() === 1);
+{ const lk = await page.evaluate(() => ['fp-hsun', 'fp-compony'].map(u => document.querySelector(`#fg-st [data-ux-unlock="${u}"]`)?.getAttribute('aria-label') || ''));
+  check('Hoist sun and Bordure compony are locked, naming the achievements that earn them', /Seasoned Judge/.test(lk[0]) && /Agenda Setter/.test(lk[1]), JSON.stringify(lk)); }
+await F('#c-p-bendy'); check('Bendy draws diagonal bands', (await fdraft()).p === 'bendy' && /stroke-width="52"/.test(await flagNow()));
+for (const [p, n, k] of [['bendy', 4, 'stripe'], ['orle', 1, 'border']]) {
+  await setDraft({ p, c: ['#152450', '#FFFFFF', '#C8102E'], e: 'none', ec: '#F2C230' }); const before = await flagNow(); await page.click('#fs-split');
+  const d = await fdraft(), diff = await same(before, await flagNow());
+  check(`${p}: Separate into layers keeps its look`, d.p === 'plain' && (d.layers || []).length === n && d.layers.every(l => l.k === k) && diff < 0.02, JSON.stringify({ n: (d.layers || []).length, k: (d.layers || []).map(l => l.k), diff })); }
+await page.evaluate(() => { const g = window.__game, n = JSON.parse(JSON.stringify(g.S.nation)); n.ach = Object.assign({}, n.ach, { 'fc-judge50': Date.now(), 'dip-cbt10': Date.now() }); g.commit(n); g.FLY().fsPaint(); });
+await F('[data-fst="tab"][data-v="style"]');
+check('Seasoned Judge and Agenda Setter open them', await until(async () => await page.locator('#c-p-hsun').count() === 1 && await page.locator('#c-p-compony').count() === 1));
+await F('#c-p-compony'); check('the Bordure compony can be chosen and is drawn', (await fdraft()).p === 'compony' && /M0,0h20v20h-20Z|M20,0h20v20h-20Z/.test(await flagNow()));
+await setDraft({ p: 'tri-v', c: ['#C8102E', '#FFFFFF', '#152450'], e: 'none', ec: '#F2C230' }); await F('[data-fst="tab"][data-v="style"]');
 // 7: the canton's shape, and an inspector of its own
 await F('[data-fst="set"][data-f="cnon"][data-v="1"]'); await F('#fs-right [data-fst="set"][data-f="cs"][data-v="sq"]');
 check('the canton can be square', (await fdraft()).cs === 'sq' && /<rect width="100" height="100" fill=/.test(await flagNow()));

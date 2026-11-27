@@ -52342,6 +52342,19 @@ function fgCamo(){
   fgCamoP=[layer(5,3,27,.5),layer(6,4,16,.3)];return fgCamoP;
 }
 /* the new patterns: (a,b,c,fourth colour,rect) => [body, emblem x, y, scale] */
+/* the five patterns of 27 November 2026 (Flag Studio round four), worked out once: bendy's four bands as lines along
+   the flag's diagonal (so Separate into layers reads them as turned stripes), the dancetty band's zigzag, the hoist
+   sun's nine spikes, and the compony bordure's squares of the third colour */
+const FG_G5=(()=>{
+  const f=v=>Math.round(v*10)/10,t=Math.atan2(200,300),d=[Math.cos(t),Math.sin(t)],nv=[-Math.sin(t),Math.cos(t)];
+  /* each line's middle slid along it into the flag: a layer's centre must lie on the flag (fglNorm keeps 0-100%) */
+  const bendy=[-156,-52,52,156].map(o=>{const sl=o<-100?60:o>100?-60:0,cx=150+nv[0]*o+d[0]*sl,cy=100+nv[1]*o+d[1]*sl;return `M${f(cx-d[0]*250)},${f(cy-d[1]*250)}L${f(cx+d[0]*250)},${f(cy+d[1]*250)}`;}).join('');
+  const top=[],bot=[];for(let i=0;i<=12;i++){top.push(`${i*25},${i%2?88:62}`);bot.unshift(`${i*25},${i%2?112:138}`);}
+  /* short spikes round the half-sun, a sun of its own (rays to the edges would echo one nation's flag) */
+  let rays='';for(let a=-80;a<=80;a+=20){const r=k=>(a+k)*Math.PI/180;rays+=`M${f(Math.cos(r(-7))*58)},${f(100+Math.sin(r(-7))*58)}L${f(Math.cos(r(0))*100)},${f(100+Math.sin(r(0))*100)}L${f(Math.cos(r(7))*58)},${f(100+Math.sin(r(7))*58)}Z`;}
+  let cmp='';for(let col=0;col<15;col++)for(let row=0;row<10;row++)if((row===0||row===9||col===0||col===14)&&(col+row)%2)cmp+=`M${col*20},${row*20}h20v20h-20Z`;
+  return {bendy,dance:top.concat(bot).join(' '),rays,cmp};
+})();
 const FG_PAT=Object.assign(Object.create(null),{
   'tri-w':(a,b,c,d,R)=>[R(0,0,300,200,a)+R(0,50,300,100.5,b)+R(0,150,300,50,c),150,100,.95],
   'pall':(a,b,c,d,R)=>{const y='M-20,-17L118,100H320M-20,217L118,100';return [R(0,0,300,200,a)+R(0,100,300,100,c)+`<polygon points="0,0 118,100 0,200" fill="${a}"/><path d="${y}" fill="none" stroke="${d}" stroke-width="60"/><path d="${y}" fill="none" stroke="${b}" stroke-width="34"/>`,27,100,.58];},
@@ -52373,7 +52386,15 @@ const FG_PAT=Object.assign(Object.create(null),{
   'fdawn':(a,b,c,d,R)=>[R(0,0,300,200,a)+`<path d="${FG_G.dawn}" fill="${b}"/><circle cx="150" cy="156" r="62" fill="${b}"/>`+R(0,156,300,44,c),150,128,.5],
   'fcharter':(a,b,c,d,R)=>[R(0,0,300,200,b)+R(24,24,252,152,a)+`<rect x="34" y="34" width="232" height="132" fill="none" stroke="${c}" stroke-width="3"/>`+[[12,12],[288,12],[12,188],[288,188]].map(([x,y])=>`<circle cx="${x}" cy="${y}" r="8" fill="${c}"/><circle cx="${x}" cy="${y}" r="3.2" fill="${b}"/>`).join(''),150,100,.75],
   /* the edict “Patriotic Pattern”: army camouflage in the nation's own colours (fgCamo, the same patches on every flag) */
-  'camo':(a,b,c,d,R)=>{const P=fgCamo();return [R(0,0,300,200,a)+`<path d="${P[0]}" fill="${b}"/><path d="${P[1]}" fill="${c}"/>`,150,100,.8];}
+  'camo':(a,b,c,d,R)=>{const P=fgCamo();return [R(0,0,300,200,a)+`<path d="${P[0]}" fill="${b}"/><path d="${P[1]}" fill="${c}"/>`,150,100,.8];},
+  /* 27 November 2026: bendy (diagonal bands), a dancetty fess (a zigzag band across), an orle (a frame set in from the
+     edge); and, earned with silver achievements, a hoist sun (a half-sun at the pole with seven rays) and a bordure
+     compony (a chequered edge) */
+  'bendy':(a,b,c,d,R)=>[R(0,0,300,200,a)+`<path d="${FG_G5.bendy}" stroke="${b}" stroke-width="52"/>`,150,100,.6],
+  'dancetty':(a,b,c,d,R)=>[R(0,0,300,200,a)+R(0,100,300,100,c)+`<polygon points="${FG_G5.dance}" fill="${b}"/>`,150,100,.45],
+  'orle':(a,b,c,d,R)=>[R(0,0,300,200,a)+`<rect x="30" y="30" width="240" height="140" fill="none" stroke="${b}" stroke-width="14"/>`,150,100,.75],
+  'hsun':(a,b,c,d,R)=>[R(0,0,300,200,a)+`<path d="${FG_G5.rays}" fill="${b}"/><path d="M0,46A54,54 0 0 1 0,154Z" fill="${c}"/>`,195,100,.62],
+  'compony':(a,b,c,d,R)=>[R(0,0,300,200,b)+R(20,20,260,160,a)+`<path d="${FG_G5.cmp}" fill="${c}"/>`,150,100,.8]
 });
 Object.assign(PATTERNS,{'tri-w':['Wide-centre triband',3],'pall':['Pall',3],'hoist':['Hoist triangle',2],'hoist-s':['Triangle over stripes',3],'str7':['Seven stripes',2],
   'str5t':['Five bands',3],'checky':['Checky',2],'sunburst':['Sunburst',3],'wavy':['Wavy fess',3],'serrated':['Serrated hoist',2],'bord-canton':['Bordure and canton',3],
@@ -52381,11 +52402,12 @@ Object.assign(PATTERNS,{'tri-w':['Wide-centre triband',3],'pall':['Pall',3],'hoi
   'str-canton':['Stripes and canton',3],'per-saltire':['Per saltire',2],
   'gyronny':['Gyronny',2],'lozenge':['Lozenge',3],'pile':['Pile',2],'wave2':['Twin waves',3],'chev3':['Triple chevron',3],
   'embattled':['Embattled',3],'peaks':['Three peaks',3],
+  'bendy':['Bendy',2],'dancetty':['Dancetty fess',3],'orle':['Orle',2],'hsun':['Hoist sun',3],'compony':['Bordure compony',3],
   'fdawn':['Founder’s Dawn',3],'fcharter':['Charter Bordure',3],'camo':['Camouflage',3]});
 const FG_C4P=new Set(['pall','quart-cross']);
 /* the colour under the emblem (index into c, -1 where two meet), for Surprise me */
 const FG_UNDER={'tri-h':1,'tri-v':1,'bi-h':-1,'bi-v':-1,cross:2,canton:2,chevron:2,diag:-1,saltire:2,border:0,quarters:-1,stripes:0,pale:1,centre:1,band:1,plain:0,
-  'tri-w':1,pall:0,hoist:1,'hoist-s':2,str7:1,str5t:2,checky:-1,sunburst:2,wavy:0,serrated:1,'bord-canton':2,'quart-cross':0,diag3:1,chief:0,'saltire-b':1,'disc-band':2,'str-canton':2,'per-saltire':-1,gyronny:-1,lozenge:2,pile:1,wave2:0,chev3:0,embattled:0,peaks:0,fdawn:1,fcharter:0,camo:0};
+  'tri-w':1,pall:0,hoist:1,'hoist-s':2,str7:1,str5t:2,checky:-1,sunburst:2,wavy:0,serrated:1,'bord-canton':2,'quart-cross':0,diag3:1,chief:0,'saltire-b':1,'disc-band':2,'str-canton':2,'per-saltire':-1,gyronny:-1,lozenge:2,pile:1,wave2:0,chev3:0,embattled:0,peaks:0,bendy:0,dancetty:1,orle:0,hsun:0,compony:0,fdawn:1,fcharter:0,camo:0};
 /* the new emblems, drawn in a 100 × 100 box round the origin */
 const FG_EMB=Object.create(null);
 (()=>{
@@ -52426,8 +52448,9 @@ const FG_PLURAL={Portcullis:'portcullises',Spyglass:'spyglasses',Grapes:'bunches
 Object.assign(UNLOCKS,{'fp-sunburst':{k:'fpat',n:'Sunburst',src:'ach'},'fp-checky':{k:'fpat',n:'Checky',src:'ach'},'fp-wavy':{k:'fpat',n:'Wavy fess',src:'ach'},
   'fp-gyronny':{k:'fpat',n:'Gyronny',src:'ach'},'fp-lozenge':{k:'fpat',n:'Lozenge',src:'ach'},
   'fp-embattled':{k:'fpat',n:'Embattled',src:'ach'},'fp-peaks':{k:'fpat',n:'Three peaks',src:'ach'},
+  'fp-hsun':{k:'fpat',n:'Hoist sun',src:'ach'},'fp-compony':{k:'fpat',n:'Bordure compony',src:'ach'},
   'e-eye':{k:'emblem',n:'Eye',src:'set'},'e-bolt':{k:'emblem',n:'Lightning bolt',src:'set'},'e-wreath':{k:'emblem',n:'Laurel wreath',src:'ach'}});
-const FG_PU={sunburst:'fp-sunburst',checky:'fp-checky',wavy:'fp-wavy',gyronny:'fp-gyronny',lozenge:'fp-lozenge',embattled:'fp-embattled',peaks:'fp-peaks',fdawn:'fp-fdawn',fcharter:'fp-fcharter',camo:'fp-camo'},FG_PFB={sunburst:'plain',checky:'quarters',wavy:'tri-h',gyronny:'quarters',lozenge:'centre',embattled:'bi-h',peaks:'bi-h',fdawn:'chief',fcharter:'border',camo:'tri-h'};
+const FG_PU={sunburst:'fp-sunburst',checky:'fp-checky',wavy:'fp-wavy',gyronny:'fp-gyronny',lozenge:'fp-lozenge',embattled:'fp-embattled',peaks:'fp-peaks',hsun:'fp-hsun',compony:'fp-compony',fdawn:'fp-fdawn',fcharter:'fp-fcharter',camo:'fp-camo'},FG_PFB={hsun:'hoist',compony:'border',sunburst:'plain',checky:'quarters',wavy:'tri-h',gyronny:'quarters',lozenge:'centre',embattled:'bi-h',peaks:'bi-h',fdawn:'chief',fcharter:'border',camo:'tri-h'};
 /* emblems only a founder may fly: anyone else's flag shows none (the shop's ids, vouched for by the server's finery/) */
 const FG_EU=new Set(['e-keystone','e-rosette','e-nowl','e-aquila','e-kraken','e-tulip','e-sankofa']);
 /* the Community Board's achievements: a visit, then visits on five different days (tally cbvisit; cbday is the last day counted) */
@@ -52524,6 +52547,7 @@ function fgFieldParts(f){
   const at=(t,a)=>{const m=t.match(new RegExp('\\s'+a+'="([^"]*)"'));return m?m[1]:null;};
   for(const t of tags){const nm=t.match(/^<([a-zA-Z]+)/)[1];
     if(nm==='rect'){const x=+(at(t,'x')||0),y=+(at(t,'y')||0),w=+at(t,'width'),h=+at(t,'height'),fl=at(t,'fill');if(!fl||!(w>0&&h>0))return null;
+      if(fl==='none'){const st=at(t,'stroke'),sw=+at(t,'stroke-width');if(!st||!(sw>0&&sw<=20)||field===null)return null;out.push(Object.assign(fgLay('border',x+w/2,y+h/2,w,h,st),{b:sw}));continue;}
       if(field===null&&x<=0&&y<=0&&w>=300&&h>=200){field=fl;continue;}if(field===null)return null;out.push(fgLay('stripe',x+w/2,y+h/2,w,h,fl));}
     else if(nm==='polygon'){const pts=(at(t,'points')||'').trim().split(/[\s,]+/).map(Number),fl=at(t,'fill');if(pts.length!==6||!fl||field===null)return null;
       const P=[[pts[0],pts[1]],[pts[2],pts[3]],[pts[4],pts[5]]],xs=P.map(q=>q[0]),ys=P.map(q=>q[1]),x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys),y1=Math.max(...ys),W=x1-x0,H=y1-y0,cx=(x0+x1)/2,cy=(y0+y1)/2;
@@ -56898,9 +56922,9 @@ const FS_TABS={style:'Style',stripes:'Stripes',colour:'Colour',charges:'Charges'
 function fsSeg(lab,f,opts,cur){return `<div class="cst-row"><span class="cst-lab">${lab}</span><div class="cst-seg">${opts.map(([v,l,locked,how])=>`<button type="button" class="cst-b${String(cur)===String(v)?' on':''}${locked?' lk':''}" data-fst="${locked?'locked':'set'}" data-f="${f}" data-v="${esc(String(v))}" aria-pressed="${String(cur)===String(v)}"${locked?` title="${esc(how||'')}"`:''}>${locked?CZ_LOCK:''}${esc(l)}</button>`).join('')}</div></div>`;}
 function fsLk(id,inner,nm){return `<span data-ux-unlock="${esc(id)}" class="tile cz-tl" role="img" aria-label="${esc(nm)}, locked. ${esc(unlockHow(id))}" title="${esc(nm)}: ${esc(unlockHow(id))}">${inner}${CZ_LOCK}</span>`;}
 /* the patterns, grouped and named (round four: 44 of them in one unlabelled grid were hard to find) */
-const FS_PGRP=[['Stripes and bands',['tri-h','tri-v','tri-w','bi-h','bi-v','stripes','str7','str5t','pale','chief','wavy','wave2','band','diag','diag3','disc-band']],
+const FS_PGRP=[['Stripes and bands',['tri-h','tri-v','tri-w','bi-h','bi-v','stripes','str7','str5t','pale','chief','wavy','wave2','dancetty','band','diag','diag3','bendy','disc-band']],
   ['Crosses',['cross','centre','saltire','saltire-b','quart-cross','per-saltire','pall']],['Triangles and chevrons',['chevron','hoist','hoist-s','serrated','pile','chev3','lozenge']],
-  ['Quarters and cantons',['quarters','canton','str-canton','bord-canton','checky','gyronny']],['Borders and more',['border','plain','sunburst','embattled','peaks','fdawn','fcharter','camo']]];
+  ['Quarters and cantons',['quarters','canton','str-canton','bord-canton','checky','gyronny']],['Borders and more',['border','orle','compony','plain','sunburst','hsun','embattled','peaks','fdawn','fcharter','camo']]];
 function fsPatTiles(f){
   const held=new Set(fgPatKeys(f)),grp=FS_PGRP.map(([h,ks])=>[h,ks.filter(k=>PATTERNS[k])]),rest=Object.keys(PATTERNS).filter(k=>!grp.some(g=>g[1].includes(k)));if(rest.length)grp[grp.length-1][1].push(...rest);
   const tile=p=>{const nm=PATTERNS[p][0],art=flagSVG({p,c:f.c,e:'none',c4:f.c4},'')+`<span class="fs-tn">${esc(nm)}</span>`;
@@ -94145,6 +94169,9 @@ achDef('flag','fc-set','g','The Whole Podium','Take first, second and third plac
 achDef('flag','fc-win','g','Best in Show','Win the flag competition.',1,x=>achYes(flcPlaces(x).some(p=>/\/1$/.test(p))),{fm:'bool'});
 achDef('flag','fc-ace','g','By Acclamation','Win a competition with a score of 4.5 or more.',1,x=>aT(x,'fcace'));
 achDef('flag','fc-win3','p','Flag of Flags','Win three flag competitions.',3,x=>flcPlaces(x).filter(p=>/\/1$/.test(p)).length);
+/* the patterns of 27 November 2026 that are earned (the owner asked for medium-hard): the Hoist sun for scoring fifty
+   flags in the competition, the Bordure compony for starting ten topics on the Community Board */
+for(const [a,u] of [['fc-judge50','fp-hsun'],['dip-cbt10','fp-compony']]){const A=ACH_BY_ID[a];if(A&&!A.u){A.u=u;ACH_BY_U[u]=A;}}
 
 /* ───────── achievements, the high tiers: 20 Platinum, 10 Prismatic and 2 Obsidian (12 November 2026) ─────────
    Long hauls on counts the game already keeps, a step or two above their Gold: chat lines and board posts (aTP,
@@ -98470,6 +98497,7 @@ for(const [k,v] of Object.entries({'More ▾':'Plus ▾','Less ▴':'Moins ▴',
   'Copy and paste layers':'Copier et coller des calques','Duplicate':'Dupliquer','Delete the picked layers':'Supprimer les calques choisis','Group the picked layers':'Grouper les calques choisis','Ungroup them':'Les dégrouper','Zoom in and out':'Zoomer et dézoomer','Back to 100%':'Retour à 100 %',
   'Pick a colour from the flag':'Prélever une couleur sur le drapeau','Show or hide this list':'Afficher ou masquer cette liste','Close this list, or the Studio':'Fermer cette liste, ou l’Atelier','On a Mac, Cmd works as Ctrl.':'Sur Mac, Cmd remplace Ctrl.',
   'Arrow keys':'Flèches','Shift+arrow keys':'Maj+flèches','Alt while dragging':'Alt en glissant','Shift+click':'Maj+clic','+ and −':'+ et −','Ctrl+Y or Ctrl+Shift+Z':'Ctrl+Y ou Ctrl+Maj+Z','Ctrl+Shift+G':'Ctrl+Maj+G',
+  'Bendy':'Bandé','Dancetty fess':'Fasce vivrée','Orle':'Orle','Hoist sun':'Soleil à la hampe','Bordure compony':'Bordure componée',
   '+ Cross':'+ Croix','+ Saltire':'+ Sautoir','+ Ring':'+ Anneau','+ Crescent':'+ Croissant','+ Star':'+ Étoile','+ Rays':'+ Rayons','Line':'Trait','Points':'Pointes','Rays':'Rayons'}))if(!(k in FR_UI))FR_UI[k]=v;
 
 /* ───────── Customise around the Studios (19 November 2026) ─────────
