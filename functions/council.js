@@ -222,7 +222,7 @@ async function wacState(db, who, ctx) {
   return { now, win: W, first: WAC_FIRST, me: { reg, seat: !!mine, chair: !!(mine && S.ch && S.ch.reg === reg), staff: !mine },
     seats: Object.entries(S.seats).map(([r, x]) => ({ reg: r, ...x, fl: flags[x.id] || null })), ch: S.ch, term: S.term, rank: S.rank,
     vote: { m: W.m, on: W.on, mine: reg && b[reg] && b[reg].v ? { v: b[reg].v, t: b[reg].t, nm: b[reg].nm } : null,
-      cast: Object.values(b).filter(x => x && x.v).length, st: Object.fromEntries(Object.entries(st).filter(([, x]) => x && x.x).map(([r, x]) => [r, { x: x.x, nm: x.nm, t: x.t }])) },
+      cast: Object.values(b).filter(x => x && x.v).length, who: Object.entries(b).filter(([, x]) => x && x.v).map(([r]) => r), st: Object.fromEntries(Object.entries(st).filter(([, x]) => x && x.x).map(([r, x]) => [r, { x: x.x, nm: x.nm, t: x.t }])) },
     msg: S.msg, hist: S.hist.slice(0, 12), chairs: S.chairs, sh: S.sh.slice(0, 40), res: S.res, ideas: S.ideas,
     motions: done.docs.map(s => motionOut(s.id, s.data())).concat(open.filter(s => !done.docs.some(d => d.id === s.id)).map(s => motionOut(s.id, s.data()))),
     agenda: agenda.docs.map(s => agendaOut(s.id, s.data())) };

@@ -42,7 +42,7 @@ function council(reg, now) {
   return {
     now, win: { m: '2026-12', open: now - DAY, close: now + 4 * DAY, on: true }, first: '2026-12', me: { reg, seat: true, chair: true, staff: true },
     seats, ch: { reg, id: 'me', nm: 'Selenia', t: now - 3 * DAY }, term: '2026-12', rank: [reg, 'gilded'],
-    vote: { m: '2026-12', on: true, mine: null, cast: 3, st: { frostmarch: { x: 'Short sittings, clear minutes, every motion heard.', nm: names[1], t: now }, gilded: { x: 'A festival in every capital!', nm: 'Brimvik', t: now } } },
+    vote: { m: '2026-12', on: true, mine: null, cast: 3, who: ['frostmarch', 'gilded', 'saffron'], st: { frostmarch: { x: 'Short sittings, clear minutes, every motion heard.', nm: names[1], t: now }, gilded: { x: 'A festival in every capital!', nm: 'Brimvik', t: now } } },
     msg: { x: 'Welcome, Delegates. Let us keep the rivers clean and the sittings short.', id: 'me', nm: 'Selenia', reg, t: now - 3600000 },
     hist: [{ m: '2026-11', t: now - 20 * DAY, rank: [reg, 'gilded', 'saffron'], n: { [reg]: 4, gilded: 2, saffron: 1 }, b: { frostmarch: reg, gilded: reg, saffron: reg, ironsteppe: reg, wildwood: 'gilded', mistral: 'gilded', greywater: 'saffron' }, c: 7 }],
     chairs: [{ m: '2026-12', reg, h: [{ id: 'me', nm: 'Selenia', reg, t: now - 3 * DAY }] }, { m: '2026-11', reg: 'gilded', h: [{ id: 'u2', nm: 'Brimvik', reg: 'gilded', t: now - 30 * DAY }, { id: 'u9', nm: 'Fennick', reg: 'gilded', t: now - 25 * DAY }] }],
@@ -77,7 +77,26 @@ async function run(theme, viewport, tag) {
   check(`${tag}: the Council page opens on the chamber`, !!await go('council', '.wac-chair'));
   check(`${tag}: the chair and its address`, await page.evaluate(() => /Selenia/.test(document.querySelector('.wac-chair-n').textContent) && /keep the rivers clean/.test(document.querySelector('.wac-chair .wac-msg').textContent)));
   check(`${tag}: the chair may change the address`, !!await page.$('#wac-addr'));
-  check(`${tag}: a seat for every region in the chamber, eight filled, the chair ringed`, await page.evaluate(() => document.querySelectorAll('.wac-seat').length >= 16 && document.querySelectorAll('.wac-seat:not(.empty)').length === 8 && document.querySelectorAll('.wac-seat.chair').length === 1));
+  check(`${tag}: a desk for every region in the hall, eight filled, the chair ringed, your seat tagged`, await page.evaluate(n => { const q = c => document.querySelectorAll('.wac-hemi ' + c).length;
+    return q('.wac-seat') === n && q('.wac-seat:not(.empty)') === 8 && q('.wac-seat.chair') === 1 && q('.wac-seat.chair .wac-ring') === 1 && q('.wac-seat.mine') === 1 && q('.wac-youtag') === 1; }, await page.evaluate(() => window.EDICTUM_PROBE.wac.order().length)));
+  check(`${tag}: 27 banners on the back wall, those of the filled seats lit`, await page.evaluate(() => document.querySelectorAll('.wac-hemi .wac-ban').length === 27 && document.querySelectorAll('.wac-hemi .wac-ban.on').length === 8));
+  check(`${tag}: the seats run from the far north to the south`, await page.evaluate(() => { const o = window.EDICTUM_PROBE.wac.order(), x = id => { const g = document.querySelector(`.wac-hemi [data-wac-seat="${id}"]`); return g ? g.getBoundingClientRect().left : NaN; };
+    return o.indexOf('northernpale') < o.indexOf('saffron') && x('northernpale') < x('saffron'); }));
+  check(`${tag}: the rostrum: the seal, the chair's cloth, the gavel, and the count of seats`, await page.evaluate(() => !!document.querySelector('.wac-hemi .wac-h-seal') && !!document.querySelector('.wac-hemi .wac-h-cloth') && !!document.querySelector('.wac-hemi .wac-h-gavel') && /8\s*\/\s*\d+/.test(document.querySelector('.wac-hemi .wac-h-num').textContent) && !document.querySelector('.wac-hemi .wac-h-plaque')));
+  check(`${tag}: while the vote is open, the seats that voted are ticked and the ballot box shows how many`, await page.evaluate(() => document.querySelectorAll('.wac-hemi .wac-seat.voted .wac-tick').length === 3 && /3\/8/.test(document.querySelector('.wac-hemi .wac-h-box').textContent)));
+  check(`${tag}: the legend explains the seats, the chair, your seat and the ticks`, await page.evaluate(() => document.querySelectorAll('.wac-legend li').length === 5));
+  await page.click('.wac-hemi [data-wac-seat="gilded"]');
+  check(`${tag}: a seat opens its card and lights its Delegate in the list`, !!await until(() => page.evaluate(() => { const c = document.querySelector('#wac-seatcard'); return c && !c.hidden && /Brimvik/.test(c.textContent) && /Gilded/i.test(c.textContent) && !!document.querySelector('.wac-del.sel[data-wac-reg="gilded"]'); })));
+  await page.keyboard.press('Escape');
+  check(`${tag}: Escape closes it`, !!await until(() => page.evaluate(() => document.querySelector('#wac-seatcard').hidden && !document.querySelector('.wac-del.sel'))));
+  await page.click('.wac-del[data-wac-reg="saffron"]');
+  check(`${tag}: a Delegate in the list finds its seat`, !!await until(() => page.evaluate(() => !!document.querySelector('.wac-hemi .wac-seat.sel[data-wac-seat="saffron"]') && /Ostrava/.test(document.querySelector('#wac-seatcard').textContent))));
+  await page.keyboard.press('Escape');
+  await page.click('[data-act="wac-chmode"][data-v="last"]');
+  check(`${tag}: "How they voted" draws a line for each ballot of the last count, and each region's count`, !!await until(() => page.evaluate(() => document.querySelectorAll('.wac-hemi.last .wac-vline').length === 7 && document.querySelectorAll('.wac-hemi .wac-vcount').length === 3 && !document.querySelector('.wac-hemi .wac-h-box'))));
+  await page.screenshot({ path: path.join(OUT, `council-results-${tag}.png`), fullPage: false });
+  await page.click('[data-act="wac-chmode"][data-v="seats"]');
+  await until(() => page.$('.wac-hemi:not(.last)'));
   check(`${tag}: the Delegates listed, the chair marked`, await page.evaluate(() => document.querySelectorAll('.wac-del').length === 8 && document.querySelectorAll('.wac-del.chair').length === 1));
   check(`${tag}: no sideways scrolling on the chamber`, !await wide(), { w: await page.evaluate(() => document.documentElement.scrollWidth) });
   await page.screenshot({ path: path.join(OUT, `council-chamber-${tag}.png`), fullPage: true });
@@ -118,6 +137,12 @@ async function run(theme, viewport, tag) {
   check(`${tag}: the Region page of the chair's region has the banner`, !!await go('region', '.wac-banner'));
   const obs = await page.evaluate(() => { const n = Object.assign({}, window.__game.S.nation, { wac: { s: Date.UTC(2026, 11, 2), r: 'frostmarch', c: ['2026-12', '2027-01', '2027-02'] } }); return window.EDICTUM_PROBE.wac.obs(n); });
   check(`${tag}: the passport's Observations page records the seat and the terms in the chair`, /Delegate to the World Assembly Council for Frostmarch/.test(obs) && /Chair of the Council for 3 terms, the last February 2027/.test(obs), obs.slice(-600));
+  /* no chair: the rostrum's plaque says so, and the legend leaves the chair out */
+  await page.evaluate(([st]) => { const W = window.EDICTUM_PROBE.wac; W.set(Object.assign({}, st, { ch: null, term: '' })); }, [st]);
+  await go('council', '.wac-pane');
+  await page.click('#wac-tab-chamber');
+  check(`${tag}: with no chair the rostrum says VACANT`, !!await until(() => page.evaluate(() => /VACANT/.test((document.querySelector('.wac-hemi .wac-h-plaquet') || {}).textContent || '') && !document.querySelector('.wac-hemi .wac-seat.chair') && ![...document.querySelectorAll('.wac-legend li')].some(li => /The chair/.test(li.textContent)))));
+  await page.evaluate(([st]) => { window.EDICTUM_PROBE.wac.set(st); window.__game.render(); }, [st]);
   /* an admin without a seat: Council in the menu on any page, the page read-only, a way to the admin portal */
   const navCouncil = () => page.evaluate(() => !!document.querySelector('nav.nav [data-act="go"][data-v="council"],.tabbar [data-v="council"],#more-sheet [data-v="council"]'));
   await go('nation', '.vh');
