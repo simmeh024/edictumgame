@@ -5,13 +5,13 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
-import { RC_SHARED, RC_FR, RC_WORLD, RC_AMB, rcShared } from '../functions/regionchat.js';
+import { RC_SHARED, RC_FR, RC_WORLD, RC_AMB, RC_WAC, rcShared } from '../functions/regionchat.js';
 
 const html = fs.readFileSync(new URL('../game/edictum.html', import.meta.url), 'utf8');
 const between = (a, b) => { const i = html.indexOf(a), j = html.indexOf(b, i); assert.ok(i >= 0 && j > i, a + ' is in the game'); return html.slice(i, j); };
 
 test('the server knows the shared chats: the world chat, the French chat (and the ambassadors’ chat), and no other name', () => {
-  assert.deepEqual(RC_SHARED, [RC_WORLD, RC_FR, RC_AMB]);
+  assert.deepEqual(RC_SHARED, [RC_WORLD, RC_FR, RC_AMB, RC_WAC]);
   assert.equal(RC_FR, 'fr');
   assert.ok(rcShared('world') && rcShared('fr'));
   for (const x of ['es', 'meridian', '', undefined, 'FR']) assert.equal(rcShared(x), false, String(x));
@@ -38,7 +38,7 @@ test('the Français tab follows the language until the player chooses, then keep
 
 test('each shared chat says the same things, the French chat in French when the interface is', () => {
   const en = game('en'), fr = game('fr');
-  assert.equal(JSON.stringify(en.RGS.map(C => C.reg)), '["world","fr","amb"]');
+  assert.equal(JSON.stringify(en.RGS.map(C => C.reg)), '["world","fr","amb","wac"]');
   assert.equal(en.rgsOf('fr'), en.RGF);assert.equal(en.rgsOf('region'), null);assert.equal(en.rgsOf('ally'), null);
   const keys = Object.keys(en.RGW.tx()).sort();
   for (const g of [en, fr]) for (const C of g.RGS) assert.deepEqual(Object.keys(C.tx()).sort(), keys, C.reg);
