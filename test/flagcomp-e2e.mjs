@@ -130,7 +130,7 @@ check('and shows the day’s three tasks alone', await until(async () => await A
 await desk(A, { g: 3, c: 0, p: 0 });
 check('a judging task drawn before the last flag was scored, and given none of the scores, is let go', await until(async () => { const d = await deskNow(A); return !d.f && !d.on; }) && await until(async () => await A.locator('.dd-fc').count() === 0), JSON.stringify(await deskNow(A)));
 await desk(A, { g: 3, c: 1, p: 0 });
-check('one that had some of the last scores is paid: they were every flag left', await until(async () => { const d = await deskNow(A); return !!d.f && d.f.p === 1 && d.f.c === 1; }) && await toasted(A, /Desk task done: every flag in the flag competition is scored\. \+5 goods and \+5 iron\./), JSON.stringify(await deskNow(A)) + ' ' + await text(A, '#toast'));
+check('one that had some of the last scores is paid: they were every flag left', await until(async () => { const d = await deskNow(A); return !!d.f && d.f.p === 1 && d.f.c === 1; }) && await toasted(A, /Desk task done: every flag in the flag competition is scored\. \+5 iron and \+5 goods\./), JSON.stringify(await deskNow(A)) + ' ' + await text(A, '#toast'));
 check('and the menu asks for no flags, whatever the counts say', await A.evaluate(() => { const F = G.FLC().FLC, st = F.st; F.st = Object.assign({}, st, { judged: 0 }); try { return G.FLC().flcTodo(); } finally { F.st = st; } }) === '');
 await page(A);
 await A.evaluate(() => { window.EDICTUM_NO_DESK = true; });

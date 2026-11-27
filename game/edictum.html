@@ -66838,8 +66838,9 @@ const DD_GIFT=3,ddGift=r=>DD_GIFT+(r==='iron'||r==='goods'?2:0),DD_CLEAR={iron:8
    (stockRates), read from the record the economy knows (S.nation), since the record a save is making is a fresh copy. */
 const DD_SHARE={t:.25,c:.25,r:.5};
 function ddRates(n){try{const m=S.nation,o=stockRates(m&&n&&m.name===n.name?m:n);return o&&typeof o==='object'?o:{};}catch(e){return {};}}
-const ddAmt=(n,r,base,share,rt)=>Math.max(base,Math.round(num0((rt||ddRates(n))[r])*share));
-const ddGiftTxt=(a,and)=>a.map(([r,v])=>`+${v} ${resName(r)}`).join(and?' and ':', ');
+const ddAmt=(n,r,base,share,rt)=>Math.max(base,Math.round(num0((typeof rt==='function'?rt():rt||ddRates(n))[r])*share));
+/* in the order the rest of the game lists resources (RES: food, timber, iron, oil, goods; the owner, 26 Nov 2026) */
+const ddGiftTxt=(a,and)=>a.slice().sort((x,y)=>RES.indexOf(x[0])-RES.indexOf(y[0])).map(([r,v])=>`+${v} ${resName(r)}`).join(and?' and ':', ');
 /* the first week's desks: a second credit each, at most one a calendar day (eight days can touch a week) */
 const DD_WEEK=7*864e5,DD_WEEK_MAX=8;
 const ddWeek=(n,now)=>{const f=+(n&&n.founded)||0;return f>0&&now>=f&&now-f<DD_WEEK;};
@@ -66975,8 +66976,22 @@ function ddRoll(n,day){
 /* the rare task: one more each day, a little harder than the three, paid in DD_RARE_GIFT and DD_RARE_CR land credits
    (counted in n.ddr, which adds to landEarned like n.ddc). It is drawn from a separate pool, avoiding the three's tasks
    where it can, and kept in n.dd.r {k, g, c, p}. */
-const DD_RARE_GIFT={iron:5,oil:10,timber:20,food:30,goods:15},DD_RARE_CR=3,DD_RARE_MAX=STK_MAX;
+const DD_RARE_GIFT={food:30,timber:20,iron:5,oil:10,goods:15},DD_RARE_CR=3,DD_RARE_MAX=STK_MAX;
 const ddRareGift=(n,rt)=>Object.keys(DD_RARE_GIFT).map(r=>[r,ddAmt(n,r,DD_RARE_GIFT[r],DD_SHARE.r,rt)]);
+/* a task's reward is fixed when it goes on the desk (the owner, 26 Nov 2026: a rare task showed +481 iron and paid +495,
+   because the card and the payout each worked the share of a day's income out from the income of their own moment).
+   ddFix writes it into the record at the save that puts the task there: a row's two amounts after its resources
+   (q [k, goal, ra, rb, va, vb]), the rare task's in R.a (DD_RARE_GIFT's order). The card shows and the save pays those.
+   A desk not yet saved today shows the figure of the moment, from the same record the save reads (S.nation), and that
+   save fixes it; a row already done on a desk from before this has none, and the card keeps the live figure for it. */
+const DD_FIX_MAX=STK_MAX,ddFixOk=(a,len)=>Array.isArray(a)&&a.length===len&&a.every(v=>Number.isInteger(v)&&v>=0&&v<=DD_FIX_MAX);
+const ddRowGift=(n,q,rt)=>{const [,,ra,rb]=q,f=ddFixOk(q.slice(4,6),2);return [[ra,f?q[4]:ddAmt(n,ra,ddGift(ra),DD_SHARE.t,rt)],[rb,f?q[5]:ddAmt(n,rb,ddGift(rb),DD_SHARE.t,rt)]];};
+const ddRareOf=(n,R,rt)=>{const K=Object.keys(DD_RARE_GIFT);return R&&ddFixOk(R.a,K.length)?K.map((r,i)=>[r,R.a[i]]):ddRareGift(n,rt);};
+function ddFix(n,D,rt){
+  const cap=v=>Math.min(DD_FIX_MAX,v);
+  D.q.forEach((q,i)=>{if(D.p[i]||ddFixOk(q.slice(4,6),2))return;const g=ddRowGift(n,q.slice(0,4),rt);q.length=4;q.push(cap(g[0][1]),cap(g[1][1]));});
+  const R=D.r;if(R&&!R.p&&!ddFixOk(R.a,Object.keys(DD_RARE_GIFT).length))R.a=ddRareGift(n,rt).map(x=>cap(x[1]));
+}
 const DD_RARE={iss:[6,8],claim:[3,4],exp:[2,3],road:[2,3],build:[2,2],dm:[2,3],deal:[2,2],xu:[2,2],xpb:[2,2],lost:[1,1],fleet:[2,3],ugb:[2,2],svc:[2,2],city:[1,1]};
 /* the legendary task: once a calendar week (Monday to Sunday, by the player's own clock), at a moment fixed by the
    nation's seed and the week, a much bigger task appears on the desk, and stays seven days. Done in time, it pays
@@ -67139,17 +67154,17 @@ COMMIT_HOOKS.push((n,old,now)=>{
   let G0=null,rt0=null;const just=[],RT=()=>rt0||(rt0=ddRates(n)),snap=()=>{if(!G0)G0=roundStock(stockNow(n,now));};
   const gift=(r,v)=>{snap();const st=stockNow(n,now);st[r]=stockLimit(n,r,num0(st[r])+v,st[r]);n.stock=roundStock(st);n.stockAt=now;};
   if(ddOn()){if(!n.dd||ddLater(day,n.dd.d)){n.dd=ddFresh(n,day);n.dd.t=now;}
-  const D=n.dd;if(!D.r){const r0=ddRare(n,D.d,D.q);if(r0)D.r=r0;}const t0=new Date(now).setHours(0,0,0,0),flF=ddFleetFloor(D,ddStep(n,base,'fleet',now,t0));D.q.forEach(([k,goal,ra,rb],i)=>{
+  const D=n.dd;if(!D.r){const r0=ddRare(n,D.d,D.q);if(r0)D.r=r0;}ddFix(n,D,RT);const t0=new Date(now).setHours(0,0,0,0),flF=ddFleetFloor(D,ddStep(n,base,'fleet',now,t0));D.q.forEach(([k,goal,ra,rb],i)=>{
     if(D.p[i])return;let dv=k==='visit'||k==='vote'?(mark===k?1:0):ddStep(n,base,k,now,t0);
     if(k==='exp'&&flF>(D.c[i]||0)+dv)dv=flF-(D.c[i]||0);
     if(dv)D.c[i]=ddMove(D.c[i],dv,goal);
-    if(D.c[i]>=goal){D.p[i]=1;ddKind(n,k);try{gbBump(n,'ddt',1,now);}catch(e){}const g=[[ra,ddAmt(n,ra,ddGift(ra),DD_SHARE.t,RT())],[rb,ddAmt(n,rb,ddGift(rb),DD_SHARE.t,RT())]];for(const [r,v] of g)gift(r,v);just.push('q'+i);out.push(`Desk task done: ${DD_TASKS[k].t(goal)}. ${ddGiftTxt(g,1)}.`);}
+    if(D.c[i]>=goal){D.p[i]=1;ddKind(n,k);try{gbBump(n,'ddt',1,now);}catch(e){}const g=ddRowGift(n,D.q[i],RT);for(const [r,v] of g)gift(r,v);just.push('q'+i);out.push(`Desk task done: ${DD_TASKS[k].t(goal)}. ${ddGiftTxt(g,1)}.`);}
   });
-  if(D.p.every(Boolean)&&!D.w){D.w=1;n.ddc=(Number.isInteger(n.ddc)?n.ddc:0)+1;const g=Object.keys(DD_CLEAR).map(r=>[r,ddAmt(n,r,DD_CLEAR[r],DD_SHARE.c,RT())]);for(const [r,v] of g)gift(r,v);just.push('w');out.push(`A clear desk: ${ddGiftTxt(g,1)}.`);
+  if(D.p.every(Boolean)&&!D.w){D.w=1;n.ddc=(Number.isInteger(n.ddc)?n.ddc:0)+1;const g=Object.keys(DD_CLEAR).map(r=>[r,ddAmt(n,r,DD_CLEAR[r],DD_SHARE.c,RT)]);for(const [r,v] of g)gift(r,v);just.push('w');out.push(`A clear desk: ${ddGiftTxt(g,1)}.`);
     if(ddWeek(n,now)){n.ddw=Math.min(DD_WEEK_MAX,ddwOf(n)+1);out.push('Today’s desk is clear: +2 land credits in your first week, to spend on the map.');}
     else out.push('Today’s desk is clear: +1 land credit to spend on the map.');}
   const R=D.r;if(R&&!R.p){let dv=ddStep(n,base,R.k,now,t0);if(R.k==='exp'&&flF>(R.c||0)+dv)dv=flF-(R.c||0);if(dv)R.c=ddMove(R.c,dv,R.g);
-    if(R.c>=R.g){R.p=1;n.ddr=ddrOf(n)+1;ddKind(n,R.k);const g=ddRareGift(n,RT());for(const [r,v] of g)gift(r,v);try{gbBump(n,'ddr',1,now);}catch(e){}just.push('r');
+    if(R.c>=R.g){R.p=1;n.ddr=ddrOf(n)+1;ddKind(n,R.k);const g=ddRareOf(n,R,RT);for(const [r,v] of g)gift(r,v);try{gbBump(n,'ddr',1,now);}catch(e){}just.push('r');
       out.push(`Rare task done: ${DD_TASKS[R.k].t(R.g)}. ${ddGiftTxt(g)} and +${DD_RARE_CR} land credits.`);}}
   /* the legendary task: it appears when its moment comes (late, after the last one, if that one was still open), and
      counts from then on */
@@ -67181,9 +67196,9 @@ NORM_HOOKS.push((n,d)=>{
   const D=d&&d.dd,okQ=q=>Array.isArray(q)&&czHas(DD_TASKS,q[0])&&Number.isInteger(q[1])&&q[1]>=1&&q[1]<=10&&DD_RES.includes(q[2])&&DD_RES.includes(q[3])&&q[2]!==q[3];
   if(D&&typeof D.d==='string'&&DD_KEY_RX.test(D.d)&&Array.isArray(D.q)&&D.q.length>=1&&D.q.length<=3&&D.q.every(okQ)){
     const L=D.q.length,ar=(a,f)=>Array.from({length:L},(x,i)=>f(Array.isArray(a)?a[i]:0));
-    n.dd={d:D.d,q:D.q.map(q=>q.slice(0,4)),c:ar(D.c,v=>Number.isInteger(v)&&v>0?Math.min(v,10):0),p:ar(D.p,v=>v===1?1:0)};if(D.w===1)n.dd.w=1;
+    n.dd={d:D.d,q:D.q.map(q=>ddFixOk(q.slice(4,6),2)?q.slice(0,6):q.slice(0,4)),c:ar(D.c,v=>Number.isInteger(v)&&v>0?Math.min(v,10):0),p:ar(D.p,v=>v===1?1:0)};if(D.w===1)n.dd.w=1;
     if(Number.isInteger(D.s)&&D.s>=0&&D.s<L)n.dd.s=D.s;if(Number.isFinite(D.t)&&D.t>0)n.dd.t=D.t;
-    const R=D.r;if(R&&czHas(DD_RARE,R.k)&&Number.isInteger(R.g)&&R.g>=1&&R.g<=10)n.dd.r={k:R.k,g:R.g,c:Number.isInteger(R.c)&&R.c>0?Math.min(R.c,R.g):0,p:R.p===1?1:0};}
+    const R=D.r;if(R&&czHas(DD_RARE,R.k)&&Number.isInteger(R.g)&&R.g>=1&&R.g<=10){n.dd.r={k:R.k,g:R.g,c:Number.isInteger(R.c)&&R.c>0?Math.min(R.c,R.g):0,p:R.p===1?1:0};if(ddFixOk(R.a,Object.keys(DD_RARE_GIFT).length))n.dd.r.a=R.a.slice();}}
   else delete n.dd;
   if(d&&Number.isInteger(d.ddc)&&d.ddc>0&&d.ddc<=STK_MAX)n.ddc=d.ddc;else delete n.ddc;
   if(d&&Number.isInteger(d.ddw)&&d.ddw>0&&d.ddw<=DD_WEEK_MAX)n.ddw=d.ddw;else delete n.ddw;
@@ -67296,18 +67311,18 @@ function ddPing(k,key){
    picks, Today shows, or This week when Today has nothing left and the week has. */
 function ddCard(now){
   const n=S.nation;if(!n||n.npc||!ddOn())return '';
-  const day=ddDay(now),D=n.dd&&!ddLater(day,n.dd.d)?n.dd:ddFresh(n,day),sk=stkDays(n),today=!!(n.stk&&!ddLater(day,n.stk.d)),wk=ddWeek(n,now),rt=ddRates(n),ro=S.mode==='readonly';
+  const day=ddDay(now),D=n.dd&&!ddLater(day,n.dd.d)?n.dd:ddFresh(n,day),sk=stkDays(n),today=!!(n.stk&&!ddLater(day,n.stk.d)),wk=ddWeek(n,now),rt=()=>rt.v||(rt.v=ddRates(n)),ro=S.mode==='readonly';
   const J=DDJ.a&&DDJ.a.d===D.d&&now-DDJ.a.at<15*60000?DDJ.a:null,jk=k=>J&&!J.t&&J.k.includes(k)?' just':'';
   const fold=!!D.w&&!S.ddOpen&&!(J&&J.k.includes('w'));
   const bar=(c,g,done)=>done?'':`<span class="bar dd-bar" aria-hidden="true"><i style="width:${Math.round(clamp(c/g,0,1)*100)}%"></i></span>`;
   const go=(k,T,done)=>!done&&T.go?`<button type="button" class="btn ghost small-btn" data-act="dd-go" data-k="${k}">${esc(T.go[1])}</button>`:'';
   const L=ddLegOn(n,now),leg=L&&!(fold&&L.p)?(()=>{const T=DD_TASKS[L.k],done=!!L.p,c=Math.min(L.g,L.c||0);
     return `<li class="dd-t dd-leg${done?' done':''}${jk('l')}"><span class="dd-i" aria-hidden="true"></span><span class="dd-x"><b><span class="dd-leg-tag">Legendary</span> ${esc(T.t(L.g))}</b><span class="hint">${done?'<span>Done</span>':`<span>${c} of ${L.g}</span> · <span>Time left:</span> <b data-live="ddnext" data-t="${L.e}">${esc(fmtWait(L.e-now))}</b>`} · <b>+${DD_LEG_GIFT} of every resource, +${DD_LEG_CR} land credits</b></span>${bar(c,L.g,done)}</span>${go(L.k,T,done)}</li>`;})():'';
-  const rows=fold?'':D.q.map(([k,goal,ra,rb],i)=>{const T=DD_TASKS[k],done=!!D.p[i],c=Math.min(goal,D.c[i]||0),g=[[ra,ddAmt(n,ra,ddGift(ra),DD_SHARE.t,rt)],[rb,ddAmt(n,rb,ddGift(rb),DD_SHARE.t,rt)]];
+  const rows=fold?'':D.q.map((q,i)=>{const [k,goal]=q,T=DD_TASKS[k],done=!!D.p[i],c=Math.min(goal,D.c[i]||0),g=ddRowGift(n,q,rt);
     const sw=!ro&&n.dd===D&&ddSwapOk(D,i)?` · <button type="button" class="linkish small dd-sw" data-act="dd-swap" data-i="${i}" title="Trade this task for another, once a day">Swap</button>`:D.s===i&&!done?' · <span>swapped in today</span>':'';
     return `<li class="dd-t${done?' done':''}${jk('q'+i)}"><span class="dd-i" aria-hidden="true"></span><span class="dd-x"><b>${esc(T.t(goal))}</b><span class="hint">${done?'<span>Done</span>':`<span>${c} of ${goal}</span>`} · <span>${esc(ddGiftTxt(g))}</span>${sw}</span>${bar(c,goal,done)}</span>${go(k,T,done)}</li>`;}).join('');
   const rare=(()=>{const R=D.r||ddRare(n,D.d,D.q);if(!R||fold&&R.p)return '';const T=DD_TASKS[R.k],done=!!R.p,c=Math.min(R.g,R.c||0);
-    return `<li class="dd-t dd-rare${done?' done':''}${jk('r')}"><span class="dd-i" aria-hidden="true"></span><span class="dd-x"><b><span class="dd-rare-tag">Rare</span> ${esc(T.t(R.g))}</b><span class="hint">${done?'<span>Done</span>':`<span>${c} of ${R.g}</span>`} · <span>${esc(ddGiftTxt(ddRareGift(n,rt)))}</span> · <b>+${DD_RARE_CR} land credits</b></span>${bar(c,R.g,done)}</span>${go(R.k,T,done)}</li>`;})();
+    return `<li class="dd-t dd-rare${done?' done':''}${jk('r')}"><span class="dd-i" aria-hidden="true"></span><span class="dd-x"><b><span class="dd-rare-tag">Rare</span> ${esc(T.t(R.g))}</b><span class="hint">${done?'<span>Done</span>':`<span>${c} of ${R.g}</span>`} · <span>${esc(ddGiftTxt(ddRareOf(n,R,rt)))}</span> · <b>+${DD_RARE_CR} land credits</b></span>${bar(c,R.g,done)}</span>${go(R.k,T,done)}</li>`;})();
   const N=n.ddn&&n.ddn.w===wkKey(now)&&n.ddn.k&&DD_TASKS[n.ddn.k]?n.ddn:null;
   const newRow=N&&!(fold&&N.p)?(()=>{const T=DD_TASKS[N.k];return `<li class="dd-t dd-new${N.p?' done':''}${jk('n')}"><span class="dd-i" aria-hidden="true"></span><span class="dd-x"><b><span class="dd-new-tag">New to you</span> ${esc(T.t(1))}</b><span class="hint"><span>${N.p?'Done this week':'Something you have never done, this week'}</span> · <span>+${DD_NEW_GIFT} of every resource, +${DD_NEW_CR} land credits</span></span></span>${go(N.k,T,N.p)}</li>`;})():'';
   const gain=J?RES.map(r=>[r,Math.floor(num0(J.from[r])),Math.floor(num0(J.to[r]))]).filter(([r,f,t])=>t>f):[];
@@ -67399,7 +67414,7 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-act]');if
   if(a==='dd-fold'){S.ddOpen=el.getAttribute('aria-expanded')!=='true';render();requestAnimationFrame(()=>{const b=document.querySelector('[data-act="dd-fold"]');if(b)b.focus({preventScroll:true});});return;}
   if(a==='dd-swap'){const n=S.nation,now=Date.now(),i=+el.dataset.i;if(n.npc||!ddOn()||regBlocked()||S.mode==='readonly')return;
     const day=ddDay(now);if(!n.dd||ddLater(day,n.dd.d)||!ddSwapOk(n.dd,i))return;const nk=ddSwapPick(n,n.dd);if(!nk){toast('There is no other task to swap in today.');return;}
-    const m=clone(n),q=m.dd.q[i];m.dd.q[i]=[nk[0],nk[1],q[2],q[3]];m.dd.c[i]=0;m.dd.s=i;m.ddsw=Math.min(STK_MAX,(Number.isInteger(m.ddsw)?m.ddsw:0)+1);commit(m);saveSoon();render();toast(`Swapped in: ${DD_TASKS[nk[0]].t(nk[1])}.`);
+    const m=clone(n),q=m.dd.q[i];m.dd.q[i]=[nk[0],nk[1],...q.slice(2)];m.dd.c[i]=0;m.dd.s=i;m.ddsw=Math.min(STK_MAX,(Number.isInteger(m.ddsw)?m.ddsw:0)+1);commit(m);saveSoon();render();toast(`Swapped in: ${DD_TASKS[nk[0]].t(nk[1])}.`);
     requestAnimationFrame(()=>{const h=document.getElementById('dd-h');if(h){h.setAttribute('tabindex','-1');h.focus({preventScroll:true});}});return;}
   if(a==='wk-collect'){const n=S.nation;if(n.npc||!ddOn()||regBlocked()||S.mode==='readonly')return;commit(clone(n));saveSoon();render();return;}
   if(a==='dd-reset'){const n=S.nation,now=Date.now();if(n.npc||!ddOn()||regBlocked()||S.mode==='readonly'||!ddxReady(n,now))return;
@@ -93746,7 +93761,7 @@ notifItems=(f=>function(now){const r=f.apply(this,arguments);try{const t=flcNow(
    from the three: the desk is clear without it. Once a nation has scored every flag (n.fca, flcAllDone) there is
    nothing left to ask: no such task is drawn, and one drawn that day is paid if it took some of the last scores, or
    else is let go. */
-const FLC_DESK={g:3,gift:{goods:5,iron:5}};
+const FLC_DESK={g:3,gift:{iron:5,goods:5}};
 /* (the competition's clock, flcNow, decides the phase, not the time the desk is drawn for) */
 const flcDeskOn=n=>!!n&&!n.npc&&!!n.name&&ddOn()&&flcPhase(flcCur(),flcNow())==='judge'&&flcReg()&&!(FLC.sum[flcCur()]&&!(FLC.sum[flcCur()].n>1))&&!flcAllScored(n);
 NORM_HOOKS.push((n,d)=>{const F=d&&d.dd&&d.dd.f;if(n.dd&&F&&d.dd.d===n.dd.d&&Number.isInteger(F.g)&&F.g>=1&&F.g<=10)n.dd.f={g:F.g,c:Number.isInteger(F.c)&&F.c>0?Math.min(F.c,F.g):0,p:F.p===1?1:0};});
@@ -93760,13 +93775,13 @@ COMMIT_HOOKS.push((n,old,now)=>{
   if(all&&!F.c){delete D.f;return out;}
   if(F.c>=F.g||all){F.p=1;try{gbBump(n,'ddt',1,now);}catch(e){}
     for(const r in FLC_DESK.gift){const st=stockNow(n,now);st[r]=stockLimit(n,r,num0(st[r])+FLC_DESK.gift[r],st[r]);n.stock=roundStock(st);n.stockAt=now;}
-    out.push(`Desk task done: ${all?'every flag in the flag competition is scored':`score ${F.g} flags in the flag competition`}. +${FLC_DESK.gift.goods} goods and +${FLC_DESK.gift.iron} iron.`);}
+    out.push(`Desk task done: ${all?'every flag in the flag competition is scored':`score ${F.g} flags in the flag competition`}. +${FLC_DESK.gift.iron} iron and +${FLC_DESK.gift.goods} goods.`);}
   return out;
 });
 ddCard=(f=>function(now){const h=f.apply(this,arguments);try{const n=S.nation;if(!h||!n)return h;
   const D=n.dd&&!ddLater(ddDay(now),n.dd.d)?n.dd:null,F=D&&D.f?D.f:flcDeskOn(n)?{g:FLC_DESK.g,c:0,p:0}:null;if(!F||!F.p&&!F.c&&flcAllScored(n)||F.p&&h.includes('class="dd dd-fold"'))return h;
   const done=!!F.p,c=Math.min(F.g,F.c||0);
-  const row=`<li class="dd-t dd-fc${done?' done':''}"><span class="dd-i" aria-hidden="true"></span><span class="dd-x"><b><span class="dd-fc-tag">Judging</span> Score ${F.g} flags in the flag competition</b><span class="hint">${done?'Done':`${c} of ${F.g}`} · +${FLC_DESK.gift.goods} goods, +${FLC_DESK.gift.iron} iron</span></span>${done?'':`<button type="button" class="btn ghost small-btn" data-act="go" data-v="flagcomp">Score flags</button>`}</li>`;
+  const row=`<li class="dd-t dd-fc${done?' done':''}"><span class="dd-i" aria-hidden="true"></span><span class="dd-x"><b><span class="dd-fc-tag">Judging</span> Score ${F.g} flags in the flag competition</b><span class="hint">${done?'Done':`${c} of ${F.g}`} · +${FLC_DESK.gift.iron} iron, +${FLC_DESK.gift.goods} goods</span></span>${done?'':`<button type="button" class="btn ghost small-btn" data-act="go" data-v="flagcomp">Score flags</button>`}</li>`;
   const a=h.indexOf('dd-l-day');if(a<0)return h;const i=h.indexOf('</ol>',a);return i<0?h:h.slice(0,i)+row+h.slice(i);}catch(e){return h;}})(ddCard);
 HELP_EXT.push({k:'flagcomp',t:'The Flag Competition',body:n=>`<p>Every month the nations of every region meet in one flag competition, which opens on the ${FLC_RULES.START_DAY}th. For its first ${FLC_RULES.ENTER_DAYS} days you design a flag for the occasion on the Flag Competition page and enter it: it is not your national flag, which stays as it is, and it should not look like it, because the judging is blind.</p>
   <p>For the ${FLC_RULES.JUDGE_DAYS} days after that, every Registered Nation at least a day old may score the flags. Each is shown without a name, and gets one to five stars for ${list(FLC_RULES.CATS.map(c=>FLC_CAT[c][0].replace('?','').toLowerCase()))}. A flag’s score is the average its judges gave it, leaving out the kindest and the harshest once it has five. To stay in the running an entrant scores ${FLC_RULES.DUTY} flags, or every other flag when there are fewer. Judging pays in land as well: every ${FLC_RULES.JUDGE_PER} flags scored earn a land credit, ${FLC_RULES.JUDGE_LAND} at most, and after that a judge may score as many more as they like.</p>
