@@ -40878,7 +40878,7 @@ achDef('bld','bld-w-lunar','g','Over the Moon','Complete the Lunar Colony.',1,x=
    small feature: most stand in a row before the skyline, while fields, mines, oil derricks and harbour
    cranes sit where they work (a flat hex, the hills, the oil deposit, the coast). Work in progress rises
    inside scaffolding. Wonders are landmarks on a hex next to their city; the Colossus straddles the
-   harbour and the Great Wall runs along the border nearest the capital.
+   harbour and the Great Wall runs round the whole border.
    Drawing is data-driven: a building is drawn by BUILDINGS[k].icon when it has one (a shared glyph list,
    DC_GLYPH), by DC_KEY_ICON otherwise, and by a plain generic glyph when neither is known. Every wonder
    (w:1) is a landmark, with a generic monument for wonders without a drawing of their own.
@@ -41374,25 +41374,30 @@ function dcFields(M){
   }
   return any;
 }
-/* the Great Wall: crenellated along the border stretch nearest the capital, in map units */
+/* the Great Wall: crenellated along every edge of the nation's border, coast and colonies included, in map units
+   (its 12% covers every hex held, so the drawing does too). Lines run outward from the border nearest the capital,
+   so a wall under construction rises there first and spreads round. */
 const dcWallMemo=new WeakMap();
 function dcWallGeo(T,o){
   let m=dcWallMemo.get(T);if(!m)dcWallMemo.set(T,m=new Map());if(m.has(o))return m.get(o);
-  const cap=T.list[o].cap,land=[],sea=[];
-  for(let c=0;c<MAP.N;c++){if(T.owner[c]!==o)continue;for(let d=0;d<6;d++){const j=MAP.nbr[c*6+d];if(j>=0&&T.owner[j]===o)continue;(j>=0&&MAP.T[j]>=2?land:sea).push([c,d,hexDist(c,cap)]);}}
-  const E=land.length?land:sea;if(!E.length){m.set(o,null);return null;}
-  E.sort((a,b)=>a[2]-b[2]||a[0]-b[0]||a[1]-b[1]);const a0=E[0][0];
-  const seg=E.filter(e=>hexDist(e[0],a0)<=3).sort((a,b)=>hexDist(a[0],a0)-hexDist(b[0],a0)||a[0]-b[0]).slice(0,16);
-  const lines=seg.map(([c,d])=>{const x=MAP.cx[c],y=MAP.cy[c],k=(d+1)%6;return [x+HCX[d]*HEX_R,y+HCY[d]*HEX_R,x+HCX[k]*HEX_R,y+HCY[k]*HEX_R,x,y];});
-  const g={lines,cells:new Set(seg.map(e=>e[0]))};m.set(o,g);return g;
+  const cap=T.list[o].cap,E=[];let a0=-1,b0=1e9,s0=-1,t0=1e9;
+  for(let c=0;c<MAP.N;c++){if(T.owner[c]!==o)continue;for(let d=0;d<6;d++){const j=MAP.nbr[c*6+d];if(j>=0&&T.owner[j]===o)continue;E.push([c,d,0]);
+    const h=hexDist(c,cap);if(j>=0&&MAP.T[j]>=2){if(h<b0){b0=h;a0=c;}}else if(h<t0){t0=h;s0=c;}}}
+  if(!E.length){m.set(o,null);return null;}
+  if(a0<0)a0=s0;for(const e of E)e[2]=hexDist(e[0],a0);
+  E.sort((a,b)=>a[2]-b[2]||a[0]-b[0]||a[1]-b[1]);
+  const lines=E.map(([c,d])=>{const x=MAP.cx[c],y=MAP.cy[c],k=(d+1)%6;return [x+HCX[d]*HEX_R,y+HCY[d]*HEX_R,x+HCX[k]*HEX_R,y+HCY[k]*HEX_R,x,y];});
+  const g={lines,cells:new Set(E.map(e=>e[0]))};m.set(o,g);return g;
 }
 function dcWalls(M){
   const {g,T,s,col}=M,SP=dcSpots(T),now=Date.now();if(!SP.walls.length)return;
+  /* a whole border is long: only the stretches in view are drawn */
+  const vw=M.x0!=null&&M.x1!=null&&M.y0!=null&&M.y1!=null,mg=HEX_R*2,inView=(ax,ay,bx,by)=>!vw||!(Math.max(ax,bx)<M.x0-mg||Math.min(ax,bx)>M.x1+mg||Math.max(ay,by)<M.y0-mg||Math.min(ay,by)>M.y1+mg);
   for(const e of SP.walls){
     const pr=e.ct.done.includes('wall')?1:dcProg(e.b,now);if(pr<0)continue;const G=dcWallGeo(T,e.o);if(!G)continue;
     const n=Math.max(1,Math.ceil(G.lines.length*pr)),L=G.lines.slice(0,n),p=new Path2D(),mer=new Path2D(),tw=new Path2D(),hx=s*HEX_W,W=hx<9?1.6/s:Math.max(1.5,Math.min(0.42*HEX_R,(1.2+hx*0.07)/s));
     const pts=new Map();
-    for(const [ax,ay,bx,by,cx,cy] of L){p.moveTo(ax,ay);p.lineTo(bx,by);
+    for(const [ax,ay,bx,by,cx,cy] of L){if(!inView(ax,ay,bx,by))continue;p.moveTo(ax,ay);p.lineTo(bx,by);
       for(const [x,y] of [[ax,ay],[bx,by]]){const k=Math.round(x*2)+','+Math.round(y*2);pts.set(k,[x,y]);}
       if(hx>=14){const dx=bx-ax,dy=by-ay,len=Math.hypot(dx,dy),nx=-dy/len,ny=dx/len,sg=((ax+bx)/2-cx)*nx+((ay+by)/2-cy)*ny>0?1:-1,m=Math.max(3,Math.round(len/(W*1.3)));
         for(let i=1;i<m;i+=2){const t0=i/m,t1=(i+0.75)/m,o0=sg*W*0.5,o1=sg*W*0.95;mer.moveTo(ax+dx*t0+nx*o0,ay+dy*t0+ny*o0);mer.lineTo(ax+dx*t0+nx*o1,ay+dy*t0+ny*o1);mer.lineTo(ax+dx*t1+nx*o1,ay+dy*t1+ny*o1);mer.lineTo(ax+dx*t1+nx*o0,ay+dy*t1+ny*o0);mer.closePath();}}}
@@ -41525,7 +41530,7 @@ function dcLegend(){
 MAP_LEGEND.push(dcLegend);
 document.addEventListener('toggle',e=>{const el=e.target;if(el&&el.classList&&el.classList.contains('dc-leg'))try{localStorage.setItem('statehood.mapopt.dcLeg',el.open?'1':'0');}catch(_){}},true);
 HELP_EXT.push({k:'skylines',t:'Cities on the map',body:()=>`<p>Zoom in on the map and every capital is drawn as a little skyline that grows with its own population: ${CAP_TIERS.map((x,t)=>`<b>${esc(x.n)}</b> ${t?'from '+esc(fmtPopShort(x.p)):'under '+fmtPopShort(CAP_TIERS[1].p)}`).join(', ')}. Its style follows the nation’s character: domes and spires for a devout people, chimneys for heavy industry, observatories for science, roof gardens for green nations and battlements for militarists.</p>
-  <p>Other cities grow the same way, each with its own population. Every building appears beside its city: fields on flat land for farm estates, headframes on the hills, derricks on the oil and cranes on the coast. Scaffolding means work in progress, and the overlay shows chimney smoke and, at night, lit windows. Wonders stand as landmarks on a hex next to their city; the Great Wall runs along the border nearest the capital. Hover over a city or a wonder for its size and story.</p>`});
+  <p>Other cities grow the same way, each with its own population. Every building appears beside its city: fields on flat land for farm estates, headframes on the hills, derricks on the oil and cranes on the coast. Scaffolding means work in progress, and the overlay shows chimney smoke and, at night, lit windows. Wonders stand as landmarks on a hex next to their city; the Great Wall runs round your whole border, coast included. Hover over a city or a wonder for its size and story.</p>`});
 function dcDebug(o){o=o||{};if('clk' in o)dcClk=o.clk;if(o.clear){DC_SPR.clear();DC_ST.px=0;DC_SCN.clear();DC_ICO.clear();}
   const cv=document.querySelector('canvas.map-cv[data-map="'+(o.kind||'main')+'"]')||document.querySelector('canvas.map-cv'),d=cv&&cv._dc,f=cv&&cv._mfx;
   return {st:{...DC_ST},spr:DC_SPR.size,items:d?d.items:[],smoke:d?d.smoke.length:0,lit:d?d.lit.length:0,launch:d?d.launch.length:0,busy:f?[DC_LAYER.busy(f,false),DC_LAYER.busy(f,true)]:null,rm:mfxRM()};}
@@ -106948,7 +106953,7 @@ function dhaluunInstall(raw){
   if(typeof dspMemo!=='undefined'){dspMemo.clear();dspXRev++;}
 }
 /* The completed Great Wall uses the existing wonder, its defence bonus and its renderer.
-   Dhaluun's version covers the whole perimeter, rather than the usual short stretch. */
+   Like every Great Wall, Dhaluun's covers the whole perimeter (its own geometry predates that). */
 if(typeof npcCities==='function'&&typeof dcWallGeo==='function'&&typeof cityEpochKey==='function'&&typeof DISPATCH_SOURCES!=='undefined'){
 function dhaluunWallActive(at){const d=dhaluunActive(at);return d&&d.wall&&(at==null?Date.now():at)>=d.wall.t?d.wall:null;}
 npcCities=(f=>function(id){const before=DHALUUN.layout;let cities;DHALUUN.layout=true;try{cities=f.apply(this,arguments);}finally{DHALUUN.layout=before;}
