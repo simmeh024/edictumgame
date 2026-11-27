@@ -144,8 +144,10 @@ test('the hall edicts: one every five phases, purple, never drawn at random, aft
   assert.deepEqual(ids.map(x => x[1]), [5, 10, 15, 20, 25]);
   assert.match(html, /for\(const is of HAL_ISSUES\)\{is\.fo=1;ISSUES\.push\(is\)/, 'kept out of the random draw (fo)');
   assert.match(html, /\.issue-item:has\(\.edict-hall\) \.issue-card\{border-color:var\(--hall-purple\)/);
-  const pushes = [...html.matchAll(/ISSUES\.push\(/g)].map(m => m.index);
-  assert.equal(pushes[pushes.length - 1], html.indexOf('for(const is of HAL_ISSUES){is.fo=1;ISSUES.push(is)') + 'for(const is of HAL_ISSUES){is.fo=1;'.length, 'the last edicts added');
+  /* after every older edict; only the sacking edicts (27 November, sacking-edicts.test.mjs) come after the hall's */
+  const sk = html.indexOf('/* ───────── sacking edicts:'), pushes = [...html.matchAll(/ISSUES\.push\(/g)].map(m => m.index).filter(i => sk < 0 || i < sk);
+  assert.equal(pushes[pushes.length - 1], html.indexOf('for(const is of HAL_ISSUES){is.fo=1;ISSUES.push(is)') + 'for(const is of HAL_ISSUES){is.fo=1;'.length, 'the last edicts added before the sacking edicts');
+  if (sk >= 0) assert.ok(html.indexOf('for(const is of HAL_ISSUES)') < sk, 'the sacking edicts come after the hall');
 });
 
 test('the generated Assembly engine carries the same hall tally as the page', () => {
