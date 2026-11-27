@@ -116,7 +116,9 @@ check('and a repeal must wait too', await A.$eval('[data-act="pol-repeal-ask"]',
 await A.click('#gv-tab-cabinet');
 const st = await A.evaluate(() => G.GV().brief(G.S.nation, Date.now()));
 check('today’s briefing comes from one minister with two answers', await shown(A, '#gv-brief') && (await A.$$('[data-act="gv-brief"]')).length === st.it.o.length && st.it.o.length >= 2);
-await A.click('[data-act="gv-brief"][data-j="1"]');
+check('every answer lists its pros and cons', (await A.$$('#gv-brief .gv-bf-c')).length === st.it.o.length && (await A.$$('#gv-brief .gv-bf-pro')).length === st.it.o.length && (await A.$$('#gv-brief .gv-bf-con')).length === st.it.o.length);
+// an answer the stockpile can pay (every briefing keeps one without a cost)
+await A.click('[data-act="gv-brief"]:not([disabled])');
 check('answered: the briefing is settled for today and says what changed', await until(async () => !!(await localNation(A)).brf) && /settled/.test(await text(A, '#gv-brief')) && !await A.$('[data-act="gv-brief"]'));
 check('and the dot on the tab is gone', !await A.$('#gv-tab-cabinet .gv-dot') || await A.evaluate(() => Object.values(G.S.nation.cab).some(m => m.lo < 20)));
 const pf = await A.evaluate(() => { const n = G.clone(G.S.nation), k = Object.keys(n.cab).find(p => !n.cab[p].tr.includes('loyal') && !n.cab[p].tr.includes('honest')); n.cab[k].lo = 30; n.mdt = { v: 10, t: Date.now() }; G.commit(n); G.render(); return k; });
