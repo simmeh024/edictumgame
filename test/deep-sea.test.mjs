@@ -98,6 +98,29 @@ test('a gold Harbour too far away is named, with the find\'s distance and its sh
   assert.equal(fctx.F.dsFarWhy(abyss,H,[]).why,'Out of reach: your ships sail 80 hexes by sea.');
 });
 
+/* ships by name, and the ports a player chose, as the game reads them back */
+const FREE=section('function dsFreeShips(n,t){','function dsFreeAt(');
+const PREFS=section('const DS_RULES=','\nconst dsMins=');
+const sctx=vm.createContext({Set,Array,Number,K:1,V:[],dsShips:()=>sctx.K,dsVoyages:()=>sctx.V,dsRest:e=>e.r===1?3:1});
+vm.runInContext(FREE+PREFS+';this.F={dsFreeShips,dsPrefs};',sctx);
+test('ships by name: a voyage names its ship (sh), and one from before takes the first name free',()=>{
+  const f=(K,V,t)=>{sctx.K=K;sctx.V=V;return JSON.parse(JSON.stringify(sctx.F.dsFreeShips({},t)));};
+  assert.deepEqual(f(1,[],5),[0]);
+  assert.deepEqual(f(1,[{s:0,a:5,r:2}],5),[],'one ship, still in dock');
+  assert.deepEqual(f(1,[{s:0,a:3,r:2}],5),[0],'rested and free again');
+  assert.deepEqual(f(2,[{s:0,a:5,r:2,sh:1}],5),[0],'ship two away, ship one free');
+  assert.deepEqual(f(2,[{s:0,a:5,r:2}],5),[1],'an old voyage takes ship one');
+  assert.deepEqual(f(2,[{s:0,a:5,r:2},{s:1,a:6,r:2,sh:0}],5),[],'a named ship one, and the old voyage takes ship two');
+  assert.deepEqual(f(2,[{s:9,a:20,r:2}],5),[0,1],'a voyage not yet sailed holds no ship');
+});
+test('the ports a player chose: two home ports or none, and the rule (the best haul unless set)',()=>{
+  const P=x=>JSON.parse(JSON.stringify(sctx.F.dsPrefs(x)));
+  assert.deepEqual(P(null),{p:[null,null],r:'h'});
+  assert.deepEqual(P({dsp:{p:[5,'x'],r:'f'}}),{p:[5,null],r:'f'});
+  assert.deepEqual(P({dsp:{p:[-1,7],r:'zz'}}),{p:[null,7],r:'h'});
+  assert.deepEqual(P({dsp:'nonsense'}),{p:[null,null],r:'h'});
+});
+
 test('the share by place: 30, 25, 20, 15 and 10% of the five, times the harbour',()=>{
   assert.deepEqual(J(X.DS_PLACE.slice(1).map(v=>v/5)),[0.3,0.25,0.2,0.15,0.1]);
   assert.equal(X.dsMult(200,1),3);assert.equal(X.dsMult(145,3),1.45);assert.equal(X.dsMult(100,5),0.5);
