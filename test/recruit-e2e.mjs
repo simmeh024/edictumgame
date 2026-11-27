@@ -48,7 +48,14 @@ const aBefore = await stock(A);
 // Region › Invite
 check('the Invite tab has the same link', await until(async () => (await A.$eval('#rgn-p-invite #rc-link', i => i.value).catch(() => '')) === link));
 check('it says what both sides get, step by step', /15 goods, oil, timber and iron · 3 land credits/.test(await text(A, '.rc-rw')) && /played a week/.test(await text(A, '.rc-rw')) && /founded a second city/.test(await text(A, '.rc-rw')), await text(A, '.rc-rw'));
-check('and what recruits earn: a title, a stamp, a frame and a charge', (await A.$$eval('.rc-ul li', l => l.map(x => x.querySelector('.rc-ul-k').textContent))).join() === '1 recruit,3 recruits,10 recruits,25 recruits' && /the Welcoming/i.test(await text(A, '.rc-ul')) && /Clasped hands/.test(await text(A, '.rc-ul')), await text(A, '.rc-ul'));
+const ulKs = key => A.$$eval(`#rc-uls-${key} .rc-ul-k`, l => l.map(x => x.textContent).join()), ulText = key => A.$eval(`#rc-uls-${key}`, e => e.textContent);
+check('and what recruits earn: fifteen designs from 1 recruit to 100', await ulKs('a') === '1 recruit,2 recruits,3 recruits,4 recruits,5 recruits,10 recruits,15 recruits,20 recruits,25 recruits,30 recruits,35 recruits,40 recruits,45 recruits,50 recruits,100 recruits'
+  && /the Welcoming/i.test(await ulText('a')) && /Clasped hands/.test(await ulText('a')) && /The Host of Nations/.test(await ulText('a')), await ulText('a'));
+check('the next three in view, the other twelve folded', await A.$$eval('#rc-uls-a > .rc-ul > li', l => l.length) === 3 && /12 more, up to 100 recruits/.test(await text(A, '#rc-uls-a summary')) && !await A.$eval('#rc-uls-a details', d => d.open));
+check('and what the recruits of recruits earn: eight more, from 1 to 100', await ulKs('g') === '1 recruit,2 recruits,3 recruits,5 recruits,10 recruits,25 recruits,50 recruits,100 recruits' && /The Wellspring/.test(await ulText('g')), await ulText('g'));
+check('each design drawn small beside its name', await A.$$eval('.rc-uls .rc-ul-v', l => l.length === 23 && l.every(v => v.firstElementChild)));
+await A.click('#rc-uls-a summary');
+check('the fold stays open when the tab is drawn again', await A.evaluate(() => { G.render(); return document.querySelector('#rc-uls-a details')?.open === true; }));
 /* the card: drawn, and its QR code is the link's (each module read off the canvas) */
 check('the invitation card is drawn', await until(() => A.evaluate(() => document.getElementById('rc-card')?.dataset.drawn === '1'), 10000));
 await sleep(1200);
@@ -189,6 +196,7 @@ await A.evaluate(() => G.RC().poll(true));
 check('the first recruiter is paid for its lineage: 1 land credit', await until(() => A.evaluate(id => (G.S.nation.rcgp || []).includes(id), uidG2), 15000) && await credits(A) === aLand0 + 1, String(await credits(A)));
 await nav(A, 'region'); await A.click('#rgn-tab-invite');
 check('and the Invite tab shows the lineage', await until(async () => /Your lineage/.test(await text(A, '#rc-panel')) && /Newland → Grandland/.test(await text(A, '#rc-panel')), 15000), await text(A, '#rc-panel').catch(() => ''));
+check('the first recruit of a recruit earns a design of its own: the Passed on stamp', await until(() => A.evaluate(() => G.UX.unlocksOf(G.S.nation).has('s-passed') && !!document.querySelector('#rc-uls-g li.ok[data-id="s-passed"]')), 15000));
 await G2.context().close();
 
 // a double-rewards weekend, and a claim from the recruiter's address: held, released by the staff, then paid twice
@@ -212,6 +220,8 @@ check('the recruiter sees it waiting for a staff check, unpaid', await until(asy
 await ownerPatch('recruits/' + uidE2, {}, ['h']);
 await A.evaluate(() => G.RC().poll(true));
 check('released, the recruiter is paid twice: 6 land credits', await until(() => A.evaluate(id => (G.S.nation.rcp || []).includes(id), uidE2), 15000) && await credits(A) === aLand1 + 6, String(await credits(A) - aLand1));
+const aToasts = () => A.evaluate(() => G.PT().toasts().join(' | '));
+check('a second recruit brings Friendship wax, and the recruiter hears of it', await A.evaluate(() => G.UX.unlocksOf(G.S.nation).has('ls-friend')) && /New in Customise: .*Friendship wax/.test(await aToasts()), await aToasts());
 await E2.evaluate(() => { G.RC().state.tries = 0; G.RC().claim(); });
 check('and the recruit collects: 6 land credits', await until(() => E2.evaluate(() => !!G.S.nation.rcb), 20000) && await credits(E2) === 6, String(await credits(E2)));
 await ownerDelete('rcEvent/live'); await ownerDelete('accountSeen/' + uidA);
