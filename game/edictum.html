@@ -8899,6 +8899,23 @@ span.nw-tag{cursor:default}
 .cx-ev-os{display:grid;gap:10px;margin-top:10px}
 .cx-ev-o{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}
 .cx-ev-o .btn{min-width:170px}
+.cx-ev+.cx-ev{margin-top:12px}
+.cx-ev-due{margin:10px 0 0}
+.cx-ev-b{margin-right:4px}
+.cx-inbox{margin:0 0 14px;padding:10px 14px 12px;border:1px solid var(--stamp);border-radius:4px;background:var(--paper)}
+.cx-inbox>summary{cursor:pointer;font-family:var(--f-display);font-size:18px}
+.cx-inbox>.hint{margin:6px 0 4px}
+.cx-ev-ib{margin-top:10px;padding:10px 12px;border-color:var(--rule)}
+.cx-ev-ib .cx-ev-h{font-size:17px}
+.cx-ev-city{font-weight:600}
+.cx-fc,.cx-fxl{margin:8px 0 0}
+.cx-lately{margin:10px 0 0}
+.cx-ch{list-style:none;margin:6px 0 0;padding:0;display:grid;gap:8px}
+.cx-ch li{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:baseline;padding-bottom:8px;border-bottom:1px solid var(--rule-2)}
+.cx-ch-d{font:500 11px/1.3 var(--f-mono);color:var(--ink-3);white-space:nowrap}
+.cx-ch-r{color:var(--ink-2)}
+.cx-ch-m{font-variant-numeric:tabular-nums;font-weight:600}
+.cx-ch-m.up{color:var(--up)}.cx-ch-m.down{color:var(--down)}
 .cx-cands{list-style:none;margin:10px 0 0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
 .cx-letter{margin:10px 0;padding:10px 14px;border-left:3px solid var(--rule-2);font-style:italic;color:var(--ink-2)}
 .cx-letter p{margin:0}.cx-letter footer{margin-top:6px;font-style:normal;font-size:12.5px;color:var(--ink-3)}
@@ -25458,7 +25475,8 @@ function bldGainHtml(ct,k,T,lead){
   const made=g.res.map(amt),why=[],byM=new Map();for(const q of g.res)if(q.m){if(!byM.has(q.m))byM.set(q.m,[]);byM.get(q.m).push(q);}
   for(const [m,qs] of byM)why.push(`${Math.round(m*100)}% of the ${list(qs.map(q=>`${fmtAmt(q.land)} ${esc(resName(q.r))}`))} from its land${qs.length===1&&qs[0].f?`, plus ${fmtAmt(qs[0].f)}`:''}`);
   if(g.lm!==1)why.push(`+${Math.round((g.lm-1)*100)}% for its upgrades`);
-  if(g.mk!==1&&g.res.length){const band=ct.mood!=null?cxBand(ct.mood):null;why.push(`${g.mk>1?'+':'−'}${Math.round(Math.abs(g.mk-1)*100)}% ${band?`while the city is ${esc(band[1].toLowerCase())}`:'for the city’s mood'}`);}
+  {const mo=ct.mxo||0,bm=g.mk/(1+mo);if(Math.abs(bm-1)>1e-9&&g.res.length){const band=ct.mood!=null?cxBand(ct.mood):null;why.push(`${bm>1?'+':'−'}${Math.round(Math.abs(bm-1)*100)}% ${band?`while the city is ${esc(band[1].toLowerCase())}`:'for the city’s mood'}`);}
+    if(mo&&g.res.length)why.push(`${mo>0?'+':'−'}${Math.round(Math.abs(mo)*100)}% for how a matter was answered`);}
   const paid=g.up.filter(q=>!q.free).map(q=>`${fmtAmt(q.v)} ${esc(resName(q.r))}`),uses=(paid.length?[`${list(paid)} a day`]:[]).concat(g.up.filter(q=>q.free).map(q=>`no ${esc(resName(q.r))} (${esc(q.free)})`));
   const bits=[];
   if(made.length)bits.push(`<b>${list(made)}</b> a day${why.length?`<span class="bld-gw"> (${why.join('; ')})</span>`:''}`);
@@ -82067,10 +82085,10 @@ document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closes
    +20%, +25%, +30% of the base, so double at gold), and each costs more and takes longer to fit. Buildings raised to the
    old levels 2 and 3 (×1.5 and ×2, before the blocks) count as four and five blocks, so nobody lost output. A city has a mood (0–100) from what
    stands in it, its mayor, its roads and how its last matter went: a thriving city produces 10% more, an uneasy one 5%
-   less and a restless one 15% less, and is easier to take. Every two or three days a city brings the player a matter
-   with two answers. A mayor brings one trait. Roads are the map's transport network, built from the city's page; a city
+   less and a restless one 15% less, and is easier to take. About every two days a city brings the player a matter
+   (round two, 28 November 2026: see "city matters, round two" below). A mayor brings one trait. Roads are the map's transport network, built from the city's page; a city
    on a finished road builds 10% faster. Walls (three levels) make the city hex, and a little the hexes next to it,
-   harder to take, for whoever holds it. All of it lives in the city's record (my, wl, wu, ne, en, mb; a building's ug, uu),
+   harder to take, for whoever holds it. All of it lives in the city's record (my, wl, wu, ne, en, ch, sq; a building's ug, uu),
    so other players work out the same mood and walls.
    The Cities page shows one city at a time: a list (a row of tabs on a phone), what needs the player, a slim
    stockpile, and the city in four tabs: Buildings, Build, People, Defence & roads. */
@@ -82086,7 +82104,7 @@ const CX_UG=[
 ];
 const CX_UG_MAX=CX_UG.length,CX_LV=CX_UG.reduce((a,u)=>(a.push(Math.round((a[a.length-1]+u.fx)*100)/100),a),[1]);
 const CX_WALL=[null,{cost:{timber:20,iron:10},h:4},{cost:{timber:30,iron:25},h:8},{cost:{timber:30,iron:40,goods:20},h:12}];
-const CX_WALL_CITY=0.15,CX_WALL_NEAR=0.05,CX_MAYOR_COST={goods:15},CX_EV_GAP=2*DAY;
+const CX_WALL_CITY=0.15,CX_WALL_NEAR=0.05,CX_MAYOR_COST={goods:15};
 const CX_TRAITS={
   builder:['Master builder','Buildings and walls in the city go up 15% faster.'],
   steward:['Steward','Buildings in the city produce 10% more.'],
@@ -82100,94 +82118,140 @@ const CX_LAST=['Ambergast','Bellcastle','Copperwick','Dunmorrow','Ellerby','Fair
 const CX_MOOD_B={theatre:10,hospital:6,market:4,housing:4,cathedral:8,library:5,colossus:5,factory:-5,mine:-3,oilwell:-4,barracks:-3};
 const CX_BANDS=[[75,'Thriving',1.1,'up','Buildings here produce 10% more.'],[50,'Content',1,'','The city is calm: no effect on output.'],[30,'Uneasy',0.95,'warn','Buildings here produce 5% less.'],[0,'Restless',0.85,'down','Buildings here produce 15% less, and the city is 10% easier to take.']];
 const CX_EVENTS=[
-  {k:'fire',t:'A fire in the warehouse district of {C}',b:'It is out, but three streets need rebuilding, and the fire brigade would like a bigger hose.',o:[{l:'Rebuild properly',c:{timber:15},m:6,r:'The new streets are wider, and the hose is enormous.'},{l:'Patch it up',m:-6,r:'The patched streets look patched. People notice.'}]},
-  {k:'festival',t:'{C} asks for a festival',b:'The organisers promise music, food and only a moderate number of fireworks.',o:[{l:'Fund it',c:{food:12,goods:6},m:8,s:{happy:1},r:'A fine festival. The fireworks were more than moderate.'},{l:'Not this year',m:-4,r:'The bunting goes back into its box.'}]},
-  {k:'strike',t:'Workers in {C} down tools',b:'They want a shorter week and a longer lunch.',o:[{l:'Meet them halfway',c:{goods:10},m:6,r:'Lunch is now forty-five minutes. Everyone pretends it always was.'},{l:'Stand firm',g:{goods:6},m:-8,r:'Work resumes, with a great deal of sighing.'}]},
+  {k:'fire',t:'A fire in the warehouse district of {C}',b:'It is out, but three streets need rebuilding, and the fire brigade would like a bigger hose.',o:[{l:'Rebuild properly',c:{timber:15},m:6,x:{f:'bld',v:10,h:48},r:'The new streets are wider, and the hose is enormous.'},{l:'Patch it up',m:-2,x:{f:'out',v:-5,h:48},r:'The patched streets look patched, and the carts go round them slowly.'}]},
+  {k:'festival',t:'{C} asks for a festival',b:'The organisers promise music, food and only a moderate number of fireworks.',o:[{l:'Fund it',c:{food:12,goods:6},m:8,s:{happy:1},r:'A fine festival. The fireworks were more than moderate.'},{l:'Not this year',m:-3,n:'bunting',r:'The bunting goes back into its box. Most of it, anyway.'}]},
+  {k:'strike',t:'Workers in {C} down tools',b:'They want a shorter week and a longer lunch.',o:[{l:'Meet them halfway',c:{goods:10},m:6,r:'Lunch is now forty-five minutes. Everyone pretends it always was.'},{l:'Stand firm',g:{goods:6},m:-6,n:'strike2',r:'Work resumes, with a great deal of sighing.'}]},
   {k:'harvest',t:'A bumper harvest outside {C}',b:'The granaries are full, and the farmers want to know what to do with the rest.',o:[{l:'Store it',g:{food:15},m:2,r:'The granaries creak contentedly.'},{l:'Give it to the people',m:7,r:'Free bread on every corner. The city will remember.'}]},
-  {k:'bridge',t:'{C}’s old bridge creaks',b:'The engineers say it has a year left, or a week. Their report is unclear on this point.',o:[{l:'Rebuild it',c:{timber:12,iron:6},m:5,r:'The new bridge does not creak. People miss it, slightly.'},{l:'Put up a sign',m:-5,r:'The sign says CAUTION. The bridge says nothing.'}]},
-  {k:'caravan',t:'A caravan stops in {C}',b:'Its merchants offer goods for timber, at what they call a fair price.',o:[{l:'Trade with them',c:{timber:10},g:{goods:12},m:2,r:'A fair price. Possibly fairer for them.'},{l:'Send them on',m:0,r:'They leave with a great deal of timber they had hoped to sell.'}]},
-  {k:'school',t:'Parents in {C} want a new school',b:'The old one has a roof. Mostly.',o:[{l:'Build one',c:{timber:10,goods:8},m:6,s:{edu:1},r:'A new school, with an entire roof.'},{l:'Mend the roof',c:{timber:4},m:1,r:'The roof is now all roof.'}]},
-  {k:'flood',t:'The river floods part of {C}',b:'Cellars are full of water and, in one case, of fish.',o:[{l:'Send relief',c:{food:10,timber:8},m:6,r:'Dry socks for everyone, and the fish are returned to the river.'},{l:'Let the city cope',m:-7,r:'The city copes. It also writes letters.'}]},
-  {k:'statue',t:'{C} wants a statue',b:'Of whom is still being argued about.',o:[{l:'Pay for it',c:{iron:8,goods:6},m:5,s:{culture:1},r:'A statue of a local baker, after a close vote.'},{l:'Suggest a fountain',c:{iron:3},m:2,r:'A fountain. Nobody can argue with a fountain.'}]},
+  {k:'bridge',t:'{C}’s old bridge creaks',b:'The engineers say it has a year left, or a week. Their report is unclear on this point.',o:[{l:'Rebuild it',c:{timber:12,iron:6},m:5,x:{f:'out',v:5,h:48},r:'The new bridge does not creak. People miss it, slightly.'},{l:'Put up a sign',p:0.7,m:0,r:'The sign says CAUTION. The bridge says nothing, and holds.',f:{m:-6,x:{f:'out',v:-10,h:48},r:'The bridge said something after all. The ferry is very busy this week.'}}]},
+  {k:'caravan',t:'A caravan stops in {C}',b:'Its merchants offer goods for timber, at what they call a fair price.',o:[{l:'Trade with them',c:{timber:10},g:{goods:12},m:2,r:'A fair price. Possibly fairer for them.'},{l:'Send them on',m:0,r:'They leave with a great deal of timber they had hoped to sell.'},{l:'Haggle at the Market',b:'market',c:{timber:10},g:{goods:15},m:3,r:'The Market Hall’s traders haggle them down. The merchants leave impressed and poorer.'}]},
+  {k:'school',t:'Parents in {C} want a new school',b:'The old one has a roof. Mostly.',o:[{l:'Build one',c:{timber:10,goods:8},m:6,s:{edu:1},r:'A new school, with an entire roof.'},{l:'Mend the roof',m:0,r:'The roof is mended with whatever was lying about. It is mostly roof.'},{l:'Borrow lecturers',b:'university',c:{goods:3},m:5,s:{edu:1},r:'The University lends its lecturers. The children now correct their parents.'}]},
+  {k:'flood',t:'The river floods part of {C}',b:'Cellars are full of water and, in one case, of fish.',o:[{l:'Send relief',c:{food:10,timber:8},m:6,r:'Dry socks for everyone, and the fish are returned to the river.'},{l:'Let the city cope',m:-4,x:{f:'out',v:-5,h:48},r:'The city copes. It also writes letters.'},{l:'Send the nurses',b:'hospital',c:{food:4},m:6,s:{health:1},r:'The Hospital’s nurses go door to door with blankets and stern advice about wet socks.'}]},
+  {k:'statue',t:'{C} wants a statue',b:'Of whom is still being argued about.',o:[{l:'Pay for it',c:{iron:8,goods:6},m:5,s:{culture:1},r:'A statue of a local baker, after a close vote.'},{l:'Suggest a plaque',m:1,r:'A brass plaque. Nobody can argue with a plaque, though several try.'}]},
   {k:'hat',t:'A thief is caught in {C}',b:'He stole the town clerk’s hat, and possibly the town clerk’s dignity.',o:[{l:'A public trial',m:3,r:'Justice is done, loudly.'},{l:'A quiet pardon',g:{goods:4},m:-2,r:'He returns the hat, and three others nobody had missed.'}]},
-  {k:'square',t:'Market day in {C} spills into the streets',b:'The traders want the square widened. The people who live on it want their doorsteps back.',o:[{l:'Widen the square',c:{timber:8,goods:4},m:5,r:'A bigger square, and fewer doorsteps.'},{l:'Keep the stalls in line',m:-3,r:'The stalls stand in a very straight line. Nobody buys anything from it.'}]},
-  {k:'choir',t:'{C}’s choir is invited abroad',b:'They need coats, a coach and somebody to stop the tenors arguing.',o:[{l:'Send them',c:{goods:8,food:4},m:5,s:{culture:1},r:'They win second prize. The tenors blame each other.'},{l:'They can sing at home',m:-3,r:'They sing at home, pointedly.'}]},
+  {k:'square',t:'Market day in {C} spills into the streets',b:'The traders want the square widened. The people who live on it want their doorsteps back.',o:[{l:'Widen the square',c:{timber:8,goods:4},m:5,x:{f:'out',v:5,h:72},r:'A bigger square, and fewer doorsteps.'},{l:'Keep the stalls in line',m:1,x:{f:'out',v:-5,h:48},r:'The stalls stand in a very straight line. Nobody buys anything from it.'}]},
+  {k:'choir',t:'{C}’s choir is invited abroad',b:'They need coats, a coach and somebody to stop the tenors arguing.',o:[{l:'Send them',c:{goods:8,food:4},p:0.5,m:7,s:{culture:1},r:'They win first prize. The tenors each take the credit.',f:{m:4,r:'They win second prize. The tenors blame each other.'}},{l:'They can sing at home',m:-1,r:'They sing at home, pointedly.'},{l:'Rehearse at the Theatre',b:'theatre',c:{goods:4},m:5,s:{culture:1},r:'A month on a real stage, and they sing so well the trip seems unnecessary.'}]},
   /* 75 more, 2026-11-20 ("so it feels less repeated"); each can be answered from an empty stockpile */
-  {k:'clock',t:'The town clock in {C} has stopped',b:'It stopped at ten past four. Some say that is a perfectly good time and should be kept.',o:[{l:'Repair it',c:{iron:5,goods:3},m:4,r:'The clock runs again. Everyone is now late on time.'},{l:'Keep ten past four',m:-2,r:'It is always ten past four in the square. The tea rooms have never been busier.'}]},
-  {k:'library',t:'{C} asks for a public library',b:'The only bookseller in town has written a strongly worded letter against it, in a book he would like you to buy.',o:[{l:'Build it',c:{timber:8,goods:6},m:5,s:{edu:1},r:'A library with long tables, and a librarian who can silence a room with one eyebrow.'},{l:'Buy his book instead',m:-2,r:'The book explains why libraries are a passing fad. It is very long.'}]},
-  {k:'lamps',t:'{C}’s streets are dark at night',b:'The night watch carries lanterns, and keeps walking into the same lamppost, which is unlit.',o:[{l:'Light the streets',c:{oil:6,iron:4},m:5,s:{safety:1},r:'The streets glow. The lamppost has received an apology.'},{l:'Hand out lanterns',m:-1,r:'Everyone carries a lantern. The city looks like a slow parade of fireflies.'}]},
-  {k:'pigeons',t:'Pigeons have taken over {C}’s town hall',b:'They nest in the council chamber and vote, as far as anyone can tell, more sensibly than the council.',o:[{l:'Hire a falconer',c:{goods:5},m:3,r:'One falcon, a great deal of respect. The pigeons have moved to the post office.'},{l:'Give them a seat',m:1,r:'The pigeons have a seat on the council. Attendance has never been better.'}]},
-  {k:'well',t:'The well in {C} tastes of iron',b:'The doctor says it is good for you. The doctor says this about cabbage too.',o:[{l:'Dig a new well',c:{timber:6,iron:4},m:5,s:{health:1},r:'Fresh, clear water. The doctor drinks it with his cabbage.'},{l:'Call it a tonic',m:-3,r:'The iron water is sold as a tonic. Nobody buys it twice.'}]},
-  {k:'bees',t:'A swarm of bees settles on {C}’s bell tower',b:'The bell ringer refuses to climb up. The bees refuse to come down.',o:[{l:'Call a beekeeper',c:{goods:4},g:{food:6},m:3,r:'The bees move into proper hives and pay their rent in honey.'},{l:'Ring the bells anyway',m:-4,r:'The bells rang once, very briefly, and the bell ringer ran very fast.'}]},
+  {k:'clock',t:'The town clock in {C} has stopped',b:'It stopped at ten past four. Some say that is a perfectly good time and should be kept.',o:[{l:'Repair it',c:{iron:5,goods:3},m:4,r:'The clock runs again. Everyone is now late on time.'},{l:'Keep ten past four',m:1,n:'teatime',r:'It is always ten past four in the square. The tea rooms have never been busier.'}]},
+  {k:'library',t:'{C} asks for a public library',b:'The only bookseller in town has written a strongly worded letter against it, in a book he would like you to buy.',o:[{l:'Build it',c:{timber:8,goods:6},m:5,s:{edu:1},r:'A library with long tables, and a librarian who can silence a room with one eyebrow.'},{l:'Buy his book instead',m:-1,r:'The book explains why libraries are a passing fad. It is very long.'},{l:'Open a branch',b:'library',c:{goods:3},m:6,s:{edu:1},r:'The Great Library opens a branch. The bookseller joins, and borrows his own book.'}]},
+  {k:'lamps',t:'{C}’s streets are dark at night',b:'The night watch carries lanterns, and keeps walking into the same lamppost, which is unlit.',o:[{l:'Light the streets',c:{oil:6,iron:4},m:5,s:{safety:1},x:{f:'def',v:10,h:72},r:'The streets glow. The lamppost has received an apology.'},{l:'Hand out lanterns',m:1,r:'Everyone carries a lantern. The city looks like a slow parade of fireflies.'}]},
+  {k:'pigeons',t:'Pigeons have taken over {C}’s town hall',b:'They nest in the council chamber and vote, as far as anyone can tell, more sensibly than the council.',o:[{l:'Hire a falconer',c:{goods:5},m:3,n:'postpigeons',r:'One falcon, a great deal of respect. The pigeons have moved to the post office.'},{l:'Give them a seat',m:1,r:'The pigeons have a seat on the council. Attendance has never been better.'}]},
+  {k:'well',t:'The well in {C} tastes of iron',b:'The doctor says it is good for you. The doctor says this about cabbage too.',o:[{l:'Dig a new well',c:{timber:6,iron:4},m:5,s:{health:1},r:'Fresh, clear water. The doctor drinks it with his cabbage.'},{l:'Call it a tonic',p:0.4,g:{goods:6},m:0,r:'The tonic is a hit in the next town, where nobody has tasted it yet.',f:{m:-3,r:'The iron water is sold as a tonic. Nobody buys it twice.'}},{l:'Have it tested',b:'hospital',c:{goods:2},m:4,s:{health:1},r:'The Hospital finds the iron, and a very old spoon. The well is cleaned out.'}]},
+  {k:'bees',t:'A swarm of bees settles on {C}’s bell tower',b:'The bell ringer refuses to climb up. The bees refuse to come down.',o:[{l:'Call a beekeeper',c:{goods:4},g:{food:6},m:3,n:'honey',r:'The bees move into proper hives and pay their rent in honey.'},{l:'Ring the bells anyway',p:0.5,m:2,r:'The bees leave in a huff. The bells ring out over a very relieved city.',f:{m:-4,r:'The bells rang once, very briefly, and the bell ringer ran very fast.'}}]},
   {k:'helmet',t:'A farmer near {C} has dug up an ancient helmet',b:'The museum wants it. So does the farmer, who has started wearing it.',o:[{l:'Buy it for the museum',c:{goods:8},m:4,s:{culture:1},r:'The helmet goes on show. The farmer visits it on Sundays.'},{l:'Let him keep it',m:1,r:'He wears it to market. Nobody haggles with him any more.'}]},
-  {k:'oven',t:'{C}’s bakers want a town oven',b:'One great oven for everyone’s bread, they say. They have drawn it, and it is enormous.',o:[{l:'Build the oven',c:{timber:6,iron:6},g:{food:8},m:4,r:'The great oven is lit. The whole city smells of toast.'},{l:'Small ovens will do',m:-2,r:'The bread is the same as ever. The bakers sigh into it.'}]},
-  {k:'drains',t:'{C} has a smell problem',b:'The old drains are full and the summer is long. The perfume sellers are having an excellent year.',o:[{l:'Rebuild the drains',c:{iron:8,timber:4},m:6,s:{health:1},r:'The drains run clear. The perfume sellers are opening a café instead.'},{l:'Wait for rain',m:-6,r:'It rained, eventually. The city held its nose until it did.'}]},
+  {k:'oven',t:'{C}’s bakers want a town oven',b:'One great oven for everyone’s bread, they say. They have drawn it, and it is enormous.',o:[{l:'Build the oven',c:{timber:6,iron:6},g:{food:8},m:4,r:'The great oven is lit. The whole city smells of toast.'},{l:'Small ovens will do',m:0,r:'The bread is the same as ever. The bakers sigh into it.'}]},
+  {k:'drains',t:'{C} has a smell problem',b:'The old drains are full and the summer is long. The perfume sellers are having an excellent year.',o:[{l:'Rebuild the drains',c:{iron:8,timber:4},m:6,s:{health:1},r:'The drains run clear. The perfume sellers are opening a café instead.'},{l:'Wait for rain',p:0.4,m:1,r:'It rained that very night. The city breathes out.',f:{m:-6,x:{f:'out',v:-5,h:48},r:'It rained, eventually. The city held its nose until it did.'}}]},
   {k:'park',t:'{C} wants a park',b:'There is an empty lot by the old mill, and three committees with three different plans for it.',o:[{l:'Plant a park',c:{timber:5,food:4},m:5,s:{env:1},r:'Trees, benches and a pond with one very proud duck.'},{l:'Sell the lot',g:{goods:6},m:-3,r:'A warehouse goes up. It is, everyone agrees, a very nice warehouse.'}]},
-  {k:'players',t:'A travelling theatre company reaches {C}',b:'They need a stage, a week, and somebody to play the back half of the horse.',o:[{l:'Give them a stage',c:{timber:6,goods:4},m:6,s:{culture:1},r:'A sell-out week. The back half of the horse got the best reviews.'},{l:'Use the square',m:2,r:'They perform in the square. The pigeons were not consulted.'}]},
-  {k:'hattax',t:'{C}’s tax collector has a new idea',b:'He would like to tax hats. He has already counted them.',o:[{l:'Tax the hats',g:{goods:8},m:-6,r:'Hats are taxed. The city goes bareheaded and catches a cold.'},{l:'Thank him, and no',m:2,r:'He is disappointed, and goes back to counting chimneys.'}]},
+  {k:'players',t:'A travelling theatre company reaches {C}',b:'They need a stage, a week, and somebody to play the back half of the horse.',o:[{l:'Give them a stage',c:{timber:6,goods:4},m:6,s:{culture:1},n:'players2',r:'A sell-out week. The back half of the horse got the best reviews.'},{l:'Use the square',m:2,r:'They perform in the square. The pigeons were not consulted.'},{l:'Lend them the Theatre',b:'theatre',c:{goods:2},m:7,s:{culture:1},r:'A week at the Theatre, full every night. They leave the horse behind as thanks.'}]},
+  {k:'hattax',t:'{C}’s tax collector has a new idea',b:'He would like to tax hats. He has already counted them.',o:[{l:'Tax the hats',g:{goods:8},m:-4,n:'hats2',r:'Hats are taxed. The city goes bareheaded and catches a cold.'},{l:'Thank him, and no',m:2,r:'He is disappointed, and goes back to counting chimneys.'}]},
   {k:'dogs',t:'{C} holds its first dog show',b:'Entries are open, and one councillor’s dog has been entered in every class, including cats.',o:[{l:'Put up the prizes',c:{goods:4,food:3},m:5,s:{happy:1},r:'A sheepdog wins. The councillor’s dog wins Best Effort.'},{l:'Ribbons for all',m:1,r:'Every dog gets a ribbon. Every dog is delighted.'}]},
-  {k:'telescope',t:'An astronomer in {C} wants a telescope',b:'She says a comet is coming. The council says something is always coming.',o:[{l:'Buy her a telescope',c:{iron:4,goods:6},m:3,s:{sci:1},r:'The comet arrives, right on time. She is insufferable about it.'},{l:'Lend her the tower',m:0,r:'She watches from the bell tower, and is deafened every hour.'}]},
-  {k:'windmill',t:'{C}’s windmill has lost a sail',b:'It still turns, slowly, in a direction the miller describes as unhelpful.',o:[{l:'Fit a new sail',c:{timber:6},g:{food:5},m:3,r:'Four sails again. The flour is back, and so is the miller’s smile.'},{l:'Grind by hand',m:-4,r:'The flour is coarse, and so is the miller’s language.'}]},
-  {k:'doctor',t:'A famous doctor wants to settle in {C}',b:'She asks for a house, a clinic and a garden for her herbs.',o:[{l:'Make her welcome',c:{timber:8,goods:5},m:5,s:{health:1},r:'Her clinic opens to a queue round the block, mostly of people who feel fine.'},{l:'Point her to the inn',m:-2,r:'She stays a week at the inn, then moves to a city that offered a garden.'}]},
-  {k:'potholes',t:'The main road into {C} is all potholes',b:'Carts lose wheels, and one lost its carter, who was found later in a pothole, unhurt and annoyed.',o:[{l:'Pave it',c:{timber:4,iron:6},m:5,r:'Smooth paving from the gate to the square. The carters sing.'},{l:'Fill them with gravel',m:-2,r:'The gravel lasts a month. The potholes remember where they were.'}]},
-  {k:'flying',t:'An inventor in {C} has built a flying machine',b:'He would like money to make it fly. At the moment it hops.',o:[{l:'Fund the next model',c:{iron:6,goods:6},m:3,s:{sci:1},r:'It flies, for eleven seconds, over the duck pond and then into it.'},{l:'Admire the hop',m:0,r:'He keeps hopping. The children love it.'}]},
+  {k:'telescope',t:'An astronomer in {C} wants a telescope',b:'She says a comet is coming. The council says something is always coming.',o:[{l:'Buy her a telescope',c:{iron:4,goods:6},m:3,s:{sci:1},r:'The comet arrives, right on time. She is insufferable about it.'},{l:'Lend her the tower',m:0,r:'She watches from the bell tower, and is deafened every hour.'},{l:'Give her a chair',b:'university',c:{goods:3},m:4,s:{sci:1},r:'The University gives her a chair, a dome and students who ask about comets.'}]},
+  {k:'windmill',t:'{C}’s windmill has lost a sail',b:'It still turns, slowly, in a direction the miller describes as unhelpful.',o:[{l:'Fit a new sail',c:{timber:6},g:{food:5},m:3,r:'Four sails again. The flour is back, and so is the miller’s smile.'},{l:'Grind by hand',m:0,x:{f:'out',v:-5,h:48},r:'The flour is coarse, and so is the miller’s language.'}]},
+  {k:'doctor',t:'A famous doctor wants to settle in {C}',b:'She asks for a house, a clinic and a garden for her herbs.',o:[{l:'Make her welcome',c:{timber:8,goods:5},m:5,s:{health:1},r:'Her clinic opens to a queue round the block, mostly of people who feel fine.'},{l:'Point her to the inn',m:-1,r:'She stays a week at the inn, then moves to a city that offered a garden.'},{l:'Give her a ward',b:'hospital',c:{goods:3},m:6,s:{health:1},r:'She takes a ward at the Hospital and fills it with herbs, patients and opinions.'}]},
+  {k:'potholes',t:'The main road into {C} is all potholes',b:'Carts lose wheels, and one lost its carter, who was found later in a pothole, unhurt and annoyed.',o:[{l:'Pave it',c:{timber:4,iron:6},m:5,x:{f:'bld',v:10,h:48},r:'Smooth paving from the gate to the square. The carters sing.'},{l:'Fill them with gravel',m:0,x:{f:'bld',v:-10,h:48},r:'The gravel lasts a month. The potholes remember where they were.'}]},
+  {k:'flying',t:'An inventor in {C} has built a flying machine',b:'He would like money to make it fly. At the moment it hops.',o:[{l:'Fund the next model',c:{iron:6,goods:6},m:3,s:{sci:1},n:'flying2',r:'It flies, for eleven seconds, over the duck pond and then into it.'},{l:'Admire the hop',m:0,r:'He keeps hopping. The children love it.'}]},
   {k:'dance',t:'Young people in {C} want a dance hall',b:'Their elders say dancing was better in their day. Their elders would also like a dance hall.',o:[{l:'Build it',c:{timber:8,goods:4},m:7,s:{happy:1},r:'Full every Saturday, young and old. The old dance better.'},{l:'Dance in the square',m:0,r:'They dance in the square until the neighbours close their shutters, loudly.'}]},
   {k:'tavern',t:'The taverns of {C} want to stay open later',b:'The landlords say it is good for trade. The neighbours say it is good for singing under their windows.',o:[{l:'Allow it',g:{goods:5},m:-2,r:'Trade booms after dark, and so does the singing.'},{l:'Keep the old hours',m:2,r:'Last orders at ten. The neighbours sleep, and the landlords stack the chairs very loudly.'}]},
-  {k:'bells',t:'{C}’s bells are out of tune',b:'They ring a note the choirmaster calls “a sort of B”.',o:[{l:'Recast them',c:{iron:8},m:4,s:{culture:1},r:'The bells ring true. The choirmaster weeps, a little.'},{l:'Learn to like it',m:-1,r:'The city learns to love a sort of B.'}]},
+  {k:'bells',t:'{C}’s bells are out of tune',b:'They ring a note the choirmaster calls “a sort of B”.',o:[{l:'Recast them',c:{iron:8},m:4,s:{culture:1},r:'The bells ring true. The choirmaster weeps, a little.'},{l:'Learn to like it',m:0,r:'The city learns to love a sort of B.'},{l:'Ask the Cathedral',b:'cathedral',c:{iron:3},m:5,s:{culture:1},r:'The Cathedral’s bellfounder recasts them. They ring a true B, and the choirmaster weeps again.'}]},
   {k:'cheese',t:'A cheese contest in {C} has turned nasty',b:'Two dairies accuse each other of using cheese from another town. The judges have fled.',o:[{l:'Appoint new judges',c:{goods:3},m:3,r:'Both dairies win. Both dairies are furious.'},{l:'Taste the evidence',m:1,r:'The council tried every entry, carefully. No verdict, but a very good lunch.'}]},
   {k:'murals',t:'Artists want to paint the walls of {C}',b:'Big pictures on every blank wall, they say. The owners of the walls have been asked. Some of them.',o:[{l:'Pay for the paint',c:{goods:6},m:5,s:{culture:1},r:'Murals everywhere. Most owners are delighted; one now lives inside a whale.'},{l:'Public walls only',m:1,r:'The town hall is painted as a sunset. It suits it.'}]},
-  {k:'crows',t:'Crows are eating the fields outside {C}',b:'The scarecrows were tried. The crows sat on them.',o:[{l:'Hire boys with rattles',c:{goods:3},g:{food:8},m:2,r:'The fields are saved. The rattles can be heard in the next region.'},{l:'Let the crows eat',m:-3,r:'The crows eat well. The farmers do not, and say so.'}]},
-  {k:'ghost',t:'People in {C} say the old mill is haunted',b:'Lights at night, a moaning sound and a smell of pipe smoke. The last miller did smoke a pipe.',o:[{l:'Send investigators',c:{goods:3},m:3,r:'The ghost is a night watchman with a pipe and a sad song. He has been given a better shift.'},{l:'Sell ghost tours',g:{goods:5},m:-2,r:'The ghost tours sell out. The ghost, it turns out, wants a cut.'}]},
-  {k:'storm',t:'A storm has torn the roof off {C}’s market',b:'The stalls are soaked, the awnings are in the next valley and the fruit seller is selling stewed fruit.',o:[{l:'Re-roof the market',c:{timber:10},m:5,r:'A strong new roof. The awnings have been posted back from the next valley.'},{l:'Traders fix their own',m:-4,r:'Every stall has a different roof. The market looks like a patchwork quilt.'}]},
-  {k:'chess',t:'{C} wants to host a chess tournament',b:'Players would come from across the region. Chess players, the innkeepers warn, order one tea and stay all day.',o:[{l:'Host it',c:{goods:5,food:4},m:4,s:{edu:1},r:'A grandmaster wins in forty moves. The innkeepers sold forty teas.'},{l:'Not our sort of thing',m:-1,r:'The tournament goes elsewhere. A local player sulks, very slowly.'}]},
+  {k:'crows',t:'Crows are eating the fields outside {C}',b:'The scarecrows were tried. The crows sat on them.',o:[{l:'Hire boys with rattles',c:{goods:3},g:{food:8},m:2,r:'The fields are saved. The rattles can be heard in the next region.'},{l:'Let the crows eat',p:0.5,m:1,r:'The crows eat their fill and leave the rest. The scarecrows are given a medal.',f:{m:-3,r:'The crows eat well. The farmers do not, and say so.'}}]},
+  {k:'ghost',t:'People in {C} say the old mill is haunted',b:'Lights at night, a moaning sound and a smell of pipe smoke. The last miller did smoke a pipe.',o:[{l:'Send investigators',c:{goods:3},m:3,r:'The ghost is a night watchman with a pipe and a sad song. He has been given a better shift.'},{l:'Sell ghost tours',g:{goods:5},m:1,n:'ghostcut',r:'The ghost tours sell out. The ghost, it turns out, wants a cut.'}]},
+  {k:'storm',t:'A storm has torn the roof off {C}’s market',b:'The stalls are soaked, the awnings are in the next valley and the fruit seller is selling stewed fruit.',o:[{l:'Re-roof the market',c:{timber:10},m:5,r:'A strong new roof. The awnings have been posted back from the next valley.'},{l:'Traders fix their own',m:0,x:{f:'out',v:-5,h:48},r:'Every stall has a different roof. The market looks like a patchwork quilt.'}]},
+  {k:'chess',t:'{C} wants to host a chess tournament',b:'Players would come from across the region. Chess players, the innkeepers warn, order one tea and stay all day.',o:[{l:'Host it',c:{goods:5,food:4},m:4,s:{edu:1},r:'A grandmaster wins in forty moves. The innkeepers sold forty teas.'},{l:'Not our sort of thing',m:0,r:'The tournament goes elsewhere. A local player sulks, very slowly.'}]},
   {k:'smugglers',t:'Smugglers are caught near {C}',b:'Their cart is full of goods nobody paid duty on, and a goat nobody can explain.',o:[{l:'Seize the cart',g:{goods:10},m:-2,r:'The goods go to the treasury. The goat goes to the council garden.'},{l:'Fine them',g:{goods:4},m:2,r:'They pay up and promise to smuggle elsewhere. They keep the goat.'}]},
-  {k:'newcomers',t:'Families from a flooded valley arrive at {C}',b:'They have carts, children and a great many opinions about the weather.',o:[{l:'Give them homes',c:{timber:8,food:8},m:4,s:{civil:1},r:'They settle in. Within a month they are complaining about the weather here too.'},{l:'Send them on',m:-5,r:'They move on. The next town has written to ask why.'}]},
-  {k:'omnibus',t:'{C} wants a horse-drawn omnibus',b:'One horse, twelve seats and a route that passes everyone’s aunt.',o:[{l:'Buy the omnibus',c:{timber:6,iron:4,food:3},m:5,r:'The omnibus runs every hour, except when the horse disagrees.'},{l:'People can walk',m:-2,r:'People walk. The aunts are visited less.'}]},
+  {k:'newcomers',t:'Families from a flooded valley arrive at {C}',b:'They have carts, children and a great many opinions about the weather.',o:[{l:'Give them homes',c:{timber:8,food:8},m:4,s:{civil:1},n:'newcomers2',r:'They settle in. Within a month they are complaining about the weather here too.'},{l:'Send them on',m:-3,r:'They move on. The next town has written to ask why.'},{l:'Use the estates',b:'housing',c:{food:4},m:5,s:{civil:1},r:'The Housing Estates find room. The newcomers complain about the weather from the top floor.'}]},
+  {k:'omnibus',t:'{C} wants a horse-drawn omnibus',b:'One horse, twelve seats and a route that passes everyone’s aunt.',o:[{l:'Buy the omnibus',c:{timber:6,iron:4,food:3},m:5,x:{f:'out',v:5,h:72},r:'The omnibus runs every hour, except when the horse disagrees.'},{l:'People can walk',m:0,x:{f:'out',v:-5,h:24},r:'People walk. The aunts are visited less.'}]},
   {k:'cider',t:'Monks near {C} have made too much cider',b:'The cellar is full and the monks are in good spirits. Too good, some say.',o:[{l:'Buy it for the feast',c:{goods:4},m:5,r:'Cider for the whole city on the feast day. The monks are bottling again.'},{l:'Let them sell it',m:1,r:'The monks open a stall. It is the busiest one on the market.'}]},
-  {k:'elephant',t:'A sailor has brought an elephant to {C}',b:'He won it at cards and would like to lose it the same way.',o:[{l:'Start a menagerie',c:{food:10,timber:5},m:6,s:{tour:1},r:'The elephant is the city’s pride. It eats a cartload a day and has views on the band.'},{l:'Find it a farm',m:1,r:'The elephant goes to a farm and ploughs three fields before lunch.'}]},
+  {k:'elephant',t:'A sailor has brought an elephant to {C}',b:'He won it at cards and would like to lose it the same way.',o:[{l:'Start a menagerie',c:{food:10,timber:5},m:6,s:{tour:1},n:'giraffe',r:'The elephant is the city’s pride. It eats a cartload a day and has views on the band.'},{l:'Find it a farm',g:{food:5},m:1,r:'The elephant goes to a farm and ploughs three fields before lunch.'}]},
   {k:'baths',t:'{C} asks for public baths',b:'Many houses have no bath, and the ones that do keep the coal in it.',o:[{l:'Build the baths',c:{timber:6,iron:4,oil:3},m:6,s:{health:1},r:'Hot water, clean towels and a great deal of singing.'},{l:'Open a river beach',m:1,r:'The river beach is cold, and popular for about four minutes at a time.'}]},
-  {k:'college',t:'Scholars in {C} want to found a college',b:'They have a name, a motto in an old language and no building.',o:[{l:'Give them a building',c:{timber:10,goods:6},m:4,s:{edu:1},r:'The college opens. Its motto, roughly translated, means “Please Be Quiet”.'},{l:'Lend them an attic',m:0,r:'They meet in the town hall attic and argue about the motto.'}]},
-  {k:'fireworks',t:'{C}’s fireworks maker wants a licence',b:'His last show lit up the sky, two haystacks and a councillor’s eyebrows.',o:[{l:'License him',c:{goods:3},m:4,s:{happy:1},r:'Safer fireworks, a bigger show, and the eyebrows are growing back.'},{l:'Ban fireworks',m:-4,r:'No more fireworks. The haystacks are relieved; nobody else is.'}]},
-  {k:'playground',t:'Children in {C} want a playground',b:'They have drawn the plans. The plans include a dragon and a slide from the bell tower.',o:[{l:'Build it',c:{timber:6,iron:2},m:6,r:'A playground, a wooden dragon and, after some discussion, no slide from the bell tower.'},{l:'Promise next year',m:-3,r:'The children have written the date down. They will remember.'}]},
-  {k:'measures',t:'Shopkeepers in {C} are giving short measure',b:'A pound of apples weighs more in one shop than in the next. Neither is a pound.',o:[{l:'Send inspectors',c:{goods:3},m:5,r:'Honest scales in every shop. The apples weigh what they say.'},{l:'Let the market decide',m:-3,r:'The market sorts it out, slowly, by shouting.'}]},
-  {k:'feud',t:'{C} has fallen out with the next town',b:'Over a goat, a boundary stone and a song that was, everyone agrees, uncalled for.',o:[{l:'Hold a friendly match',c:{food:5,goods:3},m:5,r:'A match, a draw and a better song. The goat is shared.'},{l:'Stay out of it',m:-2,r:'The feud goes on. The song gets a second verse.'}]},
-  {k:'gazette',t:'{C} wants a newspaper of its own',b:'A printer has offered. He has already written the first headline, which is about himself.',o:[{l:'Back the paper',c:{goods:6},m:3,s:{edu:1},r:'The city has a paper. Its crossword is famously unfair.'},{l:'Read the region’s',m:-1,r:'The regional paper runs a small story about the city and spells its name wrong.'}]},
-  {k:'sheep',t:'Sheep are wandering the streets of {C}',b:'A gate was left open. The sheep have found the window boxes, and approve.',o:[{l:'Pay for new fences',c:{timber:6},m:3,r:'Strong fences and shut gates. The window boxes recover.'},{l:'Round them up',m:1,r:'A whole day of chasing sheep. The city is tired and oddly proud.'}]},
-  {k:'tower',t:'{C} is short of water pressure',b:'Upper floors get a trickle. The top floor gets a polite drip.',o:[{l:'Build a water tower',c:{iron:8,timber:6},m:6,s:{health:1},r:'The tower stands tall. The top floor showers with confidence.'},{l:'Ration by street',m:-4,r:'North side on Mondays, south side on Tuesdays. Thursdays are fought over.'}]},
+  {k:'college',t:'Scholars in {C} want to found a college',b:'They have a name, a motto in an old language and no building.',o:[{l:'Give them a building',c:{timber:10,goods:6},m:4,s:{edu:1},r:'The college opens. Its motto, roughly translated, means “Please Be Quiet”.'},{l:'Lend them an attic',m:0,r:'They meet in the town hall attic and argue about the motto.'},{l:'Join the University',b:'university',c:{goods:3},m:4,s:{edu:1},r:'The scholars join the University, motto and all. The motto is now on every door.'}]},
+  {k:'fireworks',t:'{C}’s fireworks maker wants a licence',b:'His last show lit up the sky, two haystacks and a councillor’s eyebrows.',o:[{l:'License him',c:{goods:3},m:4,s:{happy:1},r:'Safer fireworks, a bigger show, and the eyebrows are growing back.'},{l:'Let him carry on',p:0.6,m:4,r:'A splendid show, and every eyebrow in the city survives it.',f:{m:-5,r:'A haystack goes up, and then the councillor’s other eyebrow.'}}]},
+  {k:'playground',t:'Children in {C} want a playground',b:'They have drawn the plans. The plans include a dragon and a slide from the bell tower.',o:[{l:'Build it',c:{timber:6,iron:2},m:6,r:'A playground, a wooden dragon and, after some discussion, no slide from the bell tower.'},{l:'Promise next year',m:0,r:'The children have written the date down. They will remember.'}]},
+  {k:'measures',t:'Shopkeepers in {C} are giving short measure',b:'A pound of apples weighs more in one shop than in the next. Neither is a pound.',o:[{l:'Send inspectors',c:{goods:3},m:5,r:'Honest scales in every shop. The apples weigh what they say.'},{l:'Let the market decide',m:0,r:'The market sorts it out, slowly, by shouting.'},{l:'Send the wardens',b:'market',c:{goods:1},m:5,x:{f:'out',v:5,h:48},r:'The Market Hall’s wardens bring honest scales and a very loud bell.'}]},
+  {k:'feud',t:'{C} has fallen out with the next town',b:'Over a goat, a boundary stone and a song that was, everyone agrees, uncalled for.',o:[{l:'Hold a friendly match',c:{food:5,goods:3},m:5,r:'A match, a draw and a better song. The goat is shared.'},{l:'Stay out of it',p:0.5,m:2,r:'The feud burns itself out. The song is forgotten, mostly.',f:{m:-3,r:'The feud goes on. The song gets a second verse.'}}]},
+  {k:'gazette',t:'{C} wants a newspaper of its own',b:'A printer has offered. He has already written the first headline, which is about himself.',o:[{l:'Back the paper',c:{goods:6},m:3,s:{edu:1},r:'The city has a paper. Its crossword is famously unfair.'},{l:'Read the region’s',m:0,r:'The regional paper runs a small story about the city and spells its name wrong.'}]},
+  {k:'sheep',t:'Sheep are wandering the streets of {C}',b:'A gate was left open. The sheep have found the window boxes, and approve.',o:[{l:'Pay for new fences',c:{timber:6},m:3,r:'Strong fences and shut gates. The window boxes recover.'},{l:'Round them up',m:1,x:{f:'out',v:-5,h:24},r:'A whole day of chasing sheep. The city is tired and oddly proud.'}]},
+  {k:'tower',t:'{C} is short of water pressure',b:'Upper floors get a trickle. The top floor gets a polite drip.',o:[{l:'Build a water tower',c:{iron:8,timber:6},m:6,s:{health:1},r:'The tower stands tall. The top floor showers with confidence.'},{l:'Ration by street',m:-2,x:{f:'out',v:-5,h:48},r:'North side on Mondays, south side on Tuesdays. Thursdays are fought over.'}]},
   {k:'balloon',t:'A balloonist has come down in {C}’s square',b:'He meant to land somewhere else. To take off again he needs fuel, rope and a new basket.',o:[{l:'Help him up',c:{oil:4,goods:3},m:4,s:{sci:1},r:'He rises over the rooftops, waving, and drops a thank-you letter onto the bakery.'},{l:'Keep the balloon',g:{goods:5},m:-2,r:'The balloon becomes a very large market tent. He walks home.'}]},
   {k:'flowers',t:'{C} wants a flower show',b:'The gardeners are already sharpening their shears, and their tongues.',o:[{l:'Fund the prizes',c:{food:3,goods:4},m:5,s:{env:1},r:'The roses win. The losers say the roses were pampered.'},{l:'Judge by applause',m:1,r:'The loudest family wins. The roses were not consulted.'}]},
-  {k:'fort',t:'The old fort above {C} is crumbling',b:'Nobody has used it for a century, but everybody likes to look at it.',o:[{l:'Restore it',c:{timber:6,iron:6},m:4,s:{tour:1},r:'The fort stands proud again, and charges a small fee to look out of it.'},{l:'Let it crumble',m:-1,r:'It crumbles, beautifully. Painters come to draw it doing so.'}]},
+  {k:'fort',t:'The old fort above {C} is crumbling',b:'Nobody has used it for a century, but everybody likes to look at it.',o:[{l:'Restore it',c:{timber:6,iron:6},m:4,s:{tour:1},x:{f:'def',v:10,h:72},r:'The fort stands proud again, and charges a small fee to look out of it.'},{l:'Let it crumble',m:1,x:{f:'def',v:-5,h:72},r:'It crumbles, beautifully. Painters come to draw it doing so.'}]},
   {k:'archive',t:'{C}’s archive is full of mice',b:'Three hundred years of records, and the mice have read most of them.',o:[{l:'Build new shelves',c:{timber:6,goods:2},m:3,s:{culture:1},r:'New shelves, tight boxes and a very bored archive cat.'},{l:'Get a cat',m:1,r:'One cat, two weeks, no mice. The cat has been made archivist.'}]},
-  {k:'uniforms',t:'The city guard of {C} wants new uniforms',b:'The old ones are patched, faded and, in one case, a dressing gown.',o:[{l:'New uniforms',c:{goods:6},m:3,s:{safety:1},r:'Smart blue coats. The guard stands up straighter, and so does the city.'},{l:'Patch them again',m:-2,r:'More patches. The dressing gown remains.'}]},
-  {k:'cough',t:'A cough is going round {C}',b:'Nothing serious, the doctor says, between coughs.',o:[{l:'Send soup and syrup',c:{goods:4,food:4},m:4,s:{health:1},r:'Soup, syrup and rest. The coughing fades within the week.'},{l:'Tell them to wrap up',m:-3,r:'People wrap up warm and cough into their scarves.'}]},
-  {k:'stand',t:'{C}’s football club wants a stand',b:'The fans stand in a field. The field is not happy about it either.',o:[{l:'Build the stand',c:{timber:10,iron:3},m:7,s:{happy:1},r:'A wooden stand, full on match days. The team even won.'},{l:'Bring your own chair',m:-2,r:'The fans bring chairs. Some bring sofas.'}]},
-  {k:'guild',t:'The merchants of {C} want a guild hall',b:'Somewhere to meet, they say, and to look important while doing it.',o:[{l:'Build it',c:{timber:8,goods:4},m:3,s:{wealth:1},r:'The guild hall opens. The merchants look very important indeed.'},{l:'Meet in the tavern',m:-1,r:'They meet in the tavern, and do more business there than ever.'}]},
-  {k:'treasure',t:'A treasure map turns up in {C}',b:'It fell out of a library book that is eighty years overdue.',o:[{l:'Fund a dig',c:{food:4,timber:4},g:{goods:10},m:3,r:'They dig, and find a chest of old coins and a note that says “well done”.'},{l:'Frame the map',m:1,r:'The map hangs in the town hall. Children follow it every Sunday, to the duck pond.'}]},
-  {k:'forge',t:'The blacksmith of {C} works all night',b:'His neighbours have not slept since spring. He says iron does not wait.',o:[{l:'Move his forge',c:{timber:5,iron:3},m:4,r:'The forge moves to the edge of town. Its new neighbours are cows.'},{l:'Ask him nicely',m:-3,r:'He hammers more quietly, which is still very loudly.'}]},
+  {k:'uniforms',t:'The city guard of {C} wants new uniforms',b:'The old ones are patched, faded and, in one case, a dressing gown.',o:[{l:'New uniforms',c:{goods:6},m:3,s:{safety:1},x:{f:'def',v:10,h:48},r:'Smart blue coats. The guard stands up straighter, and so does the city.'},{l:'Patch them again',m:0,x:{f:'def',v:-5,h:48},r:'More patches. The dressing gown remains.'},{l:'From the Barracks',b:'barracks',c:{goods:2},m:3,x:{f:'def',v:10,h:48},r:'The Barracks hand over spare coats. The guard looks smart and slightly military.'}]},
+  {k:'cough',t:'A cough is going round {C}',b:'Nothing serious, the doctor says, between coughs.',o:[{l:'Send soup and syrup',c:{goods:4,food:4},m:4,s:{health:1},r:'Soup, syrup and rest. The coughing fades within the week.'},{l:'Tell them to wrap up',p:0.6,m:0,r:'It passes on its own. Everyone credits their scarf.',f:{m:-4,x:{f:'out',v:-10,h:48},r:'Half the city coughs at work, and the other half stays home.'}},{l:'Open the Hospital',b:'hospital',c:{food:2},m:5,s:{health:1},r:'The Hospital opens its doors: soup, syrup and a nurse who tolerates no nonsense.'}]},
+  {k:'stand',t:'{C}’s football club wants a stand',b:'The fans stand in a field. The field is not happy about it either.',o:[{l:'Build the stand',c:{timber:10,iron:3},m:7,s:{happy:1},r:'A wooden stand, full on match days. The team even won.'},{l:'Bring your own chair',m:0,r:'The fans bring chairs. Some bring sofas.'}]},
+  {k:'guild',t:'The merchants of {C} want a guild hall',b:'Somewhere to meet, they say, and to look important while doing it.',o:[{l:'Build it',c:{timber:8,goods:4},m:3,s:{wealth:1},x:{f:'out',v:5,h:72},r:'The guild hall opens. The merchants look very important indeed.'},{l:'Meet in the tavern',g:{goods:3},m:0,r:'They meet in the tavern, and do more business there than ever.'}]},
+  {k:'treasure',t:'A treasure map turns up in {C}',b:'It fell out of a library book that is eighty years overdue.',o:[{l:'Fund a dig',c:{food:4,timber:4},p:0.6,g:{goods:12},m:3,r:'They dig, and find a chest of old coins and a note that says “well done”.',f:{m:-1,r:'They dig, and find a very old boot and a note that says “nearly”.'}},{l:'Frame the map',m:1,n:'map2',r:'The map hangs in the town hall. Children follow it every Sunday, to the duck pond.'}]},
+  {k:'forge',t:'The blacksmith of {C} works all night',b:'His neighbours have not slept since spring. He says iron does not wait.',o:[{l:'Move his forge',c:{timber:5,iron:3},m:4,r:'The forge moves to the edge of town. Its new neighbours are cows.'},{l:'Ask him nicely',p:0.5,m:2,r:'He agrees, and hammers only by daylight. Mostly.',f:{m:-2,r:'He hammers more quietly, which is still very loudly.'}}]},
   {k:'carnival',t:'{C} wants a masked carnival',b:'A week of masks, music, and nobody quite sure whom they danced with.',o:[{l:'Hold the carnival',c:{goods:8,food:6},m:8,s:{tour:1},r:'A week of colour. Every councillor was there, probably.'},{l:'Masks on Sunday',m:1,r:'One masked Sunday. Everyone recognised everyone.'}]},
   {k:'lender',t:'A moneylender in {C} charges too much',b:'Interest, he says, is the price of patience. His patience is very expensive.',o:[{l:'Cap his rates',m:4,s:{equal:1},r:'Fair rates by law. He is now merely rich.'},{l:'Tax his profits',g:{goods:5},m:-3,r:'The treasury takes its share. He raises his rates to cover it.'}]},
   {k:'painter',t:'A famous painter wants to paint {C}',b:'She needs a room, a view and a great deal of paint.',o:[{l:'Commission it',c:{goods:6},m:4,s:{culture:1},r:'The painting hangs in a famous gallery. Visitors come to see if the city really looks like that.'},{l:'Paint from the hill',m:0,r:'She paints it from the hill, very small.'}]},
-  {k:'allotments',t:'People in {C} want vegetable plots',b:'A strip of land each, for beans and arguments about beans.',o:[{l:'Hand out plots',c:{timber:4},g:{food:5},m:4,r:'Beans everywhere. The arguments are excellent.'},{l:'Keep the land',m:-2,r:'The land waits for a building. The beans wait for nobody.'}]},
+  {k:'allotments',t:'People in {C} want vegetable plots',b:'A strip of land each, for beans and arguments about beans.',o:[{l:'Hand out plots',c:{timber:4},g:{food:5},m:4,r:'Beans everywhere. The arguments are excellent.'},{l:'Keep the land',m:-1,r:'The land waits for a building. The beans wait for nobody.'}]},
   {k:'chef',t:'A chef from abroad opens a restaurant in {C}',b:'She asks for help with the rent. The menu is in a language nobody here can read.',o:[{l:'Help her start',c:{goods:5,food:3},m:5,s:{tour:1},r:'The restaurant is a hit. Nobody knows what they ordered, and everyone loved it.'},{l:'Wish her luck',m:1,r:'She opens in a back street. The queue finds her.'}]},
   {k:'racecourse',t:'{C} wants a racecourse',b:'There is a long flat field and a great many people who believe their horse is fastest.',o:[{l:'Build the course',c:{timber:10,food:4},m:6,s:{tour:1},r:'Race days are the city’s new favourite thing. The fastest horse belongs to the vicar.'},{l:'Race on the field',m:1,r:'They race on the field as it is. The cows find it unsettling.'}]},
   {k:'napping',t:'A councillor in {C} was caught napping',b:'Mid-debate, mid-sentence and, the minutes note, mid-snore.',o:[{l:'Coffee for the council',c:{goods:3},m:4,r:'Fresh coffee in the chamber. Debates are short, loud and very awake.'},{l:'Ask him to resign',m:2,r:'He resigns, wide awake. His replacement brings a flask.'}]},
-  {k:'icehouse',t:'{C}’s butchers want an ice house',b:'Summer is hard on meat, and harder on the people who buy it.',o:[{l:'Build an ice house',c:{timber:6,goods:3},m:4,s:{health:1},r:'Cold, clean and full of ice. The butchers are cool customers now.'},{l:'Mornings only',m:-2,r:'The butchers close at noon. The queues start at dawn.'}]},
-  {k:'post',t:'{C} wants a post office',b:'Letters are left at the inn. Some reach the right person; most reach the innkeeper.',o:[{l:'Open a post office',c:{timber:5,goods:4},m:5,r:'Letters arrive on time and unopened. The innkeeper reads the newspaper instead.'},{l:'Trust the innkeeper',m:-1,r:'The innkeeper promises not to read the letters. He promises it in some detail.'}]},
+  {k:'icehouse',t:'{C}’s butchers want an ice house',b:'Summer is hard on meat, and harder on the people who buy it.',o:[{l:'Build an ice house',c:{timber:6,goods:3},m:4,s:{health:1},r:'Cold, clean and full of ice. The butchers are cool customers now.'},{l:'Mornings only',m:0,x:{f:'out',v:-5,h:48},r:'The butchers close at noon. The queues start at dawn.'}]},
+  {k:'post',t:'{C} wants a post office',b:'Letters are left at the inn. Some reach the right person; most reach the innkeeper.',o:[{l:'Open a post office',c:{timber:5,goods:4},m:5,r:'Letters arrive on time and unopened. The innkeeper reads the newspaper instead.'},{l:'Trust the innkeeper',m:0,r:'The innkeeper promises not to read the letters. He promises it in some detail.'}]},
   {k:'pumpkin',t:'A farmer near {C} has grown a giant pumpkin',b:'It is the size of a cart and still growing. He wants it shown at the town hall.',o:[{l:'Hold a pumpkin fair',c:{food:4,goods:2},m:5,s:{happy:1},r:'Half the region comes to see it. The pie fed everyone.'},{l:'Make soup of it',g:{food:6},m:0,r:'The pumpkin becomes a week of soup. The farmer is heartbroken, but full.'}]},
-  {k:'bread',t:'Students in {C} march for cheaper bread',b:'They carry banners, sing songs and, at lunchtime, buy a great deal of bread.',o:[{l:'Lower the price',c:{food:8},m:5,s:{equal:1},r:'Bread is cheaper. The students march for cheaper ink next.'},{l:'Let them march',m:-3,r:'They march, sing and go home for supper. The banners will be back.'}]},
+  {k:'bread',t:'Students in {C} march for cheaper bread',b:'They carry banners, sing songs and, at lunchtime, buy a great deal of bread.',o:[{l:'Lower the price',c:{food:8},m:5,s:{equal:1},r:'Bread is cheaper. The students march for cheaper ink next.'},{l:'Let them march',m:0,x:{f:'out',v:-5,h:24},r:'They march, sing and go home for supper. The banners will be back.'}]},
   {k:'motto',t:'{C} wants a new motto',b:'The old one is in a language nobody speaks and may, it turns out, be a recipe.',o:[{l:'Hold a contest',c:{goods:2},m:4,r:'The new motto is short, proud and not a recipe.'},{l:'Keep the recipe',m:1,r:'The city keeps its motto. Someone cooked it. It was nice.'}]},
-  {k:'sinkhole',t:'A hole has opened in {C}’s high street',b:'It swallowed a bench, a lamppost and most of a hat stall.',o:[{l:'Fill it properly',c:{timber:6,iron:5},m:5,r:'The street is whole again. The bench was never found.'},{l:'Fence it off',m:-3,r:'The fenced hole becomes a sight. Somebody sells postcards of it.'}]},
-  {k:'wedding',t:'A grand wedding in {C}',b:'Two old families are joining, and each wants the whole city invited so as not to look mean.',o:[{l:'Lend the town hall',c:{food:6},m:5,r:'A fine wedding. The speeches were long; the cake was longer.'},{l:'A private affair',m:-1,r:'They marry quietly. The city reads all about it anyway.'}]},
-  {k:'ore',t:'Miners want to dig under the woods by {C}',b:'There is ore below, and the city’s favourite picnic spot above it.',o:[{l:'Let them dig',g:{iron:8},m:-4,r:'Ore comes up. The picnics move elsewhere.'},{l:'Protect the woods',m:3,s:{env:1},r:'The woods stay. The miners picnic there too.'}]},
-  {k:'forest',t:'Woodcutters want to fell the old forest by {C}',b:'Fine timber, they say. Fine trees, says the city.',o:[{l:'Fell part of it',g:{timber:10},m:-4,r:'Timber for a season. The forest is smaller, and the birds complain.'},{l:'Dead trees only',g:{timber:4},m:1,r:'Only the dead trees come down. Enough for the winter, and the forest looks tidier.'}]},
-  {k:'tar',t:'Black tar bubbles up in a field near {C}',b:'The farmer wants it gone. A man in a good suit wants to buy the field.',o:[{l:'Drill for oil',c:{iron:4},g:{oil:8},m:-2,r:'Oil flows. The farmer buys a nicer field with the money.'},{l:'Fill it in',m:2,r:'The field is a field again. The man in the suit leaves his card.'}]},
-  {k:'highwaymen',t:'Highwaymen are robbing coaches near {C}',b:'They are polite about it and give receipts, but it is still robbery.',o:[{l:'Send patrols',c:{food:4,goods:4},m:5,s:{safety:1},r:'The roads are safe. The highwaymen have taken up honest work, still with receipts.'},{l:'Tell coaches to hurry',m:-4,r:'The coaches hurry. The highwaymen hurry after them.'}]},
+  {k:'sinkhole',t:'A hole has opened in {C}’s high street',b:'It swallowed a bench, a lamppost and most of a hat stall.',o:[{l:'Fill it properly',c:{timber:6,iron:5},m:5,r:'The street is whole again. The bench was never found.'},{l:'Fence it off',g:{goods:2},m:0,r:'The fenced hole becomes a sight. Somebody sells postcards of it.'}]},
+  {k:'wedding',t:'A grand wedding in {C}',b:'Two old families are joining, and each wants the whole city invited so as not to look mean.',o:[{l:'Lend the town hall',c:{food:6},m:5,r:'A fine wedding. The speeches were long; the cake was longer.'},{l:'A private affair',m:0,r:'They marry quietly. The city reads all about it anyway.'}]},
+  {k:'ore',t:'Miners want to dig under the woods by {C}',b:'There is ore below, and the city’s favourite picnic spot above it.',o:[{l:'Let them dig',g:{iron:8},m:-4,r:'Ore comes up. The picnics move elsewhere.'},{l:'Protect the woods',m:3,s:{env:1},r:'The woods stay. The miners picnic there too.'},{l:'Through the mine',b:'mine',g:{iron:6},m:1,r:'The ore comes up through the old mine shafts. The picnics go on above.'}]},
+  {k:'forest',t:'Woodcutters want to fell the old forest by {C}',b:'Fine timber, they say. Fine trees, says the city.',o:[{l:'Fell part of it',g:{timber:10},m:-4,r:'Timber for a season. The forest is smaller, and the birds complain.'},{l:'Dead trees only',g:{timber:4},m:1,r:'Only the dead trees come down. Enough for the winter, and the forest looks tidier.'},{l:'Let the Sawmill thin it',b:'sawmill',g:{timber:8},m:1,r:'The Sawmill takes every third tree, and the birds get the rest.'}]},
+  {k:'tar',t:'Black tar bubbles up in a field near {C}',b:'The farmer wants it gone. A man in a good suit wants to buy the field.',o:[{l:'Drill for oil',c:{iron:4},g:{oil:8},m:-2,r:'Oil flows. The farmer buys a nicer field with the money.'},{l:'Fill it in',m:2,r:'The field is a field again. The man in the suit leaves his card.'},{l:'Pipe it to the wells',b:'oilwell',c:{iron:2},g:{oil:10},m:0,r:'The oil is piped to the Oil Wells. The farmer keeps his field and gets a fee.'}]},
+  {k:'highwaymen',t:'Highwaymen are robbing coaches near {C}',b:'They are polite about it and give receipts, but it is still robbery.',o:[{l:'Send patrols',c:{food:4,goods:4},m:5,s:{safety:1},x:{f:'def',v:10,h:48},r:'The roads are safe. The highwaymen have taken up honest work, still with receipts.'},{l:'Tell coaches to hurry',p:0.5,m:0,r:'The coaches hurry, and the highwaymen cannot keep up.',f:{m:-4,r:'The coaches hurry. The highwaymen hurry after them.'}},{l:'Send soldiers',b:'barracks',c:{food:3},m:5,x:{f:'def',v:10,h:48},r:'Soldiers from the Barracks ride the roads. The highwaymen issue a final receipt.'}]},
   {k:'trees',t:'{C} wants trees along its streets',b:'Shade in summer, colour in autumn and something for the dogs.',o:[{l:'Plant the trees',c:{goods:4},m:4,s:{env:1},r:'Young trees line every street. The dogs are delighted.'},{l:'Window boxes only',m:1,r:'Every window has a box of flowers. Some have tomatoes.'}]},
-  {k:'smoke',t:'Smoke from the works blows over {C}',b:'Washing hung out white comes in grey, and the cats are a shade darker.',o:[{l:'Build a tall chimney',c:{iron:6,timber:3},m:5,s:{env:1},r:'The smoke goes higher, and the washing comes in white again.'},{l:'Dry washing indoors',m:-4,r:'The city dries its shirts in the kitchen and loses its temper outside.'}]},
+  {k:'smoke',t:'Smoke from the works blows over {C}',b:'Washing hung out white comes in grey, and the cats are a shade darker.',o:[{l:'Build a tall chimney',c:{iron:6,timber:3},m:5,s:{env:1},r:'The smoke goes higher, and the washing comes in white again.'},{l:'Dry washing indoors',m:-2,r:'The city dries its shirts in the kitchen and loses its temper outside.'},{l:'Fit filters',b:'factory',c:{iron:3},m:5,s:{env:1},r:'The Factory fits filters to its chimneys. The cats are their own colour again.'}]},
   {k:'poet',t:'A great poet was born in {C}, it seems',b:'Two houses claim to be her birthplace. A third claims to be where she was first rude about the other two.',o:[{l:'Buy the likeliest',c:{goods:6,timber:2},m:4,s:{culture:1},r:'A museum opens. The other two houses put up signs anyway.'},{l:'A plaque on each',m:1,r:'Three plaques. Visitors try all three.'}]},
-  {k:'smiths',t:'{C}’s smiths are short of iron',b:'They have orders for nails, hinges and one very large gate.',o:[{l:'Send them iron',c:{iron:8},g:{goods:10},m:2,r:'Nails, hinges and the gate. The smiths sell what is left over.'},{l:'They must wait',m:-2,r:'The smiths wait. The gate is still a drawing.'}]},
-  {k:'grain',t:'The next town begs {C} for grain',b:'Their harvest failed. They promise to repay in cloth, eventually.',o:[{l:'Send grain',c:{food:10},g:{goods:6},m:3,r:'The grain goes, and in time the cloth comes back, beautifully woven.'},{l:'We need it ourselves',m:-2,r:'The town understands, coolly. Nobody visits for a while.'}]},
-  {k:'glass',t:'Glassblowers want to set up in {C}',b:'They need a hot furnace, a great deal of sand and patience from the fire brigade.',o:[{l:'Set them up',c:{oil:4,timber:4},g:{goods:8},m:2,r:'Glass windows all over the city, and a very nervous fire brigade.'},{l:'Too risky',m:0,r:'They set up in the next town. Its windows sparkle smugly.'}]}
+  {k:'smiths',t:'{C}’s smiths are short of iron',b:'They have orders for nails, hinges and one very large gate.',o:[{l:'Send them iron',c:{iron:8},g:{goods:10},m:2,r:'Nails, hinges and the gate. The smiths sell what is left over.'},{l:'They must wait',m:0,x:{f:'bld',v:-10,h:48},r:'The smiths wait. The gate is still a drawing.'}]},
+  {k:'grain',t:'The next town begs {C} for grain',b:'Their harvest failed. They promise to repay in cloth, eventually.',o:[{l:'Send grain',c:{food:10},g:{goods:6},m:3,r:'The grain goes, and in time the cloth comes back, beautifully woven.'},{l:'We need it ourselves',m:-1,r:'The town understands, coolly. Nobody visits for a while.'}]},
+  {k:'glass',t:'Glassblowers want to set up in {C}',b:'They need a hot furnace, a great deal of sand and patience from the fire brigade.',o:[{l:'Set them up',c:{oil:4,timber:4},g:{goods:8},m:2,r:'Glass windows all over the city, and a very nervous fire brigade.'},{l:'Too risky',m:0,r:'They set up in the next town. Its windows sparkle smugly.'}]},
+  /* round two, 2026-11-28: sequels (sq), each brought by an answer's n to one of the city's next matters, a day or more later */
+  {k:'bunting',sq:1,t:'{C} holds a festival anyway',b:'The bunting came out of its box on its own, and so did the whole city.',o:[{l:'Join in',c:{food:4},m:5,s:{happy:1},r:'The council turns up with cakes. All is forgiven, mostly.'},{l:'Send the watch',m:-5,x:{f:'def',v:5,h:24},r:'The watch stands about looking stern, and is given cake anyway.'}]},
+  {k:'strike2',sq:1,t:'The workers of {C} down tools again',b:'Last time they sighed. This time they have banners, a band and a very long list.',o:[{l:'Meet them properly',c:{goods:12},m:6,r:'A shorter week, a longer lunch and a band that now plays at the works gate.'},{l:'Bring in outsiders',g:{goods:4},m:-6,x:{f:'out',v:-10,h:48},r:'Outsiders take the work, slowly and badly. The banners stay up.'}]},
+  {k:'teatime',sq:1,t:'{C}’s tea rooms want ten past four for ever',b:'The stopped clock has made them famous. They would like it made official, in writing.',o:[{l:'Make it official',g:{goods:4},m:4,s:{tour:1},r:'By decree it is always ten past four in the square. Visitors come to have tea at it.'},{l:'Start the clock',c:{iron:3},m:-2,r:'The clock ticks again. The tea rooms put up black ribbons.'}]},
+  {k:'postpigeons',sq:1,t:'The pigeons of {C} have taken the post office',b:'Driven from the town hall by the falcon, they now sort the letters, badly.',o:[{l:'A second falcon',c:{goods:4},m:3,r:'Two falcons, no pigeons. The post is slower but far more dignified.'},{l:'Train them',p:0.5,m:5,r:'The pigeons deliver the post, mostly to the right house.',f:{m:-3,r:'The pigeons deliver the post to the duck pond, all of it.'}}]},
+  {k:'honey',sq:1,t:'{C}’s honey wins a prize abroad',b:'The hives on the bell tower made the best honey in three countries.',o:[{l:'Open a honey market',c:{timber:4},g:{goods:8},m:3,r:'A honey market every Saturday. The bees work overtime.'},{l:'Keep it at home',g:{food:6},m:3,r:'Honey on every table in the city. The dentists are delighted.'}]},
+  {k:'ghostcut',sq:1,t:'The ghost of {C}’s old mill wants a cut',b:'A note in the mill, written in pipe smoke, asks for a share of the tour money.',o:[{l:'Pay the ghost',c:{goods:4},m:3,r:'The money is left on the millstone. By morning it has gone, and so has the watchman’s debt.'},{l:'Call his bluff',p:0.5,m:4,r:'Nothing happens. The tours go on, and the ghost sulks quietly.',f:{m:-4,x:{f:'out',v:-5,h:48},r:'The mill’s sails turn backwards all week. Nobody will go near the place.'}}]},
+  {k:'players2',sq:1,t:'The players want to stay in {C} for good',b:'They have grown fond of the city, and the city has grown fond of the horse.',o:[{l:'Give them a home',c:{timber:8,goods:4},m:5,s:{culture:1},r:'A company of its own. The city now has opinions about acting.'},{l:'A summer season only',m:2,r:'They come back every summer, horse and all.'}]},
+  {k:'hats2',sq:1,t:'{C} has caught a cold',b:'Since the hat tax nobody wears one, and the whole city is sneezing.',o:[{l:'Send scarves',c:{goods:6},m:4,s:{health:1},r:'Scarves for everyone, and the hat tax quietly forgotten.'},{l:'Tax the scarves too',g:{goods:6},m:-6,x:{f:'out',v:-5,h:48},r:'The scarves are taxed. The city sneezes in protest, loudly.'}]},
+  {k:'flying2',sq:1,t:'{C}’s inventor wants to fly across the river',b:'The new machine flies, he says. Further than the duck pond, he insists.',o:[{l:'Fund the crossing',c:{iron:6,goods:6},p:0.6,m:7,s:{sci:1},r:'He flies across the river and lands in a field of cheering cows.',f:{m:-2,r:'He lands in the river, to great applause. The machine floats.'}},{l:'Build him a museum',c:{goods:4},m:3,s:{culture:1},r:'The hopping machine goes on show. He gives talks, and hops.'},{l:'Tell him to wait',m:-1,r:'He waits, and builds a second machine in the meantime. It hops further.'}]},
+  {k:'giraffe',sq:1,t:'A second sailor brings a giraffe to {C}',b:'He heard about the elephant. The giraffe has heard nothing and is eating the bunting.',o:[{l:'Grow the menagerie',c:{food:8,timber:6},m:6,s:{tour:1},r:'A giraffe beside the elephant. Visitors come from three regions away.'},{l:'Swap it for a parrot',m:2,r:'The parrot is small, cheap and has learned the mayor’s speeches.'}]},
+  {k:'newcomers2',sq:1,t:'The newcomers in {C} open a market',b:'They have brought recipes, cloth and a fondness for haggling that the locals admire.',o:[{l:'Give them a square',c:{timber:4},g:{goods:6},m:4,r:'The new market is the busiest in town, and the weather is discussed in two accents.'},{l:'Join the old market',m:1,r:'They squeeze in at the old market. The haggling there improves.'}]},
+  {k:'map2',sq:1,t:'Children in {C} find a box in the duck pond',b:'They followed the old treasure map every Sunday, and now they have found a rusty box.',o:[{l:'Drain the pond',c:{food:4,timber:4},p:0.5,g:{goods:12},m:4,r:'The box is full of old coins. The ducks are put back afterwards.',f:{m:-1,r:'The box holds a love letter from long ago. The ducks are put back, crossly.'}},{l:'Leave it be',m:2,r:'The box stays a mystery. The children are delighted.'}]},
+  /* round two: matters that come only to a city on the coast, in the hills or the capital (w), or in wartime */
+  {k:'shipwreck',w:'coast',t:'A ship runs aground off {C}',b:'The crew is safe, and the cargo is floating towards the beach, where the whole city is waiting.',o:[{l:'Return the cargo',g:{goods:4},m:4,r:'The owners send a reward and a very formal letter of thanks.'},{l:'Finders keepers',g:{goods:10},m:-1,r:'The cargo vanishes into cellars. The owners send lawyers, who are given tea.'},{l:'Tow her to the Harbour',b:'harbour',c:{timber:4},g:{goods:8},m:4,r:'The Harbour tows her in. The owners pay a salvage fee and take the lawyers home.'}]},
+  {k:'lighthouse',w:'coast',t:'{C}’s lighthouse keeper has retired',b:'He has left the light on, a note and a cat who knows the job.',o:[{l:'Hire a new keeper',c:{goods:4},m:3,x:{f:'def',v:10,h:48},r:'A new keeper, a bright light and a cat who supervises.'},{l:'Let the cat run it',p:0.5,m:4,r:'The cat runs it perfectly. Ships are guided in by a very serious stare.',f:{m:-3,r:'A fishing boat ends up in the harbour master’s garden.'}}]},
+  {k:'catch',w:'coast',t:'The fishing fleet of {C} brings in a record catch',b:'The quay is silver with fish, and the gulls have called in their relatives.',o:[{l:'Salt it for winter',c:{timber:3},g:{food:12},m:2,r:'Barrels of salted fish for the winter. The gulls are bitterly disappointed.'},{l:'Fish supper for all',m:6,s:{happy:1},r:'Fish suppers on every corner. The gulls get the leftovers.'},{l:'Sell through the Harbour',b:'harbour',g:{goods:8},m:2,r:'The Harbour ships it out by noon. The fleet buys new nets.'}]},
+  {k:'surge',w:'coast',t:'A storm tide floods {C}’s waterfront',b:'The quay is under water, and so, briefly, was the harbour master.',o:[{l:'Build a sea wall',c:{timber:8,iron:6},m:5,x:{f:'def',v:10,h:72},r:'A sea wall rises along the front. The next tide sulks against it.'},{l:'Sandbags all round',m:-1,x:{f:'out',v:-5,h:48},r:'Sandbags everywhere. The quay works, slowly, around them.'}]},
+  {k:'rockfall',w:'hills',t:'A rockfall blocks the road above {C}',b:'Half the hillside is on the road, and the other half looks as if it is thinking about it.',o:[{l:'Clear it properly',c:{timber:4,iron:4},m:4,r:'The road is clear and the slope netted. The other half has thought better of it.'},{l:'Go the long way',m:-2,x:{f:'bld',v:-10,h:48},r:'Every cart now goes round by the long way, and so does every complaint.'}]},
+  {k:'goats',w:'hills',t:'Mountain goats have come down into {C}',b:'They are on the roofs, in the gardens and, once, in the council chamber.',o:[{l:'Herd them back',c:{food:3},m:3,r:'The goats go back up the mountain, with a look that says they will return.'},{l:'Make them the emblem',m:2,s:{tour:1},r:'A goat on the city’s banner. The goats take it as an invitation.'}]},
+  {k:'echo',w:'hills',t:'{C}’s choir wants to sing in the gorge',b:'The echo there is magnificent. It also answers back.',o:[{l:'Fund the concert',c:{goods:4},m:5,s:{culture:1},r:'A concert in the gorge. The echo takes the last bow.'},{l:'Let the echo sing',m:1,r:'The echo sings alone, all night. Nobody minds much.'}]},
+  {k:'quarry',w:'hills',t:'Fine stone is found in the hills above {C}',b:'The masons are excited. The people with a view of the hills are less so.',o:[{l:'Open a quarry',c:{timber:4},g:{goods:8},m:-1,x:{f:'bld',v:10,h:72},r:'Good stone, quickly cut. The builders work faster with it; the view is worse.'},{l:'Leave the hillside',m:2,s:{env:1},r:'The hills stay as they are. The masons sigh in granite.'},{l:'Cut it at the mine',b:'mine',g:{goods:6},m:1,r:'The Iron Mine cuts the stone from its own tunnels. The view is spared.'}]},
+  {k:'envoys',w:'cap',t:'Foreign envoys arrive in {C}, the capital',b:'They want a banquet, a parade and to see the crown jewels, which are at the cleaners.',o:[{l:'Lay on a banquet',c:{food:8,goods:4},m:4,s:{tour:1},r:'A banquet of twelve courses. The envoys leave fuller and friendlier.'},{l:'Show them the sights',m:1,r:'A tour of the capital on foot. The envoys’ feet send a complaint.'},{l:'A night at the Theatre',b:'theatre',c:{goods:3},m:4,s:{culture:1},r:'A gala night at the Theatre. The envoys weep at all the right moments.'}]},
+  {k:'guard',w:'cap',t:'The guard of {C} wants taller hats',b:'Tall hats, they say, make them look braver. They also make the doorways look smaller.',o:[{l:'Order the hats',c:{goods:5},m:3,x:{f:'def',v:5,h:72},r:'Very tall hats. The guard looks braver and ducks through every door.'},{l:'Tall enough',m:-1,r:'The hats stay as they are. The guard stands on tiptoe instead.'}]},
+  {k:'protest',w:'cap',t:'A crowd gathers outside the government in {C}',b:'They want lower taxes, higher wages and a word with whoever is in charge.',o:[{l:'Hear them out',m:5,s:{civil:1},x:{f:'out',v:-5,h:24},r:'A long day of talking, a short list of promises, and the crowd goes home.'},{l:'Send the watch',m:-5,x:{f:'def',v:10,h:48},r:'The crowd is moved on. It meets again the next street over.'}]},
+  {k:'refugees',w:'war',t:'Families fleeing the fighting reach {C}',b:'They have carts, children and nowhere else to go.',o:[{l:'Take them in',c:{food:8,timber:4},m:4,s:{civil:1},r:'They are housed and fed. Some of them have already joined the fire brigade.'},{l:'Turn them away',m:-5,r:'They move on. The city does not talk about it.'},{l:'Use the estates',b:'housing',c:{food:4},m:5,s:{civil:1},r:'The Housing Estates find room for every family.'}]},
+  {k:'conscripts',w:'war',t:'{C}’s young people are called up',b:'The army wants recruits. The farms and workshops want them too.',o:[{l:'Call them up',m:-4,x:{f:'def',v:15,h:72},r:'The young march off. The city is safer, and quieter.'},{l:'Spare the farms',m:2,x:{f:'def',v:-5,h:48},r:'The farms keep their hands. The army grumbles.'},{l:'Train at the Barracks',b:'barracks',c:{food:4},m:0,x:{f:'def',v:15,h:72},r:'The Barracks train them quickly and send most of them home for supper.'}]},
+  {k:'blackout',w:'war',t:'{C} is asked to darken its lamps at night',b:'Enemy scouts watch for lights. The tavern keepers watch for customers.',o:[{l:'Black out the city',m:-3,x:{f:'def',v:10,h:48},r:'Not a light in the city. Everyone walks into everything.'},{l:'Keep the lamps lit',m:2,x:{f:'def',v:-10,h:48},r:'The lamps stay lit, and so does every enemy telescope.'}]},
+  {k:'bonds',w:'war',t:'War bonds go on sale in {C}',b:'The posters are everywhere. So is the man who painted them.',o:[{l:'Buy them publicly',c:{goods:6},m:4,x:{f:'def',v:5,h:72},r:'The council buys first, loudly. The city follows.'},{l:'Let people choose',g:{goods:4},m:-1,r:'Some buy, some do not. The posters fade.'}]},
+  {k:'letters',w:'war',t:'Letters from the front reach {C}',b:'The post office is overwhelmed, and so, frankly, is everyone else.',o:[{l:'Hire more postmen',c:{goods:3},m:4,r:'Every letter delivered by supper. Some are even read aloud in the square.'},{l:'Pin them up',m:1,r:'The letters go up on the town hall door. People read each other’s, kindly.'}]}
+];
+/* round two: matters for the whole nation, one every eight to twelve days; the answer's mood and what it does reach
+   every city ({N} is the nation's name) */
+const CX_NATION_EVENTS=[
+  {k:'holiday',t:'{N} asks for a national holiday',b:'Every city wants a day off, and every city has suggested a different day.',o:[{l:'Declare it',m:6,s:{happy:1},x:{f:'out',v:-5,h:24},r:'A day off across the nation. Production dips; spirits do not.'},{l:'Not this year',m:-2,r:'No holiday. The cities write a joint letter, which is a first.'}]},
+  {k:'anthem',t:'{N} wants a new anthem',b:'The old one is long, hard to sing and possibly about a different country.',o:[{l:'Hold a contest',c:{goods:6},m:5,s:{culture:1},r:'A new anthem, short enough to finish before the end of a football match.'},{l:'Keep the old one',m:1,r:'The old anthem stays. Everyone hums the hard bits.'}]},
+  {k:'eclipse',t:'An eclipse is coming to {N}',b:'Astronomers are thrilled. Farmers want to know if the cows will notice.',o:[{l:'Organise viewings',c:{goods:4},m:4,s:{sci:1},r:'Every city watches through smoked glass. The cows noticed.'},{l:'Stay indoors',m:-2,r:'The nation hides indoors and misses it. The astronomers are inconsolable.'}]},
+  {k:'flu',t:'Winter flu reaches {N}',b:'It started in one city and is now touring the others.',o:[{l:'Doctors everywhere',c:{food:10,goods:6},m:4,s:{health:1},r:'Doctors in every city, soup on every stove. The flu leaves early.'},{l:'Hope it passes',p:0.5,m:0,r:'It passes quickly. Everyone claims their own remedy did it.',f:{m:-5,x:{f:'out',v:-5,h:48},r:'It lingers. Half the nation works with a handkerchief.'}}]},
+  {k:'drought',t:'A dry summer across {N}',b:'Rivers are low, gardens are brown and every city blames the one upstream.',o:[{l:'Dig deeper wells',c:{timber:10,iron:6},m:4,r:'New wells in every city. The gardens recover; the blaming does not.'},{l:'Pray for rain',p:0.5,m:2,r:'It rains within the week. The clergy are insufferable.',f:{m:-4,x:{f:'out',v:-5,h:48},r:'It stays dry. The cities blame each other, in writing.'}}]},
+  {k:'jubilee',t:'{N} marks a jubilee',b:'Another year of the nation. The bunting is ready; the speeches are long.',o:[{l:'Celebrate everywhere',c:{food:10,goods:8},m:7,s:{happy:1},r:'Parades in every city. The speeches were shortened, by popular demand.'},{l:'A modest ceremony',m:1,r:'A short ceremony in the capital. The bunting goes back in its box.'}]},
+  {k:'games',t:'{N}’s cities want national games',b:'Every city is sure it would win, and every city has a team ready.',o:[{l:'Host the games',c:{food:8,goods:8},m:6,s:{tour:1},r:'A week of games. Every city won something, by its own account.'},{l:'Each plays at home',m:1,r:'Every city plays its own games and claims the national title.'}]},
+  {k:'roads',t:'The roads of {N} are full of potholes',b:'A cart can lose a wheel between any two cities, and frequently does.',o:[{l:'A national repair',c:{timber:12,iron:8},m:3,x:{f:'bld',v:10,h:72},r:'Smooth roads between every city. Building materials arrive on time, for once.'},{l:'Cities mend their own',m:-1,r:'Every city mends its own stretch, each to a different standard.'}]},
+  {k:'comet',t:'A comet hangs over {N}',b:'Astronomers are delighted. Everyone else wants to know what it means.',o:[{l:'Call it a good omen',p:0.7,m:5,r:'A good omen, and a good month. The astronomers say that is a coincidence.',f:{m:-3,r:'The omen turns out to be a hailstorm.'}},{l:'Explain it calmly',c:{goods:3},m:1,s:{sci:1},r:'Leaflets in every city explain the comet. Some people read them.'}]},
+  {k:'emigrants',t:'Young people are leaving {N}’s cities',b:'They want work, adventure and somewhere their parents cannot see them.',o:[{l:'Fund apprenticeships',c:{goods:10},m:4,s:{edu:1},r:'Apprenticeships in every city. The young stay, and complain about their parents locally.'},{l:'Let them go',m:-3,r:'They go. Their postcards are very cheerful.'}]},
+  {k:'heatwave',t:'A heatwave grips {N}',b:'The roads are soft, the rivers are warm and the ice-cream sellers are rich.',o:[{l:'Open the fountains',c:{food:6},m:4,r:'Fountains run in every square. Nobody goes home until dark.'},{l:'Work at night',m:0,x:{f:'out',v:-5,h:48},r:'The nation works by lamplight and sleeps all afternoon.'}]},
+  {k:'census',t:'The census of {N} is due',b:'Every head is to be counted, including several that would rather not be.',o:[{l:'Count properly',c:{goods:8},m:1,x:{f:'out',v:5,h:72},r:'A careful count. The ministries finally know where everyone is.'},{l:'Estimate it',m:0,r:'The census says “quite a lot of people”. Nobody argues.'}]}
 ];
 const CX_LETTERS={
   builder:['The scaffolding on the high street is admired by everyone except the people who walk under it.','I have asked the masons to whistle less. They have agreed to whistle in tune.','We could build twice as fast if the bricks would only arrive on the same day as the bricklayers.'],
@@ -82236,6 +82300,8 @@ function cxCityExtras(c){
   if(Number.isInteger(c.en)&&c.en>0)o.en=Math.min(c.en,1e6);
   if(c.cr&&typeof c.cr==='object'){const a=czCleanArms(c.cr,null);if(a)o.cr={s:a.s,d:a.d,t:a.t,c:a.c,ct:a.ct};}
   const mb=c.mb;if(mb&&typeof mb==='object'&&Number.isFinite(mb.v)&&Number.isFinite(mb.u)&&mb.v)o.mb={v:clamp(Math.round(mb.v),-15,15),u:mb.u};
+  /* ch, sq: the matters' chronicle and sequels to come (city matters, round two) */
+  if(typeof cxChClean==='function'){const ch=cxChClean(c.ch,10);if(ch.length)o.ch=ch;const sq=cxSqClean(c.sq);if(sq.length)o.sq=sq;}
   /* ti: the city's title (Town, Great City, Metropolis), 1–3; a literal 3, as normCities may run before BLK_TI is set */
   if(Number.isInteger(c.ti)&&c.ti>0)o.ti=Math.min(3,c.ti);
   return o;
@@ -82264,16 +82330,18 @@ function cxMood(ct,now){
   for(const k of ct.done){const tq=ct.tr&&ct.tr[k],B=tq?bEff(k,tq.t,tq.ln):BUILDINGS[k];if(!B)continue;let d=B.mood??CX_MOOD_B[k]??(B.w?5:B.c==='soc'?3:0);const u=ct.ug&&ct.ug[k];if(d>0&&u)d+=u;add(d,B.n+(u?` (${u} ${u===1?'upgrade':'upgrades'})`:''));}
   const my=rec&&cxCityExtras(rec).my;if(my){add(3,'Has a mayor');if(my.tr==='populist')add(12,'A crowd-pleasing mayor');}
   if(cxRoadAt(ct.fn,ct.c,now,ct.tT))add(5,'A road to the rest of the nation');
-  const mb=rec&&rec.mb;if(mb&&mb.u>now&&mb.v)add(clamp(Math.round(mb.v),-15,15),'How its last matter went');
+  let R=null;try{R=cxRipples(ct,now);for(const r of R.list)add(r.d,r);if(R.soft)add(R.soft,'Several answers at once: past ±10 they count half');}catch(e){R=null;}
   {const d=asmMarkMood(ct.fid,now);if(d)add(d,d>0?'The Assembly’s laurel':'The Assembly’s censure');}
-  return {v:clamp(Math.round(v),0,100),parts};
+  return {v:clamp(Math.round(v),0,100),parts,fx:R?R.fx:{out:0,bld:0,def:0}};
 }
 function cxBand(v){return CX_BANDS.find(b=>v>=b[0]);}
-function cxMoodOn(ct,now){const m=cxMood(ct,now);ct.mood=m.v;const my=cxCityExtras(ct.rec).my;ct.mk=cxBand(m.v)[2]*(my&&my.tr==='steward'?1.1:1);}
+function cxMoodOn(ct,now){const m=cxMood(ct,now);ct.mood=m.v;const my=cxCityExtras(ct.rec).my,o=clamp((m.fx&&m.fx.out)||0,-20,20)/100;ct.mxo=o;ct.mk=cxBand(m.v)[2]*(my&&my.tr==='steward'?1.1:1)*(1+o);}
 function cxCityAgg(a,ct){const my=ct.rec&&cxCityExtras(ct.rec).my;if(!my)return;if(my.tr==='merchant')a.prosper+=0.01;if(my.tr==='scholar')a.add.goods+=1;}
 
 /* build times: a builder mayor and a finished road */
-function cxBuildK(ct){if(!ct)return 1;const my=ct.rec&&cxCityExtras(ct.rec).my;let k=1;if(my&&my.tr==='builder')k*=0.85;if(cxRoadAt(ct.fn,ct.c,Date.now(),ct.tT))k*=0.9;return k;}
+function cxBuildK(ct){if(!ct)return 1;const my=ct.rec&&cxCityExtras(ct.rec).my;let k=1;if(my&&my.tr==='builder')k*=0.85;if(cxRoadAt(ct.fn,ct.c,Date.now(),ct.tT))k*=0.9;
+  /* an answer to one of its matters (round two): ±10% for a while */
+  try{const b=ct.rec&&!ct.npc?cxRipples(ct,Date.now()).fx.bld:0;if(b)k*=1-clamp(b,-20,20)/100;}catch(e){}return k;}
 function cxHours(n,ct,key){return Math.round(bHours(n,key)*cxBuildK(ct)*10)/10;}
 
 /* defence: walls, an old soldier, and a restless city */
@@ -82283,6 +82351,7 @@ function cxDefAt(T,bi,cell){
   if(ct&&ct.hi===bi){
     const w=cxWallLv(ct.rec,now);if(w){m*=1+CX_WALL_CITY*w;notes.push(`walls at level ${w}, +${Math.round(CX_WALL_CITY*w*100)}%`);}
     const my=ct.rec&&cxCityExtras(ct.rec).my;if(my&&my.tr==='marshal'){m*=1.15;notes.push('an old soldier as mayor, +15%');}
+    {let d=0;try{d=ct.rec&&!ct.npc?cxRipples(ct,now).fx.def:0;}catch(e){}if(d){m*=1+d/100;notes.push(`how a matter was answered, ${d>0?'+':'−'}${Math.abs(d)}%`);}}
     if(ct.mood!=null&&ct.mood<30){m*=0.9;notes.push('a restless city, −10%');}
   }else{
     let best=0,bc=null;for(let d=0;d<6;d++){const nb=MAP.nbr[cell*6+d];if(nb<0)continue;const c2=CS.byCell.get(nb);if(c2&&c2.hi===bi){const w=cxWallLv(c2.rec,now);if(w>best){best=w;bc=c2;}}}
@@ -82375,46 +82444,317 @@ function cxDismiss(cid){
   const ct=cxHeld(cid);if(!ct)return;const n=ensureCities(clone(S.nation)),c=n.cities.find(x=>x.id===cid);if(!c||!c.my)return;
   const nm=c.my.nm;delete c.my;commit(n);S.cityMsg='';S.cxFire=null;render();toast(`${nm} has left the mayor’s office in ${ct.nm}.`);
 }
+/* ── city matters, round two (28 November 2026) ──
+   The Wandering Isles asked for a matter's mood to fade after a day and to stack with the next one, and for more to
+   come of a matter than a mood boost. Until then an answer set the city's mood bonus outright for three days, so a
+   weaker matter was best left unanswered, and an unanswered one waited for ever and held the next one back.
+   Now a city's matters come on a clock of their own, one every one to three days, from the record's ne (an arrival)
+   and en (that arrival's place in the city's order), whatever the player does. Up to two can wait; one left for two
+   days is decided by the city council, which takes the free answer that does least for the mood, without its
+   resources or its lift for the nation. An answer's mood is a ripple: full for a day, then fading to nothing over the
+   next two. Ripples add up, anything past ±10 counting half, ±15 at most; an answer within a day of the matter's
+   arrival adds 1. Some answers also change the city's output, build speed or defence for a while (x), bring a later
+   matter (n: a sequel), need a building in the city (b) or are a gamble (p, with f what happens otherwise). Some
+   matters come only to a city on the coast, in the hills or the capital, or in wartime (w). Every eight to twelve
+   days a matter comes for the whole nation (CX_NATION_EVENTS), and its mood reaches every city.
+   On the record: ch, a city's chronicle of answers (newest first, up to ten: {a the arrival, k the matter, o the
+   answer, t when, v its mood, w 1 the council, q 1 within a day, g 1 a gamble won / 0 lost}); sq, sequels to come
+   ([{k, a the arrival that brings it}]); and on the nation wne, wen and wch for its own matters. Which matter an
+   arrival brings, and the council's answers until a save writes them down, follow from the record and the clock, so
+   every player works out the same mood. An old record's mb (until 28 November) counts in full until it runs out. */
+const CX_V2_AT=Date.UTC(2026,10,28),CX_EV_WAIT=2*DAY,CX_NW_WAIT=3*DAY,CX_RIP_HOLD=DAY,CX_RIP_FADE=2*DAY,CX_RIP_SOFT=10,CX_RIP_MAX=15,CX_QUICK=DAY,CX_CH_MAX=10,CX_BLK=4*DAY;
+/* how far back an arrival can still count: two days waiting, then three of ripple */
+const CX_LOOK=CX_EV_WAIT+CX_RIP_HOLD+CX_RIP_FADE,CX_NW_LOOK=CX_NW_WAIT+CX_RIP_HOLD+CX_RIP_FADE;
+const CX_FX={out:'output',bld:'build speed',def:'defence'};
+const CX_BY=new Map(CX_EVENTS.map(e=>[e.k,e])),CX_NW_BY=new Map(CX_NATION_EVENTS.map(e=>[e.k,e])),CX_NW_IDX=CX_NATION_EVENTS.map((e,i)=>i);
+const CX_WAR=CX_EVENTS.map((e,i)=>i).filter(i=>CX_EVENTS[i].w==='war'&&!CX_EVENTS[i].sq);
 function cxEvAt(ct){const rec=ct.rec;return rec&&Number.isFinite(rec.ne)?rec.ne:((rec&&rec.t)||0)+DAY+hash(ct.id+':ev')%DAY;}
-/* which matter a city brings: each city goes through every matter once, in an order of its own, before any comes round
-   again (en, on the record: how many it has answered; a record from before starts at the beginning), and two of a
-   nation's cities never bring the same matter at once: a city whose next matter already waits in a city before it in
-   the list brings the one after. Until 2026-11-20 there were 12 matters, each picked at random every time. */
-const CX_EV_ORD=new Map();
-function cxEvOrder(key){
-  let o=CX_EV_ORD.get(key);if(o)return o;
-  o=CX_EVENTS.map((e,i)=>i);const r=rng(hash(key));for(let i=o.length-1;i>0;i--){const j=Math.floor(r()*(i+1));[o[i],o[j]]=[o[j],o[i]];}
-  if(CX_EV_ORD.size>200)CX_EV_ORD.clear();CX_EV_ORD.set(key,o);return o;
-}
 const cxEvN=rec=>rec&&Number.isInteger(rec.en)&&rec.en>0?rec.en:0;
-/* the matter at place p of a city's run; each pass through the whole list is shuffled afresh */
-const cxEvAtPos=(fid,cid,p)=>cxEvOrder(fid+':'+cid+':'+Math.floor(p/CX_EVENTS.length))[p%CX_EVENTS.length];
-function cxEvPos(ct,now){
-  const L=CX_EVENTS.length,taken=new Set();
-  for(const c of cityList(ct.fn)){
-    if(!c)continue;const me=c.id===ct.id;if(!me&&now<cxEvAt({id:c.id,rec:c}))continue;
-    const n0=cxEvN(c);let p=n0;while(p<n0+L&&taken.has(cxEvAtPos(ct.fid,c.id,p)))p++;
-    if(me)return p;taken.add(cxEvAtPos(ct.fid,c.id,p));
+/* a shuffled copy of a list of matter indexes, the same for everyone with the same key */
+const CX_SHUF=new Map();
+function cxShuf(key,L){
+  const k=key+'|'+L.length;let o=CX_SHUF.get(k);if(o)return o;
+  o=L.slice();const r=rng(hash(key));for(let i=o.length-1;i>0;i--){const j=Math.floor(r()*(i+1));[o[i],o[j]]=[o[j],o[i]];}
+  if(CX_SHUF.size>5000)CX_SHUF.clear();CX_SHUF.set(k,o);return o;
+}
+/* a city's arrivals, from its anchor on: [{a, p}] up to (not including) `to`, kept with the record */
+/* the gap after an arrival, one to three days, from the city and the arrival: numbers only, as a dormant city's clock may
+   step through a hundred arrivals to reach today */
+function cxMix(h,a){h=Math.imul(h^(a%4294967296),2654435761);h=Math.imul(h^Math.floor(a/4294967296),2246822519);h^=h>>>15;h=Math.imul(h,2246822519);h^=h>>>13;return h>>>0;}
+const CX_ARR=new WeakMap();
+function cxArr(id,rec,to){
+  const a0=cxEvAt({id,rec}),p0=cxEvN(rec),obj=rec&&typeof rec==='object';
+  let m=obj?CX_ARR.get(rec):null;
+  if(!m||m.a0!==a0||m.p0!==p0||m.id!==id){m={id,a0,p0,L:[],na:a0,np:p0,h:hash(id+':gap')};if(obj)CX_ARR.set(rec,m);}
+  let g=0;while(m.na<to&&g++<4000){m.L.push({a:m.na,p:m.np});m.na+=DAY+cxMix(m.h,m.na)%(2*DAY);m.np++;}
+  /* only those before `to`: the list may already reach further for an earlier caller */
+  let hi=m.L.length;while(hi>0&&m.L[hi-1].a>=to)hi--;return hi===m.L.length?m.L:m.L.slice(0,hi);
+}
+/* the first arrival at or after t that no sequel is waiting for */
+function cxNextAt(id,rec,t){const sq=cxSqOf(rec);for(const x of cxArr(id,rec,t+8*DAY))if(x.a>=t&&!sq.some(s=>s.a===x.a))return x.a;return 0;}
+/* where a city stands (the coast, the hills, the capital), for the matters that come only there; from the map, so the
+   same for everyone */
+let CX_TAG_MAP=null;const CX_TAGS=new Map();
+function cxTags(fn,c){
+  const cell=c&&c.c;if(!(cell>=0))return '';if(CX_TAG_MAP!==MAP){CX_TAG_MAP=MAP;CX_TAGS.clear();}
+  let t=CX_TAGS.get(cell);
+  if(t===undefined){t='';try{if(isCoastal(cell))t+='coast,';let h=MAP.T[cell]>=3;for(let d=0;d<6&&!h;d++){const nb=MAP.nbr[cell*6+d];h=nb>=0&&MAP.T[nb]>=3;}if(h)t+='hills,';}catch(e){}CX_TAGS.set(cell,t);}
+  return t+(cell===cellOf(fn&&fn.loc)?'cap,':'');
+}
+/* the matters a city brings in turn: no sequels, no matters of war, only those that fit where it stands */
+const CX_POOLS=new Map();
+function cxPool(tags){let p=CX_POOLS.get(tags);if(!p){p=[];CX_EVENTS.forEach((e,i)=>{if(!e.sq&&e.w!=='war'&&(!e.w||tags.includes(e.w+',')))p.push(i);});CX_POOLS.set(tags,p);}return p;}
+/* at war at time t, by the nation's own record: a war it is in, or one in its history */
+function cxWarAt(fn,t){
+  const w=fn&&fn.wars;if(w&&typeof w==='object')for(const id of Object.keys(w)){const s=w[id]&&w[id].t;if(!(s<=t))continue;const p=fn.peace&&fn.peace[id];if(!(p>s&&p<=t))return true;}
+  for(const h of Array.isArray(fn&&fn.wh)?fn.wh:[])if(h&&h.a<=t&&t<h.b)return true;
+  return false;
+}
+/* what an arrival may bring, best first: a sequel planted for it (nothing else), in wartime one time in three a matter
+   of war, then the city's own order and three spare orders (for when another city has the same matter waiting) */
+function cxEvCands(fid,fn,c,a,p){
+  const sq=cxSqOf(c).find(s=>s.a===a);if(sq&&CX_BY.has(sq.k))return {f:1,l:[sq.k]};
+  const out=[],tags=cxTags(fn,c),pool=cxPool(tags),L=pool.length;
+  if(CX_WAR.length&&cxWarAt(fn,a)&&hash(c.id+':war:'+a)%3===0){const h=hash(c.id+':wk:'+a);for(let i=0;i<CX_WAR.length;i++)out.push(CX_EVENTS[CX_WAR[(h+i)%CX_WAR.length]].k);}
+  let fb=null;
+  if(L){const r=Math.floor(p/L),key=fid+':'+c.id+':'+r,o=cxShuf(key+':'+tags,pool);out.push(CX_EVENTS[o[p%L]].k);
+    /* only should that be waiting elsewhere: three spare orders, then the rest of the city's own */
+    fb=()=>{const f=[];for(let ln=1;ln<4;ln++)f.push(CX_EVENTS[cxShuf(key+':'+ln+':'+tags,pool)[p%L]].k);for(let j=1;j<L;j++)f.push(CX_EVENTS[o[(p+j)%L]].k);return f;};}
+  return {f:0,l:out,fb};
+}
+/* which matter each arrival brings, worked out four days at a time for the whole nation in the order they arrive
+   (with the two days before as a run-up): two cities never have the same matter waiting at once */
+const CX_PICK=new WeakMap();
+function cxPickBlock(fid,fn,b){
+  let M=CX_PICK.get(fn);if(!M){M=new Map();CX_PICK.set(fn,M);}
+  let R=M.get(b);if(R)return R;R=new Map();
+  const s=b*CX_BLK,from=s-CX_EV_WAIT,to=s+CX_BLK,ev=[];
+  cityList(fn).forEach((c,i)=>{if(!c||typeof c.id!=='string')return;for(const x of cxArr(c.id,c,to))if(x.a>=from)ev.push({c,i,a:x.a,p:x.p});});
+  ev.sort((x,y)=>x.a-y.a||x.i-y.i);
+  const recent=[];
+  for(const e of ev){
+    while(recent.length&&recent[0].a<=e.a-CX_EV_WAIT)recent.shift();
+    const C=cxEvCands(fid,fn,e.c,e.a,e.p);if(!C.l.length)continue;
+    const free=k=>!recent.some(r=>r.k===k&&r.id!==e.c.id),k=C.f?C.l[0]:(C.l.find(free)||(C.fb&&C.fb().find(free))||C.l[0]);
+    recent.push({a:e.a,k,id:e.c.id});if(e.a>=s)R.set(e.c.id+':'+e.a,k);
   }
-  return cxEvN(ct.rec);
+  if(M.size>16)M.delete(M.keys().next().value);M.set(b,R);return R;
 }
-function cxEvDue(ct,now){
-  if(!ct||!ct.rec||ct.fid!==myId()||!ct.active)return null;const T=territory();if(ct.hi>=0&&T.list[ct.hi]&&T.list[ct.hi].id!==myId())return null;
-  return now<cxEvAt(ct)?null:CX_EVENTS[cxEvAtPos(ct.fid,ct.id,cxEvPos(ct,now))];
+const cxPick=(fid,fn,id,a)=>cxPickBlock(fid,fn,Math.floor(a/CX_BLK)).get(id+':'+a)||null;
+/* the record's answers and sequels, cleaned (literals: normCities may run before this section) */
+function cxChClean(L,max){
+  if(!Array.isArray(L))return [];const out=[],seen=new Set();
+  for(const e of L){
+    if(out.length>=(max||10))break;
+    if(!e||typeof e!=='object'||!Number.isFinite(e.a)||seen.has(e.a)||typeof e.k!=='string'||!/^[a-z0-9]{1,16}$/.test(e.k)||!Number.isInteger(e.o)||e.o<0||e.o>3||!Number.isFinite(e.t))continue;
+    seen.add(e.a);const o={a:e.a,k:e.k,o:e.o,t:e.t,v:Number.isFinite(e.v)?Math.max(-12,Math.min(12,Math.round(e.v))):0};
+    if(e.w===1)o.w=1;if(e.q===1)o.q=1;if(e.g===0||e.g===1)o.g=e.g;out.push(o);
+  }
+  return out;
 }
+function cxSqClean(L){return Array.isArray(L)?L.filter(s=>s&&typeof s==='object'&&typeof s.k==='string'&&/^[a-z0-9]{1,16}$/.test(s.k)&&Number.isFinite(s.a)).slice(-3).map(s=>({k:s.k,a:s.a})):[];}
+const cxChOf=rec=>cxChClean(rec&&rec.ch,CX_CH_MAX),cxSqOf=rec=>cxSqClean(rec&&rec.sq);
+/* an answer the player may give here: one that needs a building, only with that building finished in the city */
+const cxOptOk=(ct,o)=>!o.b||!!(ct&&ct.done&&ct.done.includes(o.b));
+/* the council's answer to a matter left too long: of the answers that cost nothing and need no building, the one that
+   does least for the mood (a gamble counted at its odds), the last of equals; a gamble's luck fixed by the arrival */
+function cxCouncilOpt(ev){let bi=-1,bv=Infinity;ev.o.forEach((o,i)=>{if(o.c||o.b)return;const v=o.p?o.p*(o.m||0)+(1-o.p)*((o.f&&o.f.m)||0):(o.m||0);if(v<=bv){bv=v;bi=i;}});return bi;}
+function cxCouncil(seed,ev,a,wait){
+  const i=cxCouncilOpt(ev);if(i<0)return null;const o=ev.o[i],won=o.p?hash(seed+':luck:'+a)%1000<o.p*1000:null,R=won===false?o.f:o;
+  return Object.assign({a,k:ev.k,o:i,t:a+wait,v:clamp(Math.round(R.m||0),-12,12),w:1},won===null?{}:{g:won?1:0});
+}
+/* a city's matters at `now`: those waiting [{a,k,ev,due}], and its answers that may still count (on the record, and
+   the council's not yet written down); kept a minute with the record */
+const CX_MEMO=new WeakMap();
+function cxMemo(obj,key,f){if(!obj||typeof obj!=='object')return f();let m=CX_MEMO.get(obj);if(!m){m=new Map();CX_MEMO.set(obj,m);}if(m.has(key))return m.get(key);const v=f();if(m.size>12)m.delete(m.keys().next().value);m.set(key,v);return v;}
+function cxEvState(fid,fn,c,now){
+  return cxMemo(c,'s|'+fid+'|'+Math.floor(now/60000),()=>{
+    const id=c.id,ch=cxChOf(c),have=new Set(ch.map(e=>e.a)),wait=[],dec=[];
+    for(const x of cxArr(id,c,now+1)){
+      if(x.a<now-CX_LOOK||x.a>now||have.has(x.a))continue;
+      const k=cxPick(fid,fn,id,x.a),ev=k&&CX_BY.get(k);if(!ev)continue;
+      if(now<x.a+CX_EV_WAIT)wait.push({a:x.a,k,ev,due:x.a+CX_EV_WAIT});
+      else if(x.a+CX_EV_WAIT>=CX_V2_AT){const e=cxCouncil(fid+':'+id,ev,x.a,CX_EV_WAIT);if(e)dec.push(e);}
+    }
+    return {wait,ans:dec.reverse().concat(ch).sort((x,y)=>y.t-x.t)};
+  });
+}
+/* the nation's own matters: their own clock (eight to twelve days apart), order and chronicle (wne, wen, wch) */
+const cxNwGap=(fid,a)=>8*DAY+cxMix(hash(fid+':nwgap'),a)%(4*DAY);
+function cxNwAnchor(fid,fn){return fn&&Number.isFinite(fn.wne)?fn.wne:Math.max(((fn&&fn.founded)||0)+5*DAY,CX_V2_AT+DAY)+hash(fid+':nw')%(2*DAY);}
+function cxNwArr(fid,fn,to){
+  const a0=cxNwAnchor(fid,fn),p0=fn&&Number.isInteger(fn.wen)&&fn.wen>0?fn.wen:0,out=[];let a=a0,p=p0,g=0;
+  while(a<to&&g++<1000){out.push({a,p});a+=cxNwGap(fid,a);p++;}return out;
+}
+const cxNwPick=(fid,p)=>CX_NATION_EVENTS[cxShuf(fid+':nw:'+Math.floor(p/CX_NATION_EVENTS.length),CX_NW_IDX)[p%CX_NATION_EVENTS.length]];
+function cxNwState(fid,fn,now){
+  return cxMemo(fn,'n|'+fid+'|'+Math.floor(now/60000),()=>{
+    const ch=cxChClean(fn&&fn.wch,4),have=new Set(ch.map(e=>e.a)),wait=[],dec=[];
+    if(!fn||fn.npc||!fid)return {wait,ans:ch};
+    for(const x of cxNwArr(fid,fn,now+1)){
+      if(x.a<now-CX_NW_LOOK||x.a>now||have.has(x.a))continue;
+      const ev=cxNwPick(fid,x.p);if(!ev)continue;
+      if(now<x.a+CX_NW_WAIT)wait.push({a:x.a,k:ev.k,ev,due:x.a+CX_NW_WAIT,nw:1});
+      else if(x.a+CX_NW_WAIT>=CX_V2_AT){const e=cxCouncil(fid+':nw',ev,x.a,CX_NW_WAIT);if(e)dec.push(e);}
+    }
+    return {wait,ans:dec.reverse().concat(ch).sort((x,y)=>y.t-x.t)};
+  });
+}
+NORM_HOOKS.push((n,d)=>{if(!d)return;if(Number.isFinite(d.wne))n.wne=d.wne;if(Number.isInteger(d.wen)&&d.wen>0)n.wen=Math.min(d.wen,1e6);const w=cxChClean(d.wch,4);if(w.length)n.wch=w;});
+/* an answer's mood at `now`: full for a day after it was given, then fading to nothing over the next two */
+function cxRipV(e,now){const age=now-e.t;if(age<0||!e.v)return 0;if(age<CX_RIP_HOLD)return e.v;if(age>=CX_RIP_HOLD+CX_RIP_FADE)return 0;return e.v*(CX_RIP_HOLD+CX_RIP_FADE-age)/CX_RIP_FADE;}
+/* the answer given (a gamble lost: what happened instead) */
+const cxOutOf=(e,ev)=>{const o=ev&&ev.o[e.o];return o?(e.g===0&&o.f?o.f:o):null;};
+/* what an answer does besides mood, while it lasts: {f, v, u until} */
+function cxAnsFx(e,ev){const R=cxOutOf(e,ev),x=R&&R.x;if(!x||!CX_FX[x.f]||!Number.isFinite(x.v)||!(x.h>0))return null;return {f:x.f,v:x.v,u:e.t+x.h*3600e3};}
+/* the matters' share of a city's mood at `now`, one line per answer still felt, and what they do besides */
+function cxRipples(ct,now){
+  const empty={list:[],raw:0,sum:0,soft:0,fx:{out:0,bld:0,def:0},fxl:[]},rec=ct&&ct.rec;if(!rec||ct.npc||typeof rec.id!=='string')return empty;
+  return cxMemo(rec,'r|'+ct.fid+'|'+Math.floor(now/60000),()=>{
+    const out={list:[],raw:0,sum:0,soft:0,fx:{out:0,bld:0,def:0},fxl:[]};
+    const S1=cxEvState(ct.fid,ct.fn,rec,now),N1=cxNwState(ct.fid,ct.fn,now);
+    const add=(e,ev,nw)=>{
+      const o=ev&&ev.o[e.o];if(!o)return;
+      const d=Math.round(cxRipV(e,now)),age=now-e.t;
+      /* the line's words only when the mood's breakdown is shown: dates are slow to write, and every city's mood is worked out */
+      if(d)out.list.push({d,e,ev,nw,get lbl(){return `${nw?'For the nation: ':''}“${o.l}”${e.w?', by the council':''}${e.g===0?', which went badly':''} · ${age<CX_RIP_HOLD?'full until '+c3Until(e.t+CX_RIP_HOLD):'fading, gone by '+c3Until(e.t+CX_RIP_HOLD+CX_RIP_FADE)}`;}});
+      const f=cxAnsFx(e,ev);if(f&&e.t<=now&&now<f.u){out.fx[f.f]+=f.v;out.fxl.push(Object.assign({e,ev,nw},f));}
+    };
+    for(const e of S1.ans)add(e,CX_BY.get(e.k),0);
+    for(const e of N1.ans)add(e,CX_NW_BY.get(e.k),1);
+    const mb=rec.mb;if(mb&&mb.u>now&&mb.v)out.list.push({d:clamp(Math.round(mb.v),-15,15),old:1,get lbl(){return `How its last matter went · until ${c3Until(mb.u)}`;}});
+    out.raw=out.list.reduce((s,r)=>s+r.d,0);
+    let s=out.raw;if(s>CX_RIP_SOFT)s=CX_RIP_SOFT+(s-CX_RIP_SOFT)/2;else if(s<-CX_RIP_SOFT)s=-CX_RIP_SOFT+(s+CX_RIP_SOFT)/2;
+    out.sum=clamp(Math.round(s),-CX_RIP_MAX,CX_RIP_MAX);out.soft=out.sum-out.raw;
+    for(const k in out.fx)out.fx[k]=clamp(out.fx[k],-20,20);
+    return out;
+  });
+}
+/* the matters waiting in one of the player's own cities, held now; the first of them (callers from before two could wait) */
+function cxEvOk(ct){if(!ct||!ct.rec||ct.npc||ct.fid!==myId()||!ct.active)return false;const T=territory();return !(ct.hi>=0&&T.list[ct.hi]&&T.list[ct.hi].id!==myId());}
+function cxEvWait(ct,now){return cxEvOk(ct)?cxEvState(ct.fid,ct.fn,ct.rec,now).wait:[];}
+function cxEvDue(ct,now){const w=cxEvWait(ct,now);return w.length?w[0].ev:null;}
+/* the nation's own matter waiting, for the player */
+function cxNwWait(n,now){try{if(!n||n.npc||n!==S.nation||cellOf(n.loc)<0)return [];return cxNwState(myId(),n,now).wait;}catch(e){return [];}}
 const cxFill=(t,ct)=>t.replace(/\{C\}/g,ct.nm);
-function cxAnswer(cid,i,k){
-  const ct=cxHeld(cid);if(!ct)return;const now=Date.now(),ev=cxEvDue(ct,now),o=ev&&ev.o[i];if(!o)return;
-  if(k&&ev.k!==k){S.cityMsg=`${ct.nm} has brought a different matter since. Here it is.`;render();return;}
-  const pos=cxEvPos(ct,now);
+const cxNwFill=(t,n)=>t.replace(/\{N\}/g,(n&&n.name)||'the nation');
+/* an answer's words: what it costs, brings and does */
+const cxHrs=h=>h%24?h+' hours':h===24?'a day':h/24+' days';
+const cxFxTxt=x=>`${CX_FX[x.f]} ${x.v>0?'+':'−'}${Math.abs(x.v)}% for ${cxHrs(x.h)}`;
+function cxOutTxt(o){const b=[];if(o.g)b.push('brings '+costText(o.g));if(o.m)b.push(`mood ${o.m>0?'+':'−'}${Math.abs(o.m)}`);if(o.x)b.push(cxFxTxt(o.x));return b.join(', ');}
+function cxOptHint(o,nw){
+  const b=[];if(o.c)b.push('Costs '+costText(o.c));
+  if(o.p){const f=o.f||{};b.push(`${Math.round(o.p*100)}% chance: ${cxOutTxt(o)||'no change'}; otherwise ${cxOutTxt(f)||'no change'}`);}
+  else{const t=cxOutTxt(o);if(t)b.push(t.charAt(0).toUpperCase()+t.slice(1));}
+  if(nw&&(o.m||o.x||(o.f&&(o.f.m||o.f.x))))b.push('in every city');
+  if(o.s)b.push('a small lift for the nation');if(o.n)b.push('more may come of it');
+  return b.join(' · ')||'No cost';
+}
+function cxAnswer(cid,a,i,k){
+  const ct=cxHeld(cid);if(!ct)return;const now=Date.now(),W=cxEvWait(ct,now),w=W.find(x=>x.a===a);
+  if(!w||k&&w.k!==k){S.cityMsg=W.length?`${ct.nm} has brought a different matter since. Here it is.`:`That matter in ${ct.nm} has been settled already: the council decided it.`;render();return;}
+  const o=w.ev.o[i];if(!o||!cxOptOk(ct,o))return;
   const st=stockNow(S.nation,now);if(o.c){const miss=lacking(o.c,st);if(miss.length){S.cityMsg='You need '+list(miss)+' more for that answer.';render();return;}}
   const n=ensureCities(clone(S.nation)),c=n.cities.find(x=>x.id===cid);if(!c)return;
-  for(const r of RES){st[r]-=(o.c&&o.c[r])||0;if(o.g&&o.g[r])st[r]=stockLimit(n,r,st[r]+o.g[r],st[r]);}
+  const won=o.p?Math.random()<o.p:null,R=won===false&&o.f?o.f:o,q=now<w.a+CX_QUICK;
+  for(const r of RES){st[r]-=(o.c&&o.c[r])||0;if(R.g&&R.g[r])st[r]=stockLimit(n,r,st[r]+R.g[r],st[r]);}
   n.stock=roundStock(st);n.stockAt=now;n._stockSet=true;if(o.s)applyEffects(n,o.s);
-  if(o.m)c.mb={v:o.m,u:now+3*DAY};else delete c.mb;
-  c.ne=now+CX_EV_GAP+hash(cid+':'+now)%DAY;c.en=pos+1;
-  commit(n);S.cityMsg='';render();toast(o.r);
+  const e={a:w.a,k:w.k,o:i,t:now,v:clamp((R.m||0)+(q?1:0),-12,12)};if(q)e.q=1;if(won!==null)e.g=won?1:0;
+  c.ch=[e].concat(cxChOf(c).filter(x=>x.a!==w.a)).slice(0,CX_CH_MAX);
+  if(R.n&&CX_BY.has(R.n)){const at=cxNextAt(cid,c,now+DAY);if(at)c.sq=cxSqOf(c).filter(s=>s.a>now-14*DAY).concat({k:R.n,a:at}).slice(-3);}
+  if(won!==null)n.log=[{t:now,k:'cxm',a:String(cityLabel(n,c)).slice(0,60),b:String(o.l).slice(0,60),fx:cxFill(w.ev.t,{nm:cityLabel(n,c)}).slice(0,240),c:won?1:0}].concat(n.log||[]).slice(0,60);
+  commit(n);S.cityMsg='';render();toast(R.r+(q?' Answered within a day: mood +1.':''));
 }
+function cxNwAnswer(a,i,k){
+  const n0=S.nation;if(!n0||OBS)return;const now=Date.now(),W=cxNwWait(n0,now),w=W.find(x=>x.a===a);
+  if(!w||k&&w.k!==k){S.cityMsg='That matter for the nation has been settled already.';render();return;}
+  const o=w.ev.o[i];if(!o)return;
+  const st=stockNow(n0,now);if(o.c){const miss=lacking(o.c,st);if(miss.length){S.cityMsg='You need '+list(miss)+' more for that answer.';render();return;}}
+  const n=ensureCities(clone(n0)),won=o.p?Math.random()<o.p:null,R=won===false&&o.f?o.f:o,q=now<w.a+CX_QUICK;
+  for(const r of RES){st[r]-=(o.c&&o.c[r])||0;if(R.g&&R.g[r])st[r]=stockLimit(n,r,st[r]+R.g[r],st[r]);}
+  n.stock=roundStock(st);n.stockAt=now;n._stockSet=true;if(o.s)applyEffects(n,o.s);
+  const e={a:w.a,k:w.k,o:i,t:now,v:clamp((R.m||0)+(q?1:0),-12,12)};if(q)e.q=1;if(won!==null)e.g=won?1:0;
+  n.wch=[e].concat(cxChClean(n.wch,4).filter(x=>x.a!==w.a)).slice(0,4);
+  n.log=[{t:now,k:'cxn',a:String(o.l).slice(0,60),b:won===null?'':won?'1':'0',fx:cxNwFill(w.ev.t,n).slice(0,240)}].concat(n.log||[]).slice(0,60);
+  commit(n);S.cityMsg='';render();toast(R.r+(q?' Answered within a day: mood +1 in every city.':''));
+}
+/* a save writes down what the councils decided while the player was away (and says so once), and moves each clock's
+   anchor past arrivals too old to matter to anyone (two weeks: well before every four-day stretch still worked out) */
+COMMIT_HOOKS.push((n,old,now)=>{
+  const out=[],fid=myId();if(!n||n.npc||!fid||!Array.isArray(n.cities))return out;const told=[];
+  for(const c of n.cities){
+    if(!c||typeof c.id!=='string')continue;
+    try{
+      const ch=cxChOf(c),have=new Set(ch.map(e=>e.a)),fresh=cxEvState(fid,n,c,now).ans.filter(e=>e.w&&!have.has(e.a)&&e.t>now-6*DAY);
+      if(fresh.length){c.ch=fresh.concat(ch).sort((x,y)=>y.t-x.t).slice(0,CX_CH_MAX);for(const e of fresh)if(e.t>now-CX_RIP_HOLD-CX_RIP_FADE)told.push([cityLabel(n,c),e,CX_BY.get(e.k)]);}
+      if(c.mb&&!(c.mb.u>now))delete c.mb;
+      const sq=cxSqOf(c).filter(s=>s.a>now-14*DAY);if(sq.length)c.sq=sq;else delete c.sq;
+      const a0=cxEvAt({id:c.id,rec:c});if(a0<now-14*DAY){let last=null;for(const x of cxArr(c.id,c,now-14*DAY))last=x;if(last&&last.a>a0){c.ne=last.a;c.en=last.p;}}
+      CX_MEMO.delete(c);
+    }catch(e){}
+  }
+  try{
+    const ch=cxChClean(n.wch,4),have=new Set(ch.map(e=>e.a)),fresh=cxNwState(fid,n,now).ans.filter(e=>e.w&&!have.has(e.a)&&e.t>now-6*DAY);
+    if(fresh.length){n.wch=fresh.concat(ch).sort((x,y)=>y.t-x.t).slice(0,4);for(const e of fresh)if(e.t>now-CX_RIP_HOLD-CX_RIP_FADE)told.push([null,e,CX_NW_BY.get(e.k)]);}
+    const a0=cxNwAnchor(fid,n);if(a0<now-30*DAY){let last=null;for(const x of cxNwArr(fid,n,now-30*DAY))last=x;if(last&&last.a>a0){n.wne=last.a;n.wen=last.p;}}
+    CX_MEMO.delete(n);
+  }catch(e){}
+  if(told.length===1){const [nm,e,ev]=told[0],o=ev&&ev.o[e.o],R=cxOutOf(e,ev);if(o)out.push(`While you were away, ${nm?'the council of '+nm:'the government'} answered “${o.l}”. ${R.r}`);}
+  else if(told.length>1)out.push(`While you were away, councils decided ${told.length} matters for you. Each city’s People tab has its chronicle.`);
+  return out;
+});
+/* ── matters on the page: a matter's card (on the city's People tab, and in the inbox at the top of the Cities page),
+   what answers do besides mood, the mood ahead, the chronicle, and the latest answers for whoever looks at the city ── */
+function cxEvNext(ct,now){for(const x of cxArr(ct.id,ct.rec,now+4*DAY))if(x.a>now)return x.a;return now+DAY;}
+function cxEvCard(ct,w,st,now,o){
+  o=o||{};const ev=w.ev,nw=!!w.nw,co=cxCouncilOpt(ev),quick=now<w.a+CX_QUICK;
+  const btn=([op,i],j)=>{const miss=op.c?lacking(op.c,st):[];return `<div class="cx-ev-o"><button class="btn${j?' ghost':''}" data-act="${nw?'cx-nw':'cx-ev'}"${nw?'':` data-id="${esc(ct.id)}"`} data-a="${w.a}" data-i="${i}" data-k="${esc(ev.k)}"${miss.length?' disabled':''}>${esc(op.l)}</button><span class="hint">${op.b&&BUILDINGS[op.b]?`<span class="chip cx-ev-b">Because of its ${esc(BUILDINGS[op.b].n)}</span> `:''}${esc(cxOptHint(op,nw))}${miss.length?` · you need ${esc(list(miss))} more`:''}</span></div>`;};
+  const opts=ev.o.map((op,i)=>[op,i]).filter(([op])=>nw||cxOptOk(ct,op));
+  const kick=nw?'A matter for the whole nation':ev.sq?'More on an earlier matter':ev.w==='war'?'A matter of war':'A matter for you';
+  return `<section class="cx-sec cx-ev${o.inbox?' cx-ev-ib':''}"${o.id?` id="${o.id}"`:''}><p class="notice-k">${o.inbox&&!nw?`<span class="cx-ev-city">${esc(ct.nm)}</span> · `:''}${kick}</p><h4 class="cx-ev-h">${esc(nw?cxNwFill(ev.t,S.nation):cxFill(ev.t,ct))}</h4><p>${esc(ev.b)}</p><div class="cx-ev-os">${opts.map(btn).join('')}</div>
+    <p class="hint cx-ev-due">${quick?`Answer by ${esc(c3Until(w.a+CX_QUICK))} for mood +1. `:''}Left unanswered, ${nw?'the government':'the city council'} decides ${esc(c3When(w.due))}${co>=0?`: “${esc(ev.o[co].l)}”`:''}.</p></section>`;
+}
+function cxFxLine(ct,now){
+  let R;try{R=cxRipples(ct,now);}catch(e){return '';}if(!R.fxl.length)return '';
+  return `<p class="hint cx-fxl">Also from its matters: ${esc(R.fxl.map(f=>`${CX_FX[f.f]} ${f.v>0?'+':'−'}${Math.abs(f.v)}% until ${c3Until(f.u)}${f.nw?' (for the whole nation)':''}`).join('; '))}.</p>`;
+}
+/* the mood over the next three days if nothing more is answered: the answers fading, and the councils deciding */
+function cxForecast(ct,now,v0){
+  if(!ct||ct.npc||!ct.rec)return '';const pts=[];
+  for(let d=1;d<=3;d++){let v=null;try{v=cxMood(ct,now+d*DAY).v;}catch(e){}if(v===null)return '';pts.push(v);}
+  if(pts.every(v=>v===v0))return '';
+  const W=['tomorrow','in two days','in three days'];
+  return `<p class="hint cx-fc">If nothing more is answered: ${pts.map((v,i)=>{const b=cxBand(v)[1],prev=cxBand(i?pts[i-1]:v0)[1];return `<b>${v}</b> ${W[i]}${b!==prev?` (${b.toLowerCase()})`:''}`;}).join(', ')}.</p>`;
+}
+function cxChronList(ct,now){try{return cxEvState(ct.fid,ct.fn,ct.rec,now).ans.filter(e=>e.t<=now&&CX_BY.has(e.k)&&CX_BY.get(e.k).o[e.o]);}catch(e){return [];}}
+function cxChronLi(e,nm,who){const ev=CX_BY.get(e.k),o=ev.o[e.o],R=cxOutOf(e,ev);
+  return `<li><span class="cx-ch-d">${esc(fmtDate(e.t))}</span><div class="cx-ch-b"><b>${esc(cxFill(ev.t,{nm}))}</b> ${esc(e.w?'The city council chose':who)} “${esc(o.l)}”${e.g===1?', and it paid off':e.g===0?', and it went badly':''}${e.q?', within a day':''}. <span class="cx-ch-r">${esc(R.r)}</span></div><span class="cx-ch-m ${e.v>0?'up':e.v<0?'down':''}" title="Mood">${e.v?(e.v>0?'+':'−')+Math.abs(e.v):'±0'}</span></li>`;}
+function cxChron(ct,now,mine){
+  if(!ct||!ct.rec||ct.npc)return '';const L=cxChronList(ct,now);if(!L.length)return '';
+  const who=mine?'You chose':`${(ct.fn&&ct.fn.name)||'Its government'} chose`;
+  return `<section class="cx-sec cx-chron"><h4 class="lbl-h">Chronicle of ${esc(ct.nm)}</h4><ul class="cx-ch">${L.map(e=>cxChronLi(e,ct.nm,who)).join('')}</ul></section>`;
+}
+function cxLately(ct,now){
+  if(!ct||!ct.rec||ct.npc)return '';const L=cxChronList(ct,now).slice(0,2);if(!L.length)return '';
+  return `<p class="hint cx-lately">Lately in ${esc(ct.nm)}: ${L.map(e=>{const ev=CX_BY.get(e.k);return `${esc(cxFill(ev.t,ct))} (“${esc(ev.o[e.o].l)}”${e.w?', by the council':''})`;}).join('; ')}.</p>`;
+}
+/* every matter waiting, the nation's and each city's, the one to be decided soonest first; a city's matters are left
+   out here while its own People tab is open below */
+function cxInbox(T,mine,n,st,now){
+  const items=[],here=!S.cityOpen&&S.cxTab==='ppl'?S.cxSel:null;
+  for(const ct of mine){if(!cxOk(ct,T)||ct.id===here)continue;for(const w of cxEvWait(ct,now))items.push([ct,w]);}
+  const nw=cxNwWait(n,now);if(!items.length&&!nw.length)return '';
+  items.sort((x,y)=>x[1].due-y[1].due);const k=items.length+nw.length;
+  return `<details class="cx-inbox" id="cx-inbox"${S.cxInboxShut?'':' open'}><summary>${k===1?'A matter waits':k+' matters wait'} for your answer</summary><p class="hint">A matter left for two days is decided for you. An answer’s mood holds for a day, then fades over two; answers add up.</p>${nw.map(w=>cxEvCard(null,w,st,now,{inbox:1,id:'cx-nw'})).join('')}${items.map(([ct,w])=>cxEvCard(ct,w,st,now,{inbox:1})).join('')}</details>`;
+}
+document.addEventListener('toggle',e=>{const t=e.target;if(t&&t.id==='cx-inbox')S.cxInboxShut=!t.open;},true);
+/* the visit page's Cities: the latest answers in the nation's cities */
+vsAdd('cit',(x,now)=>{
+  if(!x||x.npc||!x.n||!Array.isArray(x.n.cities))return '';const L=[];
+  for(const c of x.n.cities){if(!c||typeof c.id!=='string')continue;for(const e of cxChOf(c)){const ev=CX_BY.get(e.k);if(ev&&ev.o[e.o])L.push([c,e]);}}
+  if(!L.length)return '';L.sort((a,b)=>b[1].t-a[1].t);const N=x.n.name||'the nation';
+  return `<section class="section cx-vs"><h2 class="h2">Lately in the cities of ${esc(N)}</h2><ul class="cx-ch">${L.slice(0,5).map(([c,e])=>cxChronLi(e,cityLabel(x.n,c),`${N} chose`)).join('')}</ul></section>`;
+});
 function cxBuildRoad(a,b,k='road'){
   const n=S.nation,T=territory(),p=mpRoutePreview(T,k,a,b),now=Date.now();
   if(p.why){S.cityMsg=p.why;render();return;}
@@ -82471,14 +82811,14 @@ function cxStock(n,now){
    cities without a mayor]: the Cities page lists it, and the bell (section CA) tells it */
 function cxTodoList(T,mine,now,canFound){
   const it=[];
-  for(const ct of mine){if(!cxOk(ct,T))continue;const ev=cxEvDue(ct,now);if(ev)it.push([`${ct.nm}: ${cxFill(ev.t,ct)}`,'ppl',ct.id,'ev',ct,ev]);}
+  for(const ct of mine){if(!cxOk(ct,T))continue;for(const w of cxEvWait(ct,now))it.push([`${ct.nm}: ${cxFill(w.ev.t,ct)}`,'ppl',ct.id,'ev',ct,w.ev]);}
   for(const ct of mine){if(!cxOk(ct,T))continue;const b=blkOf(ct,T),u=blkUsed(ct);if(!ct.prog.length&&u<b.n)it.push([`${ct.nm}: ${b.n-u===1?'an empty block':(b.n-u)+' empty blocks'} and idle builders`,'build',ct.id,'blk',ct,b.n-u]);}
   const noMy=mine.filter(c=>cxOk(c,T)&&c.rec&&!cxCityExtras(c.rec).my);if(noMy.length)it.push([noMy.length===1?`${noMy[0].nm} has no mayor`:`${noMy.length} cities have no mayor`,'ppl',noMy[0].id,'my',noMy[0],noMy]);
   if(canFound)it.push(['You can found a new city','new','new','new']);
   return it;
 }
 function cxTodo(T,mine,now,canFound){
-  const it=cxTodoList(T,mine,now,canFound);
+  const it=cxTodoList(T,mine,now,canFound).filter(x=>x[3]!=='ev');
   if(!it.length)return '';
   return `<section class="cx-todo" aria-labelledby="cx-todo-h"><p class="lbl-h" id="cx-todo-h">Needs your attention</p><div class="cx-todo-l">${it.slice(0,6).map(([t,tab,id,k])=>`<button class="chip-btn" data-act="cx-go" data-id="${esc(id)}" data-tab="${tab}" data-k="${k||''}">${esc(t)} →</button>`).join('')}${it.length>6?`<span class="hint">and ${it.length-6} more</span>`:''}</div></section>`;
 }
@@ -82521,18 +82861,17 @@ function cxPage(T,CS,mine,held,a,n,st,now){
   const cur=all.find(c=>c.id===sel),fx=bldEffects(a),ub=all.reduce((s,ct)=>s+Object.values(ct.ug||{}).reduce((t,v)=>t+v,0)+Object.values(ct.tr||{}).reduce((t,v)=>t+(v.t-1)*5,0),0);
   const detail=sel==='new'||!cur?`<section class="city cx-new" id="cx-new"><p class="eyebrow">Ministry of Works</p><h3 class="city-n">Found a new city</h3>${foundCityForm(T,st)}</section>`:cityCard(cur,T,n,st,now);
   const listHtml=`${own.map(ct=>cxItem(ct,T,now,ct.id===sel)).join('')}${cap.length?`<p class="lbl-h cx-list-h">Captured</p>${cap.map(ct=>cxItem(ct,T,now,ct.id===sel)).join('')}`:''}<button class="cx-item cx-add${sel==='new'?' on':''}" data-act="cx-sel" data-id="new" aria-current="${sel==='new'?'true':'false'}"><span class="cx-it-h"><b>+ Found a city</b></span><span class="cx-it-s">${canFound?`${lim-have} more allowed`:have>=MAX_CITIES?'Every city founded':room?'No free site: grow your land':cityBonusHint(n)?'After your first building':nextCityWhen(n,myArea(T,mi),true)?`Next at ${nextCityWhen(n,myArea(T,mi),true)}`:'No room for another'}</span></button>`;
-  return `${cxTodo(T,mine,now,canFound)}${cxStock(n,now)}
+  return `${cxInbox(T,mine,n,st,now)}${cxTodo(T,mine,now,canFound)}${cxStock(n,now)}
   <details class="cx-more"><summary>${(()=>{const oq=own.filter(ct=>ct.rec&&ct.rec.cq).length,f=own.length-oq,q=oq+cap.length;return `${f} ${f===1?'city':'cities'} of ${lim} allowed${q?` · ${q} captured`:''}`;})()} · ${a.dev} ${a.dev===1?'building':'buildings'}${ub?` · ${ub} ${ub===1?'upgrade':'upgrades'}`:''}${a.wonders.length?' · '+esc(list(a.wonders)):''} · what they give you</summary>
     <p class="fig-s-big">${fx.length?esc(fx.join('; ')).replace(/^./,c=>c.toUpperCase())+'.':'Nothing yet. Start with a sawmill or farm.'}</p>${cpSummary(T,n)}${whSummary(n,now)}
     <p class="hint">Whatever your nation produces beyond what it needs collects in the stockpile every day, up to ${stockCap(n)} of each. Buildings are paid for from it. Short of something? Build a sawmill, mine or factory, or trade for it.</p></details>
   ${cxOverview(T,all,sel,now)}<div class="cx-wrap"><nav class="cx-list" aria-label="Your cities">${listHtml}</nav><div class="cx-main" id="cx-main">${detail}</div></div>`;
 }
 function cxPeople(ct,T,n,st,now,ok){
-  const m=cxMood(ct,now),band=cxBand(m.v),ev=ok?cxEvDue(ct,now):null,my=cxCityExtras(ct.rec).my;
+  const m=cxMood(ct,now),band=cxBand(m.v),W=ok?cxEvWait(ct,now):[],my=cxCityExtras(ct.rec).my;
   const mood=`<section class="cx-sec cx-mood"><h4 class="lbl-h">Mood</h4><div class="cx-mood-g">${cxGauge(m.v)}<div><p class="cx-mood-v"><b>${m.v}</b> of 100 ${ct.strike?'<span class="pill down">On strike</span>':`<span class="pill ${band[3]}">${band[1]}</span>`}</p><p class="hint">${ct.strike?`The city has stopped work over the war: its buildings produce nothing until its mood climbs back to ${STRIKE_AT}.`:band[4]}</p></div></div>
-    <ul class="cx-parts cx-mparts"><li><span class="cx-mp-t">Every city starts at</span><span class="cx-mp-bar" aria-hidden="true"></span><b>55</b></li>${cxMoodParts(m.parts)}</ul></section>`;
-  const opt=(o,i)=>{const miss=o.c?lacking(o.c,st):[];return `<div class="cx-ev-o"><button class="btn${i?' ghost':''}" data-act="cx-ev" data-id="${esc(ct.id)}" data-i="${i}" data-k="${esc(ev.k)}"${miss.length?' disabled':''}>${esc(o.l)}</button><span class="hint">${[o.c?'Costs '+costText(o.c):'',o.g?'Brings '+costText(o.g):'',o.m?`mood ${o.m>0?'+':'−'}${Math.abs(o.m)} for three days`:'',o.s?'a small lift for the nation':''].filter(Boolean).join(' · ')||'No cost'}${miss.length?` · you need ${esc(list(miss))} more`:''}</span></div>`;};
-  const matter=!ok?'':ev?`<section class="cx-sec cx-ev" id="cx-matter"><p class="notice-k">A matter for you</p><h4 class="cx-ev-h">${esc(cxFill(ev.t,ct))}</h4><p>${esc(ev.b)}</p><div class="cx-ev-os">${ev.o.map(opt).join('')}</div></section>`:`<section class="cx-sec"><h4 class="lbl-h">Matters</h4><p class="hint">${esc(ct.nm)} brings you a matter every two or three days. The next one comes ${c3When(cxEvAt(ct))}.</p></section>`;
+    <ul class="cx-parts cx-mparts"><li><span class="cx-mp-t">Every city starts at</span><span class="cx-mp-bar" aria-hidden="true"></span><b>55</b></li>${cxMoodParts(m.parts)}</ul>${cxFxLine(ct,now)}${cxForecast(ct,now,m.v)}</section>`;
+  const matter=!ok?'':W.length?W.map((w,i)=>cxEvCard(ct,w,st,now,{id:i?'':'cx-matter'})).join(''):`<section class="cx-sec"><h4 class="lbl-h">Matters</h4><p class="hint">${esc(ct.nm)} brings you a matter about every two days. One left for two days is decided by the city council. The next one comes ${c3When(cxEvNext(ct,now))}.</p></section>`;
   let mayor;
   if(my){const fire=S.cxFire===ct.id,L=CX_LETTERS[my.tr],lead=({Thriving:'The city is in fine spirits.',Content:'The city is calm.',Uneasy:'There is grumbling in the market.',Restless:'I will be frank: the people are unhappy.'})[band[1]];
     const wk=Math.floor(now/(7*DAY));
@@ -82540,7 +82879,7 @@ function cxPeople(ct,T,n,st,now,ok){
       <figure class="cx-lt"><figcaption class="cx-lt-h">${ct.rec&&ct.fn?ccSVG(ct,'cc-s'):''}<span>The Mayor’s office, ${esc(ct.nm)}</span><span class="cx-lt-d">${fmtDate(Math.max(wk*7*DAY,my.t||0))}</span></figcaption><blockquote class="cx-letter"><p>${esc(lead)} ${esc(L[hash(ct.id+':'+wk)%L.length])}</p><footer>${esc(my.nm)}, Mayor of ${esc(ct.nm)}</footer></blockquote></figure>
       ${ok?(fire?`<div class="row"><span class="hint">Dismiss ${esc(my.nm)}? A new mayor costs ${esc(costText(CX_MAYOR_COST))}.</span><button class="btn danger small-btn" data-act="cx-fire" data-id="${esc(ct.id)}">Dismiss</button><button class="linkish small" data-act="cx-fire-no">Keep</button></div>`:`<button class="linkish small" data-act="cx-fire-ask" data-id="${esc(ct.id)}">Dismiss the mayor…</button>`):''}</div></section>`;}
   else mayor=`<section class="cx-sec" id="cx-mayor"><h4 class="lbl-h">Mayor</h4><p class="hint">${esc(ct.nm)} has no mayor. Appointing one costs ${esc(costText(CX_MAYOR_COST))}, lifts the city’s mood by 3 and brings one trait. New candidates come forward every week.</p>${ok?`<ul class="cx-cands">${cxCands(ct,now).map((c,i)=>`<li class="opt cx-cand">${cxMayorMed(ct,c,'cx-cand-med')}<div class="opt-h"><b>${esc(c.nm)}</b></div><p class="opt-d"><span class="chip">${esc(CX_TRAITS[c.tr][0])}</span> ${esc(CX_TRAITS[c.tr][1])}</p><button class="btn" data-act="cx-mayor" data-id="${esc(ct.id)}" data-i="${i}"${lacking(CX_MAYOR_COST,st).length?' disabled':''}>Appoint</button></li>`).join('')}</ul>`:''}</section>`;
-  return matter+mood+mayor;
+  return matter+mood+mayor+cxChron(ct,now,true);
 }
 function cxDefence(ct,T,n,st,now,ok){
   const a=cityState(T).agg[ct.hi],e=cxCityExtras(ct.rec),lv=cxWallLv(ct.rec,now),my=e.my,parts=['Being a city: +20%'];
@@ -82591,7 +82930,7 @@ function cityCard(ct,T,n,st,now){
   else{
     const rows=rowsOf();
     const end=ct.prog.reduce((m,b)=>Math.max(m,b.d),0);
-    body=`${blkCard(ct,T,used,slots)}<ul class="blds">${rows}</ul>${ok&&ct.done.some(cxUpgradable)?cxUgLegend():''}${cxReachLine(ct,n)}${end>now?`<p class="hint cx-qend">The builders are busy until ${c3Until(end)}${ct.prog.length>1?`, with ${ct.prog.length-1} more waiting in the queue`:''}.</p>`:''}${ok&&slots>used&&!ct.prog.length?`<div class="row cx-gobuild"><button class="btn" data-act="cx-go" data-id="${esc(ct.id)}" data-tab="build">Choose a building…</button></div>`:''}${mpInfluenceHTML(ct,T)}`;
+    body=`${blkCard(ct,T,used,slots)}<ul class="blds">${rows}</ul>${ok&&ct.done.some(cxUpgradable)?cxUgLegend():''}${cxReachLine(ct,n)}${cxLately(ct,now)}${end>now?`<p class="hint cx-qend">The builders are busy until ${c3Until(end)}${ct.prog.length>1?`, with ${ct.prog.length-1} more waiting in the queue`:''}.</p>`:''}${ok&&slots>used&&!ct.prog.length?`<div class="row cx-gobuild"><button class="btn" data-act="cx-go" data-id="${esc(ct.id)}" data-tab="build">Choose a building…</button></div>`:''}${mpInfluenceHTML(ct,T)}`;
   }
   return `<article class="city cx-detail" id="city-${esc(ct.id)}">${cxSkyHTML(ct)}
     <div class="city-h"><div class="cc-head">${ct.rec&&ct.fn?ccSVG(ct,'cc-h'):''}<div><p class="eyebrow">${ct.cap?'Capital':'City'} · ${esc(cap1(placePhrase(ct.c).replace(/^in the |^on /,'')))}</p><h3 class="city-n">${esc(ct.nm)}</h3>${cpCardPop(ct,T)}</div></div>
@@ -82677,7 +83016,8 @@ document.addEventListener('click',e=>{
   if(a==='cx-fire-ask'){S.cxFire=id;render();return;}
   if(a==='cx-fire-no'){S.cxFire=null;render();return;}
   if(a==='cx-fire'){cxDismiss(id);return;}
-  if(a==='cx-ev'){cxAnswer(id,+el.dataset.i,el.dataset.k);return;}
+  if(a==='cx-ev'){cxAnswer(id,+el.dataset.a,+el.dataset.i,el.dataset.k);return;}
+  if(a==='cx-nw'){cxNwAnswer(+el.dataset.a,+el.dataset.i,el.dataset.k);return;}
   if(a==='cx-road'){cxBuildRoad(+el.dataset.a,+el.dataset.b,el.dataset.k==='bridge'?'bridge':'road');return;}
   if(a==='cx-qup'){cxQueueUp(id,el.dataset.k);return;}
   if(a==='cx-cr'){cxCrestEdit(id,el.dataset.f,el.dataset.v);return;}
@@ -82858,7 +83198,7 @@ function nsMayors(n){return nsCities(n).filter(c=>cxCityExtras(c).my).length;}
 function nsWalls(n){const now=Date.now();return nsCities(n).reduce((m,c)=>Math.max(m,cxWallLv(c,now)),0);}
 function nsTopUp(n){const now=Date.now();return nsCities(n).reduce((m,c)=>Math.max(m,...Object.values(cxUpMap(c,now)),(c.b||[]).some(b=>b&&b.tr>=2)?5:0),0);}
 function nsRaising(n){const now=Date.now();return nsCities(n).some(c=>!!cxUpBusy(c,now));}
-function nsSore(n){const now=Date.now();return nsCities(n).some(c=>{const mb=cxCityExtras(c).mb;return !!mb&&mb.v<0&&mb.u>now;});}
+function nsSore(n){const now=Date.now();return nsCities(n).some(c=>{try{return !!c&&cxRipples({rec:c,fid:myId(),fn:n},now).raw<0;}catch(e){return false;}});}
 function nsRoad(n){const now=Date.now();return (Array.isArray(n&&n.infra)?n.infra:[]).some(r=>r&&Number.isFinite(r.d)&&r.d<=now);}
 function nsRecruits(n){return Array.isArray(n&&n.rcp)?n.rcp.length:0;}
 function nsKeeper(n){return !!(n&&n.ach&&n.ach['law-zones']);}
@@ -89895,7 +90235,7 @@ mapBox=(f=>function(kind){const h=f.apply(this,arguments),n=S.nation;if(kind!=='
 if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({RPATCH,SC:()=>scProbe(),WR3:()=>({CQ_ISSUES,cqFall,cqFalls,cqPairs,cqFallOf,cqAct,wrSackFix,MON_FIRST,monSites,monCard,monInfo,monIsFirst,monNorm,monRisen,cqDue,cqTake,cityFounded,cqBuildings,openMapAt,WAR3_ISSUES,wr3WarsSection,wr3BattleCard,wr3MapData,wr3Econ,wr3Close,wr3VetDue,wr3WindToggle,wr3MunOn,wr3Reserve,wr3Factors,wr3On,wr3DieSpin,warOfficeView,woTargets,thrHTML,warsSection,warFigs,warRow,warRank,allyWars,wwState,wwCard,wwLevers,wwCeil,wwFight,wwFightBtn,WW_OR_TOP,WW_OR_MS}),WR2:()=>({wrFallenCard,WR,WAR_GOALS,WAR2_ISSUES,wrSiege,wrSiegesOn,wrFallsAt,myFall,wrSiegeWhy,wrCapExposed,wrUnrest,wrWarsOf,wrPopFx,wrTribute,wrForts,wrFortify,wrSurrender,wrSiegeStart,wrRise,wrCarry,wrEdictDue,wrSafe,wrNotice,territory,frontier,economy,warControls,targetPanel,armyBlock,warNotice,warWith,pairWar,nationView,rgnOverview,hxCard}),HELPX:()=>({HLP,HELP_CH,HELP_SUM,HELP_FOR,WIKI,WIKI_PAGE,wikiHref,wikiSearch,GLOSS,helpFind,helpIndex,helpSecList,helpForYou,helpChapters,rgcCmd,rgcCardOf,rgcCardHTML,admhHs,admhHsCount}),MTP:()=>({MTP,MTP_PAD,TBMP_SCALE,redrawMaps,mapScale,viewOf}),CSITE:()=>({citySites,siteSpots,siteCity,siteGains,siteLand,siteValue,citySpotProblem,cityProblem,territory,cityState,mpCityPopulations}),SCR:()=>({scrOf,scrClean,scrDef,scrFamOf,scrEdParse,scrGlyphs,scrLay,scrChars,scrSVG,scrLine,scrCard,scrCharterSVG,scrFmt,scrFor,dmRich,dmPlain,scrDmWith,SCR_FAM,SCR_ABC,SCS}),BDX:()=>bdProbe(),LDX:()=>ldProbe(),FLY:()=>({flagSVG,fgSplit,fgFused,FS,fsColours,fsPaint,fsCheck,fgCantonWH,czArmsSVG,CZ_SHIELDS,czShOk,czShHow,czCleanArms}),RD:()=>rdProbe(),JV:()=>jvProbe(),M100P:()=>({M100,M100_N,M100_MC,M100_MCN,m100Bits,m100Got,m100In,m100Due,m100Count,m100Show,m100Open,ctgMcOk,nationColor,czShOk,czShieldPath,unlocksOf,czPatSVG,xsMax}),M200P:()=>({M200,M200_N,M200_MC,M200_MCN,M200_U,m200Bits,m200Got,m200In,m200Due,m200Count,m200Show,m200Open,ctgMcOk,nationColor,czShOk,czShieldPath,unlocksOf,czPatSVG,czStampArt,czFrameArt,czCharge,czFramed,flagSVG,xsMax,ACH_BY_ID,achEarnedIds}),MRN:()=>({MR,mrMap,mrHeld,mrSync,mrAt,mrOf,mrName,mrIn,mrRename,mrReset,mrNameProblem,mrTaken,mrPanel,mrLabels,mrSnowOf,MR_MIN,MRN_MAX,placePhrase,territory,MAP,HEX_W,updateMapPanel,logLine,dspEdition,dspNoOf,SITES,siteDefault,siteName,RV:()=>RV}),WTN:()=>({WN,wbMap,wnKind,wnWaters,wnSync,wnAt,wnRename,wnReset,wnNameProblem,wnTaken,wnPanel,wnLabels,lakeMap,isLake,cellAt,WN_REACH,WTN_MAX,REG,RV,rvData,hexDist,territory,MAP,HEX_W,updateMapPanel,logLine}),RVN:()=>({RV,rvData,rvSync,rvKey,rvHeld,rvStretch,rvMost,rvEdgeHolder,rvAt,rvNameAt,rvLabelAt,rvParts,rvRename,rvReset,rvNameProblem,rvTidy,rvLabel,rvnPanel,logLine,RVN_MAX,RVN_LEN,updateMapPanel,hexDist,HEX_W,REG}),CP2:()=>({BLD_ICO,bldIco,bldLead,cxDefTotal,cxOrder,qjBuilding,BUILDINGS}),PRVC:()=>({cxPrvOf,cxPrvSeatTrial,cxOvwCols,prvSeat,prvMine,prvOfCell,prvSetAut,prvAppoint,PRV}),NPX:()=>({fbTrend,fbYesterday,heroLead,heroOpen,opOf,OPEN_TO,hnOf,hnFill,hnLine,nbSection,ppWho,ppWhoHTML,ppHash,ppCarried,economy,territory,bordersOf,fillDeal,findNation,clsHide,MAP,hexDist,STAT_KEYS,popNow,myId}),PT:()=>ptProbe(),LTH:()=>lthProbe(),DAM:()=>damProbe(),CHAT:()=>({RGC,RGW,RGF,RGA,tab:rgcTab(),count:rgcCount(),region:rgcUnread(),world:rgwUnread(),named:rgwNamedUnread(),fr:rgwUnread(RGF),frNamed:rgwNamedUnread(RGF),frOn:rgfOn(),amb:rgwUnread(RGA),ambOn:rgaOn(),tabs:rgcTabs().map(x=>x[0]),hidden:document.hidden}),UXP2:()=>({edictDesk,edictStep,edictOpen,fill,ISSUE_BY_ID,ACH,keysOpen,dmOthers,dmPickList,stGroups,stTabLast,navRecent,vhData,VH_KEY,VH_AFTER,QJ_DO,qjItems:q=>navQjItems(q),NAV_REC_KEY,ST_KEY}),HID:()=>({HIDN,hidMask,iAmHidden,frontier,mapPanel,warControls}),WG:()=>({wgTakers,wgForField,wgForPick,warGiveHex,warGive,occupiedFrom,attack,offerPeace,declareWar,collectConquests,dedupeConq}),WAKE:()=>({dormFresh,dormQuiet,dormWelcome,moveTo,RSTAT,REGIONS,REG,regDisabled}),HMB:()=>({RCTRL,hmBake,hmAutoFlag,fxDraw,capHolder,FX_DEF,DEF_FLAG,hmRle,hmLiveNorm,hmMapNorm,hmSel,hmRegions,hmBlocked,hmEngaged:()=>hmEngaged,HM,REG,MAP}),LAND:()=>({landWait,capLift,capWrong,capNote,raceKnown,RACE,worldHeardAt:()=>worldHeardAt,landQ:()=>S.landQ,landQueued,fdSites:(n,T)=>fdSites(n,T)}),BG:{gain:bldGain,html:bldGainHtml},IB:()=>({spyGiftRule,spyGiftUnseen,SPY_GIFT_GAP,agRoster,agPick,agStatus,heatOf,cvRoll,cvKey,cvBlock,cvOdds,buLv,buGap,buAll,BU,BU_KEYS,BU2,BU2_KEYS,buLine,bu2Lv,bb,bu2Cost,bu2Hours,bu2Why,buCredits,buHoldK,agRestMs,cvSwayOdds,ibTurnChance,mhChance,landEarned,ibFile,ibWanted,ibChatter,HEAT_MAX,DD_TASKS,DD_LEG,findNation,allNations,cvProtected}),VL:()=>({VL_SECS,VL_DEF,CLS,CLS_OPS,CLS_READ,vlOrder,clsOf,clsRaw,clsMax,clsSeen,clsHide,clsRead,vlSave,findNation}),IFC:()=>({plan:ifcPlan,works:ifcWorks,line:ifcLine,tab:ifcTab}),DS:()=>dsProbe(),XP:()=>({BUILDINGS,XU,XU_KEYS,XU_TOTAL,LOST_KINDS,LOST_ORDER,XU2,XU2_KEYS,LOST2_KINDS,LOST2_ORDER,xuLine,xu2Lv,xb,xu2Cost,xu2Hours,xu2Why,xu2Start,xuCredits,xuMapsLv,xuFlK,xuFindK,xuParty,xuTimeK,xuReach,xuCostK,xuCurio,flSoon,landEarned,xuLv,xuWhy,xuHave,xuStart,xuCost,xuGear,xpSeen,expFree,xpTeamOpen,nationBuilt,expBackTeam,SITES,SITE_KINDS,expPlan,expOdds,expRuns,expRange,flRange,flAlive,flPlan,flDebug,flNow,discoveries,sendExpedition,hearReport,xpRoute,xpRivals,xpRivalText,xpFinds,flOdds,territory}),SVC:()=>({SVC,SVC_N,SVC_V,SVC_NEED,svcPlan,svcOpen,svcDig,svcShort,svcRoll,svcAmt,svcDayOf,svcRoom,svcNext}),FLC:()=>({FLC,FLC_RULES,FLC_CAT,flcId,flcTimes,flcPhase,flcPrev,flcView,flcLoad,flcChamp,flcTodo,flcClaims,flcLand,flcStreak,flcAllDone,flcSeen,flcDuty,flcDeskOn,flcDraftPush,FCA}),LK:{lakeMap,isLake,claimLand,lakeShore,fillHeld,LAKE_MAX,LAKE_A,freeCell,claimFrontier,blockPlan,autoPlan,terrCount,placePhrase,claimWhy,swapCheck,inspectPanel,writeClaims,landCredits:n=>landCredits(n)},PST:()=>({PST,PST_LOOKS,PST_SHAPES,PST_SIZES,pstBar,pstKm,pstView,pstBox,pstPlace,pstKeyOf,pstRender,pstShow,pstHide,pstLocked,pstOffered,pstSizeOffered,pstPrintK,pstSealId,pstPhys,pstCrc}),DIG:()=>({DIG_SETS,DIG_FIRST,DIG_POOL,DIG_SITES,DIG_LEN,DIG_EVENTS,DIG_SCH,digSet,digHeld,digDone,digRew,digCredits,digOrder,digActive,digRetired,digOpenedAt,digPlan,digSend,digOpen,digChoose,digMod,digEvent,digPity,digGround,digInvites,digJoin,digJointOn,digGiftsIn,digTake,digGiveSpare,digSellSpare,digHire,digRegionFinds,digFirsts,landEarned:n=>landEarned(n),REG,REGIONS,COL_BY_ID}),MW:()=>({mwOf,mwLeft,mwDue,mwPoints,mwVisitors,mwTakings,mwExhibit,mwExhibitItems,mwRanking,mwWorn,mwSlots,mwOnShow,COL_BY_ID,COL_ITEMS,DIG_SETS,MW_FLOORS}),GM:()=>({gamesResults,edOf,b1Now,gevWhy,baseScores,entryOf,medalsIn,gamesRecords,gamesCeremony,unlocksOf,myId,formOf,GAME_EVENTS,clone,commit}),GM2:()=>({GAMES_V2,GTAC,TRAIN_PTS,TRAIN_MAX,BOY_GW,edOf,edStart,entryOf,gamesHost,gamesBids,edEvents,edDrawn,gmSwapOf,gmMascOf,gmChatLines,gmChatLine,gmTrCost,gevWhy,formOf,gamesResults,dspBuild,dspNoOf,c3MyBid,gcerSeen,stockNow,stockCap,canFeature,myId,clone,commit}),GB:()=>({IRON_DEP,IRON_DEP_YIELD,CELL_RES,MAP_T:MAP.T,mapAt:c=>{centerMain(c,NEAR_Z*1.6);},stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,FOOD_SPOIL,FOOD_EAT,FOOD_TIERS,FOOD_LAND,foodTier,TIMBER_BURN,foodGrowth,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({dspShown,dspRegShown,dspRegs,dspPic,dspLocator,dspHtDefs,pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),ASMX:()=>({ASMX,ASMX_TABS,asmBookAt,asmState,asmArcLoad,REG}),RGNX:()=>({RGN,RGN_PAGE,notifItems,ONL,onlRefresh}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals,seatsOf,alliancesOf,alMineAll,alClashes,alFest,alWornOf,alGuardsOf,alSeatsFor,allianceOf,AL_TY_UI,alStripHTML,alArmsSVG,alArmsAuto,alPzKeys,alMoCheck,alOpenPage,alWeekData,alLvOpens}),TYX:()=>({TY,TY_RULES,TY_K,tyOf,tyList,tyWarBlock,tyIncoming,affinity,alPactLive,alRelationsHTML,econOf,armyPower,armyRaw,attackMult,readyMs,drWords,drNote,drBroken,relationCard}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,npcIdeaNow,npcDealFor,npcAsk,npcReply,npcVerdict,npcTradeTalk,dealSlots,maxDeals,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,achTierCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC,step:rcStepCheck,head:rcHead,sponsoring:rcSponsoring,qr:qrMatrix,card:rcCardDraw,invCap:rcInvCap,free:rcFreeLand,STEPS:RC_STEPS,UNL:RC_UNLOCKS,link:rcLink,amts:rcAmts,amtText:rcAmtText,pact:rcPactUntil,quiet:rcQuiet,moments:rcMoments,momentOf:rcMomentOf,moDraw:rcMoDraw,ev:rcEv,evRead:rcEvRead,dev:rcDev,devNote:rcDevNote,noteLoad:rcNoteLoad,welcome:rcWelcomeText,traded:rcTraded,mult:rcMult,landAmt:rcLandAmt,GRAND:RC_GRAND,SHARE:RC_SHARE,GUNL:RC_GUNLOCKS,gcount:rcGCount,ulArt:rcUlArt,newUnl:rcNewUnl}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend,card:n=>tutCard(n),phase:n=>tutPhase(n),picks:(n,ph)=>tutPicks(n,ph),group:(n,k)=>tutGroup(n,tutL(k)),hid:n=>tutHid(n)},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours,
   SV:MC_SV,XS:MC_XS,QUEUE:MC_QUEUE,DISH:MC_DISH,FINDS:MC_FINDS,CHART_MS:MC_CHART_MS,repSecs:mcRepSecs,repKind:mcRepKind,fold:mcFold,lane:mcLane,dish:mcDish,
   finds:mcFinds,findAt:mcFindAt,bits:mcBitsList,charted:mcCharted,chartedNow:mcChartedNow,unqueue:mcUnqueue,dishBuild:mcDishBuild,bringHome:mcBringHome,
-  secSite:mcSecSite,prefOk:mcPrefOk,prefTile:mcPrefTile,setPref:mcSetPref,startProblem:mcStartProblem,wfKey:mcWfKey,osKey:mcOsKey},WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,ACT1:WS_ACT1,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond,real:wsReal,mask:wsMask,ansN:wsAnsN},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR,bell:now=>notifItems(now||Date.now())},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},TIER:()=>({BTIER,bEff,bTier,bTierNext,bTierLine,tierQuote,tierProblem,cxTier,cxTrMap,tierSettle,tierReady,cxGoldNow,cxUpQuote,cxUpList,cxUps,mktSlots,mktSlotsOf,maxDeals,bldAggOf}),CX:{upgradable:cxUpgradable,mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState,UG:CX_UG,LV:CX_LV,ups:cxUps,upMap:cxUpMap,extras:cxBldExtras,quote:cxUpQuote},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo,unlockTarget,unlockShow,unlockFresh,unlockQueue,ULK,UNLOCKS,unlocksOf,toast:m=>toast(m)},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{coinBackSVG:cuCoinBackSVG,noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,coinSVG:cuCoinSVG,guide:cuGuideHTML,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,drawMap,sfKey,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ACH_RANKS_V1,ID_BD,achVal,achCtx,achEvalNew,achState,stockRates:n=>stockRates(n),achPoints,achRank,achRankOf,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,flagNorm:(f,n)=>flagNorm(f,n),flagSVG:(f,l)=>flagSVG(f,l),mapTip:id=>{const T=mapTerr('main'),i=T.list.findIndex(x=>x.id===id);if(i<0)return '';const cell=Array.prototype.indexOf.call(T.owner,i);return MAP_TIP.map(h=>{try{return h({kind:'main',cell,cv:null,x:0,y:0});}catch(e){return '';}}).filter(x=>typeof x==='string').join(' | ');},cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
+  secSite:mcSecSite,prefOk:mcPrefOk,prefTile:mcPrefTile,setPref:mcSetPref,startProblem:mcStartProblem,wfKey:mcWfKey,osKey:mcOsKey},WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,ACT1:WS_ACT1,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond,real:wsReal,mask:wsMask,ansN:wsAnsN},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR,bell:now=>notifItems(now||Date.now())},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},TIER:()=>({BTIER,bEff,bTier,bTierNext,bTierLine,tierQuote,tierProblem,cxTier,cxTrMap,tierSettle,tierReady,cxGoldNow,cxUpQuote,cxUpList,cxUps,mktSlots,mktSlotsOf,maxDeals,bldAggOf}),CX:{upgradable:cxUpgradable,mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,nationEvents:CX_NATION_EVENTS,next:cxEvNext,wait:cxEvWait,ripples:cxRipples,nwWait:cxNwWait,traits:CX_TRAITS,cityState,UG:CX_UG,LV:CX_LV,ups:cxUps,upMap:cxUpMap,extras:cxBldExtras,quote:cxUpQuote},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo,unlockTarget,unlockShow,unlockFresh,unlockQueue,ULK,UNLOCKS,unlocksOf,toast:m=>toast(m)},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{coinBackSVG:cuCoinBackSVG,noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,coinSVG:cuCoinSVG,guide:cuGuideHTML,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,drawMap,sfKey,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ACH_RANKS_V1,ID_BD,achVal,achCtx,achEvalNew,achState,stockRates:n=>stockRates(n),achPoints,achRank,achRankOf,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,flagNorm:(f,n)=>flagNorm(f,n),flagSVG:(f,l)=>flagSVG(f,l),mapTip:id=>{const T=mapTerr('main'),i=T.list.findIndex(x=>x.id===id);if(i<0)return '';const cell=Array.prototype.indexOf.call(T.owner,i);return MAP_TIP.map(h=>{try{return h({kind:'main',cell,cv:null,x:0,y:0});}catch(e){return '';}}).filter(x=>typeof x==='string').join(' | ');},cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
 /* ───────── Letters by post: the player's email address, confirmed by a code, and the letters they choose ─────────
    Settings › Letters by post (src/shim.js mail; functions/mail.js). The address lives only on the server; this card
    asks for it each time Settings opens. Things this nation does to another player's nation (a letter, a war, a deal)
@@ -94956,8 +95296,9 @@ function caCompute(n,now){
   const {T,mine}=myCityStates(),mi=T.byId[myId()],out=[];if(mi===undefined)return out;
   const lim=Math.min(maxCities(T,mi),MAX_CITIES),free=lim-cityList(n).filter(c=>!c.cq).length;
   const it=cxTodoList(T,mine,now,free>0&&nvxCitySite(T,mi)),ev=it.filter(x=>x[3]==='ev'),blk=it.filter(x=>x[3]==='blk'),my=it.find(x=>x[3]==='my');
+  for(const w of cxNwWait(n,now))out.push({k:'cxev',kl:n.name||'Your nation',txt:`${cxNwFill(w.ev.t,n)}. A matter for the whole nation waits for your answer.`,cx:(mine[0]&&mine[0].id)||'new',tab:'b',at:'nw',c:1});
   if(ev.length<=3)for(const x of ev)out.push({k:'cxev',kl:x[4].nm,txt:`${cxFill(x[5].t,x[4])}. A matter waits for your answer.`,cx:x[2],tab:'ppl',at:'ev',c:1});
-  else out.push({k:'cxev',kl:'Your cities',txt:`${ev.length} cities have matters waiting for your answer: ${caNames(ev.map(x=>x[4]))}.`,cx:ev[0][2],tab:'ppl',at:'ev',c:ev.length});
+  else{const cs=[...new Set(ev.map(x=>x[4]))];out.push({k:'cxev',kl:'Your cities',txt:cs.length===ev.length?`${ev.length} cities have matters waiting for your answer: ${caNames(cs)}.`:`${ev.length} matters wait for your answer in ${caNames(cs)}.`,cx:ev[0][2],tab:'ppl',at:'ev',c:ev.length});}
   if(blk.length===1)out.push({k:'cxtodo',kl:'Ministry of Works',txt:`${blk[0][4].nm} has ${blk[0][5]===1?'an empty block':blk[0][5]+' empty blocks'} and idle builders. Choose what to build.`,cx:blk[0][2],tab:'build'});
   else if(blk.length)out.push({k:'cxtodo',kl:'Ministry of Works',txt:`${caNames(blk.map(x=>x[4]))} have empty blocks and idle builders.`,cx:blk[0][2],tab:'build'});
   if(my)out.push({k:'cxtodo',kl:'Ministry of Works',txt:my[5].length===1?`${my[4].nm} has no mayor. Candidates are waiting to be appointed.`:`${my[5].length} cities have no mayor: ${caNames(my[5])}.`,cx:my[2],tab:'ppl',at:'mayor'});
@@ -94973,11 +95314,11 @@ function caItems(n,now){
 }
 notifItems=(f=>function(now){const r=f.apply(this,arguments);try{const t=now||Date.now();r.pin.push(...caItems(S.nation,t).filter(x=>!ntfMuted(x.k)).map(x=>({...x,go:'cities'})));}catch(e){}return r;})(notifItems);
 /* where a notice lands: the matter, the candidates for mayor, the new-city form, or the city with its Build tab open */
-function caTarget(id,tab,at){return id==='new'?'#cx-new':at==='ev'?'#cx-matter':at==='mayor'?'#cx-mayor':'#city-'+CSS.escape(id);}
+function caTarget(id,tab,at){return at==='nw'?'#cx-nw':id==='new'?'#cx-new':at==='ev'?'#cx-matter':at==='mayor'?'#cx-mayor':'#city-'+CSS.escape(id);}
 /* runs before the bell's own click (which closes it and opens the Cities page), so the page opens on that city */
 document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-act="nt-go"][data-cx]');if(!el)return;
   const id=el.dataset.cx,tab=el.dataset.cxt||'b',target=caTarget(id,tab,el.dataset.cxa);
-  UXP.pending={view:'cities',target,setup:()=>{S.cxSel=id;S.cityMsg='';S.confirmDemo=null;S.cityOpen=tab==='build'?id:null;S.cxTab=tab==='build'||tab==='new'?'b':tab;S.caFlash=target;}};},true);
+  UXP.pending={view:'cities',target,setup:()=>{S.cxSel=id;S.cityMsg='';S.confirmDemo=null;S.cityOpen=tab==='build'?id:null;S.cxTab=tab==='build'||tab==='new'?'b':tab;S.caFlash=target;S.cxInboxShut=false;}};},true);
 render=(f=>function(){const r=f.apply(this,arguments);if(S.caFlash&&S.view==='cities'){const sel=S.caFlash;S.caFlash=null;try{const el=document.querySelector(sel);if(el)el.classList.add('ca-flash');}catch(e){}}return r;})(render);
 /* the menu: matters waiting count on Cities, as a city to found does */
 nvxCompute=(f=>function(n,now){const out=f.apply(this,arguments);try{const k=caItems(n,now).filter(x=>x.k==='cxev').reduce((s,x)=>s+(x.c||1),0);
@@ -95243,6 +95584,8 @@ DISPATCH_SOURCES.push(ctx=>{
       else if(l.k==='recruit')out.push({k,t:l.t,sec:'society',kick:'New arrivals',h:Y?`${N} recruits ${Y}`:`${N} recruits a new nation`,b:`${Y||'A newly founded nation'} came to ${REG.the} on the word of ${N}, whose recruiting drive has been described as “persistent”.`,who:y?[x.id,l.a]:[x.id],w:3,go:'nation'});
       else if(l.k==='ppend')out.push({k,t:l.t,sec:'world',kick:'Passports',h:Y?`New ink in ${N}’s passport: ${Y}`:`New ink in ${N}’s passport`,b:`The stamp of ${Y||'a neighbour'} in ${N}’s passport now carries a ${dspClean(l.fx,120)||'new endorsement'}. The passport office has asked for a bigger stamp pad.`,who:y?[x.id,l.a]:[x.id],w:3,go:'passport'});
       else if(l.k==='bgold')out.push({k,t:l.t,sec:'business',kick:'Cities',h:`${dspClean(l.b,60)||'A building'} in ${dspClean(l.a,60)||CAP} goes gold`,b:`${N} has fitted the last, gold upgrade to the ${dspClean(l.b,60)||'building'} in ${dspClean(l.a,60)||CAP}, which now works at double strength. A ribbon was cut, then framed.`,who:[x.id],w:4,go:'cities'});
+      else if(l.k==='cxm'){const A=dspClean(l.a,60)||CAP,won=l.c===1;out.push({k,t:l.t,sec:'society',kick:'Cities',h:won?`A gamble pays off in ${A}`:`A gamble goes wrong in ${A}`,b:`${dspClean(l.fx,240)}. ${N} chose “${dspClean(l.b,60)}”, and it ${won?'paid off':'went badly'}. The city talks of nothing else.`,who:[x.id],w:2,go:'cities'});}
+      else if(l.k==='cxn'){const how=l.b==='1'?' It paid off.':l.b==='0'?' It went badly.':'';out.push({k,t:l.t,sec:'politics',kick:'The nation',h:`${N} decides: “${dspClean(l.a,60)}”`,b:`${dspClean(l.fx,240)}. The government of ${N} chose “${dspClean(l.a,60)}”, and every city will feel it.${how}`,who:[x.id],w:3,go:'cities'});}
       else if(l.k==='cwall')out.push({k,t:l.t,sec:'society',kick:'Cities',h:`New walls for ${dspClean(l.a,60)||CAP}`,b:`The walls of ${dspClean(l.a,60)||CAP} in ${N} have reached level ${dspClean(l.b,2)||'1'}. Residents report feeling safer and slightly more enclosed.`,who:[x.id],w:3,go:'cities'});
     }
   }
@@ -99761,7 +100104,8 @@ function cxGauge(v){
 }
 function cxMoodParts(parts){
   const mx=Math.max(10,...parts.map(([d])=>Math.abs(d)));
-  return parts.map(([d,t])=>`<li><span class="cx-mp-t">${esc(t)}</span><span class="cx-mp-bar" aria-hidden="true"><i class="${d>0?'up':'down'}" style="width:${(Math.abs(d)/mx*50).toFixed(1)}%"></i></span><b class="${d>0?'up':'down'}">${d>0?'+':'−'}${Math.abs(d)}</b></li>`).join('');
+  /* t: the words, or a matter's ripple, whose words are written only here */
+  return parts.map(([d,t])=>`<li><span class="cx-mp-t">${esc(typeof t==='string'?t:t.lbl)}</span><span class="cx-mp-bar" aria-hidden="true"><i class="${d>0?'up':'down'}" style="width:${(Math.abs(d)/mx*50).toFixed(1)}%"></i></span><b class="${d>0?'up':'down'}">${d>0?'+':'−'}${Math.abs(d)}</b></li>`).join('');
 }
 /* a mayor's face: the Government page's medallion, in the cabinet's dress code under the mayor's own look (chosen in
    Customise › Portraits, x.l), of an age fixed by the name */

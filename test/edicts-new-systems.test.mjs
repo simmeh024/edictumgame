@@ -26,7 +26,9 @@ function load(){
     clamp:(v,a,b)=>Math.max(a,Math.min(b,v)),pol:n=>(n&&n.policies)||{},
     mdRate:n=>5,mdNow:n=>n.md,mdGain:(n,v)=>{n.md=Math.max(0,Math.min(10,n.md+v));},mdFmt:v=>String(Math.round(v*10)/10),
     cxMood:ct=>({v:ct.base??60,parts:[[5,'Seat of government']]}),geoAfter:()=>[['Land','A hex of new land.']],
-    cxCityExtras:c=>c||{},cxWallLv:c=>(c&&c.wl)||0,cxUpMap:c=>(c&&c.ups)||{},cxUpBusy:c=>(c&&c.busy)||null,cxRoadAt:(fn,cell)=>(fn.infra||[]).some(r=>r.a===cell||r.b===cell),
+    cxCityExtras:c=>c||{},
+    /* a city's answers to its matters, as their mood now (round two: cxRipples; a record from before keeps its flat mb until it runs out) */
+    cxRipples:(ct,now)=>({raw:ct.rec&&ct.rec.mb&&ct.rec.mb.u>now?ct.rec.mb.v:0}),myId:()=>'me',cxWallLv:c=>(c&&c.wl)||0,cxUpMap:c=>(c&&c.ups)||{},cxUpBusy:c=>(c&&c.busy)||null,cxRoadAt:(fn,cell)=>(fn.infra||[]).some(r=>r.a===cell||r.b===cell),
     gvSeatCount:n=>({seats:n.seats}),decisions:n=>n.dec,gvLdr:n=>({e:n.ldr}),cityCount:n=>n.cities.length,ppCount:n=>n.stamps,
     achPoints:n=>n.rank,achRank:p=>({i:p}),achRankOf:n=>({i:n.rank})
   };

@@ -94,8 +94,12 @@ check('a matter arrives when it is due',await until(()=>A.locator('.cx-ev').coun
 const ev=await A.evaluate(()=>{const h=document.querySelector('.cx-ev-h').textContent,nm=document.querySelector('.cx-detail .city-n').textContent;return G.CX.events.find(e=>e.t.replace(/\{C\}/g,nm)===h);});
 await A.click(`[data-act="cx-ev"][data-i="0"]`);
 const r2=await rec();
-check('answering it schedules the next one in two to three days',r2.ne>Date.now()+1.9*864e5&&r2.ne<Date.now()+3.1*864e5);
-check('and its mood effect is counted',ev?((await city()).mood-m0===(ev.o[0].m||0)):true,`${m0} → ${(await city()).mood}`);
+/* round two (2026-11-28): the next one keeps its own clock; the answer goes in the chronicle, with +1 for answering within a day */
+const e0=r2.ch&&r2.ch[0];
+check('answering it goes in the city’s chronicle',!!e0&&!!ev&&e0.k===ev.k&&e0.o===0&&e0.q===1,JSON.stringify(e0));
+check('the next one comes on its own clock, one to three days on',await A.evaluate(id=>{const ct=G.NB.myCityStates().mine.find(c=>c.id===id),t=G.CX.next(ct,Date.now());return t>Date.now()+0.9*864e5&&t<Date.now()+3.1*864e5;},cid));
+check('and its mood is counted',!!e0&&(await city()).mood-m0===e0.v,`${m0} → ${(await city()).mood}, answer ${e0&&e0.v}`);
+check('the chronicle shows it',/Chronicle of/.test(await text(A,'.cx-chron'))&&/You chose/.test(await text(A,'.cx-chron')));
 
 /* the plans: filters and the queue */
 await A.click(`[data-act="ct-open"][data-id="${cid}"]`);
