@@ -2127,6 +2127,9 @@ button.stk-i:hover,button.cx-stk:hover{background:var(--sheet-2)}button.stk-i:fo
 .ifc-fx{grid-column:2;display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:4px;font-size:13.5px}.ifc-fx .hint{font-size:12.5px}
 .ifc-a{white-space:nowrap;font-weight:600;font-variant-numeric:tabular-nums}.ifc-a .r-ic{margin-right:4px}.ifc-a.ifc-wrap{white-space:normal}
 .ifc-t th .r-ic{margin-right:6px}
+/* the Canneries' food in and goods out, under the resources they are part of, and their line under a step */
+.ifc-t .ifc-sub th{padding-left:14px;font-size:12.5px}.ifc-t .ifc-sub td{font-size:12.5px;font-weight:500;color:var(--ink-2)}
+.ifc-fx .ifc-can{flex-basis:100%}.ifc-can-h{margin-top:10px}
 .ifc-go{margin-top:14px}
 .ifc-none .row{margin-top:14px}
 @media (max-width:560px){.rbd-modal{place-items:end center;padding:0}.rbd-sheet{width:100%;max-height:88vh;border-radius:10px 10px 0 0;padding:18px 16px calc(20px + env(safe-area-inset-bottom,0px))}}
@@ -79619,6 +79622,30 @@ function ifcFinish(w,now){
   else if(w.t==='road'){const sh=at-o.d;o.d=at;o.t+=sh;}
   return undo;
 }
+/* the Canneries' part of the day (2026-11-27, the owner: add the Cannery's input and output to the forecast): food they
+   take (f), goods they make of it (g) and the most food they could take (r, their reach). The resources' rows already
+   count them; these say how much of food and goods is the Canneries' doing. */
+function ifcCan(n){
+  try{const E=economy(),i=E.byDoc.get(n);if(i===undefined)return {f:0,g:0,r:0};const a=cityState(E.T).agg[i],f=(E.can&&E.can[i])||0;
+    return {f,g:f*CAN_RATE,r:(a&&a.can)||0};}catch(e){return {f:0,g:0,r:0};}
+}
+/* what a step (or all the works) changes in the Canneries, in words; a Cannery that will have nothing to can says why */
+function ifcCanNote(cn,works){
+  const mine=(works||[]).some(w=>w.k==='cannery'),df=cn.f;
+  if(Math.abs(df)<0.05)return mine&&cn.r>=0.05?`Your Canneries could take in up to ${fmtAmt(cn.r)} more food a day, but none is spare: your people, growth at its best and the state’s share come first. More food sets them working.`:'';
+  return (df>0?`Your Canneries take in ${fmtAmt(df)} more food a day and put out ${fmtAmt(cn.g)} more goods`:`Your Canneries take in ${fmtAmt(-df)} less food a day and put out ${fmtAmt(-cn.g)} fewer goods`)
+    +(mine&&cn.r-df>=0.05?`; they could take up to ${fmtAmt(cn.r)} more, but only spare food is canned`:'')+'.';
+}
+/* the Canneries' rows under the resources' (food in, goods out), for a nation that has a Cannery or is building one; both:
+   the now / when done / change table, else the day now */
+function ifcCanRows(P,both){
+  const a=P.base.cn,b=P.after.cn;if(!a||!(a.r>=0.05||(both&&b&&b.r>=0.05)))return '';
+  const sgn=v=>Math.abs(v)<0.05?'0':(v>0?'+':'−')+fmtAmt(Math.abs(v));
+  const row=(l,k)=>`<tr class="ifc-sub"><th scope="row">${esc(l)}</th><td>${fmtAmt(a[k])}</td>${both?`<td>${fmtAmt(b[k])}</td><td>${sgn(b[k]-a[k])}</td>`:''}</tr>`;
+  return row('Canneries: food in','f')+row('Canneries: goods out','g');
+}
+const ifcCanHint=P=>{const a=P.base.cn,b=P.after.cn,r=Math.max(a?a.r:0,b?b.r:0),moves=P.total.cn&&Math.abs(P.total.cn.f)>=0.05;
+  return r>=0.05?`<p class="hint ifc-can-h">Food and goods above already count your Canneries. They take in only food that nothing else needs, up to ${fmtAmt(r)} a day, and put out a crate of goods for every four tins.${moves?' The food and goods rows need not move by as much as the Canneries do: some of that food would have spoiled on the way anyway, and their goods can stand in for part of the state’s top-up.':''}</p>`:'';};
 /* quick: only now and when all are done (two runs of the sums, for the breakdown's line), not each work in turn */
 function ifcPlan(n,quick){
   if(!n||n.npc||OBS||n!==S.nation||cellOf(n.loc)<0)return null;
@@ -79628,14 +79655,14 @@ function ifcPlan(n,quick){
   const saved={e:econMemo,c:cityMemo},undo=[],steps=[];let base=null,prev=null,ok=true;
   /* the works are finished on the record itself, so every memo is worked out afresh: the pass's answers too (see passRun),
      or a forecast drawn with a page would read the record as it was before each work */
-  const fresh=()=>{econMemo={T:null,k:'',at:0,v:null};cityMemo={T:null,k:'',v:null};passForget();return {rt:{...stockRates(n)},cap:stockCap(n)};};
-  const diff=(a,b)=>Object.fromEntries(RES.map(r=>[r,a[r]-b[r]]));
+  const fresh=()=>{econMemo={T:null,k:'',at:0,v:null};cityMemo={T:null,k:'',v:null};passForget();return {rt:{...stockRates(n)},cap:stockCap(n),cn:ifcCan(n)};};
+  const diff=(a,b)=>Object.fromEntries(RES.map(r=>[r,a[r]-b[r]])),dcn=(a,b)=>({f:a.f-b.f,g:a.g-b.g,r:a.r-b.r});
   try{
     base=prev=fresh();
-    for(const g of groups){for(const w of g)undo.push(ifcFinish(w,now));const m=fresh();steps.push({works:g,d:g[g.length-1].d,rt:diff(m.rt,prev.rt),cap:m.cap-prev.cap});prev=m;}
+    for(const g of groups){for(const w of g)undo.push(ifcFinish(w,now));const m=fresh();steps.push({works:g,d:g[g.length-1].d,rt:diff(m.rt,prev.rt),cap:m.cap-prev.cap,cn:dcn(m.cn,prev.cn)});prev=m;}
   }catch(e){ok=false;}
   finally{for(let j=undo.length-1;j>=0;j--)undo[j]();econMemo=saved.e;cityMemo=saved.c;passForget();try{territory();}catch(e){}}
-  const v=ok&&base?{works,steps,base,after:prev,total:{rt:diff(prev.rt,base.rt),cap:prev.cap-base.cap},last:works.length?works[works.length-1].d:0}:null;
+  const v=ok&&base?{works,steps,base,after:prev,total:{rt:diff(prev.rt,base.rt),cap:prev.cap-base.cap,cn:dcn(prev.cn,base.cn)},last:works.length?works[works.length-1].d:0}:null;
   ifcMemo={k,n,q:!!quick,v};return v;
 }
 /* what is under way, in words: "2 building upgrades and a new building" */
@@ -79672,7 +79699,9 @@ function ifcLine(n,r){
   const go=`<button type="button" class="linkish small" data-act="ifc-go">See the income forecast</button>`;
   if(!P.works.length)return `<p class="rbd-fc">No upgrades are under way, so nothing new is coming in from your cities. ${go}</p>`;
   const v=P.total.rt[r]||0,now=Date.now(),what=ifcWhat(P.works),one=P.works.length===1;
-  return `<p class="rbd-fc">Under way: ${esc(what)}. ${Math.abs(v)>=0.05?`When ${one?'it is':'all are'} done, at ${esc(fmtTime(P.last)+dayTail(P.last,now))}, ${resName(r)} gains <b class="${v>0?'ifc-up':'ifc-dn'}">${v>0?'+':'−'}${fmtAmt(Math.abs(v))}</b> a day more.`:`${one?'It does not change':'None of them changes'} ${esc(resName(r))}.`} ${go}</p>`;
+  /* food and goods: what the Canneries will take and make differently, or why a Cannery under way will have nothing to can */
+  const cn=(r==='food'||r==='goods')&&P.total.cn?ifcCanNote(P.total.cn,P.works):'';
+  return `<p class="rbd-fc">Under way: ${esc(what)}. ${Math.abs(v)>=0.05?`When ${one?'it is':'all are'} done, at ${esc(fmtTime(P.last)+dayTail(P.last,now))}, ${resName(r)} gains <b class="${v>0?'ifc-up':'ifc-dn'}">${v>0?'+':''}${fmtAmt(Math.abs(v))}</b> a day ${v>0?'more':'less'}.`:`${one?'It does not change':'None of them changes'} ${esc(resName(r))}.`}${cn?' '+esc(cn):''} ${go}</p>`;
 }
 /* the Statistics tab */
 function ifcTab(x){
@@ -79682,12 +79711,16 @@ function ifcTab(x){
   const links=`<div class="row ifc-go"><button type="button" class="btn ghost" data-act="go" data-v="cities">Open Cities</button><button type="button" class="linkish small" data-act="gb-flows">See Budget &amp; flows</button></div>`;
   const sgn=v=>Math.abs(v)<0.05?'0':(v>0?'+':'−')+fmtAmt(Math.abs(v));
   if(!P.works.length)return `<div class="empty ifc-none"><p class="empty-h">No upgrades under way</p><p>Nothing is being built or upgraded in your cities right now, so your stockpile keeps gaining what it gains today. Start a building or an upgrade on the Cities page, and this page shows what it will add, and when.</p>${links}</div>
-    ${stCard('Your stockpile’s day now',`<table class="st-table st-cols ifc-t"><thead><tr><th scope="col">Resource</th><th scope="col">A day</th></tr></thead><tbody>${RES.map(r=>`<tr><th scope="row">${resIco(r,'s')}${esc(RES_INFO[r][0])}</th><td>${sgn(P.base.rt[r])}</td></tr>`).join('')}</tbody></table>`)}`;
-  const T=P.total,gains=RES.filter(r=>Math.abs(T.rt[r])>=0.05).map(r=>`${T.rt[r]>0?'+':'−'}${fmtAmt(Math.abs(T.rt[r]))} ${resName(r)}`),one=P.works.length===1;
-  const lede=`${cap1(ifcWhat(P.works))} ${one?'is':'are'} under way. When ${one?'it is':'the last is'} done, at ${fmtTime(P.last)+dayTail(P.last,now)}, ${gains.length?`your stockpile gains ${list(gains)} a day more than now`:'what your stockpile gains each day stays as it is'}${T.cap>=0.5?`, and each resource has ${fmt0(T.cap)} more storage`:''}.`;
-  const tab=`<div class="sb-flow-w"><table class="st-table st-cols ifc-t"><thead><tr><th scope="col">A day</th><th scope="col">Now</th><th scope="col">When done</th><th scope="col">Change</th></tr></thead><tbody>${RES.map(r=>{const d=T.rt[r];return `<tr><th scope="row">${resIco(r,'s')}${esc(RES_INFO[r][0])}</th><td>${sgn(P.base.rt[r])}</td><td>${sgn(P.after.rt[r])}</td><td class="${d>=0.05?'ifc-up':d<=-0.05?'ifc-dn':''}">${sgn(d)}</td></tr>`;}).join('')}${T.cap>=0.5?`<tr><th scope="row">Storage, each</th><td>${fmt0(P.base.cap)}</td><td>${fmt0(P.after.cap)}</td><td class="ifc-up">+${fmt0(T.cap)}</td></tr>`:''}</tbody></table></div>`;
-  const items=P.steps.map(s=>{const g=s.works,w=g[0],fx=ifcFx(s.rt,s.cap),[a,b]=g.length>1?[`${g.length} more works`,cap1(ifcWhat(g))]:ifcLabel(w,n);
-    return `<li><span class="ifc-when">${ifcWhen(s.d,now)}</span><span class="ifc-what"><b>${esc(a)}</b><span class="hint">${esc(b)}</span></span><span class="ifc-fx">${fx||`<span class="hint">${esc(ifcWhyNone(g))}</span>`}</span></li>`;}).join('');
+    ${stCard('Your stockpile’s day now',`<table class="st-table st-cols ifc-t"><thead><tr><th scope="col">Resource</th><th scope="col">A day</th></tr></thead><tbody>${RES.map(r=>`<tr><th scope="row">${resIco(r,'s')}${esc(RES_INFO[r][0])}</th><td>${sgn(P.base.rt[r])}</td></tr>`).join('')}${ifcCanRows(P,false)}</tbody></table>${ifcCanHint(P)}`)}`;
+  const T=P.total,one=P.works.length===1;
+  /* what the stockpile gains more, then less (a Cannery trades food for goods): "+3.6 goods a day more than now and 18 food a day less" */
+  const ups=RES.filter(r=>T.rt[r]>=0.05).map(r=>`+${fmtAmt(T.rt[r])} ${resName(r)}`),dns=RES.filter(r=>T.rt[r]<=-0.05).map(r=>`${fmtAmt(-T.rt[r])} ${resName(r)}`);
+  const gains=ups.length||dns.length?`your stockpile gains ${[ups.length?`${list(ups)} a day more than now`:'',dns.length?`${list(dns)} a day less${ups.length?'':' than now'}`:''].filter(Boolean).join(' and ')}`:'what your stockpile gains each day stays as it is';
+  const cnLede=T.cn?ifcCanNote(T.cn,P.works):'';
+  const lede=`${cap1(ifcWhat(P.works))} ${one?'is':'are'} under way. When ${one?'it is':'the last is'} done, at ${fmtTime(P.last)+dayTail(P.last,now)}, ${gains}${T.cap>=0.5?`, and each resource has ${fmt0(T.cap)} more storage`:''}.${cnLede?' '+cnLede:''}`;
+  const tab=`<div class="sb-flow-w"><table class="st-table st-cols ifc-t"><thead><tr><th scope="col">A day</th><th scope="col">Now</th><th scope="col">When done</th><th scope="col">Change</th></tr></thead><tbody>${RES.map(r=>{const d=T.rt[r];return `<tr><th scope="row">${resIco(r,'s')}${esc(RES_INFO[r][0])}</th><td>${sgn(P.base.rt[r])}</td><td>${sgn(P.after.rt[r])}</td><td class="${d>=0.05?'ifc-up':d<=-0.05?'ifc-dn':''}">${sgn(d)}</td></tr>`;}).join('')}${ifcCanRows(P,true)}${T.cap>=0.5?`<tr><th scope="row">Storage, each</th><td>${fmt0(P.base.cap)}</td><td>${fmt0(P.after.cap)}</td><td class="ifc-up">+${fmt0(T.cap)}</td></tr>`:''}</tbody></table></div>${ifcCanHint(P)}`;
+  const items=P.steps.map(s=>{const g=s.works,w=g[0],fx=ifcFx(s.rt,s.cap),cn=s.cn?ifcCanNote(s.cn,g):'',[a,b]=g.length>1?[`${g.length} more works`,cap1(ifcWhat(g))]:ifcLabel(w,n);
+    return `<li><span class="ifc-when">${ifcWhen(s.d,now)}</span><span class="ifc-what"><b>${esc(a)}</b><span class="hint">${esc(b)}</span></span><span class="ifc-fx">${fx?fx+(cn?`<span class="hint ifc-can">${esc(cn)}</span>`:''):`<span class="hint">${esc(cn||ifcWhyNone(g))}</span>`}</span></li>`;}).join('');
   return `<p class="sb-lede">${esc(lede)}</p><p class="hint">Worked out with today’s land, people, trade deals and policies. New land, edicts, deals or a change in a city’s mood before then will move these figures.</p>
     <div class="st-grid">${stCard('Your stockpile’s day, now and when the works are done',tab)}
     ${stCard('In the order they finish',`<ol class="ifc-l">${items}</ol><p class="hint">Each line is what that work adds on top of the ones that finish before it.</p>`)}</div>${links}`;

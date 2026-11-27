@@ -1,6 +1,7 @@
 // The income forecast in the browser: the line in the stockpile breakdown (with nothing under way, and with work
 // under way), its link to Statistics › Income forecast, the tab itself, that the forecast leaves the nation exactly
-// as it was, and that its figures match the nation once the works really are done. Light, dark and a phone.
+// as it was, and that its figures match the nation once the works really are done. Light, dark and a phone. And the
+// Canneries (2026-11-27): their food in and goods out in the forecast, and why a Cannery with no spare food cans nothing.
 //   python3 build.py
 //   node test/income-forecast.mjs
 // It serves public/ itself, so the game runs in its local mode (no emulators), and drives the nation through the test
@@ -127,6 +128,60 @@ const SETUP = (n, now) => {
   check('once done, the stockpile’s day is what the forecast said', ['food', 'timber', 'iron', 'oil', 'goods'].every(r => Math.abs(real.want.rt[r] - real.got.rt[r]) < 0.05) && real.want.cap === real.got.cap, real);
   check('…and nothing is under way any more', real.works === 0, real.works);
   check('no page errors', errors.length === 0, errors);
+  await ctx.close();
+}
+/* the Canneries: what they take in and put out, now and when the works are done */
+{
+  const { ctx, page, errors, edit, go, act } = await start('light', { width: 1280, height: 900 });
+  const look = () => page.evaluate(() => {
+    const G = window.__game, n = G.S.nation, P = G.IFC().plan(n), d = document.createElement('div');
+    d.innerHTML = G.IFC().tab({ me: true, n });
+    const txt = e => (e ? e.textContent : '').replace(/\s+/g, ' ').trim();
+    return { total: P.total, base: P.base.cn, after: P.after.cn, works: P.works.map(w => w.t + ':' + w.k), lede: txt(d.querySelector('.sb-lede')),
+      rows: [...d.querySelectorAll('.ifc-t tr.ifc-sub')].map(tr => [...tr.cells].map(txt).join(' ')), item: txt(d.querySelector('.ifc-l li')), hint: [...d.querySelectorAll('.st-card .hint, .hint')].map(txt).find(t => /already count your Canneries/.test(t)) || '',
+      food: G.IFC().line(n, 'food'), goods: G.IFC().line(n, 'goods'), oil: G.IFC().line(n, 'oil') };
+  });
+  /* a new nation eats all it grows: a Cannery going up would have nothing to can, and the forecast says so */
+  await edit((n, now) => { const c = n.cities[0]; c.b = (c.b || []).filter(b => b.k !== 'cannery'); c.b.push({ k: 'cannery', s: now - 60e3, d: now + 3600e3 }); });
+  const lean = await look();
+  check('a Cannery under way with no spare food: no change to the day, its reach noted', lean.works.join() === 'build:cannery' && Math.abs(lean.total.cn.f) < 1e-9 && Math.abs(lean.total.cn.r - 20) < 1e-6 && Object.values(lean.total.rt).every(v => Math.abs(v) < 1e-6), lean);
+  check('…and the forecast says why it will can nothing', /could take in up to 20 more food a day, but none is spare/.test(lean.item) && /none is spare/.test(lean.lede) && /none is spare/.test(lean.food) && /none is spare/.test(lean.goods) && !/Cannerie/.test(lean.oil), lean);
+  check('…with its rows in the table, at nothing', lean.rows.length === 2 && /^Canneries: food in 0 0 0$/.test(lean.rows[0]) && /^Canneries: goods out 0 0 0$/.test(lean.rows[1]), lean.rows);
+  /* land all round the capital, a finished Farm Estates and farm subsidies: food to spare, and the Cannery cans its full 20 */
+  await edit((n, now, G) => {
+    const M = G.MAP, cap = n.cities[0].c, T = G.XP().territory(), mi = T.list.findIndex(x => x.me), d = 864e5, dist = new Map([[cap, 0]]), q = [cap];
+    while (q.length) { const c = q.shift(), k = dist.get(c); if (k >= 7) continue; for (let i = 0; i < 6; i++) { const nb = M.nbr[c * 6 + i]; if (nb < 0 || dist.has(nb) || M.T[nb] < 2) continue; if (T.owner[nb] >= 0 && T.owner[nb] !== mi) continue; dist.set(nb, k + 1); q.push(nb); } }
+    const have = new Set((n.claims || []).map(e => e.c));
+    n.claims = (n.claims || []).concat([...dist.keys()].filter(c => !have.has(c) && c !== cap).map((c, i) => ({ c, t: now - d + i })));
+    n.policies = Object.assign({}, n.policies, { farmSubsidies: 1 });
+    const c = n.cities[0]; c.b = (c.b || []).filter(b => b.k !== 'farm'); c.b.push({ k: 'farm', s: now - 7200e3, d: now - 3600e3, a: 1 });
+  });
+  await sleep(300);
+  const rich = await look();
+  check('with food to spare, the Cannery under way takes in 20 food and puts out 5 goods', Math.abs(rich.total.cn.f - 20) < 1e-6 && Math.abs(rich.total.cn.g - 5) < 1e-6 && rich.base.f === 0, rich.total);
+  check('…the day trades food for goods', rich.total.rt.food < -1 && rich.total.rt.goods > 1, rich.total.rt);
+  check('…the table has the Canneries’ rows, now and when done', /^Canneries: food in 0 20 \+20$/.test(rich.rows[0]) && /^Canneries: goods out 0 5 \+5$/.test(rich.rows[1]), rich.rows);
+  check('…the step and the lede say what they take in and put out', /Your Canneries take in 20 more food a day and put out 5 more goods\./.test(rich.item) && /goods a day more than now and [\d.]+ food a day less\. Your Canneries take in 20 more food/.test(rich.lede), { item: rich.item, lede: rich.lede });
+  check('…the table’s note says the rows already count them', /up to 20 a day/.test(rich.hint) && /need not move by as much/.test(rich.hint), rich.hint);
+  check('…and the food and goods breakdown lines too', /food gains <b class="ifc-dn">[\d.]+<\/b> a day less\. Your Canneries take in 20 more food/.test(rich.food) && /goods gains <b class="ifc-up">\+[\d.]+<\/b> a day more\. Your Canneries take in 20 more food/.test(rich.goods) && !/Cannerie/.test(rich.oil), { food: rich.food, goods: rich.goods });
+  await page.evaluate(() => { const G = window.__game; G.S.statsFor = null; G.S.statsTab = 'forecast'; G.S.statsKeep = true; });
+  await go('stats');
+  check('the tab draws the Canneries’ rows', await until(() => page.evaluate(() => document.querySelectorAll('.ifc-t tr.ifc-sub').length === 2)));
+  await sleep(900); // the page fades in
+  await page.screenshot({ path: path.join(OUT, 'income-forecast-cannery.png'), fullPage: true });
+  /* once built, the Cannery does what the forecast said */
+  const real = await page.evaluate(() => {
+    const G = window.__game, P = G.IFC().plan(G.S.nation), n = G.clone(G.S.nation), now = Date.now(), c = n.cities[0];
+    for (const b of c.b) if (b.d > now) { const sh = now - 1 - b.d; b.d += sh; b.s += sh; }
+    G.commit(n); G.render();
+    const E = G.GB().economy(), i = E.byDoc.get(G.S.nation);
+    return { want: P.after, got: { rt: G.MD.stockRates(G.S.nation), can: E.can[i] } };
+  });
+  check('once built, the Cannery takes in what the forecast said, and the day matches', Math.abs(real.got.can - real.want.cn.f) < 0.05 && ['food', 'timber', 'iron', 'oil', 'goods'].every(r => Math.abs(real.want.rt[r] - real.got.rt[r]) < 0.05), real);
+  /* nothing under way: the day now still shows what the Canneries take in and put out */
+  const now0 = await look();
+  check('with nothing under way, the day now lists the Canneries', now0.works.length === 0 && now0.rows.length === 2 && /^Canneries: food in 20$/.test(now0.rows[0]) && /^Canneries: goods out 5$/.test(now0.rows[1]) && !/need not move/.test(now0.hint), now0.rows);
+  check('Canneries: no page errors', errors.length === 0, errors);
   await ctx.close();
 }
 {
