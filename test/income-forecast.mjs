@@ -147,18 +147,20 @@ const SETUP = (n, now) => {
   check('a Cannery under way with no spare food: no change to the day, its reach noted', lean.works.join() === 'build:cannery' && Math.abs(lean.total.cn.f) < 1e-9 && Math.abs(lean.total.cn.r - 20) < 1e-6 && Object.values(lean.total.rt).every(v => Math.abs(v) < 1e-6), lean);
   check('…and the forecast says why it will can nothing', /could take in up to 20 more food a day, but none is spare/.test(lean.item) && /none is spare/.test(lean.lede) && /none is spare/.test(lean.food) && /none is spare/.test(lean.goods) && !/Cannerie/.test(lean.oil), lean);
   check('…with its rows in the table, at nothing', lean.rows.length === 2 && /^Canneries: food in 0 0 0$/.test(lean.rows[0]) && /^Canneries: goods out 0 0 0$/.test(lean.rows[1]), lean.rows);
-  /* land all round the capital, a finished Farm Estates and farm subsidies: food to spare, and the Cannery cans its full 20 */
+  /* lowland all round the capital (hills and mountains feed the people on them less than they eat), a gold Farm Estates,
+     farm subsidies and lab meat: food to spare wherever the capital stands, and the Cannery cans its full 20 */
   await edit((n, now, G) => {
     const M = G.MAP, cap = n.cities[0].c, T = G.XP().territory(), mi = T.list.findIndex(x => x.me), d = 864e5, dist = new Map([[cap, 0]]), q = [cap];
-    while (q.length) { const c = q.shift(), k = dist.get(c); if (k >= 7) continue; for (let i = 0; i < 6; i++) { const nb = M.nbr[c * 6 + i]; if (nb < 0 || dist.has(nb) || M.T[nb] < 2) continue; if (T.owner[nb] >= 0 && T.owner[nb] !== mi) continue; dist.set(nb, k + 1); q.push(nb); } }
+    while (q.length) { const c = q.shift(), k = dist.get(c); if (k >= 8) continue; for (let i = 0; i < 6; i++) { const nb = M.nbr[c * 6 + i]; if (nb < 0 || dist.has(nb) || M.T[nb] !== 2) continue; if (T.owner[nb] >= 0 && T.owner[nb] !== mi) continue; dist.set(nb, k + 1); q.push(nb); } }
     const have = new Set((n.claims || []).map(e => e.c));
     n.claims = (n.claims || []).concat([...dist.keys()].filter(c => !have.has(c) && c !== cap).map((c, i) => ({ c, t: now - d + i })));
-    n.policies = Object.assign({}, n.policies, { farmSubsidies: 1 });
-    const c = n.cities[0]; c.b = (c.b || []).filter(b => b.k !== 'farm'); c.b.push({ k: 'farm', s: now - 7200e3, d: now - 3600e3, a: 1 });
+    n.policies = Object.assign({}, n.policies, { farmSubsidies: 1, labMeat: 1 });
+    const c = n.cities[0]; c.b = (c.b || []).filter(b => b.k !== 'farm'); c.b.push({ k: 'farm', s: now - 7200e3, d: now - 3600e3, a: 1, ug: 5 });
   });
   await sleep(300);
   const rich = await look();
-  check('with food to spare, the Cannery under way takes in 20 food and puts out 5 goods', Math.abs(rich.total.cn.f - 20) < 1e-6 && Math.abs(rich.total.cn.g - 5) < 1e-6 && rich.base.f === 0, rich.total);
+  const food = await page.evaluate(() => { const G = window.__game, E = G.GB().economy(), i = E.byDoc.get(G.S.nation); return { sup: E.sup.food[i], dem: E.dem.food[i], prod: E.prod.food[i], held: E.held[i] }; });
+  check('with food to spare, the Cannery under way takes in 20 food and puts out 5 goods', Math.abs(rich.total.cn.f - 20) < 1e-6 && Math.abs(rich.total.cn.g - 5) < 1e-6 && rich.base.f === 0, { cn: rich.total.cn, food });
   check('…the day trades food for goods', rich.total.rt.food < -1 && rich.total.rt.goods > 1, rich.total.rt);
   check('…the table has the Canneries’ rows, now and when done', /^Canneries: food in 0 20 \+20$/.test(rich.rows[0]) && /^Canneries: goods out 0 5 \+5$/.test(rich.rows[1]), rich.rows);
   check('…the step and the lede say what they take in and put out', /Your Canneries take in 20 more food a day and put out 5 more goods\./.test(rich.item) && /goods a day more than now and [\d.]+ food a day less\. Your Canneries take in 20 more food/.test(rich.lede), { item: rich.item, lede: rich.lede });
@@ -178,6 +180,26 @@ const SETUP = (n, now) => {
     return { want: P.after, got: { rt: G.MD.stockRates(G.S.nation), can: E.can[i] } };
   });
   check('once built, the Cannery takes in what the forecast said, and the day matches', Math.abs(real.got.can - real.want.cn.f) < 0.05 && ['food', 'timber', 'iron', 'oil', 'goods'].every(r => Math.abs(real.want.rt[r] - real.got.rt[r]) < 0.05), real);
+  /* Budget & flows: canned food is used, canned goods are made by a building, and every row adds up to its net */
+  /* already on Statistics, so the hash does not change: draw the page again on the new tab */
+  await page.evaluate(() => { const G = window.__game; G.S.statsFor = null; G.S.statsTab = 'budget'; G.S.statsKeep = true; G.render(); });
+  await until(() => page.evaluate(() => !!document.querySelector('.sb-flow tbody tr')));
+  const bud = await page.evaluate(() => {
+    const G = window.__game, E = G.GB().economy(), i = E.byDoc.get(G.S.nation), num = t => { t = t.trim().replace('−', '-'); return t === '' ? 0 : parseFloat(t); };
+    const rows = Object.fromEntries([...document.querySelectorAll('.sb-flow tbody tr')].map(tr => [tr.cells[0].textContent.trim().toLowerCase(), [...tr.cells].slice(1).map(c => num(c.textContent))]));
+    const bars = [...document.querySelectorAll('.sbf-bar')].map(b => b.getAttribute('aria-label'));
+    return { rows, can: E.can[i], city: (document.querySelector('.sb-cities li') || {}).textContent || '', note: (document.querySelector('.sb-can') || {}).textContent || '', bars };
+  });
+  const adds = Object.entries(bud.rows).every(([, [land, bld, used, sold, bought, net]]) => Math.abs(land + bld - used - sold + bought - net) < 0.35);
+  check('Budget & flows: every row adds up to its net, the canned food included', adds && bud.can > 19, bud.rows);
+  check('…the canned food is under Used and the canned goods under Buildings, said in a note', bud.rows.goods[1] >= 5 && /Used food includes the 20 a day your Canneries take in; the 5 goods they put out are under Buildings\./.test(bud.note), { goods: bud.rows.goods, note: bud.note });
+  check('…and the capital’s line under Cities lists the canned goods', /[\d.]+ food, 5 goods a day/.test(bud.city), bud.city);
+  /* the bars: what comes in and what goes out of food are the same length of day */
+  const sum = l => (l.split(': ')[1] || '').split(', ').reduce((s, p) => s + (parseFloat(p.split(' ').pop()) || 0), 0);
+  const fIn = bud.bars.find(l => /^Food in:/.test(l)), fOut = bud.bars.find(l => /^Food out:/.test(l));
+  check('…and the food bars in and out balance', fIn && fOut && Math.abs(sum(fIn) - sum(fOut)) < 0.35, { fIn, fOut });
+  await sleep(900); // the page fades in
+  await page.screenshot({ path: path.join(OUT, 'income-forecast-cannery-budget.png'), fullPage: true });
   /* nothing under way: the day now still shows what the Canneries take in and put out */
   const now0 = await look();
   check('with nothing under way, the day now lists the Canneries', now0.works.length === 0 && now0.rows.length === 2 && /^Canneries: food in 20$/.test(now0.rows[0]) && /^Canneries: goods out 5$/.test(now0.rows[1]) && !/need not move/.test(now0.hint), now0.rows);
