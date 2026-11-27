@@ -9117,6 +9117,24 @@ span.nw-tag{cursor:default}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .cz-enx.cz-enx-sec{color:#7fd0a0;border-color:#7fd0a0}}
 @media (max-width:760px){.rc-grid{grid-template-columns:1fr}.rc-r{grid-template-columns:34px minmax(0,1fr)}.rc-r-a{grid-column:2;justify-content:flex-start}.rc-ul li{grid-template-columns:76px minmax(0,1fr)}.rc-ul-s{grid-column:2}}
 .rc-row{display:flex;gap:8px;flex-wrap:wrap}.rc-row .input{flex:1 1 16em;min-width:0}.rc-share{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0 8px}.rc-share a{text-decoration:none}
+/* recruiting, round two (27 November 2026): the note, the link in numbers, a region that needs players, the weekend,
+   a recruit held for a check, the sponsor's view, the lineage, the moments, the visitor's quote */
+.rc-note{margin-top:14px}.rc-note textarea{width:100%;min-height:3.2em;resize:vertical;font:inherit}.rc-note .row{gap:8px 12px;align-items:center;margin-top:6px}
+.rc-fun{grid-template-columns:repeat(auto-fit,minmax(140px,1fr));margin:0}.rc-fun .fig-v{font-size:24px}
+.rc-flag{margin:10px 0 0!important;padding:8px 12px;border-left:3px solid var(--up);background:var(--sheet);font-weight:600;max-width:72ch}
+.rc-flag-ev{border-left-color:var(--stamp)}
+.rc-r.rc-held{opacity:.85}.chip.warn{border-color:var(--stamp);color:var(--stamp)}
+.rc-mt{margin-top:8px;font-size:14px}.rc-mt summary{cursor:pointer;color:var(--ink-2);font-weight:600}
+.rc-mt-f{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;margin:8px 0;background:var(--rule);border:1px solid var(--rule);border-radius:4px;overflow:hidden}
+.rc-mt-f>div{background:var(--sheet);padding:6px 8px;min-width:0}.rc-mt-f dt{font-size:11.5px;color:var(--ink-3)}.rc-mt-f dd{margin:2px 0 0;font-weight:600;overflow-wrap:anywhere}
+@media (max-width:520px){.rc-mt-f{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.rc-mt-h{margin:4px 0 0;padding-left:18px}.rc-mt-h li{margin:2px 0}
+.rc-ln{list-style:none;margin:0;padding:0}.rc-ln li{padding:7px 0;border-top:1px solid var(--rule);font-size:14px;overflow-wrap:anywhere}.rc-ln li:first-child{border-top:0}
+.rc-mo{list-style:none;margin:0 0 10px;padding:0}.rc-mo li{display:grid;grid-template-columns:92px minmax(0,1fr) auto;gap:6px 12px;align-items:center;padding:8px 0;border-top:1px solid var(--rule);font-size:14px}
+.rc-mo li:first-child{border-top:0}.rc-mo li.on .rc-mo-t{font-weight:600}.rc-mo-d{font:500 12px/1.3 var(--f-mono);color:var(--ink-3)}.rc-mo-t{min-width:0;overflow-wrap:anywhere}
+@media (max-width:760px){.rc-mo li{grid-template-columns:minmax(0,1fr) auto}.rc-mo-d{grid-column:1/-1}}
+.rc-mo-f{margin-top:6px}
+.rc-wel-q{margin:2px 0 8px;padding:0 0 0 10px;border-left:2px solid var(--accent);font-style:italic;color:var(--ink-2);overflow-wrap:anywhere}
 /* ── menu icons, and the menu as the player arranges it (Settings › Navigation) ── */
 .nav-btn{justify-content:flex-start}
 .nav .nav-btn{gap:11px}
@@ -23638,7 +23656,7 @@ async function attack(){
     if(!res||!res.ok){
       const why=res&&res.why;
       if(why==='ready'){const n=clone(S.nation),ms=readyMs(n);n.ready=0;n.readyAt=Date.now()+clamp(Number(res.next)||ms,0,ms)-ms;commit(n);}
-      S.warMsg=why==='coming_soon'?COMING_SOON:why==='maintenance'?MAINTENANCE:why==='ready'?'Your army is not ready: the referee counts no readiness left. It returns as usual.':why==='banned'?'This account is banned, so its army cannot fight.':why==='hidden'?(iAmHidden()?HID_WAR:`The moderators have hidden ${en.n.name} while they look into a report, so the battle was not fought.`):why==='pact'?'The referee refused the battle: a pact binds the two sides. It must be ended or broken first.':why==='nation'?'Your nation has not reached the region yet. Try again in a moment.':why==='gone'?`${en.n.name} is no longer a nation of this region, so the battle was not fought.`:'The battle was not fought: the referee could not be reached. Try again in a moment.';
+      S.warMsg=why==='coming_soon'?COMING_SOON:why==='maintenance'?MAINTENANCE:why==='ready'?'Your army is not ready: the referee counts no readiness left. It returns as usual.':why==='banned'?'This account is banned, so its army cannot fight.':why==='hidden'?(iAmHidden()?HID_WAR:`The moderators have hidden ${en.n.name} while they look into a report, so the battle was not fought.`):why==='rcpact'?'The referee refused the battle: the recruits’ pact binds the two of you for a month after one recruited the other.':why==='pact'?'The referee refused the battle: a pact binds the two sides. It must be ended or broken first.':why==='nation'?'Your nation has not reached the region yet. Try again in a moment.':why==='gone'?`${en.n.name} is no longer a nation of this region, so the battle was not fought.`:'The battle was not fought: the referee could not be reached. Try again in a moment.';
       S.mapTarget=null;updateMapPanel();redrawMaps();return;
     }
     win=!!res.win;fell=!!(win&&capHit&&res.fell);if(fell&&res.doc&&typeof res.doc.ni==='string'&&res.doc.ni)mvDoc=res.doc;if(res.doc&&res.id)wrPut(res.id,res.doc);t=Number(res.t)||Date.now();roll=typeof res.roll==='number'?res.roll:null;seal=typeof res.s==='string'?res.s:null;seal2=typeof res.s2==='string'?res.s2:null;pe=typeof res.p==='number'?res.p:od.p;if(typeof res.w==='string')w=res.w;now=Date.now();
@@ -61291,7 +61309,9 @@ function hmLiveApply(){
   if(Object.keys(L.r).length&&Date.now()-L.at<6*HM_TTL&&!(RSTAT.at>Date.now()-HM_TTL)){for(const R of REGIONS)RSTAT.n[R.id]=L.r[R.id]?L.r[R.id].n:0;RSTAT.at=Date.now();}
 }
 /* the visitor (or a recruiting link) chose the region this page opened in */
-function hmChosen(){try{if(localStorage.getItem('statehood.region'))return true;const u=new URL(location.href);if(u.searchParams.has('recruit'))return true;}catch(e){}return false;}
+function hmChosen(){try{if(localStorage.getItem('statehood.region'))return true;const u=new URL(location.href);if(u.searchParams.has('recruit'))return true;
+  /* the recruiting link has left the address bar by the time this runs (section "recruiting"); its record names the region */
+  const o=JSON.parse(localStorage.getItem('edictum.recruitBy.v1')||'null');if(o&&typeof o.g==='string'&&REG_BY_ID[o.g]&&o.g===REG.id)return true;}catch(e){}return false;}
 /* the default region set in Region control (regionStatus/<id> def, admin portal), if it is open: '' when none is set */
 function hmDef(){const d=Object.keys(RCTRL.states).find(id=>RCTRL.states[id]&&RCTRL.states[id].def===true&&REG_BY_ID[id]&&regMode(id)==='enabled');return d||(HM.live&&HM.live.def&&regMode(HM.live.def)==='enabled'?HM.live.def:'');}
 /* the region on show and founded in: the chosen one, else the default, else this page's */
@@ -63410,6 +63430,7 @@ ${adminCards(p)}
     <h3 class="help-h3">The Chancery Club</h3>${adminClub(p)}
     <h3 class="help-h3">Shop packs</h3>${adminPacks(p)}
     <h3 class="help-h3">Land credits</h3>${adminLand(p)}
+    <h3 class="help-h3">Recruiting</h3>${adminRecruit(p)}
     <h3 class="help-h3">Staff notes</h3>${adminNotes(p)}
     <h3 class="help-h3">Letters with other players</h3>${adminLetters(p)}
     <h3 class="help-h3">Watchlist</h3>${adminWatch(p)}
@@ -64321,12 +64342,43 @@ function stEngage(d){
 }
 /* ── recruiting ── */
 function stRecruits(d){
-  const R=d.recruits;if(!R)return '';
-  if(!R.n&&!R.opens&&!R.founded)return '<p class="hint">No nation here was founded through a recruiting link yet (Region › Invite).</p>';
+  const R=d.recruits;if(!R)return stRcAdmin();
+  if(!R.n&&!R.opens&&!R.founded&&!R.held)return '<p class="hint">No nation here was founded through a recruiting link yet (Region › Invite).</p>'+stRcAdmin();
   return `${R.opens||R.founded?`<p class="hint">Recruiting links were opened by ${stN(R.opens||0)} ${R.opens===1?'account':'accounts'} (counted since 15 November 2026), and ${stN(R.founded||0)} ${R.founded===1?'nation was':'nations were'} founded through one, guests included. Only those that link a sign-in account count as recruits below.</p>`:''}<p class="hint">${stN(R.n)} ${R.n===1?'nation was':'nations were'} founded through the recruiting links of ${stN(R.recruiters)} ${R.recruiters===1?'player':'players'}. A week after founding, ${R.of?`${stPc(R.kept,R.of)} of them were still playing (${stN(R.kept)} of ${stN(R.of)} old enough to tell)`:'none is old enough to tell yet'}, against ${R.others.of?`${stPc(R.others.kept,R.others.of)} of everyone else`:'– for everyone else'}.</p>
     <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Recruiter</th><th>Region</th><th class="num" title="Accounts that opened the link (counted since 15 November 2026)">Opened</th><th class="num" title="Founded a nation through it, guests too">Founded</th><th class="num" title="Linked a sign-in account: recruits, paid">Recruits</th><th class="num">Still playing after a week</th><th class="num">Active this week</th><th>Latest</th><th></th></tr></thead><tbody>
-    ${R.list.map(p=>`<tr><td>${p.name?esc(p.name):'<span class="hint">No nation now</span>'}</td><td>${p.reg?esc(regName(p.reg)):'–'}</td><td class="num">${stN(p.o||0)}</td><td class="num">${stN(p.f||0)}</td><td class="num">${stN(p.n)}</td><td class="num">${p.of?`${stPc(p.kept,p.of)} <span class="hint">${stN(p.kept)} of ${stN(p.of)}</span>`:'–'}</td><td class="num">${stN(p.a7)}</td><td>${p.last?esc(rel(p.last)):'–'}</td><td><button class="btn ghost small" data-act="admin-inspect" data-id="${esc(p.r)}">Inspect</button></td></tr>`).join('')}</tbody></table></div>`;
+    ${R.list.map(p=>`<tr><td>${p.name?esc(p.name):'<span class="hint">No nation now</span>'}</td><td>${p.reg?esc(regName(p.reg)):'–'}</td><td class="num">${stN(p.o||0)}</td><td class="num">${stN(p.f||0)}</td><td class="num">${stN(p.n)}</td><td class="num">${p.of?`${stPc(p.kept,p.of)} <span class="hint">${stN(p.kept)} of ${stN(p.of)}</span>`:'–'}</td><td class="num">${stN(p.a7)}</td><td>${p.last?esc(rel(p.last)):'–'}</td><td><button class="btn ghost small" data-act="admin-inspect" data-id="${esc(p.r)}">Inspect</button></td></tr>`).join('')}</tbody></table></div>${R.held?`<p class="hint">${stN(R.held)} more ${R.held===1?'is':'are'} held for a staff check (below), and not counted above.</p>`:''}${stRcChannels(R)}${stRcAdmin()}`;
 }
+/* the channels the links came through (the share buttons; recruitTrail.v), and what became of their visitors */
+const ST_RC_VIA={fb:'Facebook',x:'X',md:'Mastodon',wa:'WhatsApp',bs:'Bluesky',tg:'Telegram',rd:'Reddit',li:'LinkedIn',em:'Email',cp:'Copied link',sh:'Share sheet',qr:'Card’s QR code',mo:'Moment card','':'Link without a channel'};
+function stRcChannels(R){
+  const C=Array.isArray(R.channels)?R.channels:[];if(!C.length)return '';
+  return `<h4 class="help-h3">By channel</h4><p class="hint">Where the visitors came from, by the share button they followed (counted since 27 November 2026; older links and links copied by hand have no channel).</p>
+    <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Channel</th><th class="num">Opened</th><th class="num">Founded</th><th class="num">Recruits</th><th class="num">Still playing after a week</th></tr></thead><tbody>
+    ${C.map(c=>`<tr><td>${esc(ST_RC_VIA[c.v]||c.v)}</td><td class="num">${stN(c.o||0)}</td><td class="num">${stN(c.f||0)}</td><td class="num">${stN(c.n||0)}</td><td class="num">${c.of?`${stPc(c.kept,c.of)} <span class="hint">${stN(c.kept)} of ${stN(c.of)}</span>`:'–'}</td></tr>`).join('')}</tbody></table></div>`;
+}
+/* claims held for a check (the same address or device as the recruiter), and the double-rewards weekend
+   (functions/recruit.js: recruitHeld, recruitRule, rcEvent) */
+const ADRC={at:0,busy:false,held:null,ev:null,msg:'',err:''};
+function stRcLoad(force){
+  if(ADRC.busy||!force&&ADRC.at&&Date.now()-ADRC.at<60e3)return;ADRC.busy=true;ADRC.at=Date.now();
+  adminRequest({op:'recruitHeld'}).then(r=>{ADRC.busy=false;ADRC.held=Array.isArray(r&&r.held)?r.held:[];ADRC.ev=r&&r.ev||null;ADRC.err='';render();},e=>{ADRC.busy=false;ADRC.err=e.message||'The list could not be read.';render();});
+}
+function stRcAdmin(){
+  stRcLoad(false);const H=ADRC.held,ev=ADRC.ev&&ADRC.ev.until>Date.now()?ADRC.ev:null;
+  const held=H==null?`<p class="hint">${ADRC.err?esc(ADRC.err):'Reading the claims held for a check…'}</p>`:!H.length?'<p class="hint">No claim is waiting for a check.</p>'
+    :`<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Recruit</th><th>Recruited by</th><th>Why</th><th>Filed</th><th></th></tr></thead><tbody>${H.map(x=>`<tr><td>${x.name?esc(x.name):'<span class="hint">No nation now</span>'}${x.reg?` <span class="hint">${esc(regName(x.reg))}</span>`:''}</td><td>${x.rname?esc(x.rname):'<span class="hint">No nation now</span>'}</td><td>${x.h==='dev'?'Same device':'Same address'}</td><td>${x.t?esc(rel(x.t)):'–'}</td>
+      <td><div class="row"><button class="btn small" data-act="st-rc-rule" data-id="${esc(x.id)}" data-ok="1"${ADRC.busy?' disabled':''}>Release</button><button class="btn ghost small" data-act="st-rc-rule" data-id="${esc(x.id)}" data-ok="0"${ADRC.busy?' disabled':''}>Refuse</button><button class="btn ghost small" data-act="admin-inspect" data-id="${esc(x.id)}">Inspect</button></div></td></tr>`).join('')}</tbody></table></div>`;
+  return `<h4 class="help-h3">Held for a check</h4><p class="hint">A claim from the address the recruiter last played from, or from a browser that has played as the recruiter, pays neither side until it is released here. Families, schools and offices share addresses: look at both players first (Inspect). Refused, it never pays.</p>${held}
+    <h4 class="help-h3">Double-rewards weekend</h4><p class="hint">While it runs, the founding gift of every recruit filed and every step reached pays both sides twice (materials and land credits). Every game shows it on the Invite tab and the invitation.</p>
+    ${ev?`<p><b>Running until ${esc(adminTime(ev.until))}.</b></p><div class="row"><button class="btn ghost small" data-act="st-rc-ev" data-h="0">End it now</button></div>`:`<div class="row"><button class="btn small" data-act="st-rc-ev" data-h="48">Start for 48 hours</button><button class="btn ghost small" data-act="st-rc-ev" data-h="72">72 hours</button><button class="btn ghost small" data-act="st-rc-ev" data-h="24">24 hours</button></div>`}
+    ${ADRC.msg?`<p class="hint" aria-live="polite">${esc(ADRC.msg)}</p>`:''}`;
+}
+document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-act="st-rc-rule"],[data-act="st-rc-ev"]');if(!el||!S.isOwner||ADRC.busy)return;
+  if(el.dataset.act==='st-rc-rule'){const ok=el.dataset.ok==='1',x=(ADRC.held||[]).find(h=>h.id===el.dataset.id);if(!x)return;
+    if(!confirm(ok?`Release ${x.name||'this recruit'}’s claim? Both sides are then paid.`:`Refuse ${x.name||'this recruit'}’s claim? Neither side is ever paid for it.`))return;
+    ADRC.busy=true;ADRC.msg='';render();adminRequest({op:'recruitRule',uid:x.id,ok}).then(()=>{ADRC.busy=false;ADRC.msg=ok?'Released: both games collect the next time they are open.':'Refused.';stRcLoad(true);},e2=>{ADRC.busy=false;ADRC.msg='That did not work: '+(e2.message||'unknown error');render();});return;}
+  const h=Number(el.dataset.h);if(!(h>=0&&h<=96))return;if(h&&!confirm(`Start a double-rewards weekend for ${h} hours, from now?`))return;
+  ADRC.busy=true;ADRC.msg='';render();adminRequest({op:'rcEvent',hours:h}).then(r=>{ADRC.busy=false;ADRC.ev=r&&r.ev||null;ADRC.msg=h?`Started: double rewards for ${h} hours.`:'Ended.';render();},e2=>{ADRC.busy=false;ADRC.msg='That did not work: '+(e2.message||'unknown error');render();});});
 document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-act]');if(!el||!S.isOwner)return;const a=el.dataset.act;
   if(a==='st-fun'){const w=el.dataset.w,s=+el.dataset.s;ADIN.fun=ADIN.fun&&ADIN.fun.w===w&&ADIN.fun.s===s?null:{w,s};render();if(ADIN.fun)setTimeout(()=>{const x=document.getElementById('adin-stuck');if(x)x.scrollIntoView({block:'nearest'});},0);return;}
   if(a==='st-fun-close'){ADIN.fun=null;render();}});
@@ -64385,7 +64437,7 @@ function afLine(e){
       return `Staff${e.by?' ('+afWho(e.by,e.byName)+')':''}: ${esc(e.x)}${on?' · '+on:''}`;}
     case 'topic':return `${N} started a topic on ${board}${q(e.x)}`;case 'reply':return `${N} replied on ${board}${q(e.x)}`;
     case 'post':return `${N} wrote on the ${esc(regName(e.reg))} board${q(e.x)}`;case 'comment':return `${N} commented on development news${q(e.x)}`;
-    case 'recruit':return `${N} was founded through ${T}’s recruiting link`;
+    case 'recruit':return `${N} was founded through ${T}’s recruiting link${e.h==='ip'||e.h==='dev'?' (held for a check: Statistics › Recruiting)':e.h==='no'?' (refused)':''}`;
   }
   return esc(e.k);
 }
@@ -89093,7 +89145,7 @@ mapBox=(f=>function(kind){const h=f.apply(this,arguments),n=S.nation;if(kind!=='
 
 /* the browser tests' window into the game: test/lib.mjs sets EDICTUM_PROBE before the page loads (a
    player's own browser can reach all of this anyway) */
-if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({RPATCH,SC:()=>scProbe(),WR3:()=>({CQ_ISSUES,cqFall,cqFalls,cqPairs,cqFallOf,cqAct,wrSackFix,MON_FIRST,monSites,monCard,monInfo,monIsFirst,monNorm,monRisen,cqDue,cqTake,cityFounded,cqBuildings,openMapAt,WAR3_ISSUES,wr3WarsSection,wr3BattleCard,wr3MapData,wr3Econ,wr3Close,wr3VetDue,wr3WindToggle,wr3MunOn,wr3Reserve,wr3Factors,wr3On,wr3DieSpin,warOfficeView,woTargets,thrHTML,warsSection,warFigs,warRow,warRank,allyWars,wwState,wwCard,wwLevers,wwCeil,wwFight,wwFightBtn,WW_OR_TOP,WW_OR_MS}),WR2:()=>({wrFallenCard,WR,WAR_GOALS,WAR2_ISSUES,wrSiege,wrSiegesOn,wrFallsAt,myFall,wrSiegeWhy,wrCapExposed,wrUnrest,wrWarsOf,wrPopFx,wrTribute,wrForts,wrFortify,wrSurrender,wrSiegeStart,wrRise,wrCarry,wrEdictDue,wrSafe,wrNotice,territory,frontier,economy,warControls,targetPanel,armyBlock,warNotice,warWith,pairWar,nationView,rgnOverview,hxCard}),HELPX:()=>({HLP,HELP_CH,HELP_SUM,HELP_FOR,WIKI,WIKI_PAGE,wikiHref,wikiSearch,GLOSS,helpFind,helpIndex,helpSecList,helpForYou,helpChapters,rgcCmd,rgcCardOf,rgcCardHTML,admhHs,admhHsCount}),MTP:()=>({MTP,MTP_PAD,TBMP_SCALE,redrawMaps,mapScale,viewOf}),SCR:()=>({scrOf,scrClean,scrDef,scrFamOf,scrEdParse,scrGlyphs,scrLay,scrChars,scrSVG,scrLine,scrCard,scrCharterSVG,scrFmt,scrFor,dmRich,dmPlain,scrDmWith,SCR_FAM,SCR_ABC,SCS}),BDX:()=>bdProbe(),LDX:()=>ldProbe(),FLY:()=>({flagSVG,fgSplit,fgFused,FS,fsColours,fsPaint,fsCheck,fgCantonWH,czArmsSVG,CZ_SHIELDS,czShOk,czShHow,czCleanArms}),RD:()=>rdProbe(),JV:()=>jvProbe(),M100P:()=>({M100,M100_N,M100_MC,M100_MCN,m100Bits,m100Got,m100In,m100Due,m100Count,m100Show,m100Open,ctgMcOk,nationColor,czShOk,czShieldPath,unlocksOf,czPatSVG,xsMax}),M200P:()=>({M200,M200_N,M200_MC,M200_MCN,M200_U,m200Bits,m200Got,m200In,m200Due,m200Count,m200Show,m200Open,ctgMcOk,nationColor,czShOk,czShieldPath,unlocksOf,czPatSVG,czStampArt,czFrameArt,czCharge,czFramed,flagSVG,xsMax,ACH_BY_ID,achEarnedIds}),WTN:()=>({WN,wbMap,wnKind,wnWaters,wnSync,wnAt,wnRename,wnReset,wnNameProblem,wnTaken,wnPanel,wnLabels,lakeMap,isLake,cellAt,WN_REACH,WTN_MAX,REG,RV,rvData,hexDist,territory,MAP,HEX_W,updateMapPanel,logLine}),RVN:()=>({RV,rvData,rvSync,rvKey,rvHeld,rvStretch,rvMost,rvEdgeHolder,rvAt,rvNameAt,rvLabelAt,rvParts,rvRename,rvReset,rvNameProblem,rvTidy,rvLabel,rvnPanel,logLine,RVN_MAX,RVN_LEN,updateMapPanel,hexDist,HEX_W,REG}),CP2:()=>({BLD_ICO,bldIco,bldLead,cxDefTotal,cxOrder,qjBuilding,BUILDINGS}),PRVC:()=>({cxPrvOf,cxPrvSeatTrial,cxOvwCols,prvSeat,prvMine,prvOfCell,prvSetAut,prvAppoint,PRV}),NPX:()=>({fbTrend,fbYesterday,heroLead,heroOpen,opOf,OPEN_TO,hnOf,hnFill,hnLine,nbSection,ppWho,ppWhoHTML,ppHash,ppCarried,economy,territory,bordersOf,fillDeal,findNation,clsHide,MAP,hexDist,STAT_KEYS,popNow,myId}),PT:()=>ptProbe(),LTH:()=>lthProbe(),DAM:()=>damProbe(),CHAT:()=>({RGC,RGW,RGF,RGA,tab:rgcTab(),count:rgcCount(),region:rgcUnread(),world:rgwUnread(),named:rgwNamedUnread(),fr:rgwUnread(RGF),frNamed:rgwNamedUnread(RGF),frOn:rgfOn(),amb:rgwUnread(RGA),ambOn:rgaOn(),tabs:rgcTabs().map(x=>x[0]),hidden:document.hidden}),UXP2:()=>({edictDesk,edictStep,edictOpen,fill,ISSUE_BY_ID,ACH,keysOpen,dmOthers,dmPickList,stGroups,stTabLast,navRecent,vhData,VH_KEY,VH_AFTER,QJ_DO,qjItems:q=>navQjItems(q),NAV_REC_KEY,ST_KEY}),HID:()=>({HIDN,hidMask,iAmHidden,frontier,mapPanel,warControls}),WG:()=>({wgTakers,wgForField,wgForPick,warGiveHex,warGive,occupiedFrom,attack,offerPeace,declareWar,collectConquests,dedupeConq}),WAKE:()=>({dormFresh,dormQuiet,dormWelcome,moveTo,RSTAT,REGIONS,REG,regDisabled}),HMB:()=>({RCTRL,hmBake,hmAutoFlag,fxDraw,capHolder,FX_DEF,DEF_FLAG,hmRle,hmLiveNorm,hmMapNorm,hmSel,hmRegions,hmBlocked,hmEngaged:()=>hmEngaged,HM,REG,MAP}),LAND:()=>({landWait,capLift,capWrong,capNote,raceKnown,RACE,worldHeardAt:()=>worldHeardAt,landQ:()=>S.landQ,landQueued,fdSites:(n,T)=>fdSites(n,T)}),BG:{gain:bldGain,html:bldGainHtml},IB:()=>({agRoster,agPick,agStatus,heatOf,cvRoll,cvKey,cvBlock,cvOdds,buLv,buGap,buAll,BU,BU_KEYS,BU2,BU2_KEYS,buLine,bu2Lv,bb,bu2Cost,bu2Hours,bu2Why,buCredits,buHoldK,agRestMs,cvSwayOdds,ibTurnChance,mhChance,landEarned,ibFile,ibWanted,ibChatter,HEAT_MAX,DD_TASKS,DD_LEG,findNation,allNations,cvProtected}),VL:()=>({VL_SECS,VL_DEF,CLS,CLS_OPS,CLS_READ,vlOrder,clsOf,clsRaw,clsMax,clsSeen,clsHide,clsRead,vlSave,findNation}),IFC:()=>({plan:ifcPlan,works:ifcWorks,line:ifcLine,tab:ifcTab}),DS:()=>dsProbe(),XP:()=>({BUILDINGS,XU,XU_KEYS,XU_TOTAL,LOST_KINDS,LOST_ORDER,XU2,XU2_KEYS,LOST2_KINDS,LOST2_ORDER,xuLine,xu2Lv,xb,xu2Cost,xu2Hours,xu2Why,xu2Start,xuCredits,xuMapsLv,xuFlK,xuFindK,xuParty,xuTimeK,xuReach,xuCostK,xuCurio,flSoon,landEarned,xuLv,xuWhy,xuHave,xuStart,xuCost,xuGear,xpSeen,expFree,xpTeamOpen,nationBuilt,expBackTeam,SITES,SITE_KINDS,expPlan,expOdds,expRuns,expRange,flRange,flAlive,flPlan,flDebug,flNow,discoveries,sendExpedition,hearReport,xpRoute,xpRivals,xpRivalText,xpFinds,flOdds,territory}),SVC:()=>({SVC,SVC_N,SVC_V,SVC_NEED,svcPlan,svcOpen,svcDig,svcShort,svcRoll,svcAmt,svcDayOf,svcRoom,svcNext}),FLC:()=>({FLC,FLC_RULES,FLC_CAT,flcId,flcTimes,flcPhase,flcPrev,flcView,flcLoad,flcChamp,flcTodo,flcClaims,flcLand,flcStreak,flcAllDone,flcSeen,flcDuty,flcDeskOn,flcDraftPush,FCA}),LK:{lakeMap,isLake,claimLand,lakeShore,fillHeld,LAKE_MAX,LAKE_A,freeCell,claimFrontier,blockPlan,autoPlan,terrCount,placePhrase,claimWhy,swapCheck,inspectPanel,writeClaims,landCredits:n=>landCredits(n)},PST:()=>({PST,PST_LOOKS,PST_SHAPES,PST_SIZES,pstBar,pstKm,pstView,pstBox,pstPlace,pstKeyOf,pstRender,pstShow,pstHide,pstLocked,pstOffered,pstSizeOffered,pstPrintK,pstSealId,pstPhys,pstCrc}),DIG:()=>({DIG_SETS,DIG_FIRST,DIG_POOL,DIG_SITES,DIG_LEN,DIG_EVENTS,DIG_SCH,digSet,digHeld,digDone,digRew,digCredits,digOrder,digActive,digRetired,digOpenedAt,digPlan,digSend,digOpen,digChoose,digMod,digEvent,digPity,digGround,digInvites,digJoin,digJointOn,digGiftsIn,digTake,digGiveSpare,digSellSpare,digHire,digRegionFinds,digFirsts,landEarned:n=>landEarned(n),REG,REGIONS,COL_BY_ID}),MW:()=>({mwOf,mwLeft,mwDue,mwPoints,mwVisitors,mwTakings,mwExhibit,mwExhibitItems,mwRanking,mwWorn,mwSlots,mwOnShow,COL_BY_ID,COL_ITEMS,DIG_SETS,MW_FLOORS}),GM:()=>({gamesResults,edOf,b1Now,gevWhy,baseScores,entryOf,medalsIn,gamesRecords,gamesCeremony,unlocksOf,myId,formOf,GAME_EVENTS,clone,commit}),GM2:()=>({GAMES_V2,GTAC,TRAIN_PTS,TRAIN_MAX,BOY_GW,edOf,edStart,entryOf,gamesHost,gamesBids,edEvents,edDrawn,gmSwapOf,gmMascOf,gmChatLines,gmChatLine,gmTrCost,gevWhy,formOf,gamesResults,dspBuild,dspNoOf,c3MyBid,gcerSeen,stockNow,stockCap,canFeature,myId,clone,commit}),GB:()=>({IRON_DEP,IRON_DEP_YIELD,CELL_RES,MAP_T:MAP.T,mapAt:c=>{centerMain(c,NEAR_Z*1.6);},stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,FOOD_SPOIL,FOOD_EAT,FOOD_TIERS,FOOD_LAND,foodTier,TIMBER_BURN,foodGrowth,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({dspShown,dspRegShown,dspRegs,dspPic,dspLocator,dspHtDefs,pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),ASMX:()=>({ASMX,ASMX_TABS,asmBookAt,asmState,asmArcLoad,REG}),RGNX:()=>({RGN,RGN_PAGE,notifItems,ONL,onlRefresh}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals,seatsOf,alliancesOf,alMineAll,alClashes,alFest,alWornOf,alGuardsOf,alSeatsFor,allianceOf,AL_TY_UI,alStripHTML,alArmsSVG,alArmsAuto,alPzKeys,alMoCheck,alOpenPage,alWeekData,alLvOpens}),TYX:()=>({TY,TY_RULES,TY_K,tyOf,tyList,tyWarBlock,tyIncoming,affinity,alPactLive,alRelationsHTML,econOf,armyPower,armyRaw,attackMult,readyMs,drWords,drNote,drBroken,relationCard}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,npcIdeaNow,npcDealFor,npcAsk,npcReply,npcVerdict,npcTradeTalk,dealSlots,maxDeals,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,achTierCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC,step:rcStepCheck,head:rcHead,sponsoring:rcSponsoring,qr:qrMatrix,card:rcCardDraw,invCap:rcInvCap,free:rcFreeLand,STEPS:RC_STEPS,UNL:RC_UNLOCKS}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend,card:n=>tutCard(n),phase:n=>tutPhase(n),picks:(n,ph)=>tutPicks(n,ph),group:(n,k)=>tutGroup(n,tutL(k)),hid:n=>tutHid(n)},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours,
+if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({RPATCH,SC:()=>scProbe(),WR3:()=>({CQ_ISSUES,cqFall,cqFalls,cqPairs,cqFallOf,cqAct,wrSackFix,MON_FIRST,monSites,monCard,monInfo,monIsFirst,monNorm,monRisen,cqDue,cqTake,cityFounded,cqBuildings,openMapAt,WAR3_ISSUES,wr3WarsSection,wr3BattleCard,wr3MapData,wr3Econ,wr3Close,wr3VetDue,wr3WindToggle,wr3MunOn,wr3Reserve,wr3Factors,wr3On,wr3DieSpin,warOfficeView,woTargets,thrHTML,warsSection,warFigs,warRow,warRank,allyWars,wwState,wwCard,wwLevers,wwCeil,wwFight,wwFightBtn,WW_OR_TOP,WW_OR_MS}),WR2:()=>({wrFallenCard,WR,WAR_GOALS,WAR2_ISSUES,wrSiege,wrSiegesOn,wrFallsAt,myFall,wrSiegeWhy,wrCapExposed,wrUnrest,wrWarsOf,wrPopFx,wrTribute,wrForts,wrFortify,wrSurrender,wrSiegeStart,wrRise,wrCarry,wrEdictDue,wrSafe,wrNotice,territory,frontier,economy,warControls,targetPanel,armyBlock,warNotice,warWith,pairWar,nationView,rgnOverview,hxCard}),HELPX:()=>({HLP,HELP_CH,HELP_SUM,HELP_FOR,WIKI,WIKI_PAGE,wikiHref,wikiSearch,GLOSS,helpFind,helpIndex,helpSecList,helpForYou,helpChapters,rgcCmd,rgcCardOf,rgcCardHTML,admhHs,admhHsCount}),MTP:()=>({MTP,MTP_PAD,TBMP_SCALE,redrawMaps,mapScale,viewOf}),SCR:()=>({scrOf,scrClean,scrDef,scrFamOf,scrEdParse,scrGlyphs,scrLay,scrChars,scrSVG,scrLine,scrCard,scrCharterSVG,scrFmt,scrFor,dmRich,dmPlain,scrDmWith,SCR_FAM,SCR_ABC,SCS}),BDX:()=>bdProbe(),LDX:()=>ldProbe(),FLY:()=>({flagSVG,fgSplit,fgFused,FS,fsColours,fsPaint,fsCheck,fgCantonWH,czArmsSVG,CZ_SHIELDS,czShOk,czShHow,czCleanArms}),RD:()=>rdProbe(),JV:()=>jvProbe(),M100P:()=>({M100,M100_N,M100_MC,M100_MCN,m100Bits,m100Got,m100In,m100Due,m100Count,m100Show,m100Open,ctgMcOk,nationColor,czShOk,czShieldPath,unlocksOf,czPatSVG,xsMax}),M200P:()=>({M200,M200_N,M200_MC,M200_MCN,M200_U,m200Bits,m200Got,m200In,m200Due,m200Count,m200Show,m200Open,ctgMcOk,nationColor,czShOk,czShieldPath,unlocksOf,czPatSVG,czStampArt,czFrameArt,czCharge,czFramed,flagSVG,xsMax,ACH_BY_ID,achEarnedIds}),WTN:()=>({WN,wbMap,wnKind,wnWaters,wnSync,wnAt,wnRename,wnReset,wnNameProblem,wnTaken,wnPanel,wnLabels,lakeMap,isLake,cellAt,WN_REACH,WTN_MAX,REG,RV,rvData,hexDist,territory,MAP,HEX_W,updateMapPanel,logLine}),RVN:()=>({RV,rvData,rvSync,rvKey,rvHeld,rvStretch,rvMost,rvEdgeHolder,rvAt,rvNameAt,rvLabelAt,rvParts,rvRename,rvReset,rvNameProblem,rvTidy,rvLabel,rvnPanel,logLine,RVN_MAX,RVN_LEN,updateMapPanel,hexDist,HEX_W,REG}),CP2:()=>({BLD_ICO,bldIco,bldLead,cxDefTotal,cxOrder,qjBuilding,BUILDINGS}),PRVC:()=>({cxPrvOf,cxPrvSeatTrial,cxOvwCols,prvSeat,prvMine,prvOfCell,prvSetAut,prvAppoint,PRV}),NPX:()=>({fbTrend,fbYesterday,heroLead,heroOpen,opOf,OPEN_TO,hnOf,hnFill,hnLine,nbSection,ppWho,ppWhoHTML,ppHash,ppCarried,economy,territory,bordersOf,fillDeal,findNation,clsHide,MAP,hexDist,STAT_KEYS,popNow,myId}),PT:()=>ptProbe(),LTH:()=>lthProbe(),DAM:()=>damProbe(),CHAT:()=>({RGC,RGW,RGF,RGA,tab:rgcTab(),count:rgcCount(),region:rgcUnread(),world:rgwUnread(),named:rgwNamedUnread(),fr:rgwUnread(RGF),frNamed:rgwNamedUnread(RGF),frOn:rgfOn(),amb:rgwUnread(RGA),ambOn:rgaOn(),tabs:rgcTabs().map(x=>x[0]),hidden:document.hidden}),UXP2:()=>({edictDesk,edictStep,edictOpen,fill,ISSUE_BY_ID,ACH,keysOpen,dmOthers,dmPickList,stGroups,stTabLast,navRecent,vhData,VH_KEY,VH_AFTER,QJ_DO,qjItems:q=>navQjItems(q),NAV_REC_KEY,ST_KEY}),HID:()=>({HIDN,hidMask,iAmHidden,frontier,mapPanel,warControls}),WG:()=>({wgTakers,wgForField,wgForPick,warGiveHex,warGive,occupiedFrom,attack,offerPeace,declareWar,collectConquests,dedupeConq}),WAKE:()=>({dormFresh,dormQuiet,dormWelcome,moveTo,RSTAT,REGIONS,REG,regDisabled}),HMB:()=>({RCTRL,hmBake,hmAutoFlag,fxDraw,capHolder,FX_DEF,DEF_FLAG,hmRle,hmLiveNorm,hmMapNorm,hmSel,hmRegions,hmBlocked,hmEngaged:()=>hmEngaged,HM,REG,MAP}),LAND:()=>({landWait,capLift,capWrong,capNote,raceKnown,RACE,worldHeardAt:()=>worldHeardAt,landQ:()=>S.landQ,landQueued,fdSites:(n,T)=>fdSites(n,T)}),BG:{gain:bldGain,html:bldGainHtml},IB:()=>({agRoster,agPick,agStatus,heatOf,cvRoll,cvKey,cvBlock,cvOdds,buLv,buGap,buAll,BU,BU_KEYS,BU2,BU2_KEYS,buLine,bu2Lv,bb,bu2Cost,bu2Hours,bu2Why,buCredits,buHoldK,agRestMs,cvSwayOdds,ibTurnChance,mhChance,landEarned,ibFile,ibWanted,ibChatter,HEAT_MAX,DD_TASKS,DD_LEG,findNation,allNations,cvProtected}),VL:()=>({VL_SECS,VL_DEF,CLS,CLS_OPS,CLS_READ,vlOrder,clsOf,clsRaw,clsMax,clsSeen,clsHide,clsRead,vlSave,findNation}),IFC:()=>({plan:ifcPlan,works:ifcWorks,line:ifcLine,tab:ifcTab}),DS:()=>dsProbe(),XP:()=>({BUILDINGS,XU,XU_KEYS,XU_TOTAL,LOST_KINDS,LOST_ORDER,XU2,XU2_KEYS,LOST2_KINDS,LOST2_ORDER,xuLine,xu2Lv,xb,xu2Cost,xu2Hours,xu2Why,xu2Start,xuCredits,xuMapsLv,xuFlK,xuFindK,xuParty,xuTimeK,xuReach,xuCostK,xuCurio,flSoon,landEarned,xuLv,xuWhy,xuHave,xuStart,xuCost,xuGear,xpSeen,expFree,xpTeamOpen,nationBuilt,expBackTeam,SITES,SITE_KINDS,expPlan,expOdds,expRuns,expRange,flRange,flAlive,flPlan,flDebug,flNow,discoveries,sendExpedition,hearReport,xpRoute,xpRivals,xpRivalText,xpFinds,flOdds,territory}),SVC:()=>({SVC,SVC_N,SVC_V,SVC_NEED,svcPlan,svcOpen,svcDig,svcShort,svcRoll,svcAmt,svcDayOf,svcRoom,svcNext}),FLC:()=>({FLC,FLC_RULES,FLC_CAT,flcId,flcTimes,flcPhase,flcPrev,flcView,flcLoad,flcChamp,flcTodo,flcClaims,flcLand,flcStreak,flcAllDone,flcSeen,flcDuty,flcDeskOn,flcDraftPush,FCA}),LK:{lakeMap,isLake,claimLand,lakeShore,fillHeld,LAKE_MAX,LAKE_A,freeCell,claimFrontier,blockPlan,autoPlan,terrCount,placePhrase,claimWhy,swapCheck,inspectPanel,writeClaims,landCredits:n=>landCredits(n)},PST:()=>({PST,PST_LOOKS,PST_SHAPES,PST_SIZES,pstBar,pstKm,pstView,pstBox,pstPlace,pstKeyOf,pstRender,pstShow,pstHide,pstLocked,pstOffered,pstSizeOffered,pstPrintK,pstSealId,pstPhys,pstCrc}),DIG:()=>({DIG_SETS,DIG_FIRST,DIG_POOL,DIG_SITES,DIG_LEN,DIG_EVENTS,DIG_SCH,digSet,digHeld,digDone,digRew,digCredits,digOrder,digActive,digRetired,digOpenedAt,digPlan,digSend,digOpen,digChoose,digMod,digEvent,digPity,digGround,digInvites,digJoin,digJointOn,digGiftsIn,digTake,digGiveSpare,digSellSpare,digHire,digRegionFinds,digFirsts,landEarned:n=>landEarned(n),REG,REGIONS,COL_BY_ID}),MW:()=>({mwOf,mwLeft,mwDue,mwPoints,mwVisitors,mwTakings,mwExhibit,mwExhibitItems,mwRanking,mwWorn,mwSlots,mwOnShow,COL_BY_ID,COL_ITEMS,DIG_SETS,MW_FLOORS}),GM:()=>({gamesResults,edOf,b1Now,gevWhy,baseScores,entryOf,medalsIn,gamesRecords,gamesCeremony,unlocksOf,myId,formOf,GAME_EVENTS,clone,commit}),GM2:()=>({GAMES_V2,GTAC,TRAIN_PTS,TRAIN_MAX,BOY_GW,edOf,edStart,entryOf,gamesHost,gamesBids,edEvents,edDrawn,gmSwapOf,gmMascOf,gmChatLines,gmChatLine,gmTrCost,gevWhy,formOf,gamesResults,dspBuild,dspNoOf,c3MyBid,gcerSeen,stockNow,stockCap,canFeature,myId,clone,commit}),GB:()=>({IRON_DEP,IRON_DEP_YIELD,CELL_RES,MAP_T:MAP.T,mapAt:c=>{centerMain(c,NEAR_Z*1.6);},stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,FOOD_SPOIL,FOOD_EAT,FOOD_TIERS,FOOD_LAND,foodTier,TIMBER_BURN,foodGrowth,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({dspShown,dspRegShown,dspRegs,dspPic,dspLocator,dspHtDefs,pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),ASMX:()=>({ASMX,ASMX_TABS,asmBookAt,asmState,asmArcLoad,REG}),RGNX:()=>({RGN,RGN_PAGE,notifItems,ONL,onlRefresh}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals,seatsOf,alliancesOf,alMineAll,alClashes,alFest,alWornOf,alGuardsOf,alSeatsFor,allianceOf,AL_TY_UI,alStripHTML,alArmsSVG,alArmsAuto,alPzKeys,alMoCheck,alOpenPage,alWeekData,alLvOpens}),TYX:()=>({TY,TY_RULES,TY_K,tyOf,tyList,tyWarBlock,tyIncoming,affinity,alPactLive,alRelationsHTML,econOf,armyPower,armyRaw,attackMult,readyMs,drWords,drNote,drBroken,relationCard}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,npcIdeaNow,npcDealFor,npcAsk,npcReply,npcVerdict,npcTradeTalk,dealSlots,maxDeals,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,achTierCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC,step:rcStepCheck,head:rcHead,sponsoring:rcSponsoring,qr:qrMatrix,card:rcCardDraw,invCap:rcInvCap,free:rcFreeLand,STEPS:RC_STEPS,UNL:RC_UNLOCKS,link:rcLink,amts:rcAmts,amtText:rcAmtText,pact:rcPactUntil,quiet:rcQuiet,moments:rcMoments,momentOf:rcMomentOf,moDraw:rcMoDraw,ev:rcEv,evRead:rcEvRead,dev:rcDev,devNote:rcDevNote,noteLoad:rcNoteLoad,welcome:rcWelcomeText,traded:rcTraded,mult:rcMult,landAmt:rcLandAmt,GRAND:RC_GRAND,SHARE:RC_SHARE}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend,card:n=>tutCard(n),phase:n=>tutPhase(n),picks:(n,ph)=>tutPicks(n,ph),group:(n,k)=>tutGroup(n,tutL(k)),hid:n=>tutHid(n)},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours,
   SV:MC_SV,XS:MC_XS,QUEUE:MC_QUEUE,DISH:MC_DISH,FINDS:MC_FINDS,CHART_MS:MC_CHART_MS,repSecs:mcRepSecs,repKind:mcRepKind,fold:mcFold,lane:mcLane,dish:mcDish,
   finds:mcFinds,findAt:mcFindAt,bits:mcBitsList,charted:mcCharted,chartedNow:mcChartedNow,unqueue:mcUnqueue,dishBuild:mcDishBuild,bringHome:mcBringHome,
   secSite:mcSecSite,prefOk:mcPrefOk,prefTile:mcPrefTile,setPref:mcSetPref,startProblem:mcStartProblem,wfKey:mcWfKey,osKey:mcOsKey},WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,ACT1:WS_ACT1,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond,real:wsReal,mask:wsMask,ansN:wsAnsN},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR,bell:now=>notifItems(now||Date.now())},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},TIER:()=>({BTIER,bEff,bTier,bTierNext,bTierLine,tierQuote,tierProblem,cxTier,cxTrMap,tierSettle,tierReady,cxGoldNow,cxUpQuote,cxUpList,cxUps,mktSlots,mktSlotsOf,maxDeals,bldAggOf}),CX:{upgradable:cxUpgradable,mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState,UG:CX_UG,LV:CX_LV,ups:cxUps,upMap:cxUpMap,extras:cxBldExtras,quote:cxUpQuote},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo,unlockTarget,unlockShow,unlockFresh,unlockQueue,ULK,UNLOCKS,unlocksOf,toast:m=>toast(m)},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{coinBackSVG:cuCoinBackSVG,noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,coinSVG:cuCoinSVG,guide:cuGuideHTML,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,drawMap,sfKey,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ACH_RANKS_V1,ID_BD,achVal,achCtx,achEvalNew,achState,stockRates:n=>stockRates(n),achPoints,achRank,achRankOf,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,flagNorm:(f,n)=>flagNorm(f,n),flagSVG:(f,l)=>flagSVG(f,l),mapTip:id=>{const T=mapTerr('main'),i=T.list.findIndex(x=>x.id===id);if(i<0)return '';const cell=Array.prototype.indexOf.call(T.owner,i);return MAP_TIP.map(h=>{try{return h({kind:'main',cell,cv:null,x:0,y:0});}catch(e){return '';}}).filter(x=>typeof x==='string').join(' | ');},cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
@@ -89170,55 +89222,114 @@ function mlPings(prev,n){
 }
 commit=(f=>function(n){const prev=S.nation,r=f.apply(this,arguments);try{if(S.nation!==prev)mlPings(prev,n);}catch(e){}return r;})(commit);
 /* ───────── recruiting: a player's own link, and rewards for both sides as the new nation grows ─────────
-   Region › Invite is its home (Settings › Account keeps the link and points there). Each player shares a link
-   (/?recruit=<uid>&rg=<region>). A visitor who opens it keeps the recruiter's id on this device (RC_KEY {r, t: when it
-   was opened, g: the recruiter's region}); the founding page welcomes them by the recruiter's name, starts them in the
-   recruiter's region (HOME_REG reads g) with the advisors' pins near the recruiter's capital (fdSites), and the server
-   notes the visit for the admins' funnel (recruitApi.open). Once they have founded a nation after opening it, saved it
-   and linked a sign-in account (a Registered Nation), the server files recruits/<own uid> {r} (functions/accounts.js,
-   'recruit': once only, for a nation founded in the last 30 days and after the recruiter's). A Guest Nation keeps the
-   link until it links an account, with the two steps on its Nation page (edictum:linked asks again). A newly filed one
-   pays the recruit RC_GIFT of each of RC_RES and RC_LAND land credits (n.rcb {r}). Later steps (RC_STEPS: a week of
-   play, a second city) are read by the server from the saved nation (recruitApi.step, recruits/<uid>.m) and pay both
-   sides once each (n.rcb.m; the recruiter's n.rcm {id: steps}). The recruiter's game lists its recruits (rcPoll),
-   pays itself the founding gift for each new one, up to RC_MAX, and the steps they reach; it tells the bell and the
-   menu (log kinds recruit and rcstep, n.rcv the last look at Invite). For RC_SPONSOR_MS after a recruit is filed, its
-   recruiter is its sponsor: one more Supply Cache a day to it (SC_RULES.sponsor). Recruits earn the recruiter
-   cosmetics (RC_UNLOCKS). The Invite tab draws an invitation card with a QR code to save or share. */
+   Region › Invite is its home (Settings › Account keeps the link and points there). Each player shares a link: their
+   /join/<slug> (functions/join.js, made once from the nation's name: no account id in it, and a preview with their card
+   where it is pasted), or, until that is known, /?recruit=<uid>&rg=<region>; each share button adds its channel
+   (&via=, RC_VIA) for the admins' funnel. A visitor who opens it keeps the recruiter's id on this device (RC_KEY {r, t:
+   when it was opened, g: the recruiter's region, v: the channel, hd: held for a check}); the founding page welcomes them
+   by the recruiter's name and note, starts them in the recruiter's region (HOME_REG reads g, hmChosen keeps it) with the
+   advisors' pins near the recruiter's capital (fdSites), and the server notes the visit for the admins' funnel
+   (recruitApi.open). Once they have founded a nation after opening it, saved it and linked a sign-in account (a
+   Registered Nation), the server files recruits/<own uid> {r} (functions/recruit.js, 'recruit': once only, for a nation
+   founded in the last 30 days and after the recruiter's). A Guest Nation keeps the link until it links an account, with
+   the two steps on its Nation page (edictum:linked asks again); its recruiter sees it waiting and may nudge it with a
+   letter. A claim from the address or the device the recruiter plays from is held until the staff look (h): neither
+   side is paid meanwhile (the device tells by RC_UIDS, the accounts that played on it).
+   A newly filed one pays the recruit the founding gift (n.rcb {r, t, e?, x?, m?, xm?}): RC_GIFT of each of RC_RES or
+   RC_SHARE.f of a day's income of each, whichever is more (ddAmt, as the daily desk scales), and RC_LAND land credits;
+   ×RC_QUIET_K when it founded in a region that needs players (e), ×2 in a double-rewards weekend (x, rcEvent/live). Later
+   steps (RC_STEPS: a week of play, a second city, a trade with the recruiter within RC_GOAL_MS) are read by the server
+   from the saved nations (recruitApi.stepx, recruits/<uid>.m, xm the ones reached in a weekend) and pay both sides once
+   each (n.rcb.m; the recruiter's n.rcm {id: steps}, n.rcx {id: 1 e | 16 x | the weekend's steps}). The recruiter's game
+   lists its recruits (rcPoll), pays itself the founding gift for each new one, up to RC_MAX, and the steps they reach,
+   unless it went to war with them (n.rcf); it tells the bell and the menu (log kinds recruit, rcstep and rcgrand, with
+   the amounts in fx; n.rcv the last look at Invite). The recruits of its recruits pay it RC_GRAND each (n.rcgp, up to
+   RC_GMAX). For RC_SPONSOR_MS after a recruit is filed, its recruiter is its sponsor: one more Supply Cache a day to it
+   (SC_RULES.sponsor), and a view of how it is doing (rcMentor). The two start warmer towards each other (n.gw +RC_GW)
+   with a Note of Friendship from the recruiter (their note, else a welcome), and for RC_PACT_MS neither may go to war
+   with the other (functions/recruit-rules.js; n.rct {id: when filed} keeps the recruiter's side). Recruits earn the
+   recruiter cosmetics (RC_UNLOCKS). The Invite tab draws an invitation card with a QR code to save or share, and a card
+   for each of the nation's latest great moments (RC_MOMENTS). The words of the cards and the shared text follow the
+   player's language (rcL). */
 const RC_GIFT=15,RC_RES=['goods','oil','timber','iron'],RC_LAND=3,RC_MAX=60,RC_KEY='edictum.recruitBy.v1',RC_ID=/^[A-Za-z0-9_-]{6,128}$/;
-/* the later steps: [bit, key, what happened, materials of each of RC_RES, land credits], paid to both sides */
-const RC_STEPS=[[2,'week','played a week',10,2],[4,'city','founded a second city',10,3]],RC_WEEK=7*DAY,RC_SPONSOR_MS=14*DAY;
+/* the later steps: [bit, key, what the recruit did, materials of each of RC_RES (the floor), land credits, as its recruiter hears it] */
+const RC_STEPS=[[2,'week','played a week',10,2,'played a week'],[4,'city','founded a second city',10,3,'founded a second city'],[8,'goal','traded with its recruiter',10,2,'traded with you']],RC_WEEK=7*DAY,RC_SPONSOR_MS=14*DAY;
+const RC_GOAL_MS=14*DAY,RC_PACT_MS=30*DAY,RC_GW=10,RC_UIDS='edictum.uids.v1';
+/* materials follow the nation's own income: a share of a day's income of each, or the floor, whichever is more */
+const RC_SHARE={f:.25,s:.2,g:.1};
+/* the lineage: each recruit of one of the player's recruits pays the player [materials floor, land credits] */
+const RC_GRAND=[5,1],RC_GMAX=60;
+/* founded where players are wanted: ×RC_QUIET_K, for a region with at most RC_QUIET of the average open region's nations
+   (functions/recruit.js, quietRegion) */
+const RC_QUIET_K=1.5,RC_QUIET=0.6;
+/* the share buttons' channels, and the other ways a link travels (copied, the share sheet, the card's QR code, a moment's card) */
+const RC_VIA={Facebook:'fb',X:'x',Mastodon:'md',WhatsApp:'wa',Bluesky:'bs',Telegram:'tg',Reddit:'rd',LinkedIn:'li',Email:'em'},RC_VIA_OK=/^[a-z]{1,8}$/;
 /* what recruits earn the recruiter: [unlock, recruits needed] */
 const RC_UNLOCKS=[['t-welcoming',1],['s-seconded',3],['f-chain',10],['c-hands',25]];
-const RC={busy:false,at:0,n:null,list:null,tries:0,copied:false,api:null,ok:false,stepAt:0,stepBusy:false};
-(()=>{try{const u=new URL(location.href),r=u.searchParams.get('recruit'),g=u.searchParams.get('rg');if(!u.searchParams.has('recruit'))return;
-  u.searchParams.delete('recruit');u.searchParams.delete('rg');history.replaceState(history.state,'',u.pathname+u.search+u.hash);
-  if(r&&RC_ID.test(r)&&!localStorage.getItem(RC_KEY))localStorage.setItem(RC_KEY,JSON.stringify(Object.assign({r,t:Date.now()},g&&REG_BY_ID[g]?{g}:{})));}catch(e){}})();
+const RC={busy:false,at:0,n:null,list:null,lin:null,fun:null,funAt:0,ev:null,evAt:0,tries:0,copied:false,api:null,ok:false,stepAt:0,stepBusy:false,slug:'',slugAt:0,note:null,noteBy:null,noteMsg:'',noteBusy:false,cardH:'',mo:null,held:false};
+/* the player's language: French words where the page is in French (the cards and shared text are not on the page, so the
+   page's translation never reaches them) */
+const rcFr=()=>{try{return uiLang()==='fr';}catch(e){return false;}};
+const rcL=(en,fr)=>rcFr()?fr:en;
+const RC_RES_FR={goods:'biens',oil:'pétrole',timber:'bois',iron:'fer'};
+(()=>{try{const u=new URL(location.href),r=u.searchParams.get('recruit'),g=u.searchParams.get('rg'),v=u.searchParams.get('via');if(!u.searchParams.has('recruit'))return;
+  u.searchParams.delete('recruit');u.searchParams.delete('rg');u.searchParams.delete('via');history.replaceState(history.state,'',u.pathname+u.search+u.hash);
+  if(r&&RC_ID.test(r)&&!localStorage.getItem(RC_KEY))localStorage.setItem(RC_KEY,JSON.stringify(Object.assign({r,t:Date.now()},g&&REG_BY_ID[g]?{g}:{},v&&RC_VIA_OK.test(v)?{v}:{})));}catch(e){}})();
 function rcRead(){try{const o=JSON.parse(localStorage.getItem(RC_KEY)||'null');return o&&RC_ID.test(o.r)?o:null;}catch(e){return null;}}
 function rcPending(){const o=rcRead();return o?o.r:'';}
 function rcForget(){try{localStorage.removeItem(RC_KEY);}catch(e){}}
 function rcKeep(x){try{const o=rcRead();if(o)localStorage.setItem(RC_KEY,JSON.stringify(Object.assign({},o,x)));}catch(e){}}
+/* the accounts that have played on this device, for the claim (a recruit's browser that played as its recruiter) */
+function rcDevNote(){try{const me=myId();if(!me||!RC_ID.test(me))return;const a=JSON.parse(localStorage.getItem(RC_UIDS)||'[]'),L=Array.isArray(a)?a.filter(x=>typeof x==='string'&&RC_ID.test(x)):[];if(L.includes(me))return;L.push(me);localStorage.setItem(RC_UIDS,JSON.stringify(L.slice(-12)));}catch(e){}}
+function rcDev(by){try{const a=JSON.parse(localStorage.getItem(RC_UIDS)||'[]');return Array.isArray(a)&&a.includes(by);}catch(e){return false;}}
 function rcApi(){return Promise.resolve(window.claude&&typeof window.claude.use==='function'?window.claude.use('recruit'):null).then(a=>{RC.api=a&&typeof a.claim==='function'?a:null;RC.ok=true;return RC.api;},()=>null);}
 const rcPaid=n=>Array.isArray(n&&n.rcp)?n.rcp:[];
 const rcmOf=n=>n&&n.rcm&&typeof n.rcm==='object'?n.rcm:{};
-const rcStepLand=m=>RC_STEPS.reduce((s,st)=>s+((m&st[0])?st[4]:0),0);
-const rcLand=n=>!n||n.npc?0:(n.rcb?RC_LAND+rcStepLand(n.rcb.m|0):0)+rcPaid(n).slice(0,RC_MAX).reduce((s,id)=>s+RC_LAND+rcStepLand(rcmOf(n)[id]|0),0);
+const rcxOf=n=>n&&n.rcx&&typeof n.rcx==='object'?n.rcx:{};
+const rcfOf=n=>n&&n.rcf&&typeof n.rcf==='object'?n.rcf:{};
+const rcGPaid=n=>Array.isArray(n&&n.rcgp)?n.rcgp:[];
+const rcMult=(e,x)=>(e?RC_QUIET_K:1)*(x>1?2:1);
+const rcLandAmt=(base,e,x)=>Math.round(base*rcMult(e,x));
+const rcStepLand=(m,xm)=>RC_STEPS.reduce((s,st)=>s+((m&st[0])?st[4]*((xm&st[0])?2:1):0),0);
+const rcLand=n=>{if(!n||n.npc)return 0;let s=n.rcb?rcLandAmt(RC_LAND,n.rcb.e,n.rcb.x)+rcStepLand(n.rcb.m|0,n.rcb.xm|0):0;const X=rcxOf(n),M=rcmOf(n);
+  for(const id of rcPaid(n).slice(0,RC_MAX)){const c=X[id]|0;s+=rcLandAmt(RC_LAND,c&1,c&16?2:0)+rcStepLand(M[id]|0,c&14);}
+  return s+Math.min(RC_GMAX,rcGPaid(n).length)*RC_GRAND[1];};
 const rcCount=n=>Math.min(RC_MAX,rcPaid(n).length);
 landEarned=(f=>function(n){return f.apply(this,arguments)+rcLand(n);})(landEarned);
 earnedAt=(f=>function(n){return f.apply(this,arguments)+rcLand(n);})(earnedAt);
 NORM_HOOKS.push((n,d)=>{
-  if(d&&d.rcb&&typeof d.rcb.r==='string'&&RC_ID.test(d.rcb.r)){n.rcb={r:d.rcb.r};const m=(d.rcb.m|0)&6;if(m)n.rcb.m=m;}else delete n.rcb;
+  const tm=v=>Number.isFinite(v)&&v>0;
+  if(d&&d.rcb&&typeof d.rcb.r==='string'&&RC_ID.test(d.rcb.r)){const b={r:d.rcb.r},m=(d.rcb.m|0)&14,xm=(d.rcb.xm|0)&14;if(m)b.m=m;if(xm)b.xm=xm;if(d.rcb.e)b.e=1;if(d.rcb.x>1)b.x=2;if(d.rcb.p)b.p=1;if(tm(d.rcb.t))b.t=d.rcb.t;n.rcb=b;}else delete n.rcb;
   if(d&&Array.isArray(d.rcp)){const a=[...new Set(d.rcp.filter(x=>typeof x==='string'&&RC_ID.test(x)))].slice(0,RC_MAX);if(a.length)n.rcp=a;else delete n.rcp;}else delete n.rcp;
-  const m={};if(d&&d.rcm&&typeof d.rcm==='object'&&n.rcp)for(const id of n.rcp){const v=(d.rcm[id]|0)&6;if(v)m[id]=v;}if(Object.keys(m).length)n.rcm=m;else delete n.rcm;
-  if(d&&Number.isFinite(d.rcv)&&d.rcv>0)n.rcv=d.rcv;else delete n.rcv;
+  const of=(k,mask)=>{const o={};if(d&&d[k]&&typeof d[k]==='object'&&n.rcp)for(const id of n.rcp){const v=(d[k][id]|0)&mask;if(v)o[id]=v;}if(Object.keys(o).length)n[k]=o;else delete n[k];};
+  of('rcm',14);of('rcx',31);of('rcf',1);
+  if(d&&d.rct&&typeof d.rct==='object'){const o={},now=Date.now();for(const [id,t] of Object.entries(d.rct))if(RC_ID.test(id)&&tm(t)&&now-t<RC_PACT_MS+DAY)o[id]=t;if(Object.keys(o).length)n.rct=o;else delete n.rct;}else delete n.rct;
+  if(d&&Array.isArray(d.rcgp)){const a=[...new Set(d.rcgp.filter(x=>typeof x==='string'&&RC_ID.test(x)))].slice(0,RC_GMAX);if(a.length)n.rcgp=a;else delete n.rcgp;}else delete n.rcgp;
+  if(d&&d.rcnu&&typeof d.rcnu==='object'){const e=Object.entries(d.rcnu).filter(([id,t])=>RC_ID.test(id)&&tm(t)).sort((a,b)=>b[1]-a[1]).slice(0,30);if(e.length)n.rcnu=Object.fromEntries(e);else delete n.rcnu;}else delete n.rcnu;
+  for(const k of ['rcv','rcmo'])if(d&&tm(d[k]))n[k]=d[k];else delete n[k];
 });
 /* commit() keeps the stock it can account for, so gifts are paid inside a commit hook, like the desk's: m._rcg lists
-   the amounts (each of RC_RES), or counts founding gifts */
+   the amounts ({resource: amount} of RC_RES, worked out once before the commit so the words and the payment agree; a
+   number is that much of each), or counts founding gifts */
 COMMIT_HOOKS.push(n=>{if(!n)return;const k=n._rcg;delete n._rcg;
-  if(Array.isArray(k))for(const a of k.slice(0,RC_MAX*3))rcGift(n,Number(a)||0);else if(Number.isInteger(k)&&k>0&&k<=RC_MAX)for(let i=0;i<k;i++)rcGift(n,RC_GIFT);});
-function rcGift(n,a){if(!(a>0))return;const now=Date.now(),st=stockNow(n,now);for(const r of RC_RES)st[r]=stockLimit(n,r,num0(st[r])+a,st[r]);n.stock=roundStock(st);n.stockAt=now;}
-const rcGiftText=(a,l)=>`+${a||RC_GIFT} ${RC_RES.map(resName).join(', +'+(a||RC_GIFT)+' ')} and +${l||RC_LAND} land credits`;
-const rcGiftWords=()=>`${RC_GIFT} goods, oil, timber and iron and ${RC_LAND} land credits`;
+  if(Array.isArray(k))for(const a of k.slice(0,RC_MAX*4))rcGift(n,a);else if(Number.isInteger(k)&&k>0&&k<=RC_MAX)for(let i=0;i<k;i++)rcGift(n,RC_GIFT);});
+function rcGift(n,a){
+  const o=typeof a==='number'?Object.fromEntries(RC_RES.map(r=>[r,a])):a&&typeof a==='object'?a:null;if(!o)return;
+  const now=Date.now(),st=stockNow(n,now);let any=false;
+  for(const r of RC_RES){const v=Math.max(0,Math.min(1e5,Math.round(Number(o[r])||0)));if(v){st[r]=stockLimit(n,r,num0(st[r])+v,st[r]);any=true;}}
+  if(any){n.stock=roundStock(st);n.stockAt=now;}
+}
+/* the materials a gift pays nation n: of each of RC_RES the floor or share of a day's income, whichever is more, ×k */
+function rcAmts(n,floor,share,k){const o={};for(const r of RC_RES){let v=floor;try{v=ddAmt(n,r,floor,share);}catch(e){}o[r]=Math.min(1e5,Math.round(v*(k||1)));}return o;}
+const rcResList=fr=>{const w=RC_RES.map(r=>fr?RC_RES_FR[r]:resName(r));return w.slice(0,-1).join(', ')+(fr?' et ':' and ')+w[w.length-1];};
+/* "+15 goods, oil, timber and iron and +3 land credits", or each amount when they differ */
+function rcAmtText(o,l){
+  const fr=rcFr(),v=RC_RES.map(r=>Math.round(o&&typeof o==='object'?o[r]||0:o||0)),same=v.every(x=>x===v[0]);
+  const mats=same?`+${fmt0(v[0])} ${rcResList(fr)}`:RC_RES.map((r,i)=>`+${fmt0(v[i])} ${fr?RC_RES_FR[r]:resName(r)}`).join(', ');
+  return fr?`${mats} et +${l} crédit${l===1?'':'s'} de terre`:`${mats} and +${l} land credit${l===1?'':'s'}`;
+}
+const rcGiftText=(a,l)=>rcAmtText(a||RC_GIFT,l||RC_LAND);
+const rcGiftWords=()=>rcL(`at least ${RC_GIFT} goods, oil, timber and iron and ${RC_LAND} land credits`,`au moins ${RC_GIFT} biens, pétrole, bois et fer et ${RC_LAND} crédits de terre`);
 const rcStepOf=b=>RC_STEPS.find(s=>s[0]===b);
 
 /* names: a nation of this region, else its public headline (summaries/, name and region, read once a while) */
@@ -89234,80 +89345,178 @@ function rcHead(id){
       quietRender();},()=>{RCSQ.delete(id);});}
   return s||null;
 }
-const rcNameOf=id=>{const h=rcHead(id);return h&&h.name?h.name:'a new nation';};
+const rcNameOf=id=>{const h=rcHead(id);return h&&h.name?h.name:rcL('a new nation','une nouvelle nation');};
+const rcAnon=id=>{const h=rcHead(id);return !(h&&h.name);};
 
-/* the recruit's side: after the founding save, file the claim; it pays only if it is new */
+/* a region that needs players: open, with at most RC_QUIET of the average open region's active nations (RSTAT, the
+   counts the region picker shows; the server decides from the same counts in home/live) */
+function rcQuiet(id){
+  try{const open=REGIONS.map(r=>r.id).filter(r=>!regDisabled(r));if(!open.includes(id)||open.length<2)return false;
+    const c=r=>Number(RSTAT.n[r])||0,avg=open.reduce((s,r)=>s+c(r),0)/open.length;return avg>0&&c(id)<=avg*RC_QUIET;}catch(e){return false;}
+}
+/* the double-rewards weekend now running, as the game last read it (rcEvent/live) */
+const rcEv=()=>RC.ev&&RC.ev.until>Date.now()?RC.ev:null;
+function rcEvRead(force){
+  const now=Date.now();if(!force&&now-RC.evAt<30*60e3)return;RC.evAt=now;
+  rcApi().then(api=>api&&typeof api.event==='function'?api.event():null).then(ev=>{const was=JSON.stringify(RC.ev);RC.ev=ev||null;if(was!==JSON.stringify(RC.ev))quietRender();},()=>{});
+}
+const rcEvWords=ev=>rcL(`Double recruiting rewards until ${fmtDate(ev.until)}: founding gifts filed now, and steps reached now, pay twice.`,`Récompenses de recrutement doublées jusqu’au ${fmtDate(ev.until)} : les bonus de fondation et les étapes atteintes maintenant comptent double.`);
+
+/* the recruits' pact: until when this nation and `id` may not go to war (0 when they may) */
+function rcPactUntil(id,now){
+  const n=S.nation;now=now||Date.now();if(!n||!id||!RC_ID.test(id))return 0;let u=0;
+  if(n.rcb&&n.rcb.r===id&&n.rcb.p&&n.rcb.t)u=Math.max(u,n.rcb.t+RC_PACT_MS);
+  const t=(n.rct||{})[id];if(t)u=Math.max(u,t+RC_PACT_MS);
+  for(const x of RC.list||[])if(x.id===id&&x.p&&!x.h&&x.t)u=Math.max(u,x.t+RC_PACT_MS);
+  return u>now?u:0;
+}
+const rcPactWords=(id,u)=>rcL(`The recruits’ pact binds you and ${nameOf(id)} until ${fmtDate(u)}: for a month after one recruited the other, neither may declare war on the other.`,`Le pacte des recrues vous lie à ${nameOf(id)} jusqu’au ${fmtDate(u)} : pendant un mois après le recrutement, aucun des deux ne peut déclarer la guerre à l’autre.`);
+tyWarBlock=(f=>function(id){const u=rcPactUntil(id);return u?rcPactWords(id,u):f.apply(this,arguments);})(tyWarBlock);
+/* war on one of the player's own recruits: the steps it still owes are never paid */
+declareWar=(f=>function(id){const r=f.apply(this,arguments);try{const n=S.nation;if(n&&n.wars&&n.wars[id]&&rcPaid(n).includes(id)&&!rcfOf(n)[id]){const m=clone(n);m.rcf=Object.assign({},rcfOf(m),{[id]:1});commit(m);}}catch(e){}return r;})(declareWar);
+/* goodwill's reason, for the record: the recruit and its recruiter start warmer towards each other */
+alGwWhy=(f=>function(n,old,id,d){if(n&&old){if(n.rcb&&n.rcb.r===id&&!(old.rcb&&old.rcb.r===id))return rcL('They recruited you','Ils vous ont recruté');if(rcPaid(n).includes(id)&&!rcPaid(old).includes(id))return rcL('You recruited them','Vous les avez recrutés');}return f.apply(this,arguments);})(alGwWhy);
+const rcGwUp=(m,id)=>{m.gw=Object.assign({},m.gw||{});m.gw[id]=clamp((Number(m.gw[id])||0)+RC_GW,-GW_MAX,GW_MAX);};
+
+/* a letter from this nation, sent with the next flush of letters (dmFlush) */
+function rcLetter(m,to,x,k){if(S.mode!=='world'||OBS||!to||!RC_ID.test(to)||!x)return false;m.dm=(m.dm||[]).concat(Object.assign({w:to,t:Date.now()+Math.floor(Math.random()*900),x:String(x).slice(0,DM_MAX),q:1},k?{k}:{}));dmTrim(m);return true;}
+function rcWelcomeText(id){
+  const h=rcHead(id),nm=rcAnon(id)?'':rcNameOf(id),here=!h||!h.reg||h.reg===REG.id,note=(RC.note||'').trim();
+  const head=rcL(`Welcome to ${here?REG.name:'Edictum'}${nm?', '+nm:''}! I am glad you founded your nation through my link.`,`Bienvenue ${here?'en '+REG.name:'dans Edictum'}${nm?', '+nm:''} ! Je suis heureux que vous ayez fondé votre nation grâce à mon lien.`);
+  const pact=rcL('For a month we are bound by the recruits’ pact, so there will be no war between us. Trade with me in your first two weeks and we both get a bonus. Write to me any time if you want a hand.',
+    'Pendant un mois, le pacte des recrues nous lie : pas de guerre entre nous. Commercez avec moi pendant vos deux premières semaines et nous recevrons tous les deux un bonus. Écrivez-moi quand vous voulez un coup de main.');
+  return (note?note+'\n\n':'')+head+' '+pact;
+}
+const rcNudgeText=id=>rcL(`Hello from ${S.nation?S.nation.name:'your neighbour'}! When you link a sign-in account (the account menu, at the foot of the side bar), your nation is safe on every device, and we both get the founding bonus for my recruiting link.`,
+  `Bonjour de la part de ${S.nation?S.nation.name:'votre voisin'} ! Liez un compte de connexion (le menu du compte, en bas de la barre latérale) : votre nation sera en sécurité sur tous vos appareils, et nous recevrons tous les deux le bonus de fondation de mon lien de recrutement.`);
+const RC_NUDGE_MS=DAY;
+const rcNudgeAt=id=>Number(((S.nation||{}).rcnu||{})[id])||0;
+
+/* the recruit's side: after the founding save, file the claim; it pays only if it is new (or was held and is released) */
 function rcClaim(){
   const n=S.nation,o=rcRead(),by=o?o.r:'';
   if(!n||!n.name||n.npc||OBS||n.rcb||!by||by===myId()){if(n&&n.name&&(n.rcb||by===myId()))rcForget();return;}
   /* a link counts for a nation founded after it was opened, not for one the player had already */
   if(o.t>0&&n.founded>0&&n.founded<o.t-60000){rcForget();return;}
   if(RC.claiming)return;RC.claiming=true;
-  rcApi().then(api=>api?api.claim(by):'none').then(res=>{RC.claiming=false;
+  rcApi().then(api=>!api?{res:'none'}:typeof api.claimx==='function'?api.claimx(by,{dev:rcDev(by),via:o.v||''}):api.claim(by).then(res=>({res}))).then(r=>{RC.claiming=false;const res=r&&r.res;
     if(res==='retry'){if(++RC.tries<6)setTimeout(rcClaim,5000*RC.tries);return;}
     if(res==='none')return;
+    const who=rcAnon(by)?rcL('another player','un autre joueur'):rcNameOf(by);
     if(res==='guest'){
       RC.guest=true;const o2=rcRead();
-      if(o2&&!o2.gt){rcKeep({gt:1});toast({m:`You came through ${rcNameOf(by)==='a new nation'?'another player':rcNameOf(by)}’s recruiting link. Link a sign-in account from the account menu and you both get a founding bonus.`});}
+      /* once more in a while: a claim that beat the first save to the server left no founding on the funnel */
+      if(o2&&!o2.gt)setTimeout(()=>{if(RC.guest&&S.nation&&!S.nation.rcb)rcClaim();},20000);
+      if(o2&&!o2.gt){rcKeep({gt:1});toast({m:rcL(`You came through ${who}’s recruiting link. Link a sign-in account from the account menu and you both get a founding bonus.`,`Vous êtes venu par le lien de recrutement de ${who}. Liez un compte de connexion depuis le menu du compte et vous recevrez tous les deux un bonus de fondation.`)});}
       render();return;
     }
-    RC.guest=false;rcForget();if(res!=='ok'||!S.nation||S.nation.rcb)return;
-    const m=clone(S.nation);m.rcb={r:by};m._rcg=[RC_GIFT];commit(m);render();
-    toast({m:`Welcome, recruit! You joined through ${rcNameOf(by)==='a new nation'?'another player':rcNameOf(by)}’s link, so you both get a founding bonus: ${rcGiftText()}. More follows after a week of play and with a second city.`,cf:1});
-    setTimeout(rcStepCheck,4000);
+    if(res==='held'){
+      RC.guest=false;RC.held=true;const o2=rcRead();
+      if(o2&&!o2.hd){rcKeep({hd:1});toast({m:rcL(`Your founding bonus for ${who}’s link is waiting for a quick check by the Edictum Team, because you seem to play from the same place. It is paid as soon as they clear it.`,`Votre bonus de fondation pour le lien de ${who} attend une rapide vérification de l’équipe d’Edictum, car vous semblez jouer depuis le même endroit. Il sera versé dès qu’elle l’aura validé.`)});}
+      render();return;
+    }
+    RC.guest=false;RC.held=false;const paid=res==='ok'||(res==='done'&&o.hd);rcForget();
+    if(res==='refused'){toast(rcL(`The Edictum Team could not confirm your recruiting link, so no founding bonus was paid for it.`,`L’équipe d’Edictum n’a pas pu confirmer votre lien de recrutement : aucun bonus de fondation n’a été versé.`));render();return;}
+    if(!paid||!S.nation||S.nation.rcb)return;
+    rcPayFounding(by,r.e,r.x);
   });
+}
+function rcPayFounding(by,e,x){
+  const cur=S.nation,amt=rcAmts(cur,RC_GIFT,RC_SHARE.f,rcMult(e,x)),land=rcLandAmt(RC_LAND,e,x);
+  const m=clone(cur);m.rcb=Object.assign({r:by,t:Date.now(),p:1},e?{e:1}:{},x>1?{x:2}:{});m._rcg=[amt];rcGwUp(m,by);commit(m);render();
+  const who=rcAnon(by)?rcL('another player','un autre joueur'):rcNameOf(by),extra=[e?rcL('more, as your region needs players','davantage, car votre région a besoin de joueurs'):'',x>1?rcL('doubled this weekend','doublé ce week-end'):''].filter(Boolean).join(', ');
+  toast({m:rcL(`Welcome, recruit! You joined through ${who}’s link, so you both get a founding bonus${extra?' ('+extra+')':''}: ${rcAmtText(amt,land)} for you. More follows after a week of play, with a second city and when you trade with each other. For a month the recruits’ pact keeps war away between you.`,
+    `Bienvenue, recrue ! Vous êtes venu par le lien de ${who} : vous recevez tous les deux un bonus de fondation${extra?' ('+extra+')':''}, ${rcAmtText(amt,land)} pour vous. D’autres suivront après une semaine de jeu, avec une deuxième ville et quand vous commercerez ensemble. Pendant un mois, le pacte des recrues écarte la guerre entre vous.`),cf:1});
+  setTimeout(rcStepCheck,4000);
 }
 commit=(f=>function(n){const prev=S.nation,r=f.apply(this,arguments);try{
   if(n&&n.name&&!(prev&&prev.name)&&rcPending())setTimeout(rcClaim,4000);
-  /* a second city: ask the server once the save has landed */
-  if(n&&n.rcb&&prev&&cityList(n).length>=2&&cityList(prev).length<2)setTimeout(()=>{RC.stepAt=0;rcStepCheck();},15000);
+  /* a second city, or a first trade with the recruiter: ask the server once the save has landed */
+  if(n&&n.rcb&&prev&&((cityList(n).length>=2&&cityList(prev).length<2)||rcTraded(n)&&!rcTraded(prev)))setTimeout(()=>{RC.stepAt=0;rcStepCheck();},15000);
 }catch(e){}return r;})(commit);
+/* a trade with the recruiter on this side's record (the server reads both sides' records) */
+function rcTraded(n){const r=n&&n.rcb&&n.rcb.r;if(!r)return false;return (n.log||[]).some(l=>l&&(l.k==='trade'||l.k==='tradeend')&&l.a===r)||(n.deals||[]).some(x=>x&&x.w===r);}
 /* the recruit's later steps: asked of the server when the nation could have reached one it has not been paid for */
 function rcStepCheck(){
   const n=S.nation,now=Date.now();if(!n||!n.name||n.npc||OBS||!n.rcb||RC.stepBusy||now-RC.stepAt<10*60e3)return;
-  const could=(n.founded>0&&now-n.founded>=RC_WEEK?2:0)|(cityList(n).length>=2?4:0),want=could&~(n.rcb.m|0);if(!want)return;
+  const t0=n.rcb.t||n.founded||0,goal=!t0||now-t0<=RC_GOAL_MS+DAY;
+  const could=(n.founded>0&&now-n.founded>=RC_WEEK?2:0)|(cityList(n).length>=2?4:0)|(goal&&rcTraded(n)?8:0),want=could&~(n.rcb.m|0);if(!want)return;
+  /* a trade the server may not count yet (an offer still open on either side): asked at most once an hour */
+  if(want===8&&now-RC.goalAt<3600e3)return;if(want&8)RC.goalAt=now;
   RC.stepBusy=true;RC.stepAt=now;
-  rcApi().then(api=>api&&typeof api.step==='function'?api.step():null).then(m=>{RC.stepBusy=false;
-    const cur=S.nation;if(m==null||!cur||!cur.rcb)return;const pay=m&6&~(cur.rcb.m|0);if(!pay)return;
-    const x=clone(cur),by=x.rcb.r;x.rcb=Object.assign({},x.rcb,{m:(x.rcb.m|0)|pay});x._rcg=[];const said=[];
-    for(const st of RC_STEPS)if(pay&st[0]){x._rcg.push(st[3]);said.push(`${st[2]}: ${rcGiftText(st[3],st[4])}`);}
+  rcApi().then(api=>!api?null:typeof api.stepx==='function'?api.stepx():typeof api.step==='function'?api.step().then(m=>m==null?null:{m,xm:0}):null).then(res=>{RC.stepBusy=false;
+    const cur=S.nation;if(!res||!cur||!cur.rcb)return;const pay=res.m&14&~(cur.rcb.m|0);if(!pay)return;
+    const x=clone(cur),by=x.rcb.r,xm=(res.xm|0)&pay;x.rcb=Object.assign({},x.rcb,{m:(x.rcb.m|0)|pay});if(xm)x.rcb.xm=(x.rcb.xm|0)|xm;x._rcg=[];const said=[];
+    for(const st of RC_STEPS)if(pay&st[0]){const k=xm&st[0]?2:1,amt=rcAmts(cur,st[3],RC_SHARE.s,k);x._rcg.push(amt);said.push(`${st[0]===8?rcL(`traded with ${rcNameOf(by)}`,`commercé avec ${rcNameOf(by)}`):rcL(st[2],{2:'joué une semaine',4:'fondé une deuxième ville'}[st[0]])}: ${rcAmtText(amt,st[4]*k)}`);}
     commit(x);render();
-    toast({m:`Your nation has ${list(said)}. ${cap1(rcNameOf(by))} gets the same, for recruiting you.`,cf:1});
+    toast({m:rcL(`Your nation has ${list(said)}. ${cap1(rcNameOf(by))} gets a reward too, for recruiting you.`,`Votre nation a ${said.join(' ; ')}. ${cap1(rcNameOf(by))} est récompensé aussi, pour vous avoir recruté.`),cf:1});
   },()=>{RC.stepBusy=false;});
 }
-/* the recruiter's side: new recruits pay the founding gift, and every step a recruit reaches pays once */
+RC.goalAt=0;
+/* the recruiter's side: new recruits pay the founding gift, every step a recruit reaches pays once, and the recruits of
+   recruits pay RC_GRAND; recruits held for a check pay nothing until they are released */
 function rcPoll(force){
   const n=S.nation,now=Date.now();
   if(!n||!n.name||n.npc||OBS||RC.busy||!force&&now-RC.at<5*60e3)return;
-  RC.busy=true;RC.at=now;
-  rcApi().then(api=>api?api.mine():null).then(list0=>{RC.busy=false;if(!Array.isArray(list0))return;const me=myId();
-    const lst=list0.filter(x=>x&&RC_ID.test(x.id)&&x.id!==me).map(x=>({id:x.id,t:Number(x.t)||0,m:(Number(x.m)|0)&6})).sort((a,b)=>b.t-a.t);
-    const was=JSON.stringify(RC.list);RC.list=lst;RC.n=lst.length;
-    const cur=S.nation;if(!cur||!cur.name)return;const paid=new Set(rcPaid(cur)),room=Math.max(0,RC_MAX-paid.size);
-    const fresh=lst.filter(x=>!paid.has(x.id)).slice(0,room),rcm=rcmOf(cur),stepped=[];
-    for(const x of lst.concat()){const isPaid=paid.has(x.id)||fresh.includes(x);if(!isPaid)continue;const due=x.m&~(rcm[x.id]|0);if(due)stepped.push([x,due]);}
-    if(!fresh.length&&!stepped.length){if(was!==JSON.stringify(RC.list))quietRender();return;}
-    const m=clone(cur),t=Date.now(),gifts=[],log=[];
+  RC.busy=true;RC.at=now;rcEvRead(force);
+  const wantFun=force||now-RC.funAt>10*60e3;if(wantFun)RC.funAt=now;
+  rcApi().then(api=>api?Promise.all([api.mine(),typeof api.lineage==='function'?api.lineage():[],wantFun&&typeof api.funnel==='function'?api.funnel():undefined]):null).then(got=>{RC.busy=false;if(!got||!Array.isArray(got[0]))return;const [list0,lin0,fun]=got,me=myId();
+    const was=JSON.stringify([RC.list,RC.lin,RC.fun]);if(fun!==undefined){RC.fun=fun||RC.fun;}
+    const lst=list0.filter(x=>x&&RC_ID.test(x.id)&&x.id!==me).map(x=>({id:x.id,t:Number(x.t)||0,m:(Number(x.m)|0)&14,h:typeof x.h==='string'?x.h:'',e:x.e?1:0,x:Number(x.x)>1?2:0,xm:(Number(x.xm)|0)&14,p:x.p?1:0})).sort((a,b)=>b.t-a.t);
+    const lin=Array.isArray(lin0)?lin0.filter(x=>x&&RC_ID.test(x.id)&&x.id!==me&&RC_ID.test(x.r)).map(x=>({id:x.id,r:x.r,t:Number(x.t)||0,h:typeof x.h==='string'?x.h:''})).sort((a,b)=>b.t-a.t):[];
+    RC.list=lst;RC.lin=lin;RC.n=lst.filter(x=>!x.h).length;
+    const cur=S.nation;if(!cur||!cur.name)return;const paid=new Set(rcPaid(cur)),room=Math.max(0,RC_MAX-paid.size),ok=lst.filter(x=>!x.h);
+    const fresh=ok.filter(x=>!paid.has(x.id)).slice(0,room),rcm=rcmOf(cur),F=rcfOf(cur),stepped=[];
+    for(const x of ok){const isPaid=paid.has(x.id)||fresh.includes(x);if(!isPaid||F[x.id])continue;const due=x.m&~(rcm[x.id]|0);if(due)stepped.push([x,due]);}
+    const gpaid=new Set(rcGPaid(cur)),gfresh=lin.filter(x=>!x.h&&!gpaid.has(x.id)).slice(0,Math.max(0,RC_GMAX-gpaid.size));
+    if(!fresh.length&&!stepped.length&&!gfresh.length){if(was!==JSON.stringify([RC.list,RC.lin,RC.fun]))quietRender();return;}
+    const m=clone(cur),t=Date.now(),gifts=[],log=[],said=[],mx=Object.assign({},rcxOf(m)),mt=Object.assign({},m.rct||{});let letters=0;
     m.rcp=rcPaid(m).concat(fresh.map(x=>x.id)).slice(0,RC_MAX);
-    for(const x of fresh){gifts.push(RC_GIFT);log.push({t,k:'recruit',a:x.id});}
+    for(const x of fresh){const amt=rcAmts(cur,RC_GIFT,RC_SHARE.f,rcMult(x.e,x.x)),land=rcLandAmt(RC_LAND,x.e,x.x),fx=rcAmtText(amt,land);
+      gifts.push(amt);log.push({t,k:'recruit',a:x.id,fx});const c=(x.e?1:0)|(x.x?16:0);if(c)mx[x.id]=c;if(x.p&&x.t)mt[x.id]=x.t;
+      rcGwUp(m,x.id);if(rcLetter(m,x.id,rcWelcomeText(x.id),'friend'))letters++;
+      said.push(rcL(`${cap1(rcNameOf(x.id))} founded a nation through your recruiting link: ${fx}`,`${cap1(rcNameOf(x.id))} a fondé une nation grâce à votre lien de recrutement : ${fx}`));}
     const mm=Object.assign({},rcmOf(m));
-    for(const [x,due] of stepped){mm[x.id]=(mm[x.id]|0)|due;for(const st of RC_STEPS)if(due&st[0]){gifts.push(st[3]);log.push({t,k:'rcstep',a:x.id,b:st[1]});}}
-    if(Object.keys(mm).length)m.rcm=mm;m._rcg=gifts;
+    for(const [x,due] of stepped){mm[x.id]=(mm[x.id]|0)|due;for(const st of RC_STEPS)if(due&st[0]){const k=x.xm&st[0]?2:1,amt=rcAmts(cur,st[3],RC_SHARE.s,k),fx=rcAmtText(amt,st[4]*k);
+      if(k>1)mx[x.id]=(mx[x.id]|0)|st[0];gifts.push(amt);log.push({t,k:'rcstep',a:x.id,b:st[1],fx});said.push(`${cap1(rcNameOf(x.id))} ${rcL(st[5],{2:'a joué une semaine',4:'a fondé une deuxième ville',8:'a commercé avec vous'}[st[0]])}: ${fx}`);}}
+    for(const x of gfresh){const amt=rcAmts(cur,RC_GRAND[0],RC_SHARE.g,1),fx=rcAmtText(amt,RC_GRAND[1]);gifts.push(amt);log.push({t,k:'rcgrand',a:x.id,b:x.r,fx});
+      said.push(rcL(`${cap1(rcNameOf(x.id))} founded a nation through ${rcNameOf(x.r)}’s link, one of your recruits: ${fx}`,`${cap1(rcNameOf(x.id))} a fondé une nation grâce au lien de ${rcNameOf(x.r)}, l’une de vos recrues : ${fx}`));}
+    if(gfresh.length)m.rcgp=rcGPaid(m).concat(gfresh.map(x=>x.id)).slice(0,RC_GMAX);
+    if(Object.keys(mm).length)m.rcm=mm;if(Object.keys(mx).length)m.rcx=mx;if(Object.keys(mt).length)m.rct=mt;m._rcg=gifts;
     /* in the record for everyone to see (the newspaper reports new recruits) */
     m.log=log.concat(m.log||[]).slice(0,60);
-    commit(m);render();
-    const said=[];if(fresh.length)said.push(fresh.length===1?`${cap1(rcNameOf(fresh[0].id))} founded a nation through your recruiting link: ${rcGiftText()}`:`${fresh.length} new players founded nations through your recruiting link: ${rcGiftText()} for each`);
-    for(const [x,due] of stepped)for(const st of RC_STEPS)if(due&st[0])said.push(`${cap1(rcNameOf(x.id))} ${st[2]}: ${rcGiftText(st[3],st[4])}`);
+    commit(m);render();if(letters)setTimeout(dmFlush,0);
     toast({m:said.join('. ')+'.',cf:1});
   },()=>{RC.busy=false;});
 }
-setTimeout(()=>{rcClaim();rcPoll(true);rcStepCheck();},8000);
-window.addEventListener('edictum:linked',()=>{RC.tries=0;RC.guest=false;setTimeout(rcClaim,1500);});
-setInterval(()=>{if(!document.hidden){rcPoll(false);rcStepCheck();}},10*60e3);
+setTimeout(()=>{rcDevNote();rcClaim();rcPoll(true);rcStepCheck();rcNoteLoad();},8000);
+window.addEventListener('edictum:linked',()=>{RC.tries=0;RC.guest=false;rcDevNote();setTimeout(rcClaim,1500);});
+/* every ten minutes: the recruiter's list, the recruit's steps, and a claim held for a check, asked again */
+setInterval(()=>{if(!document.hidden){rcPoll(false);rcStepCheck();const o=rcRead();if(o&&o.hd&&S.nation&&S.nation.name&&!S.nation.rcb){RC.tries=0;rcClaim();}}},10*60e3);
 /* the visit, once per device and recruiter, for the admins' funnel */
-setTimeout(()=>{const o=rcRead();if(!o||o.op||S.nation&&S.nation.name)return;rcApi().then(api=>api&&typeof api.open==='function'?api.open(o.r):false).then(ok=>{if(ok)rcKeep({op:1});});},6000);
-function rcLink(){return location.origin+'/?recruit='+encodeURIComponent(myId())+'&rg='+encodeURIComponent(REG.id);}
-function rcSponsoring(id,now){const x=(RC.list||[]).find(r=>r.id===id);return !!x&&x.t>0&&(now||Date.now())-x.t<=RC_SPONSOR_MS;}
+setTimeout(()=>{const o=rcRead();if(!o||o.op||S.nation&&S.nation.name)return;rcApi().then(api=>api&&typeof api.open==='function'?api.open(o.r,o.v||''):false).then(ok=>{if(ok)rcKeep({op:1});});},6000);
+/* the player's link: their /join/ link once the server has made it (asked for once a session), else the plain one;
+   via: the channel it is shared through */
+function rcSlug(){
+  if(RC.slug||OBS||!S.nation||!S.nation.name||!RC.api||!S.uid)return RC.slug;const now=Date.now();if(now-RC.slugAt<60e3)return '';RC.slugAt=now;
+  Promise.resolve(typeof RC.api.joinLink==='function'?RC.api.joinLink():'').then(s=>{if(s&&/^[a-z0-9-]{1,48}$/.test(s)&&s!==RC.slug){RC.slug=s;const c=document.getElementById('rc-card');if(c)delete c.dataset.drawn;quietRender();}},()=>{});
+  return '';
+}
+function rcLink(via){const v=via&&RC_VIA_OK.test(via)?via:'';const s=RC.slug;return s?location.origin+'/join/'+s+(v?'?via='+v:''):location.origin+'/?recruit='+encodeURIComponent(myId())+'&rg='+encodeURIComponent(REG.id)+(v?'&via='+v:'');}
+function rcSponsoring(id,now){const x=(RC.list||[]).find(r=>r.id===id);return !!x&&!x.h&&x.t>0&&(now||Date.now())-x.t<=RC_SPONSOR_MS;}
+/* the player's own note on their invitation (recruitNote/<uid>): read once a session, saved through the server */
+function rcNoteLoad(){if(RC.note!==null||OBS||!S.uid)return;RC.note='';rcApi().then(api=>api&&typeof api.noteOf==='function'?api.noteOf(myId()):'').then(m=>{RC.note=m||'';quietRender();},()=>{});}
+/* the recruiter's note, for the visitor's welcome */
+function rcNoteOf(by){if(RC.noteBy&&RC.noteBy.id===by)return RC.noteBy.m;RC.noteBy={id:by,m:''};rcApi().then(api=>api&&typeof api.noteOf==='function'?api.noteOf(by):'').then(m=>{if(RC.noteBy&&RC.noteBy.id===by&&m){RC.noteBy.m=m;quietRender();}},()=>{});return '';}
+const RC_NOTE_MAX=140;
+function rcNoteSave(){
+  const el=document.getElementById('rc-note');if(!el||RC.noteBusy)return;const m=el.value.replace(/\s+/g,' ').trim().slice(0,RC_NOTE_MAX);
+  RC.noteBusy=true;RC.noteMsg='';render();
+  rcApi().then(api=>api&&typeof api.note==='function'?api.note(m):{ok:false}).then(r=>{RC.noteBusy=false;
+    if(r&&r.ok){RC.note=r.m||'';RC.noteMsg=RC.note?rcL('Saved. Visitors who open your link read it, and it is on your card.','Enregistré. Les visiteurs qui ouvrent votre lien le lisent, et il figure sur votre carte.'):rcL('Your note is cleared.','Votre mot est effacé.');const c=document.getElementById('rc-card');if(c)delete c.dataset.drawn;}
+    else RC.noteMsg=r&&r.why==='rc_note_link'?rcL('Leave links and web addresses out of your note: your recruiting link is on the card already.','Pas de liens ni d’adresses web dans votre mot : votre lien de recrutement figure déjà sur la carte.'):rcL('That did not save. Try again in a moment.','L’enregistrement a échoué. Réessayez dans un instant.');
+    render();},()=>{RC.noteBusy=false;RC.noteMsg=rcL('That did not save. Try again in a moment.','L’enregistrement a échoué. Réessayez dans un instant.');render();});
+}
 
 /* cosmetics for recruiting: a title, a decree stamp, a flag frame and a charge for the arms */
 Object.assign(UNLOCKS,{'t-welcoming':{k:'title',n:'the Welcoming',src:'rc'},'s-seconded':{k:'stamp',n:'Seconded, in green',src:'rc'},
@@ -89341,7 +89550,7 @@ function rcFreeLand(){const T=territory();if(RC_FREE.T!==T){let k=0,all=0;for(le
 /* how much of the region's land is unclaimed, in words: "Most of the land", "About 30% of the land", "Only 12 hexes of land" */
 function rcFreeWords(){const k=rcFreeLand(),a=RC_FREE.all||1,p=k/a;if(!k)return '';
   return p>=0.6?`Most of the land in ${REG.name} is still unclaimed.`:p>=0.02?`About ${Math.round(p*100)}% of the land in ${REG.name} is still unclaimed.`:`Only ${fmt0(k)} ${k===1?'hex':'hexes'} of land ${k===1?'is':'are'} still unclaimed in ${REG.name}.`;}
-const RC_SHARE=[
+const RC_SHARE_TO=[
   ['Facebook',(u,t)=>`https://www.facebook.com/sharer/sharer.php?u=${u}`],
   ['X',(u,t)=>`https://x.com/intent/post?text=${t}&url=${u}`],
   ['Mastodon',(u,t)=>`https://mastodonshare.com/?text=${t}&url=${u}`],
@@ -89350,49 +89559,98 @@ const RC_SHARE=[
   ['Telegram',(u,t)=>`https://t.me/share/url?url=${u}&text=${t}`],
   ['Reddit',(u,t)=>`https://www.reddit.com/submit?url=${u}&title=${t}`],
   ['LinkedIn',(u,t)=>`https://www.linkedin.com/sharing/share-offsite/?url=${u}`],
-  ['Email',(u,t)=>`mailto:?subject=${encodeURIComponent('Come and found a nation in Edictum')}&body=${t}%0A%0A${u}`]
+  ['Email',(u,t)=>`mailto:?subject=${encodeURIComponent(rcL('Come and found a nation in Edictum','Venez fonder une nation dans Edictum'))}&body=${t}%0A%0A${u}`]
 ];
-const rcShareText=n=>`I rule ${n.name} in ${REG.name}, in Edictum, a game of nations and edicts. Found yours beside me through my link and we both get a bonus:`;
+const rcShareText=n=>rcL(`I rule ${n.name} in ${REG.name}, in Edictum, a game of nations and edicts. Found yours beside me through my link and we both get a bonus:`,
+  `Je gouverne ${n.name} en ${REG.name}, dans Edictum, un jeu de nations et d’édits. Fondez la vôtre à côté de moi grâce à mon lien et nous recevrons tous les deux un bonus :`);
 function rcLinkRow(n){
-  const link=rcLink(),u=encodeURIComponent(link),t=encodeURIComponent(rcShareText(n));
-  return `<div class="field"><label for="rc-link">Your recruiting link</label><div class="rc-row"><input class="input" id="rc-link" readonly value="${esc(link)}"><button type="button" class="btn" data-act="rc-copy">${RC.copied?'Copied':'Copy link'}</button>${navigator.share?'<button type="button" class="btn ghost" data-act="rc-share">Share…</button>':''}</div></div>
-    <div class="rc-share" role="group" aria-label="Share your link on">${RC_SHARE.map(([nm,f])=>`<a class="chip-btn" href="${esc(f(u,t))}" target="_blank" rel="noopener noreferrer">${nm}</a>`).join('')}</div>`;
+  const link=rcLink(),t=encodeURIComponent(rcShareText(n));
+  return `<div class="field"><label for="rc-link">${rcL('Your recruiting link','Votre lien de recrutement')}</label><div class="rc-row"><input class="input" id="rc-link" readonly value="${esc(link)}" data-no-tr><button type="button" class="btn" data-act="rc-copy">${RC.copied?rcL('Copied','Copié'):rcL('Copy link','Copier le lien')}</button>${navigator.share?`<button type="button" class="btn ghost" data-act="rc-share">${rcL('Share…','Partager…')}</button>`:''}</div></div>
+    <div class="rc-share" role="group" aria-label="${rcL('Share your link on','Partager votre lien sur')}">${RC_SHARE_TO.map(([nm,f])=>`<a class="chip-btn" href="${esc(f(encodeURIComponent(rcLink(RC_VIA[nm])),t))}" target="_blank" rel="noopener noreferrer" data-via="${RC_VIA[nm]}">${nm}</a>`).join('')}</div>`;
 }
 function rcStatus(n){
-  const paid=rcPaid(n).length,cnt=Math.max(paid,RC.n||0),cr=rcPaid(n).slice(0,RC_MAX).reduce((s,id)=>s+RC_LAND+rcStepLand(rcmOf(n)[id]|0),0);
+  const paid=rcPaid(n).length,cnt=Math.max(paid,RC.n||0),cr=rcLand(n)-(n.rcb?rcLandAmt(RC_LAND,n.rcb.e,n.rcb.x)+rcStepLand(n.rcb.m|0,n.rcb.xm|0):0);
   return `${cnt?`${cnt===1?'One player has':cnt+' players have'} founded a nation through your link${paid?`, earning you ${cr} land credits so far`:''}.${cnt>=RC_MAX?` Rewards stop at ${RC_MAX} recruits; thank you for the rest.`:''}`:'No one has founded a nation through your link yet.'}`;
 }
 /* the steps of one recruit, as ticks */
-function rcStepsHTML(m,cls){const s=[[1,'Founded'],[2,'A week of play'],[4,'A second city']];return `<ol class="rc-st${cls?' '+cls:''}">${s.map(([b,l])=>`<li class="${m&b?'ok':''}"><span class="rc-st-m" aria-hidden="true">${m&b?'✓':'○'}</span>${l}<span class="u-sr">${m&b?', done':', not yet'}</span></li>`).join('')}</ol>`;}
+const RC_TICKS=[[1,'Founded','Fondée'],[2,'A week of play','Une semaine de jeu'],[4,'A second city','Une deuxième ville'],[8,'A trade together','Un échange ensemble']];
+function rcStepsHTML(m,cls){return `<ol class="rc-st${cls?' '+cls:''}">${RC_TICKS.map(([b,en,fr])=>`<li class="${m&b?'ok':''}"><span class="rc-st-m" aria-hidden="true">${m&b?'✓':'○'}</span>${rcL(en,fr)}<span class="u-sr">${m&b?rcL(', done',', fait'):rcL(', not yet',', pas encore')}</span></li>`).join('')}</ol>`;}
+/* how a recruit of this region is doing, for its sponsor: a few figures and what would help */
+function rcMentor(r,x,now){
+  const n=x.n,c=cityList(n).length,dec=(n.answered||[]).filter(a=>a&&a.o>=0).length,last=Number(n.updatedAt)||0,days=last?Math.floor((now-last)/DAY):0,hints=[];
+  if(c<2)hints.push(rcL('No second city yet. When they found one, you are both paid again.','Pas encore de deuxième ville. Quand elle sera fondée, vous serez tous deux récompensés à nouveau.'));
+  if(days>=2)hints.push(rcL(`Has not played for ${days} days: a letter may bring them back.`,`N’a pas joué depuis ${days} jours : une lettre pourrait les faire revenir.`));
+  const goalBy=(r.t||0)+RC_GOAL_MS;if(!((r.m|0)&8)&&r.t&&now<goalBy)hints.push(rcL(`Trade with them before ${fmtDate(goalBy)} (a deal on their nation’s page) and you both get a bonus.`,`Commercez avec eux avant le ${fmtDate(goalBy)} (un accord sur la page de leur nation) et vous recevrez tous les deux un bonus.`));
+  if(!dec)hints.push(rcL('No edict decided yet: the Edicts page is where a nation takes shape.','Aucun édit encore décidé : c’est sur la page des édits qu’une nation prend forme.'));
+  return `<details class="rc-mt"><summary>${rcL('How they are doing','Comment ils s’en sortent')}</summary>
+    <dl class="rc-mt-f"><div><dt>${rcL('People','Habitants')}</dt><dd>${esc(fmtPop(Number(n.pop)||0))}</dd></div><div><dt>${rcL('Cities','Villes')}</dt><dd>${fmt0(c)}</dd></div><div><dt>${rcL('Edicts decided','Édits décidés')}</dt><dd>${fmt0(dec)}${dec>=80?'+':''}</dd></div><div><dt>${rcL('Last played','Dernière partie')}</dt><dd>${last?esc(rel(last)):'–'}</dd></div></dl>
+    ${hints.length?`<ul class="rc-mt-h">${hints.slice(0,3).map(h=>`<li>${esc(h)}</li>`).join('')}</ul>`:`<p class="hint">${rcL('Doing well. Keep in touch.','Tout va bien. Restez en contact.')}</p>`}</details>`;
+}
 function rcRow(r,now){
-  const h=rcHead(r.id),x=h&&h.x,nm=h&&h.name||'A new nation',R=h&&h.reg&&REG_BY_ID[h.reg],here=!!x,last=h&&h.t||0;
-  const sp=r.t>0&&now-r.t<=RC_SPONSOR_MS,why=here?scWhyNot(r.id,now):'';
-  const seen=!last?'':now-last<DAY?'played today':now-last<7*DAY?'played this week':`last played ${rel(last)}`;
-  return `<li class="rc-r${sp?' sp':''}">${x?`<span class="mflag">${flagSVG(x.n.flag,'Flag of '+nm)}</span>`:`<span class="rc-r-i" aria-hidden="true">${esc((nm||'?').charAt(0).toUpperCase())}</span>`}
-    <div class="rc-r-m"><p class="rc-r-h">${x?nationLink(r.id,nm,false):`<b>${esc(nm)}</b>`}${R&&!here?` <span class="chip">${esc(R.name)}</span>`:''}${sp?` <span class="chip ok" title="For 14 days after a recruit joins, you may send them one more Supply Cache a day">Sponsor until ${esc(fmtDate(r.t+RC_SPONSOR_MS))}</span>`:''}</p>
-      <p class="hint">${r.t?`Joined ${esc(rel(r.t))}`:'Joined'}${seen?' · '+esc(seen):''}</p>${rcStepsHTML(1|(r.m|0))}</div>
-    ${here&&!OBS?`<div class="rc-r-a"><button type="button" class="btn ghost small-btn" data-act="rc-write" data-id="${esc(r.id)}">Write</button><button type="button" class="btn ghost small-btn" data-act="sc-send-open" data-id="${esc(r.id)}"${why?` disabled title="${esc(why)}"`:''}>Send a Supply Cache</button></div>`:''}</li>`;
+  const h=rcHead(r.id),x=h&&h.x,nm=h&&h.name||rcL('A new nation','Une nouvelle nation'),R=h&&h.reg&&REG_BY_ID[h.reg],here=!!x,last=h&&h.t||0;
+  const held=r.h==='ip'||r.h==='dev',no=r.h==='no',sp=!r.h&&r.t>0&&now-r.t<=RC_SPONSOR_MS,why=here?scWhyNot(r.id,now):'',lost=!!rcfOf(S.nation)[r.id];
+  const seen=!last?'':now-last<DAY?rcL('played today','a joué aujourd’hui'):now-last<7*DAY?rcL('played this week','a joué cette semaine'):rcL(`last played ${rel(last)}`,`dernière partie ${rel(last)}`);
+  const chips=[R&&!here?`<span class="chip">${esc(R.name)}</span>`:'',sp?`<span class="chip ok" title="${rcL('For 14 days after a recruit joins, you may send them one more Supply Cache a day','Pendant 14 jours après l’arrivée d’une recrue, vous pouvez lui envoyer une Caisse de ravitaillement de plus par jour')}">${rcL('Sponsor until','Parrain jusqu’au')} ${esc(fmtDate(r.t+RC_SPONSOR_MS))}</span>`:'',
+    held?`<span class="chip warn">${rcL('Waiting for a staff check','En attente d’une vérification')}</span>`:'',no?`<span class="chip">${rcL('Not counted','Non comptée')}</span>`:'',r.e?`<span class="chip">${rcL('Wanted region ×1.5','Région en quête ×1,5')}</span>`:'',r.x?`<span class="chip">${rcL('Double weekend','Week-end double')}</span>`:'',lost?`<span class="chip">${rcL('At war: no more steps','En guerre : plus d’étapes')}</span>`:''].filter(Boolean).join(' ');
+  return `<li class="rc-r${sp?' sp':''}${held||no?' rc-held':''}" data-id="${esc(r.id)}">${x?`<span class="mflag">${flagSVG(x.n.flag,'Flag of '+nm)}</span>`:`<span class="rc-r-i" aria-hidden="true">${esc((nm||'?').charAt(0).toUpperCase())}</span>`}
+    <div class="rc-r-m"><p class="rc-r-h">${x?nationLink(r.id,nm,false):`<b>${esc(nm)}</b>`} ${chips}</p>
+      <p class="hint">${r.t?rcL(`Joined ${rel(r.t)}`,`Arrivée ${rel(r.t)}`):rcL('Joined','Arrivée')}${seen?' · '+esc(seen):''}</p>${held?`<p class="hint">${rcL('You both play from the same place, so the Edictum Team takes a quick look before either of you is paid. Nothing is lost meanwhile.','Vous jouez depuis le même endroit : l’équipe d’Edictum vérifie rapidement avant de vous récompenser. Rien n’est perdu en attendant.')}</p>`:''}${rcStepsHTML(1|(r.m|0))}${here&&!r.h&&r.t&&now-r.t<=RC_PACT_MS?rcMentor(r,x,now):''}</div>
+    ${here&&!OBS?`<div class="rc-r-a"><button type="button" class="btn ghost small-btn" data-act="rc-write" data-id="${esc(r.id)}">${rcL('Write','Écrire')}</button><button type="button" class="btn ghost small-btn" data-act="sc-send-open" data-id="${esc(r.id)}"${why?` disabled title="${esc(why)}"`:''}>${rcL('Send a Supply Cache','Envoyer une Caisse')}</button></div>`:''}</li>`;
+}
+/* the guests who founded through the link but have not linked an account: their bonus waits for it */
+function rcWaitHTML(now){
+  const W=(RC.fun&&RC.fun.wait||[]).filter(w=>w&&RC_ID.test(w.id));if(!W.length)return '';
+  return `<section class="rc-sec" aria-labelledby="rc-wt-h"><h3 class="h3" id="rc-wt-h">${rcL('Waiting for a sign-in','En attente d’une connexion')} <span class="rgn-tab-n">${W.length}</span></h3>
+    <p class="hint">${rcL('These players founded a nation through your link as guests. Once they link a sign-in account, you both get the founding bonus. A friendly letter may help.','Ces joueurs ont fondé une nation grâce à votre lien, en invités. Dès qu’ils lient un compte de connexion, vous recevez tous les deux le bonus de fondation. Une lettre amicale peut aider.')}</p>
+    <ul class="rc-list">${W.map(w=>{const at=rcNudgeAt(w.id),soon=now-at<RC_NUDGE_MS,R=REG_BY_ID[w.reg];
+      return `<li class="rc-r"><span class="rc-r-i" aria-hidden="true">${esc((w.name||'?').charAt(0).toUpperCase())}</span><div class="rc-r-m"><p class="rc-r-h"><b>${esc(w.name||rcL('A guest nation','Une nation invitée'))}</b>${R&&R.id!==REG.id?` <span class="chip">${esc(R.name)}</span>`:''}</p><p class="hint">${rcL(`Founded ${rel(w.f)}`,`Fondée ${rel(w.f)}`)}${at?' · '+rcL(`nudged ${rel(at)}`,`relancée ${rel(at)}`):''}</p></div>
+        ${OBS?'':`<div class="rc-r-a"><button type="button" class="btn ghost small-btn" data-act="rc-nudge" data-id="${esc(w.id)}"${soon?` disabled title="${rcL('Once a day','Une fois par jour')}"`:''}>${rcL('Send a reminder','Envoyer un rappel')}</button></div>`}</li>`;}).join('')}</ul></section>`;
+}
+/* the recruits of the player's recruits */
+function rcLinHTML(){
+  const L=(RC.lin||[]).filter(x=>!x.h);if(!L.length)return '';const by=new Map();for(const x of L){if(!by.has(x.r))by.set(x.r,[]);by.get(x.r).push(x);}
+  return `<section class="rc-sec" aria-labelledby="rc-ln-h"><h3 class="h3" id="rc-ln-h">${rcL('Your lineage','Votre lignée')} <span class="rgn-tab-n">${L.length}</span></h3>
+    <p class="hint">${rcL(`Your recruits recruit too. Each player they bring pays you ${RC_GRAND[0]} or more of each material and ${RC_GRAND[1]} land credit (up to ${RC_GMAX}).`,`Vos recrues recrutent aussi. Chaque joueur qu’elles amènent vous rapporte au moins ${RC_GRAND[0]} de chaque matériau et ${RC_GRAND[1]} crédit de terre (jusqu’à ${RC_GMAX}).`)}</p>
+    <ul class="rc-ln">${[...by.entries()].map(([r,xs])=>`<li><b>${esc(cap1(rcNameOf(r)))}</b> <span aria-hidden="true">→</span> ${xs.map(x=>esc(rcNameOf(x.id))).join(', ')}</li>`).join('')}</ul></section>`;
+}
+/* the player's link in numbers: opened, founded through it, recruits */
+function rcFunHTML(){
+  const F=RC.fun;if(!F)return '';const held=(RC.list||[]).filter(x=>x.h==='ip'||x.h==='dev').length;
+  const cell=(v,en,fr)=>`<div class="fig"><div class="fig-v">${fmt0(v||0)}</div><div class="fig-l">${rcL(en,fr)}</div></div>`;
+  return `<div class="figs rc-fun" role="group" aria-label="${rcL('Your link in numbers','Votre lien en chiffres')}">${cell(F.o,'Opened your link','Ont ouvert votre lien')}${cell(F.f,'Founded a nation','Ont fondé une nation')}${cell(F.n,'Linked an account: recruits','Ont lié un compte : recrues')}${held?cell(held,'Waiting for a check','En attente de vérification'):''}</div>`;
+}
+function rcNoteBox(){
+  const cur=RC.note==null?'':RC.note;
+  return `<div class="field rc-note"><label for="rc-note">${rcL('Your note on the invitation','Votre mot sur l’invitation')} <span class="hint">(${rcL('optional','facultatif')}, ${RC_NOTE_MAX} ${rcL('characters','caractères')})</span></label>
+    <textarea class="input" id="rc-note" rows="2" maxlength="${RC_NOTE_MAX}" placeholder="${esc(rcL('e.g. Come and be my neighbour: the north coast is still free!','ex. Venez être mon voisin : la côte nord est encore libre !'))}" data-no-tr>${esc(cur)}</textarea>
+    <div class="row"><button type="button" class="btn ghost small-btn" data-act="rc-note-save"${RC.noteBusy?' disabled':''}>${rcL('Save the note','Enregistrer le mot')}</button><span class="hint" aria-live="polite">${esc(RC.noteMsg||rcL('Shown to visitors who open your link, on your card, and in the Note of Friendship your game sends each new recruit.','Montré aux visiteurs qui ouvrent votre lien, sur votre carte, et dans la Note d’amitié que votre jeu envoie à chaque nouvelle recrue.'))}</span></div></div>`;
 }
 function rcRegionPane(now){
   const n=S.nation;now=now||Date.now();
-  if(OBS||!n||!n.name||n.npc)return `<section class="rc-panel" id="rc-panel"><p class="hint">Recruiting is for players with a nation.</p></section>`;
-  rcPoll(false);if(!RC.ok)rcApi().then(()=>{if(S.view==='region')quietRender();});
-  const free=rcFreeLand(),cnt=rcCount(n),list=(RC.list||[]).slice(0,RC_MAX);
-  const intro=`<header class="rc-hero"><p class="eyebrow">Recruiting</p><h2 class="h2" id="rc-h">Invite a neighbour</h2>
-    <p>${free?`<b>${esc(rcFreeWords())}</b> `:''}A friend who founds a nation through your link starts in ${esc(REG.name)}, with their advisors’ pins near ${esc(n.capital||n.name)}. When they link a sign-in account you both get ${rcGiftWords()}, and more as their nation grows.</p></header>`;
+  if(OBS||!n||!n.name||n.npc)return `<section class="rc-panel" id="rc-panel"><p class="hint">${rcL('Recruiting is for players with a nation.','Le recrutement est réservé aux joueurs qui ont une nation.')}</p></section>`;
+  /* while the tab is open: the list and the link's numbers at most a minute old */
+  rcPoll(now-RC.at>60e3);rcEvRead(false);rcNoteLoad();if(!RC.ok)rcApi().then(()=>{if(S.view==='region')quietRender();});else rcSlug();
+  const free=rcFreeLand(),cnt=rcCount(n),list=(RC.list||[]).slice(0,RC_MAX),ev=rcEv(),quiet=rcQuiet(REG.id);
+  const intro=`<header class="rc-hero"><p class="eyebrow">${rcL('Recruiting','Recrutement')}</p><h2 class="h2" id="rc-h">${rcL('Invite a neighbour','Invitez un voisin')}</h2>
+    <p>${free?`<b>${esc(rcFreeWords())}</b> `:''}${rcL(`A friend who founds a nation through your link starts in ${REG.name}, with their advisors’ pins near ${n.capital||n.name}. When they link a sign-in account you both get ${rcGiftWords()}, and more as their nation grows.`,`Un ami qui fonde une nation grâce à votre lien commence en ${REG.name}, avec les repères de ses conseillers près de ${n.capital||n.name}. Quand il lie un compte de connexion, vous recevez tous les deux ${rcGiftWords()}, et davantage à mesure que sa nation grandit.`)}</p>
+    ${quiet?`<p class="rc-flag">${rcL(`${REG.name} needs players: recruits who found here get half as much again at founding, and so do you.`,`${REG.name} a besoin de joueurs : les recrues qui y fondent leur nation reçoivent moitié plus à la fondation, et vous aussi.`)}</p>`:''}${ev?`<p class="rc-flag rc-flag-ev">${esc(rcEvWords(ev))}</p>`:''}</header>`;
   const online=RC.api&&S.uid;
-  const share=online?`<div class="rc-grid"><div class="rc-box">${rcLinkRow(n)}<p class="hint" role="status">${esc(rcStatus(n))}</p></div>
-    <figure class="rc-card-f"><canvas id="rc-card" class="rc-card" width="1200" height="630" role="img" aria-label="Invitation card: ${esc(theName(n))} invites you to found a nation in ${esc(REG.name)}, with a QR code for your link"></canvas>
-      <figcaption class="row rc-card-a"><button type="button" class="btn ghost small-btn" data-act="rc-card-save">Save the card</button>${navigator.canShare?'<button type="button" class="btn ghost small-btn" data-act="rc-card-share">Share the card…</button>':''}<span class="hint">With a QR code to scan from a phone.</span></figcaption></figure></div>`
+  const share=online?`<div class="rc-grid"><div class="rc-box">${rcLinkRow(n)}<p class="hint" role="status">${esc(rcStatus(n))}</p>${rcNoteBox()}</div>
+    <figure class="rc-card-f"><canvas id="rc-card" class="rc-card" width="1200" height="630" role="img" aria-label="${esc(rcL(`Invitation card: ${theName(n)} invites you to found a nation in ${REG.name}, with a QR code for your link`,`Carte d’invitation : ${theName(n)} vous invite à fonder une nation en ${REG.name}, avec un code QR pour votre lien`))}"></canvas>
+      <figcaption class="row rc-card-a"><button type="button" class="btn ghost small-btn" data-act="rc-card-save">${rcL('Save the card','Enregistrer la carte')}</button>${navigator.canShare?`<button type="button" class="btn ghost small-btn" data-act="rc-card-share">${rcL('Share the card…','Partager la carte…')}</button>`:''}<span class="hint">${rcL('With a QR code to scan from a phone. Where your link is pasted, its preview shows this card.','Avec un code QR à scanner depuis un téléphone. Là où votre lien est collé, son aperçu montre cette carte.')}</span></figcaption></figure></div>${rcFunHTML()}`
     :`<p class="hint">${RC.ok?'Recruiting links work when the game is online.':'Loading your recruiting link…'}</p>`;
-  const steps=[['When they found a nation and link a sign-in account',RC_GIFT,RC_LAND]].concat(RC_STEPS.map(st=>[`When their nation has ${st[2]}`,st[3],st[4]]));
-  const rewards=`<section class="rc-sec" aria-labelledby="rc-rw-h"><h3 class="h3" id="rc-rw-h">What you both get</h3><ul class="rc-rw">${steps.map(([t,a,l])=>`<li><span>${esc(t)}</span><b>${a} goods, oil, timber and iron · ${l} land credits</b></li>`).join('')}</ul>
-    <h3 class="h3 rc-ul-h">What recruits earn you</h3><ul class="rc-ul">${RC_UNLOCKS.map(([id,k])=>{const u=UNLOCKS[id],got=cnt>=k;return `<li class="${got?'ok':''}"><span class="rc-ul-k">${k===1?'1 recruit':k+' recruits'}</span><span><b>${esc(cap1(u.n))}</b> <span class="hint">${esc({title:'a title for your nation',stamp:'a stamp for your decrees',frame:'a frame for your flag',charge:'a charge for your arms'}[u.k]||'')}</span></span><span class="rc-ul-s">${got?'✓ Yours':`${cnt} of ${k}`}</span></li>`;}).join('')}</ul>
+  const steps=[[rcL('When they found a nation and link a sign-in account','Quand ils fondent une nation et lient un compte de connexion'),RC_GIFT,RC_LAND]].concat(RC_STEPS.map(st=>[st[0]===8?rcL('When you trade with each other in their first two weeks','Quand vous commercez ensemble pendant leurs deux premières semaines'):rcL(`When their nation has ${st[2]}`,{2:'Quand leur nation a joué une semaine',4:'Quand leur nation a fondé une deuxième ville'}[st[0]]),st[3],st[4]]));
+  const rewards=`<section class="rc-sec" aria-labelledby="rc-rw-h"><h3 class="h3" id="rc-rw-h">${rcL('What you both get','Ce que vous recevez tous les deux')}</h3><ul class="rc-rw">${steps.map(([t,a,l])=>`<li><span>${esc(t)}</span><b>${rcL(`${a} goods, oil, timber and iron · ${l} land credits`,`${a} biens, pétrole, bois et fer · ${l} crédits de terre`)}</b></li>`).join('')}</ul>
+    <p class="hint">${rcL(`The materials are a floor: a nation with a larger income gets a share of a day’s income of each instead (a quarter at founding, a fifth for each step). Founding in a region that needs players pays half as much again; a double-rewards weekend doubles what is filed or reached during it. For a month after joining, the recruits’ pact keeps war away between the two of you.`,`Les matériaux sont un minimum : une nation au revenu plus élevé reçoit plutôt une part d’une journée de revenu de chacun (un quart à la fondation, un cinquième à chaque étape). Fonder dans une région qui a besoin de joueurs rapporte moitié plus ; un week-end de récompenses doublées double ce qui est obtenu pendant celui-ci. Pendant un mois après l’arrivée, le pacte des recrues écarte la guerre entre vous deux.`)}</p>
+    <h3 class="h3 rc-ul-h">${rcL('What recruits earn you','Ce que vous rapportent les recrues')}</h3><ul class="rc-ul">${RC_UNLOCKS.map(([id,k])=>{const u=UNLOCKS[id],got=cnt>=k;return `<li class="${got?'ok':''}"><span class="rc-ul-k">${k===1?'1 recruit':k+' recruits'}</span><span><b>${esc(cap1(u.n))}</b> <span class="hint">${esc({title:'a title for your nation',stamp:'a stamp for your decrees',frame:'a frame for your flag',charge:'a charge for your arms'}[u.k]||'')}</span></span><span class="rc-ul-s">${got?'✓ Yours':`${cnt} of ${k}`}</span></li>`;}).join('')}</ul>
     <p class="hint">${got1(cnt)}</p></section>`;
-  const mine=`<section class="rc-sec" aria-labelledby="rc-my-h"><h3 class="h3" id="rc-my-h">Your recruits${list.length?` <span class="rgn-tab-n">${list.length}</span>`:''}</h3>
-    ${list.length?`<ul class="rc-list">${list.map(r=>rcRow(r,now)).join('')}</ul><p class="hint">For 14 days after a recruit joins you are their sponsor: you may send them one more Supply Cache a day.</p>`:`<p class="muted">${online?'No one has founded a nation through your link yet. Your recruits, their progress and your rewards will show here.':'Your recruits show here when the game is online.'}</p>`}</section>`;
-  const me=n.rcb?`<section class="rc-sec rc-me" aria-labelledby="rc-me-h"><h3 class="h3" id="rc-me-h">You joined through ${esc(cap1(rcNameOf(n.rcb.r)))}’s link</h3>${rcStepsHTML(1|(n.rcb.m|0))}<p class="hint">Each step pays you both once.</p></section>`:'';
-  return `<section class="rc-panel" id="rc-panel" aria-labelledby="rc-h">${intro}${share}${mine}${me}${rewards}</section>`;
+  const nOk=list.filter(r=>!r.h).length;
+  const mine=`<section class="rc-sec" aria-labelledby="rc-my-h"><h3 class="h3" id="rc-my-h">${rcL('Your recruits','Vos recrues')}${list.length?` <span class="rgn-tab-n">${nOk}</span>`:''}</h3>
+    ${list.length?`<ul class="rc-list">${list.map(r=>rcRow(r,now)).join('')}</ul><p class="hint">${rcL('For 14 days after a recruit joins you are their sponsor: you may send them one more Supply Cache a day, and see how they are doing.','Pendant 14 jours après l’arrivée d’une recrue, vous êtes son parrain : vous pouvez lui envoyer une Caisse de ravitaillement de plus par jour, et voir comment elle s’en sort.')}</p>`:`<p class="muted">${online?rcL('No one has founded a nation through your link yet. Your recruits, their progress and your rewards will show here.','Personne n’a encore fondé de nation grâce à votre lien. Vos recrues, leurs progrès et vos récompenses apparaîtront ici.'):'Your recruits show here when the game is online.'}</p>`}</section>`;
+  const pu=n.rcb?rcPactUntil(n.rcb.r,now):0;
+  const me=n.rcb?`<section class="rc-sec rc-me" aria-labelledby="rc-me-h"><h3 class="h3" id="rc-me-h">${rcL(`You joined through ${cap1(rcNameOf(n.rcb.r))}’s link`,`Vous êtes venu par le lien de ${cap1(rcNameOf(n.rcb.r))}`)}</h3>${rcStepsHTML(1|(n.rcb.m|0))}<p class="hint">${rcL('Each step pays you both once.','Chaque étape vous récompense tous les deux, une fois.')}${pu?' '+esc(rcL(`The recruits’ pact keeps war away between you until ${fmtDate(pu)}.`,`Le pacte des recrues écarte la guerre entre vous jusqu’au ${fmtDate(pu)}.`)):''}</p></section>`
+    :RC.held||(rcRead()||{}).hd?`<section class="rc-sec rc-me" aria-labelledby="rc-me-h"><h3 class="h3" id="rc-me-h">${rcL(`You came through ${cap1(rcNameOf(rcPending()))}’s link`,`Vous êtes venu par le lien de ${cap1(rcNameOf(rcPending()))}`)}</h3><p class="hint">${rcL('Your founding bonus is waiting for a quick check by the Edictum Team, because you seem to play from the same place. It is paid as soon as they clear it.','Votre bonus de fondation attend une rapide vérification de l’équipe d’Edictum, car vous semblez jouer depuis le même endroit. Il sera versé dès qu’elle l’aura validé.')}</p></section>`:'';
+  return `<section class="rc-panel" id="rc-panel" aria-labelledby="rc-h">${intro}${share}${mine}${rcWaitHTML(now)}${rcLinHTML()}${me}${rcMomentsHTML(n,now)}${rewards}</section>`;
 }
 const got1=cnt=>cnt?`You have recruited ${cnt===1?'one player':cnt+' players'}. The cosmetics are in Customise.`:'The cosmetics are in Customise once earned.';
 /* the overview's card while land is free */
@@ -89403,24 +89661,25 @@ function rgnInviteCard(){
     <button type="button" class="btn ghost sm" data-act="rgn-invite">Your link and rewards</button></section>`;
 }
 /* the menu and the Invite tab count what has happened since the tab was last open */
-const rcNews=n=>(n&&n.log||[]).filter(l=>(l.k==='recruit'||l.k==='rcstep')&&l.t>(n.rcv||0)).length;
+const rcNews=n=>(n&&n.log||[]).filter(l=>(l.k==='recruit'||l.k==='rcstep'||l.k==='rcgrand')&&l.t>(n.rcv||0)).length;
 function rcSeen(){const n=S.nation;if(!n||OBS||!rcNews(n))return;setTimeout(()=>{const c=S.nation;if(!c||!rcNews(c))return;const m=clone(c);m.rcv=Date.now();commit(m);},0);}
 rgnShow=(f=>function(t){const r=f.apply(this,arguments);if(t==='invite'){rcSeen();rcCardSoon();}return r;})(rgnShow);
 nvxCompute=(f=>function(n,now){const out=f.apply(this,arguments);try{const k=rcNews(n);if(k){const x=out.region||(out.region={k:0,w:[],at:[],e:0,d:0});x.k+=k;x.w.push(k===1?'news of a recruit':k+' pieces of news of your recruits');x.at.push({sel:'#rgn-tab-invite',k,w:'recruits',all:false});}}catch(e){}return out;})(nvxCompute);
-/* the bell: a new recruit, and each step a recruit reaches */
-NOTIF_SOURCES.push((n,now)=>(n.log||[]).filter(l=>l.k==='recruit'||l.k==='rcstep').map(l=>{const nm=cap1(rcNameOf(l.a)),st=l.k==='rcstep'?RC_STEPS.find(s=>s[1]===l.b):null;
-  return {t:l.t,k:'recruit',kl:'Recruiting',go:'region',txt:st?`${nm} ${st[2]}: ${rcGiftText(st[3],st[4])} for you.`:`${nm} founded a nation through your recruiting link: ${rcGiftText()} for you.`};}));
-document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-act="nt-go"][data-v="region"]');if(!el)return;const k=el.querySelector('.nt-k');if(k&&/^Recruiting/.test(k.textContent))RGN.tab='invite';},true);
+/* the bell: a new recruit, each step a recruit reaches, a recruit of a recruit (with what it paid, as the record says) */
+NOTIF_SOURCES.push((n,now)=>(n.log||[]).filter(l=>l.k==='recruit'||l.k==='rcstep'||l.k==='rcgrand').map(l=>{const nm=cap1(rcNameOf(l.a)),st=l.k==='rcstep'?RC_STEPS.find(s=>s[1]===l.b):null,got=l.fx||(st?rcGiftText(st[3],st[4]):rcGiftText());
+  return {t:l.t,k:'recruit',kl:'Recruiting',go:'region',txt:l.k==='rcgrand'?rcL(`${nm} founded a nation through ${rcNameOf(l.b)}’s link, one of your recruits: ${got} for you.`,`${nm} a fondé une nation grâce au lien de ${rcNameOf(l.b)}, l’une de vos recrues : ${got} pour vous.`):st?rcL(`${nm} ${st[5]}: ${got} for you.`,`${nm} ${{2:'a joué une semaine',4:'a fondé une deuxième ville',8:'a commercé avec vous'}[st[0]]} : ${got} pour vous.`):rcL(`${nm} founded a nation through your recruiting link: ${got} for you.`,`${nm} a fondé une nation grâce à votre lien de recrutement : ${got} pour vous.`)};}));
+document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-act="nt-go"][data-v="region"]');if(!el)return;const k=el.querySelector('.nt-k');if(k&&/^(Recruiting|Recrutement)/.test(k.textContent))RGN.tab='invite';},true);
 
 /* ── the visitor's side: a welcome on the founding page, and the two steps on a guest's Nation page ── */
 function rcWelcome(){
   const by=rcPending();if(!by||S.nation&&S.nation.name)return '';
-  const h=rcHead(by),nm=h&&h.name,R=h&&h.reg&&REG_BY_ID[h.reg],here=!!R&&R.id===REG.id,x=h&&h.x;
+  const h=rcHead(by),nm=h&&h.name,R=h&&h.reg&&REG_BY_ID[h.reg],here=!!R&&R.id===REG.id,x=h&&h.x,note=rcNoteOf(by),ev=rcEv(),quiet=here&&rcQuiet(REG.id);if(!RC.evAt)rcEvRead(true);
   const go=R&&!here&&!regDisabled(R.id)&&!regFull(R.id);
-  return `<div class="rc-wel" id="rc-wel">${x?`<span class="mflag rc-wel-f">${flagSVG(x.n.flag,'Flag of '+nm)}</span>`:''}<div class="rc-wel-b"><p class="eyebrow">An invitation</p>
-    <p class="rc-wel-h">${nm?`<b>${esc(nm)}</b> invited you to Edictum.`:'Another player invited you to Edictum.'}</p>
-    <p>Found your nation${here&&nm?` in ${esc(REG.name)}, beside ${esc(nm)}`:''}, link a sign-in account, and you both get ${rcGiftWords()}. More follows after a week of play and when you found a second city.</p>
-    ${here&&nm?`<p class="hint">Your advisors’ pins on the map are near ${esc(nm)}.</p>`:go?`<button type="button" class="btn ghost small-btn" data-act="rc-goreg" data-id="${esc(R.id)}">Found in ${esc(R.name)}, beside ${esc(nm)}</button>`:R&&!here?`<p class="hint">${esc(nm)} plays in ${esc(R.name)}, which takes no new nations just now.</p>`:''}</div></div>`;
+  return `<div class="rc-wel" id="rc-wel">${x?`<span class="mflag rc-wel-f">${flagSVG(x.n.flag,'Flag of '+nm)}</span>`:''}<div class="rc-wel-b"><p class="eyebrow">${rcL('An invitation','Une invitation')}</p>
+    <p class="rc-wel-h">${nm?rcL(`<b>${esc(nm)}</b> invited you to Edictum.`,`<b>${esc(nm)}</b> vous invite dans Edictum.`):rcL('Another player invited you to Edictum.','Un autre joueur vous invite dans Edictum.')}</p>
+    ${note?`<blockquote class="rc-wel-q" data-no-tr>“${esc(note)}”</blockquote>`:''}
+    <p>${rcL(`Found your nation${here&&nm?` in ${esc(REG.name)}, beside ${esc(nm)}`:''}, link a sign-in account, and you both get ${rcGiftWords()}. More follows after a week of play, when you found a second city and when you trade with each other.`,`Fondez votre nation${here&&nm?` en ${esc(REG.name)}, à côté de ${esc(nm)}`:''}, liez un compte de connexion, et vous recevrez tous les deux ${rcGiftWords()}. D’autres récompenses suivent après une semaine de jeu, avec une deuxième ville et quand vous commercerez ensemble.`)}${quiet?' '+rcL(`${esc(REG.name)} needs players, so the founding bonus is half as much again.`,`${esc(REG.name)} a besoin de joueurs : le bonus de fondation est augmenté de moitié.`):''}${ev?' '+esc(rcEvWords(ev)):''}</p>
+    ${here&&nm?`<p class="hint">${rcL(`Your advisors’ pins on the map are near ${esc(nm)}.`,`Les repères de vos conseillers sur la carte sont près de ${esc(nm)}.`)}</p>`:go?`<button type="button" class="btn ghost small-btn" data-act="rc-goreg" data-id="${esc(R.id)}">${rcL(`Found in ${esc(R.name)}, beside ${esc(nm)}`,`Fonder en ${esc(R.name)}, à côté de ${esc(nm)}`)}</button>`:R&&!here?`<p class="hint">${rcL(`${esc(nm)} plays in ${esc(R.name)}, which takes no new nations just now.`,`${esc(nm)} joue en ${esc(R.name)}, qui n’accueille pas de nouvelles nations pour le moment.`)}</p>`:''}</div></div>`;
 }
 /* under the founding page's heading, first thing the visitor reads */
 /* on the front page the invitation stands above the founding card; in the charter, under its heading */
@@ -89430,7 +89689,7 @@ function rcInvCap(T){const by=rcPending();if(!by||!T)return -1;const i=T.byId[by
 function rcGuestCard(){
   const n=S.nation;if(!n||!n.name||n.npc||OBS||n.rcb||!RC.guest)return '';const by=rcPending();if(!by)return '';
   const nm=rcNameOf(by);
-  return `<section class="rc-gc" aria-labelledby="rc-gc-h"><p class="eyebrow">Your invitation</p><h2 class="h3" id="rc-gc-h">${nm==='a new nation'?'Another player':esc(cap1(nm))} invited you</h2>
+  return `<section class="rc-gc" aria-labelledby="rc-gc-h"><p class="eyebrow">Your invitation</p><h2 class="h3" id="rc-gc-h">${rcAnon(by)?'Another player':esc(cap1(nm))} invited you</h2>
     <ol class="rc-st rc-st-v"><li class="ok"><span class="rc-st-m" aria-hidden="true">✓</span>Your nation is founded</li><li><span class="rc-st-m" aria-hidden="true">○</span>Link a sign-in account</li><li><span class="rc-st-m" aria-hidden="true">○</span>You both get ${rcGiftWords()}</li></ol>
     <button type="button" class="btn small-btn" data-act="acct-open">Link a sign-in account</button></section>`;
 }
@@ -89439,10 +89698,10 @@ nationView=(f=>function(v){return rcGuestCard()+f.apply(this,arguments);})(natio
 /* ── Settings › Account keeps the link and points to Region › Invite ── */
 function rcSection(){
   const n=S.nation;if(OBS||!n||n.npc)return '';
-  rcPoll(false);if(!RC.ok)rcApi().then(()=>{if(S.view==='settings')render();});
+  rcPoll(false);if(!RC.ok)rcApi().then(()=>{if(S.view==='settings')render();});else rcSlug();
   if(!RC.api||!S.uid)return `<section class="sg-card" id="set-social"><h3 class="sg-ch">Recruit a player</h3><p class="hint">${RC.ok?'Recruiting links work when the game is online.':'Loading your recruiting link…'}</p></section>`;
   return `<section class="sg-card" id="set-social"><h3 class="sg-ch">Recruit a player</h3>
-    <p class="hint fs-hint">Share your own link. When someone opens it, founds a nation and links a sign-in account, you both get ${RC_GIFT} goods, ${RC_GIFT} oil, ${RC_GIFT} timber, ${RC_GIFT} iron and ${RC_LAND} land credits, and more as their nation grows.</p>
+    <p class="hint fs-hint">Share your own link. When someone opens it, founds a nation and links a sign-in account, you both get at least ${RC_GIFT} goods, ${RC_GIFT} oil, ${RC_GIFT} timber, ${RC_GIFT} iron and ${RC_LAND} land credits, and more as their nation grows.</p>
     ${rcLinkRow(n)}
     <p class="hint" role="status">${esc(rcStatus(n))}${n.rcb?' You joined through another player’s link yourself.':RC.guest&&rcPending()?' You came through another player’s link: link a sign-in account from the account menu to collect the founding bonus for you both.':''}</p>
     <p><button type="button" class="linkish" data-act="rgn-invite">Your recruits, rewards and invitation card are on the Region page, under Invite</button></p>
@@ -89450,19 +89709,30 @@ function rcSection(){
 }
 document.addEventListener('focusin',e=>{if(e.target&&e.target.id==='rc-link')try{e.target.select();}catch(err){}});
 document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-act]');if(!el)return;const a=el.dataset.act;
-  if(a==='rc-copy'||a==='rc-share'){const link=rcLink();
+  if(a==='rc-copy'||a==='rc-share'){const link=rcLink(a==='rc-share'?'sh':'cp');
     if(a==='rc-share'){navigator.share({title:'Edictum',text:rcShareText(S.nation||{name:'my nation'}),url:link}).catch(()=>{});return;}
     const done=()=>{RC.copied=true;render();setTimeout(()=>{RC.copied=false;if(S.view==='settings'||S.view==='region')render();},2500);};
-    const fallback=()=>{const i=document.getElementById('rc-link');if(i){i.select();try{document.execCommand('copy');done();}catch(err){}}};
+    const fallback=()=>{const i=document.getElementById('rc-link');if(i){const was=i.value;i.value=link;i.select();try{document.execCommand('copy');done();}catch(err){}i.value=was;}};
     try{navigator.clipboard.writeText(link).then(done,fallback);}catch(err){fallback();}return;}
   if(a==='rgn-invite'){RGN.tab='invite';if(S.view!=='region')go('region');else rgnSetTab('invite',true);setTimeout(()=>{rcSeen();rcCardSoon();},60);return;}
   if(a==='rc-goreg'){const id=el.dataset.id;if(!REG_BY_ID[id]||regDisabled(id))return;draftKeep(id);try{localStorage.setItem('statehood.region',id);}catch(err){}location.reload();return;}
   if(a==='rc-write'){const id=el.dataset.id;if(!findNation(id))return;dmSetPeer(id);go('messages');return;}
-  if(a==='rc-card-save'){rcCardBlob().then(b=>{if(!b)return;const u=URL.createObjectURL(b),l=document.createElement('a');l.href=u;l.download=`invitation-${(S.nation.name||'nation').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||'nation'}.png`;document.body.appendChild(l);l.click();l.remove();setTimeout(()=>URL.revokeObjectURL(u),4000);});return;}
-  if(a==='rc-card-share'){rcCardBlob().then(b=>{if(!b)return;const f=new File([b],'invitation.png',{type:'image/png'});const d={files:[f],title:'Edictum',text:rcShareText(S.nation)+' '+rcLink()};
-    if(navigator.canShare&&navigator.canShare(d))navigator.share(d).catch(()=>{});else toast('This browser cannot share pictures. Save the card instead.');});return;}
+  if(a==='rc-note-save'){rcNoteSave();return;}
+  if(a==='rc-nudge'){const id=el.dataset.id,n=S.nation;if(!n||!RC_ID.test(id)||Date.now()-rcNudgeAt(id)<RC_NUDGE_MS)return;const m=clone(n);
+    if(!rcLetter(m,id,rcNudgeText(id))){toast(rcL('Letters go out when the game is online.','Les lettres partent quand le jeu est en ligne.'));return;}
+    m.rcnu=Object.assign({},m.rcnu||{},{[id]:Date.now()});commit(m);setTimeout(dmFlush,0);render();toast(rcL('Your reminder is on its way.','Votre rappel est en route.'));return;}
+  if(a==='rc-card-save'){rcCardBlob().then(b=>{if(!b)return;rcSaveBlob(b,`invitation-${(S.nation.name||'nation').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||'nation'}.png`);});return;}
+  if(a==='rc-card-share'){rcCardBlob().then(b=>{if(!b)return;const f=new File([b],'invitation.png',{type:'image/png'});const d={files:[f],title:'Edictum',text:rcShareText(S.nation)+' '+rcLink('sh')};
+    if(navigator.canShare&&navigator.canShare(d))navigator.share(d).catch(()=>{});else toast(rcL('This browser cannot share pictures. Save the card instead.','Ce navigateur ne peut pas partager d’images. Enregistrez plutôt la carte.'));});return;}
+  if(a==='rc-mo'){const t=Number(el.dataset.t);if(t>0){RC.mo=t;render();setTimeout(rcMoSoon,30);}return;}
+  if(a==='rc-mo-save'||a==='rc-mo-share'){const c=document.getElementById('rc-mo-card');if(!c)return;rcMoBlob(c).then(b=>{if(!b)return;
+    if(a==='rc-mo-save'){rcSaveBlob(b,'edictum-moment.png');return;}
+    const mo=rcMoments(S.nation,Date.now()).find(x=>x.t===RC.mo),f=new File([b],'edictum-moment.png',{type:'image/png'}),d={files:[f],title:'Edictum',text:(mo?`${S.nation.name} ${mo.h}. `:'')+rcL('Found your nation beside us:','Fondez votre nation à côté de nous :')+' '+rcLink('mo')};
+    if(navigator.canShare&&navigator.canShare(d))navigator.share(d).catch(()=>{});else toast(rcL('This browser cannot share pictures. Save the card instead.','Ce navigateur ne peut pas partager d’images. Enregistrez plutôt la carte.'));});return;}
+  if(a==='rc-mo-go'){RGN.tab='invite';RC.mo=Number(el.dataset.t)||RC.mo;if(S.view!=='region')go('region');else rgnSetTab('invite',true);setTimeout(()=>{document.getElementById('rc-mo-h')?.scrollIntoView({block:'start'});rcMoSoon();},120);return;}
 });
-
+/* a share button's link carries its channel already; the count is the server's (recruitTrail.v) */
+function rcSaveBlob(b,name){const u=URL.createObjectURL(b),l=document.createElement('a');l.href=u;l.download=name;document.body.appendChild(l);l.click();l.remove();setTimeout(()=>URL.revokeObjectURL(u),4000);}
 /* ── the invitation card: the flag, the name and the motto, the region, and a QR code for the link ── */
 /* ── a QR code for the recruiting link (ISO/IEC 18004: byte mode, error correction level M, versions 1 to 10, the
    mask with the lowest penalty), for the invitation card and the Invite tab; no library and no request ── */
@@ -89521,10 +89791,18 @@ function qrMatrix(text,fm){
   let best=fm>=0&&fm<8?fm:0,low=Infinity;if(!(fm>=0&&fm<8))for(let m=0;m<8;m++){flip(m);fmt(m);const pn=qrPenalty(M,N);if(pn<low){low=pn;best=m;}flip(m);}
   flip(best);fmt(best);return M;
 }
-function rcCardSoon(){requestAnimationFrame(()=>{const c=document.getElementById('rc-card');if(c&&!c.dataset.drawn)rcCardDraw(c);});}
+/* ── the cards: the invitation (its QR code the link, 'qr') and a moment's (its QR code the link, 'mo') ── */
+function rcCardSoon(){requestAnimationFrame(()=>{const c=document.getElementById('rc-card');if(c&&!c.dataset.drawn)rcCardDraw(c);rcMoSoon();});}
+function rcMoSoon(){requestAnimationFrame(()=>{const c=document.getElementById('rc-mo-card');if(c&&c.dataset.t!==String(RC.mo))rcMoDraw(c);});}
 render=(f=>function(){const r=f.apply(this,arguments);try{if(S.view==='region'&&RGN.tab==='invite')rcCardSoon();}catch(e){}return r;})(render);
-async function rcCardDraw(cv){
-  const n=S.nation;if(!n||!cv)return;cv.dataset.drawn='1';
+const rcDate=t=>{try{return rcFr()?new Date(t).toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'}):fmtDate(t);}catch(e){return fmtDate(t);}};
+/* lines of at most `max` pixels, as many as `rows` (the last cut short with an ellipsis) */
+function rcWrap(g,s,max,rows){const w=String(s).split(/\s+/),out=[];let cur='';
+  for(const x of w){const t=cur?cur+' '+x:x;if(g.measureText(t).width<=max||!cur)cur=t;else{out.push(cur);cur=x;}}if(cur)out.push(cur);
+  if(out.length>rows){out.length=rows;let l=out[rows-1];while(l.length>1&&g.measureText(l+'…').width>max)l=l.slice(0,-1);out[rows-1]=l.replace(/[\s,.;:]+$/,'')+'…';}return out;}
+/* o: {mo: the moment ({t, h}) for a moment's card, else the invitation} */
+async function rcDrawCard(cv,o){
+  const n=S.nation;if(!n||!cv)return;o=o||{};const fr=rcFr();
   try{await Promise.race([document.fonts&&document.fonts.ready,new Promise(r=>setTimeout(r,1500))]);}catch(e){}
   const g=cv.getContext('2d');if(!g)return;const W=1200,H=630,ink='#1d2a2a',soft='#5a6662',paper='#f6f1e3';
   g.fillStyle=paper;g.fillRect(0,0,W,H);
@@ -89536,19 +89814,80 @@ async function rcCardDraw(cv){
   const fit=(t,size,max,font)=>{let s=size;g.font=font(s);while(s>18&&g.measureText(t).width>max){s-=2;g.font=font(s);}return s;};
   const disp=s=>`600 ${s}px "Bodoni Moda","Bodoni 72",Didot,Georgia,serif`,body=s=>`400 ${s}px "Public Sans",system-ui,sans-serif`,mono=s=>`500 ${s}px "IBM Plex Mono",ui-monospace,monospace`;
   g.fillStyle=soft;g.font=mono(20);g.textBaseline='alphabetic';
-  g.fillText(('The '+n.pretitle+' of').toUpperCase(),fx,fy+fh+56);
+  g.fillText((fr?String(n.pretitle||''):'The '+n.pretitle+' of').toUpperCase(),fx,fy+fh+56);
   g.fillStyle=ink;fit(n.name,64,600,disp);g.fillText(n.name,fx,fy+fh+122);
-  if(n.motto){g.font=`italic 400 26px Georgia,serif`;g.fillStyle=soft;let m='“'+n.motto+'”';while(m.length>8&&g.measureText(m).width>600)m=m.slice(0,-2)+'…”';g.fillText(m,fx,fy+fh+166);}
-  g.fillStyle=ink;g.font=body(28);g.fillText(`invites you to found a nation in ${REG.name}.`,fx,fy+fh+222);
-  g.fillStyle=soft;g.font=body(20);g.fillText('Edictum · a free multiplayer nation simulator',fx,H-62);
+  if(o.mo){
+    g.fillStyle=ink;g.font=`600 34px "Public Sans",system-ui,sans-serif`;const L=rcWrap(g,o.mo.h,620,2);L.forEach((s,i)=>g.fillText(s,fx,fy+fh+172+i*42));
+    g.fillStyle=soft;g.font=body(22);g.fillText(`${REG.name} · ${rcDate(o.mo.t)}`,fx,fy+fh+172+L.length*42+6);
+  }else{
+    let y=fy+fh+166;
+    if(n.motto){g.font=`italic 400 26px Georgia,serif`;g.fillStyle=soft;let m='“'+n.motto+'”';while(m.length>8&&g.measureText(m).width>600)m=m.slice(0,-2)+'…”';g.fillText(m,fx,y);y+=56;}else y+=10;
+    g.fillStyle=ink;g.font=body(28);g.fillText(fr?`vous invite à fonder une nation en ${REG.name}.`:`invites you to found a nation in ${REG.name}.`,fx,y);
+    const note=(RC.note||'').trim();if(note){g.font=`italic 400 22px Georgia,serif`;g.fillStyle=ink;rcWrap(g,'“'+note+'”',640,2).forEach((s,i)=>g.fillText(s,fx,y+40+i*28));}
+  }
+  g.fillStyle=soft;g.font=body(20);g.fillText(fr?'Edictum · un simulateur de nations multijoueur gratuit':'Edictum · a free multiplayer nation simulator',fx,H-50);
   /* the QR code, black on white with its quiet zone */
-  const M=qrMatrix(rcLink());if(M){const N=M.length,q=4,box=300,u=Math.floor(box/(N+2*q)),side=u*(N+2*q),x0=W-80-side,y0=96;
+  const M=qrMatrix(rcLink(o.mo?'mo':'qr'));if(M){const N=M.length,q=4,box=300,u=Math.floor(box/(N+2*q)),side=u*(N+2*q),x0=W-80-side,y0=96;
     g.fillStyle='#fff';g.fillRect(x0,y0,side,side);g.fillStyle='#000';for(let y=0;y<N;y++)for(let x=0;x<N;x++)if(M[y][x])g.fillRect(x0+(x+q)*u,y0+(y+q)*u,u,u);
     g.strokeStyle=ink;g.lineWidth=2;g.strokeRect(x0-1,y0-1,side+2,side+2);
-    g.fillStyle=ink;g.font=body(22);g.textAlign='center';g.fillText('Scan to accept',x0+side/2,y0+side+40);
+    g.fillStyle=ink;g.font=body(22);g.textAlign='center';g.fillText(o.mo?(fr?'Scannez pour nous rejoindre':'Scan to join us'):(fr?'Scannez pour accepter':'Scan to accept'),x0+side/2,y0+side+40);
     g.fillStyle=soft;g.font=mono(18);g.fillText(location.host,x0+side/2,y0+side+70);g.textAlign='left';}
 }
+async function rcCardDraw(cv){if(!cv)return;cv.dataset.drawn='1';await rcDrawCard(cv,{});rcCardUpload(cv);}
+async function rcMoDraw(cv){const mo=rcMoments(S.nation,Date.now()).find(x=>x.t===RC.mo);if(!cv||!mo)return;cv.dataset.t=String(mo.t);await rcDrawCard(cv,{mo});}
 function rcCardBlob(){const c=document.getElementById('rc-card');if(!c)return Promise.resolve(null);const p=c.dataset.drawn?Promise.resolve():rcCardDraw(c);return p.then(()=>new Promise(r=>c.toBlob(b=>r(b),'image/png')));}
+function rcMoBlob(c){const p=c.dataset.t===String(RC.mo)?Promise.resolve():rcMoDraw(c);return p.then(()=>new Promise(r=>c.toBlob(b=>r(b),'image/png')));}
+/* the invitation card as the preview of the player's /join/ link (functions/join.js): a JPEG, sent when it changes */
+const rcHash=s=>{let h=5381;for(let i=0;i<s.length;i+=7)h=(h*33+s.charCodeAt(i))|0;return String(h>>>0)+':'+s.length;};
+function rcCardUpload(cv){
+  if(!RC.slug||!RC.api||typeof RC.api.joinCard!=='function'||OBS||!cv)return;
+  let d='';try{d=cv.toDataURL('image/jpeg',.86);if(d.length>270000)d=cv.toDataURL('image/jpeg',.7);}catch(e){return;}
+  if(!/^data:image\/jpeg;base64,/.test(d)||d.length>272000)return;
+  const h=rcHash(d);if(h===RC.cardH)return;RC.cardH=h;
+  Promise.resolve(RC.api.joinCard(d)).catch(()=>{});
+}
+/* ── great moments to share: the nation's latest from its record, each with a card that invites the reader beside it ── */
+const RC_MO_DAYS=30,RC_MO_BIG=new Set(['wonder','wrep','ctake','csack','damk','lthk','halk','rsc','hostwin']);
+const rcThe=s=>String(s||'').replace(/^The /,'the ');
+/* the words for one record line ("built the Grand Library"), or '' when it is no moment */
+function rcMomentOf(l){
+  if(!l||typeof l.k!=='string')return '';const fr=rcFr(),b=String(l.b||'').slice(0,80);
+  const top=(a,nm,en1,en2,fr1,fr2)=>a==='1'?(fr?`${fr1} ${nm}`:`${en1} ${rcThe(nm)}`):(fr?`${fr2} ${nm} (n° ${a})`:`${en2} ${rcThe(nm)} (number ${a} of its builders)`);
+  try{switch(l.k){
+    case 'wonder':return b?(fr?`a bâti ${b}`:`built ${rcThe(b)}`):'';
+    case 'wrep':return l.fx==='won'&&b?(fr?`a gagné la guerre contre ${b}`:`won the war against ${b}`):'';
+    case 'ctake':return b?(fr?`a pris la capitale de ${b}`:`took the capital of ${b}`):'';
+    case 'csack':return b?(fr?`a fait tomber ${b}`:`brought down ${b}`):'';
+    case 'damk':return /^[1-5]$/.test(l.a)?top(l.a,damName(),'finished','helped finish','a achevé','a aidé à achever'):'';
+    case 'lthk':return /^[1-5]$/.test(l.a)?top(l.a,lthName(),'lit','helped light','a allumé','a aidé à allumer'):'';
+    case 'halk':return /^[1-5]$/.test(l.a)?top(l.a,halName(),'opened','helped open','a ouvert','a aidé à ouvrir'):'';
+    case 'mile':return l.a?(fr?`a atteint ${l.a} d’habitants`:`reached ${l.a} people`):'';
+    case 'rsc':return b?(fr?`a relevé le Grand Défi « ${b} »`:`completed the Grand Challenge ${b}`):'';
+    case 'hostwin':return fr?'a remporté les Jeux qu’elle accueillait':'won the Games it hosted';
+  }}catch(e){}return '';
+}
+function rcMoments(n,now){
+  const out=[];for(const l of (n&&n.log)||[]){if(!l||now-l.t>RC_MO_DAYS*DAY)continue;if(l.k==='wrep'&&l.fx!=='won')continue;const h=rcMomentOf(l);if(h&&!out.some(x=>x.t===l.t))out.push({t:l.t,k:l.k,h});if(out.length>=6)break;}
+  return out;
+}
+function rcMomentsHTML(n,now){
+  const M=rcMoments(n,now);if(!M.length)return '';const sel=M.find(x=>x.t===RC.mo);
+  return `<section class="rc-sec" aria-labelledby="rc-mo-h"><h3 class="h3" id="rc-mo-h">${rcL('Share a moment','Partagez un moment')}</h3>
+    <p class="hint">${rcL('Your nation’s latest great moments, each with a card to share. Its QR code is your recruiting link.','Les derniers grands moments de votre nation, chacun avec une carte à partager. Son code QR est votre lien de recrutement.')}</p>
+    <ul class="rc-mo">${M.map(x=>`<li class="${sel&&sel.t===x.t?'on':''}"><span class="rc-mo-d">${esc(fmtDate(x.t))}</span><span class="rc-mo-t">${esc(cap1(n.name))} ${esc(x.h)}</span><button type="button" class="btn ghost small-btn" data-act="rc-mo" data-t="${x.t}"${sel&&sel.t===x.t?' aria-pressed="true"':''}>${rcL('Make a card','Créer une carte')}</button></li>`).join('')}</ul>
+    ${sel?`<figure class="rc-card-f rc-mo-f"><canvas id="rc-mo-card" class="rc-card" width="1200" height="630" role="img" aria-label="${esc(rcL(`A card: ${n.name} ${sel.h}, with a QR code for your recruiting link`,`Une carte : ${n.name} ${sel.h}, avec un code QR pour votre lien de recrutement`))}"></canvas>
+      <figcaption class="row rc-card-a"><button type="button" class="btn ghost small-btn" data-act="rc-mo-save">${rcL('Save the card','Enregistrer la carte')}</button>${navigator.canShare?`<button type="button" class="btn ghost small-btn" data-act="rc-mo-share">${rcL('Share the card…','Partager la carte…')}</button>`:''}</figcaption></figure>`:''}</section>`;
+}
+/* a great moment just entered the record: say so, with a way to its card (at most once in six hours) */
+commit=(f=>function(n){const prev=S.nation,r=f.apply(this,arguments);try{
+  if(n&&n.name&&prev&&prev.name===n.name&&!OBS&&S.mode==='world'&&Date.now()-(RC.moToast||0)>6*3600e3){
+    /* lines the record did not have (a wonder's line carries the time it was finished, which may be earlier than others) */
+    const key=l=>l.t+'|'+l.k+'|'+(l.a||'')+'|'+(l.b||''),had=new Set((prev.log||[]).filter(Boolean).map(key));
+    const fresh=(n.log||[]).filter(l=>l&&!had.has(key(l))&&Date.now()-l.t<DAY&&RC_MO_BIG.has(l.k)&&(l.k!=='wrep'||l.fx==='won')&&rcMomentOf(l));
+    if(fresh.length){const l=fresh[0];RC.moToast=Date.now();RC.mo=l.t;
+      setTimeout(()=>toast({m:rcL(`${n.name} ${rcMomentOf(l)}. A card of it, with your recruiting link, is ready to share.`,`${n.name} ${rcMomentOf(l)}. Une carte de ce moment, avec votre lien de recrutement, est prête à partager.`),act:{a:'rc-mo-go',l:rcL('Make a card','Créer une carte')}}),2500);}
+  }}catch(e){}return r;})(commit);
+
 /* ───────── Settings tabs: switching, the address, jumps from elsewhere, and unsaved changes ─────────
    Kept at the end so these wrappers sit outside every other wrapper of go, uxJump and tutGo. Switching a tab only
    flips .sg[data-tab] (no redraw), so a half-typed draft and the scroll position stay as they are. */
@@ -103357,6 +103696,18 @@ function adminLand(p){
     <div class="row"><input class="input" type="number" id="admin-lc-k" min="1" max="20" step="1" value="${esc(String(ADMX.lcK||'3'))}" aria-label="How many land credits" style="width:6em"><button type="button" class="btn small" data-act="admin-lc" data-id="${esc(p.uid)}"${busy}>Grant land credits</button></div>
     <p class="hint">Added once to the nation’s bonus land credits (up to their cap) the next time its game is open, at once if it is open now, with a line in its record giving the reason.</p>${ADMX.lcMsg?`<p class="hint" aria-live="polite">${esc(ADMX.lcMsg)}</p>`:''}`;
 }
+/* the console's player page: who recruited them, how many they recruited, and their note on their invitation, which an
+   admin can take down (functions/recruit.js, recruitInfo and recruitNoteClear) */
+function adminRecruit(p){
+  const r=p.rc;if(!r)return '<p class="hint">Nothing to show.</p>';
+  const by=r.by?`Recruited by ${r.byName?esc(r.byName):'a nation no longer here'} ${r.t?esc(rel(r.t)):''}${r.h==='ip'||r.h==='dev'?` <span class="chip warn">held: same ${r.h==='dev'?'device':'address'}</span>`:r.h==='no'?' <span class="chip">refused</span>':''} <button class="btn ghost small" data-act="admin-inspect" data-id="${esc(r.by)}">Inspect</button>`:'Not recruited through a link.';
+  const note=r.note?`<blockquote class="rc-wel-q" data-no-tr>“${esc(r.note)}”</blockquote><div class="field"><label for="admin-rcn-why">Reason (kept in the audit log)</label><input class="input" id="admin-rcn-why" maxlength="300" value="${esc(ADMX.rcnWhy||'')}"></div><div class="row"><button class="btn ghost small" data-act="admin-rcn" data-id="${esc(p.uid)}"${ADMX.rcnBusy?' disabled':''}>Take down the note</button></div>`:'<p class="hint">No note on their invitation.</p>';
+  return `<p>${by}</p><p>${r.n?`Recruited ${fmt0(r.n)} ${r.n===1?'player':'players'}.`:'Has recruited no one.'}</p><h4 class="help-h3">Their note on the invitation</h4>${note}${ADMX.rcnMsg?`<p class="hint" aria-live="polite">${esc(ADMX.rcnMsg)}</p>`:''}`;
+}
+document.addEventListener('input',e=>{if(e.target&&e.target.id==='admin-rcn-why')ADMX.rcnWhy=e.target.value;});
+document.addEventListener('click',e=>{const b=e.target&&e.target.closest&&e.target.closest('[data-act="admin-rcn"]');if(!b||ADMX.rcnBusy)return;const p=ADMX.player;if(!p||p.uid!==b.dataset.id)return;
+  const reason=String(ADMX.rcnWhy||'').trim();if(!reason){ADMX.rcnMsg='Write a reason first.';render();document.getElementById('admin-rcn-why')?.focus();return;}
+  ADMX.rcnBusy=true;ADMX.rcnMsg='';render();adminRequest({op:'recruitNoteClear',uid:p.uid,reason}).then(()=>{ADMX.rcnBusy=false;if(p.rc)p.rc.note='';ADMX.rcnWhy='';ADMX.rcnMsg='The note is down.';render();},e2=>{ADMX.rcnBusy=false;ADMX.rcnMsg='That did not work: '+(e2.message||'unknown error');render();});});
 async function adminLandSet(uid){
   const p=ADMX.player;if(!p||p.uid!==uid||ADMX.lcBusy)return;
   const k=Math.round(Number(ADMX.lcK));if(!(k>=1&&k<=20)){ADMX.lcMsg='Grant between 1 and 20 land credits.';render();return;}

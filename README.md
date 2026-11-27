@@ -1291,7 +1291,10 @@ the share that has settled, claimed land, started a building, decided an edict, 
 the charter and linked a sign-in; choose a cell to list who is stuck there), release markers (◆) on the day charts
 for each development news post, **Feature use over time** (the nightly record keeps what the month's players use,
 so this chart starts two nights after the release), **Engagement** and **Recruiting** (day-7 retention of
-players who came through a recruiting link, per recruiter, against everyone else). Each count also writes every
+players who came through a recruiting link, per recruiter and per share channel, against everyone else; below it,
+the claims held for a check, because recruit and recruiter played from the same address or browser, with **Release**
+and **Refuse**, and the switch for a double-rewards weekend: functions/recruit.js). The player page's **Recruiting**
+shows who recruited a player and lets an admin take down the note on their invitation. Each count also writes every
 nation's engagement score to `statsEngage/<n>` (the nightly job does too), which **Player search** shows, filters
 and sorts by.
 

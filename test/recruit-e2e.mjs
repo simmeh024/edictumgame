@@ -7,7 +7,7 @@
 // two steps on its Nation page. A week of play (and a second city) pays both sides again, once. The recruiter hears of it
 // in the bell and the menu, and as sponsor may send a new recruit one more Supply Cache a day. A nation founded before
 // the link was opened never counts; the claim is filed once, never for oneself, and only the recruiter lists recruits.
-import { BASE, OUT, player, open, found, until, check, finish, text, nav, restListAdmin, clearEmulators, sleep, register, localNation } from './lib.mjs';
+import { BASE, OUT, FS_HOST, PROJECT, player, open, found, until, check, finish, text, nav, restListAdmin, clearEmulators, sleep, register, localNation } from './lib.mjs';
 import fs from 'node:fs';
 await clearEmulators();
 const RES = ['goods', 'oil', 'timber', 'iron'];
@@ -18,6 +18,12 @@ const trail = async id => { const d = (await restListAdmin('recruitTrail')).find
 const rec = async id => { const d = (await restListAdmin('recruits')).find(x => x.id === id); return d ? { r: d.fields.r?.stringValue, m: Number(d.fields.m?.integerValue || d.fields.m?.doubleValue || 0) } : null; };
 const bell = p => p.evaluate(() => G.NEWS.bell(Date.now()).ev.filter(e => e.k === 'recruit').map(e => e.txt));
 const badge = p => p.evaluate(() => { const b = document.querySelector('.nav [data-v="region"] .badge'); return b && !b.hidden && b.offsetParent ? b.textContent : ''; });
+/* the staff's hand, past the rules (the emulator takes "Bearer owner" as an admin credential) */
+const DOCS = `http://${FS_HOST}/v1/projects/${PROJECT}/databases/(default)/documents/`;
+const ownerPatch = (path, fields, mask) => fetch(DOCS + path + (mask ? '?' + mask.map(f => 'updateMask.fieldPaths=' + f).join('&') : ''), { method: 'PATCH', headers: { 'content-type': 'application/json', authorization: 'Bearer owner' }, body: JSON.stringify({ fields }) }).then(r => r.status);
+const ownerDelete = path => fetch(DOCS + path, { method: 'DELETE', headers: { authorization: 'Bearer owner' } }).then(r => r.status);
+const letter = async (by, to) => (await restListAdmin('letters')).find(d => d.fields.by?.stringValue === by && d.fields.to?.stringValue === to);
+const uidOf = p => p.evaluate(() => window.claude.use('user').then(u => u.id()));
 
 const A = await player('recruiter');
 const uidA = await open(A); await found(A, 'Recruitland');
@@ -28,10 +34,12 @@ const reg = await A.evaluate(() => G.S.nation.reg || 'meridian');
 // Settings › Account: the link, with the region, and a way to Region › Invite
 await nav(A, 'settings'); await A.click('#sg-tab-account');
 await A.waitForSelector('#rc-link');
+check('Settings keeps the player\'s own link: /join/ and the nation’s name, no account id in it', await until(async () => (await A.$eval('#rc-link', i => i.value)).endsWith('/join/recruitland'), 20000), await A.$eval('#rc-link', i => i.value));
 const link = await A.$eval('#rc-link', i => i.value);
-check('Settings keeps the player\'s own link, naming their region', link.endsWith('/?recruit=' + uidA + '&rg=' + reg), link);
+check('until then the plain link named the region', await A.evaluate(([u, r]) => { const s = G.RC().state.slug; G.RC().state.slug = ''; const l = G.RC().link(); G.RC().state.slug = s; return l.endsWith('/?recruit=' + u + '&rg=' + r); }, [uidA, reg]));
 const shares = await A.$$eval('#set-social .rc-share a', as => as.map(a => a.textContent + ' ' + a.href));
 check('share links for Facebook, X, Mastodon, WhatsApp and others', ['Facebook', 'X', 'Mastodon', 'WhatsApp', 'Bluesky', 'Telegram', 'Reddit', 'Email'].every(k => shares.some(s => s.startsWith(k + ' '))) && shares.every(s => s.includes(encodeURIComponent(link)) || s.includes(encodeURIComponent(link).replace(/%20/g, '+'))), JSON.stringify(shares));
+check('each with its channel for the funnel', shares.some(s => s.startsWith('WhatsApp ') && s.includes(encodeURIComponent(link + '?via=wa'))) && shares.some(s => s.startsWith('Facebook ') && s.includes(encodeURIComponent(link + '?via=fb'))), JSON.stringify(shares));
 check('the section says no one has joined yet', /No one has founded a nation through your link yet/.test(await text(A, '#set-social')));
 await A.click('#set-social [data-act="rgn-invite"]');
 check('and points to the Region page’s Invite tab', await until(() => A.evaluate(() => G.S.view === 'region' && document.getElementById('rgn')?.dataset.tab === 'invite')));
@@ -44,28 +52,53 @@ check('and what recruits earn: a title, a stamp, a frame and a charge', (await A
 /* the card: drawn, and its QR code is the link's (each module read off the canvas) */
 check('the invitation card is drawn', await until(() => A.evaluate(() => document.getElementById('rc-card')?.dataset.drawn === '1'), 10000));
 await sleep(1200);
+const qrLink = await A.evaluate(() => G.RC().link('qr'));
+check('the card’s code carries its own channel', qrLink === link + '?via=qr', qrLink);
 const qr = await A.evaluate(lk => { const c = document.getElementById('rc-card'), g = c.getContext('2d'), M = G.RC().qr(lk), N = M.length, q = 4, u = Math.floor(300 / (N + 2 * q)), side = u * (N + 2 * q), x0 = 1200 - 80 - side, y0 = 96;
   const d = g.getImageData(0, 0, c.width, c.height).data; let bad = 0;
   for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) { const px = Math.floor(x0 + (x + q + .5) * u), py = Math.floor(y0 + (y + q + .5) * u), i = (py * c.width + px) * 4; if ((d[i] < 128) !== M[y][x]) bad++; }
-  return { N, bad }; }, link);
+  return { N, bad }; }, qrLink);
 check('the card’s QR code is the link’s, module for module', qr.N >= 21 && qr.bad === 0, JSON.stringify(qr));
 const png = await A.evaluate(() => new Promise(r => document.getElementById('rc-card').toBlob(b => { const f = new FileReader(); f.onload = () => r(f.result); f.readAsDataURL(b); }, 'image/png')));
 fs.writeFileSync(OUT + '/recruit-card.png', Buffer.from(png.split(',')[1], 'base64'));
+check('the card is sent as the /join/ link’s preview picture', await until(async () => (await restListAdmin('joinCard')).some(d => d.id === uidA && d.fields.img && d.fields.s?.stringValue === 'recruitland'), 20000));
+/* the note: saved through the server, on the card and in the visitor's welcome */
+await A.fill('#rc-note', 'Come and be my neighbour: the north coast is still free!');
+await A.click('[data-act="rc-note-save"]');
+check('the recruiter saves a note on the invitation', await until(() => A.evaluate(() => G.RC().state.note === 'Come and be my neighbour: the north coast is still free!'), 15000), await A.evaluate(() => G.RC().state.noteMsg));
+await A.fill('#rc-note', 'See www.example.com');
+await A.click('[data-act="rc-note-save"]');
+check('but no web address in it', await until(() => A.evaluate(() => /Leave links/.test(G.RC().state.noteMsg)), 15000) && await A.evaluate(() => G.RC().state.note === 'Come and be my neighbour: the north coast is still free!'));
+await A.fill('#rc-note', 'Come and be my neighbour: the north coast is still free!');
 await A.screenshot({ path: OUT + '/recruit-invite-desktop.png', fullPage: true });
 await A.click('#rgn-tab-overview');
 check('while land is free, the overview invites a neighbour', /Invite a neighbour/.test(await text(A, '#rgn-p-overview .rgn-inv')) && /of the land in .* is still unclaimed/.test(await text(A, '#rgn-p-overview .rgn-inv')), await text(A, '#rgn-p-overview .rgn-inv'));
 check('the Invite pane shows when its tab is chosen', await A.evaluate(() => { document.getElementById('rgn-tab-invite').click(); const p = document.getElementById('rgn-p-invite'); return getComputedStyle(p).display !== 'none' && p.getBoundingClientRect().height > 200; }));
 
-// the visitor: welcomed, started beside the recruiter, and on the funnel
+// a /join/ link: the page sends the visitor on to the game, which keeps the recruiter and the channel
+const J = await player('joiner');
+await open(J, BASE + '/join/recruitland?via=wa');
+check('a /join/ link opens the game with the recruiter kept on the device, and its channel', await until(() => J.evaluate(u => { const o = JSON.parse(localStorage.getItem('edictum.recruitBy.v1') || 'null'); return !!o && o.r === u && o.v === 'wa' && !location.href.includes('recruit='); }, uidA), 20000), J.url());
+const uidJ = await uidOf(J);
+check('and the funnel has the visit with its channel', await until(async () => { const d = (await restListAdmin('recruitTrail')).find(x => x.id === uidJ); return d && d.fields.o && d.fields.v?.stringValue === 'wa'; }, 20000));
+await J.context().close();
+
+// the visitor: welcomed, started beside the recruiter (even with the staff's default region elsewhere), and on the funnel
+const other = reg === 'frostmarch' ? 'wildwood' : 'frostmarch';
+await ownerPatch('regionStatus/' + other, { enabled: { booleanValue: true }, mode: { stringValue: 'enabled' }, def: { booleanValue: true }, at: { integerValue: String(Date.now()) } });
 const B = await player('recruit');
 await open(B, BASE + '/?recruit=' + uidA + '&rg=' + reg);
 check('the link is taken out of the address bar', !B.url().includes('recruit='), B.url());
 check('and kept on the device until the nation is founded, with the region', await B.evaluate(() => G.RC().pending()) === uidA && await B.evaluate(() => JSON.parse(localStorage.getItem('edictum.recruitBy.v1')).g) === reg);
 const uidB = await B.evaluate(() => window.claude.use('user').then(u => u.id()));
 check('the founding page names the recruiter, and their region', await until(async () => /Recruitland invited you to Edictum/.test(await text(B, '#rc-wel')) && /pins on the map are near Recruitland/.test(await text(B, '#rc-wel')), 20000), await text(B, '#rc-wel').catch(() => ''));
+check('and quotes the recruiter’s note', await until(async () => /the north coast is still free/.test(await text(B, '#rc-wel .rc-wel-q')), 15000), await text(B, '#rc-wel').catch(() => ''));
+check('the staff’s default region elsewhere does not take the visitor away from the recruiter', await B.evaluate(r => G.S.nation?.reg === r || G.REG?.id === r || !!document.querySelector('#rc-wel'), reg) && !(await B.evaluate(() => location.search.includes('region'))));
 await B.screenshot({ path: OUT + '/recruit-welcome.png' });
 check('the visit is on the admins’ funnel', await until(async () => (await trail(uidB))?.o === true, 20000), JSON.stringify(await trail(uidB)));
 await found(B, 'Newland', { newPlayer: true });
+check('Newland is founded in the recruiter’s region', await B.evaluate(() => G.S.nation.reg) === reg, await B.evaluate(() => G.S.nation.reg));
+await ownerDelete('regionStatus/' + other);
 /* the advisors' three pins: nearer the recruiter's capital than they would be without the link */
 const dists = () => B.evaluate(() => { const T = G.XP().territory(), xa = G.allNations().find(x => x.n.name === 'Recruitland'), cap = T.list[T.byId[xa.id]].cap;
   const cells = G.LAND().fdSites(G.S.nation, T), M = G.MAP, d = new Map([[cap, 0]]), q = [cap];
@@ -82,7 +115,7 @@ check('the advisors’ pins are nearer the recruiter’s capital than the unstee
 check('a Guest Nation sees the two steps on its Nation page', await until(async () => { await nav(B, 'nation'); return /Recruitland invited you/.test(await text(B, '.rc-gc').catch(() => '')) && /Link a sign-in account/.test(await text(B, '.rc-gc').catch(() => '')); }, 30000));
 await B.screenshot({ path: OUT + '/recruit-guest-steps.png' });
 check('and keeps the link, unpaid', await B.evaluate(() => G.RC().pending()) === uidA && await B.evaluate(() => !G.S.nation.rcb) && (await restListAdmin('recruits')).length === 0);
-check('the funnel has the founding, before an account is linked', await until(async () => (await trail(uidB))?.f === true, 15000), JSON.stringify(await trail(uidB)));
+check('the funnel has the founding, before an account is linked', await until(async () => (await trail(uidB))?.f === true, 40000), JSON.stringify(await trail(uidB)));
 await register(B);
 check('the recruit gets the bonus once the account is linked', await until(() => B.evaluate(() => !!G.S.nation.rcb), 30000), await B.evaluate(() => JSON.stringify(G.S.nation.rcb || null)));
 const bStock = await stock(B);
@@ -104,12 +137,17 @@ check('the recruiter is paid for the new recruit', await until(() => A.evaluate(
 const aAfter = await stock(A);
 check('15 goods, oil, timber and iron for the recruiter', RES.every(r => aAfter[r] - aBefore[r] >= 14), JSON.stringify([aBefore, aAfter]));
 check('and 3 land credits', await credits(A) === 3);
+check('the two start warmer towards each other', await A.evaluate(id => (G.S.nation.gw || {})[id] === 10, uidB) && await B.evaluate(id => (G.S.nation.gw || {})[id] === 10, uidA));
+check('the recruiter’s game sends a Note of Friendship with the note', await until(async () => { const d = await letter(uidA, uidB); return !!d && d.fields.k?.stringValue === 'friend' && /north coast/.test(d.fields.x?.stringValue || ''); }, 40000));
+check('and the recruits’ pact keeps war away between them, both ways', await A.evaluate(id => G.RC().pact(id) > Date.now() + 29 * 864e5, uidB) && await B.evaluate(id => G.RC().pact(id) > Date.now() + 29 * 864e5, uidA));
 await A.evaluate(() => G.RC().poll(true)); await sleep(1500);
 check('polling again pays nothing more', await A.evaluate(() => G.S.nation.rcp.length) === 1 && await credits(A) === 3);
 check('the bell tells of the recruit', (await bell(A)).some(t => /Newland founded a nation through your recruiting link/.test(t)), JSON.stringify(await bell(A)));
 await nav(A, 'nation');
 check('and the menu counts it on Region', await until(async () => +(await badge(A)) >= 1, 8000), await badge(A));
 await nav(A, 'region'); await A.click('#rgn-tab-invite');
+check('the sponsor sees how the recruit is doing', await until(async () => /How they are doing/.test(await text(A, '.rc-list .rc-mt')) && /No second city yet/.test(await A.$eval('.rc-list .rc-mt', d => d.textContent).catch(() => '')), 15000), await text(A, '.rc-list').catch(() => ''));
+check('and the link in numbers', await until(async () => /Opened your link/.test(await text(A, '#rc-panel .rc-fun')) && /Linked an account/.test(await text(A, '#rc-panel .rc-fun')), 15000), await text(A, '#rc-panel .rc-fun').catch(() => ''));
 check('the Invite tab lists the recruit, as sponsor, with Write and Send buttons', await until(async () => /Newland/.test(await text(A, '.rc-list').catch(() => '')) && /Sponsor until/.test(await text(A, '.rc-list').catch(() => '')) && !!(await A.$(`.rc-list [data-act="rc-write"][data-id="${uidB}"]`)) && !!(await A.$(`.rc-list [data-act="sc-send-open"][data-id="${uidB}"]`)), 20000), await text(A, '#rc-panel').catch(() => ''));
 check('opening it clears the menu’s count', await until(async () => !(await badge(A)) && await A.evaluate(() => !G.S.nation.log.some(l => (l.k === 'recruit' || l.k === 'rcstep') && l.t > (G.S.nation.rcv || 0))), 8000), await badge(A));
 await nav(A, 'nation'); await nav(A, 'settings'); await A.click('#sg-tab-account');
@@ -133,6 +171,61 @@ await nav(A, 'region'); await A.click('#rgn-tab-invite');
 check('and the list ticks it', await until(async () => /✓Aweekofplay/.test((await text(A, '.rc-list').catch(() => '')).replace(/\s/g, ''))), await text(A, '.rc-list').catch(() => ''));
 await A.screenshot({ path: OUT + '/recruit-invite-list.png', fullPage: true });
 
+// the recruit's own recruit: a guest waits for a sign-in, is nudged, and once filed pays the first recruiter too
+const G2 = await player('grandchild');
+await open(G2, BASE + '/?recruit=' + uidB + '&rg=' + reg);
+await found(G2, 'Grandland', { newPlayer: true });
+const uidG2 = await uidOf(G2);
+await until(async () => (await trail(uidG2))?.f === true, 20000);
+await nav(B, 'region'); await B.click('#rgn-tab-invite');
+check('the recruiter sees the guest waiting for a sign-in', await until(async () => { await B.evaluate(() => G.RC().poll(true)); return /Waiting for a sign-in/.test(await text(B, '#rc-panel')) && /Grandland/.test(await text(B, '#rc-panel')); }, 40000, 5000), await text(B, '#rc-panel').catch(() => ''));
+check('with the link in numbers: opened and founded, no recruit yet', /1Openedyourlink1Foundedanation0Linkedanaccount/.test((await text(B, '#rc-panel .rc-fun')).replace(/\s/g, '')), await text(B, '#rc-panel .rc-fun'));
+await B.click(`[data-act="rc-nudge"][data-id="${uidG2}"]`);
+check('and sends a reminder letter, once a day', await until(async () => !!(await letter(uidB, uidG2)), 40000) && await until(() => B.evaluate(id => !!document.querySelector(`[data-act="rc-nudge"][data-id="${id}"][disabled]`), uidG2), 8000));
+await register(G2);
+check('the guest, linked, is filed naming its recruiter’s recruiter as g', await until(async () => { const d = (await restListAdmin('recruits')).find(x => x.id === uidG2); return d && d.fields.g?.stringValue === uidA; }, 30000));
+const aLand0 = await credits(A);
+await A.evaluate(() => G.RC().poll(true));
+check('the first recruiter is paid for its lineage: 1 land credit', await until(() => A.evaluate(id => (G.S.nation.rcgp || []).includes(id), uidG2), 15000) && await credits(A) === aLand0 + 1, String(await credits(A)));
+await nav(A, 'region'); await A.click('#rgn-tab-invite');
+check('and the Invite tab shows the lineage', await until(async () => /Your lineage/.test(await text(A, '#rc-panel')) && /Newland → Grandland/.test(await text(A, '#rc-panel')), 15000), await text(A, '#rc-panel').catch(() => ''));
+await G2.context().close();
+
+// a double-rewards weekend, and a claim from the recruiter's address: held, released by the staff, then paid twice
+const now0 = Date.now();
+await ownerPatch('rcEvent/live', { m: { integerValue: '2' }, from: { integerValue: String(now0 - 1000) }, until: { integerValue: String(now0 + 3600e3) } });
+await A.evaluate(() => G.RC().evRead(true));
+check('the Invite tab announces the weekend', await until(async () => { await A.evaluate(() => G.RC().evRead(true)); return /Double recruiting rewards until/.test(await text(A, '#rc-panel')); }, 15000), await text(A, '.rc-hero').catch(() => ''));
+const E2 = await player('sameplace');
+await open(E2, BASE + '/?recruit=' + uidA + '&rg=' + reg);
+await found(E2, 'Sameland', { newPlayer: true });
+const uidE2 = await uidOf(E2);
+await ownerPatch('accountSeen/' + uidA, { ip: { stringValue: '203.0.113.9' }, at: { integerValue: String(Date.now()) } });
+await ownerPatch('accountSeen/' + uidE2, { ip: { stringValue: '203.0.113.9' }, at: { integerValue: String(Date.now()) } });
+const aRcp = await A.evaluate(() => (G.S.nation.rcp || []).length), aLand1 = await credits(A);
+await register(E2);
+check('a claim from the recruiter’s address is held for a check, in the weekend', await until(async () => { const d = (await restListAdmin('recruits')).find(x => x.id === uidE2); return d && d.fields.h?.stringValue === 'ip' && Number(d.fields.x?.integerValue) === 2; }, 30000));
+check('the recruit is told, and not paid yet', await until(() => E2.evaluate(() => JSON.parse(localStorage.getItem('edictum.recruitBy.v1') || '{}').hd === 1 && !G.S.nation.rcb), 20000));
+await A.evaluate(() => G.RC().poll(true)); await sleep(2000);
+await nav(A, 'region'); await A.click('#rgn-tab-invite');
+check('the recruiter sees it waiting for a staff check, unpaid', await until(async () => /Waiting for a staff check/.test(await text(A, '.rc-list')), 15000) && await A.evaluate(() => (G.S.nation.rcp || []).length) === aRcp, await text(A, '.rc-list').catch(() => ''));
+await ownerPatch('recruits/' + uidE2, {}, ['h']);
+await A.evaluate(() => G.RC().poll(true));
+check('released, the recruiter is paid twice: 6 land credits', await until(() => A.evaluate(id => (G.S.nation.rcp || []).includes(id), uidE2), 15000) && await credits(A) === aLand1 + 6, String(await credits(A) - aLand1));
+await E2.evaluate(() => { G.RC().state.tries = 0; G.RC().claim(); });
+check('and the recruit collects: 6 land credits', await until(() => E2.evaluate(() => !!G.S.nation.rcb), 20000) && await credits(E2) === 6, String(await credits(E2)));
+await ownerDelete('rcEvent/live'); await ownerDelete('accountSeen/' + uidA);
+await E2.context().close();
+
+// a great moment, with a card to share
+await A.evaluate(() => { const n = G.clone(G.S.nation); n.log = [{ t: Date.now(), k: 'wonder', a: 'Capital', b: 'The Grand Library' }].concat(n.log || []); G.commit(n); });
+await nav(A, 'region'); await A.click('#rgn-tab-invite');
+check('the Invite tab offers the moment', await until(async () => /Share a moment/.test(await text(A, '#rc-panel')) && /built the Grand Library/.test(await text(A, '#rc-panel')), 15000), await text(A, '#rc-panel').catch(() => ''));
+await A.click('[data-act="rc-mo"]');
+check('and draws its card', await until(() => A.evaluate(() => !!document.getElementById('rc-mo-card')?.dataset.t), 15000));
+await A.screenshot({ path: OUT + '/recruit-moment.png', fullPage: true });
+check('the words follow the player’s language', await A.evaluate(() => { localStorage.setItem('statehood.lang.v1', 'fr'); const t = G.RC().amtText({ goods: 15, oil: 15, timber: 15, iron: 15 }, 3), m = G.RC().momentOf({ k: 'wonder', b: 'la Grande Bibliothèque' }); localStorage.removeItem('statehood.lang.v1'); return t === '+15 biens, pétrole, bois et fer et +3 crédits de terre' && m === 'a bâti la Grande Bibliothèque'; }));
+
 // abuse: no self-recruiting, and nobody else lists A's recruits
 const C = await player('other');
 await open(C, BASE + '/?recruit=' + uidA); await found(C, 'Otherland', { newPlayer: true });
@@ -143,7 +236,7 @@ check('C was recruited by A too, through a link from before links named a region
 const listed = await C.evaluate(id => Promise.resolve(window.claude.use('recruit')).then(a => a.mine()).then(l => l.map(x => x.id)), uidA);
 check('a player lists only recruits naming them', Array.isArray(listed) && listed.length === 0, JSON.stringify(listed));
 await A.evaluate(() => G.RC().poll(true));
-check('the recruiter is paid for the second recruit', await until(() => A.evaluate(() => (G.S.nation.rcp || []).length === 2), 15000) && await credits(A) === 8, await credits(A));
+check('the recruiter is paid for the next recruit', await until(() => A.evaluate(() => (G.S.nation.rcp || []).length === 3), 15000) && await credits(A) === aLand1 + 6 + 3, await credits(A));
 
 // a player whose nation was founded before the link was opened is no recruit
 const D = await player('veteran');
