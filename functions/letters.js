@@ -100,7 +100,11 @@ async function pushTo(db, uid, payload) {
 export async function warWord(db, to, kind, { by, nation, capital, at, nn }) {
   const fell = kind === 'fell', moved = kind === 'moved', cap = capital || 'your capital';
   let pushed = 0, mailed = 0;
-  try { pushed = await pushTo(db, to, { title: fell || moved ? `${cap} has fallen` : `${by} has laid siege to ${cap}`, body: fell ? `${nation} has fallen to ${by}. Rise again, or start anew elsewhere.` : moved ? `${by} took ${cap}. Your government has moved to ${nn || 'your biggest city'}, and the war goes on.` : 'The final assault can come in a day. Surrender, or hold out and fight.', tag: 'siege-' + to, url: fell ? '/' : '/#map' }); } catch (e) { pushed = 0; }
+  /* landing parties (27 November 2026): a hostile landing on its way, capital the coast it makes for */
+  if (kind === 'landing') {
+    const hrs = Math.max(1, Math.round((Number(at) - Date.now()) / 3600000));
+    try { pushed = await pushTo(db, to, { title: `${by} is sending a landing party`, body: `Its boats reach ${capital || 'your coast'} in about ${hrs} hours. Dig in on the beaches before they land.`, tag: 'landing-' + to, url: '/#map' }); } catch (e) { pushed = 0; }
+  } else try { pushed = await pushTo(db, to, { title: fell || moved ? `${cap} has fallen` : `${by} has laid siege to ${cap}`, body: fell ? `${nation} has fallen to ${by}. Rise again, or start anew elsewhere.` : moved ? `${by} took ${cap}. Your government has moved to ${nn || 'your biggest city'}, and the war goes on.` : 'The final assault can come in a day. Surrender, or hold out and fight.', tag: 'siege-' + to, url: fell ? '/' : '/#map' }); } catch (e) { pushed = 0; }
   try {
     const acc = await db.doc('mailAccounts/' + to).get();
     if (acc.exists && acc.get('ok') && acc.get('e') && acc.get('p') && acc.get('p').war) {
