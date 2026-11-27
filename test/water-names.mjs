@@ -69,7 +69,7 @@ const showCell = async (c, z = 5) => {
   const pos = await page.evaluate(c => { const G = window.__game, cv = document.querySelector('canvas[data-map="main"]'), v = G.MD.viewOf('main', cv), s = G.MD.mapScale(cv, v); return { x: cv.clientWidth / 2 + (G.MAP.cx[c] - v.cx) * s, y: cv.clientHeight / 2 + (G.MAP.cy[c] - v.cy) * s }; }, c);
   return { cv, pos };
 };
-const clickCell = async c => { const { cv, pos } = await showCell(c); await cv.click({ position: pos }); await sleep(300); };
+const clickCell = async (c, z) => { const { cv, pos } = await showCell(c, z); await cv.click({ position: pos }); await sleep(300); };
 const select = async c => { await page.evaluate(c => { const G = window.__game; G.S.mapInspect = c; G.S.mapCell = null; G.S.mapSel = null; G.S.mapClaim = null; G.render(); }, c); await sleep(250); };
 const nameAt = c => page.evaluate(c => { const K = window.__game.WTN(), a = K.wnAt(K.territory(), c); return a ? a.nm : null; }, c);
 const lastLine = () => page.evaluate(() => { const G = window.__game, n = G.S.nation, l = n.log.find(l => l.k === 'wtren'); return l ? G.WTN().logLine(l, n, G.S.uid) : null; });
@@ -115,7 +115,10 @@ try {
   /* a hex of the nation's waters, three hexes out, and one of the same sea beyond reach */
   const sea = await page.evaluate(() => {
     const G = window.__game, K = G.WTN(), M = G.MAP, T = K.territory(), mi = T.list.findIndex(x => x.me), W = K.wnWaters(T, mi), big = W.size.indexOf(Math.max(...W.size));
-    let sel = null, far = null; for (const [c, p] of W.pc) if (p === big && W.R.get(c) === 3) { sel = c; break; }
+    /* of the sea three hexes out, the hex farthest from the capital: one just above it lay under the capital's news pin,
+       and the click opened the news instead (CI, 27 Nov 2026, whenever the coast put it there) */
+    const cap = T.list[mi].cap, d2 = c => (M.cx[c] - M.cx[cap]) ** 2 + (M.cy[c] - M.cy[cap]) ** 2;
+    let sel = null, far = null; for (const [c, p] of W.pc) if (p === big && W.R.get(c) === 3 && (sel == null || d2(c) > d2(sel))) sel = c;
     const D = window.__ring(M, [...W.pc.keys()], 4, j => M.T[j] < 2);
     for (const [c, d] of D) if (d >= 2 && !W.R.has(c)) { far = c; break; }
     const river = K.RV.list.find(r => r.name0);
@@ -124,7 +127,9 @@ try {
   check('the nation has waters to name', sea.sel != null && sea.size > 5, JSON.stringify(sea));
   console.log(`     ${sea.size} hexes of sea within reach of Seaholm`);
 
-  await clickCell(sea.sel);
+  /* close in (the map filling the page draws news pins at this zoom, about 12 px round each, and a sea hex three out
+     could lie under the capital's), on the hex of that sea farthest from the capital */
+  await clickCell(sea.sel, 10);
   check('clicking the sea shows a panel for it', await page.locator('#map-panel .wn-pn').count() === 1, await txt('#map-panel'));
   check('which calls it the sea, with no name yet', (await txt('#map-panel .wn-pn .eyebrow')) === 'Sea' && (await txt('#map-panel .wn-l')) === 'Waters with no name yet.', await txt('#map-panel .wn-pn'));
   const own = await txt('#map-panel .wn-own');

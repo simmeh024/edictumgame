@@ -121,3 +121,11 @@ test('the war in sight: a pill on the map, War after Explore with its count; ico
   assert.match(css,/@container \(max-width:520px\)\{\s*\.mpr-modes>\.mpr-m\[data-v="transport"\],\.mpr-modes>\.mpr-m\[data-v="land"\]\{display:none\}\s*\.mpr-more\{display:block\}/,'More when short of room');
   assert.match(css,/@media \(max-width:1100px\)\{\.mpr-more-p\{top:auto;bottom:calc\(100% \+ 8px\)\}\.mpr-fold-b\{display:none\}/,'on a phone More opens upwards and the panel does not fold');
 });
+
+/* found by the water-names suite with the map filling the page (27 Nov 2026): a click on the sea opened a story at the
+   capital. The news pins' places for clicks were taken from pictures drawn ahead, off the map, with a margin round them;
+   and a view moved with centerMain on a page that came out as it was never drew the map there */
+test('the map answers clicks where it shows: news pins from its own picture, and drawn again when its view moves',()=>{
+  assert.match(code,/const own=M\.g\.canvas===M\.cv;if\(own\)M\.cv\._nws=null;if\(!nwsOn\(\)\)return;[\s\S]{0,80}if\(own\)M\.cv\._nws=L;/,'only a picture on the map itself places the pins');
+  assert.match(code,/function centerMain\(cell,z\)\{[^\n]*try\{const cv=document\.querySelector\('canvas\.map-cv\[data-map="main"\]'\);if\(cv\)schedule\(cv\);\}catch\(e\)\{\}\}/,'the map drawn where it was moved');
+});

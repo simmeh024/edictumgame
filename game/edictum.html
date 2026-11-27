@@ -42129,9 +42129,12 @@ function nwsDraw(g,L,col){
     g.globalAlpha=1;}
 }
 MAP_LAYERS.push({stage:'top',kinds:['main'],draw:M=>{
-  M.cv._nws=null;if(!nwsOn())return;
+  /* where the pins are, for clicks, only from a picture drawn on the map itself: the pictures drawn ahead for moving the
+     map (mapPrewarm, mapPlate) are larger than the map, with a margin round it, and one finished after the map's own
+     put every pin a margin away from where it shows, so a click on the sea opened a story at the capital (27 Nov 2026) */
+  const own=M.g.canvas===M.cv;if(own)M.cv._nws=null;if(!nwsOn())return;
   const pins=nwsPins();if(!pins.length)return;
-  const L=nwsLayout(M,pins);M.cv._nws=L;nwsDraw(M.g,L,M.col);
+  const L=nwsLayout(M,pins);if(own)M.cv._nws=L;nwsDraw(M.g,L,M.col);
 }});
 /* the newest pin breathes, gently; with reduced motion it keeps a still ring */
 MFX_LAYERS.push({busy:(f,rm)=>!rm&&f.kind==='main'&&!!(f.cv._nws&&f.cv._nws.pulse),draw:(f,g,t,rm)=>{
@@ -55149,7 +55152,9 @@ function mapClick(cv,cell,ev){
 }
 /* jumping the map to a hex ends a glide still running there (a double tap's zoom, the home button): its remaining
    frames would carry the view on to where the glide was going, over the place just chosen */
-function centerMain(cell,z){mapGlideStop('main');if(!S.mapViews)S.mapViews={};S.mapViews.main={z:z||NEAR_Z,cx:MAP.cx[cell],cy:MAP.cy[cell]};}
+/* the main map moved to a hex, and drawn there in the next frame: a page drawn again that comes out as it was is left
+   alone (render), and the map stayed where it was, its news pins answering clicks where they had been (27 Nov 2026) */
+function centerMain(cell,z){mapGlideStop('main');if(!S.mapViews)S.mapViews={};S.mapViews.main={z:z||NEAR_Z,cx:MAP.cx[cell],cy:MAP.cy[cell]};try{const cv=document.querySelector('canvas.map-cv[data-map="main"]');if(cv)schedule(cv);}catch(e){}}
 function openMapAt(id){const T=territory(),i=T.byId[id];if(i!==undefined){centerMain(T.list[i].cap,NEAR_Z);S.mapSel=T.list[i].me?null:id;}go('map');}
 function updateMapPanel(){const p=document.getElementById('map-panel');if(!p)return;
   /* a field being typed in keeps the focus and the caret when the panel is drawn again */
