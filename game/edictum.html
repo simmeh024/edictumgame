@@ -1375,6 +1375,18 @@ header.vh:has(.sg-gear)>h1,header.vh:has(.sg-gear)>.eyebrow{padding-right:44px}
 .site span{font-size:12.5px;color:var(--ink-3)}
 .site:hover{border-color:var(--ink-3)}
 .site.on{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent)}
+.site-w{display:flex;flex-direction:column;gap:4px;min-width:0}
+.site-w .site{flex:1}
+.site b{display:flex;align-items:center;gap:7px}
+.site .site-k{flex:none;display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;border:1.6px solid var(--stamp);color:var(--ink);font-size:11.5px;font-weight:700;line-height:1}
+.site.on .site-k{background:var(--stamp);color:var(--sheet)}
+.site .site-k-own{border-style:dashed}
+.site .site-g{color:var(--ink-2)}
+.site-map{align-self:flex-start;padding:2px 2px 0}
+.site-box{margin-top:14px}
+.site-pins{margin:6px 0 0;padding-left:22px;font-size:14px}
+.site-pins li{margin:2px 0}
+.site-more{margin-top:8px}
 .city-list{list-style:none;margin:0;padding:0}
 .city-list li{display:grid;grid-template-columns:minmax(160px,0.8fr) minmax(0,2fr);gap:6px 16px;padding:11px 0;border-top:1px solid var(--rule)}
 .cl-b{color:var(--ink-2);font-size:14px}
@@ -24910,26 +24922,93 @@ function buildProblem(n,ct,key,st){
   return null;
 }
 function myCityStates(){const T=territory(),CS=cityState(T);return {T,CS,mine:CS.all.filter(c=>c.fid===myId()),held:CS.all.filter(c=>c.active&&T.list[c.hi]&&T.list[c.hi].me&&c.fid!==myId())};}
-function cityProblem(cell,T){
+/* where a city may stand at all: on land you hold, at least CITY_MIN_DIST from every city (the limit on how many you
+   may found comes after, in cityProblem) */
+function citySpotProblem(cell,T){
   const mi=T.byId[myId()];if(mi===undefined)return 'Settle your nation on the map first.';
   if(cell<0||MAP.T[cell]<2)return 'Cities must stand on land.';
   if(T.owner[cell]!==mi)return 'You can only found cities on land you hold.';
   const CS=cityState(T);
   for(const ct of CS.all){if(!ct.active&&ct.fid!==myId())continue;if(hexDist(ct.c,cell)<CITY_MIN_DIST)return ct.c===cell?`${ct.nm} already stands here.`:`That is too close to ${ct.nm}. Cities must be at least ${CITY_MIN_DIST} hexes apart.`;}
+  return '';
+}
+function cityLimitProblem(T,mi){
   const lim=maxCities(T,mi),have=cityList(S.nation).filter(c=>!c.cq).length;
   if(have>=lim)return have>=MAX_CITIES?`You have the most cities a nation can found (${MAX_CITIES}).`:cityBonusHint(S.nation)||`At its size, ${S.nation.name} can have ${lim} ${lim===1?'city':'cities'}.${nextCityWhen(S.nation,myArea(T,mi))?` The next one unlocks at ${nextCityWhen(S.nation,myArea(T,mi))}.`:''}${cityGoldHint(S.nation)}`;
   return '';
 }
+function cityProblem(cell,T){return citySpotProblem(cell,T)||cityLimitProblem(T,T.byId[myId()]);}
+/* ── a city that might be founded at a hex (2026-11-27, from a player's request to see the suggested sites on the map
+   and what any hex would bring). The hexes it would work are handed out as cityState does: each hex to the nearest
+   city, and on a tie to the city earlier in the list, which is every city already standing except a captured one
+   listed after yours (siteNear records, for each hex of yours a city works, how far that city is and whether it is
+   listed before the new one). Its first residents come from mpCityPopulations with the new city in, so a big nation's
+   new city can start with the three-hex reach. The land it works yields to the nation already, city or not: what a
+   city adds is what its buildings make of that land (siteGains). Worked out once a cityState. ── */
+let siteMemo={CS:null};
+function siteNear(T){
+  const CS=cityState(T);if(siteMemo.CS===CS&&siteMemo.T===T)return siteMemo;
+  const mi=T.byId[myId()],near=new Map();let at=-1;
+  CS.all.forEach((ct,i)=>{if(ct.fid===myId()&&!ct.npc)at=i;});
+  CS.all.forEach((ct,i)=>{if(!ct.active||ct.hi!==mi)return;for(const c of ct.dist){const d=hexDist(ct.c,c),o=near.get(c);if(!o||d<o[0])near.set(c,[d,i<=at]);}});
+  return siteMemo={CS,T,near,m:new Map(),spots:null};
+}
+/* the hexes of your land within R of cell that a new city there would work */
+function siteRing(cell,T,R,M){
+  const mi=T.byId[myId()];M=M||siteNear(T);
+  return ringCells(cell,R).filter(([c,d])=>{if(T.owner[c]!==mi||MAP.T[c]<2)return false;const o=M.near.get(c);return !o||d<o[0]||(d===o[0]&&!o[1]);}).map(x=>x[0]);
+}
+/* its residents on the day it is founded: the nation's other cities give up the hexes it takes, and it starts young */
+function siteResidents(cell,T,mi,pd){
+  const CS=cityState(T),x=T.list[mi],now=Math.floor(Date.now()/60000)*60000,take=new Set(pd);
+  const mine=CS.all.filter(ct=>ct.active&&ct.hi===mi).map(ct=>{const o=Object.create(ct);o.popDist=(ct.popDist||ct.dist).filter(c=>!take.has(c));return o;});
+  const nc={id:'~site',c:cell,cap:false,fid:x.id,fn:{cities:[{id:'~site',t:now}]},npc:false,done:[],active:true,hi:mi,popDist:pd,dist:pd};
+  return mpCityPopulations(T,mine.concat([nc]),now).get(nc)||0;
+}
+/* {dist: the hexes it would work, r: its reach, more: the hexes of yours a third ring would add later, pop} */
+function siteCity(cell,T){
+  const mi=T.byId[myId()];if(mi===undefined||!(cell>=0)||MAP.T[cell]<2)return null;
+  const M=siteNear(T);let v=M.m.get(cell);if(v)return v;
+  const pd=siteRing(cell,T,CITY_DISTRICT,M);let pop=0;try{pop=siteResidents(cell,T,mi,pd);}catch(e){pop=0;}
+  const r=mpRadius(pop),dist=r>CITY_DISTRICT?siteRing(cell,T,r,M):pd;
+  v={c:cell,dist,r,pop,more:r<MP_CITY_MAX?siteRing(cell,T,MP_CITY_MAX,M).length-pd.length:0};M.m.set(cell,v);return v;
+}
+/* what the first buildings there would add a day: Farm Estates, a Sawmill, an Iron Mine where there are hills or an
+   iron deposit (else Ore Pits) and Oil Wells on oil, each one the nation may build yet; worked out as cityState does
+   for a building with no upgrades */
+const SITE_BLD=['farm','sawmill','mine','orepit','oilwell'];
+function siteGains(dist,n){
+  const hills=dist.some(c=>MAP.T[c]>=3||IRON_DEP[c]),flat=!dist.some(c=>MAP.T[c]>=3),oil=dist.some(c=>CELL_RES.oil[c]>0),out=[];
+  for(const k of SITE_BLD){
+    const B=BUILDINGS[k];if(!B||!B.res||(B.need==='hills'&&!hills)||(B.need==='flat'&&!flat)||(B.need==='oil'&&!oil))continue;
+    try{if(n&&!bldUnlocked(n,k))continue;}catch(e){}
+    for(const r in B.res){const [m,f]=B.res[r],v=m*dist.reduce((s,c)=>s+(CELL_RES[r]?CELL_RES[r][c]:0),0)+f;if(v<0.05)continue;
+      const o=out.find(q=>q.r===r);if(o){if(o.v>=v)continue;out.splice(out.indexOf(o),1);}out.push({k,r,v,n:B.n});}
+  }
+  return out;
+}
+const siteGainText=g=>list(g.map(q=>`+${fmtAmt(q.v)} ${resName(q.r)} (${q.n})`));
+/* the land's own yield a day, and its hills and oil deposits */
+function siteLand(dist){
+  const y=['food','timber','iron'].map(r=>[r,dist.reduce((a,c)=>a+CELL_RES[r][c],0)]).filter(([,v])=>v>=0.05).map(([r,v])=>fmtAmt(v)+' '+resName(r));
+  return {y,hills:dist.filter(c=>MAP.T[c]>=3).length,oil:dist.filter(c=>CELL_RES.oil[c]>0).length};
+}
 function siteValue(cell,T){
-  let v=0;const mi=T.byId[myId()];
-  for(const [c] of ringCells(cell,CITY_DISTRICT)){if(T.owner[c]!==mi)continue;v+=CELL_RES.food[c]*0.4+CELL_RES.timber[c]+CELL_RES.iron[c]*1.6+CELL_RES.oil[c]*2.5;}
+  let v=0;for(const c of siteRing(cell,T,CITY_DISTRICT))v+=CELL_RES.food[c]*0.4+CELL_RES.timber[c]+CELL_RES.iron[c]*1.6+CELL_RES.oil[c]*2.5;
   return v+(isCoastal(cell)?3:0);
 }
+/* every hex of yours a city could stand on (the limit aside), best first */
+function siteSpots(T){
+  const M=siteNear(T);if(M.spots)return M.spots;
+  const mi=T.byId[myId()],c=[];
+  if(mi!==undefined)for(let i=0;i<MAP.N;i++){if(T.owner[i]!==mi||T.isCap[i]||citySpotProblem(i,T))continue;c.push([i,siteValue(i,T)]);}
+  c.sort((a,b)=>b[1]-a[1]||a[0]-b[0]);
+  return M.spots=c.map(x=>x[0]);
+}
+/* the three best, at least three hexes apart, while the nation may found another city */
 function citySites(T){
-  const mi=T.byId[myId()];if(mi===undefined)return [];
-  const c=[];for(let i=0;i<MAP.N;i++){if(T.owner[i]!==mi||T.isCap[i])continue;if(cityProblem(i,T))continue;c.push([i,siteValue(i,T)]);}
-  c.sort((a,b)=>b[1]-a[1]);
-  const out=[];for(const [i] of c){if(out.some(o=>hexDist(o,i)<3))continue;out.push(i);if(out.length>=3)break;}
+  const mi=T.byId[myId()];if(mi===undefined||cityLimitProblem(T,mi))return [];
+  const out=[];for(const i of siteSpots(T)){if(out.some(o=>hexDist(o,i)<3))continue;out.push(i);if(out.length>=3)break;}
   return out;
 }
 function cityNameIdea(cell){
@@ -25094,8 +25173,8 @@ function foundCityForm(T,st){
   if(!S.cityName)S.cityName=cityNameIdea(S.citySite);
   const miss=lacking(CITY_COST,st);
   return `<form class="found-city" id="city-form" novalidate>
-    <p class="muted">You can found ${lim-have} more ${lim-have===1?'city':'cities'}. Each costs ${costText(CITY_COST)} and earns ${CITY_CREDITS} land credits. Pick one of the best sites below, or select any hex of your land on the map.</p>
-    <div class="sites" role="radiogroup" aria-label="City site">${sites.map(c=>`<button type="button" class="site${c===S.citySite?' on':''}" role="radio" aria-checked="${c===S.citySite}" data-act="ct-site" data-c="${c}"><b>${esc(cap1(placePhrase(c).replace(/^in the |^on /,'')))}</b><span>${esc(siteCard(c,T,mi))}</span></button>`).join('')}</div>
+    <p class="muted">You can found ${lim-have} more ${lim-have===1?'city':'cities'}. Each costs ${costText(CITY_COST)} and earns ${CITY_CREDITS} land credits. Pick one of the best sites below, numbered as on the map, or select any hex of your land on the map. The land a city works yields to your nation already; a city adds what its buildings make of it.</p>
+    <div class="sites" role="radiogroup" aria-label="City site">${sites.concat(sites.includes(S.citySite)?[]:[S.citySite]).map(c=>{const k=sites.indexOf(c),sc=siteCard(c,T,mi);return `<div class="site-w"><button type="button" class="site${c===S.citySite?' on':''}" role="radio" aria-checked="${c===S.citySite}" data-act="ct-site" data-c="${c}"><b>${k>=0?`<span class="site-k" aria-label="Site ${k+1}:">${k+1}</span>`:'<span class="site-k site-k-own" aria-label="Chosen on the map:">✓</span>'}${esc(cap1(placePhrase(c).replace(/^in the |^on /,'')))}</b><span>${esc(sc.facts)}</span>${sc.gain?`<span class="site-g">Buildings would add ${esc(sc.gain)}</span>`:''}</button><button type="button" class="linkish small site-map" data-act="ct-site-map" data-c="${c}">Show on the map</button></div>`;}).join('')}</div>
     <div class="field" style="margin-top:14px"><label for="city-name">Name of the new city</label><div class="name-row"><input class="input" id="city-name" data-bind="ctname" value="${esc(S.cityName)}" maxlength="30" autocomplete="off"><button class="btn" type="submit"${miss.length?' disabled':''}>Found city</button></div>${miss.length?`<p class="hint" style="margin-top:6px">You need ${esc(list(miss))} more. Surplus collects in your stockpile every day.</p>`:''}</div>
   </form>`;
 }
@@ -25127,8 +25206,52 @@ function hexPanel(T,cell){
   const prob=cityProblem(cell,T);
   if(!S.cityName||S.citySite!==cell){S.citySite=cell;S.cityName=cityNameIdea(cell);}
   const st=stockNow(n,Date.now()),miss=lacking(CITY_COST,st);
-  return headEl+svcHexHTML(cell)+c3Strip(n,Date.now(),{compact:true,need:prob?null:CITY_COST})+`<dl class="mp-dl"><div><dt>Yields a day</dt><dd>${yields.length?esc(list(yields)):lake?'Nothing':'Little'}</dd></div><div><dt>Nearby</dt><dd>${esc(siteFacts(cell,T,mi).join(', '))}</dd></div>${hexFromCap(cell,T)}</dl>${releaseHex(cell,T)}${swapHex(cell,T)}${warGiveHex(cell,T)}
+  return headEl+svcHexHTML(cell)+c3Strip(n,Date.now(),{compact:true,need:prob?null:CITY_COST})+`<dl class="mp-dl"><div><dt>Yields a day</dt><dd>${yields.length?esc(list(yields)):lake?'Nothing':'Little'}</dd></div>${siteRows(cell,T,mi)}${hexFromCap(cell,T)}</dl>${siteMore(cell,T)}${releaseHex(cell,T)}${swapHex(cell,T)}${warGiveHex(cell,T)}
     ${prob?`<p class="hint" style="margin-top:12px">${esc(prob)}</p><div class="row" style="margin-top:12px">${back}</div>`:`<form id="mc-form" novalidate style="margin-top:14px"><label class="lbl" for="mc-name">Found a city here</label><div class="name-row" style="margin-top:6px"><input class="input" id="mc-name" data-bind="ctname" value="${esc(S.cityName)}" maxlength="30" autocomplete="off"><button class="btn" type="submit"${miss.length?' disabled':''}>Found</button></div><p class="hint" style="margin-top:6px">${miss.length?'You need '+esc(list(miss))+' more.':'Costs '+costText(CITY_COST)+'.'}</p></form><div class="row" style="margin-top:12px">${back}</div>`}`;
+}
+/* a city on this hex, in the panel: the land it would work, what that yields (the nation's already), what its first
+   buildings would add, and how the hex ranks among those where a city could stand; a hex too close to a city keeps the
+   short "Nearby" line */
+function siteRows(cell,T,mi){
+  const sc=citySpotProblem(cell,T)?null:siteCity(cell,T);
+  if(!sc)return `<div><dt>Nearby</dt><dd>${esc(siteFacts(cell,T,mi).join(', '))}</dd></div>`;
+  const L=siteLand(sc.dist),g=siteGains(sc.dist,S.nation),sp=siteSpots(T),rk=sp.indexOf(cell),sg=citySites(T).indexOf(cell),k=sc.dist.length;
+  const works=[`${k} ${k===1?'hex':'hexes'} of your land`,L.hills?`${L.hills} of them ${L.hills===1?'a hill or mountain':'hills or mountains'}`:'',L.oil?(L.oil===1?'an oil deposit':L.oil+' oil deposits'):'',isCoastal(cell)?'on the coast':''].filter(Boolean).join(', ');
+  return `<div><dt>As a city</dt><dd>Works ${esc(works)}${sc.r>CITY_DISTRICT?`, reaching ${sc.r} hexes out from the day it is founded`:''}</dd></div>
+    <div><dt>Its land yields</dt><dd>${L.y.length?esc(list(L.y))+' a day, which your nation has already':'Little'}</dd></div>
+    <div><dt>Buildings would add</dt><dd>${g.length?esc(siteGainText(g))+' a day':'Little from this land'}</dd></div>
+    ${rk>=0?`<div><dt>Ranks</dt><dd>${sg>=0?`Suggested site ${sg+1} · `:''}${rk?ordinal(rk+1)+' best':sg>=0?'the best':'The best'} of the ${sp.length} ${sp.length===1?'hex':'hexes'} where a city could stand</dd></div>`:''}`;
+}
+/* and, under the figures, the land shaded on the map and the third ring a city gains at two million residents */
+function siteMore(cell,T){
+  const sc=citySpotProblem(cell,T)?null:siteCity(cell,T);if(!sc)return '';
+  return `<p class="hint site-more">The shaded hexes on the map are the land it would work.${sc.more>0?` At two million residents it works a third ring too: ${sc.more} more ${sc.more===1?'hex':'hexes'} of your land.`:''}</p>`;
+}
+/* on the main map: the hexes a city on the selected hex would work (a free hex of yours where a city could stand), and
+   numbered, dashed hexes on the suggested sites (1 to 3, as on the Cities page), drawn under the capitals and city names */
+function siteDistDraw(g,T,cell,col,s){
+  const mi=T.byId[myId()];if(mi===undefined||T.owner[cell]!==mi||cityState(T).byCell.has(cell)||citySpotProblem(cell,T))return;
+  const sc=siteCity(cell,T);if(!sc||!sc.dist.length)return;
+  const set=new Set(sc.dist);g.beginPath();for(const i of sc.dist)hexFill(g,i,HEX_R+0.5);g.globalAlpha=0.28;g.fillStyle=col.stamp;g.fill();g.globalAlpha=1;
+  g.beginPath();edgeList(g,sc.dist,(i,j)=>j<0||!set.has(j));g.strokeStyle=col.stamp;g.lineWidth=2/s;g.stroke();
+}
+function sitePinsDraw(g,T,scr,off,col,s){
+  let sites=[];try{sites=citySites(T);}catch(e){return;}if(!sites.length)return;
+  const R=Math.max(3,HEX_R*s-1.5);g.font='700 11px '+MAP_FONT;g.textAlign='center';g.textBaseline='middle';
+  sites.forEach((c,k)=>{
+    const [x,y]=scr(c);if(off(x,y))return;const on=S.mapCell===c;
+    /* a dashed hexagon on the site, then a filled badge with its number just above it */
+    g.beginPath();for(let d=0;d<6;d++){const px=x+HCX[d]*R,py=y+HCY[d]*R;if(d)g.lineTo(px,py);else g.moveTo(px,py);}g.closePath();
+    g.setLineDash(on?[]:[4,3]);g.lineWidth=2;g.strokeStyle=col.stamp;g.stroke();g.setLineDash([]);
+    const by=y-R-10;g.beginPath();g.arc(x,by,8.5,0,Math.PI*2);g.fillStyle=col.stamp;g.fill();g.lineWidth=1.5;g.strokeStyle=col.sheet;g.stroke();
+    g.fillStyle=col.sheet;g.fillText(String(k+1),x,by+0.5);
+  });
+  g.textBaseline='alphabetic';
+}
+/* the suggested sites in the panel of your own land, so they can be reached without the map: each selects its hex */
+function sitePinsBox(T){
+  let sites=[];try{sites=citySites(T);}catch(e){}if(!sites.length)return '';
+  return `<section class="site-box"><p class="lbl-h">Sites for a new city</p><p class="hint">The numbered, dashed hexes on your land mark the three best places for your next city.</p><ol class="site-pins">${sites.map(c=>`<li><button type="button" class="linkish" data-act="ct-site-map" data-c="${c}">${esc(cap1(placePhrase(c).replace(/^in the |^on /,'')))}</button></li>`).join('')}</ol></section>`;
 }
 /* map markers: drawn after national labels, before capitals */
 function drawCities(g,T,scr,off,col,s,boxes){
@@ -29251,14 +29374,12 @@ function fromCap(c,T){
   const mi=T.byId[myId()];if(mi===undefined)return '';const cap=T.list[mi].cap,d=hexDist(cap,c);
   return d?`${d} ${d===1?'hex':'hexes'} ${compass(cap,c)} of ${S.nation.capital}`:`${S.nation.capital} itself`;
 }
-/* a suggested city site: where it lies, its land type and coast, and what the land round it yields */
+/* a suggested city site: where it lies, the land it would work, and what its first buildings would add there */
 function siteCard(c,T,mi){
-  const cells=ringCells(c,CITY_DISTRICT).map(x=>x[0]).filter(x=>T.owner[x]===mi&&MAP.T[x]>=2);
-  const hills=cells.filter(x=>MAP.T[x]>=3).length,oil=cells.filter(x=>CELL_RES.oil[x]>0).length;
-  const y=['food','timber','iron'].map(r=>[r,cells.reduce((a,x)=>a+CELL_RES[r][x],0)]).filter(([,v])=>v>=0.05).map(([r,v])=>fmtAmt(v)+' '+resName(r));
-  const f=[fromCap(c,T),isCoastal(c)?'on the coast':'inland',cells.length+' '+(cells.length===1?'hex':'hexes')+' of land round it'+(hills?`, ${hills} of them hills or mountains`:'')];
-  if(y.length)f.push(list(y)+' a day');if(oil)f.push(oil===1?'an oil deposit':oil+' oil deposits');
-  return f.join(' · ');
+  const sc=siteCity(c,T),d=sc?sc.dist:[],L=siteLand(d),g=siteGains(d,S.nation);
+  const f=[fromCap(c,T),isCoastal(c)?'on the coast':'inland',d.length+' '+(d.length===1?'hex':'hexes')+' of land to work'+(L.hills?`, ${L.hills} of them hills or mountains`:'')];
+  if(L.oil)f.push(L.oil===1?'an oil deposit':L.oil+' oil deposits');
+  return {facts:f.join(' · '),gain:g.length?siteGainText(g)+' a day':''};
 }
 function hexFromCap(c,T){const t=fromCap(c,T);return t&&!T.isCap[c]?`<div><dt>From the capital</dt><dd>${esc(t.replace(/ of [^]*$/,''))}</dd></div>`:'';}
 
@@ -29684,7 +29805,7 @@ function helpBody(n){
       <p>Some edicts for coastal and island nations offer to build a dyke, fill in a bay or raise an artificial island${rec.length?`, such as ${list(rec)}`:''}. Choose to build and shallow sea that touches only your own land becomes reclaimed land, the richest farmland there is, up to ${REC_MAX} hexes from edicts.</p>
       ${typeof ISL_AT==='object'?`<p>Three edicts raise an island of your own, the first after your ${ISL_AT[0]}th decision, the second after your ${ISL_AT[1]}th and the third after your ${ISL_AT[2]}th. Four or five hexes of free sea, a hex of water clear of every coast and no more than ${ISL_REACH} hexes out from your land, become reclaimed land, yours at once without a land credit. With no such sea near your land, the edict waits until there is.${typeof ISD_AT==='object'?` Three more build on them: after your ${ISD_AT[0]}th decision a town on one of your islands, founded free and on top of the cities you may found; after your ${ISD_AT[1]}th a land bridge across free sea from an island to your other land; after your ${ISD_AT[2]}th ${ISD_GROW} more hexes of land for one island. Where there is no room for them, the land office pays bonus land credits instead.`:''}</p>`:''}
       <p>When the land runs out (fewer than ${RECW_NEAR} free hexes on your border, or less than ${Math.round(RECW_FREE*100)}% of the region unclaimed), your own engineers can reclaim more from the Territory section of the Nation page: one hex at a time, for ${costText(RECW_COST)} and a tenth more for every hex they have already won, up to ${RECW_MAX} hexes.</p>${G(go('map','Open the map'))}`,
-    cities:`<p>Your capital is your first city. Your first building opens a second, and your first gold upgrade (a building’s fifth) opens one more. More cities unlock at population milestones and as your land grows (one at every million km² up to 9 million, then one at every 10 million up to 100 million), up to ${MAX_CITIES}. A city captured in war never counts against them. Founding one costs ${cost(CITY_COST)} from your stockpile, and it must stand on land you hold, at least ${CITY_MIN_DIST} hexes from any other city.</p>
+    cities:`<p>Your capital is your first city. Your first building opens a second, and your first gold upgrade (a building’s fifth) opens one more. More cities unlock at population milestones and as your land grows (one at every million km² up to 9 million, then one at every 10 million up to 100 million), up to ${MAX_CITIES}. A city captured in war never counts against them. Founding one costs ${cost(CITY_COST)} from your stockpile, and it must stand on land you hold, at least ${CITY_MIN_DIST} hexes from any other city. The three best sites are numbered on the Cities page and marked on the map with numbered, dashed hexes. Select any free hex of your land on the map to see the land a city there would work, shaded, what its buildings would add and how the hex ranks. That land yields to your nation already, city or not: a city adds what its buildings make of it.</p>
       <p>Cities work the land within two hexes, expanding to three at two million city residents. Overlapping production areas count each hex once. ${blkHelp()} Each city builds one thing at a time${typeof C3_QMAX==='number'?`, with up to ${num(C3_QMAX)} more waiting in its queue`:''}; buildings are paid for from your stockpile and take hours to finish, wonders a day. Cancelling a project returns half the materials.</p>
       <p>${tierHelp()}</p>
       <p>Production buildings raise output; society buildings help growth, the economy and your census figures; defence buildings strengthen your army and borders; wonders do a little of everything. Some need hills, oil, a coast or high science, and more unlock at milestones. A city works for whoever holds its hex, so a captured city serves its conqueror.</p>${G(go('cities','Open cities'))}`,
@@ -54082,6 +54203,7 @@ function drawMap(cv,P){
       if(S.mapClaim){const plan=blockPlan(T,S.mapClaim.b,S.mapClaim.c).slice(0,lcr),ps=new Set(plan);g.globalAlpha=0.5;fillCells(plan,col.accent);g.globalAlpha=1;g.beginPath();edgeList(g,plan,(i,j)=>j<0||!ps.has(j));g.strokeStyle=col.accent;g.lineWidth=2.4/s;g.stroke();
         /* and a ring on the hex chosen, so it is plain which one the claim is about */
         if(S.mapClaim.c>=0){g.beginPath();hexPath(g,S.mapClaim.c,HEX_R-1);g.strokeStyle=col.ink;g.lineWidth=2.6/s;g.stroke();}}}
+    if(S.mapCell!=null&&!S.mpMode)siteDistDraw(g,T,S.mapCell,col,s);
     if(S.mapCell!=null){g.beginPath();hexPath(g,S.mapCell,HEX_R-1);g.strokeStyle=col.ink;g.lineWidth=2.6/s;g.stroke();}
   }
   const hv=parseInt(cv.dataset.hover||'-1',10);
@@ -54090,6 +54212,7 @@ function drawMap(cv,P){
   const scr=i=>[MAP.cx[i]*s+ox,MAP.cy[i]*s+oy],off=(x,y)=>x<-30||y<-30||x>w+30||y>h+30;
   const pick=kind==='found'?cellOf(S.draft&&S.draft.loc):(kind==='main'&&S.nation&&cellOf(S.nation.loc)<0&&S.mapPick!=null?S.mapPick:-1);
   if(pick>=0){const [px,py]=scr(pick);drawPin(g,px,py,col);}
+  if(kind==='main'&&S.nation&&!S.mpMode&&cellOf(S.nation.loc)>=0)sitePinsDraw(g,T,scr,off,col,s);
   if(kind!=='found'&&kind!=='atlas')for(const r of activeSurveys()){const [px,py]=scr(r.c);if(off(px,py))continue;g.beginPath();g.arc(px,py,7,0,Math.PI*2);g.moveTo(px-13,py);g.lineTo(px-4,py);g.moveTo(px+4,py);g.lineTo(px+13,py);g.moveTo(px,py-13);g.lineTo(px,py-4);g.moveTo(px,py+4);g.lineTo(px,py+13);g.strokeStyle=col.stamp;g.lineWidth=2;g.stroke();}
   if(kind==='main'&&!P)svcDraw(g,scr,off,col,s);
   if(kind==='main'&&S.mapMig)drawMigration(g,T,scr,col,s);
@@ -54433,6 +54556,7 @@ function mapPanel0(){
   return wm+`<p class="eyebrow">Your territory</p><div class="mp-nat"><span class="mflag">${flagSVG(n.flag,'Flag of '+n.name)}</span><h2 class="mp-h">${esc(n.name)}</h2></div>
     <dl class="mp-dl"><div><dt>Land area</dt><dd>${fmtArea(cnt)}</dd></div><div><dt>Hexes held</dt><dd>${cnt}</dd></div><div><dt>Population</dt><dd>${fmtPop(popNow(n))}</dd></div><div><dt>Location</dt><dd>${esc(cap1(landName(x.cap)))}</dd></div><div><dt>Borders</dt><dd>${nbLinks(mi)}</dd></div></dl>
     ${landBox(n)}
+    ${sitePinsBox(T)}
     ${svcBoxHTML(n)}
     ${armyBlock(T,mi)}
     <div class="row" style="margin-top:14px"><button class="btn ghost" data-act="map-me">Centre on ${esc(n.name)}</button></div>
@@ -62647,6 +62771,7 @@ document.addEventListener('click',e=>{
   if(a==='ct-demo-ask'){S.confirmDemo=el.dataset.id+':'+el.dataset.k;render();return;}
   if(a==='ct-demo-no'){S.confirmDemo=null;render();return;}
   if(a==='ct-demolish'){demolish(el.dataset.id,el.dataset.k);return;}
+  if(a==='ct-site-map'){const c=+el.dataset.c;if(!Number.isSafeInteger(c)||c<0||c>=MAP.N)return;S.citySite=c;S.cityName=cityNameIdea(c);S.cityMsg='';centerMain(c,NEAR_Z);S.mapSel=null;S.mapCell=c;S.mapTarget=null;S.mapClaim=null;S.mapSite=null;S.mapInspect=null;if(S.view==='map'){updateMapPanel();redrawMaps();}else go('map');return;}
   if(a==='ct-site'){S.citySite=+el.dataset.c;S.cityName=cityNameIdea(S.citySite);S.cityMsg='';render();return;}
   if(a==='ct-map'){const c=+el.dataset.c;centerMain(c,NEAR_Z+1.5);S.mapSel=null;S.mapTarget=null;S.mapCell=c;go('map');return;}
   if(a==='ct-goto'){S.cityOpen=el.dataset.id;go('cities');const card=document.getElementById('city-'+el.dataset.id);if(card)card.scrollIntoView({block:'start'});return;}
@@ -89145,7 +89270,7 @@ mapBox=(f=>function(kind){const h=f.apply(this,arguments),n=S.nation;if(kind!=='
 
 /* the browser tests' window into the game: test/lib.mjs sets EDICTUM_PROBE before the page loads (a
    player's own browser can reach all of this anyway) */
-if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({RPATCH,SC:()=>scProbe(),WR3:()=>({CQ_ISSUES,cqFall,cqFalls,cqPairs,cqFallOf,cqAct,wrSackFix,MON_FIRST,monSites,monCard,monInfo,monIsFirst,monNorm,monRisen,cqDue,cqTake,cityFounded,cqBuildings,openMapAt,WAR3_ISSUES,wr3WarsSection,wr3BattleCard,wr3MapData,wr3Econ,wr3Close,wr3VetDue,wr3WindToggle,wr3MunOn,wr3Reserve,wr3Factors,wr3On,wr3DieSpin,warOfficeView,woTargets,thrHTML,warsSection,warFigs,warRow,warRank,allyWars,wwState,wwCard,wwLevers,wwCeil,wwFight,wwFightBtn,WW_OR_TOP,WW_OR_MS}),WR2:()=>({wrFallenCard,WR,WAR_GOALS,WAR2_ISSUES,wrSiege,wrSiegesOn,wrFallsAt,myFall,wrSiegeWhy,wrCapExposed,wrUnrest,wrWarsOf,wrPopFx,wrTribute,wrForts,wrFortify,wrSurrender,wrSiegeStart,wrRise,wrCarry,wrEdictDue,wrSafe,wrNotice,territory,frontier,economy,warControls,targetPanel,armyBlock,warNotice,warWith,pairWar,nationView,rgnOverview,hxCard}),HELPX:()=>({HLP,HELP_CH,HELP_SUM,HELP_FOR,WIKI,WIKI_PAGE,wikiHref,wikiSearch,GLOSS,helpFind,helpIndex,helpSecList,helpForYou,helpChapters,rgcCmd,rgcCardOf,rgcCardHTML,admhHs,admhHsCount}),MTP:()=>({MTP,MTP_PAD,TBMP_SCALE,redrawMaps,mapScale,viewOf}),SCR:()=>({scrOf,scrClean,scrDef,scrFamOf,scrEdParse,scrGlyphs,scrLay,scrChars,scrSVG,scrLine,scrCard,scrCharterSVG,scrFmt,scrFor,dmRich,dmPlain,scrDmWith,SCR_FAM,SCR_ABC,SCS}),BDX:()=>bdProbe(),LDX:()=>ldProbe(),FLY:()=>({flagSVG,fgSplit,fgFused,FS,fsColours,fsPaint,fsCheck,fgCantonWH,czArmsSVG,CZ_SHIELDS,czShOk,czShHow,czCleanArms}),RD:()=>rdProbe(),JV:()=>jvProbe(),M100P:()=>({M100,M100_N,M100_MC,M100_MCN,m100Bits,m100Got,m100In,m100Due,m100Count,m100Show,m100Open,ctgMcOk,nationColor,czShOk,czShieldPath,unlocksOf,czPatSVG,xsMax}),M200P:()=>({M200,M200_N,M200_MC,M200_MCN,M200_U,m200Bits,m200Got,m200In,m200Due,m200Count,m200Show,m200Open,ctgMcOk,nationColor,czShOk,czShieldPath,unlocksOf,czPatSVG,czStampArt,czFrameArt,czCharge,czFramed,flagSVG,xsMax,ACH_BY_ID,achEarnedIds}),WTN:()=>({WN,wbMap,wnKind,wnWaters,wnSync,wnAt,wnRename,wnReset,wnNameProblem,wnTaken,wnPanel,wnLabels,lakeMap,isLake,cellAt,WN_REACH,WTN_MAX,REG,RV,rvData,hexDist,territory,MAP,HEX_W,updateMapPanel,logLine}),RVN:()=>({RV,rvData,rvSync,rvKey,rvHeld,rvStretch,rvMost,rvEdgeHolder,rvAt,rvNameAt,rvLabelAt,rvParts,rvRename,rvReset,rvNameProblem,rvTidy,rvLabel,rvnPanel,logLine,RVN_MAX,RVN_LEN,updateMapPanel,hexDist,HEX_W,REG}),CP2:()=>({BLD_ICO,bldIco,bldLead,cxDefTotal,cxOrder,qjBuilding,BUILDINGS}),PRVC:()=>({cxPrvOf,cxPrvSeatTrial,cxOvwCols,prvSeat,prvMine,prvOfCell,prvSetAut,prvAppoint,PRV}),NPX:()=>({fbTrend,fbYesterday,heroLead,heroOpen,opOf,OPEN_TO,hnOf,hnFill,hnLine,nbSection,ppWho,ppWhoHTML,ppHash,ppCarried,economy,territory,bordersOf,fillDeal,findNation,clsHide,MAP,hexDist,STAT_KEYS,popNow,myId}),PT:()=>ptProbe(),LTH:()=>lthProbe(),DAM:()=>damProbe(),CHAT:()=>({RGC,RGW,RGF,RGA,tab:rgcTab(),count:rgcCount(),region:rgcUnread(),world:rgwUnread(),named:rgwNamedUnread(),fr:rgwUnread(RGF),frNamed:rgwNamedUnread(RGF),frOn:rgfOn(),amb:rgwUnread(RGA),ambOn:rgaOn(),tabs:rgcTabs().map(x=>x[0]),hidden:document.hidden}),UXP2:()=>({edictDesk,edictStep,edictOpen,fill,ISSUE_BY_ID,ACH,keysOpen,dmOthers,dmPickList,stGroups,stTabLast,navRecent,vhData,VH_KEY,VH_AFTER,QJ_DO,qjItems:q=>navQjItems(q),NAV_REC_KEY,ST_KEY}),HID:()=>({HIDN,hidMask,iAmHidden,frontier,mapPanel,warControls}),WG:()=>({wgTakers,wgForField,wgForPick,warGiveHex,warGive,occupiedFrom,attack,offerPeace,declareWar,collectConquests,dedupeConq}),WAKE:()=>({dormFresh,dormQuiet,dormWelcome,moveTo,RSTAT,REGIONS,REG,regDisabled}),HMB:()=>({RCTRL,hmBake,hmAutoFlag,fxDraw,capHolder,FX_DEF,DEF_FLAG,hmRle,hmLiveNorm,hmMapNorm,hmSel,hmRegions,hmBlocked,hmEngaged:()=>hmEngaged,HM,REG,MAP}),LAND:()=>({landWait,capLift,capWrong,capNote,raceKnown,RACE,worldHeardAt:()=>worldHeardAt,landQ:()=>S.landQ,landQueued,fdSites:(n,T)=>fdSites(n,T)}),BG:{gain:bldGain,html:bldGainHtml},IB:()=>({agRoster,agPick,agStatus,heatOf,cvRoll,cvKey,cvBlock,cvOdds,buLv,buGap,buAll,BU,BU_KEYS,BU2,BU2_KEYS,buLine,bu2Lv,bb,bu2Cost,bu2Hours,bu2Why,buCredits,buHoldK,agRestMs,cvSwayOdds,ibTurnChance,mhChance,landEarned,ibFile,ibWanted,ibChatter,HEAT_MAX,DD_TASKS,DD_LEG,findNation,allNations,cvProtected}),VL:()=>({VL_SECS,VL_DEF,CLS,CLS_OPS,CLS_READ,vlOrder,clsOf,clsRaw,clsMax,clsSeen,clsHide,clsRead,vlSave,findNation}),IFC:()=>({plan:ifcPlan,works:ifcWorks,line:ifcLine,tab:ifcTab}),DS:()=>dsProbe(),XP:()=>({BUILDINGS,XU,XU_KEYS,XU_TOTAL,LOST_KINDS,LOST_ORDER,XU2,XU2_KEYS,LOST2_KINDS,LOST2_ORDER,xuLine,xu2Lv,xb,xu2Cost,xu2Hours,xu2Why,xu2Start,xuCredits,xuMapsLv,xuFlK,xuFindK,xuParty,xuTimeK,xuReach,xuCostK,xuCurio,flSoon,landEarned,xuLv,xuWhy,xuHave,xuStart,xuCost,xuGear,xpSeen,expFree,xpTeamOpen,nationBuilt,expBackTeam,SITES,SITE_KINDS,expPlan,expOdds,expRuns,expRange,flRange,flAlive,flPlan,flDebug,flNow,discoveries,sendExpedition,hearReport,xpRoute,xpRivals,xpRivalText,xpFinds,flOdds,territory}),SVC:()=>({SVC,SVC_N,SVC_V,SVC_NEED,svcPlan,svcOpen,svcDig,svcShort,svcRoll,svcAmt,svcDayOf,svcRoom,svcNext}),FLC:()=>({FLC,FLC_RULES,FLC_CAT,flcId,flcTimes,flcPhase,flcPrev,flcView,flcLoad,flcChamp,flcTodo,flcClaims,flcLand,flcStreak,flcAllDone,flcSeen,flcDuty,flcDeskOn,flcDraftPush,FCA}),LK:{lakeMap,isLake,claimLand,lakeShore,fillHeld,LAKE_MAX,LAKE_A,freeCell,claimFrontier,blockPlan,autoPlan,terrCount,placePhrase,claimWhy,swapCheck,inspectPanel,writeClaims,landCredits:n=>landCredits(n)},PST:()=>({PST,PST_LOOKS,PST_SHAPES,PST_SIZES,pstBar,pstKm,pstView,pstBox,pstPlace,pstKeyOf,pstRender,pstShow,pstHide,pstLocked,pstOffered,pstSizeOffered,pstPrintK,pstSealId,pstPhys,pstCrc}),DIG:()=>({DIG_SETS,DIG_FIRST,DIG_POOL,DIG_SITES,DIG_LEN,DIG_EVENTS,DIG_SCH,digSet,digHeld,digDone,digRew,digCredits,digOrder,digActive,digRetired,digOpenedAt,digPlan,digSend,digOpen,digChoose,digMod,digEvent,digPity,digGround,digInvites,digJoin,digJointOn,digGiftsIn,digTake,digGiveSpare,digSellSpare,digHire,digRegionFinds,digFirsts,landEarned:n=>landEarned(n),REG,REGIONS,COL_BY_ID}),MW:()=>({mwOf,mwLeft,mwDue,mwPoints,mwVisitors,mwTakings,mwExhibit,mwExhibitItems,mwRanking,mwWorn,mwSlots,mwOnShow,COL_BY_ID,COL_ITEMS,DIG_SETS,MW_FLOORS}),GM:()=>({gamesResults,edOf,b1Now,gevWhy,baseScores,entryOf,medalsIn,gamesRecords,gamesCeremony,unlocksOf,myId,formOf,GAME_EVENTS,clone,commit}),GM2:()=>({GAMES_V2,GTAC,TRAIN_PTS,TRAIN_MAX,BOY_GW,edOf,edStart,entryOf,gamesHost,gamesBids,edEvents,edDrawn,gmSwapOf,gmMascOf,gmChatLines,gmChatLine,gmTrCost,gevWhy,formOf,gamesResults,dspBuild,dspNoOf,c3MyBid,gcerSeen,stockNow,stockCap,canFeature,myId,clone,commit}),GB:()=>({IRON_DEP,IRON_DEP_YIELD,CELL_RES,MAP_T:MAP.T,mapAt:c=>{centerMain(c,NEAR_Z*1.6);},stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,FOOD_SPOIL,FOOD_EAT,FOOD_TIERS,FOOD_LAND,foodTier,TIMBER_BURN,foodGrowth,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({dspShown,dspRegShown,dspRegs,dspPic,dspLocator,dspHtDefs,pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),ASMX:()=>({ASMX,ASMX_TABS,asmBookAt,asmState,asmArcLoad,REG}),RGNX:()=>({RGN,RGN_PAGE,notifItems,ONL,onlRefresh}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals,seatsOf,alliancesOf,alMineAll,alClashes,alFest,alWornOf,alGuardsOf,alSeatsFor,allianceOf,AL_TY_UI,alStripHTML,alArmsSVG,alArmsAuto,alPzKeys,alMoCheck,alOpenPage,alWeekData,alLvOpens}),TYX:()=>({TY,TY_RULES,TY_K,tyOf,tyList,tyWarBlock,tyIncoming,affinity,alPactLive,alRelationsHTML,econOf,armyPower,armyRaw,attackMult,readyMs,drWords,drNote,drBroken,relationCard}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,npcIdeaNow,npcDealFor,npcAsk,npcReply,npcVerdict,npcTradeTalk,dealSlots,maxDeals,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,achTierCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC,step:rcStepCheck,head:rcHead,sponsoring:rcSponsoring,qr:qrMatrix,card:rcCardDraw,invCap:rcInvCap,free:rcFreeLand,STEPS:RC_STEPS,UNL:RC_UNLOCKS,link:rcLink,amts:rcAmts,amtText:rcAmtText,pact:rcPactUntil,quiet:rcQuiet,moments:rcMoments,momentOf:rcMomentOf,moDraw:rcMoDraw,ev:rcEv,evRead:rcEvRead,dev:rcDev,devNote:rcDevNote,noteLoad:rcNoteLoad,welcome:rcWelcomeText,traded:rcTraded,mult:rcMult,landAmt:rcLandAmt,GRAND:RC_GRAND,SHARE:RC_SHARE}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend,card:n=>tutCard(n),phase:n=>tutPhase(n),picks:(n,ph)=>tutPicks(n,ph),group:(n,k)=>tutGroup(n,tutL(k)),hid:n=>tutHid(n)},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours,
+if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({RPATCH,SC:()=>scProbe(),WR3:()=>({CQ_ISSUES,cqFall,cqFalls,cqPairs,cqFallOf,cqAct,wrSackFix,MON_FIRST,monSites,monCard,monInfo,monIsFirst,monNorm,monRisen,cqDue,cqTake,cityFounded,cqBuildings,openMapAt,WAR3_ISSUES,wr3WarsSection,wr3BattleCard,wr3MapData,wr3Econ,wr3Close,wr3VetDue,wr3WindToggle,wr3MunOn,wr3Reserve,wr3Factors,wr3On,wr3DieSpin,warOfficeView,woTargets,thrHTML,warsSection,warFigs,warRow,warRank,allyWars,wwState,wwCard,wwLevers,wwCeil,wwFight,wwFightBtn,WW_OR_TOP,WW_OR_MS}),WR2:()=>({wrFallenCard,WR,WAR_GOALS,WAR2_ISSUES,wrSiege,wrSiegesOn,wrFallsAt,myFall,wrSiegeWhy,wrCapExposed,wrUnrest,wrWarsOf,wrPopFx,wrTribute,wrForts,wrFortify,wrSurrender,wrSiegeStart,wrRise,wrCarry,wrEdictDue,wrSafe,wrNotice,territory,frontier,economy,warControls,targetPanel,armyBlock,warNotice,warWith,pairWar,nationView,rgnOverview,hxCard}),HELPX:()=>({HLP,HELP_CH,HELP_SUM,HELP_FOR,WIKI,WIKI_PAGE,wikiHref,wikiSearch,GLOSS,helpFind,helpIndex,helpSecList,helpForYou,helpChapters,rgcCmd,rgcCardOf,rgcCardHTML,admhHs,admhHsCount}),MTP:()=>({MTP,MTP_PAD,TBMP_SCALE,redrawMaps,mapScale,viewOf}),CSITE:()=>({citySites,siteSpots,siteCity,siteGains,siteLand,siteValue,citySpotProblem,cityProblem,territory,cityState,mpCityPopulations}),SCR:()=>({scrOf,scrClean,scrDef,scrFamOf,scrEdParse,scrGlyphs,scrLay,scrChars,scrSVG,scrLine,scrCard,scrCharterSVG,scrFmt,scrFor,dmRich,dmPlain,scrDmWith,SCR_FAM,SCR_ABC,SCS}),BDX:()=>bdProbe(),LDX:()=>ldProbe(),FLY:()=>({flagSVG,fgSplit,fgFused,FS,fsColours,fsPaint,fsCheck,fgCantonWH,czArmsSVG,CZ_SHIELDS,czShOk,czShHow,czCleanArms}),RD:()=>rdProbe(),JV:()=>jvProbe(),M100P:()=>({M100,M100_N,M100_MC,M100_MCN,m100Bits,m100Got,m100In,m100Due,m100Count,m100Show,m100Open,ctgMcOk,nationColor,czShOk,czShieldPath,unlocksOf,czPatSVG,xsMax}),M200P:()=>({M200,M200_N,M200_MC,M200_MCN,M200_U,m200Bits,m200Got,m200In,m200Due,m200Count,m200Show,m200Open,ctgMcOk,nationColor,czShOk,czShieldPath,unlocksOf,czPatSVG,czStampArt,czFrameArt,czCharge,czFramed,flagSVG,xsMax,ACH_BY_ID,achEarnedIds}),WTN:()=>({WN,wbMap,wnKind,wnWaters,wnSync,wnAt,wnRename,wnReset,wnNameProblem,wnTaken,wnPanel,wnLabels,lakeMap,isLake,cellAt,WN_REACH,WTN_MAX,REG,RV,rvData,hexDist,territory,MAP,HEX_W,updateMapPanel,logLine}),RVN:()=>({RV,rvData,rvSync,rvKey,rvHeld,rvStretch,rvMost,rvEdgeHolder,rvAt,rvNameAt,rvLabelAt,rvParts,rvRename,rvReset,rvNameProblem,rvTidy,rvLabel,rvnPanel,logLine,RVN_MAX,RVN_LEN,updateMapPanel,hexDist,HEX_W,REG}),CP2:()=>({BLD_ICO,bldIco,bldLead,cxDefTotal,cxOrder,qjBuilding,BUILDINGS}),PRVC:()=>({cxPrvOf,cxPrvSeatTrial,cxOvwCols,prvSeat,prvMine,prvOfCell,prvSetAut,prvAppoint,PRV}),NPX:()=>({fbTrend,fbYesterday,heroLead,heroOpen,opOf,OPEN_TO,hnOf,hnFill,hnLine,nbSection,ppWho,ppWhoHTML,ppHash,ppCarried,economy,territory,bordersOf,fillDeal,findNation,clsHide,MAP,hexDist,STAT_KEYS,popNow,myId}),PT:()=>ptProbe(),LTH:()=>lthProbe(),DAM:()=>damProbe(),CHAT:()=>({RGC,RGW,RGF,RGA,tab:rgcTab(),count:rgcCount(),region:rgcUnread(),world:rgwUnread(),named:rgwNamedUnread(),fr:rgwUnread(RGF),frNamed:rgwNamedUnread(RGF),frOn:rgfOn(),amb:rgwUnread(RGA),ambOn:rgaOn(),tabs:rgcTabs().map(x=>x[0]),hidden:document.hidden}),UXP2:()=>({edictDesk,edictStep,edictOpen,fill,ISSUE_BY_ID,ACH,keysOpen,dmOthers,dmPickList,stGroups,stTabLast,navRecent,vhData,VH_KEY,VH_AFTER,QJ_DO,qjItems:q=>navQjItems(q),NAV_REC_KEY,ST_KEY}),HID:()=>({HIDN,hidMask,iAmHidden,frontier,mapPanel,warControls}),WG:()=>({wgTakers,wgForField,wgForPick,warGiveHex,warGive,occupiedFrom,attack,offerPeace,declareWar,collectConquests,dedupeConq}),WAKE:()=>({dormFresh,dormQuiet,dormWelcome,moveTo,RSTAT,REGIONS,REG,regDisabled}),HMB:()=>({RCTRL,hmBake,hmAutoFlag,fxDraw,capHolder,FX_DEF,DEF_FLAG,hmRle,hmLiveNorm,hmMapNorm,hmSel,hmRegions,hmBlocked,hmEngaged:()=>hmEngaged,HM,REG,MAP}),LAND:()=>({landWait,capLift,capWrong,capNote,raceKnown,RACE,worldHeardAt:()=>worldHeardAt,landQ:()=>S.landQ,landQueued,fdSites:(n,T)=>fdSites(n,T)}),BG:{gain:bldGain,html:bldGainHtml},IB:()=>({agRoster,agPick,agStatus,heatOf,cvRoll,cvKey,cvBlock,cvOdds,buLv,buGap,buAll,BU,BU_KEYS,BU2,BU2_KEYS,buLine,bu2Lv,bb,bu2Cost,bu2Hours,bu2Why,buCredits,buHoldK,agRestMs,cvSwayOdds,ibTurnChance,mhChance,landEarned,ibFile,ibWanted,ibChatter,HEAT_MAX,DD_TASKS,DD_LEG,findNation,allNations,cvProtected}),VL:()=>({VL_SECS,VL_DEF,CLS,CLS_OPS,CLS_READ,vlOrder,clsOf,clsRaw,clsMax,clsSeen,clsHide,clsRead,vlSave,findNation}),IFC:()=>({plan:ifcPlan,works:ifcWorks,line:ifcLine,tab:ifcTab}),DS:()=>dsProbe(),XP:()=>({BUILDINGS,XU,XU_KEYS,XU_TOTAL,LOST_KINDS,LOST_ORDER,XU2,XU2_KEYS,LOST2_KINDS,LOST2_ORDER,xuLine,xu2Lv,xb,xu2Cost,xu2Hours,xu2Why,xu2Start,xuCredits,xuMapsLv,xuFlK,xuFindK,xuParty,xuTimeK,xuReach,xuCostK,xuCurio,flSoon,landEarned,xuLv,xuWhy,xuHave,xuStart,xuCost,xuGear,xpSeen,expFree,xpTeamOpen,nationBuilt,expBackTeam,SITES,SITE_KINDS,expPlan,expOdds,expRuns,expRange,flRange,flAlive,flPlan,flDebug,flNow,discoveries,sendExpedition,hearReport,xpRoute,xpRivals,xpRivalText,xpFinds,flOdds,territory}),SVC:()=>({SVC,SVC_N,SVC_V,SVC_NEED,svcPlan,svcOpen,svcDig,svcShort,svcRoll,svcAmt,svcDayOf,svcRoom,svcNext}),FLC:()=>({FLC,FLC_RULES,FLC_CAT,flcId,flcTimes,flcPhase,flcPrev,flcView,flcLoad,flcChamp,flcTodo,flcClaims,flcLand,flcStreak,flcAllDone,flcSeen,flcDuty,flcDeskOn,flcDraftPush,FCA}),LK:{lakeMap,isLake,claimLand,lakeShore,fillHeld,LAKE_MAX,LAKE_A,freeCell,claimFrontier,blockPlan,autoPlan,terrCount,placePhrase,claimWhy,swapCheck,inspectPanel,writeClaims,landCredits:n=>landCredits(n)},PST:()=>({PST,PST_LOOKS,PST_SHAPES,PST_SIZES,pstBar,pstKm,pstView,pstBox,pstPlace,pstKeyOf,pstRender,pstShow,pstHide,pstLocked,pstOffered,pstSizeOffered,pstPrintK,pstSealId,pstPhys,pstCrc}),DIG:()=>({DIG_SETS,DIG_FIRST,DIG_POOL,DIG_SITES,DIG_LEN,DIG_EVENTS,DIG_SCH,digSet,digHeld,digDone,digRew,digCredits,digOrder,digActive,digRetired,digOpenedAt,digPlan,digSend,digOpen,digChoose,digMod,digEvent,digPity,digGround,digInvites,digJoin,digJointOn,digGiftsIn,digTake,digGiveSpare,digSellSpare,digHire,digRegionFinds,digFirsts,landEarned:n=>landEarned(n),REG,REGIONS,COL_BY_ID}),MW:()=>({mwOf,mwLeft,mwDue,mwPoints,mwVisitors,mwTakings,mwExhibit,mwExhibitItems,mwRanking,mwWorn,mwSlots,mwOnShow,COL_BY_ID,COL_ITEMS,DIG_SETS,MW_FLOORS}),GM:()=>({gamesResults,edOf,b1Now,gevWhy,baseScores,entryOf,medalsIn,gamesRecords,gamesCeremony,unlocksOf,myId,formOf,GAME_EVENTS,clone,commit}),GM2:()=>({GAMES_V2,GTAC,TRAIN_PTS,TRAIN_MAX,BOY_GW,edOf,edStart,entryOf,gamesHost,gamesBids,edEvents,edDrawn,gmSwapOf,gmMascOf,gmChatLines,gmChatLine,gmTrCost,gevWhy,formOf,gamesResults,dspBuild,dspNoOf,c3MyBid,gcerSeen,stockNow,stockCap,canFeature,myId,clone,commit}),GB:()=>({IRON_DEP,IRON_DEP_YIELD,CELL_RES,MAP_T:MAP.T,mapAt:c=>{centerMain(c,NEAR_Z*1.6);},stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,FOOD_SPOIL,FOOD_EAT,FOOD_TIERS,FOOD_LAND,foodTier,TIMBER_BURN,foodGrowth,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({dspShown,dspRegShown,dspRegs,dspPic,dspLocator,dspHtDefs,pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),ASMX:()=>({ASMX,ASMX_TABS,asmBookAt,asmState,asmArcLoad,REG}),RGNX:()=>({RGN,RGN_PAGE,notifItems,ONL,onlRefresh}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals,seatsOf,alliancesOf,alMineAll,alClashes,alFest,alWornOf,alGuardsOf,alSeatsFor,allianceOf,AL_TY_UI,alStripHTML,alArmsSVG,alArmsAuto,alPzKeys,alMoCheck,alOpenPage,alWeekData,alLvOpens}),TYX:()=>({TY,TY_RULES,TY_K,tyOf,tyList,tyWarBlock,tyIncoming,affinity,alPactLive,alRelationsHTML,econOf,armyPower,armyRaw,attackMult,readyMs,drWords,drNote,drBroken,relationCard}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,npcIdeaNow,npcDealFor,npcAsk,npcReply,npcVerdict,npcTradeTalk,dealSlots,maxDeals,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,achTierCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC,step:rcStepCheck,head:rcHead,sponsoring:rcSponsoring,qr:qrMatrix,card:rcCardDraw,invCap:rcInvCap,free:rcFreeLand,STEPS:RC_STEPS,UNL:RC_UNLOCKS,link:rcLink,amts:rcAmts,amtText:rcAmtText,pact:rcPactUntil,quiet:rcQuiet,moments:rcMoments,momentOf:rcMomentOf,moDraw:rcMoDraw,ev:rcEv,evRead:rcEvRead,dev:rcDev,devNote:rcDevNote,noteLoad:rcNoteLoad,welcome:rcWelcomeText,traded:rcTraded,mult:rcMult,landAmt:rcLandAmt,GRAND:RC_GRAND,SHARE:RC_SHARE}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend,card:n=>tutCard(n),phase:n=>tutPhase(n),picks:(n,ph)=>tutPicks(n,ph),group:(n,k)=>tutGroup(n,tutL(k)),hid:n=>tutHid(n)},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours,
   SV:MC_SV,XS:MC_XS,QUEUE:MC_QUEUE,DISH:MC_DISH,FINDS:MC_FINDS,CHART_MS:MC_CHART_MS,repSecs:mcRepSecs,repKind:mcRepKind,fold:mcFold,lane:mcLane,dish:mcDish,
   finds:mcFinds,findAt:mcFindAt,bits:mcBitsList,charted:mcCharted,chartedNow:mcChartedNow,unqueue:mcUnqueue,dishBuild:mcDishBuild,bringHome:mcBringHome,
   secSite:mcSecSite,prefOk:mcPrefOk,prefTile:mcPrefTile,setPref:mcSetPref,startProblem:mcStartProblem,wfKey:mcWfKey,osKey:mcOsKey},WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,ACT1:WS_ACT1,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond,real:wsReal,mask:wsMask,ansN:wsAnsN},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR,bell:now=>notifItems(now||Date.now())},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},TIER:()=>({BTIER,bEff,bTier,bTierNext,bTierLine,tierQuote,tierProblem,cxTier,cxTrMap,tierSettle,tierReady,cxGoldNow,cxUpQuote,cxUpList,cxUps,mktSlots,mktSlotsOf,maxDeals,bldAggOf}),CX:{upgradable:cxUpgradable,mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,traits:CX_TRAITS,cityState,UG:CX_UG,LV:CX_LV,ups:cxUps,upMap:cxUpMap,extras:cxBldExtras,quote:cxUpQuote},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo,unlockTarget,unlockShow,unlockFresh,unlockQueue,ULK,UNLOCKS,unlocksOf,toast:m=>toast(m)},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{coinBackSVG:cuCoinBackSVG,noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,coinSVG:cuCoinSVG,guide:cuGuideHTML,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,drawMap,sfKey,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ACH_RANKS_V1,ID_BD,achVal,achCtx,achEvalNew,achState,stockRates:n=>stockRates(n),achPoints,achRank,achRankOf,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,flagNorm:(f,n)=>flagNorm(f,n),flagSVG:(f,l)=>flagSVG(f,l),mapTip:id=>{const T=mapTerr('main'),i=T.list.findIndex(x=>x.id===id);if(i<0)return '';const cell=Array.prototype.indexOf.call(T.owner,i);return MAP_TIP.map(h=>{try{return h({kind:'main',cell,cv:null,x:0,y:0});}catch(e){return '';}}).filter(x=>typeof x==='string').join(' | ');},cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}
