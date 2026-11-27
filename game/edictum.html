@@ -28126,9 +28126,15 @@ function sendExpedition(si){
   const team=expFree(n0),now=Date.now(),n=clone(n0),st=stockNow(n0,now);
   for(const r of RES)st[r]-=P.cost[r]||0;n.stock=roundStock(st);n.stockAt=now;n._stockSet=true;
   n[team===2?'exp2':'exp']={s:si,t0:now,t1:now+P.mins*60000,r:1+Math.floor(Math.random()*20),m:P.mod,dc:P.dc,f:P.owner?P.owner.id:'',...(P.g===5?{g:5}:{}),c:{food:P.cost.food|0,oil:P.cost.oil|0}};
+  const hold=expHold(n0,si,P);xphAdd(n,hold,now);
   commit(n);S.expShow=null;S.mapSite=null;render();
-  toast(`${team===2?'Your second team':'The expedition'} has set out for ${siteLabel(si).replace(/^Rumoured /,'the rumoured ')}. It returns in ${fmtDur(P.mins*60000)}.`);
+  toast(`${team===2?'Your second team':'The expedition'} has set out for ${siteLabel(si).replace(/^Rumoured /,'the rumoured ')}. It returns in ${fmtDur(P.mins*60000)}.${xphSaid(hold.length)}`);
 }
+/* the recent claims an expedition needs to reach site si (xpHoldFor), measured as expPlan measures it */
+function expHold(n,si,P){const T=P&&P.T,mi=T&&T.byId[myId()],c=SITES[si]&&SITES[si].c;if(mi===undefined||c==null)return [];return xpHoldFor(T,c,expRange(n),T2=>xuDist(n,T2,mi,c));}
+/* what sending a team does to the land it needs: k hexes held (in the card before, in the toast after) */
+const xphSaid=k=>k?` ${k===1?'The hex':`The ${k} hexes`} you claimed to reach it ${k===1?'stays':'stay'} yours now and can no longer be released.`:'';
+const xphHint=k=>k?`<p class="hint" style="margin-top:10px">Only land you claimed in the last 24 hours brings this within reach. Send a team and ${k===1?'that hex stays':`those ${k} hexes stay`} yours: ${k===1?'it':'they'} can no longer be released.</p>`:'';
 const EXP_TABLE=[['1','Lost in the wilds','lost'],['5 or more short','Came home empty-handed','lost'],['1 to 4 short','Found traces: +2 next time','traces'],['Level, or up to 5 over','Discovery','found'],['6 or more over, or a 20','Remarkable discovery','great']];
 /* g: how far over is remarkable, 6 (5 with Surveyors' Kit at gold II, stamped on the expedition when it sets out) */
 function expOutcome(e){const eff=e.r+e.m;return e.r===1?'lost':e.r===20||eff>=e.dc+(e.g===5?5:6)?'great':eff>=e.dc?'found':eff>=e.dc-4?'traces':'lost';}
@@ -28451,7 +28457,7 @@ function sitePanel(si){
   return `<p class="eyebrow">${R?'Discovery':'Rumour'}</p><h2 class="mp-h">${esc(siteLabel(si))}</h2><p class="muted">${esc(cap1(K.d))}${R?`. Discovered by ${esc(R.name)} on ${fmtDate(R.t)}.`:'. Nobody has found it yet.'}</p>
     <dl class="mp-dl"><div><dt>Where</dt><dd>${esc(terrName(st.c))} on ${esc(landName(st.c))}</dd></div>${P.owner?`<div><dt>Held by</dt><dd>${esc(P.owner.n.name)}</dd></div>`:''}${P.d!=null?`<div><dt>Distance</dt><dd>${P.d} ${P.d===1?'hex':'hexes'}</dd></div><div><dt>Chance</dt><dd>${expOdds(P.mod,P.dc,P.g).find}% to find it <span class="hint">(d20 ${P.mod>=0?'+':'−'} ${Math.abs(P.mod)} against ${P.dc})</span></dd></div>${R?'':`<div><dt>Finds</dt><dd>${esc(list(xpFinds(st.k).map(f=>f.t)))}</dd></div>`}<div><dt>Cost</dt><dd>${esc(costText(P.cost))}</dd></div><div><dt>Journey</dt><dd>${fmtDur(P.mins*60000)}</dd></div>`:''}</dl>
     ${!R&&!P.why?(r=>r?`<p class="hint" style="margin-top:10px">${esc(r.t)}.</p>`:'')(xpRivalText(xpRivals(si,Date.now()),Date.now()+P.mins*60000,Date.now(),true)):''}
-    ${P.why?`<p class="hint" style="margin-top:10px">${esc(P.why)}</p>`:''}
+    ${P.why?`<p class="hint" style="margin-top:10px">${esc(P.why)}</p>`:xphHint(expHold(n,si,P).length)}
     <div class="row" style="margin-top:14px">${P.why?'':`<button class="btn" data-act="exp-send" data-s="${si}">${R?'Send an expedition anyway':'Send an expedition'}</button>`}<button class="btn ghost" data-act="go" data-v="explore">Expeditions</button>${P.owner&&!P.owner.me?`<button class="btn ghost" data-act="map-select" data-id="${esc(P.owner.id)}">${esc(P.owner.n.name)}</button>`:''}<button class="btn ghost" data-act="map-desel">Close</button></div>`;
 }
 /* known: only the sites already found (a poster's sheet leaves the question marks out) */
@@ -29371,6 +29377,27 @@ function hexFromCap(c,T){const t=fromCap(c,T);return t&&!T.isCap[c]?`<div><dt>Fr
    the claim is deleted from your record, so the credit comes back and the Atlas no longer shows it,
    as if it had never been made. Older claims are history and stay. */
 const RELEASE_MS=DAY;
+/* Claims a trip needed (n.xph, [{c,t}]: the claim's hex and time). A trip's reach is measured only when it sets out
+   (expPlan, flPlan), and a recent claim gives its credit back when released, so a nation could claim toward a site,
+   send its explorers and release the land for its credits (asked in region chat, 27 Nov 2026). Now, when a team
+   reaches its site only thanks to land claimed in the last 24 hours, the recent claims within its reach of the site
+   are held as it sets out: they stay yours and can no longer be released (releaseClaims). A hold ends with its
+   claim's 24 hours, and a hex claimed again later is a new claim, free of it. */
+const XPH_MAX=400;
+/* the recent claims a trip to cell needs, [{c,t}]: none when the land held before them reaches it anyway. dist(T2)
+   measures the trip on a territory without the recent claims, the way its plan measures it (−1: out of reach) */
+function xpHoldFor(T,cell,rg,dist){
+  const R=recentClaims(T);if(!R.length)return [];
+  const owner=T.owner.slice();for(const e of R)owner[e.c]=-1;
+  const d=dist({...T,owner});if(d>=0&&d<=rg)return [];
+  const near=R.filter(e=>hexDist(e.c,cell)<=rg);
+  return (near.length?near:R).map(e=>({c:e.c,t:e.t}));
+}
+/* the holds kept: those still within their claim's 24 hours, the newest XPH_MAX */
+function xphKeep(L,now){const seen=new Set(),out=[];for(const h of L||[]){if(!h||!Number.isInteger(h.c)||h.c<0||h.c>=MAP.N||typeof h.t!=='number'||!isFinite(h.t)||now-h.t>=RELEASE_MS)continue;const k=h.c+'|'+h.t;if(!seen.has(k)){seen.add(k);out.push({c:h.c,t:h.t});}}return out.slice(-XPH_MAX);}
+/* a trip sets out: its holds join the nation's (n: the record being saved) */
+function xphAdd(n,hold,now){if(!hold.length)return;const v=xphKeep((n.xph||[]).concat(hold),now);if(v.length)n.xph=v;else delete n.xph;}
+NORM_HOOKS.push((n,d)=>{const v=xphKeep(d&&Array.isArray(d.xph)?d.xph:[],Date.now());if(v.length)n.xph=v;});
 function claimList(T,n){
   if(landCredits(n)<1)return '';
   const mi=T.byId[myId()];if(mi===undefined)return '';
@@ -29380,11 +29407,13 @@ function claimList(T,n){
   rows.sort((a,b)=>a.d-b.d||b.k-a.k||a.b-b.b);
   return `<details class="lc-list" data-keep="lcOpen"${S.lcOpen?' open':''}><summary>Choose from a list (${rows.length} ${rows.length===1?'block':'blocks'})</summary><ul class="lc-rows">${rows.slice(0,40).map(r=>`<li><button type="button" class="linkish" data-act="lc-pick" data-b="${r.b}">${esc(cap1(landName(r.c)))}, ${r.d} ${r.d===1?'hex':'hexes'} ${compass(cap,r.c)}</button><span class="hint">${r.k} free: ${esc(list(terrCount(r.plan)))}</span></li>`).join('')}</ul></details>`;
 }
+/* the claims that can still be released. Not the hex a swap took (its claim made at the swap, n.lswT): a swap costs
+   no credit, so releasing what it took would turn any old hex into a credit, and a hex a trip needed into one too */
 function recentClaims(T){
   const n=S.nation,mi=T.byId[myId()];if(!n||mi===undefined||!Array.isArray(n.claims))return [];
   const now=Date.now(),city=new Set((n.cities||[]).map(c=>c.c)),old=new Set();
   for(const e of n.claims)if(now-e.t>=RELEASE_MS)old.add(e.c);
-  return n.claims.filter(e=>now-e.t<RELEASE_MS&&!(n.lcgT&&e.t<=n.lcgT)&&!old.has(e.c)&&!city.has(e.c)&&T.owner[e.c]===mi&&!T.occ[e.c]&&!T.isCap[e.c]);
+  return n.claims.filter(e=>now-e.t<RELEASE_MS&&!(n.lcgT&&e.t<=n.lcgT)&&!(n.lswT&&e.t===n.lswT)&&!old.has(e.c)&&!city.has(e.c)&&T.owner[e.c]===mi&&!T.occ[e.c]&&!T.isCap[e.c]);
 }
 function claimBatches(R){
   const out=[];let cur=null;
@@ -29393,10 +29422,12 @@ function claimBatches(R){
 }
 function releaseBox(T){
   const B=claimBatches(recentClaims(T));if(!B.length)return '';
-  return `<details class="lc-list" data-keep="relOpen"${S.relOpen?' open':''}><summary>Release recent claims</summary><p class="hint">Land claimed in the last 24 hours can be given up again. Each hex returns its land credit; hexes with a city on them stay yours.</p><ul class="lc-rows">${B.slice(0,8).map(b=>`<li><span>${b.cells.length===1?'A hex':b.cells.length+' hexes'} ${esc(placePhrase(b.cells[0]))}, claimed ${rel(b.t)}</span><button type="button" class="btn ghost small-btn" data-act="lc-release" data-t="${b.t}">Release ${b.cells.length===1?'it':'them'}</button></li>`).join('')}</ul></details>`;
+  const H=xpHeld(S.nation);
+  return `<details class="lc-list" data-keep="relOpen"${S.relOpen?' open':''}><summary>Release recent claims</summary><p class="hint">Land claimed in the last 24 hours can be given up again. Each hex returns its land credit; hexes with a city on them stay yours, and so does land a team you sent out needed to reach its site.</p><ul class="lc-rows">${B.slice(0,8).map(b=>`<li><span>${b.cells.length===1?'A hex':b.cells.length+' hexes'} ${esc(placePhrase(b.cells[0]))}, claimed ${rel(b.t)}</span>${b.cells.some(c=>H.has(c))?`<span class="hint">Held: a team you sent out needed ${b.cells.length===1?'it':'this land'}</span>`:`<button type="button" class="btn ghost small-btn" data-act="lc-release" data-t="${b.t}">Release ${b.cells.length===1?'it':'them'}</button>`}</li>`).join('')}</ul></details>`;
 }
 function releaseHex(c,T){
   if(!recentClaims(T).some(e=>e.c===c))return '';
+  if(xpHeld(S.nation).has(c))return `<p class="hint" style="margin-top:12px">You claimed this hex in the last 24 hours, but a team you sent out needed it to reach its site, so it stays yours.</p>`;
   return `<div class="row" style="margin-top:12px"><button class="btn ghost" data-act="lc-release" data-c="${c}">Release this claim (1 credit back)</button></div><p class="hint" style="margin-top:6px">You claimed this hex in the last 24 hours, so you can still give it up.</p>`;
 }
 /* the patches of a nation's land in T: cell → patch number, for the hexes nation j owns, joined edge to edge */
@@ -29406,6 +29437,8 @@ function landPatches(T,j){
   let k=0;for(const c of own){if(id.has(c))continue;const st=[c];id.set(c,k);while(st.length){const x=st.pop();for(let d=0;d<6;d++){const y=MAP.nbr[x*6+d];if(y>=0&&own.has(y)&&!id.has(y)){id.set(y,k);st.push(y);}}}k++;}
   return id;
 }
+/* the hexes held for a trip (n.xph), for the claims still on record as they were when it set out */
+function xpHeld(n){const on=new Set(((n&&n.claims)||[]).map(e=>e&&e.c+'|'+e.t));return new Set(((n&&n.xph)||[]).filter(h=>h&&on.has(h.c+'|'+h.t)).map(h=>h.c));}
 function releaseClaims(cells){
   const T=territory(),ok=new Set(recentClaims(T).map(e=>e.c));cells=[...new Set(cells)].filter(c=>ok.has(c));
   if(!cells.length){toast('That land can no longer be released.');updateMapPanel();redrawMaps();return;}
@@ -29432,6 +29465,9 @@ function releaseClaims(cells){
   const kept=n=>{const prev=S.nation;S.nation=n;try{const T2=territory(),j=T2.byId[myId()];return cells.filter(c=>j!==undefined&&T2.owner[c]===j);}finally{S.nation=prev;}};
   let stay=kept(without(cells));if(stay.length){cells=cells.filter(c=>!stay.includes(c));if(cells.length&&kept(without(cells)).length)cells=[];}
   if(!cells.length){toast('Your core land would grow straight back over that hex, so it stays a claim.');return;}
+  /* land a trip needed to reach its site stays, and so does the claim that would cut it off */
+  {const H=xpHeld(S.nation),held=cells.filter(c=>H.has(c));
+    if(held.length){toast(held.some(c=>asked.has(c))?`A team you sent out needed ${asked.size===1?'this hex':'that land'} to reach its site, so it stays yours.`:'Releasing that would cut off land a team you sent out needed to reach its site, so it stays yours.');return;}}
   const n=without(cells),auto=!!n.autoLand,cut=cells.filter(c=>!asked.has(c)).length;if(auto)n.autoLand=false;
   /* the lifetime count of land claimed gives back what is released: claiming the same hex again counts it once */
   const gone=(S.nation.claims||[]).filter(e=>cells.includes(e.c)).length;if(n.tly&&n.tly.claim)n.tly.claim=Math.max(0,n.tly.claim-gone);
@@ -29781,7 +29817,7 @@ function helpBody(n){
     world:`<p>The known world has ${REGIONS.length} regions, from ${esc(REGIONS[1]?REGIONS[1].the:'')} to ${esc(REGIONS[REGIONS.length-1].the)}, each with its own lands, climate and ${'computer-run nations'}. You live in ${esc(REG.the)}. The World page shows every region, its nations and how many players live there.</p>
       <p>You can move your nation to another region. Your people, laws, cabinet, treasury, history, honours and museum come with you. Your land starts again: you choose a new capital on arrival and begin with the core of ${CORE_HEXES} hexes, and three quarters of the land credits you have earned can be spent again there: a quarter is lost in the move. Other cities stay behind, and half of their building materials come with you; your capital’s buildings are rebuilt at the new capital. Wars end, and alliances and trade deals lapse. After a move you must wait 14 days before the next.</p>${G(go('world','Open the World page'))}`,
     land:`<p>You start with a core of ${CORE_HEXES} hexes round your capital. Every hex beyond that is your choice, paid for with land credits. Your nation is founded with ${FOUND_CREDITS} (a whole block of land) and every city you found earns ${CITY_CREDITS}. Your first days earn more: the charter list, a daily desk worth double in your first week, and 2 credits each for coming back on a second and a third day. You earn more as your population grows, and bonus credits at milestones, from some edicts and from remarkable discoveries.</p>
-      <p>On the map, select a highlighted block next to your border, or a dotted shore your harbours reach across the water (an island, or the far side of a bay). A block is up to seven hexes, and each hex costs one credit; you can also claim a single hex. Claims must be within 68 hexes of your capital or within reach of one of your cities (15 hexes, growing with each building up to 30, and up to 15 more as the average upgrade colour of its buildings rises to gold), and not within two hexes of another nation’s capital. The first claim on a free hex wins, and claimed land stays yours unless it is taken in war or given away.${typeof RELEASE_MS==='number'?` A claim made in the last ${hrs(RELEASE_MS)} can be released for its credit back, as long as no city stands on it.`:''}</p>
+      <p>On the map, select a highlighted block next to your border, or a dotted shore your harbours reach across the water (an island, or the far side of a bay). A block is up to seven hexes, and each hex costs one credit; you can also claim a single hex. Claims must be within 68 hexes of your capital or within reach of one of your cities (15 hexes, growing with each building up to 30, and up to 15 more as the average upgrade colour of its buildings rises to gold), and not within two hexes of another nation’s capital. The first claim on a free hex wins, and claimed land stays yours unless it is taken in war or given away.${typeof RELEASE_MS==='number'?` A claim made in the last ${hrs(RELEASE_MS)} can be released for its credit back, as long as no city stands on it, it was not taken in a swap, and no expedition or fleeting party needed it to reach its site.`:''}</p>
       <p>“Spend them for me” picks the free hexes closest to your capital, and “Spend new credits automatically” does that whenever a credit arrives. Automatic claims show in the bell.</p>
       <h3 class="help-h3">Land from the sea</h3>
       <p>Some edicts for coastal and island nations offer to build a dyke, fill in a bay or raise an artificial island${rec.length?`, such as ${list(rec)}`:''}. Choose to build and shallow sea that touches only your own land becomes reclaimed land, the richest farmland there is, up to ${REC_MAX} hexes from edicts.</p>
@@ -44597,9 +44633,12 @@ function flSend(key){
   const now=Date.now(),n=clone(n0),st=stockNow(n0,now);for(const r of RES)st[r]-=P.cost[r]||0;n.stock=roundStock(st);n.stockAt=now;n._stockSet=true;
   n.fl=(n.fl||[]).concat({k:key,s:t,a:P.ta,r:xuCharm(n0,1+hash(myId()+'|'+key+'|'+t)%20,myId()+'|'+key+'|'+t),m:P.mod}).slice(-FL_N);
   let gw='';const gh=Math.round(-2*xuGwK(n0));if(P.owner&&gh<0){n.gw=Object.assign({},n.gw||{});n.gw[P.owner.id]=clamp((n.gw[P.owner.id]||0)+gh,-GW_MAX,GW_MAX);gw=` ${P.owner.n.name} is not thrilled to have your party tramping across its land: ${gwWord(n.gw[P.owner.id]).toLowerCase()} (−${-gh} goodwill).`;}
+  const hold=flHold(n0,s,P);xphAdd(n,hold,now);
   commit(n);S.flShow=null;render();
-  toast(`Your party has set out for ${flKindOf(s).a} ${placePhrase(s.c)}. It arrives in ${fmtDur(P.mins*60000)}.${gw}`);
+  toast(`Your party has set out for ${flKindOf(s).a} ${placePhrase(s.c)}. It arrives in ${fmtDur(P.mins*60000)}.${gw}${xphSaid(hold.length)}`);
 }
+/* the recent claims a fleeting party needs to reach find s (xpHoldFor), measured as flPlan measures it */
+function flHold(n,s,P){const T=P&&P.T,mi=T&&T.byId[myId()];if(mi===undefined||!s||!(s.c>=0))return [];return xpHoldFor(T,s.c,P.rg,T2=>xuFlDist(n,T2,mi)[s.c]);}
 
 /* ── hearing the report: the place and tier are stamped on the party, so they survive a move to another region ── */
 const FL_ORD=['','first','second','third','fourth','fifth'];
@@ -44724,7 +44763,7 @@ function flCard(s){
     <dl class="mp-dl">${row('Places',`${st.taken} of 5 taken${who.length?': '+esc(list(who)):''}${st.way.length?`<br><span class="hint">${st.way.length} ${st.way.length===1?'party':'parties'} on the way</span>`:''}`)}
     ${row('Bonus',fx)}${P.owner?row('Held by',esc(P.owner.n.name)+' <span class="hint">(−2 goodwill to visit)</span>'):''}
     ${P.d!=null?row('Distance',`${P.d} ${P.d===1?'hex':'hexes'}${P.d>P.rg?', out of reach':''}`)+row('Journey',fmtDur(P.mins*60000))+row('Cost',esc(costText(P.cost)))+row('Your roll',`d20 ${P.mod>=0?'+':'−'} ${Math.abs(P.mod)}`):''}</dl>
-    ${P.why?`<p class="hint" style="margin-top:10px">${esc(P.why)}</p>`:P.ahead?`<p class="hint" style="margin-top:10px">As things stand, ${P.ahead} ${P.ahead===1?'party gets':'parties get'} there before yours${P.ahead>=FL_PLACES?': you would find it picked clean':''}.</p>`:''}
+    ${P.why?`<p class="hint" style="margin-top:10px">${esc(P.why)}</p>`:P.ahead?`<p class="hint" style="margin-top:10px">As things stand, ${P.ahead} ${P.ahead===1?'party gets':'parties get'} there before yours${P.ahead>=FL_PLACES?': you would find it picked clean':''}.</p>`:''}${P.why?'':xphHint(flHold(n,s,P).length)}
     <div class="row" style="margin-top:12px">${P.why?'':`<button class="btn" data-act="fl-send" data-k="${esc(s.key)}">Send a party</button>`}<button class="btn ghost" data-act="go" data-v="explore">Expeditions</button><button class="btn ghost" data-act="fl-close">Close</button></div></section>`;
 }
 MAP_PANEL_TOP.push(()=>{
@@ -67235,7 +67274,7 @@ function swapPanel(){
   return `<section class="lsw" aria-labelledby="lsw-h"><p class="eyebrow">Land office</p><h2 class="mp-h" id="lsw-h">Swap a hex</h2>
     <dl class="mp-dl"><div><dt>Give up</dt><dd>${swapYield(L.c)}</dd></div>${ok?`<div><dt>Take instead</dt><dd>${swapYield(L.to)}</dd></div>`:''}</dl>${pick}
     <div class="row" style="margin-top:14px">${ok?'<button class="btn" data-act="lsw-go">Swap the hexes</button>':''}<button class="btn ghost" data-act="lsw-cancel">Cancel</button></div>
-    <p class="hint" style="margin-top:10px">A swap costs no land credit: the old claim is dropped and the new one made now. You can swap one hex a day.</p></section>`;
+    <p class="hint" style="margin-top:10px">A swap costs no land credit: the old claim is dropped and the new one made now, and the hex you take cannot be released for a credit. You can swap one hex a day.</p></section>`;
 }
 function swapGo(){
   const L=S.lsw;if(!L||L.to==null)return;const r=swapCheck(L.c,L.to);if(r.why){L.why=r.why;updateMapPanel();redrawMaps();return;}
