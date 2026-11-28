@@ -28,7 +28,9 @@ check('five enacted edicts count, the veto does not',(await ws(A)).e===5,JSON.st
 await nav(A,'issues');
 check('no letter before an arrival slot, however many edicts were enacted',await A.locator('.issue-card[data-id^="ws-"]').count()===0);
 check('the desk says the letter is earned and when it comes',/Letter I of XVI is earned/.test(await text(A,'.ws-strip')));
-await A.evaluate(()=>{const n=G.clone(G.S.nation);n.inbox=n.inbox.slice(0,2);G.commit(n);});await slot(A);await nav(A,'issues');
+/* the five edicts above are drawn at random, and a first option can crown the nation (p:{monarchy:true}, pre:'Kingdom'),
+   which addresses letter I to the Crown: the story below starts in a Republic, so make it one again */
+await A.evaluate(()=>{const n=G.clone(G.S.nation);n.inbox=n.inbox.slice(0,2);n.pretitle='Republic';n.leader='President';delete n.policies.monarchy;G.commit(n);});await slot(A);await nav(A,'issues');
 check('the next slot brings letter I, marked as the citizen story',/Citizen story · Letter I of XVI/.test(await text(A,'.issue-card[data-id="ws-1"]')));
 check('the desk shows it as waiting',/Letter I of XVI is on your desk/.test(await text(A,'.ws-strip')));
 await tap(A,'.issue-card[data-id="ws-1"]');await saved(A);

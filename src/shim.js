@@ -498,9 +498,12 @@
     var t0 = performance.now(), first = uid === A.uid && !PF.read; /* the first read of one's own nation: speed statistics */
     if (first) PF.read = true;
     /* Own saves must use a coherent, server-confirmed pair. Separate gets can combine the shared half
-       before another device's save with its private half afterwards (and cached reads can be stale). */
-    var read = uid === A.uid ? A.fs.runTransaction(async function (tx) {
-      return [await tx.get(A.fs.doc('nations/' + uid)), await tx.get(A.fs.doc('nationx/' + uid)), await tx.get(A.fs.doc('nationp/' + uid))];
+       before another device's save with its private half afterwards (and cached reads can be stale).
+       The three are asked at once, in the same transaction, whose commit still checks that none changed: one trip
+       to Europe instead of three one after another (Firebase Performance, 28 Nov 2026: the first read of one's own
+       nation took 4.2 s in Mexico at the 75th percentile, 2.0 s in the US). */
+    var read = uid === A.uid ? A.fs.runTransaction(function (tx) {
+      return Promise.all([tx.get(A.fs.doc('nations/' + uid)), tx.get(A.fs.doc('nationx/' + uid)), tx.get(A.fs.doc('nationp/' + uid))]);
     }) : Promise.all([A.fs.doc('nations/' + uid).get(), A.fs.doc('nationx/' + uid).get().catch(function () { return null; }),
       /* viewing as this player, the admin also reads their private half (the rules let an admin) */
       pviewing() && SS.get(SS_PVIEW).split('|')[0] === uid ? A.fs.doc('nationp/' + uid).get().catch(function () { return null; }) : null]);
