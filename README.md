@@ -744,6 +744,16 @@ revision (`authorizeSave`) and write the save themselves under the rules, and so
 (`EDICTUM_SERVER_SAVE=off` in the functions' environment answers `save_v1`), or one whose server does not know the
 save yet. The server injects the canonical Assembly projection and checks sensitive multiplayer changes either way.
 Firebase Performance's `nation_save` trace says which way each save went (`path`: `server` or `client`).
+The server reads everything a save needs in one batch (`saveReads`: the nation, ban, moderation and account
+documents, the region's status, the Assembly record, the private halves and the space record) while Firebase Auth
+looks the account up, then commits: seven waits one after another (the account, five reads, the commit) became two
+(a save that moves region reads the old region's status as well). Once a save's answer says the server takes it
+(`up: 1`), the page sends a lighter save: the text deflated (`jz`, `xz`, `oz`: raw deflate, base64) and, for a
+private half unchanged since its last save landed, only the SHA-256 of its text (`xh`, `oh`). A fingerprint that
+does not match what is stored is refused with `save_full`, and the page sends the texts at once; a server that
+refuses the lighter upload gets the plain one from then on. On 28 Nov 2026 a large nation's save was 450 KB of plain
+text, 0.6 s to upload from Mexico, and the server's part 0.45 s. The trace's `upload` attribute says which a save
+was (`small` or `full`).
 
 The generated Assembly engine reuses the game's election, proposal selection and NPC voting algorithms.
 Regenerate its trusted catalog and source with `node tools/build-civic.mjs` after editing those algorithms.

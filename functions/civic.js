@@ -2,6 +2,7 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
 import { createHash } from 'node:crypto';
+import { inflateRawSync } from 'node:zlib';
 import { deflateNation } from './nationtext.js';
 import { identity, eligibility, nationJSON, refuse, registered, regionMessage, regionClosed, refuseBannedIdentity, DAY } from './eligibility.js';
 import { rcPactUntil } from './recruit-rules.js';
@@ -90,7 +91,8 @@ function raceKeys(n, before) {
   return [...out].slice(0, 200);
 }
 
-/* a save's record as the game sends it (authorizeSave and save), checked before any transaction */
+/* a save's record as the game sends it (authorizeSave and save), checked before any transaction. who: the account, or
+   (serverSave) the promise of it, looked up meanwhile; only a new record waits for it here */
 async function saveInput(db, who, d) {
   const p = d.record;
   if (!p || typeof p.j !== 'string' || p.j.length > 700000 || typeof p.name !== 'string' || p.name.length > 80 || !['pop','army','cl','updatedAt'].every(k=>Number.isFinite(p[k])) || !regions.has(p.reg) || !Number.isSafeInteger(d.rev) || d.rev < 0)
@@ -101,7 +103,7 @@ async function saveInput(db, who, d) {
     throw new HttpsError('invalid-argument', 'Political records must be changed through the protected Assembly service.');
   /* the rules take a save's time no more than a day ahead of the server's (a record dated later would never fall dormant) */
   /* a new record: not from a sign-in a banned account used (functions/eligibility.js, identityHashes) */
-  if (d.rev === 0) await refuseBannedIdentity(db, who);
+  if (d.rev === 0) await refuseBannedIdentity(db, await who);
   if (p.updatedAt > Date.now() + DAY) refuse('clock_ahead', 'This device’s clock is more than a day ahead, so the nation cannot be saved. Set the date and time right, and it saves again.');
   return { p, n };
 }
@@ -126,20 +128,22 @@ async function permit(db, who, d) {
    new wars and alliances, the Assembly record, the Christmas answers, research, the population and the old letters.
    pre(e), when given, runs once the account and the saved record are read and before anything is checked or written
    (serverSave reads the rest of the nation there, and refuses a newer map's record first, as the game's own
-   transaction did); it may name the revision this save follows ({rev}), which is otherwise d.rev. */
-async function settleSave(tx, db, who, d, p, n, pre) {
-  const e = await eligibility(tx, who, { linked: false, hidden: true, nation: false, allowClosedRegion: true });
+   transaction did); it may name the revision this save follows ({rev}), which is otherwise d.rev. early: documents
+   already read in this transaction, by path (serverSave reads them all at once), which are not read again. */
+async function settleSave(tx, db, who, d, p, n, pre, early = null) {
+  const read = path => early && early.has(path) ? early.get(path) : tx.get(db.doc(path));
+  const e = await eligibility(tx, who, { linked: false, hidden: true, nation: false, allowClosedRegion: true }, early);
   const extra = pre ? await pre(e) : null, follows = extra && Number.isSafeInteger(extra.rev) ? extra.rev : d.rev;
   if ((e.saved.get('rev') || 0) !== follows) refuse('save_conflict', 'Another device saved this nation.');
-  const control = await tx.get(db.doc('regionStatus/' + p.reg));
+  const control = await read('regionStatus/' + p.reg);
   if (regionClosed(control, p.reg) && !who.admin) refuse('region_disabled', regionMessage(control));
-  const actor = await tx.get(db.doc('assemblyRegions/' + p.reg + '/actors/' + who.uid));
+  const actor = await read('assemblyRegions/' + p.reg + '/actors/' + who.uid);
   const before = e.n;
   // Validate changes, not the continued presence of old data. Guests can leave existing alliances.
   const founded = n.alli && (!before.alli || JSON.stringify(n.alli) !== JSON.stringify(before.alli));
   const attacks = Object.keys(n.wars || {}).filter(id => JSON.stringify(n.wars[id]) !== JSON.stringify(before.wars?.[id]));
   const pvp = attacks.filter(id => !npcIds.has(id));
-  if (founded || pvp.length) await eligibility(tx, who);
+  if (founded || pvp.length) await eligibility(tx, who, undefined, early);
   if (pvp.length > 10) throw new HttpsError('invalid-argument', 'Too many simultaneous war declarations.');
   for (const id of pvp) {
     if (!/^[\w-]{1,128}$/.test(id) || id === who.uid) throw new HttpsError('invalid-argument', 'Invalid opponent.');
@@ -220,28 +224,71 @@ export function spaceStep(sj, space, reg, name, now) {
   return (changed && elapsed >= SPACE_MIN) || elapsed > SPACE_BEAT ? 'set' : '';
 }
 const millisOf = t => t && typeof t.toMillis === 'function' ? t.toMillis() : 0;
-async function serverSave(db, who, d) {
+/* ── a lighter upload ──
+   A save sent its text as it is: 450 KB for a large nation (the shared half 250 KB, each private half about 80 KB),
+   which took 0.6 s to upload from Mexico before the server could start (28 Nov 2026; the server's own part was 0.45 s).
+   A page this server has answered (up: 1) sends the text deflated (jz, xz, oz: raw deflate, base64) and, for a private
+   half unchanged since its last save landed, only the fingerprint of the text it keeps (xh, oh: SHA-256): what is
+   stored stays when the fingerprint matches, and save_full asks for the text when it does not. */
+const B64 = /^[A-Za-z0-9+/]*={0,2}$/;
+export function unzipText(b64, max) {
+  if (typeof b64 !== 'string' || b64.length > Math.ceil(max * 1.4) + 64 || !B64.test(b64)) return null;
+  try { const t = inflateRawSync(Buffer.from(b64, 'base64'), { maxOutputLength: max * 3 }).toString('utf8'); return t.length <= max ? t : null; } catch { return null; }
+}
+export const textHash = t => createHash('sha256').update(t, 'utf8').digest('hex');
+/* a private half as sent: its text {t}, or the fingerprint {h} of the text the server keeps; null if neither is sound */
+function sentHalf(d, k) {
+  if (typeof d[k] === 'string') return { t: d[k] };
+  if (d[k + 'z'] !== undefined) { const t = unzipText(d[k + 'z'], PRIVATE_MAX); return t === null ? null : { t }; }
+  return typeof d[k + 'h'] === 'string' && /^[0-9a-f]{64}$/.test(d[k + 'h']) ? { h: d[k + 'h'] } : null;
+}
+/* Everything a save reads, asked at once in one trip: eligibility's four documents, the region's status and the
+   player's Assembly record (settleSave), the private halves and the space record. They were five reads one after
+   another, after the account's lookup and before the commit, each a wait on the database (most of the server's
+   0.45 s a save, 28 Nov 2026). A save that moves the nation to another region still reads the old region's status on
+   its own. */
+export const saveReads = (uid, reg) => ['nations/', 'bans/', 'mod/', 'accountIdentity/'].map(c => c + uid)
+  .concat(['regionStatus/' + reg, 'assemblyRegions/' + reg + '/actors/' + uid, 'nationx/' + uid, 'nationp/' + uid, 'space/' + uid]);
+/* the exiled nation of Haalesh's world event (functions/exile-npc.js), once it has passed: a computer nation for a
+   request that names it, or a record that mentions it */
+async function exileSync(db, d) {
+  if ([d.id, d.to, d.d].includes(EXILE_ID) || (typeof d.record?.j === 'string' && d.record.j.includes(EXILE_ID))) { const n = await refreshExileNPC(db); if (n) { syncNPCTable(); npcIds.add(EXILE_ID); } }
+}
+/* whoP: the account (identity), looked up while the documents are read */
+export async function serverSave(db, whoP, uid, d) {
   if (process.env.EDICTUM_SERVER_SAVE === 'off') refuse('save_v1', 'This save goes through the game’s own transaction.');
-  const xj = d.x, oj = d.o;
-  if (typeof xj !== 'string' || xj.length < 2 || xj.length > PRIVATE_MAX || typeof oj !== 'string' || oj.length < 2 || oj.length > PRIVATE_MAX)
-    throw new HttpsError('invalid-argument', 'Invalid nation save.');
-  const { p, n } = await saveInput(db, who, d);
-  const uid = who.uid, mv = Number.isInteger(p.mv) && p.mv >= 1 && p.mv <= 999 ? p.mv : 0;
+  if (isPlain(d.record) && d.record.j === undefined && d.record.jz !== undefined) {
+    const j = unzipText(d.record.jz, 700000);
+    if (j === null) throw new HttpsError('invalid-argument', 'Invalid nation save.');
+    d.record.j = j; delete d.record.jz;
+    await exileSync(db, d); /* the dispatcher could not see the text yet */
+  }
+  const xs = sentHalf(d, 'x'), os = sentHalf(d, 'o'), unsound = h => !h || (h.t !== undefined && (h.t.length < 2 || h.t.length > PRIVATE_MAX));
+  if (unsound(xs) || unsound(os)) throw new HttpsError('invalid-argument', 'Invalid nation save.');
+  const { p, n } = await saveInput(db, whoP, d);
+  const mv = Number.isInteger(p.mv) && p.mv >= 1 && p.mv <= 999 ? p.mv : 0;
   /* the page's name for this save: the same until it is known to have landed, so a save whose answer was lost on the
      way back is followed, not taken for another device's */
   const sid = typeof d.sid === 'string' && /^[\w-]{8,40}$/.test(d.sid) ? 'sv-' + d.sid : '';
   const refs = { n: db.doc('nations/' + uid), x: db.doc('nationx/' + uid), o: db.doc('nationp/' + uid), s: db.doc('space/' + uid), sum: db.doc('summaries/' + uid) };
+  const paths = saveReads(uid, p.reg);
   return db.runTransaction(async tx => {
-    let x, o, sp;
+    const [got, who] = await Promise.all([tx.getAll(...paths.map(path => db.doc(path))), whoP]);
+    const early = new Map(paths.map((path, i) => [path, got[i]]));
+    const x = early.get(refs.x.path), o = early.get(refs.o.path), sp = early.get(refs.s.path);
     const s = await settleSave(tx, db, who, d, p, n, async e => {
       const saved = e.saved, have = saved.get('rev') || 0;
       /* a newer map's page saved the record (its mv; no mv was map 5 or older): nothing of this page's goes over it, and
          the page reloads for the new build (src/shim.js, newerMap) */
       if (saved.exists && (mv || 5) < (saved.get('mv') || 0)) refuse('newer_map', 'Your nation was saved by a newer version of Edictum.');
-      [x, o, sp] = await tx.getAll(refs.x, refs.o, refs.s);
       return { rev: sid && saved.exists && have === d.rev + 1 && saved.get('permit') === sid ? have : d.rev };
-    });
+    }, early);
     const { e, result, now } = s, saved = e.saved;
+    /* a private half sent as a fingerprint keeps the text stored, which must be the text the page last saved (another
+       device's, or none at all, is not): otherwise the page sends the text */
+    const xNow = x.exists ? x.get('j') : null, oNow = o.exists ? o.get('j') : '{}';
+    if ((xs.h && (typeof xNow !== 'string' || textHash(xNow) !== xs.h)) || (os.h && (typeof oNow !== 'string' || textHash(oNow) !== os.h)))
+      refuse('save_full', 'This save needs the whole nation.');
     /* the rules' one save a second (paced): the game tries once more after a moment, without the space record */
     if (saved.exists && now - millisOf(saved.get('ts')) < 1000) throw new HttpsError('permission-denied', 'This nation was saved less than a second ago.', { code: 'permission-denied' });
     /* the numbers beside the record, held as the rules hold them: bounded by the population, which grows no faster
@@ -255,8 +302,8 @@ async function serverSave(db, who, d) {
     if (p.storageV === 1 || saved.get('storageV') === 1) doc.storageV = 1;
     if (p.iq === 1 || saved.get('iq') === 1) doc.iq = 1;
     tx.set(refs.n, doc);
-    if (!x.exists || x.get('j') !== xj) tx.set(refs.x, { j: xj, t: p.updatedAt, ts });
-    if (o.exists ? o.get('j') !== oj : oj !== '{}') tx.set(refs.o, { j: oj, t: p.updatedAt, ts });
+    if (xs.t !== undefined && xNow !== xs.t) tx.set(refs.x, { j: xs.t, t: p.updatedAt, ts });
+    if (os.t !== undefined && oNow !== os.t) tx.set(refs.o, { j: os.t, t: p.updatedAt, ts });
     /* the summary, which says the same as the record; e (holiday mode) at most 32 days past t, f the founding time */
     const sm = isPlain(d.sum) ? d.sum : {}, sum = { reg: p.reg, name: p.name, pop: result.pop, t: p.updatedAt };
     if (Number.isFinite(sm.e) && sm.e > sum.t && sm.e <= sum.t + ACTIVE_MAX) sum.e = sm.e;
@@ -272,7 +319,8 @@ async function serverSave(db, who, d) {
       if (step === 'set') tx.set(refs.s, { reg: p.reg, name: p.name, t: p.updatedAt, j: d.s, ts });
       else if (step === 'delete') tx.delete(refs.s);
     }
-    return { rev: result.rev, pop: result.pop, xm: s.xmKept, rs: s.rsKept, sv: 1 };
+    /* up: this server takes the lighter upload (deflated text, fingerprints of unchanged halves) */
+    return { rev: result.rev, pop: result.pop, xm: s.xmKept, rs: s.rsKept, sv: 1, up: 1 };
   });
 }
 
@@ -893,8 +941,13 @@ export const civic = onCall({ region: 'europe-west1', maxInstances: 10, cpu: 1, 
     try { return await regionOnline(getFirestore(), d.reg); }
     catch { throw new HttpsError('unavailable', 'Who is online cannot be told just now.'); }
   }
-  const db = getFirestore(), who = await identity(uid);
-  if([d.id,d.to,d.d].includes(EXILE_ID)||(typeof d.record?.j==='string'&&d.record.j.includes(EXILE_ID))){const n=await refreshExileNPC(db);if(n){syncNPCTable();npcIds.add(EXILE_ID);}}
+  /* the account (Firebase Auth) is looked up while a save reads its documents (serverSave): one trip less. Awaited
+     below; the catch only keeps a refusal that comes before then from counting as unhandled */
+  const db = getFirestore(), whoP = identity(uid);
+  whoP.catch(() => {});
+  await exileSync(db, d);
+  if (d.op === 'save') return serverSave(db, whoP, uid, d);
+  const who = await whoP;
   if (d.op === 'chatDelegates') {
     await mayObserve(db, who);
     return chatDelegates(db, d.ids, regions, async reg => {
@@ -904,7 +957,6 @@ export const civic = onCall({ region: 'europe-west1', maxInstances: 10, cpu: 1, 
     });
   }
   if (d.op === 'authorizeSave') return permit(db, who, d);
-  if (d.op === 'save') return serverSave(db, who, d);
   if (d.op === 'carryKey') return noteCarryKey(db, who, d);
   if (d.op === 'newsComment') return newsComment(db, who, d);
   if (d.op === 'newsModerate') return newsModerate(db, who, d);

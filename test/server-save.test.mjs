@@ -5,7 +5,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { nationText } from '../functions/nationtext.js';
-import { spaceStep, spaceLayout, headlineOk } from '../functions/civic.js';
+import { spaceStep, spaceLayout, headlineOk, serverSave, textHash } from '../functions/civic.js';
+import { deflateRawSync } from 'node:zlib';
 const require = createRequire(new URL('../functions/package.json', import.meta.url));
 const { initializeApp } = require('firebase-admin/app');
 const { getFirestore } = require('firebase-admin/firestore');
@@ -145,4 +146,75 @@ test('closed regions, bans and malformed saves are refused', async () => {
   await db.doc('bans/' + b.uid).set({ t: Date.now(), by: 'test' });
   await rejects(civic(b, saveOf(b, {})), 'banned');
   assert.equal((await get('nations/' + b.uid)).exists, false);
+});
+
+/* ── a lighter upload: deflated text, fingerprints of unchanged private halves (28 Nov 2026) ── */
+const deflate = t => deflateRawSync(Buffer.from(t, 'utf8')).toString('base64');
+const light = (d, { kept = [] } = {}) => {
+  const { record: { j, ...record }, x, o, ...rest } = d, out = { ...rest, record: { ...record, jz: deflate(j) } };
+  for (const [k, t] of [['x', x], ['o', o]]) if (kept.includes(k)) out[k + 'h'] = textHash(t); else out[k + 'z'] = deflate(t);
+  return out;
+};
+
+test('a save says the server takes the lighter upload, and a deflated one saves the same nation', async () => {
+  const p = await guest(), x = { inbox: [{ id: 'first' }] }, o = { notes: 'mine' };
+  const r = await civic(p, saveOf(p, { motto: 'Plain' }, { x, o }));
+  assert.equal(r.up, 1);
+  await sleep(1100);
+  const x2 = { inbox: [{ id: 'second' }] };
+  assert.equal((await civic(p, light(saveOf(p, { motto: 'Deflated' }, { rev: 1, x: x2, o })))).rev, 2);
+  const n = await get('nations/' + p.uid);
+  assert.equal(JSON.parse(nationText(n)).motto, 'Deflated'); assert.equal(n.get('rev'), 2);
+  assert.deepEqual(JSON.parse((await get('nationx/' + p.uid)).get('j')), x2);
+  assert.deepEqual(JSON.parse((await get('nationp/' + p.uid)).get('j')), o);
+});
+
+test('an unchanged private half by its fingerprint keeps what is stored; one that does not match asks for the text', async () => {
+  const p = await guest(), x = { inbox: [{ id: 'kept' }] }, o = { notes: 'kept' };
+  await civic(p, saveOf(p, {}, { x, o }));
+  const t1 = (await get('nationx/' + p.uid)).get('ts').toMillis();
+  await sleep(1100);
+  assert.equal((await civic(p, light(saveOf(p, { motto: 'Again' }, { rev: 1, x, o }), { kept: ['x', 'o'] }))).rev, 2);
+  assert.equal((await get('nationx/' + p.uid)).get('ts').toMillis(), t1, 'the private half stays as it was');
+  assert.equal(JSON.parse((await get('nationp/' + p.uid)).get('j')).notes, 'kept');
+  /* a fingerprint of a text the server does not hold (another device's half, say): save_full, and nothing written */
+  await sleep(1100);
+  await rejects(civic(p, light(saveOf(p, { motto: 'Not this' }, { rev: 2, x: { inbox: [] }, o }), { kept: ['x'] })), 'save_full');
+  assert.equal((await get('nations/' + p.uid)).get('rev'), 2);
+  /* an own half never written (empty) is matched as {} */
+  const q = await guest();
+  await civic(q, saveOf(q, {}));
+  await sleep(1100);
+  assert.equal((await civic(q, light(saveOf(q, {}, { rev: 1 }), { kept: ['x', 'o'] }))).rev, 2);
+  assert.equal((await get('nationp/' + q.uid)).exists, false);
+});
+
+test('deflated text that is not sound, too large, or a fingerprint that is not one is refused', async () => {
+  const p = await guest(), d = saveOf(p, {});
+  await rejects(civic(p, { ...light(d), record: { ...light(d).record, jz: '***' } }), 'INVALID_ARGUMENT');
+  await rejects(civic(p, { ...light(d), record: { ...light(d).record, jz: deflate('x'.repeat(700001)) } }), 'INVALID_ARGUMENT');
+  await rejects(civic(p, { ...light(d), xz: deflate('x'.repeat(750001)) }), 'INVALID_ARGUMENT');
+  const { xz, ...noX } = light(d);
+  await rejects(civic(p, { ...noX, xh: 'not-a-hash' }), 'INVALID_ARGUMENT');
+  assert.equal((await get('nations/' + p.uid)).exists, false);
+});
+
+test('a save reads everything it needs in one trip, while the account is looked up', async () => {
+  const p = await guest();
+  await civic(p, saveOf(p, {}, { x: { inbox: [{ id: 'a' }] } }));
+  await sleep(1100);
+  const asked = [], who = { uid: p.uid, admin: false, mod: false, amb: false, registered: false, generation: new Date().toUTCString(), ids: [] };
+  let found = 0;
+  const whoP = new Promise(res => setTimeout(() => { found = asked.length; res(who); }, 150));
+  const counted = { doc: path => db.doc(path), collection: path => db.collection(path), runTransaction: f => db.runTransaction(tx => f(new Proxy(tx, { get(t, k) {
+    const v = t[k];
+    if (k === 'get' || k === 'getAll') return (...a) => { asked.push(k === 'get' ? 'get ' + a[0].path : 'getAll ' + a.map(r => r.path).join(',')); return v.apply(t, a); };
+    return typeof v === 'function' ? v.bind(t) : v;
+  } }))) };
+  const r = await serverSave(counted, whoP, p.uid, saveOf(p, { motto: 'Counted' }, { rev: 1, x: { inbox: [{ id: 'a' }] } }));
+  assert.equal(r.rev, 2);
+  assert.equal(asked.length, 1, asked.join(' | '));
+  assert.ok(asked[0].startsWith('getAll ') && asked[0].split(',').length === 9, asked[0]);
+  assert.equal(found, 1, 'the documents were asked for before the account was known');
+  assert.equal(JSON.parse(nationText(await get('nations/' + p.uid))).motto, 'Counted');
 });
