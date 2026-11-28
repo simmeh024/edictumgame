@@ -3083,17 +3083,17 @@ header.vh:has(>.sg-gear):has(>.hlp-q)>.eyebrow,header.vh:has(>.sg-gear):has(>.hl
 .wd-pp-b .h3{margin:0 0 4px}.wd-pp-b p{margin:0 0 8px}
 .wd-pd{margin-top:8px}.wd-pd summary{cursor:pointer;font-weight:600}.wd-pd>.wd-who,.wd-pd>.wd-phl{margin-top:10px}
 @media (max-width:520px){.wd-pp{grid-template-columns:1fr}.wd-pp-fig{max-width:160px}}
-/* the statue's keepsakes: a bronze stamp, drapery round the motto and a verdigris accent */
+/* the statue's keepsakes: a bronze stamp, drapery round the motto and a bronze-green accent (its own id since 28 Nov 2026: the Chancery Club's a-verdigris, added first, took the id over and hid it from the statue's givers) */
 .cz-enx.cz-enx-cast{color:#3f6b58;border:2px solid #3f6b58;border-radius:1px;letter-spacing:.24em;transform:none;box-shadow:inset 0 0 0 2px var(--paper),inset 0 0 0 3px #3f6b58}
 :root[data-theme="dark"] .cz-enx.cz-enx-cast{color:#8fc3a9;border-color:#8fc3a9;box-shadow:inset 0 0 0 2px var(--paper),inset 0 0 0 3px #8fc3a9}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .cz-enx.cz-enx-cast{color:#8fc3a9;border-color:#8fc3a9;box-shadow:inset 0 0 0 2px var(--paper),inset 0 0 0 3px #8fc3a9}}
 .hero-motto.mf-drape,.cz-mf.mf-drape{display:inline-block;padding:4px 20px;border-left:3px double var(--accent);border-right:3px double var(--accent);border-radius:10px}
-:root[data-accent="verdigris"]{--accent:#2f7a68;--accent-hi:#256454;--accent-ink:#f2fbf8;--accent-soft:#dcefe9;--guill:#2f7a68}
-@media (prefers-color-scheme: dark){:root[data-accent="verdigris"]:not([data-theme="light"]){--accent:#7cc7b2;--accent-hi:#97d4c3;--accent-ink:#08231c;--accent-soft:#17332c;--guill:#7cc7b2}}
-:root[data-accent="verdigris"][data-theme="dark"]{--accent:#7cc7b2;--accent-hi:#97d4c3;--accent-ink:#08231c;--accent-soft:#17332c;--guill:#7cc7b2}
-.cz-asw[data-a="verdigris"]{background:#2f7a68}
-@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .cz-asw[data-a="verdigris"]{background:#7cc7b2}}
-:root[data-theme="dark"] .cz-asw[data-a="verdigris"]{background:#7cc7b2}
+:root[data-accent="bronzegreen"]{--accent:#2f7a68;--accent-hi:#256454;--accent-ink:#f2fbf8;--accent-soft:#dcefe9;--guill:#2f7a68}
+@media (prefers-color-scheme: dark){:root[data-accent="bronzegreen"]:not([data-theme="light"]){--accent:#7cc7b2;--accent-hi:#97d4c3;--accent-ink:#08231c;--accent-soft:#17332c;--guill:#7cc7b2}}
+:root[data-accent="bronzegreen"][data-theme="dark"]{--accent:#7cc7b2;--accent-hi:#97d4c3;--accent-ink:#08231c;--accent-soft:#17332c;--guill:#7cc7b2}
+.cz-asw[data-a="bronzegreen"]{background:#2f7a68}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .cz-asw[data-a="bronzegreen"]{background:#7cc7b2}}
+:root[data-theme="dark"] .cz-asw[data-a="bronzegreen"]{background:#7cc7b2}
 /* field digs */
 .dig-top{margin-bottom:18px}
 .dig-runs{margin:10px 0 0;padding:0;list-style:none;display:grid;gap:8px}
@@ -36131,7 +36131,7 @@ function asmAbsentNote(st){
 function asmDelBanner(st,now){
   const D=st.D,me=myId();
   if(!D)return `<section class="asm-del none"><div class="asm-del-b"><p class="eyebrow">Delegate of the Assembly</p><h2 class="asm-del-n">The chair stands empty</h2><p class="muted">No member present has a single endorsement. Endorse a member you trust, or win over a computer nation: each backs the player it likes best once its affinity reaches ${ASM_AFF}.</p>${asmAbsentNote(st)}</div></section>`;
-  const n=D.r.n,a=asmA(n),msg=a&&a.m?a.m.x:'',mine=D.id===me,since=((n.asm&&n.asm.d)||[]).filter(x=>x.r===REG.id).pop();
+  const n=D.r.n,a=asmA(n),msg=a&&a.m?a.m.x:'',mine=D.id===me,since=asmTermsOf(n,D.id).filter(x=>x.r===REG.id&&!x.f).pop();
   const form=mine?`<form id="asm-msg-form" class="asm-msg-form" novalidate><label class="lbl" for="asm-msg">Your message to the region</label><div class="name-row"><input class="input" id="asm-msg" data-asm="msg" maxlength="${ASM_MSG}" placeholder="A word from the chair…" value="${esc(S.asmMsgDraft!=null?S.asmMsgDraft:msg)}" autocomplete="off"><button class="btn" type="submit">Post</button></div><p class="hint">Up to ${ASM_MSG} characters, shown here and on the Region page. You can change it once an hour.${msg?' <button type="button" class="linkish small" data-act="asm-msg-clear">Take it down</button>':''}</p></form>`:'';
   return `<section class="asm-del${mine?' mine':''}"><span class="asm-seal" aria-hidden="true">Delegate</span>
     <div class="asm-del-flag">${flagSVG(n.flag,'Flag of '+n.name)}</div>
@@ -36589,10 +36589,27 @@ function asmRegionBox(now){
       ${msg?`<blockquote class="asm-msg"><span class="lbl">From the Delegate</span> “${esc(msg)}”</blockquote>`:''}</section>`;
   }catch(e){return '';}
 }
-function asmHonours(n,isD){
-  const t=(n.asm&&n.asm.d)||[],terms=t.filter(x=>x.on);if(!terms.length)return '';
+/* A nation's terms as Delegate, as n.asm.d holds them ([{t, r, on}]). Only a nation's own browser keeps n.asm.d (it is in
+   the record's local part), so this region's come from the server's list of its Delegates one after another
+   (S.civic.dh, functions/civic.js delegateNext), which every player has; the nation's own n.asm.d keeps its terms in
+   other regions and those from before the list began. f: a term already under way when the list began, its start
+   unknown (left out where it would be told as news, and dropped when the own record already has that term open). */
+function asmTermsOf(n,id){
+  const own=((n&&n.asm&&n.asm.d)||[]).filter(x=>x&&typeof x.t==='number'&&x.r);
+  const dh=S.civic&&S.civic.reg===REG.id&&Array.isArray(S.civic.dh)?S.civic.dh.filter(x=>x&&typeof x.u==='string'&&typeof x.t==='number'):[];
+  if(!dh.length||!id)return own;
+  const from=dh[0].t,out=own.filter(x=>x.r!==REG.id||x.t<from);let at='';
+  for(const x of dh){
+    if(x.u===id&&at!==id){const prev=out.filter(y=>y.r===REG.id).pop();if(!(x.f&&prev&&prev.on))out.push(x.f?{t:x.t,r:REG.id,on:1,f:1}:{t:x.t,r:REG.id,on:1});}
+    else if(at===id&&x.u!==id)out.push({t:x.t,r:REG.id,on:0});
+    at=x.u;
+  }
+  return out.sort((a,b)=>a.t-b.t);
+}
+function asmHonours(n,isD,id){
+  const t=asmTermsOf(n,id),terms=t.filter(x=>x.on);if(!terms.length)return '';
   const regs=[...new Set(terms.map(x=>x.r))].map(r=>regName(r)),last=terms[terms.length-1];
-  if(isD&&last.r===REG.id)return `In the chair since ${esc(fmtDate(last.t))}${terms.length>1?`, its ${ordinal(terms.length)} term as Delegate`:''}.`;
+  if(isD&&last.r===REG.id)return last.f?(terms.length>1?`In the chair for its ${ordinal(terms.length)} term as Delegate.`:''):`In the chair since ${esc(fmtDate(last.t))}${terms.length>1?`, its ${ordinal(terms.length)} term as Delegate`:''}.`;
   return `${terms.length===1?'Has served one term':'Has served '+terms.length+' terms'} as Delegate, in ${esc(list(regs))}.`;
 }
 function asmNationLine(x,now){
@@ -36606,7 +36623,7 @@ function asmRecLine(x){
 }
 NATION_SECTIONS.unshift((x,now)=>{
   if(!x||!x.n||x.n.npc)return '';
-  const L=asmNationLine(x,now),h=asmHonours(x.n,L.isD);
+  const L=asmNationLine(x,now),h=asmHonours(x.n,L.isD,x.id);
   return `<section class="asm-nsec${L.isD?' del':''}">${L.isD?'<span class="asm-seal sm" aria-hidden="true">Delegate</span>':''}<p class="eyebrow">Regional Assembly</p><p class="asm-line">${L.line}</p>${h?`<p class="hint">${h}</p>`:''}${asmMarkHTML(x.id,now)}${asmRecLine(x)}<button class="linkish small" data-act="go" data-v="assembly">Open the Assembly</button></section>`;
 });
 vsAdd('asm',(x,now)=>{
@@ -36614,7 +36631,7 @@ vsAdd('asm',(x,now)=>{
   const st=asmState(now),me=myId();
   if(x.npc){const b=st.DD.npc.find(q=>q.x.id===x.id);if(!b)return '';const mine=st.recs.find(r=>r.me);let af=0;try{af=mine?affinity(npcAt(x.id,st.t0)||x.n,mine.n):0;}catch(e){}
     return `<section class="asm-visit"><p class="eyebrow">Regional Assembly</p>${asmMarkHTML(x.id,now)}<p>${b.r?`${esc(x.n.name)} backs <b>${esc(b.r.n.name)}</b> for Delegate (affinity ${b.a}).`:`${esc(x.n.name)} backs nobody for Delegate yet.`} ${mine&&(!b.r||b.r.id!==me)?`Its affinity with you is ${af}; it backs a player at ${ASM_AFF} or more, choosing the one it likes best.`:b.r&&b.r.id===me?'That is you.':''}</p></section>`;}
-  const L=asmNationLine(x,now),h=asmHonours(x.n,L.isD),a=asmA(S.nation),on=!!(a&&a.e&&a.e.some(e=>e.i===x.id&&!e.w)),can=asmMemberAt(S.nation,now)&&L.mem;
+  const L=asmNationLine(x,now),h=asmHonours(x.n,L.isD,x.id),a=asmA(S.nation),on=!!(a&&a.e&&a.e.some(e=>e.i===x.id&&!e.w)),can=asmMemberAt(S.nation,now)&&L.mem;
   return `<section class="asm-visit${L.isD?' del':''}">${L.isD?'<span class="asm-seal sm" aria-hidden="true">Delegate</span>':''}<p class="eyebrow">Regional Assembly</p><p class="asm-line">${L.line}</p>${h?`<p class="hint">${h}</p>`:''}${asmMarkHTML(x.id,now)}${asmRecLine(x)}
     ${can?`<div class="row" style="margin-top:10px">${on?`<button class="btn small-btn" data-act="asm-unend" data-id="${esc(x.id)}" aria-pressed="true">Endorsed · withdraw</button>`:`<button class="btn ghost small-btn" data-act="asm-end" data-id="${esc(x.id)}" aria-pressed="false">Endorse for Delegate</button>`}</div>`:''}</section>`;
 });
@@ -36627,7 +36644,7 @@ NOTIF_SOURCES.push((n,now)=>{
   }
   if(L&&L.tg===me&&asmTg(L.cat))out.push({t:Math.max(st.t0+3,asmArr(n)),k:'asm',kl,txt:`The Assembly is voting on whether to ${asmTg(L.cat)==='c'?'commend':'condemn'} ${n.name}: “${L.ti}”, proposed by ${L.bn||'a member'}. The count closes in ${fmtWait(st.t1-now)}${asmTg(L.cat)==='x'?', and its debate is open for your answer':''}.`,go});
   for(const h of ((n.asm&&n.asm.h)||[]).filter(h=>h.r===REG.id).slice(-4))out.push({t:h.at||h.f,k:'asm',kl,txt:asmResultText(h,n),go});
-  for(const d of ((n.asm&&n.asm.d)||[]).filter(d=>d.r===REG.id).slice(-4))out.push({t:d.t,k:'asm',kl,txt:d.on?`${n.name} is now the Delegate of the ${REGION} Assembly.`:`${n.name} is no longer the Delegate.`,go});
+  for(const d of asmTermsOf(n,me).filter(d=>d.r===REG.id&&!d.f).slice(-4))out.push({t:d.t,k:'asm',kl,txt:d.on?`${n.name} is now the Delegate of the ${REGION} Assembly.`:`${n.name} is no longer the Delegate.`,go});
   for(const r of st.recs){if(r.me)continue;const a=asmA(r.n);if(!a||!a.e)continue;for(const e of a.e){if(e.i!==me||now-e.t>7*DAY)continue;out.push({t:e.t,k:'asm',kl,txt:`${r.n.name} endorsed ${n.name} for Delegate.`,go});if(e.w)out.push({t:e.w,k:'asm',kl,txt:`${r.n.name} withdrew its endorsement of ${n.name}.`,go});}}
   return out.slice(0,14);
 });
@@ -36641,7 +36658,7 @@ HAP_SOURCES.push((x,now)=>{
     if(a.o&&a.o>=since)out.push({t:a.o,txt:`${nm} resigned from the Assembly${a.ox?`: “${esc(a.ox)}”`:''}.`});
     if(a.j&&a.o&&a.j>a.o&&a.j>=since)out.push({t:a.j,txt:`${nm} took its seat in the Assembly again.`});
   }
-  for(const d of (n.asm&&n.asm.d)||[])if(d.r===REG.id&&d.on&&d.t>=since)out.push({t:d.t,txt:`${nm} is the new Delegate of the ${esc(REG.name)} Assembly.`});
+  for(const d of asmTermsOf(n,x.id))if(d.r===REG.id&&d.on&&!d.f&&d.t>=since)out.push({t:d.t,txt:`${nm} is the new Delegate of the ${esc(REG.name)} Assembly.`});
   if(x.me){try{const st=asmState(now);for(const h of asmHistory(st,4)){const t=asmT0(h.c+1);if(t<since)continue;out.push({t,txt:`The Assembly ${h.ok?'passed':'rejected'} “${esc(h.ti)}”, proposed by ${asmWho(h.by,h.bn)}, ${asmVotes(h.ok?h.y:h.n)} to ${asmW(h.ok?h.n:h.y)}.`});}
     if(st.cur)out.push({t:st.t0+1,txt:`“${esc(st.cur.ti)}”, proposed by ${asmWho(st.cur.by,st.cur.bn)}, has gone to the vote in the Assembly.`});}catch(e){}}
   return out;
@@ -36682,7 +36699,7 @@ DISPATCH_SOURCES.push(ctx=>{
       out.push({t:tt,sec:'politics',h:asmHl('tab',k,{T:L.ti,P:by}),b:`${by} has put “${L.ti}” to the ${R} Assembly${L.w==='d'?', at the Delegate’s choosing':L.w==='s'?' with the most support of any proposal':''}. ${L.tx?L.tx+' ':''}The count closes in three days.`,who:pid(L.by),w:3,k});}}
   }
   for(const r of st.recs){const n=r.n,a=asmA(n),P=n.name;
-    for(const d of (n.asm&&n.asm.d)||[])if(d.r===REG.id&&d.on&&d.t>=from&&d.t<=to){const k='asm:del:'+r.id+':'+d.t;out.push({t:d.t,sec:'politics',h:asmHl('del',k,{P,R}),b:`${P} is the new Delegate of the ${R} Assembly. Its vote now counts for more, and it chooses which proposal goes to the vote next.`,who:[r.id],w:6,k});}
+    for(const d of asmTermsOf(n,r.id))if(d.r===REG.id&&d.on&&!d.f&&d.t>=from&&d.t<=to){const k='asm:del:'+r.id+':'+d.t;out.push({t:d.t,sec:'politics',h:asmHl('del',k,{P,R}),b:`${P} is the new Delegate of the ${R} Assembly. Its vote now counts for more, and it chooses which proposal goes to the vote next.`,who:[r.id],w:6,k});}
     if(!a)continue;
     if(a.o&&a.o>=from&&a.o<=to){const k='asm:out:'+r.id+':'+a.o;out.push({t:a.o,sec:'politics',h:asmHl('out',k,{P}),b:a.ox?`${P} has resigned from the ${R} Assembly. Its parting words: “${a.ox}”`:`${P} has resigned from the ${R} Assembly, taking its seat cushion with it. No resolution binds it now.`,who:[r.id],w:5,k});}
     if(a.j&&a.o&&a.j>a.o&&a.j>=from&&a.j<=to){const k='asm:in:'+r.id+':'+a.j;out.push({t:a.j,sec:'politics',h:asmHl('back',k,{P}),b:`${P} has taken its seat in the ${R} Assembly again, and is bound by its resolutions once more.`,who:[r.id],w:2,k});}
@@ -47479,7 +47496,7 @@ function fkMiscPosts(C){
   try{for(const d of economy().active){if(d.a!==F.id&&d.b!==F.id||!d.blk||d.sus||!inW(d.blk.since))continue;const t=d.blk.since,X=nameOf(d.a===F.id?d.b:d.a),BY=nameOf(d.blk.by),key='blk:'+d.id+':'+t,V=fkVars(F,t,{X,BY,TAG:fkTag(BY+' Blockade')});
     C.ev.push({t,w:5,tag:V.TAG});['r','g','e','b'].slice(0,C.lite?1:2).forEach((tl,j)=>{const bank=d.blk.esc?'blkEsc':'blk',c=fkWho(C,tl,key+j,t);const x=c&&fkSay(bank,c.tl,V,key,j);if(x)fkMk(C,{key:key+':'+j,t:fkAt(t,key,j,j?8:2,j?90:15),a:fkAcc(C,c.k),x,kind:'log',w:5,topic:'Trade',go:j?null:{act:'go',v:'trade',l:'Open Trade'}});});}}catch(e){}
   /* the Delegate's chair */
-  try{for(const d of (n.asm&&n.asm.d)||[]){if(!d||d.r!==REG.id||!inW(d.t))continue;const key='del:'+d.t+':'+(d.on?1:0),V=fkVars(F,d.t,{RN:REG.name.replace(/^The /,''),TAG:'#'+fkCamel(REG.name.replace(/^The /,''),14)+'Assembly'});
+  try{for(const d of asmTermsOf(n,F.id)){if(!d||d.r!==REG.id||d.f||!inW(d.t))continue;const key='del:'+d.t+':'+(d.on?1:0),V=fkVars(F,d.t,{RN:REG.name.replace(/^The /,''),TAG:'#'+fkCamel(REG.name.replace(/^The /,''),14)+'Assembly'});
     C.ev.push({t:d.t,w:5,tag:V.TAG});(d.on?['r','b','w']:['r','g']).slice(0,C.lite?1:3).forEach((tl,j)=>{const c=fkWho(C,tl,key+j,d.t);if(c)fkMk(C,{key:key+':'+j,t:fkAt(d.t,key,j,j?4:1,j?80:8),a:fkAcc(C,c.k),x:fkSay(d.on?'del':'delOff',c.tl,V,key,j),kind:'log',w:5,topic:'The Assembly',go:j?null:{act:'go',v:'assembly',l:'The Assembly'}});});}}catch(e){}
   /* covert operations against the nation: exposed spies, and scandals as gossip */
   if(F.me)try{if(typeof cvAgainst==='function')for(const e of cvAgainst(n,7)){const t=e.op.t;if(!inW(t)||t>C.now)continue;const key='cv:'+e.key,X=e.bn||'abroad';
@@ -55708,7 +55725,10 @@ function normalizeBase(d){
   const alli=d.alli&&typeof d.alli==='object'&&typeof d.alli.name==='string'&&d.alli.name.trim()?{name:d.alli.name.trim().slice(0,40),t:num(d.alli.t,0),inv:Array.isArray(d.alli.inv)?d.alli.inv.filter(e=>e&&typeof e.id==='string'&&e.id.length<=60).slice(-30).map(e=>({id:e.id,t:num(e.t,0)})):[]}:null;
   const spy=d.spy&&Number.isInteger(d.spy.n)?{n:clamp(d.spy.n,0,4),at:num(d.spy.at,now)}:null;
   const intel=Array.isArray(d.intel)?d.intel.filter(r=>r&&typeof r.tg==='string'&&INTEL[r.k]).slice(0,12).map(r=>{const o={t:num(r.t,0),tg:r.tg.slice(0,60),tn:str(r.tn,40),r:clamp(Math.round(num(r.r,1)),1,20),m:clamp(Math.round(num(r.m,0)),-9,9),k:r.k};if(typeof r.u==='number'&&isFinite(r.u))o.u=r.u;if(Number.isInteger(r.c)&&r.c>=-1&&r.c<MAP.N)o.c=r.c;if(r.dim===1)o.dim=1;if(r.rp===1||r.rp===0||r.rp===-1)o.rp=r.rp;if(Number.isInteger(r.ai)&&r.ai>=0&&r.ai<12)o.ai=r.ai;if(Number.isInteger(r.ag)&&r.ag>0)o.ag=Math.min(r.ag,9999);if(typeof r.gw==='number'&&isFinite(r.gw))o.gw=clamp(Math.round(r.gw),-20,0);if(r.d&&typeof r.d==='object')o.d={b:num(r.d.b,0),rd:typeof r.d.rd==='number'?r.d.rd:null,mx:num(r.d.mx,6),dp:num(r.d.dp,0),al:str(r.d.al,40),wp:Array.isArray(r.d.wp)?r.d.wp.filter(x=>typeof x==='string').slice(0,20).map(x=>x.slice(0,40)):[],w:num(r.d.w,0)};return o;}):[];
-  const deals=Array.isArray(d.deals)?d.deals.filter(x=>x&&typeof x.id==='string'&&typeof x.w==='string'&&Array.isArray(x.g)&&Array.isArray(x.r)&&RES.includes(x.g[0])&&RES.includes(x.r[0])).slice(0,TR_STORE).map(x=>{const o={id:x.id.slice(0,16),w:x.w.slice(0,60),g:[x.g[0],clamp(Math.round(num(x.g[1],1)*2)/2,0.5,100)],r:[x.r[0],clamp(Math.round(num(x.r[1],1)*2)/2,0.5,100)],t:num(x.t,0)};if(x.a)o.a=1;if(Number.isFinite(x.e)&&x.e>0)o.e=x.e;return o;}):[];
+  const deals=Array.isArray(d.deals)?d.deals.filter(x=>x&&typeof x.id==='string'&&typeof x.w==='string'&&Array.isArray(x.g)&&Array.isArray(x.r)&&RES.includes(x.g[0])&&RES.includes(x.r[0])).slice(0,TR_STORE).map(x=>{const o={id:x.id.slice(0,16),w:x.w.slice(0,60),g:[x.g[0],clamp(Math.round(num(x.g[1],1)*2)/2,0.5,100)],r:[x.r[0],clamp(Math.round(num(x.r[1],1)*2)/2,0.5,100)],t:num(x.t,0)};if(x.a)o.a=1;if(Number.isFinite(x.e)&&x.e>0)o.e=x.e;
+    /* when the offer was made (an acceptance's s) and when a reminder went (an offer's nu): without them the other side
+       never saw "usually answers within" nor "sent a reminder" (gap audit 28 Nov 2026) */
+    if(Number.isFinite(x.s)&&x.s>0)o.s=x.s;if(Number.isFinite(x.nu)&&x.nu>0)o.nu=x.nu;return o;}):[];
   const trFav=Array.isArray(d.trFav)?d.trFav.filter(x=>typeof x==='string'&&x.length<=60).slice(0,8):[],trX=Array.isArray(d.trX)?d.trX.filter(x=>Number.isFinite(x)&&x>now-TR_DAY).slice(-TR_X_MAX):[];
   const topics={};if(d.topics&&typeof d.topics==='object')for(const [k] of ISSUE_TOPICS){const v=d.topics[k];if(v===1||v===-1)topics[k]=v;}
   const dealNo=Array.isArray(d.dealNo)?d.dealNo.filter(x=>typeof x==='string').slice(-20).map(x=>x.slice(0,16)):[];
@@ -55997,6 +56017,8 @@ async function flushRemote(){
   if(conflictPending){remoteDirty=false;syncOwnNation(true);return;}
   /* offline, nothing is sent: the online event (resumeNation) sends the pending save */
   if(navigator.onLine===false){publishSync();return;}
+  /* a name the server refused (nameClash): nothing is sent until the nation has another, so no save is refused again */
+  if(S.nameClash&&S.nation&&nameFold(S.nation.name)===nameFold(S.nameClash.name)){publishSync();return;}
   /* a busy region (saveBusy) is not asked again before the retry step, whoever asks: a timer set before it said so, or
      the tab coming back into focus (resumeNation). The online event clears saveBusy first, so it still sends at once */
   if(saveBusy&&saveStreak){const at=remoteLast+SAVE_RETRY[Math.min(saveStreak,SAVE_RETRY.length)-1];
@@ -56096,6 +56118,8 @@ async function writeRemote(){
   catch(e){
     saveFailed=true;saveError=String(e&&e.code||'unknown').slice(0,64);saveBusy=!!e&&e.code==='quota_exceeded';publishSync();
     if(e&&e.code==='region_disabled'){remoteDirty=true;regionControls();return;}
+    /* the server found the name taken in the region (functions/civic.js, nameFree): kept here until the player renames */
+    if(e&&e.code==='name_taken'){remoteDirty=true;nameClash(e.message);return;}
     if(e&&e.code==='unavailable'){await sleep(1500+Math.random()*900);try{await send();return;}catch(e2){e=e2;saveBusy=!!e&&e.code==='quota_exceeded';}}
     if(e&&e.code==='save_conflict'){saveConflicts++;saveFailed=false;conflictCopy=keepUnsaved(S.nation);conflictPending=true;remoteDirty=false;return;}
     saveFailed=true;
@@ -63984,7 +64008,7 @@ function modNotice(){
   const due=!!renDue();if(due!==REN.on){REN.on=due;quietRender();}
   const m=S.mod&&S.mod[S.uid];if(OBS||!m||!S.nation)return;
   if(m.removed&&(S.nation.founded||0)<m.removed){modRemoved(m);return;}
-  if(due){renNotice(m);return;}
+  if(due&&!renDue().clash){renNotice(m);return;}
   if(!m.hidden||modTold)return;modTold=true;
   toast(`A moderator has hidden ${S.nation.name} from other players${m.note?': '+m.note:''}. If you think this is a mistake, create a support ticket on the Help page or write to ${CONTACT}.`);
 }
@@ -64025,31 +64049,46 @@ function nameTaken(v,reg){
   for(const src of [S.worldAll,DORM.all,S.world,DORM.w])if(src)for(const k of Object.keys(src)){const x=src[k];if(x&&own(k)&&(x.reg||reg)===reg&&nameFold(x.name)===f)return true;}
   return false;
 }
-function renDue(){const m=S.mod&&S.uid?S.mod[S.uid]:null;return m&&m.hidden&&m.rename&&S.nation&&S.db&&S.mode==='world'?m:null;}
+function renDue(){const m=S.mod&&S.uid?S.mod[S.uid]:null;if(m&&m.hidden&&m.rename&&S.nation&&S.db&&S.mode==='world')return m;
+  const c=S.nameClash;return c&&S.nation&&S.db&&S.mode==='world'&&nameFold(S.nation.name)===nameFold(c.name)?c:null;}
+/* a save the server refused because another nation in the region has the name (it chose it first, or the game had not
+   heard of it yet): the moderator's rename card, with its own words, until a new name is saved */
+function nameClash(msg){
+  const name=S.nation&&S.nation.name;if(!name)return;
+  if(!S.nameClash||nameFold(S.nameClash.name)!==nameFold(name)){S.nameClash={name,clash:1,t:Date.now()};
+    toast(msg||'Another nation in your region already has this name. Choose another.');}
+  REN.err='';render();
+}
 function renNotice(m){
   if(REN.told!==m.t){REN.told=m.t;toast(`A moderator asked you to rename ${S.nation.name}. It is hidden from other players until you choose a new name.`);}
   if(nameFold(S.nation.name)!==nameFold(m.name)&&REN.asked!==m.t){REN.asked=m.t;renFinish();}
 }
 function renCard(){
   const m=renDue();if(!m||ADM_VIEWS.includes(S.view))return '';
-  return `<section class="ren-due" aria-labelledby="ren-h"><p class="notice-k">Moderation</p><h2 id="ren-h">Choose a new name for your nation</h2>
-    <p>A moderator asked you to rename ${esc(S.nation.name)}${m.note?`: <i>${esc(m.note)}</i>${/[.!?]$/.test(m.note)?'':'.'}`:'.'} Until you do, your nation is hidden from other players: it is missing from their maps, regions and boards. You can keep playing meanwhile.</p>
+  return `<section class="ren-due" aria-labelledby="ren-h"><p class="notice-k">${m.clash?'Your nation’s name':'Moderation'}</p><h2 id="ren-h">Choose a new name for your nation</h2>
+    ${m.clash?`<p>Another nation in ${esc((REG_BY_ID[S.nation.reg]||REG).name)} already has the name ${esc(m.name)}, so your latest changes could not reach the region. They are kept in this browser, and saved as soon as your nation has a name of its own.</p>`:`<p>A moderator asked you to rename ${esc(S.nation.name)}${m.note?`: <i>${esc(m.note)}</i>${/[.!?]$/.test(m.note)?'':'.'}`:'.'} Until you do, your nation is hidden from other players: it is missing from their maps, regions and boards. You can keep playing meanwhile.</p>`}
     <form id="ren-form" novalidate><div class="field"><label for="ren-name">New name</label><div class="name-row"><input class="input" id="ren-name" maxlength="40" value="${esc(REN.val)}" autocomplete="off"${REN.busy?' disabled':''}><button class="btn" type="submit"${REN.busy?' disabled':''}>${REN.busy?'Saving…':'Rename'}</button></div></div>${REN.err?`<p class="err" role="alert">${esc(REN.err)}</p>`:''}</form>
-    <p class="hint">If you think this is a mistake, create a support ticket on the Help page or write to ${CONTACT}.</p></section>`;
+    ${m.clash?'':`<p class="hint">If you think this is a mistake, create a support ticket on the Help page or write to ${CONTACT}.</p>`}</section>`;
 }
 function renSubmit(raw){
   const m=renDue();if(!m||REN.busy)return;
   const v=String(raw||'').replace(/\s+/g,' ').trim().slice(0,40),fail=t=>{REN.err=t;render();const i=document.getElementById('ren-name');if(i)i.focus();};
   REN.val=v;
   if(v.length<2)return fail('Give your nation a name of at least two characters.');
-  if(nameFold(v)===nameFold(m.name))return fail('Choose a name other than the one the moderator asked you to change.');
+  if(nameFold(v)===nameFold(m.name))return fail(m.clash?`Choose a name other than ${m.name}.`:'Choose a name other than the one the moderator asked you to change.');
   if(nameTaken(v,S.nation.reg||'meridian'))return fail('Another nation in your region already has this name. Choose another.');
   if(v!==S.nation.name){const n=clone(S.nation);n.name=v;commit(n);}
-  renFinish();
+  renFinish(!!m.clash);
 }
-async function renFinish(){
+async function renFinish(clash){
   if(REN.busy)return;REN.busy=true;REN.err='';render();
   let ok=false;
+  /* a name the server refused: done once a save under the new name lands (refused again, nameClash asks once more) */
+  if(clash){try{await flushNow();ok=!saveFailed&&!remoteDirty;}catch(e){}
+    REN.busy=false;
+    if(ok){REN.val='';S.nameClash=null;REN.on=false;toast(`Your nation is now called ${S.nation.name}, and it is saved to the region again.`);}
+    else if(!renDue())REN.err='Your new name is kept in this browser, but the region has not confirmed it yet. Check your connection and press Rename again.';
+    render();return;}
   for(let i=0;i<3&&!ok;i++){
     try{if(i)await sleep(1500);await flushNow();const api=await window.claude.use('civic'),r=api&&await api.request({op:'renamed'});ok=!!(r&&r.ok);}catch(e){}
   }
@@ -75831,9 +75870,9 @@ UNLOCK_SOURCES.push({earned:n=>{try{if(!n||n.npc)return [];if(n.wnx&&n.wnx.pt===
    n.wnd.g lists the phases the nation gave to, and a phase counts once the record's own ph has passed it, so the
    reward is read from the nation's own record like every other land credit, and other games and the admins' checks
    see the same. A nation that moves and then gives to another region's statue keeps what it had earned (n.wnx). */
-const WND_LAND=2,WND_KEEP=['p-hoarding','f-stone','s-cast','m-drape','a-verdigris','e-arm','t-monumental','c-scroll','p-leaf','pn-statue'];
+const WND_LAND=2,WND_KEEP=['p-hoarding','f-stone','s-cast','m-drape','a-bronzegreen','e-arm','t-monumental','c-scroll','p-leaf','pn-statue'];
 Object.assign(UNLOCKS,{'p-hoarding':{k:'pattern',n:'Site hoarding',src:'wonder'},'f-stone':{k:'frame',n:'Dressed stone',src:'wonder'},
-  's-cast':{k:'stamp',n:'Cast in bronze',src:'wonder'},'m-drape':{k:'motto',n:'Drapery',src:'wonder'},'a-verdigris':{k:'accent',n:'Verdigris',src:'wonder'},
+  's-cast':{k:'stamp',n:'Cast in bronze',src:'wonder'},'m-drape':{k:'motto',n:'Drapery',src:'wonder'},'a-bronzegreen':{k:'accent',n:'Bronze Green',src:'wonder'},
   'e-arm':{k:'emblem',n:'Raised arm',src:'wonder'},'t-monumental':{k:'title',n:'the Monumental',src:'wonder'},'c-scroll':{k:'charge',n:'Scroll',src:'wonder'},
   'p-leaf':{k:'pattern',n:'Gold leaf',src:'wonder'},'pn-statue':{k:'pin',n:'Little statue',src:'wonder'}});
 CZ_EMBS.push('e-arm');CZ_CHB.scroll='a scroll';
@@ -75856,7 +75895,7 @@ uxUnlockInfo=(f=>function(id){return UNLOCKS[id]&&UNLOCKS[id].src==='wonder'?{la
 NOTIF_SOURCES.push(n=>(n.log||[]).filter(l=>l.k==='wndr'&&WND_KEEP[+l.a]).map(l=>({t:l.t,k:'wndr',kl:'The Great Statue',txt:wndRewardText(+l.a),go:'wonder',links:[{kind:'unlock',id:WND_KEEP[+l.a]}]})));
 
 /* the keepsakes' art: hoarding planks, dressed stone, a bronze stamp, a raised arm, a scroll, gold leaf and a
-   little statue over the capital (drapery and verdigris are in the styles) */
+   little statue over the capital (drapery and bronze green are in the styles) */
 czStampArt=(f=>function(s){return s==='s-cast'?'<span class="cz-enx cz-enx-cast">Cast in bronze</span>':f.apply(this,arguments);})(czStampArt);
 czCharge=(f=>function(k,c,d,flat){
   const L=(p,w)=>`<path d="${p}" fill="none" stroke="${d}" stroke-width="${w||1.5}" stroke-linecap="round" stroke-linejoin="round"/>`;
