@@ -35,7 +35,7 @@ check('the first nation reaches 12 million', await grow(A, ua));
 
 // the page: six tabs, the Overview first, nothing waiting, the spy die gone to Intelligence
 await nav(A, 'diplomacy'); await A.waitForSelector('#dp');
-check('Diplomacy has eight tabs', JSON.stringify(await A.$$eval('.dp-tab', b => b.map(x => x.childNodes[0].textContent.trim()))) === JSON.stringify(['Overview', 'Alliance', 'Relations', 'Treaties', 'Ventures', 'Land', 'Wars', 'Gifts']));
+check('Diplomacy has nine tabs', JSON.stringify(await A.$$eval('.dp-tab', b => b.map(x => x.childNodes[0].textContent.trim()))) === JSON.stringify(['Overview', 'Alliance', 'Relations', 'Treaties', 'Embassies', 'Ventures', 'Land', 'Wars', 'Gifts']));
 check('it opens on the Overview, one pane at a time', await tab(A) === 'overview' && await shown(A, '#dp-p-overview .dp-cards') && !await shown(A, '#dp-p-relations .dp-rel-top'));
 check('the strip says nothing is waiting', /Nothing is waiting for you/.test(await text(A, '.dp-wait')));
 check('the spy die is no longer on this page', !await A.$('#dp #spy-form'));
@@ -243,6 +243,31 @@ await A.click('[data-act="al-leave"]');
 check('the officer becomes the leader', await until(async () => (await alDoc(aid))?.ld?.stringValue === ub, 10000));
 check('the old leader is no longer a member, on the page or in the index', await until(async () => /Found a defence pact/.test(await text(A, '#dp-p-alliance'))) && !(await adminGet('allyOf/' + ua)));
 check('the new leader sees the role', await until(async () => { await nav(B, 'diplomacy'); await B.click('#dp-tab-alliance'); return /Your defence pact · Marshal/.test(await text(B, '.al-head')); }, 10000));
+
+// embassies: an outpost in another player's nation, built in stages from the stock; goodwill each day; the host
+// sees it and may expel it, and let it return
+await nav(A, 'diplomacy'); await A.click('#dp-tab-embassies');
+check('the Embassies tab offers an outpost', await until(async () => /Open a mission/.test(await text(A, '#dp-p-embassies'))));
+await A.selectOption('#em-to', ub); await A.click('[data-act="em-open"]');
+check('the outpost is being set up, stage 1 of 3', await until(async () => /Outpost in Bramblemoor/.test(await text(A, '#dp-p-embassies')) && /stage 1 of 3/.test(await text(A, '#dp-p-embassies'))));
+await A.evaluate(() => { const n = G.clone(G.S.nation); n.stock = { food: 400, timber: 400, iron: 400, oil: 400, goods: 400 }; n.stockAt = Date.now(); n._stockSet = true; G.commit(n); G.render(); });
+for (const r of ['food', 'goods']) await A.click(`#dp-p-embassies [data-act="em-give"][data-r="${r}"][data-v="max"]`);
+check('the stage delivered, its works begin and the stock pays', await until(() => A.evaluate(ub => { const m = G.S.nation.ems[ub]; return !!m.u && m.g.food === 15 && m.g.goods === 20 && G.S.nation.stock.food <= 385.5; }, ub)));
+await A.evaluate(ub => { const n = G.clone(G.S.nation), now = Date.now(); n.ems[ub] = { ...n.ems[ub], s: 2, g: { food: 30, goods: 25 }, u: now - 1000, us: now - 4 * 36e5 }; G.commit(n); }, ub);
+check('the last stage finishes by itself and the outpost opens', await until(() => A.evaluate(ub => G.S.nation.ems[ub].l === 1 && G.S.nation.emh === 1, ub), 15000) && await until(async () => /OPEN|Open/.test(await text(A, '#dp-p-embassies .em-card'))));
+check('A Flag Abroad comes in the same save that opens the outpost', await A.evaluate(ub => { const n = G.S.nation; return n.ems[ub].l === 1 && !!(n.ach && n.ach['dip-emb1']); }, ub));
+await A.evaluate(ub => { const n = G.clone(G.S.nation); n.gw = { ...(n.gw || {}), [ub]: 0 }; n.ems[ub] = { ...n.ems[ub], dt: Date.now() - 2 * 864e5 - 60e3 }; G.commit(n); }, ub);
+await A.evaluate(() => { G.commit(G.clone(G.S.nation)); });
+check('two days at an outpost: +2 goodwill, with its reason', await until(() => A.evaluate(ub => (G.S.nation.gw || {})[ub] === 2 && (G.S.nation.gwl || []).some(e => e.i === ub && e.d === 2 && /Your outpost in Bramblemoor/.test(e.w)), ub)));
+check('the Relations tab marks the mission', await until(async () => { await A.click('#dp-tab-relations'); return /Outpost/.test(await text(A, '.dp-rels')); }));
+await nav(B, 'diplomacy'); await B.click('#dp-tab-embassies');
+check('the host sees the foreign mission', await until(async () => { await B.click('#dp-tab-embassies'); return /Foreign missions in Bramblemoor/.test(await text(B, '#dp-p-embassies')) && /Concordia/.test(await text(B, '.em-host')); }, 20000));
+await B.click(`.em-host [data-act="em-expel"][data-id="${ua}"]`);
+check('expelling costs the host 5 goodwill, with its reason', await until(() => B.evaluate(ua => !!(G.S.nation.emx && G.S.nation.emx[ua]) && (G.S.nation.gwl || []).some(e => e.i === ua && e.d === -5 && e.w === 'You expelled their mission'), ua)));
+check('the opener sees its mission expelled', await until(async () => { await A.click('#dp-tab-embassies'); return /Expelled|EXPELLED/.test(await text(A, '#dp-p-embassies .em-card')); }, 20000));
+await B.click(`.em-host [data-act="em-readmit"][data-id="${ua}"]`);
+check('let back, the mission opens again', await until(async () => { await A.click('#dp-tab-embassies'); return /OPEN|Open/.test(await text(A, '#dp-p-embassies .em-card .chip')); }, 20000));
+await shot(A, 'embassies');
 
 // the address opens a tab after a reload
 await A.evaluate(() => { location.hash = '#diplomacy/relations'; }); await A.reload(); await ready(A); await A.waitForSelector('#dp');
