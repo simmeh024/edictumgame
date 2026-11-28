@@ -213,7 +213,7 @@ test('answering: what it costs and brings, a day’s +1, and a stale click does 
   g.cxAnswer('cap',w.a+1,o,w.k);assert.equal(A.saved,null,'nor one on a matter no longer waiting');
   g.cxAnswer('cap',w.a,o,w.k);assert(A.saved);
   const e=A.saved.cities[0].ch[0],O=w.ev.o[o];assert.equal(e.v,Math.max(-12,Math.min(12,(O.m||0)+1)),'its mood, +1 for answering within a day');
-  for(const r of g.RES)assert.equal(A.saved.stock[r],99-((O.c&&O.c[r])||0)+((O.g&&O.g[r])||0));
+  for(const r of g.RES)assert.equal(A.saved.stock[r],99-3*((O.c&&O.c[r])||0)+((O.g&&O.g[r])||0),`${r}: three times the list price, since 28 November`);
   assert(!g.cxEvState('me',A.saved,A.saved.cities[0],NOW).wait.some(x=>x.a===w.a),'and it no longer waits');
   assert.match(A.toast,/Answered within a day: mood \+1\./);
 });
@@ -248,6 +248,9 @@ test('the cards carry the arrival and the matter, and an answer a building opens
   assert.match(h,/the city council decides at T\d+: “Let the city cope”/);
   const h2=G.cxEvCard(ctOf(n,'cap',['hospital']),w,stock(),NOW);assert.match(h2,/Because of its hospital/);assert.match(h2,/Send the nurses/);
   assert.equal(G.cxOptHint(G.CX_BY.get('bridge').o[1]),'70% chance: no change; otherwise mood −6, output −10% for 2 days');
+  assert.match(G.cxOptHint(G.CX_BY.get('flood').o[0]),/^Costs 30 food, 24 timber · /,'the price shown is three times the list');
+  const poor=G.cxEvCard(ctOf(n,'cap',[]),w,{food:20,timber:99,iron:99,oil:99,goods:99},NOW);assert.match(poor,/data-i="0" data-k="flood" disabled/,'and an answer the stockpile cannot pay is greyed out');
+  assert.match(source,/<details class="cx-inbox" id="cx-inbox"\$\{S\.cxInboxOpen\?' open':''\}>/,'the inbox starts folded');
   assert.match(source,/if\(a==='cx-ev'\)\{cxAnswer\(id,\+el\.dataset\.a,\+el\.dataset\.i,el\.dataset\.k\);return;\}/);
   assert.match(source,/if\(a==='cx-nw'\)\{cxNwAnswer\(\+el\.dataset\.a,\+el\.dataset\.i,el\.dataset\.k\);return;\}/);
 });
