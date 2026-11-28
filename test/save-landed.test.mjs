@@ -9,6 +9,8 @@ import vm from 'node:vm';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { parse } from 'acorn';
+import { inflateRawSync } from 'node:zlib';
+import { createHash } from 'node:crypto';
 
 const shim = readFileSync(new URL('../src/shim.js', import.meta.url), 'utf8');
 const plain = x => JSON.parse(JSON.stringify(x));
@@ -74,11 +76,11 @@ test('the check comes before anything else the save reads: a save that landed is
 function serverPage(answers) {
   const A = { raceAt: {} }, sent = [];
   const c = vm.createContext({ A, crypto, BOOT_AT: 1, isObj: v => !!v && typeof v === 'object' && !Array.isArray(v), activeUntil: (d, t) => t, raceKeys: () => [],
-    isGuest: () => false, carryKey: () => '', setTimeout: f => f(), Promise,
-    call: async (name, d) => { sent.push({ name, ...d }); const a = answers.shift(); if (a instanceof Error) throw a; return a; } });
-  vm.runInContext(fns.get('serverSave') + '\nvar SAVE_AGAIN_MS = 0;', c);
-  const enc = { j: '{}', reg: 'meridian', name: 'Peakland', pop: 5, army: 1, cl: 0, updatedAt: 1000, mv: 6 };
-  return { A, sent, save: (rev = 0) => c.serverSave('player', {}, false, { ...enc }, rev, '{}', '{}', null, {}, true) };
+    isGuest: () => false, carryKey: () => '', setTimeout: f => f(), Promise, CompressionStream, Blob, Response, TextEncoder, btoa,
+    call: async (name, d) => { sent.push(structuredClone({ name, ...d })); const a = answers.shift(); if (a instanceof Error) throw a; return a; } });
+  vm.runInContext(['upDeflate', 'upHash', 'serverSave'].map(f => fns.get(f)).join('\n') + '\nvar SAVE_AGAIN_MS = 0;', c);
+  const enc = { j: '{"motto":"Peaks"}', reg: 'meridian', name: 'Peakland', pop: 5, army: 1, cl: 0, updatedAt: 1000, mv: 6 };
+  return { A, sent, save: (rev = 0, xj = '{}', oj = '{}') => c.serverSave('player', {}, false, { ...enc }, rev, xj, oj, null, {}, true) };
 }
 const err = (code, firebaseCode = code, message = '') => Object.assign(new Error(message || code), { code, firebaseCode });
 
@@ -115,4 +117,41 @@ test('a server from before the save in one trip, or one that sends the page back
   const P = serverPage([err('invalid_argument', 'invalid-argument', 'Invalid nation save.')]);
   await assert.rejects(P.save(0), e => e.firebaseCode === 'invalid-argument');
   assert.notEqual(P.A.saveV1, true, 'a save the server refuses is not sent back to the rules');
+});
+
+/* a lighter upload once the server takes one (up: 1): the text deflated, an unchanged private half by its fingerprint */
+const inflated = b64 => inflateRawSync(Buffer.from(b64, 'base64')).toString('utf8');
+const sha = t => createHash('sha256').update(t, 'utf8').digest('hex');
+
+test('the first save goes as it is; once the server says it takes less, the text goes deflated and unchanged halves by fingerprint', async () => {
+  const P = serverPage([{ rev: 1, up: 1 }, { rev: 2, up: 1 }, { rev: 3, up: 1 }]);
+  await P.save(0);
+  assert.equal(P.sent[0].record.j, '{"motto":"Peaks"}'); assert.equal(P.sent[0].x, '{}'); assert.equal(P.sent[0].o, '{}'); assert.equal(P.sent[0].record.jz, undefined);
+  assert.equal(P.A.saveUp, true); assert.equal(P.A.saveBody, 'full');
+  await P.save(1);
+  const s = P.sent[1];
+  assert.equal(s.record.j, undefined); assert.equal(inflated(s.record.jz), '{"motto":"Peaks"}');
+  assert.equal(s.xh, sha('{}')); assert.equal(s.oh, sha('{}')); assert.equal(s.x, undefined); assert.equal(s.xz, undefined);
+  assert.equal(P.A.saveBody, 'small');
+  await P.save(2, '{"inbox":[1]}');
+  assert.equal(inflated(P.sent[2].xz), '{"inbox":[1]}', 'a changed half goes as text, deflated'); assert.equal(P.sent[2].oh, sha('{}'));
+});
+
+test('a fingerprint the server cannot match: the texts at once, under the same name', async () => {
+  const P = serverPage([{ rev: 1, up: 1 }, err('save_full', 'failed-precondition'), { rev: 2, up: 1 }]);
+  await P.save(0);
+  assert.deepEqual(plain(await P.save(1)), { rev: 2, up: 1 });
+  assert.equal(P.sent.length, 3);
+  assert.ok(P.sent[1].xh && P.sent[1].oh);
+  assert.equal(inflated(P.sent[2].xz), '{}'); assert.equal(inflated(P.sent[2].oz), '{}'); assert.equal(P.sent[2].xh, undefined);
+  assert.equal(P.sent[2].sid, P.sent[1].sid);
+});
+
+test('a server that no longer takes the lighter upload: as it is, from then on', async () => {
+  const P = serverPage([{ rev: 1, up: 1 }, err('invalid_argument', 'invalid-argument', 'Invalid nation save.'), { rev: 2 }, { rev: 3 }]);
+  await P.save(0); await P.save(1);
+  assert.ok(P.sent[1].record.jz); assert.equal(P.sent[2].record.j, '{"motto":"Peaks"}'); assert.equal(P.sent[2].x, '{}');
+  assert.notEqual(P.A.saveUp, true);
+  await P.save(2);
+  assert.equal(P.sent[3].record.j, '{"motto":"Peaks"}');
 });

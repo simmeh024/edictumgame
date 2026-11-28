@@ -82,6 +82,38 @@ async function scenario(mode) {
   await A.ctx.close();
 }
 
+/* The lighter save (functions/civic.js, serverSave up: 1; src/shim.js, upDeflate/upHash): once a save's answer says
+   the server takes it, the page sends the text deflated and an unchanged private half by its fingerprint, in a real
+   browser (CompressionStream, crypto.subtle), and the server saves the same nation from it. */
+async function lighter() {
+  const A = await player('lighter save'), saves = [];
+  const half = (d, k) => typeof d[k] === 'string' ? 'text' : typeof d[k + 'z'] === 'string' ? 'deflated' : typeof d[k + 'h'] === 'string' ? 'fingerprint' : '';
+  await A.route(/\/civic$/, route => {
+    let d = {};
+    try { d = JSON.parse(route.request().postData() || '{}').data || {}; } catch (e) {}
+    if (d.op === 'save') saves.push({ bytes: (route.request().postData() || '').length, j: typeof d.record?.j === 'string', jz: typeof d.record?.jz === 'string', x: half(d, 'x'), o: half(d, 'o') });
+    return route.continue();
+  });
+  await open(A); await found(A, 'Lightfoot');
+  const synced = () => A.evaluate(() => window.__edictum.syncStatus === 'synced' && !!G.S.nation && !G.S.nation._dirty && G.S.nation._rev > 0);
+  check('a new nation saves and says Synced', await until(synced, 40000));
+  const first = saves.length;
+  for (const motto of ['Lightly', 'More lightly']) {
+    const rev = await A.evaluate(() => G.S.nation._rev);
+    await A.evaluate(m => { const n = G.clone(G.S.nation); n.motto = m; G.commit(n); }, motto);
+    await until(async () => (await synced()) && (await A.evaluate(r => G.S.nation._rev > r, rev)), 30000);
+  }
+  const later = saves.slice(first), plainFirst = saves[0];
+  check('its first save went as plain text', !!plainFirst && plainFirst.j && !plainFirst.jz && plainFirst.x === 'text', JSON.stringify(plainFirst));
+  check('later saves send the text deflated', later.length >= 2 && later.every(s => s.jz && !s.j), JSON.stringify(later));
+  check('and a private half unchanged since the last save by its fingerprint', later.some(s => s.x === 'fingerprint' || s.o === 'fingerprint'), JSON.stringify(later));
+  const st = await A.evaluate(async () => { const db = await window.claude.use('db'), s = await db.doc('nations/' + G.S.uid).get(), d = s.exists ? s.data() : null;
+    return { motto: d && d.motto, rev: d && d._rev, page: G.S.nation._rev, health: window.__edictum.saveHealth }; });
+  check('the server holds the nation the lighter saves sent', st.motto === 'More lightly' && st.rev === st.page && st.health.conflicts === 0 && !st.health.error, JSON.stringify(st));
+  await A.ctx.close();
+}
+
 await scenario('server');
 await scenario('client');
+await lighter();
 await finish();
