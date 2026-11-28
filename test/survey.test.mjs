@@ -1,5 +1,5 @@
 // The player survey (28 Nov 2026; functions/survey.js, functions/survey-data.js, game/edictum.html "the player survey").
-// Engaged players (an engagement score of 50 or more, a nation a week old, not staff) are drawn at random, a share each
+// Engaged players (an engagement score of 35 or more, a nation a week old, not staff) are drawn at random, a share each
 // day; each answers the core questions and a few drawn from the rest, any of which they may skip; "Ask me tomorrow" at
 // most twice, "No thanks" for good. The server ops run here against a small in-memory Firestore. Run with: npm run test:fx
 import { test } from 'node:test';
@@ -116,7 +116,7 @@ async function at(t, fn) { const real = Date.now; Date.now = () => t; try { retu
 const step = (db, s, t = NOW, extra = {}, w = who()) => at(t, () => surveyStep(db, w, { step: s, ...extra }, t));
 const rec = (db, uid = 'p1') => (db.docs.get('svy/' + uid) || { s: {} }).s[SV_ID];
 
-test('who is asked: an open survey, a nation a week old with a score of 50 or more, not banned, not staff, drawn that day', async () => {
+test('who is asked: an open survey, a nation a week old with a score of 35 or more, not banned, not staff, drawn that day', async () => {
   assert.deepEqual(J(await step(world({ on: false }), 'check')), { ok: true, due: false, next: NOW + DAY });
   assert.equal((await step(world({ on: null }), 'check')).due, false, 'a survey nobody opened is off');
   assert.equal((await step(world(), 'check', NOW, {}, who('p1', { admin: true }))).staff, true);
