@@ -65,7 +65,7 @@ await A.evaluate(() => { const W = G.WND.art, n = G.S.nation, box = (t, h) => `<
     + box('Gold leaf', `<div style="position:relative;overflow:hidden;width:220px;height:70px;border:1px solid #ccc;color:#b8861c">${W.pat('p-leaf')}</div>`)
     + box('Little statue', `<div style="width:120px;color:#24302b">${W.pin('pn-statue', n)}</div>`)
     + box('Drapery', '<span class="cz-mf mf-drape" style="font:italic 15px serif">Ever upward</span>')
-    + box('Verdigris', '<span class="cz-asw" data-a="verdigris" style="display:inline-block;width:40px;height:40px;border-radius:50%"></span>')
+    + box('Bronze Green', '<span class="cz-asw" data-a="bronzegreen" style="display:inline-block;width:40px;height:40px;border-radius:50%"></span>')
     + box('the Monumental', `<b style="font:600 15px serif">${n.name} the Monumental</b>`);
   document.body.appendChild(d); });
 await A.locator('#wnd-art').screenshot({ path: OUT + '/wonder-keepsakes.png' });

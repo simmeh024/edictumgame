@@ -1909,3 +1909,18 @@ test('Technology licences: to a research partner only, once per technology, a we
   await rejects(civic(a.p, { op: 'trLic', to: b.p.uid, i: 0 }), 'lic_week');
   assert.equal((await civic(b.p, { op: 'trLicAns', lid: b.p.uid + '_3', yes: false })).st, 'declined');
 });
+
+test('The region notes its Delegates one after another (dh), the first as already under way, and every view carries the list',async()=>{
+  const a=await player(true,true,'saffron'),b=await player(true,true,'saffron');
+  const s=await civic(b,{op:'endorse',target:a.uid,on:true}),root=await db.doc('assemblyRegions/saffron').get(),dh=root.get('dh')||[];
+  assert.equal((dh.at(-1)||{u:''}).u,s.D?.id||'','the chair as the action left it');
+  if(dh.length)assert.equal(dh[0].f,1,'the first entry: a chair whose start the list does not know');
+  assert.deepEqual(s.dh,dh,'the action’s answer carries the list');
+  const view=await civic(a,{op:'state'});assert.deepEqual(view.dh,dh,'and so does a view');
+  assert.ok((await db.doc('assemblyRegions/saffron').get()).updateTime.isEqual(root.updateTime),'a view of an unchanged chair writes nothing');
+  // the chair changes: noted once, with the time
+  const before=dh.length,was=s.D?.id||'';await civic(b,{op:'endorse',target:a.uid,on:false});
+  const after=(await db.doc('assemblyRegions/saffron').get()).get('dh')||[],now=(await civic(a,{op:'state'})).D?.id||'';
+  if(now!==was){assert.equal(after.length,before+1);assert.equal(after.at(-1).u,now);assert.ok(!after.at(-1).f);}
+  else assert.equal(after.length,before);
+});

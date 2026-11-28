@@ -146,3 +146,38 @@ test('closed regions, bans and malformed saves are refused', async () => {
   await rejects(civic(b, saveOf(b, {})), 'banned');
   assert.equal((await get('nations/' + b.uid)).exists, false);
 });
+
+test('a name is one nation’s in its region: a save that founds, renames or moves onto a taken one is refused (name_taken)', async () => {
+  const a = await guest(), b = await guest(), c = await guest(), name = 'Unique ' + a.uid.slice(0, 8);
+  assert.equal((await civic(a, saveOf(a, { name }))).rev, 1);
+  // folded as the game folds it: case, accents and spacing do not matter
+  await rejects(civic(b, saveOf(b, { name: '  ' + name.toUpperCase().replace(' ', '   ').replace('U', 'Ü') })), 'name_taken');
+  await rejects(civic(b, saveOf(b, { name: 'vellmark' })), 'name_taken');   // one of the region's computer nations
+  assert.equal((await get('nations/' + b.uid)).exists, false, 'nothing written');
+  assert.equal((await civic(b, saveOf(b, { name: 'Other ' + b.uid.slice(0, 8) }))).rev, 1);
+  await rejects(civic(b, saveOf(b, { name }, { rev: 1 })), 'name_taken');   // a rename onto it
+  // another region may have it, but cannot bring it here
+  assert.equal((await civic(c, saveOf(c, { name, reg: 'frostmarch' }))).rev, 1);
+  await rejects(civic(c, saveOf(c, { name, reg: 'meridian' }, { rev: 1 })), 'name_taken');
+  // its own nation keeps saving under it, and two nations that already share a name go on as they are
+  await sleep(1100);
+  assert.equal((await civic(a, saveOf(a, { name, motto: 'Still ours' }, { rev: 1 }))).rev, 2);
+  const d = await guest(), twin = 'Twin ' + d.uid.slice(0, 8);
+  await db.doc('summaries/twin-' + d.uid).set({ reg: 'meridian', name: twin, pop: 5, t: Date.now() });
+  await rejects(civic(d, saveOf(d, { name: twin })), 'name_taken', 'a summary is enough to hold a name');
+  await db.doc('summaries/twin-' + d.uid).delete();
+  assert.equal((await civic(d, saveOf(d, { name: twin }))).rev, 1);
+  await db.doc('summaries/twin-' + d.uid).set({ reg: 'meridian', name: twin, pop: 5, t: Date.now() });
+  await sleep(1100);
+  assert.equal((await civic(d, saveOf(d, { name: twin, motto: 'Unchanged name' }, { rev: 1 }))).rev, 2, 'a save that keeps the name is not asked');
+  await db.doc('summaries/twin-' + d.uid).delete();
+});
+
+test('two nations founded under one name at once: the server holds it for the first (names/), the second is refused', async () => {
+  const x = await guest(), y = await guest(), name = 'Race ' + x.uid.slice(0, 8);
+  const r = await Promise.allSettled([civic(x, saveOf(x, { name })), civic(y, saveOf(y, { name }))]);
+  assert.equal(r.filter(q => q.status === 'fulfilled').length, 1, JSON.stringify(r.map(q => q.status === 'fulfilled' ? 'ok' : q.reason.code)));
+  assert.equal(r.find(q => q.status === 'rejected').reason.code, 'name_taken');
+  const held = (await db.collection('names').where('u', 'in', [x.uid, y.uid]).get()).docs;
+  assert.equal(held.length, 1); assert.equal(held[0].get('reg'), 'meridian');
+});
