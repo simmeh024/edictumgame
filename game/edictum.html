@@ -11614,7 +11614,7 @@ span.rs-card{cursor:default}
   .mpr .map-wrap.map-main:not(.is-full){height:var(--mpr-h,64vh)}
   .mpr .ml-legend{margin:10px 54px 0 0;width:min(360px,calc(100% - 64px))}
   .mpr-modes{top:auto;bottom:10px;left:8px;right:56px;max-width:none;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
-  .mpr-m{flex:none;min-height:40px}.mpr-m kbd{display:none}
+  .mpr-m{flex:none;min-height:40px;padding:0 8px}.mpr-m kbd{display:none}
   .mpr-mini{display:none}
   .mpr-chips{top:58px;left:8px;right:54px;max-width:none}
   .mpr-over .lc-coach{padding:8px 10px}
@@ -11664,7 +11664,8 @@ html.mpf-menu .layout.mpf::before{content:'';position:fixed;inset:0;z-index:61;b
 .mpr-m.war.on .mpr-n.war{background:#fff;color:var(--down)}
 .mpr-war-a .eyebrow{color:var(--down)}
 .mpr-i{display:none;flex:none}
-.mpr-more{display:none;position:relative;flex:none}
+.mpr-more{position:relative;flex:none}
+.mpr-modes.has-more{overflow:visible}
 .mpr-more>summary{list-style:none}
 .mpr-more>summary::-webkit-details-marker{display:none}
 .mpr-more-p{position:absolute;top:calc(100% + 8px);left:0;z-index:8;display:flex;flex-direction:column;gap:2px;min-width:170px;padding:4px;background:var(--sheet);border:1px solid var(--rule);border-radius:10px;box-shadow:var(--shadow)}
@@ -11679,13 +11680,8 @@ html.mpf-menu .layout.mpf::before{content:'';position:fixed;inset:0;z-index:61;b
 @media (min-width:1101px){@container (max-width:700px){
   .mpr-m .mpr-i{display:block}.mpr-m .mpr-l,.mpr-m kbd{display:none}.mpr-modes>.mpr-m{padding:0 9px}
 }}
-/* short of room (a phone, or a very narrow map): Transport and Landings under More */
-@container (max-width:520px){
-  .mpr-modes>.mpr-m[data-v="transport"],.mpr-modes>.mpr-m[data-v="land"]{display:none}
-  .mpr-more{display:block}.mpr-modes{overflow:visible}
-}
 .mpr-more-p .mpr-m .mpr-l{display:inline}
-@media (max-width:1100px){.mpr-more-p{top:auto;bottom:calc(100% + 8px)}.mpr-fold-b{display:none}.mpr-sidetop{margin:0 0 8px}}
+@media (max-width:1100px){.mpr-more-p{top:auto;bottom:calc(100% + 8px);left:auto;right:0}.mpr-fold-b{display:none}.mpr-sidetop{margin:0 0 8px}}
 </style>
 
 <div id="app"></div>
@@ -112870,6 +112866,17 @@ function mprWarPill(W){
   if(!W.on)return '';const sw=mprSiegeWords(W),hot=W.sg.some(x=>x.at<=W.now);
   return `<button type="button" class="mpr-war${hot?' hot':''}" data-act="mpr-view" data-v="war" title="Open the War view (key 6)">${mprIcon('war','mpr-war-i')}<span>At war with ${esc(mprWarWords(W))}${sw?`<span class="mpr-war-s"> · ${esc(sw)}</span>`:''}</span></button>`;
 }
+const MPR_FOLD=['land','transport','plan','claim'];
+/* the tool bar fitted to its room (28 Nov 2026): one tool more under More while the bar's tools run past its end (a
+   phone with a war on had More hanging out of the bar), measured after each drawing, afresh at a new width and once the
+   fonts are in. The bar is drawn again from mprModeBar, so the next page drawn comes out the same */
+function mprFitBar(){
+  if(!mprOn()||MPR.moreOpen)return;let bar=document.querySelector('.mpr-modes');if(!bar||!bar.clientWidth)return;
+  const redo=()=>{bar.outerHTML=mprModeBar();bar=document.querySelector('.mpr-modes');};
+  if(MPR.fitW!==window.innerWidth){MPR.fitW=window.innerWidth;if(MPR.fold){MPR.fold=0;redo();}}
+  for(let i=0;i<MPR_FOLD.length&&bar&&bar.scrollWidth>bar.clientWidth+1;i++){MPR.fold=(MPR.fold||0)+1;redo();}
+}
+try{document.fonts&&document.fonts.ready.then(()=>{MPR.fitW=0;mprFitBar();});}catch(e){}
 function mprModeBar(){
   const n=S.nation,tools=pgAvailable(n,'map'),cur=mprMode(),cr=landCredits(n),W=mprWar();
   let land=false;try{land=lndHarbours(n).length>0||lndCols(n).length>0||lndList(n).length>0;}catch(e){}
@@ -112881,11 +112888,13 @@ function mprModeBar(){
     return `<button type="button" class="mpr-m${v==='war'?' war':''}${on?' on':''}" data-act="${act}" data-v="${v}" aria-pressed="${on}" aria-keyshortcuts="${k}" aria-label="${esc(name)}" title="${esc(name)} (key ${k})">${mprIcon(v)}<span class="mpr-l">${l}</span>${badge||`<kbd>${k}</kbd>`}</button>`;};
   /* while at war, War comes straight after Explore, in red, with the number of wars */
   const order=W.on?[MPR_MODES[0],MPR_MODES[5],...MPR_MODES.slice(1,5)]:MPR_MODES,shown=order.filter(shows);
-  /* Transport and Landings, under More when the bar is short of room (the styles show one or the other) */
-  const more=shown.filter(m=>m[0]==='transport'||m[0]==='land'),mo=more.find(m=>m[0]===cur);
+  /* the tools the bar has no room for go under More (mprFitBar counts them, MPR.fold): Landings first, then Transport,
+     Plan and Claim; Explore and War always stay on the bar */
+  const under=new Set(MPR_FOLD.filter(v=>shown.some(m=>m[0]===v)).slice(0,MPR.fold||0));
+  const more=shown.filter(m=>under.has(m[0])),mo=more.find(m=>m[0]===cur);
   const moreBox=more.length?`<details class="mpr-more" id="mpr-more"${MPR.moreOpen?' open':''}><summary class="mpr-m${mo?' on':''}" aria-label="More tools">${mo?mprIcon(mo[0])+`<span class="mpr-l">${mo[1]}</span>`:'<span>More</span>'}${MPR_CHEV}</summary><div class="mpr-more-p" role="group" aria-label="More tools">${more.map(btn).join('')}</div></details>`:'';
   /* the old toolbar's name only while the map's tools are open to the nation (a new nation has none yet) */
-  return `<div class="${tools?'mp-map-toolbar ':''}mpr-modes" role="toolbar" aria-label="Map tools">${shown.map(btn).join('')}${moreBox}</div>`;
+  return `<div class="${tools?'mp-map-toolbar ':''}mpr-modes${more.length?' has-more':''}" role="toolbar" aria-label="Map tools">${shown.filter(m=>!under.has(m[0])).map(btn).join('')}${moreBox}</div>`;
 }
 /* the tool's hint, at the top of the panel (27 Nov 2026): open the first time a tool is used on this device, folded to an
    (i) after that, and folded again once another tool is chosen */
@@ -112941,7 +112950,7 @@ function mprAfter(){
   /* on the root, not on the layout: a style on the layout made each render find it changed and draw the whole map
      afresh, canvas and all; the maps redraw when it changed */
   const R=document.documentElement,was=R.style.getPropertyValue('--mpr-h');if(was!==h+'px'){R.style.setProperty('--mpr-h',h+'px');MPR.sized=h;redrawMaps();}
-  mprMiniDraw();
+  mprMiniDraw();mprFitBar();
 }
 window.addEventListener('resize',()=>{MPR.sized=0;clearTimeout(MPR.rt);MPR.rt=setTimeout(mprAfter,120);});
 /* the tools on the map cover its top edge (on a phone, its foot): the view may run that far past the edge of the world,
