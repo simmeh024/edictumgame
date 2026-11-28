@@ -63,7 +63,7 @@ import { trId, trLive, trVoid, trReadyMs, TR_FX, TR_RECORD } from './treaty-rule
 import { alRelLive } from './alliance-rules.js';
 import { rcPactUntil } from './recruit-rules.js';
 import { warWord } from './letters.js';
-import { warOf, shielded, num, SIEGE_MS, SIEGE_MAX, milReady, milMs, memorial, successor, builtKeys, spyGifts } from './war-rules.js';
+import { warOf, shielded, num, SIEGE_MS, SIEGE_MAX, milReady, milMs, memorial, successor, builtKeys, spyGifts, conqCapOf, raidOf, CONQ_SLACK } from './war-rules.js';
 import { wacForget } from './council.js';
 
 initializeApp();
@@ -116,7 +116,7 @@ const isId = v => typeof v === 'string' && /^[\w-]{1,128}$/.test(v);
    and veterans in the reserve as the record has them (milReady, functions/war-rules.js) */
 function readiness(state, pol, now, drills, mil) {
   const m = mil || { cut: 0, extra: 0 };
-  const max = READY_BASE + (pol.reservists ? 2 : 0) + m.extra + SLACK, ms = milMs(milMs(trReadyMs((pol.rapidMobilisation ? 10 : 15) * 60000, drills || 0), m.rcut || 0), m.cut);
+  const max = READY_BASE + (pol.reservists ? 2 : 0) + m.extra + SLACK, ms = milMs(milMs(milMs(trReadyMs((pol.rapidMobilisation ? 10 : 15) * 60000, drills || 0), m.rcut || 0), m.cut), m.bcut || 0);
   if (!Number.isInteger(state.r) || typeof state.at !== 'number') return { r: max, max, ms, g: 0, at: now };
   const g = Math.max(0, Math.floor((now - state.at) / ms));
   return { r: Math.min(max, state.r + g), max, ms, g, at: state.at };
@@ -185,6 +185,10 @@ async function battle(uid, data) {
     const gf = spyGifts(record(px).intel, prev.gt, now);
     if (gf.k) rd.r = Math.min(rd.max, rd.r + gf.k);
     if (rd.r < 1) return { ok: false, why: 'ready', next: rd.at + (rd.g + 1) * rd.ms - now, gt: num(prev.gt) };
+    /* the General Staff (functions/war-rules.js conqCapOf): no more conquests in any 24 hours than the attacker's record
+       allows, counted from this log (q) with CONQ_SLACK to spare, never stricter than the game */
+    const lim = conqCapOf(mine, now), day = await tx.get(armyRef.collection('log').where('t', '>=', now - 86400000));
+    if (day.docs.filter(s => s.get('q') === 1).length >= lim + CONQ_SLACK) return { ok: false, why: 'cap', cap: lim };
     /* the odds: the attacker's own, within the game's bounds, and no better than its army, with its allies'
        help, could make them against the defender's, both as their last saves declared */
     /* an alliance is the server's (allyOf/, functions/alliances.js); one not yet moved there, its founder's record's */
@@ -241,7 +245,9 @@ async function battle(uid, data) {
       tx.set(sg.ref, doc);
     }
     tx.set(armyRef, { r: rd.r - 1, at: rd.r >= rd.max ? now : rd.at + rd.g * rd.ms, n: (prev.n || 0) + 1, w: (prev.w || 0) + (win ? 1 : 0), last: now, ...(gf.gt ? { gt: gf.gt } : {}) });
-    tx.set(logRef, { d, c, p: data.p, pe, cap, roll, win, t: now, ...(w ? { ally: w } : {}) });
+    /* q: a battle won that took land (not a raid), for the day's count above */
+    const took = win && (npc || !raidOf(mine, uid, recs[d], d, now));
+    tx.set(logRef, { d, c, p: data.p, pe, cap, roll, win, t: now, ...(w ? { ally: w } : {}), ...(took ? { q: 1 } : {}) });
     return out;
   });
 }

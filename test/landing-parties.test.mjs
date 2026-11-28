@@ -144,12 +144,14 @@ test('the colonial edicts: nine, never drawn at random, the last added; each com
   for(const is of L){assert.ok(is.fo===1&&is.nbx===false&&is.lnd,is.id);assert.equal(is.o.length,3,is.id);for(const o of is.o)assert.ok(o.t&&o.h&&o.e&&o.fx,is.id);
     assert.ok(!/\{(COLONY|COAST|LFOE)\}/.test(is.t),is.id+': no placeholder in the title');}
   const pushes=[...code.matchAll(/ISSUES\.push\(/g)].map(m=>m.index);
-  /* the last edicts added but one: the World Assembly Council's (council.test.mjs) came after them */
-  assert.equal(pushes[pushes.length-2],code.indexOf('for(const is of LND_ISSUES){is.fo=1;ISSUES.push(is)')+'for(const is of LND_ISSUES){is.fo=1;'.length,'added after every older edict');
-  assert.equal(pushes[pushes.length-1],code.indexOf('for(const is of WAC_ISSUES){is.fo=1;ISSUES.push(is)')+'for(const is of WAC_ISSUES){is.fo=1;'.length,'then only the Council’s');
+  /* the last edicts added but two: the World Assembly Council's (council.test.mjs) and the General Staff's
+     (general-staff.test.mjs) came after them */
+  assert.equal(pushes[pushes.length-3],code.indexOf('for(const is of LND_ISSUES){is.fo=1;ISSUES.push(is)')+'for(const is of LND_ISSUES){is.fo=1;'.length,'added after every older edict');
+  assert.equal(pushes[pushes.length-2],code.indexOf('for(const is of WAC_ISSUES){is.fo=1;ISSUES.push(is)')+'for(const is of WAC_ISSUES){is.fo=1;'.length,'then the Council’s');
+  assert.equal(pushes[pushes.length-1],code.indexOf('for(const is of GS_ISSUES){is.fo=1;ISSUES.push(is)')+'for(const is of GS_ISSUES){is.fo=1;'.length,'then only the General Staff’s');
   assert.match(readFileSync(new URL('../scripts/split-content.mjs',import.meta.url),'utf8'),/'LND_ISSUES'/);
   const pinned=readFileSync(new URL('./edict-order.txt',import.meta.url),'utf8').trim().split(/\r?\n/);
-  assert.deepEqual(pinned.slice(-21,-12),J(L.map(x=>x.id)),'pinned in edict-order.txt, before the Council’s twelve');
+  assert.deepEqual(pinned.slice(-23,-14),J(L.map(x=>x.id)),'pinned in edict-order.txt, before the Council’s twelve and the General Staff’s two');
   /* when they come */
   const t0=NOW-10*DAY,n={founded:NOW-30*DAY,inbox:[],cln:[{id:'l1',c:5,t:t0,ty:'t',h:1,d:20,nm:'Port'}],seen:[]};
   const due=()=>X.lndDue(n,NOW);
