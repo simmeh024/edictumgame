@@ -95803,6 +95803,13 @@ dmSignN=(f=>function(n,lg){
 dmStampN=(f=>function(n,lm,t){
   if(lm!=='lm-em-pouch')return f.apply(this,arguments);
   return f.call(this,n,'lm-avion',t).replace('dm-pm lm-avion','dm-pm lm-em-pouch').replace('PAR AVION<small>BY AIR MAIL</small>','DIPLOMATIC POUCH<small>VALISE DIPLOMATIQUE</small>');})(dmStampN);
+/* Customise's card picker lists the Shop's cards: Embassy Row joins them, as the Christmas card does */
+shopFineryHTML=(f=>function(n){
+  let h=f.apply(this,arguments);
+  try{const at=h.indexOf('<div class="cz-grid cz-g-cd">');if(at<0)return h;const end=czElEnd(h,at);if(end<0)return h;
+    let art='';try{art=shopArt('cd-em-row',n);}catch(e){art='';}
+    h=h.slice(0,end-6)+czTile('cd','cd-em-row',cz(n).cd,czMine().has('cd-em-row'),false,art,UNLOCKS['cd-em-row'].n)+h.slice(end-6);}catch(e){}
+  return h;})(shopFineryHTML);
 czStampArt=(f=>function(s){return s==='s-em-noted'?'<span class="cz-enx cz-enx-emn">Noted · F.O.</span>':f.apply(this,arguments);})(czStampArt);
 /* honours */
 achDef('dip','dip-emb1','b','A Flag Abroad','Open an outpost in another nation.',1,x=>emHi(x.n)>=1?1:0);
