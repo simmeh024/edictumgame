@@ -157,7 +157,9 @@ check('without loyalty or skill', !/Devoted|Steady|Restless|Plotting|Skill/.test
 // a phone: the tabs scroll sideways, the page does not
 await A.setViewportSize({ width: 390, height: 844 }); await nav(A, 'government'); await A.click('#gv-tab-overview').catch(() => {});
 check('on a phone the page never scrolls sideways', await A.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
-check('and the tabs keep to one row', await A.$eval('.gv-tabs', e => getComputedStyle(e).flexWrap) === 'nowrap');
+/* read in one step, and again if the page was redrawn: $eval finds the strip and reads it in two, and a strip replaced
+   in between reads as no style at all */
+check('and the tabs keep to one row', await until(() => A.evaluate(() => { const e = document.querySelector('#gv-tab-overview')?.closest('.gv-tabs'); return !!e && getComputedStyle(e).flexWrap === 'nowrap'; }), 5000));
 // arrow keys move between tabs
 await A.focus('#gv-tab-overview'); await A.keyboard.press('ArrowRight');
 check('arrow keys move along the tabs', await tab(A) === 'cabinet' && await A.evaluate(() => document.activeElement.id) === 'gv-tab-cabinet');
