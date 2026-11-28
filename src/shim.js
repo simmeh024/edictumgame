@@ -345,6 +345,22 @@
      of calling it another device's. null: a server from before this, or one that sends the page back to its own
      transaction (save_v1); this page then saves that way until it reloads. */
   var SAVE_AGAIN_MS = 1500;
+  /* A lighter save, once the server has said it takes one (up: 1 in a save's answer; functions/civic.js): the text
+     deflated (raw deflate, base64: jz, xz, oz), and for a private half unchanged since this page's last save landed,
+     only the fingerprint of its text (SHA-256: xh, oh), the server keeping what it has. A large nation's save was 450 KB
+     of plain text, which took 0.6 s to upload from Mexico before the server could start (28 Nov 2026). Either helper
+     answers '' where the browser cannot (no CompressionStream or crypto.subtle): the text then goes as it is. */
+  async function upDeflate(s) {
+    if (typeof CompressionStream !== 'function' || typeof Blob !== 'function' || typeof Response !== 'function') return '';
+    try {
+      var u = new Uint8Array(await new Response(new Blob([s]).stream().pipeThrough(new CompressionStream('deflate-raw'))).arrayBuffer()), out = '';
+      for (var i = 0; i < u.length; i += 0x8000) out += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000));
+      return btoa(out);
+    } catch (e) { return ''; }
+  }
+  async function upHash(s) {
+    try { var h = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s))); return Array.from(h).map(function (v) { return v.toString(16).padStart(2, '0'); }).join(''); } catch (e) { return ''; }
+  }
   async function serverSave(uid, data, noSpace, enc, expected, xj, oj, sj, carryArgs, zip) {
     if (!A.sid || A.sid.u !== uid || A.sid.r !== expected) {
       var b = new Uint8Array(12); crypto.getRandomValues(b);
@@ -357,15 +373,42 @@
     if (enc.mv) record.mv = enc.mv;
     if (enc.storageV === 1) record.storageV = 1;
     if (enc.iq === 1) record.iq = 1;
-    var req = Object.assign({ op: 'save', sid: A.sid.s, record: record, rev: expected, x: xj, o: oj, s: sj || '', ns: noSpace ? 1 : 0, sum: sum,
+    var base = Object.assign({ op: 'save', sid: A.sid.s, rev: expected, s: sj || '', ns: noSpace ? 1 : 0, sum: sum,
       rk: raceKeys(data, A.raceAt[uid] != null ? A.raceAt[uid] : BOOT_AT) }, carryArgs, isGuest(uid) ? { ck: carryKey(uid) } : {}, zip ? { zip: 1 } : {}, { cap: 1 });
+    /* the fingerprints of both private halves, kept once this save lands: the next save may send those alone */
+    var hx = await upHash(xj), ho = await upHash(oj);
+    /* full: every text, none by fingerprint (the server could not match one) */
+    async function build(full) {
+      var rec = Object.assign({}, record), parts = { x: xj, o: oj };
+      A.saveBody = 'full';
+      if (A.saveUp) {
+        var jz = await upDeflate(enc.j), kept = !full && isObj(A.upKept) && A.upKept.u === uid ? A.upKept : null;
+        if (jz) { delete rec.j; rec.jz = jz; A.saveBody = 'small'; }
+        parts = {};
+        for (var [k, t, h] of [['x', xj, hx], ['o', oj, ho]]) {
+          if (kept && h && kept[k] === h) { parts[k + 'h'] = h; continue; }
+          var z = await upDeflate(t);
+          if (z) parts[k + 'z'] = z; else parts[k] = t;
+        }
+      }
+      return Object.assign({}, base, { record: rec }, parts);
+    }
+    var light = !!A.saveUp, again = false, req = await build(false);
     for (var i = 0; ; i++) {
       try {
         var r = await call('civic', req);
         A.sid = null; A.savePath = 'server';
+        if (isObj(r) && r.up === 1) A.saveUp = true;
+        A.upKept = hx && ho ? { u: uid, x: hx, o: ho } : null;
         return r;
       } catch (e) {
         if (e && (e.code === 'save_v1' || e.firebaseCode === 'invalid-argument' && e.message === 'Unknown request.')) { A.saveV1 = true; A.sid = null; return null; }
+        /* a fingerprint the server could not match (another device saved that half since, or none is stored): the texts,
+           once, at once (nothing was written) */
+        if (e && e.code === 'save_full' && !again) { again = true; A.upKept = null; req = await build(true); i--; continue; }
+        /* the lighter upload refused (a server from before it put back): as it is, until a server's answer says it
+           takes the lighter one again */
+        if (light && e && e.firebaseCode === 'invalid-argument') { light = false; A.saveUp = false; A.upKept = null; req = await build(true); i--; continue; }
         /* no answer: the save may have landed, so it is asked once more, under the same name. Not while the page is
            switching accounts (frozen: doSwitch puts the guest back itself, twice, and the game's own saves hang until it
            is done, so a longer wait there left the next one hanging) */
@@ -399,7 +442,7 @@
         return { rev: done.rev };
       }
     }
-    A.savePath = 'client';
+    A.savePath = 'client'; A.saveBody = 'full';
     var approved = await call('civic', Object.assign({ op: 'authorizeSave', record: { j: enc.j, reg: enc.reg, name: enc.name, pop: enc.pop, army: enc.army, cl: enc.cl, updatedAt: enc.updatedAt }, rev: expected },
       from ? { from: from, fk: str(carry.k, 64) } : {}, isGuest(uid) ? { ck: carryKey(uid) } : {}, zip ? { zip: 1 } : {}, { cap: 1 }));
     /* The rules (grows) let the headline population rise only as fast as the game can since the last save, by the
@@ -529,7 +572,7 @@
         if (nation) {
           if (!A.auth.currentUser || A.auth.currentUser.uid !== p[1]) return Promise.reject(mapError({ code: 'permission-denied' }));
           try { encode(col, data); } catch (e) { return Promise.reject(e && e.firebaseCode ? e : mapError(e)); }
-          var t0 = performance.now(), took = function (how) { perfTrace('nation_save', t0, performance.now() - t0, {}, { result: how, path: A.savePath || 'client' }); };
+          var t0 = performance.now(), took = function (how) { perfTrace('nation_save', t0, performance.now() - t0, {}, { result: how, path: A.savePath || 'client', upload: A.saveBody || 'full' }); };
           return retried(function (noSpace) { return saveNation(p[1], data, noSpace); }).then(function (r) { took('saved'); return r; }, function (e) {
             /* a newer map's save is on the server: this save never ends, and the page reloads for the new build */
             if (e && e.code === 'newer_map') { took('newer_map'); newerMap(); return hang(); }
