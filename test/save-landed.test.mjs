@@ -19,7 +19,8 @@ const fns = new Map();
    attempts land but lose their answer, so that the function runs again (as the SDK retries a commit that failed) */
 function adapter(docs, lose = 0) {
   let permits = 0;
-  const attempts = [], A = { admin: false, raceAt: {} };
+  /* saveV1: the game's own transaction, which these tests are about (the server's save in one trip is tested below) */
+  const attempts = [], A = { admin: false, raceAt: {}, saveV1: true };
   A.fs = { doc: path => ({ path }), runTransaction: async f => {
     for (;;) {
       const writes = [];
@@ -66,4 +67,52 @@ test('another device\'s save is still a conflict, at the same revision too', asy
 test('the check comes before anything else the save reads: a save that landed is not then refused for maintenance', () => {
   const body = fns.get('saveNation'), at = body.indexOf('saved.permit === enc.permit'), region = body.indexOf("b.get(A.fs.doc('regionStatus/'");
   assert.ok(at > 0 && region > at);
+});
+
+/* The server's save in one trip (serverSave): a save's name stays until it is known to have landed, a lost answer is
+   asked again at once under it, and a server from before this sends the page back to its own transaction. */
+function serverPage(answers) {
+  const A = { raceAt: {} }, sent = [];
+  const c = vm.createContext({ A, crypto, BOOT_AT: 1, isObj: v => !!v && typeof v === 'object' && !Array.isArray(v), activeUntil: (d, t) => t, raceKeys: () => [],
+    isGuest: () => false, carryKey: () => '', setTimeout: f => f(), Promise,
+    call: async (name, d) => { sent.push({ name, ...d }); const a = answers.shift(); if (a instanceof Error) throw a; return a; } });
+  vm.runInContext(fns.get('serverSave') + '\nvar SAVE_AGAIN_MS = 0;', c);
+  const enc = { j: '{}', reg: 'meridian', name: 'Peakland', pop: 5, army: 1, cl: 0, updatedAt: 1000, mv: 6 };
+  return { A, sent, save: (rev = 0) => c.serverSave('player', {}, false, { ...enc }, rev, '{}', '{}', null, {}, true) };
+}
+const err = (code, firebaseCode = code, message = '') => Object.assign(new Error(message || code), { code, firebaseCode });
+
+test('a lost answer is asked again at once, under the same name; the name changes once a save has landed', async () => {
+  const P = serverPage([err('unavailable'), { rev: 2 }, { rev: 3 }]);
+  assert.deepEqual(plain(await P.save(0)), { rev: 2 });
+  assert.equal(P.sent.length, 2); assert.equal(P.sent[0].op, 'save'); assert.equal(P.sent[1].sid, P.sent[0].sid);
+  assert.equal(P.A.savePath, 'server');
+  await P.save(2);
+  assert.notEqual(P.sent[2].sid, P.sent[0].sid);
+  assert.equal(P.sent[0].record.mv, 6); assert.equal(P.sent[0].zip, 1); assert.equal(P.sent[0].cap, 1);
+});
+
+test('a save refused or failing keeps its name for the next try from the same revision', async () => {
+  const P = serverPage([err('internal'), err('unavailable'), err('unavailable'), { rev: 1 }]);
+  await assert.rejects(P.save(0), e => e.code === 'internal');
+  await assert.rejects(P.save(0), e => e.code === 'unavailable');
+  assert.equal(P.sent.length, 3, 'asked again once only');
+  await P.save(0);
+  assert.ok(P.sent.every(s => s.sid === P.sent[0].sid));
+});
+
+test('one save a second: refused as the rules refused it, so retried tries once more', async () => {
+  const P = serverPage([err('not_granted', 'permission-denied')]);
+  await assert.rejects(P.save(0), e => e.code === 'permission-denied');
+});
+
+test('a server from before the save in one trip, or one that sends the page back, leaves it to its own transaction', async () => {
+  for (const e of [err('invalid_argument', 'invalid-argument', 'Unknown request.'), err('save_v1')]) {
+    const P = serverPage([e]);
+    assert.equal(await P.save(0), null);
+    assert.equal(P.A.saveV1, true);
+  }
+  const P = serverPage([err('invalid_argument', 'invalid-argument', 'Invalid nation save.')]);
+  await assert.rejects(P.save(0), e => e.firebaseCode === 'invalid-argument');
+  assert.notEqual(P.A.saveV1, true, 'a save the server refuses is not sent back to the rules');
 });

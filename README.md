@@ -731,10 +731,19 @@ ordinary gameplay, NPC battles, defence, reading debates, reports and support.
 
 Assembly actions use the `civic` callable and protected `assemblyRegions/` records for actors, proposals,
 per-cycle votes, locked resolutions, results and leadership. Legacy national history stays in the private
-save; legacy JSON votes and proposals never become authoritative automatically. Nation saves first get a
-two-minute server permit for their exact public JSON and revision, then use the existing atomic save.
-The server injects the canonical Assembly projection and checks sensitive multiplayer changes. This
-also means browsers left open on an older release must reload before they can save again.
+save; legacy JSON votes and proposals never become authoritative automatically. A nation save goes to the
+`civic` callable (`op: 'save'`, `serverSave`), which checks it as a permit does and writes it itself, in one
+transaction beside the database: the shared half (deflated), the private and own halves, the summary, the race
+stamps and the space record, with every check `firestore.rules` makes of a save the game writes (headline
+numbers and growth, one save a second, the next revision, a newer map's record, the space record's pace). One
+trip instead of eight: the game's own transaction read five documents one after another after its permit, which
+took players far from Europe five seconds and more a save (Firebase Performance, 28 Nov 2026). A save's name
+(`sid`) stays the same until it is known to have landed, so one whose answer was lost is asked again and followed,
+not taken for another device's. Builds from before still get a two-minute permit for their exact public JSON and
+revision (`authorizeSave`) and write the save themselves under the rules, and so does a page the server sends back
+(`EDICTUM_SERVER_SAVE=off` in the functions' environment answers `save_v1`), or one whose server does not know the
+save yet. The server injects the canonical Assembly projection and checks sensitive multiplayer changes either way.
+Firebase Performance's `nation_save` trace says which way each save went (`path`: `server` or `client`).
 
 The generated Assembly engine reuses the game's election, proposal selection and NPC voting algorithms.
 Regenerate its trusted catalog and source with `node tools/build-civic.mjs` after editing those algorithms.

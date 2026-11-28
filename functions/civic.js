@@ -90,7 +90,8 @@ function raceKeys(n, before) {
   return [...out].slice(0, 200);
 }
 
-async function permit(db, who, d) {
+/* a save's record as the game sends it (authorizeSave and save), checked before any transaction */
+async function saveInput(db, who, d) {
   const p = d.record;
   if (!p || typeof p.j !== 'string' || p.j.length > 700000 || typeof p.name !== 'string' || p.name.length > 80 || !['pop','army','cl','updatedAt'].every(k=>Number.isFinite(p[k])) || !regions.has(p.reg) || !Number.isSafeInteger(d.rev) || d.rev < 0)
     throw new HttpsError('invalid-argument', 'Invalid nation save.');
@@ -102,69 +103,176 @@ async function permit(db, who, d) {
   /* a new record: not from a sign-in a banned account used (functions/eligibility.js, identityHashes) */
   if (d.rev === 0) await refuseBannedIdentity(db, who);
   if (p.updatedAt > Date.now() + DAY) refuse('clock_ahead', 'This device’s clock is more than a day ahead, so the nation cannot be saved. Set the date and time right, and it saves again.');
+  return { p, n };
+}
+
+/* the permit for a save the game writes itself, under firestore.rules (permitted): a build from before the server's
+   own save (serverSave), or a page the server sent back to it (save_v1) */
+async function permit(db, who, d) {
+  const { p, n } = await saveInput(db, who, d);
   return db.runTransaction(async tx => {
-    const e = await eligibility(tx, who, { linked: false, hidden: true, nation: false, allowClosedRegion: true });
-    if ((e.saved.get('rev') || 0) !== d.rev) refuse('save_conflict', 'Another device saved this nation.');
-    const control = await tx.get(db.doc('regionStatus/' + p.reg));
-    if (regionClosed(control, p.reg) && !who.admin) refuse('region_disabled', regionMessage(control));
-    const actor = await tx.get(db.doc('assemblyRegions/' + p.reg + '/actors/' + who.uid));
-    const before = e.n;
-    // Validate changes, not the continued presence of old data. Guests can leave existing alliances.
-    const founded = n.alli && (!before.alli || JSON.stringify(n.alli) !== JSON.stringify(before.alli));
-    const attacks = Object.keys(n.wars || {}).filter(id => JSON.stringify(n.wars[id]) !== JSON.stringify(before.wars?.[id]));
-    const pvp = attacks.filter(id => !npcIds.has(id));
-    if (founded || pvp.length) await eligibility(tx, who);
-    if (pvp.length > 10) throw new HttpsError('invalid-argument', 'Too many simultaneous war declarations.');
-    for (const id of pvp) {
-      if (!/^[\w-]{1,128}$/.test(id) || id === who.uid) throw new HttpsError('invalid-argument', 'Invalid opponent.');
-      const target = await tx.get(db.doc('nations/' + id));
-      if (!target.exists || target.get('reg') !== p.reg) refuse('invalid_opponent', 'Choose a nation in your region.');
-      /* the recruits' pact (functions/recruit-rules.js): no new war between a recruit and its recruiter for a month (a war
-         from before the pact, should there be one, may change and end as any other) */
-      const [theirs, mine] = before.wars?.[id] ? [null, null] : await tx.getAll(db.doc('recruits/' + id), db.doc('recruits/' + who.uid));
-      const bound = Math.max(rcPactUntil(theirs, who.uid), rcPactUntil(mine, id));
-      if (bound) refuse('rc_pact', `The recruits’ pact between you and ${String(target.get('name') || 'this nation').slice(0, 80)} holds until ${new Date(bound).toISOString().slice(0, 10)}: neither of you may declare war on the other before then.`);
-    }
-    // Invalid NPC-looking strings must not evade registration requirements.
-    if (actor.exists && actor.get('generation') === e.generation) n.asm = actor.get('record');
-    else n.asm = { r: p.reg, e: [], s: [], v: [] };
-    /* the population: a create held to createCap; an update noted at no more than the rules will let it save, and, for
-       a client that asks (cap), saved at no more (heldPop) */
-    /* the Christmas answers (functions/xmas-rules.js): each new one held to its letter's date and order by this clock */
-    const xmKept = xmSettle(n, before, xmNowMs());
-    const now = Date.now();
-    /* the National Research Programme (functions/research-rules.js): research held to the rules and this clock */
-    const rsKept = rsSettle(n, before, now, e.saved.exists && e.saved.get('ts')?.toMillis ? e.saved.get('ts').toMillis() : 0);
-    let most = Infinity, pop = p.pop;
-    if (!e.saved.exists) {
-      const c = await createCap(tx, db, who, e, p, d.from, carryHash(d.fk), now);
-      if (p.pop > c.cap + 1e-4) refuse('population_limit', 'This nation is larger than a new record can start. Sign in to the account that held it.');
-      if (c.carry) tx.set(c.carry, { hw: { ...c.fh, to: who.uid } }, { mergeFields: ['hw'] });
-    } else if (typeof e.saved.get('pop') === 'number' && e.saved.get('ts')?.toMillis) {
-      const sp = e.saved.get('pop'), st = e.saved.get('ts').toMillis();
-      most = grown(sp, st, now) + 1e-4;
-      if (d.cap === 1) pop = heldPop(p.pop, sp, st, now);
-    }
-    /* a guest's carry key (src/shim.js, carryKey), noted with its last save so only its own browser can carry it */
-    const hw = hwOf(e.account), noted = Math.min(pop, most), ck = who.registered ? '' : carryHash(d.ck), k = ck || (hw && typeof hw.k === 'string' ? hw.k : '');
-    if (!hw || noted > hw.pop * HW_STEP || now - hw.at > HW_EVERY || hw.to || (ck && hw.k !== ck)) tx.set(db.doc('accountIdentity/' + who.uid), { hw: { pop: noted, at: now, ...(k ? { k } : {}) } }, { mergeFields: ['hw'] });
-    /* letters a game from before letters were private left in the shared record (dm, now in the own half: src/shim.js):
-       when the record is first saved without them, those to players become letters/ documents, so their readers
-       keep them. The same id as the game's own, so a save tried again writes them again, not twice. A save may only
-       keep that old list as it was or drop it, never add to it or change it: a list of its own would turn into letters
-       written here, past the blocks and limits firestore.rules hold every letter to. They expire like any other. */
-    if (own(n, 'dm') && JSON.stringify(n.dm) !== JSON.stringify(before.dm)) { if (Array.isArray(before.dm)) n.dm = before.dm; else delete n.dm; }
-    if (Array.isArray(before.dm) && !own(n, 'dm')) for (const m of before.dm.slice(-80))
-      if (m && !m.i && isId(m.w) && m.w !== who.uid && !npcIds.has(m.w) && !/^(npc|office)-/.test(m.w) && typeof m.x === 'string' && m.x.trim() && Number.isSafeInteger(m.t) && m.t > 0)
-        tx.set(db.doc('letters/' + who.uid + '~' + m.w + '~' + m.t), { by: who.uid, to: m.w, x: m.x.slice(0, 500), t: m.t, ts: FieldValue.serverTimestamp(), exp: Timestamp.fromMillis(now + 365 * DAY) });
-    const result = { j: JSON.stringify(n), reg: p.reg, name: p.name, pop, army: p.army, cl: p.cl, updatedAt: p.updatedAt, rev: d.rev + 1 };
-    const ref = db.collection('nationPermits/' + who.uid + '/requests').doc(), sk = raceKeys(n, before);
+    const { e, result, sk, xmKept, rsKept, founded, pvp } = await settleSave(tx, db, who, d, p, n);
+    const ref = db.collection('nationPermits/' + who.uid + '/requests').doc();
     /* the text deflated as well (z): a client that asks (zip) saves that instead of j, and the rules compare it with
        this permit's z; a build from before saves j as it always did */
     const z = deflateNation(result.j);
     tx.create(ref, { ...result, z, sk, exp: Timestamp.fromMillis(Date.now() + 120000), authGeneration: who.generation, sensitive: !!(founded || pvp.length), nationGeneration: e.generation });
     if (d.zip === 1) { const { j, ...rest } = result; return { ...rest, z: z.toString('base64'), sk, permit: ref.id, xm: xmKept, rs: rsKept }; }
     return { ...result, sk, permit: ref.id, xm: xmKept, rs: rsKept };
+  });
+}
+
+/* What every save settles in its transaction, whoever writes it: the account and its bans, the revision, the region,
+   new wars and alliances, the Assembly record, the Christmas answers, research, the population and the old letters.
+   pre(e), when given, runs once the account and the saved record are read and before anything is checked or written
+   (serverSave reads the rest of the nation there, and refuses a newer map's record first, as the game's own
+   transaction did); it may name the revision this save follows ({rev}), which is otherwise d.rev. */
+async function settleSave(tx, db, who, d, p, n, pre) {
+  const e = await eligibility(tx, who, { linked: false, hidden: true, nation: false, allowClosedRegion: true });
+  const extra = pre ? await pre(e) : null, follows = extra && Number.isSafeInteger(extra.rev) ? extra.rev : d.rev;
+  if ((e.saved.get('rev') || 0) !== follows) refuse('save_conflict', 'Another device saved this nation.');
+  const control = await tx.get(db.doc('regionStatus/' + p.reg));
+  if (regionClosed(control, p.reg) && !who.admin) refuse('region_disabled', regionMessage(control));
+  const actor = await tx.get(db.doc('assemblyRegions/' + p.reg + '/actors/' + who.uid));
+  const before = e.n;
+  // Validate changes, not the continued presence of old data. Guests can leave existing alliances.
+  const founded = n.alli && (!before.alli || JSON.stringify(n.alli) !== JSON.stringify(before.alli));
+  const attacks = Object.keys(n.wars || {}).filter(id => JSON.stringify(n.wars[id]) !== JSON.stringify(before.wars?.[id]));
+  const pvp = attacks.filter(id => !npcIds.has(id));
+  if (founded || pvp.length) await eligibility(tx, who);
+  if (pvp.length > 10) throw new HttpsError('invalid-argument', 'Too many simultaneous war declarations.');
+  for (const id of pvp) {
+    if (!/^[\w-]{1,128}$/.test(id) || id === who.uid) throw new HttpsError('invalid-argument', 'Invalid opponent.');
+    const target = await tx.get(db.doc('nations/' + id));
+    if (!target.exists || target.get('reg') !== p.reg) refuse('invalid_opponent', 'Choose a nation in your region.');
+    /* the recruits' pact (functions/recruit-rules.js): no new war between a recruit and its recruiter for a month (a war
+       from before the pact, should there be one, may change and end as any other) */
+    const [theirs, mine] = before.wars?.[id] ? [null, null] : await tx.getAll(db.doc('recruits/' + id), db.doc('recruits/' + who.uid));
+    const bound = Math.max(rcPactUntil(theirs, who.uid), rcPactUntil(mine, id));
+    if (bound) refuse('rc_pact', `The recruits’ pact between you and ${String(target.get('name') || 'this nation').slice(0, 80)} holds until ${new Date(bound).toISOString().slice(0, 10)}: neither of you may declare war on the other before then.`);
+  }
+  // Invalid NPC-looking strings must not evade registration requirements.
+  if (actor.exists && actor.get('generation') === e.generation) n.asm = actor.get('record');
+  else n.asm = { r: p.reg, e: [], s: [], v: [] };
+  /* the population: a create held to createCap; an update noted at no more than the rules will let it save, and, for
+     a client that asks (cap), saved at no more (heldPop) */
+  /* the Christmas answers (functions/xmas-rules.js): each new one held to its letter's date and order by this clock */
+  const xmKept = xmSettle(n, before, xmNowMs());
+  const now = Date.now();
+  /* the National Research Programme (functions/research-rules.js): research held to the rules and this clock */
+  const rsKept = rsSettle(n, before, now, e.saved.exists && e.saved.get('ts')?.toMillis ? e.saved.get('ts').toMillis() : 0);
+  let most = Infinity, pop = p.pop;
+  if (!e.saved.exists) {
+    const c = await createCap(tx, db, who, e, p, d.from, carryHash(d.fk), now);
+    if (p.pop > c.cap + 1e-4) refuse('population_limit', 'This nation is larger than a new record can start. Sign in to the account that held it.');
+    if (c.carry) tx.set(c.carry, { hw: { ...c.fh, to: who.uid } }, { mergeFields: ['hw'] });
+  } else if (typeof e.saved.get('pop') === 'number' && e.saved.get('ts')?.toMillis) {
+    const sp = e.saved.get('pop'), st = e.saved.get('ts').toMillis();
+    most = grown(sp, st, now) + 1e-4;
+    if (d.cap === 1) pop = heldPop(p.pop, sp, st, now);
+  }
+  /* a guest's carry key (src/shim.js, carryKey), noted with its last save so only its own browser can carry it */
+  const hw = hwOf(e.account), noted = Math.min(pop, most), ck = who.registered ? '' : carryHash(d.ck), k = ck || (hw && typeof hw.k === 'string' ? hw.k : '');
+  if (!hw || noted > hw.pop * HW_STEP || now - hw.at > HW_EVERY || hw.to || (ck && hw.k !== ck)) tx.set(db.doc('accountIdentity/' + who.uid), { hw: { pop: noted, at: now, ...(k ? { k } : {}) } }, { mergeFields: ['hw'] });
+  /* letters a game from before letters were private left in the shared record (dm, now in the own half: src/shim.js):
+     when the record is first saved without them, those to players become letters/ documents, so their readers
+     keep them. The same id as the game's own, so a save tried again writes them again, not twice. A save may only
+     keep that old list as it was or drop it, never add to it or change it: a list of its own would turn into letters
+     written here, past the blocks and limits firestore.rules hold every letter to. They expire like any other. */
+  if (own(n, 'dm') && JSON.stringify(n.dm) !== JSON.stringify(before.dm)) { if (Array.isArray(before.dm)) n.dm = before.dm; else delete n.dm; }
+  if (Array.isArray(before.dm) && !own(n, 'dm')) for (const m of before.dm.slice(-80))
+    if (m && !m.i && isId(m.w) && m.w !== who.uid && !npcIds.has(m.w) && !/^(npc|office)-/.test(m.w) && typeof m.x === 'string' && m.x.trim() && Number.isSafeInteger(m.t) && m.t > 0)
+      tx.set(db.doc('letters/' + who.uid + '~' + m.w + '~' + m.t), { by: who.uid, to: m.w, x: m.x.slice(0, 500), t: m.t, ts: FieldValue.serverTimestamp(), exp: Timestamp.fromMillis(now + 365 * DAY) });
+  const result = { j: JSON.stringify(n), reg: p.reg, name: p.name, pop, army: p.army, cl: p.cl, updatedAt: p.updatedAt, rev: follows + 1 };
+  return { e, extra, before, result, sk: raceKeys(n, before), xmKept, rsKept, founded, pvp, most, now };
+}
+
+/* ── the save in one trip (src/shim.js, saveNation) ──
+   The game used to ask here for a permit and then write the nation itself, in a transaction that read five documents
+   one after another, each a trip to Europe and back: eight trips a save in all, which took players far from Europe
+   five seconds and more (Firebase Performance, 28 Nov 2026: Mexico 5.8 s, Syria 7.6 s at the 75th percentile). Now it
+   sends the save here and the server writes it, beside the database: the permit's checks and settlement above, then
+   everything the game's transaction wrote, with the checks firestore.rules made of it (validNation, headline, grows,
+   nextRevision, paced, summarised, validPrivate, validSpace, stampable). authorizeSave and those rules stay for builds
+   from before, and for a page this sends back to them: EDICTUM_SERVER_SAVE=off (functions/.env) answers save_v1. */
+const PRIVATE_MAX = 750000, SPACE_MAX = 60000, SPACE_MIN = 12000, SPACE_BEAT = 12 * 3600000, ACTIVE_MAX = 2764800000;
+/* src/shim.js spaceLayout: a space record without the running figures its owner re-stamps at every save, keys sorted */
+const SPACE_RUN = { sp: ['p', 'pa', 'e'], belt: ['hw', 'rp', 'ra'] };
+const isPlain = v => !!v && typeof v === 'object' && !Array.isArray(v);
+const sortedKeys = v => Array.isArray(v) ? v.map(sortedKeys) : isPlain(v) ? Object.fromEntries(Object.keys(v).sort().map(k => [k, sortedKeys(v[k])])) : v;
+export function spaceLayout(j) {
+  let s = null;
+  try { s = typeof j === 'string' ? JSON.parse(j) : null; } catch { s = null; }
+  if (!isPlain(s)) return '';
+  if (isPlain(s.sp)) for (const b of ['moon', 'mars']) if (isPlain(s.sp[b])) for (const k of SPACE_RUN.sp) delete s.sp[b][k];
+  if (isPlain(s.belt)) for (const k of SPACE_RUN.belt) delete s.belt[k];
+  return JSON.stringify(sortedKeys(s));
+}
+/* the bounds firestore.rules (headline) puts on the numbers beside the record */
+export const headlineOk = (pop, army, cl) => pop >= 0 && pop <= 1e9 && army >= 0 && army <= 60 * Math.sqrt(pop + 0.1) + 1
+  && Number.isInteger(cl) && cl >= 0 && cl <= 3000 + 6 * Math.sqrt(pop) + pop / 100;
+/* what the space record should do at this save (src/shim.js, as the game's transaction decided it): 'set', 'delete' or '' */
+export function spaceStep(sj, space, reg, name, now) {
+  if (typeof sj !== 'string' || !sj) return space ? 'delete' : '';
+  if (sj.length > SPACE_MAX) return '';
+  const changed = !space || space.reg !== reg || space.name !== name || spaceLayout(space.j) !== spaceLayout(sj);
+  const elapsed = space && space.ts ? now - space.ts : Infinity;
+  return (changed && elapsed >= SPACE_MIN) || elapsed > SPACE_BEAT ? 'set' : '';
+}
+const millisOf = t => t && typeof t.toMillis === 'function' ? t.toMillis() : 0;
+async function serverSave(db, who, d) {
+  if (process.env.EDICTUM_SERVER_SAVE === 'off') refuse('save_v1', 'This save goes through the game’s own transaction.');
+  const xj = d.x, oj = d.o;
+  if (typeof xj !== 'string' || xj.length < 2 || xj.length > PRIVATE_MAX || typeof oj !== 'string' || oj.length < 2 || oj.length > PRIVATE_MAX)
+    throw new HttpsError('invalid-argument', 'Invalid nation save.');
+  const { p, n } = await saveInput(db, who, d);
+  const uid = who.uid, mv = Number.isInteger(p.mv) && p.mv >= 1 && p.mv <= 999 ? p.mv : 0;
+  /* the page's name for this save: the same until it is known to have landed, so a save whose answer was lost on the
+     way back is followed, not taken for another device's */
+  const sid = typeof d.sid === 'string' && /^[\w-]{8,40}$/.test(d.sid) ? 'sv-' + d.sid : '';
+  const refs = { n: db.doc('nations/' + uid), x: db.doc('nationx/' + uid), o: db.doc('nationp/' + uid), s: db.doc('space/' + uid), sum: db.doc('summaries/' + uid) };
+  return db.runTransaction(async tx => {
+    let x, o, sp;
+    const s = await settleSave(tx, db, who, d, p, n, async e => {
+      const saved = e.saved, have = saved.get('rev') || 0;
+      /* a newer map's page saved the record (its mv; no mv was map 5 or older): nothing of this page's goes over it, and
+         the page reloads for the new build (src/shim.js, newerMap) */
+      if (saved.exists && (mv || 5) < (saved.get('mv') || 0)) refuse('newer_map', 'Your nation was saved by a newer version of Edictum.');
+      [x, o, sp] = await tx.getAll(refs.x, refs.o, refs.s);
+      return { rev: sid && saved.exists && have === d.rev + 1 && saved.get('permit') === sid ? have : d.rev };
+    });
+    const { e, result, now } = s, saved = e.saved;
+    /* the rules' one save a second (paced): the game tries once more after a moment, without the space record */
+    if (saved.exists && now - millisOf(saved.get('ts')) < 1000) throw new HttpsError('permission-denied', 'This nation was saved less than a second ago.', { code: 'permission-denied' });
+    /* the numbers beside the record, held as the rules hold them: bounded by the population, which grows no faster
+       than the game can make it since the last save */
+    if (!headlineOk(result.pop, p.army, p.cl) || result.pop > s.most) throw new HttpsError('permission-denied', 'The nation’s population, army or land is out of bounds.', { code: 'permission-denied' });
+    const ts = FieldValue.serverTimestamp(), zip = d.zip === 1, z = zip ? deflateNation(result.j) : null;
+    const doc = { v: zip ? 2 : 1, ...(zip ? { z } : { j: result.j }), reg: p.reg, name: p.name, updatedAt: p.updatedAt, ts, pop: result.pop, army: p.army, cl: p.cl, rev: result.rev,
+      permit: sid || 'sv-' + db.collection('nations').doc().id };
+    if (mv) doc.mv = mv;
+    /* once there, these stay (the rules): expanded storage, and a desk that has held more than five edicts */
+    if (p.storageV === 1 || saved.get('storageV') === 1) doc.storageV = 1;
+    if (p.iq === 1 || saved.get('iq') === 1) doc.iq = 1;
+    tx.set(refs.n, doc);
+    if (!x.exists || x.get('j') !== xj) tx.set(refs.x, { j: xj, t: p.updatedAt, ts });
+    if (o.exists ? o.get('j') !== oj : oj !== '{}') tx.set(refs.o, { j: oj, t: p.updatedAt, ts });
+    /* the summary, which says the same as the record; e (holiday mode) at most 32 days past t, f the founding time */
+    const sm = isPlain(d.sum) ? d.sum : {}, sum = { reg: p.reg, name: p.name, pop: result.pop, t: p.updatedAt };
+    if (Number.isFinite(sm.e) && sm.e > sum.t && sm.e <= sum.t + ACTIVE_MAX) sum.e = sm.e;
+    if (Number.isFinite(sm.f) && sm.f > 0 && sm.f <= sum.t + 60000) sum.f = Math.floor(sm.f);
+    tx.set(refs.sum, sum);
+    /* the races this save carries first (src/shim.js raceKeys), stamped with the server's time: only those the record
+       did not carry before (sk) */
+    const rk = Array.isArray(d.rk) ? [...new Set(d.rk)].filter(k => typeof k === 'string' && /^[cs][0-9]{1,6}$/.test(k) && s.sk.includes(k)).slice(0, 200) : [];
+    for (const k of rk) tx.set(db.doc('stamps/' + p.reg + '/' + k + '/' + uid), { t: ts });
+    if (d.ns !== 1) {
+      const space = sp.exists ? { reg: sp.get('reg'), name: sp.get('name'), j: sp.get('j'), ts: millisOf(sp.get('ts')) } : null;
+      const step = spaceStep(d.s, space, p.reg, p.name, now);
+      if (step === 'set') tx.set(refs.s, { reg: p.reg, name: p.name, t: p.updatedAt, j: d.s, ts });
+      else if (step === 'delete') tx.delete(refs.s);
+    }
+    return { rev: result.rev, pop: result.pop, xm: s.xmKept, rs: s.rsKept, sv: 1 };
   });
 }
 
@@ -733,7 +841,7 @@ async function newsUpvote(db, who, d) {
 /* what civic answers: anything else is refused before it reads a thing. An Assembly action reads every nation of the
    region in its transaction (only a Registered Nation a day old gets that far), so it is paced more closely (functions/pace.js) */
 const ASSEMBLY_ACTS = new Set(['vote', 'propose', 'withdraw', 'endorse', 'support', 'agenda', 'message', 'paper', 'resign', 'rejoin', 'sway']);
-const CIVIC_OPS = new Set(['authorizeSave', 'carryKey', 'newsComment', 'newsModerate', 'newsReact', 'newsVote', 'newsClick', 'newsUpvote', 'renamed',
+const CIVIC_OPS = new Set(['authorizeSave', 'save', 'carryKey', 'newsComment', 'newsModerate', 'newsReact', 'newsVote', 'newsClick', 'newsUpvote', 'renamed',
   'cbTopic', 'cbReply', 'cbEdit', 'cbDelete', 'cbMod', 'cbPost', 'cbFollow', 'cbReact', 'cbSig', 'topic', 'topicReact', 'state', 'book', 'online', 'chatDelegates', 'xmClock', ...ASSEMBLY_ACTS]);
 
 /* One vCPU serves up to 80 requests at once; a smaller share of one serves a single request, and every nation
@@ -796,6 +904,7 @@ export const civic = onCall({ region: 'europe-west1', maxInstances: 10, cpu: 1, 
     });
   }
   if (d.op === 'authorizeSave') return permit(db, who, d);
+  if (d.op === 'save') return serverSave(db, who, d);
   if (d.op === 'carryKey') return noteCarryKey(db, who, d);
   if (d.op === 'newsComment') return newsComment(db, who, d);
   if (d.op === 'newsModerate') return newsModerate(db, who, d);

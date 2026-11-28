@@ -15,7 +15,7 @@ const json=v=>JSON.parse(JSON.stringify(v));
 
 /* ── the space record: written when what other regions read changes, not for the running figures ── */
 function saver(space){
-  const writes=[],A={admin:false,raceAt:{},popBase:{}};
+  const writes=[],A={admin:false,raceAt:{},popBase:{},saveV1:true}; /* the game's own transaction; the server's space step: test/server-save.test.mjs */
   A.fs={doc:path=>({path}),runTransaction:async fn=>fn({get:async ref=>{const d=ref.path==='nations/player'?{reg:'meridian',rev:5}:ref.path==='space/player'?space:null;return {exists:!!d,data:()=>d};},
     set:(ref,data)=>writes.push({path:ref.path,data:json(data)}),delete:ref=>writes.push({path:ref.path,gone:true})})};
   const c=vm.createContext({A,E:{},performance,MAX_JSON:700000,BOOT_AT:1,SPACE_MIN:12000,SPACE_BEAT:12*3600000,serverTime:()=>'now',num:v=>typeof v==='number'&&Number.isFinite(v)?v:0,
