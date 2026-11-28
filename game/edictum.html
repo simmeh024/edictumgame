@@ -29909,13 +29909,18 @@ function claimList(T,n){
   rows.sort((a,b)=>a.d-b.d||b.k-a.k||a.b-b.b);
   return `<details class="lc-list" data-keep="lcOpen"${S.lcOpen?' open':''}><summary>Choose from a list (${rows.length} ${rows.length===1?'block':'blocks'})</summary><ul class="lc-rows">${rows.slice(0,40).map(r=>`<li><button type="button" class="linkish" data-act="lc-pick" data-b="${r.b}">${esc(cap1(landName(r.c)))}, ${r.d} ${r.d===1?'hex':'hexes'} ${compass(cap,r.c)}</button><span class="hint">${r.k} free: ${esc(list(terrCount(r.plan)))}</span></li>`).join('')}</ul></details>`;
 }
+/* the hexes where the nation's colonies landed (n.cln, landing parties). Each stays, as a city's hex does: before a
+   colony has a city all its land is recent claims, apart from home, so releasing any one of them left the rest "cut
+   off" and the whole colony went (The Wandering Isles, 28 November 2026). The landing hex holds the colony instead,
+   as the capital holds the homeland */
+function colonyLandings(n){return new Set((Array.isArray(n&&n.cln)?n.cln:[]).map(C=>C&&C.c).filter(Number.isInteger));}
 /* the claims that can still be released. Not the hex a swap took (its claim made at the swap, n.lswT): a swap costs
    no credit, so releasing what it took would turn any old hex into a credit, and a hex a trip needed into one too */
 function recentClaims(T){
   const n=S.nation,mi=T.byId[myId()];if(!n||mi===undefined||!Array.isArray(n.claims))return [];
-  const now=Date.now(),city=new Set((n.cities||[]).map(c=>c.c)),old=new Set();
+  const now=Date.now(),city=new Set((n.cities||[]).map(c=>c.c)),col=colonyLandings(n),old=new Set();
   for(const e of n.claims)if(now-e.t>=RELEASE_MS)old.add(e.c);
-  return n.claims.filter(e=>now-e.t<RELEASE_MS&&!(n.lcgT&&e.t<=n.lcgT)&&!(n.lswT&&e.t===n.lswT)&&!old.has(e.c)&&!city.has(e.c)&&T.owner[e.c]===mi&&!T.occ[e.c]&&!T.isCap[e.c]);
+  return n.claims.filter(e=>now-e.t<RELEASE_MS&&!(n.lcgT&&e.t<=n.lcgT)&&!(n.lswT&&e.t===n.lswT)&&!old.has(e.c)&&!city.has(e.c)&&!col.has(e.c)&&T.owner[e.c]===mi&&!T.occ[e.c]&&!T.isCap[e.c]);
 }
 function claimBatches(R){
   const out=[];let cur=null;
@@ -29925,10 +29930,13 @@ function claimBatches(R){
 function releaseBox(T){
   const B=claimBatches(recentClaims(T));if(!B.length)return '';
   const H=xpHeld(S.nation);
-  return `<details class="lc-list" data-keep="relOpen"${S.relOpen?' open':''}><summary>Release recent claims</summary><p class="hint">Land claimed in the last 24 hours can be given up again. Each hex returns its land credit; hexes with a city on them stay yours, and so does land a team you sent out needed to reach its site.</p><ul class="lc-rows">${B.slice(0,8).map(b=>`<li><span>${b.cells.length===1?'A hex':b.cells.length+' hexes'} ${esc(placePhrase(b.cells[0]))}, claimed ${rel(b.t)}</span>${b.cells.some(c=>H.has(c))?`<span class="hint">Held: a team you sent out needed ${b.cells.length===1?'it':'this land'}</span>`:`<button type="button" class="btn ghost small-btn" data-act="lc-release" data-t="${b.t}">Release ${b.cells.length===1?'it':'them'}</button>`}</li>`).join('')}</ul></details>`;
+  return `<details class="lc-list" data-keep="relOpen"${S.relOpen?' open':''}><summary>Release recent claims</summary><p class="hint">Land claimed in the last 24 hours can be given up again. Each hex returns its land credit; hexes with a city on them stay yours, as does the hex where a colony landed, and so does land a team you sent out needed to reach its site.</p><ul class="lc-rows">${B.slice(0,8).map(b=>`<li><span>${b.cells.length===1?'A hex':b.cells.length+' hexes'} ${esc(placePhrase(b.cells[0]))}, claimed ${rel(b.t)}</span>${b.cells.some(c=>H.has(c))?`<span class="hint">Held: a team you sent out needed ${b.cells.length===1?'it':'this land'}</span>`:`<button type="button" class="btn ghost small-btn" data-act="lc-release" data-t="${b.t}">Release ${b.cells.length===1?'it':'them'}</button>`}</li>`).join('')}</ul></details>`;
 }
 function releaseHex(c,T){
-  if(!recentClaims(T).some(e=>e.c===c))return '';
+  if(!recentClaims(T).some(e=>e.c===c)){
+    const n=S.nation,now=Date.now();
+    return n&&colonyLandings(n).has(c)&&(n.claims||[]).some(e=>e.c===c&&now-e.t<RELEASE_MS)&&T.owner[c]===T.byId[myId()]?`<p class="hint" style="margin-top:12px">You claimed this hex in the last 24 hours, but your colony landed here and its land is held from this hex, so it stays yours.</p>`:'';
+  }
   if(xpHeld(S.nation).has(c))return `<p class="hint" style="margin-top:12px">You claimed this hex in the last 24 hours, but a team you sent out needed it to reach its site, so it stays yours.</p>`;
   return `<div class="row" style="margin-top:12px"><button class="btn ghost" data-act="lc-release" data-c="${c}">Release this claim (1 credit back)</button></div><p class="hint" style="margin-top:6px">You claimed this hex in the last 24 hours, so you can still give it up.</p>`;
 }
@@ -29950,7 +29958,7 @@ function releaseClaims(cells){
   /* recent claims the release would cut off go with it: claimed next to the land given up, they would stay behind as
      an outpost to claim onward from, past the rule that land is claimed next to your borders. A patch of recent claims
      that was apart already (an island shore reached from a harbour) stays, as does any patch holding older land, a
-     city or the capital, which the rest of the land does not depend on */
+     city, the capital or a colony's landing hex, which the rest of the land does not depend on */
   const P0=landPatches(T,T.byId[myId()]),size0=new Map();for(const k of P0.values())size0.set(k,(size0.get(k)||0)+1);
   for(let i=0;i<8;i++){
     const P1=patchesOf(without(cells)),groups=new Map(),drop=new Set(cells),add=[];
@@ -29984,7 +29992,7 @@ function landHelp(n){
     <p><b>Land credits.</b> Your nation is founded with ${FOUND_CREDITS}, every city you found earns ${CITY_CREDITS}, your population earns more as it grows, and each milestone adds a few. Finishing the charter list earns 3, a daily desk cleared in your first week earns 2 instead of 1, and coming back on a second and a third day earns 2 each. Some discoveries and decisions give bonus credits. Each credit claims one free hex next to your borders, or a free shore that a completed coastal Harbour reaches across up to ${mpHarbourReach(n)} hexes of water: another island, or the far side of a bay on your own coast. Turn on <b>Harbour reach</b> in the map key to see how far your harbours reach.</p>
     <p><b>Lakes.</b> A lake, water shut in by land and joined to no sea, is claimed like land: a credit a hex, from land or lake of yours next to it. Your colour lies paler over it, so the water shows through. A lake yields nothing and holds no city or road, but it closes the gap in your borders and joins you to its far shore. Spending credits for you takes land only.</p>
     <p><b>Staying small.</b> A nation that would rather keep its borders can pause land credit gains in Settings › Land. Credits earned meanwhile are stored, and all of them can be spent once gains are back on. ${lhLink('Land settings')}</p>
-    <p><b>Swapping land.</b> Once a day you may give up a hex you claimed and take a free one instead, at no cost: select the hex on the map and choose <b>Swap this hex</b>. Hexes with a city, a road or railway, your starting core and land taken in war cannot be swapped, and nothing may be cut off from the rest of your land.</p>
+    <p><b>Swapping land.</b> Once a day you may give up a hex you claimed and take a free one instead, at no cost: select the hex on the map and choose <b>Swap this hex</b>. Hexes with a city, a road or railway, the hex where a colony landed, your starting core and land taken in war cannot be swapped, and nothing may be cut off from the rest of your land.</p>
     <p><b>Reclaimed land</b> comes from decisions and, once free land runs short, from your own engineers. Nations with a coast are now and then asked about dykes, polders, artificial islands, floating homes or a runway in the bay. Choosing to build turns one to three hexes of shallow sea into land, wherever the water touches only your own coast, up to ${REC_MAX} hexes in all. When fewer than ${RECW_NEAR} free hexes border your land, or less than ${Math.round(RECW_FREE*100)}% of the region is unclaimed, the Territory section on the Nation page lets you pay for more, one hex at a time, up to ${RECW_MAX}. ${rc?`${esc(n.name)} has reclaimed ${rc} ${rc===1?'hex':'hexes'} so far.`:coast?'Your coast qualifies.':`${esc(n.name)} has too little coast for these decisions to come up.`}</p>
     <p><b>A navy</b> (the Blue-Water Navy law) also comes from decisions: coastal nations are asked from time to time whether to build a fleet, a naval base or convoy escorts. With it, expeditions travel 15 hexes further and roll +3 on islets, your troops cross the sea without losing strength, and your harbours reach ${MP_NAVY_REACH} hexes across water instead of ${MP_CLAIM_REACH} to claim land. No building gives you one. ${navy?`${esc(n.name)} has a navy.`:`${esc(n.name)} has no navy yet.`}</p>
   </details>`;
@@ -30319,7 +30327,7 @@ function helpBody(n){
     world:`<p>The known world has ${REGIONS.length} regions, from ${esc(REGIONS[1]?REGIONS[1].the:'')} to ${esc(REGIONS[REGIONS.length-1].the)}, each with its own lands, climate and ${'computer-run nations'}. You live in ${esc(REG.the)}. The World page shows every region, its nations and how many players live there.</p>
       <p>You can move your nation to another region. Your people, laws, cabinet, treasury, history, honours and museum come with you. Your land starts again: you choose a new capital on arrival and begin with the core of ${CORE_HEXES} hexes, and three quarters of the land credits you have earned can be spent again there: a quarter is lost in the move. Other cities stay behind, and half of their building materials come with you; your capital’s buildings are rebuilt at the new capital. Wars end, and alliances and trade deals lapse. After a move you must wait 14 days before the next.</p>${G(go('world','Open the World page'))}`,
     land:`<p>You start with a core of ${CORE_HEXES} hexes round your capital. Every hex beyond that is your choice, paid for with land credits. Your nation is founded with ${FOUND_CREDITS} (a whole block of land) and every city you found earns ${CITY_CREDITS}. Your first days earn more: the charter list, a daily desk worth double in your first week, and 2 credits each for coming back on a second and a third day. You earn more as your population grows, and bonus credits at milestones, from some edicts and from remarkable discoveries.</p>
-      <p>On the map, select a highlighted block next to your border, or a dotted shore your harbours reach across the water (an island, or the far side of a bay). A block is up to seven hexes, and each hex costs one credit; you can also claim a single hex. Claims must be within 68 hexes of your capital or within reach of one of your cities (15 hexes, growing with each building up to 30, and up to 15 more as the average upgrade colour of its buildings rises to gold), and not within two hexes of another nation’s capital. The first claim on a free hex wins, and claimed land stays yours unless it is taken in war or given away.${typeof RELEASE_MS==='number'?` A claim made in the last ${hrs(RELEASE_MS)} can be released for its credit back, as long as no city stands on it, it was not taken in a swap, and no expedition or fleeting party needed it to reach its site.`:''}</p>
+      <p>On the map, select a highlighted block next to your border, or a dotted shore your harbours reach across the water (an island, or the far side of a bay). A block is up to seven hexes, and each hex costs one credit; you can also claim a single hex. Claims must be within 68 hexes of your capital or within reach of one of your cities (15 hexes, growing with each building up to 30, and up to 15 more as the average upgrade colour of its buildings rises to gold), and not within two hexes of another nation’s capital. The first claim on a free hex wins, and claimed land stays yours unless it is taken in war or given away.${typeof RELEASE_MS==='number'?` A claim made in the last ${hrs(RELEASE_MS)} can be released for its credit back, as long as no city stands on it, no colony landed on it, it was not taken in a swap, and no expedition or fleeting party needed it to reach its site.`:''}</p>
       <p>“Spend them for me” picks the free hexes closest to your capital, and “Spend new credits automatically” does that whenever a credit arrives. Automatic claims show in the bell.</p>
       <h3 class="help-h3">Land from the sea</h3>
       <p>Some edicts for coastal and island nations offer to build a dyke, fill in a bay or raise an artificial island${rec.length?`, such as ${list(rec)}`:''}. Choose to build and shallow sea that touches only your own land becomes reclaimed land, the richest farmland there is, up to ${REC_MAX} hexes from edicts.</p>
@@ -67911,7 +67919,8 @@ MAP_LAYERS.push({stage:'over',kinds:['main'],draw:M=>{
 /* ───────── swapping a claimed hex for free land ───────── */
 /* Once a day a hex you claimed can be given up for a free hex elsewhere, at no cost: the old claim leaves your record
    and the new one is made now, so the credits used stay the same. Not for a hex with a city or a connection on it,
-   the starting core, reclaimed land or land won in war, and never where part of your land would be cut off. */
+   a colony's landing hex, the starting core, reclaimed land or land won in war, and never where part of your land
+   would be cut off. */
 const SWAP_MS=DAY;
 NORM_HOOKS.push((n,d)=>{if(typeof d.lswT==='number'&&isFinite(d.lswT)&&d.lswT>0)n.lswT=d.lswT;});
 function withNation(n,fn){const prev=S.nation;S.nation=n;try{return fn();}finally{S.nation=prev;}}
@@ -67924,6 +67933,7 @@ function swapFromWhy(T,c){
   const e=(n.claims||[]).find(q=>q.c===c);if(!e)return 'Only land you claimed can be swapped: your starting core and reclaimed land stay.';
   if(n.lcgT&&e.t<=n.lcgT)return 'This hex came with your land when claiming began, so it cannot be swapped.';
   if((n.cities||[]).some(x=>x.c===c))return 'A city stands on this hex.';
+  if(colonyLandings(n).has(c))return 'Your colony landed on this hex, and its land is held from here.';
   if((n.infra||[]).some(r=>Array.isArray(r.path)&&r.path.includes(c)))return 'A road, railway or shipping connection runs through this hex. Remove it first.';
   return '';
 }
