@@ -979,6 +979,14 @@ test('Treaties: offered and accepted, limited, ended with notice or broken; a co
   const nt = await treaty('research_' + [a.uid, npc.id].sort().join('_')); assert.equal(nt.st, 'active'); assert.equal(nt.npc, true);
   /* joint training needs less affinity than a research pact */
   assert.equal((await civic(a, { op: 'trOffer', id: npc.id, k: 'drill' })).signed, true);
+  /* reputation (functions/reputation-rules.js): a Warmonger is asked 10 more affinity. Values 45 apart give an
+     affinity of 55: enough for a trade agreement (50), not for one with a Warmonger (60) */
+  const w = await player(true, true), off = k => ((npc.s[k] ?? 50) <= 55 ? (npc.s[k] ?? 50) + 45 : (npc.s[k] ?? 50) - 45);
+  const wars2 = [{ t: now - DAY, k: 'war', a: 'x1', b: 'X' }, { t: now - 2 * DAY, k: 'war', a: 'x2', b: 'Y' }];
+  await record(w, { founded: now - 30 * DAY, s: { civil: off('civil'), econ: off('econ'), pol: off('pol') }, gw: {}, log: wars2 });
+  await assert.rejects(civic(w, { op: 'trOffer', id: npc.id, k: 'trade' }), e => e.code === 'tr_npc' && /needs 60 of a nation known as Warmonger/.test(e.message));
+  await record(w, { log: [] });
+  assert.equal((await civic(w, { op: 'trOffer', id: npc.id, k: 'trade' })).signed, true, 'the same nation with no wars signs');
   await record(a, { wars: { [npc.id]: { t: now - 1000 } } });
   await rejects(civic(a, { op: 'trOffer', id: npc.id, k: 'nap' }), 'tr_war');
   /* the most of a kind: three research pacts */

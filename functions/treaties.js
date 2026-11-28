@@ -2,6 +2,7 @@ import { HttpsError } from 'firebase-functions/v2/https';
 import { eligibility, refuse, nationJSON } from './eligibility.js';
 import { NPC, npcAffinity, warWithNpc } from './alliances.js';
 import { TR_KINDS, TR_MAX, TR_NOTICE, TR_RECORD, TR_REOFFER, TR_NPC_MIN, trId, trLive, trVoid } from './treaty-rules.js';
+import { REP_NAME, REP_NEED, repOf } from './reputation-rules.js';
 import { RS_N, RS_LIC, rsLicFee, rsKnows, rsOpenLab } from './research-rules.js';
 
 /* Treaties between two nations, written only here (civic ops tr*): a non-aggression pact, a trade agreement, a
@@ -64,8 +65,10 @@ async function trOffer(db, who, d) {
     if (npc) {
       if (warWithNpc(e.n, id)) refuse('tr_war', `You are at war with ${npc.name}. Make peace first.`);
       if (brokeLately(mine, who.uid, now)) refuse('tr_breaker', `${npc.name} signs nothing with a nation that broke a treaty in the last ${TR_RECORD / 86400000} days.`);
-      const af = npcAffinity(id, e.n);
-      if (af < TR_NPC_MIN[k]) refuse('tr_npc', `${npc.name} declined: its affinity with you is ${af}, and a ${TR_NAME[k]} needs ${TR_NPC_MIN[k]}.`);
+      /* its reputation (functions/reputation-rules.js) moves what a computer nation asks: less of a nation in good
+         standing, more of a warmonger */
+      const af = npcAffinity(id, e.n), rep = repOf(e.n, mine.map(x => x.T), who.uid, now), need = TR_NPC_MIN[k] + (REP_NEED[rep] || 0);
+      if (af < need) refuse('tr_npc', `${npc.name} declined: its affinity with you is ${af}, and a ${TR_NAME[k]} needs ${need}${REP_NEED[rep] ? ` of a nation known as ${REP_NAME[rep]}` : ''}.`);
       full(mine, who.uid, k, now, tid);
       tx.set(ref, { ...base, a: who.uid, b: id, st: 'active', t: now, at: now, npc: true });
       out = { ok: true, tid, signed: true };
