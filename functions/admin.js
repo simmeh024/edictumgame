@@ -28,6 +28,7 @@ import { researchBrief } from './stats-research.js';
 import { onceAdmin, onceStatus } from './once.js';
 import { recruitHeld, recruitRule, recruitNoteClear, rcEventSet, recruitInfo } from './recruit.js';
 import { councilAdmin, WAC_ADMIN_OPS } from './council.js';
+import { surveyAdmin } from './survey.js';
 import DATA from './civic-data.json' with { type: 'json' };
 
 /* every region, from the same list the save permit checks (civic-data.json): a list of its own here missed Terra */
@@ -781,6 +782,8 @@ export const adminConsole = onCall({ region: 'europe-west1', maxInstances: 5, me
   if (d.op === 'shopStats') return shopStats(db);
   if (d.op === 'statsExport') return statsExport(db);
   if (d.op === 'statsNation') return statsNation(db, d);
+  // the player survey (functions/survey.js): its switch, its results, the note for those who answered
+  if (d.op === 'survey') return surveyAdmin(db, actor, d);
   if (d.op === 'audit') return audit(db, d);
   if (d.op === 'region') return setRegion(db, actor, d);
   if (d.op === 'regionDefault') return setDefaultRegion(db, actor, d);

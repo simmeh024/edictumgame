@@ -24,6 +24,7 @@ import DATA from './civic-data.json' with { type: 'json' };
 import { pace, ipRule } from './pace.js';
 import { supportStep } from './support.js';
 import { recruit, recruitOpen, recruitStep, recruitMine, recruitNote, joinLink, joinCard, recruitForget } from './recruit.js';
+import { surveyStep } from './survey.js';
 
 const clean = value => typeof value === 'string' ? value.toUpperCase().replace(/[\s-]/g, '') : '';
 /* Recruiting: functions/recruit.js (the ops below pass through) */
@@ -121,7 +122,7 @@ export const accounts = onCall({ region: 'europe-west1', maxInstances: 10, memor
     }
     await forgetShop(uid);
     // and the pacing of its posts, reports, tickets and bug reports, which players may not delete (firestore.rules)
-    await Promise.all(['accountSeen/', 'recruitTrail/', 'staffNotes/', 'watch/', 'limits/', 'rlimits/', 'slimits/', 'blimits/', 'llimits/', 'cbPace/', 'rcPace/', 'rcMute/', 'rcNote/', 'rcHello/', 'ambassadors/', 'ambGreet/', 'ambCred/', 'commended/'].map(c => db.doc(c + uid).delete()));
+    await Promise.all(['accountSeen/', 'recruitTrail/', 'staffNotes/', 'watch/', 'limits/', 'rlimits/', 'slimits/', 'blimits/', 'llimits/', 'cbPace/', 'rcPace/', 'rcMute/', 'rcNote/', 'rcHello/', 'ambassadors/', 'ambGreet/', 'ambCred/', 'commended/', 'svy/'].map(c => db.doc(c + uid).delete()));
     await forgetDiscord(uid);
     await forgetMail(uid);
     // its words on its invitation and its /join/ link with the picture (functions/recruit.js)
@@ -179,6 +180,8 @@ export const accounts = onCall({ region: 'europe-west1', maxInstances: 10, memor
   if (d.op === 'recruitNote') return recruitNote(db, who, d);
   if (d.op === 'joinLink') return joinLink(db, who);
   if (d.op === 'joinCard') return joinCard(db, who, d);
+  // the player survey (functions/survey.js): whether one is waiting, put off, declined, or answered
+  if (d.op === 'survey') return surveyStep(db, who, d);
   // a guest's recovery code by email (functions/mail.js)
   if (d.op === 'recoveryMail') return recoveryMail(db, who, d, String(req.rawRequest?.ip || ''));
   if (d.op === 'status') {
