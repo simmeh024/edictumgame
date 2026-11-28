@@ -6,6 +6,8 @@
 #   variable FIREBASE_PROJECT_ID       the Firebase project id
 #   variable SITE_URL                  optional: the address people use, such as https://edictum.example
 # Without the first two, the workflow says so and skips the deploy, so the run stays green.
+# Only main's newest commit deploys (scripts/deploy-newest.mjs): an older commit's run, such as a re-run of an earlier
+# failed deploy, is skipped with a warning, so it cannot put an older build live over a newer one.
 name: Deploy
 
 on:
@@ -49,8 +51,17 @@ jobs:
         if: steps.settings.outputs.ready == 'true'
         uses: actions/checkout@v7
 
-      - name: Set up Node.js
+      # Only main's newest commit goes live (scripts/deploy-newest.mjs): a re-run of an older deploy, or a run that
+      # waited behind a newer merge, is skipped with a yellow warning instead of putting an older build back live.
+      - name: Check that this is main's newest commit
+        id: newest
         if: steps.settings.outputs.ready == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/deploy-newest.mjs
+
+      - name: Set up Node.js
+        if: steps.settings.outputs.ready == 'true' && steps.newest.outputs.go == 'true'
         uses: actions/setup-node@v7
         with:
           node-version: 22
@@ -60,11 +71,11 @@ jobs:
             functions/package-lock.json
 
       - name: Install the pinned packages
-        if: steps.settings.outputs.ready == 'true'
+        if: steps.settings.outputs.ready == 'true' && steps.newest.outputs.go == 'true'
         run: npm ci && npm ci --prefix functions
 
       - name: Build public/
-        if: steps.settings.outputs.ready == 'true'
+        if: steps.settings.outputs.ready == 'true' && steps.newest.outputs.go == 'true'
         run: python3 build.py --site-url "${SITE_URL:-https://$PROJECT_ID.web.app}"
 
       # the service account needs Cloud Functions Admin, Service Account User and Artifact Registry Reader
@@ -73,7 +84,7 @@ jobs:
       # scripts/schedule-ready.mjs first: a project without the Cloud Scheduler API or roles (step 5.2) gets the
       # functions without the schedule (homeLive) and a warning, instead of a failed deploy
       - name: Deploy the referee
-        if: steps.settings.outputs.ready == 'true'
+        if: steps.settings.outputs.ready == 'true' && steps.newest.outputs.go == 'true'
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           DISCORD_DISPATCH_CHANNEL_ID: ${{ vars.DISCORD_DISPATCH_CHANNEL_ID }}
@@ -89,7 +100,7 @@ jobs:
           GOOGLE_APPLICATION_CREDENTIALS="$key" npx firebase deploy --only functions --project "$PROJECT_ID" --non-interactive --force
 
       - name: Deploy the Firestore rules and indexes
-        if: steps.settings.outputs.ready == 'true'
+        if: steps.settings.outputs.ready == 'true' && steps.newest.outputs.go == 'true'
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
         run: |
@@ -99,7 +110,7 @@ jobs:
           GOOGLE_APPLICATION_CREDENTIALS="$key" npx firebase deploy --only firestore:rules,firestore:indexes --project "$PROJECT_ID" --non-interactive
 
       - name: Deploy the site to Firebase Hosting
-        if: steps.settings.outputs.ready == 'true'
+        if: steps.settings.outputs.ready == 'true' && steps.newest.outputs.go == 'true'
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}

@@ -317,6 +317,25 @@ check('the Pelta can be chosen', await until(() => page.evaluate(() => document.
 await page.click('#as-save');
 check('saved, the arms carry the Pelta and the record vouches for it (others see it, not the Heater)', await until(() => page.evaluate(() => { const F = window.__game.FLY(), n = window.__game.S.nation, c = n.cz || {}; return c.a && c.a.s === 'pelta' && (c.u || []).includes('sh-pelta') && F.czCleanArms(c.a, c.u).s === 'pelta'; })), await page.evaluate(() => JSON.stringify({ s: window.__game.S.nation.cz?.a?.s, u: (window.__game.S.nation.cz?.u || []).filter(x => /^sh-/.test(x)) })));
 await page.keyboard.press('Escape');
+// a new flag colour while Customise holds a currency draft (23 Nov 2026): what the player left as it was follows the
+// nation (the banknote's colours are the flag's until chosen), what they changed stays theirs
+{ const r = await page.evaluate(() => {
+    const g = window.__game, U = g.CU, out = {};
+    const recolour = () => { const n = JSON.parse(JSON.stringify(g.S.nation)); n.flag.c[0] = n.flag.c[0] === '#1D4E89' ? '#8E2A2A' : '#1D4E89'; g.commit(n); return n.flag.c[0]; };
+    U.setDraft(U.cuDraft(g.S.nation));                                   // Customise drew the currency
+    const was = U.draft().note.c1, c = recolour();
+    out.a = { was, now: U.draft().note.c1, flag: c, nationNote: U.cuDraft(g.S.nation).note.c1, dirty: U.dirty() };
+    U.setDraft(U.cuDraft(g.S.nation)); U.draft().mo = 'Our own words';   // a change of the player's own
+    const c2 = recolour();
+    out.b = { mo: U.draft().mo, note: U.draft().note.c1, flagNote: U.cuDraft(g.S.nation).note.c1, flag: c2, dirty: U.dirty() };
+    U.setDraft(U.cuDraft(g.S.nation)); U.draft().note.c1 = '#ABCDEF';    // a note colour chosen in the draft
+    recolour();
+    out.c = { note: U.draft().note.c1 };
+    U.setDraft(null);
+    return out; });
+  check('a new flag colour moves an untouched currency draft with it: nothing unsaved, the notes follow the flag', r.a.now === r.a.nationNote && r.a.now !== r.a.was && !r.a.dirty, JSON.stringify(r.a));
+  check('a draft with the player’s own change keeps it, and the rest still follows the flag', r.b.mo === 'Our own words' && r.b.note === r.b.flagNote && r.b.dirty, JSON.stringify(r.b));
+  check('a note colour chosen in the draft stays chosen', r.c.note === '#ABCDEF', JSON.stringify(r.c)); }
 check('no page errors', errors.length === 0, errors.join(' | '));
 await browser.close(); server.close();
 process.exit(failed ? 1 : 0);
