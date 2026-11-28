@@ -255,7 +255,7 @@ for (const r of ['food', 'goods']) await A.click(`#dp-p-embassies [data-act="em-
 check('the stage delivered, its works begin and the stock pays', await until(() => A.evaluate(ub => { const m = G.S.nation.ems[ub]; return !!m.u && m.g.food === 15 && m.g.goods === 20 && G.S.nation.stock.food <= 385.5; }, ub)));
 await A.evaluate(ub => { const n = G.clone(G.S.nation), now = Date.now(); n.ems[ub] = { ...n.ems[ub], s: 2, g: { food: 30, goods: 25 }, u: now - 1000, us: now - 4 * 36e5 }; G.commit(n); }, ub);
 check('the last stage finishes by itself and the outpost opens', await until(() => A.evaluate(ub => G.S.nation.ems[ub].l === 1 && G.S.nation.emh === 1, ub), 15000) && await until(async () => /OPEN|Open/.test(await text(A, '#dp-p-embassies .em-card'))));
-check('A Flag Abroad is earned', await until(() => A.evaluate(() => !!(G.S.nation.ach && G.S.nation.ach['dip-emb1'])), 15000));
+check('A Flag Abroad comes in the same save that opens the outpost', await A.evaluate(ub => { const n = G.S.nation; return n.ems[ub].l === 1 && !!(n.ach && n.ach['dip-emb1']); }, ub));
 await A.evaluate(ub => { const n = G.clone(G.S.nation); n.gw = { ...(n.gw || {}), [ub]: 0 }; n.ems[ub] = { ...n.ems[ub], dt: Date.now() - 2 * 864e5 - 60e3 }; G.commit(n); }, ub);
 await A.evaluate(() => { G.commit(G.clone(G.S.nation)); });
 check('two days at an outpost: +2 goodwill, with its reason', await until(() => A.evaluate(ub => (G.S.nation.gw || {})[ub] === 2 && (G.S.nation.gwl || []).some(e => e.i === ub && e.d === 2 && /Your outpost in Bramblemoor/.test(e.w)), ub)));

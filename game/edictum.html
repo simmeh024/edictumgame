@@ -95755,7 +95755,25 @@ function emReadmit(id){
   const n=clone(n0);n.emx={...(n.emx||{})};delete n.emx[id];if(!Object.keys(n.emx).length)delete n.emx;commit(n);
   toast(`${x?x.n.name+'’s':'The'} mission may return.`);render();
 }
-/* every save: works whose time is up, the day's goodwill, the host's army noted, the most Embassies at once */
+/* every save, first of all (unshift: before the honours are counted, so a level that opens earns its honour in the
+   same save): works whose time is up */
+COMMIT_HOOKS.unshift((n,old,now)=>{
+  if(!n||n.npc)return [];now=now||Date.now();const out=[];
+  try{
+    const E=emOf(n);if(!Object.values(E).some(m=>m&&m.u&&m.u<=now))return out;n.ems={...E};
+    for(const id of Object.keys(n.ems)){
+      const m0=n.ems[id];if(!m0||typeof m0!=='object'||Array.isArray(m0)||!(m0.u&&m0.u<=now))continue;
+      const m=n.ems[id]={...m0},x=findNation(id),nm=x?x.n.name:'abroad';
+      for(let i=0;i<12;i++){const a=emAdvance(m,now);if(!a)break;
+        if(a.level){n.emh=Math.max(n.emh|0,a.level);
+          out.push({m:a.level===1?`Your outpost in ${nm} is open, and ${emEnvoy(n,id)} has presented letters of credence.`:`Your ${EM_LV[a.level].n} in ${nm} is open. ${EM_UNL.filter(u=>u[3]===a.level).length} new pieces of stationery and finery are yours to use.`,go:{v:'diplomacy',l:'See your embassies'}});}
+        else out.push(`${a.stage.nm} is finished at your mission in ${nm} (${a.stage.j+1} of ${a.stage.N}).`);}
+    }
+    const c3=emIds(n).filter(id=>emLv(emMission(n,id))>=3).length;if(c3>(n.em3|0))n.em3=c3;
+  }catch(e){console.warn('embassies',e);}
+  return out;
+});
+/* every save, after the goodwill reasons are noted: the day's goodwill, the host's army noted */
 COMMIT_HOOKS.push((n,old,now)=>{
   if(!n||n.npc)return [];delete n._emw;now=now||Date.now();const out=[];
   try{
@@ -95763,10 +95781,6 @@ COMMIT_HOOKS.push((n,old,now)=>{
     for(const id of Object.keys(n.ems)){
       const m0=n.ems[id];if(!m0||typeof m0!=='object'||Array.isArray(m0)){delete n.ems[id];continue;}
       const m=n.ems[id]={...m0},x=findNation(id),nm=x?x.n.name:'abroad';
-      for(let i=0;i<12;i++){const a=emAdvance(m,now);if(!a)break;
-        if(a.level){n.emh=Math.max(n.emh|0,a.level);
-          out.push({m:a.level===1?`Your outpost in ${nm} is open, and ${emEnvoy(n,id)} has presented letters of credence.`:`Your ${EM_LV[a.level].n} in ${nm} is open. ${EM_UNL.filter(u=>u[3]===a.level).length} new pieces of stationery and finery are yours to use.`,go:{v:'diplomacy',l:'See your embassies'}});}
-        else out.push(`${a.stage.nm} is finished at your mission in ${nm} (${a.stage.j+1} of ${a.stage.N}).`);}
       const st=emStatusOf(n,id),L=emLv(m);
       if(st==='open'&&x){
         const cur=gwOf(n,id),add=emDrift(m,cur,L,emRecip(id),now);
