@@ -34,6 +34,8 @@ const doc = (path, init = {}) => fetch(`${DOCS}/${path}`, { headers: OWNER, ...i
 async function read(path) { const r = await doc(path); return r.status === 200 ? r.json() : null; }
 async function list(path) { const r = await doc(path + '?pageSize=300'); return r.status === 200 ? (await r.json()).documents || [] : []; }
 const del = path => doc(path, { method: 'DELETE' });
+/* an army's battle log, cleared: since 28 November the referee counts the conquests it holds for the last 24 hours */
+async function clearLog(uid) { for (const d of await list('armies/' + uid + '/log')) await doc(d.name.split('/documents/')[1], { method: 'DELETE' }); }
 // a nation as src/shim.js saves it: the record's JSON beside the headline numbers
 function nation(uid, rec = {}, army = 5, reg = 'meridian') {
   const j = JSON.stringify({ name: 'Testland', reg, pop: 12, ...rec });
@@ -160,12 +162,32 @@ test('the dice are fair: about half of the battles at 50% are won', async () => 
   await nation(g.uid);
   let wins = 0;
   for (let i = 0; i < 42; i++) {
-    if (i % 7 === 0) await del('armies/' + g.uid);              // a fresh army every seven battles
+    if (i % 7 === 0) { await del('armies/' + g.uid); await clearLog(g.uid); }   // a fresh army every seven battles, and a fresh day
     const r = await battle(g, { p: 0.5 });
     assert.equal(r.ok, true);
     if (r.win) wins++;
   }
   assert.ok(wins >= 8 && wins <= 34, wins + ' of 42');
+});
+
+test('a day’s conquests: 16, 21 with a General Staff in the record, refused past them with two to spare', async () => {
+  for (const [rec, lim] of [[{}, 16], [{ cities: [{ id: 'cap', c: 1, nm: '', t: 1, b: [{ k: 'staffhq', s: 1, d: Date.now() - 864e5 }] }] }, 21]]) {
+    const g = await guest();
+    await nation(g.uid, rec);
+    let won = 0;
+    for (let i = 0; won < lim + 2; i++) {
+      assert.ok(i < 120, 'enough battles won');
+      if (i % 6 === 0) await del('armies/' + g.uid);           // readiness, not the log
+      const r = await battle(g);
+      assert.equal(r.ok, true, JSON.stringify(r));
+      if (r.win) won++;
+    }
+    await del('armies/' + g.uid);
+    assert.deepEqual(await battle(g), { ok: false, why: 'cap', cap: lim });
+    const log = await list('armies/' + g.uid + '/log');
+    assert.equal(log.filter(d => d.fields.q).length, lim + 2, 'each win that took land is marked in the log');
+    assert.ok(log.filter(d => !d.fields.win.booleanValue).every(d => !d.fields.q), 'a lost battle is not');
+  }
 });
 
 test('the odds stay within the game’s bounds, and no better than the two armies as saved allow', async () => {
