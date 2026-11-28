@@ -61,7 +61,7 @@ test('the Layers popover: the switches in five groups, the rest kept where it be
 test('the page: slim header, the old tool row out, the tools, chip, hint and minimap on the map, the panel in tabs',()=>{
   assert.match(SEC,/<header class="vh mpr-head">\$\{mprFill\(\)\?mpfMenuBtn\(\):''\}<h1>World map<\/h1>\$\{tabs\}<\/header>/);
   assert.match(SEC,/h=h\.split\(tb\)\.join\(''\);h=h\.split\(tb\.replace\('mp-map-toolbar row','mp-map-toolbar mp-in-tabs'\)\)\.join\(''\);/,'the old toolbar out, wherever it was');
-  assert.match(SEC,/class="\$\{tools\?'mp-map-toolbar ':''\}mpr-modes"/,'the old toolbar\'s name only once the map\'s tools are open to the nation');
+  assert.match(SEC,/class="\$\{tools\?'mp-map-toolbar ':''\}mpr-modes\$\{more\.length\?' has-more':''\}"/,'the old toolbar\'s name only once the map\'s tools are open to the nation');
   assert.match(SEC,/\[\['hex','This hex'\],\['nation','My nation'\],\['activity','Activity'\]\]/);
   assert.match(SEC,/MAP_PANEL_TOP\[i\]=ctx=>mprOn\(\)\?'':f\(ctx\);/,'the landing alert moves into the dock');
   assert.match(SEC,/function mprOn\(\)\{return !!\(S\.nation&&!OBS&&S\.view==='map'&&cellOf\(S\.nation\.loc\)>=0\);\}/,'never while observing or choosing where to begin');
@@ -112,14 +112,16 @@ test('the war in sight: a pill on the map, War after Explore with its count; ico
   assert.match(SEC,/const order=W\.on\?\[MPR_MODES\[0\],MPR_MODES\[5\],\.\.\.MPR_MODES\.slice\(1,5\)\]:MPR_MODES/,'while at war, War straight after Explore');
   assert.match(SEC,/v==='war'&&wars\?`<span class="mpr-n war">\$\{wars\}<\/span>`/,'with the number of wars');
   assert.match(SEC,/<div class="mpr-chips">\$\{mprWarPill\(mprWar\(\)\)\}\$\{coach\}<\/div>/,'the pill above the land office\'s chip');
-  assert.match(SEC,/const more=shown\.filter\(m=>m\[0\]==='transport'\|\|m\[0\]==='land'\)/,'Transport and Landings under More');
+  assert.match(SEC,/const MPR_FOLD=\['land','transport','plan','claim'\];/,'under More: Landings first, then Transport, Plan and Claim; never Explore or War');
+  assert.match(SEC,/for\(let i=0;i<MPR_FOLD\.length&&bar&&bar\.scrollWidth>bar\.clientWidth\+1;i\+\+\)\{MPR\.fold=\(MPR\.fold\|\|0\)\+1;redo\(\);\}/,'one more under More while the tools run past the bar\'s end (28 Nov: More hung out of it on a phone at war)');
+  assert.match(SEC,/mprMiniDraw\(\);mprFitBar\(\);/,'fitted after each drawing');
   assert.match(SEC,/if\(W\.on\)out\.push\(`<div class="mpr-alert mpr-war-a">/,'the war in the panel\'s alerts');
   assert.match(SEC,/<span class="mpr-n\$\{nWar\?' war':''\}"/,'and a red count on Activity');
   const icons=(SEC.match(/const MPR_ICON=\{([\s\S]*?)\};/)||[])[1]||'';for(const v of ["''",'claim','plan','transport','land','war'])assert.ok(icons.includes(v+':'),'an icon for '+v);
   const css=source.slice(source.indexOf('/* the World map fills the page (27 November 2026)'),source.indexOf('</style>'));
   assert.match(css,/@media \(min-width:1101px\)\{@container \(max-width:700px\)\{\s*\.mpr-m \.mpr-i\{display:block\}\.mpr-m \.mpr-l,\.mpr-m kbd\{display:none\}/,'icons on a narrow map on a wide screen');
-  assert.match(css,/@container \(max-width:520px\)\{\s*\.mpr-modes>\.mpr-m\[data-v="transport"\],\.mpr-modes>\.mpr-m\[data-v="land"\]\{display:none\}\s*\.mpr-more\{display:block\}/,'More when short of room');
-  assert.match(css,/@media \(max-width:1100px\)\{\.mpr-more-p\{top:auto;bottom:calc\(100% \+ 8px\)\}\.mpr-fold-b\{display:none\}/,'on a phone More opens upwards and the panel does not fold');
+  assert.match(css,/\.mpr-modes\.has-more\{overflow:visible\}/,'the bar lets More\'s menu out');
+  assert.match(css,/@media \(max-width:1100px\)\{\.mpr-more-p\{top:auto;bottom:calc\(100% \+ 8px\);left:auto;right:0\}\.mpr-fold-b\{display:none\}/,'on a phone More opens upwards and the panel does not fold');
 });
 
 /* found by the water-names suite with the map filling the page (27 Nov 2026): a click on the sea opened a story at the

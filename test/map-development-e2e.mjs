@@ -57,7 +57,9 @@ check('a finished harbour adds the Harbour reach layer, off by default',await A.
 /* the view is read after the map has drawn: drawing keeps it inside the map (clampView), which moves a view centred near
    the top or bottom edge, and a click placed by the view before that landed elsewhere whenever the draw came first */
 const clickCell=async(p,c)=>{
- await p.evaluate(c=>{G.MD.centerMain(c,5);G.render();},c);const cv=p.locator('canvas[data-map="main"]');await cv.scrollIntoViewIfNeeded();
+ /* the news pins off: a hex next to the capital can lie under its pin ("A new nation is born"), and the pin, not the hex,
+    took the click (27 Nov 2026, once the map drew where it was moved) */
+ await p.evaluate(c=>{try{localStorage.setItem('statehood.mapopt.news','false');}catch(e){}G.MD.centerMain(c,5);G.render();},c);const cv=p.locator('canvas[data-map="main"]');await cv.scrollIntoViewIfNeeded();
  await p.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))));
  const pos=await p.evaluate(c=>{const cv=document.querySelector('canvas[data-map="main"]'),v=G.MD.viewOf('main',cv),s=G.MD.mapScale(cv,v);return {x:cv.clientWidth/2+(G.MAP.cx[c]-v.cx)*s,y:cv.clientHeight/2+(G.MAP.cy[c]-v.cy)*s};},c);
  await cv.click({position:pos});
