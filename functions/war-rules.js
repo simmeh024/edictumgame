@@ -52,8 +52,36 @@ export function milBlocks(rec, k, now) {
 export function milReady(rec, now) {
   const d = milBlocks(rec, 'drillyard', now), a = milBlocks(rec, 'armoury', now), v = rec && rec.vet;
   const vet = !!v && v.k === 'res' && num(v.t) <= now && num(v.u) > now, rs = rsWar(rec);
-  return { cut: d >= 0 ? MIL_DRILL + MIL_DRILL_UG * d : 0, extra: (a >= 5 ? 2 : a >= 0 ? 1 : 0) + (vet ? 1 : 0) + rs.extra, rcut: rs.rcut };
+  const gs = gsTier(rec, now);
+  return { cut: d >= 0 ? MIL_DRILL + MIL_DRILL_UG * d : 0, extra: (a >= 5 ? 2 : a >= 0 ? 1 : 0) + (vet ? 1 : 0) + rs.extra, rcut: rs.rcut,
+    bcut: gs.t >= 2 && gs.ln === 'blitz' ? GS_BLITZ : 0 };
 }
+
+/* The General Staff (28 November 2026; game/edictum.html, "the General Staff"): an army may take CONQ_BASE hexes in any
+   24 hours, CONQ_STEP more with a General Staff and CONQ_STEP more again with High Command (tier II), whose Blitz
+   Command line brings readiness back GS_BLITZ sooner. Read from the record whoever holds the city, so never less than
+   the game allows (it counts only one in a city it holds). The referee counts the conquests its own log has for the
+   last 24 hours (q: a battle won that took land), with CONQ_SLACK to spare: a hex taken twice in a day counts once in
+   the game, and a won battle whose save never landed is not on the record at all. */
+export const CONQ_BASE = 16, CONQ_STEP = 5, CONQ_SLACK = 2, GS_BLITZ = 0.1;
+/* the best finished General Staff in a record's cities: its tier (0 none, 1, 2) and line */
+export function gsTier(rec, now) {
+  const out = { t: 0, ln: '' };
+  for (const c of Array.isArray(rec && rec.cities) ? rec.cities.slice(0, 200) : []) {
+    for (const b of Array.isArray(c && c.b) ? c.b.slice(0, 40) : []) {
+      if (!b || b.k !== 'staffhq' || !(num(b.d) > 0 && num(b.d) <= now)) continue;
+      let t = Number.isInteger(b.tr) && b.tr >= 2 ? 2 : 1, ln = t >= 2 && typeof b.ln === 'string' ? b.ln : '';
+      const tu = b.tu;
+      if (t < 2 && tu && typeof tu === 'object' && num(tu.l) >= 2 && num(tu.d) > 0 && num(tu.d) <= now) { t = 2; ln = typeof tu.ln === 'string' ? tu.ln : ''; }
+      if (t > out.t || (t === out.t && ln === 'blitz')) { out.t = t; out.ln = ln; }
+    }
+  }
+  return out;
+}
+export const conqCapOf = (rec, now) => CONQ_BASE + CONQ_STEP * Math.min(2, gsTier(rec, now).t);
+/* a raid takes no land: a war whose aim is a raid (the game counts it a raid only for the side that declared it, so
+   this is the more generous reading) */
+export function raidOf(mine, uid, foe, d, now) { const w = foe ? warOf(mine, uid, foe, d, now) : null; return !!w && !w.surr && w.g === 'r'; }
 /* a point's time with the cut, rounded as the game rounds it (after a training pact's) */
 export const milMs = (ms, cut) => cut > 0 ? Math.round(ms * (1 - cut)) : ms;
 

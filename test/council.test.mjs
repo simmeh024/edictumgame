@@ -282,7 +282,9 @@ test('the game: Council in the menu for a Delegate and for an admin, its edicts 
   const ids = [...html.slice(html.indexOf('const WAC_ISSUES=[')).matchAll(/\{id:'(wac-[a-z-]+)'/g)].map(m => m[1]);
   assert.equal(ids.length, 12);
   const order = fs.readFileSync(new URL('./edict-order.txt', import.meta.url), 'utf8').trim().split('\n');
-  assert.deepEqual(order.slice(-12), ids, 'pinned after every other edict');
+  /* then only the General Staff's two (general-staff.test.mjs) */
+  assert.deepEqual(order.slice(-14, -2), ids, 'pinned after every other edict but the General Staff’s');
+  assert.deepEqual(order.slice(-2), ['gs-parade', 'gs-command']);
   assert.ok(html.indexOf('const WAC_ISSUES=[') > html.indexOf('const SK_ISSUES=['), 'after the sacking edicts');
 });
 
