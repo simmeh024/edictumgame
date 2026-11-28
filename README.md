@@ -973,7 +973,10 @@ your project id. **Add variable**.
 
 Push to `main` (or open **Actions** → **Deploy** → **Run workflow**). The workflow installs the
 pinned packages, runs `build.py`, deploys the functions, the Firestore rules and indexes, then the site. If the
-secret or the variable is missing it says so in a yellow warning and deploys nothing. If a deploy
+secret or the variable is missing it says so in a yellow warning and deploys nothing. Only `main`'s newest
+commit is deployed: a run for an older commit (a re-run of an earlier failed deploy, or one that waited behind a newer
+merge) deploys nothing and says so in a yellow warning, so it cannot put an older build back live; re-run the newest
+commit's Deploy run instead. If a deploy
 fails with "The caller does not have permission", the message names the permission; add the role
 that holds it to the service account (step 5.2).
 
