@@ -143,7 +143,7 @@ test('holds end with their claim\'s day, are kept once each and survive a load',
 /* recentClaims itself: the hex a swap took (its claim made at n.lswT) is not for release, so a swap cannot turn an
    old hex, or a hex a trip needed, into a credit */
 test('the hex a swap took cannot be released; other recent claims can', () => {
-  const i = source.indexOf('function recentClaims('), j = source.indexOf('function claimBatches(', i);
+  const i = source.indexOf('function colonyLandings('), j = source.indexOf('function claimBatches(', i);
   assert.ok(i > 0 && j > i, 'recentClaims is where the test expects it');
   const now = 1e9, ctx = vm.createContext({ RELEASE_MS: 864e5, Date: { now: () => now }, myId: () => 'me',
     S: { nation: { claims: [{ c: 1, t: now - 3e5 }, { c: 2, t: now - 6e4 }, { c: 3, t: now - 2 * 864e5 }], cities: [], lswT: now - 6e4 } } });
@@ -153,4 +153,63 @@ test('the hex a swap took cannot be released; other recent claims can', () => {
   assert.deepEqual(ctx.recentClaims(T).map(e => e.c), [1]);
   delete ctx.S.nation.lswT;
   assert.deepEqual(ctx.recentClaims(T).map(e => e.c), [1, 2]);
+});
+
+/* a colony (n.cln, landing parties) before it has a city: all its land is recent claims, apart from home. Releasing
+   one of them used to leave the rest "cut off", and the whole colony went (The Wandering Isles, 28 November 2026).
+   Its landing hex now holds it, as the capital holds the homeland. On the strip, home is hex 0 and the colony landed
+   at hex 5; this runs the game's own recentClaims, releaseClaims, releaseHex and swapFromWhy */
+function colony(claims, { landed = 5 } = {}) {
+  const i = source.indexOf('function colonyLandings('), j = source.indexOf('/* ───────── how to get more land', i);
+  const k = source.indexOf('function swapFromWhy('), l = source.indexOf('function swapCheck(', k);
+  assert.ok(i > 0 && j > i && k > 0 && l > k, 'the release and swap code are where the test expects them');
+  const now = 1e9, toasts = [], ctx = vm.createContext({
+    MAP: { N, nbr }, RELEASE_MS: 864e5, Date: { now: () => now },
+    S: { nation: { name: 'Wandering Isles', claims: claims.map((c, k) => ({ c, t: now - 6e5 + k })), cities: [], tly: { claim: claims.length }, ...(landed == null ? {} : { cln: [{ id: 'v1', c: landed, t: now - 6e5, ty: 's' }] }) } },
+    myId: () => 'me', clone: x => structuredClone(x), toast: m => toasts.push(m), render() {}, updateMapPanel() {}, redrawMaps() {},
+    commit(n) { ctx.S.nation = n; },
+    territory() {
+      const owner = new Int16Array(N).fill(-1); owner[0] = 0;
+      for (const e of ctx.S.nation.claims) owner[e.c] = 0;
+      return { owner, byId: { me: 0 }, occ: [], isCap: [true] };
+    }
+  });
+  vm.runInContext(source.slice(i, j) + '\n' + source.slice(k, l), ctx);
+  return { ctx, release: cells => ctx.releaseClaims(cells), held: () => ctx.S.nation.claims.map(e => e.c).sort((a, b) => a - b), toasts };
+}
+
+test('releasing the outer hex of a colony without a city frees that hex only', () => {
+  const g = colony([5, 6, 7, 8]);
+  g.release([8]);
+  assert.deepEqual(g.held(), [5, 6, 7]);
+  assert.match(g.toasts[0], /released a hex: one land credit is free/);
+  assert.doesNotMatch(g.toasts[0], /cut off/);
+});
+
+test('releasing a hex in the middle of a colony frees only what it cuts off from the landing hex', () => {
+  const g = colony([5, 6, 7, 8]);
+  g.release([7]);
+  assert.deepEqual(g.held(), [5, 6]);
+  assert.match(g.toasts[0], /released 2 hexes, one of them because it would have been cut off/);
+  const other = colony([4, 5, 6, 7, 8]);                           // hex 4 lies on the far side of the landing hex
+  other.release([4]);
+  assert.deepEqual(other.held(), [5, 6, 7, 8]);
+});
+
+test('a colony\'s landing hex cannot be released or swapped, and the hex card says why', () => {
+  const g = colony([5, 6, 7, 8]), T = g.ctx.territory();
+  assert.deepEqual(g.ctx.recentClaims(T).map(e => e.c), [6, 7, 8]);
+  g.release([5]);
+  assert.deepEqual(g.held(), [5, 6, 7, 8]);
+  assert.match(g.toasts[0], /can no longer be released/);
+  assert.match(g.ctx.releaseHex(5, T), /your colony landed here and its land is held from this hex, so it stays yours/);
+  assert.match(g.ctx.releaseHex(6, T), /Release this claim/);
+  assert.match(g.ctx.swapFromWhy(T, 5), /Your colony landed on this hex/);
+  assert.equal(g.ctx.swapFromWhy(T, 6), '');
+});
+
+test('without a colony record the same patch keeps the old island-shore rule', () => {
+  const g = colony([5, 6, 7, 8], { landed: null });
+  g.release([8]);
+  assert.deepEqual(g.held(), []);
 });
