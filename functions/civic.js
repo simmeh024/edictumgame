@@ -165,16 +165,21 @@ async function settleSave(tx, db, who, d, p, n, pre, early = null) {
   const now = Date.now();
   /* the National Research Programme (functions/research-rules.js): research held to the rules and this clock */
   const rsKept = rsSettle(n, before, now, e.saved.exists && e.saved.get('ts')?.toMillis ? e.saved.get('ts').toMillis() : 0);
-  let most = Infinity, pop = p.pop;
+  let most = Infinity, pop = p.pop, carry = null;
   if (!e.saved.exists) {
     const c = await createCap(tx, db, who, e, p, d.from, carryHash(d.fk), now);
     if (p.pop > c.cap + 1e-4) refuse('population_limit', 'This nation is larger than a new record can start. Sign in to the account that held it.');
-    if (c.carry) tx.set(c.carry, { hw: { ...c.fh, to: who.uid } }, { mergeFields: ['hw'] });
+    carry = c.carry ? c : null;
   } else if (typeof e.saved.get('pop') === 'number' && e.saved.get('ts')?.toMillis) {
     const sp = e.saved.get('pop'), st = e.saved.get('ts').toMillis();
     most = grown(sp, st, now) + 1e-4;
     if (d.cap === 1) pop = heldPop(p.pop, sp, st, now);
   }
+  /* a name no other nation in the region has, asked when the record is new or its name or region changes (its reads
+     come before this save's first write) */
+  const nameRef = !e.saved.exists || before.name !== p.name || before.reg !== p.reg ? await nameFree(tx, db, who, p, d) : null;
+  if (carry) tx.set(carry.carry, { hw: { ...carry.fh, to: who.uid } }, { mergeFields: ['hw'] });
+  if (nameRef) tx.set(nameRef, { u: who.uid, reg: p.reg, t: now });
   /* a guest's carry key (src/shim.js, carryKey), noted with its last save so only its own browser can carry it */
   const hw = hwOf(e.account), noted = Math.min(pop, most), ck = who.registered ? '' : carryHash(d.ck), k = ck || (hw && typeof hw.k === 'string' ? hw.k : '');
   if (!hw || noted > hw.pop * HW_STEP || now - hw.at > HW_EVERY || hw.to || (ck && hw.k !== ck)) tx.set(db.doc('accountIdentity/' + who.uid), { hw: { pop: noted, at: now, ...(k ? { k } : {}) } }, { mergeFields: ['hw'] });
@@ -341,6 +346,30 @@ async function noteCarryKey(db, who, d) {
    name. The game asks here once that save is in: a saved name other than the one the moderator objected to (ignoring
    case, accents and spacing) shows the nation again, and the audit log records it. */
 const fold = s => String(s || '').normalize('NFKD').replace(/\p{M}/gu, '').replace(/\s+/g, ' ').trim().toLowerCase();
+/* One name to a nation in each region (asked 2026-11-03; the game's nameTaken in game/edictum.html, folded the same way,
+   so case, accents and spacing do not matter). The game checks before it founds or renames a nation, but only against
+   the nations it has heard of, so two players choosing a name at once could both have it (gap audit, 28 Nov 2026).
+   Here a save that founds a nation, renames it or moves it to another region is refused (name_taken) when the
+   region's computer-run nations or another nation's summary already have the name. The summaries are read outside
+   the transaction (a region's worth, and only on those saves), and names/<region>~<hash> {u, reg, t}, read and
+   written inside it, holds the name for NAME_HOLD, so of two such saves at once the second sees the first. The
+   account's own records and the guest a save carries a nation from (d.from) are no clash. Nations that already
+   share a name keep it: only a change is asked about. */
+const NAME_HOLD = 10 * 60000;
+const npcNameSets = new Map(DATA.regions.map(r => [r.id, new Set(r.npcs.map(x => fold(x.name)))]));
+export const nameKey = (reg, name) => reg + '~' + createHash('sha1').update(fold(name)).digest('hex');
+async function nameFree(tx, db, who, p, d) {
+  const f = fold(p.name);
+  if (!f) return null;
+  const mine = new Set([who.uid, typeof d.from === 'string' ? d.from : '']);
+  const taken = () => refuse('name_taken', 'Another nation in your region already has this name. Choose another.');
+  if (npcNameSets.get(p.reg)?.has(f)) taken();
+  const ref = db.doc('names/' + nameKey(p.reg, p.name)), held = await tx.get(ref);
+  if (held.exists && !mine.has(held.get('u')) && Date.now() - (held.get('t') || 0) < NAME_HOLD) taken();
+  const qs = await db.collection('summaries').where('reg', '==', p.reg).select('name').get();
+  for (const x of qs.docs) if (!mine.has(x.id) && fold(x.get('name')) === f) taken();
+  return ref;
+}
 async function renamed(db, who) {
   const ref = db.doc('mod/' + who.uid), event = db.collection('adminAudit').doc();
   return db.runTransaction(async tx => {
@@ -457,6 +486,20 @@ function debateTopic(reg, L, t1, now) {
   return { a: 'assembly', nm: name, rg: reg, as: true, rl: 'Clerk of the Assembly', ti: text(`Resolution No. ${L.c + 1}: ${L.ti}`, 120), x, tg: 'assembly', t: now, la: now, rc: 0 };
 }
 
+/* The region's Delegates, one after another (dh on assemblyRegions/<reg>: [{u, t}], u '' for an empty chair; gap
+   audit, 28 Nov 2026). A Delegate's terms were kept only in its own record's local part (game/edictum.html, asm.d),
+   which no other player reads, so the Dispatch, the Flock, the banner's "in the chair since" and a nation's honours
+   never told anyone else of them. Noted when an action, a cycle closed or locked, or a view that finds the chair
+   changed writes the root document. The first entry (f) is the chair as the list began, empty or held, a held one's
+   start unknown; so the first Delegate after an empty chair is news. delegateNext gives the new list, or null when the
+   chair is as the list ends. */
+const DH_MAX = 40;
+const dhList = dh => Array.isArray(dh) ? dh.filter(x => x && typeof x.u === 'string' && Number.isFinite(x.t)) : [];
+export function delegateNext(dh, id, now) {
+  const list = dhList(dh), last = list[list.length - 1];
+  if (last && last.u === id) return null;
+  return [...list, { u: id, t: now, ...(last ? {} : { f: 1 }) }].slice(-DH_MAX);
+}
 function output(ctx, uid, now, e) {
   const st = ctx.engine.state(now);
   const simpleD = D => D ? { id: D.id, k: D.k, by: D.by, np: D.np } : null;
@@ -468,7 +511,7 @@ function output(ctx, uid, now, e) {
     info: [...st.DD.info].map(([id, v]) => [id, { k: v.k, by: v.by, np: v.np, reach: v.reach, ...(v.ab ? { ab: 1 } : {}) }]),
     npc: st.DD.npc.map(b => ({ id: b.x.id, player: b.r?.id || '', a: b.a })),
     account: { kind: e.kind, readyAt: e.readyAt, eligible: e.kind === 'registered' && now >= e.readyAt && !e.moderated, reason: e.moderated ? 'moderated' : '' },
-    own: ctx.records.find(r => r.id === uid)?.n.asm || { r: e.n.reg, e: [], s: [], v: [] } };
+    own: ctx.records.find(r => r.id === uid)?.n.asm || { r: e.n.reg, e: [], s: [], v: [] }, dh: dhList(ctx.dh) };
 }
 
 /* Every player's game asks for the Assembly ('state') while it is open, so the region-wide part is kept here,
@@ -526,11 +569,13 @@ async function regionView(db, who, waited) {
   const records = base.records.filter(r => r.id !== uid), at = records.findIndex(r => r.id > uid);
   records.splice(at < 0 ? records.length : at, 0, mine);  // in the query's order, by document id
   const locks = base.locks.map(L => ({ ...L })), due = regionDue(reg, base.root, records, locks, now, base.haalesh);
-  if (!due.pending.length) return output({ records, locks, engine: due.engine }, uid, now, e);
+  const chair = delegateNext(meta.get('dh'), due.engine.state(now).D?.id || '', now);
+  if (!due.pending.length && !chair) return output({ records, locks, engine: due.engine, dh: meta.get('dh') }, uid, now, e);
   // a cycle to close or lock: one transaction per region at a time here, and the rest read what it wrote
   const busy = closing.get(reg);
   if (busy && !waited) { await busy.catch(() => {}); return regionView(db, who, true); }
-  const run = assemblyTx(db, who, { op: 'state' });
+  /* fresh: the chair this cached view saw change is read again after, whether or not the transaction found it so */
+  const run = assemblyTx(db, who, { op: 'state' }, undefined, !due.pending.length);
   closing.set(reg, run);
   try { return await run; } finally { if (closing.get(reg) === run) closing.delete(reg); }
 }
@@ -549,7 +594,7 @@ async function observeView(db, who, reg) {
   const now = Date.now(), meta = await db.doc('assemblyRegions/' + reg).get();
   const base = await regionBase(db, reg, rootKey(meta));
   const records = base.records.slice(), locks = base.locks.map(L => ({ ...L })), due = regionDue(reg, base.root, records, locks, now, base.haalesh);
-  return output({ records, locks, engine: due.engine }, '', now, { n: { reg }, kind: 'observer', readyAt: 0, moderated: false });
+  return output({ records, locks, engine: due.engine, dh: meta.get('dh') }, '', now, { n: { reg }, kind: 'observer', readyAt: 0, moderated: false });
 }
 
 /* The Book of Resolutions: a region's finished cycles, newest first, a page at a time (before: the cycle to start
@@ -619,9 +664,9 @@ export async function settleAssemblyRegion(db,reg,now=Date.now()){
   if(!regions.has(reg))throw new Error('Unknown Assembly region.');
   return assemblyTx(db,{system:true,uid:''},{op:'state',reg},now);
 }
-async function assemblyTx(db, who, d, systemNow) {
+async function assemblyTx(db, who, d, systemNow, fresh) {
   const action = d.op !== 'state';
-  let written = '', paper = null;
+  let written = '', paper = null, seen = '';
   const out = await db.runTransaction(async tx => {
     const now = who.system ? systemNow : Date.now();
     if(who.system&&d.op!=='state')throw new Error('The server clock cannot take player actions.');
@@ -743,17 +788,15 @@ async function assemblyTx(db, who, d, systemNow) {
       ctx.engine = assemblyEngine(reg, ctx.records, ctx.locks, ctx.haalesh);
     }
     // Avoid a write on every read when nothing changed; boundary creation still owns a revision.
-    if (action || ctx.pending.length || exileOutcome) {
-      const D = ctx.engine.state(now).D;
-      tx.set(ctx.root.collection('leadership').doc('current'), { id: D?.id || '', endorsements: D?.k || 0, at: now });
-    }
+    const D = ctx.engine.state(now).D, dh = delegateNext(ctx.meta.get('dh'), D?.id || '', now), writes = action || ctx.pending.length || exileOutcome || dh;
+    if (writes) tx.set(ctx.root.collection('leadership').doc('current'), { id: D?.id || '', endorsements: D?.k || 0, at: now });
     if (op === 'vote' && Date.now() >= st.t1) refuse('vote_closed', 'This vote has closed. Refresh the Assembly.');
-    if (action || ctx.pending.length || exileOutcome) tx.set(ctx.root, { rev: (ctx.meta.get('rev') || 0) + 1, startCycle: ctx.meta.get('startCycle') ?? ctx.c, at: now, ...(exileOutcome?.nation?{haalesh:ctx.haalesh}:{}) }, { merge: true });
-    written = action || ctx.pending.length || exileOutcome ? reg : '';
-    return output(ctx, who.uid, now, e);
+    if (writes) tx.set(ctx.root, { rev: (ctx.meta.get('rev') || 0) + 1, startCycle: ctx.meta.get('startCycle') ?? ctx.c, at: now, ...(exileOutcome?.nation?{haalesh:ctx.haalesh}:{}), ...(dh ? { dh } : {}) }, { merge: true });
+    written = writes ? reg : ''; seen = reg;
+    return output({ ...ctx, dh: dh || ctx.meta.get('dh') }, who.uid, now, e);
   });
   // other instances see the root document change; this one need not wait for the read
-  if (written) regionCache.delete(written);
+  if (written || fresh && seen) regionCache.delete(written || seen);
   return out;
 }
 
