@@ -269,6 +269,17 @@ await B.click(`.em-host [data-act="em-readmit"][data-id="${ua}"]`);
 check('let back, the mission opens again', await until(async () => { await A.click('#dp-tab-embassies'); return /OPEN|Open/.test(await text(A, '#dp-p-embassies .em-card .chip')); }, 20000));
 await shot(A, 'embassies');
 
+// reputation: your own on the Overview, every player's on Relations and on its page, as the rules name it
+const repName = id => A.evaluate(id => { const X = G.REPX(), r = X.repNation(id); return r ? X.REP_NAME[r.k] : ''; }, id);
+await nav(A, 'diplomacy'); await A.click('#dp-tab-overview');
+const myRep = await repName(ua);
+check('the Overview shows your reputation', !!myRep && await until(async () => (await text(A, '#dp-p-overview .rep-card')).includes(myRep)), myRep);
+const bRep = await repName(ub);
+await A.click('#dp-tab-relations'); await A.click('[data-act="dp-relf"][data-v="all"]');
+check('Relations shows each player’s reputation', !!bRep && await until(() => A.evaluate(([ub, name]) => [...document.querySelectorAll('.dp-rel')].some(li => li.querySelector(`[data-act="visit"][data-id="${ub}"]`) && [...li.querySelectorAll('.rep-chip')].some(c => c.textContent.trim() === name)), [ub, bRep])), bRep);
+await A.click(`#dp-p-relations [data-act="visit"][data-id="${ub}"]`);
+check('and so does its page', await until(async () => (await text(A, '.rep-visit')).includes(bRep)));
+
 // the address opens a tab after a reload
 await A.evaluate(() => { location.hash = '#diplomacy/relations'; }); await A.reload(); await ready(A); await A.waitForSelector('#dp');
 check('#diplomacy/relations opens the Relations tab after a reload', await tab(A) === 'relations' && await shown(A, '.dp-rel-top'));
