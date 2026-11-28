@@ -24758,6 +24758,8 @@ const cityEaten=popM=>CITY_EAT*Math.max(0,(popM||0)-1);
    first, so a Cannery slows and stops by itself as food runs short */
 const CAN_FOOD=20,CAN_RATE=0.25;
 const MAX_DEALS=12;
+/* the partner of an open offer, made to no one in particular (trading from the Community Board, trOpenTaker) */
+const TR_OPEN='*';
 /* land grows less food (2026-11-17, the owner: nerf food income, land ×0.85 like iron): every food yield of the land,
    river valleys and reclaimed land included, is FOOD_LAND of what it was (lowland 2.04, hills 0.85, mountains 0.17,
    coast +0.85). With the eating steps above it took 29% off the food banked on the 16 Nov snapshot. The map tools copy
@@ -24798,11 +24800,16 @@ const mirrored=(x,y)=>x.g[0]===y.r[0]&&x.g[1]===y.r[1]&&x.r[0]===y.g[0]&&x.r[1]=
 function collectDeals(){
   const docs=tradeDocs(),by=new Map(docs),active=[],pending=[],seen=new Set();
   for(const [id,d] of docs)for(const x of d.deals||[]){
-    if(x.a||seen.has(x.id)||(x.e&&x.e<=Date.now()))continue;{const tg=by.get(x.w);if(tg&&x.t<(tg.founded||0))continue;}
+    if(x.a||seen.has(x.id)||(x.e&&x.e<=Date.now()))continue;
+    if(x.w===TR_OPEN){seen.add(x.id);const tk=trOpenTaker(id,x,docs);if(tk==='closed')continue;
+      if(tk)active.push({id:x.id,a:id,b:tk.id,ag:x.g,bg:x.r,t:Math.max(x.t,tk.y.t),e:x.e||0,open:1});
+      else if(!(Date.now()-x.t>TR_OFFER_MS))pending.push({id:x.id,from:id,to:TR_OPEN,g:x.g,r:x.r,t:x.t,e:x.e||0,nu:0,declined:false,open:1});
+      continue;}
+    {const tg=by.get(x.w);if(tg&&x.t<(tg.founded||0))continue;}
     seen.add(x.id);
     if(NPC_SET.has(x.w)){active.push({id:x.id,a:id,b:x.w,ag:x.g,bg:x.r,t:x.t,e:x.e||0,npc:true});continue;}
     const pd=by.get(x.w),m=pd&&(pd.deals||[]).find(y=>y.id===x.id&&y.a&&y.w===id&&mirrored(x,y));
-    if(m)active.push({id:x.id,a:id,b:x.w,ag:x.g,bg:x.r,t:Math.max(x.t,m.t),e:x.e||0});
+    if(m)active.push({id:x.id,a:id,b:x.w,ag:x.g,bg:x.r,t:Math.max(x.t,m.t),e:x.e||0,...(x.o?{open:1}:{})});
     else if(!(Date.now()-x.t>TR_OFFER_MS))pending.push({id:x.id,from:id,to:x.w,g:x.g,r:x.r,t:x.t,e:x.e||0,nu:x.nu||0,declined:!!(pd&&(pd.dealNo||[]).includes(x.id))});
   }
   return {active,pending};
@@ -24934,12 +24941,13 @@ function acceptDeal(id){
 }
 function declineDeal(id){const n=clone(S.nation);n.dealNo=(n.dealNo||[]).concat(id).slice(-20);{const p=economy().pending.find(q=>q.id===id);if(p){n.log.unshift({t:Date.now(),k:'tradeno',a:p.from,b:nameOf(p.from)});n.log=n.log.slice(0,60);}}commit(n);S.tradeMsg='Offer declined.';render();}
 function cancelDeal(id){
-  const n=clone(S.nation),x=(n.deals||[]).find(d=>d.id===id);if(!x)return;
+  const n=clone(S.nation);try{trOpenLock(n);}catch(e){}
+  const x=(n.deals||[]).find(d=>d.id===id);if(!x)return;
   const act=economy().active.find(d=>d.id===id),now=Date.now();
   n.deals=n.deals.filter(d=>d.id!==id);
   if(x.a)n.dealNo=(n.dealNo||[]).concat(id).slice(-20);
   if(act){n.log.unshift({t:now,k:'tradeend',a:x.w,b:nameOf(x.w),d:[x.g,x.r],s:act.t});n.log=n.log.slice(0,60);}
-  commit(n);S.tradeMsg=act?`The deal with ${nameOf(x.w)} has ended.`:'Offer withdrawn.';render();
+  commit(n);S.tradeMsg=act?`The deal with ${nameOf(x.w)} has ended.`:x.w===TR_OPEN?'Open offer withdrawn.':'Offer withdrawn.';render();
 }
 function fillDeal(w,rr,ra,quiet){
   const E=economy(),i=E.T.byId[myId()];
@@ -25036,8 +25044,8 @@ function dealPreview(){
   return `<p class="muted">${esc(bits.join(' '))}</p>${verdict}`;
 }
 function dealRow(partner,give,get,status,actions,e){
-  const x=findNation(partner);if(e)status+=`<span class="deal-end">${trEndsIn(e)}</span>`;
-  return `<li class="deal">${x?`<span class="mflag">${flagSVG(x.n.flag,'Flag of '+x.n.name)}</span>`:''}<div class="deal-b"><b>${esc(nameOf(partner))}</b><span>You send ${fmtAmt(give[1])} ${resName(give[0])} a day · you receive ${fmtAmt(get[1])} ${resName(get[0])} a day</span></div>${status}<span class="deal-a">${actions}</span></li>`;
+  const x=partner===TR_OPEN?null:findNation(partner);if(e)status+=`<span class="deal-end">${trEndsIn(e)}</span>`;
+  return `<li class="deal">${x?`<span class="mflag">${flagSVG(x.n.flag,'Flag of '+x.n.name)}</span>`:''}<div class="deal-b"><b>${partner===TR_OPEN?`Open to every nation of ${esc(REG.name)}`:esc(nameOf(partner))}</b><span>You send ${fmtAmt(give[1])} ${resName(give[0])} a day · you receive ${fmtAmt(get[1])} ${resName(get[0])} a day</span></div>${status}<span class="deal-a">${actions}</span></li>`;
 }
 function cityTradeNote(){
   const T=territory(),i=T.byId[myId()];if(i===undefined)return '';
@@ -25129,7 +25137,7 @@ function tradeView(){
   const now=Date.now(),stale=!!S.trade.stale;
   const incoming=E.pending.filter(p=>p.to===me&&!p.declined&&!(n.dealNo||[]).includes(p.id)).sort((a,b)=>a.t-b.t).map(p=>dealRow(p.from,p.r,p.g,'<span class="pill">Offer</span>'+trWait(p,now)+(p.nu?'<span class="pill tr-nu">Reminder sent</span>':'')+(()=>{const a=spareOf(E,p.from,p.g[0]),b=spareOf(E,myId(),p.r[0]),w=[];if(a<p.g[1]-1e-9)w.push(`${nameOf(p.from)} can spare only ${fmtAmt(a)} ${resName(p.g[0])} a day`);if(b<p.r[1]-1e-9)w.push(`you can spare only ${fmtAmt(b)} ${resName(p.r[0])} a day`);return w.length?`<span class="deal-warn">${esc(cap1(list(w)))}, so both sides would deliver only that share.</span>`:'';})(),`<button class="btn" data-act="tr-accept" data-id="${esc(p.id)}">Accept</button>${findNation(p.from)&&!findNation(p.from).npc?`<button class="btn ghost" data-act="tr-counter" data-id="${esc(p.id)}">Counter</button>`:''}<button class="btn ghost" data-act="tr-decline" data-id="${esc(p.id)}">Decline</button>`,p.e)).join('');
   const outAll=E.pending.filter(p=>p.from===me).sort((a,b)=>a.t-b.t),nStale=outAll.filter(p=>!p.declined&&now-p.t>=3*864e5).length;
-  const outgoing=outAll.filter(p=>!stale||(!p.declined&&now-p.t>=3*864e5)).map(p=>dealRow(p.to,p.g,p.r,p.declined?'<span class="pill down">Declined</span>':'<span class="pill">Waiting</span>'+trWait(p,now)+trMeta(p.to,now),`${!p.declined&&!p.nu&&now-p.t>=TR_NUDGE_MS&&!(findNation(p.to)||{}).npc?`<button class="linkish small" data-act="tr-nudge" data-id="${esc(p.id)}">Send a reminder</button> `:p.nu?'<span class="deal-end">Reminded</span> ':''}<button class="linkish small" data-act="tr-cancel" data-id="${esc(p.id)}">Withdraw</button>`,p.e)).join('');
+  const outgoing=outAll.filter(p=>!stale||(!p.declined&&now-p.t>=3*864e5)).map(p=>dealRow(p.to,p.g,p.r,p.declined?'<span class="pill down">Declined</span>':(p.open?'<span class="pill">Open</span>':'<span class="pill">Waiting</span>')+trWait(p,now)+(p.open?'':trMeta(p.to,now)),`${!p.open&&!p.declined&&!p.nu&&now-p.t>=TR_NUDGE_MS&&!(findNation(p.to)||{}).npc?`<button class="linkish small" data-act="tr-nudge" data-id="${esc(p.id)}">Send a reminder</button> `:p.nu?'<span class="deal-end">Reminded</span> ':''}<button class="linkish small" data-act="tr-cancel" data-id="${esc(p.id)}">Withdraw</button>`,p.e)).join('');
   const partners=allNations().filter(x=>!x.me);
   if(!partners.some(p=>p.id===S.trade.w))S.trade.w=(partners.find(p=>p.npc&&!warWith(p.id).war)||partners[0]||{}).id||'';
   const resOpts=v=>RES.map(r=>`<option value="${r}"${r===v?' selected':''}>${RES_INFO[r][0]}</option>`).join('');
@@ -25153,6 +25161,7 @@ function tradeView(){
       <h2 class="h2">Agreements</h2>
       ${trSlotsLine()}
       ${incoming?`<h3 class="lbl-h tr-in-h">Offers to you</h3><ul class="deals">${incoming}</ul>`:''}
+      ${trOpenList(E,now)}
       ${active?`<h3 class="lbl-h"${incoming?' style="margin-top:20px"':''}>Active deals</h3>${trHealth(E,me)}<ul class="deals">${active}</ul>`:''}
       ${outAll.length?`<h3 class="lbl-h" style="margin-top:20px">Your offers</h3><p class="hint">Oldest first. Unanswered offers lapse after ${TR_OFFER_DAYS} days and free their slot.${nStale||stale?` <button type="button" class="linkish small" data-act="tr-stale" aria-pressed="${stale}">${stale?'Show all offers':`Only those waiting over 3 days (${nStale})`}</button>`:''}</p><ul class="deals">${outgoing||'<li class="hint">None waiting that long.</li>'}</ul>`:''}
       ${!incoming&&!active&&!outAll.length?'<div class="empty"><p class="empty-h">No trade deals yet</p><p>Propose one with the form, or pick an offer from the world market below it.</p></div>':''}
@@ -30688,8 +30697,8 @@ function tallyScan(n,old,now){
   const msig=m=>m.t+'|'+m.w,oldM=sigs((old&&old.dm||[]).filter(m=>!m.i),msig);
   for(const m of n.dm||[]){if(m.i||oldM.has(msig(m)))continue;bump('dm',m.t);bump('dm:'+m.w,m.t);}
   /* trade offers made */
-  const oldX=sigs(old&&old.deals,x=>x.id);
-  for(const x of n.deals||[]){if(oldX.has(x.id))continue;bump(x.a?'dealok':'deal',x.t);if(x.w)bump('deal:'+x.w,x.t);}
+  const oldX=sigs(old&&old.deals,x=>x.id),oldW=new Map(((old&&old.deals)||[]).map(x=>[x.id,x.w]));
+  for(const x of n.deals||[]){if(oldX.has(x.id)){if(oldW.get(x.id)===TR_OPEN&&x.w&&x.w!==TR_OPEN)bump('deal:'+x.w,x.t);continue;}bump(x.a?'dealok':'deal',x.t);if(x.w&&x.w!==TR_OPEN)bump('deal:'+x.w,x.t);}
   /* land claimed, won and lost */
   const csig=e=>e.t+'|'+e.c,oldC=sigs(old&&old.claims,csig),oldQ=sigs(old&&old.conq,csig);
   for(const e of n.claims||[])if(!oldC.has(csig(e)))bump('claim',e.t);
@@ -55610,7 +55619,7 @@ function normalizeBase(d){
   const deals=Array.isArray(d.deals)?d.deals.filter(x=>x&&typeof x.id==='string'&&typeof x.w==='string'&&Array.isArray(x.g)&&Array.isArray(x.r)&&RES.includes(x.g[0])&&RES.includes(x.r[0])).slice(0,TR_STORE).map(x=>{const o={id:x.id.slice(0,16),w:x.w.slice(0,60),g:[x.g[0],clamp(Math.round(num(x.g[1],1)*2)/2,0.5,100)],r:[x.r[0],clamp(Math.round(num(x.r[1],1)*2)/2,0.5,100)],t:num(x.t,0)};if(x.a)o.a=1;if(Number.isFinite(x.e)&&x.e>0)o.e=x.e;
     /* when the offer was made (an acceptance's s) and when a reminder went (an offer's nu): without them the other side
        never saw "usually answers within" nor "sent a reminder" (gap audit 28 Nov 2026) */
-    if(Number.isFinite(x.s)&&x.s>0)o.s=x.s;if(Number.isFinite(x.nu)&&x.nu>0)o.nu=x.nu;return o;}):[];
+    if(Number.isFinite(x.s)&&x.s>0)o.s=x.s;if(Number.isFinite(x.nu)&&x.nu>0)o.nu=x.nu;if(x.o===1)o.o=1;return o;}):[];
   const trFav=Array.isArray(d.trFav)?d.trFav.filter(x=>typeof x==='string'&&x.length<=60).slice(0,8):[],trX=Array.isArray(d.trX)?d.trX.filter(x=>Number.isFinite(x)&&x>now-TR_DAY).slice(-TR_X_MAX):[];
   const topics={};if(d.topics&&typeof d.topics==='object')for(const [k] of ISSUE_TOPICS){const v=d.topics[k];if(v===1||v===-1)topics[k]=v;}
   const dealNo=Array.isArray(d.dealNo)?d.dealNo.filter(x=>typeof x==='string').slice(-20).map(x=>x.slice(0,16)):[];
@@ -59912,7 +59921,7 @@ async function connect(){
     /* saved from another device: the region has only its shared half, so load it whole */
     if(PV){if(w[S.uid]&&(w[S.uid].updatedAt||0)>(S.nation&&S.nation.updatedAt||0))pvLoad(S.db).catch(()=>{});}else{ownLatest=w[S.uid]||ownLatest;syncOwnNation();}
     if(!S.nation||S.view==='map')quietRender(()=>{updateMapPanel();redrawMaps();if(!S.nation)updateFoundLife();});
-    else if((['region','census','visit','nation','diplomacy','trade'].includes(S.view)||S.view==='exchange'&&cuWorldMoved())&&!S.spyRolling)quietRender();
+    else if((['region','census','visit','nation','diplomacy','trade'].includes(S.view)||S.view==='exchange'&&cuWorldMoved()||S.view==='community'&&cbOfferLive())&&!S.spyRolling)quietRender();
   };
   reshare=shared;
   const none={docs:[]};
@@ -72037,14 +72046,18 @@ document.addEventListener('click',e=>{
    counts) or a picture (functions/board.js: cbPic/<post> its small copy, cbPicD/<post> the picture); and achievements for
    all of these. */
 let CB_EMB_RE=null;
-const cbEmbRe=()=>CB_EMB_RE||(CB_EMB_RE=new RegExp(String.raw`^\[\s*(?:(my flag)|(my arms)|(offer|want)\s*:\s*(\d+(?:\.\d+)?)\s+(${RES.join('|')})(?:\s+for\s+(\d+(?:\.\d+)?)\s+(${RES.join('|')}))?)\s*\]$`,'i'));
+/* "a day", "per day" or "/day" may follow an amount, and the closing bracket may be left off (28 Nov 2026: a player's
+   "[offer: 300 food for 30 oil" showed as plain words) */
+const CB_DAY=String.raw`(?:\s*(?:(?:a|per)\s+day|\/\s*day))?`;
+const cbEmbRe=()=>CB_EMB_RE||(CB_EMB_RE=new RegExp(String.raw`^\[\s*(?:(my flag)|(my arms)|(offer|want)\s*:\s*(\d+(?:\.\d+)?)\s+(${RES.join('|')})${CB_DAY}(?:\s+for\s+(\d+(?:\.\d+)?)\s+(${RES.join('|')})${CB_DAY})?)\s*\]?$`,'i'));
 const CB_SR_TTL=5*60e3,CB_SR_N=60,CB_SR_SHOW=50;
 /* a line that is only an embed: what it shows */
 function cbEmbedOf(l){
   const m=cbEmbRe().exec(String(l||'').trim());if(!m)return null;
   if(m[1])return {k:'flag'};if(m[2])return {k:'arms'};
-  const amt=v=>Math.round(clamp(Number(v)||0,.5,100)*2)/2;
-  return {k:m[3].toLowerCase(),a:amt(m[4]),r:m[5].toLowerCase(),fa:m[6]?amt(m[6]):0,fr:m[7]?m[7].toLowerCase():''};
+  /* a deal carries at most 100 of a resource a day: larger amounts are scaled down together, so the terms keep their ratio */
+  const ra=Number(m[4])||0,rb=m[6]?Number(m[6])||0:0,top=Math.max(ra,rb),k=top>100?100/top:1,amt=v=>Math.round(clamp(v*k,.5,100)*2)/2;
+  return {k:m[3].toLowerCase(),a:amt(ra),r:m[5].toLowerCase(),fa:m[6]?amt(rb):0,fr:m[7]?m[7].toLowerCase():'',...(k<1?{big:[ra,rb]}:{})};
 }
 function cbArmsOf(p){if(!p||typeof p.am!=='string'||!p.am)return null;try{const a=JSON.parse(p.am);return a&&typeof a==='object'&&!Array.isArray(a)?a:null;}catch(e){return null;}}
 function cbFlagOf(p){if(!p||!p.fl)return null;try{const f=JSON.parse(p.fl);return f&&typeof f==='object'?f:null;}catch(e){return null;}}
@@ -72071,6 +72084,111 @@ function cbPostAch(x,reg,pic){
   if(E.some(e=>e.k==='flag'))achPend('cbfl');if(E.some(e=>e.k==='arms'))achPend('cbar');if(E.some(e=>e.k==='offer'||e.k==='want'))achPend('cbof');
   if(pic)achPend('cbpic');if(REG&&reg&&reg!==REG.id&&reg!==CB_CH.id)achPend('cbfar');
 }
+
+/* ───────── trading from the Community Board (asked 2026-11-23; built again 28 Nov 2026) ─────────
+   A priced offer posted on the author's own region's board ([offer: 10 iron for 8 food], [want: …]) opens it to every
+   nation of the region: an open offer, a proposal made to no one (w TR_OPEN, o 1) in the author's record. Any nation of
+   the region signs it from the post or the Trade page with the acceptance every deal has ({id, w: author, a: 1, …}); the
+   earliest signature takes it, and the deal runs at once for both. The author's game writes the taker in at its next
+   commit (trOpenLock), after which it is an ordinary deal. A taker who ends the deal before that (its dealNo holds the
+   id) closes the offer. Signatures that came too late are dropped by liveDeals at their next commit. Deals live in the
+   nations' records, as before: nothing new on the server. */
+const CB_OPEN_MAX=3;
+/* the taker of an open offer: the earliest matching acceptance among the region's records; 'closed' once one ended it */
+function trOpenTaker(author,x,docs){
+  let best=null;const now=Date.now();
+  for(const [id,d] of docs){if(id===author||!d)continue;
+    if((d.dealNo||[]).includes(x.id))return 'closed';
+    for(const y of d.deals||[])if(y&&y.id===x.id&&y.a&&y.w===author&&mirrored(x,y)&&!(y.e&&y.e<=now)&&(!best||y.t<best.y.t||(y.t===best.y.t&&id<best.id)))best={id,y};}
+  return best;
+}
+/* the author's game writes the taker in (before tallyScan, so 'deal:<taker>' counts), or drops an offer a taker closed */
+function trOpenLock(n){
+  if(!n||!Array.isArray(n.deals)||!n.deals.some(x=>x&&x.w===TR_OPEN))return;
+  const me=myId(),now=Date.now(),docs=tradeDocs().map(([id,d])=>id===me?[id,n]:[id,d]);
+  n.deals=n.deals.filter(x=>{if(!x||x.w!==TR_OPEN)return true;const tk=trOpenTaker(me,x,docs);if(tk==='closed')return false;
+    if(tk){x.w=tk.id;if(Array.isArray(n.log)){n.log.unshift({t:now,k:'trade',a:tk.id,b:nameOf(tk.id),d:[x.g,x.r]});n.log=n.log.slice(0,60);}
+      setTimeout(()=>toast(`${nameOf(tk.id)} signed your open offer from the Community Board. The deal is running.`),0);}
+    return true;});
+}
+commit=(f=>function(n){try{trOpenLock(n);}catch(e){}return f.apply(this,arguments);})(commit);
+const trTermsEq=(a,b)=>!!a&&!!b&&a[0]===b[0]&&Math.abs(a[1]-b[1])<1e-9;
+/* the author's side of a priced offer line: what they send (g) and receive (r) */
+function cbOfferTerms(E){if(!E||(E.k!=='offer'&&E.k!=='want')||!E.fr||!(E.fa>0)||E.fr===E.r)return null;return E.k==='offer'?{g:[E.r,E.a],r:[E.fr,E.fa]}:{g:[E.fr,E.fa],r:[E.r,E.a]};}
+/* open offers: one for each set of terms (CB_OPEN_MAX at most), while the nation has deal slots free */
+function trOpenNew(list){
+  if(!S.nation||S.mode!=='world'||OBS||PV||!list.length)return 0;
+  const E=economy(),me=myId(),n=clone(S.nation),now=Date.now();let free=maxDeals()-dealSlots(),made=0,full=false;
+  n.deals=liveDeals(n);
+  for(const T of list.slice(0,CB_OPEN_MAX)){
+    if(E.pending.some(p=>p.open&&p.from===me&&trTermsEq(p.g,T.g)&&trTermsEq(p.r,T.r))||n.deals.some(x=>x.w===TR_OPEN&&trTermsEq(x.g,T.g)&&trTermsEq(x.r,T.r)))continue;
+    if(free<=0){full=true;break;}
+    n.deals.push({id:Math.random().toString(36).slice(2,10),w:TR_OPEN,o:1,g:T.g.slice(),r:T.r.slice(),t:now+made});free--;made++;}
+  if(made)commit(n);
+  if(full)setTimeout(()=>toast(`You already have ${maxDeals()} deals and offers, so ${made?'not every offer in it is':'the offer in it is not'} open to sign. End one on the Trade page, then open it from the post.`),0);
+  return made;
+}
+/* a post on the nation's own region's board opens its priced offers */
+function cbOpenAfterPost(x,reg){
+  if(!REG||reg!==REG.id)return;
+  const list=String(x||'').split('\n').map(cbEmbedOf).map(cbOfferTerms).filter(Boolean),made=trOpenNew(list);
+  if(made)setTimeout(()=>toast(`${made===1?'Your offer is':'Your offers are'} open to every nation of ${REG.name}: the first to sign gets the deal. Withdraw it on the post or the Trade page.`),0);
+}
+cbPostAch=(f=>function(x,reg){const r=f.apply(this,arguments);try{cbOpenAfterPost(x,reg);}catch(e){}return r;})(cbPostAch);
+/* sign an open offer: the deal runs from now, unless someone signed first */
+function trSignOpen(id){
+  if(!S.nation||S.mode!=='world'||OBS||PV)return;
+  const E=economy(),me=myId(),p=E.pending.find(q=>q.id===id&&q.open),fail=m=>{S.tradeMsg=m;toast(m);render();};
+  if(!p){const a=E.active.find(d=>d.id===id&&d.open);return fail(a?(a.b===me?'You have already signed this deal.':`${nameOf(a.b)} signed this offer first.`):'This offer is no longer open.');}
+  if(p.from===me)return fail('This is your own offer.');
+  if(E.T.byId[me]===undefined)return fail('Settle your nation on the map first: a deal trades what your land yields.');
+  if(E.T.byId[p.from]===undefined)return fail(`${nameOf(p.from)} has no land to trade from.`);
+  if(warWith(p.from).war)return fail(`You are at war with ${nameOf(p.from)}, so trade is impossible.`);
+  if(dealSlots()>=maxDeals())return fail(`You already have ${maxDeals()} deals and offers. End one first.`);
+  const n=clone(S.nation),now=Date.now(),acc={id,w:p.from,g:p.r,r:p.g,t:now,a:1,s:p.t};if(p.e)acc.e=p.e;
+  n.deals=liveDeals(n).filter(x=>x.id!==id).concat(acc);
+  n.log.unshift({t:now,k:'trade',a:p.from,b:nameOf(p.from),d:[p.r,p.g]});n.log=n.log.slice(0,60);
+  commit(n);S.tradeMsg=`Deal signed with ${nameOf(p.from)}. It runs from today.`;render();toast('Trade deal signed with '+nameOf(p.from)+'.');
+}
+/* the region's open offers on the Trade page, each to sign */
+function trOpenList(E,now){
+  const me=myId(),L=E.pending.filter(p=>p.open&&p.from!==me&&E.T.byId[p.from]!==undefined).sort((a,b)=>b.t-a.t);if(!L.length)return '';
+  return `<h3 class="lbl-h tr-open-h" style="margin-top:20px">Open offers in ${esc(REG.name)}</h3><p class="hint">Posted on the Community Board. The first nation to sign one gets the deal.</p><ul class="deals">${L.map(p=>dealRow(p.from,p.r,p.g,'<span class="pill">Open</span>'+trWait(p,now),`<button class="btn small" data-act="tr-sign" data-id="${esc(p.id)}">Sign the deal</button>`,p.e)).join('')}</ul>`;
+}
+/* a priced offer's card, from whoever reads it: open to sign, signed, taken, or to propose */
+function cbOfferActs(E,p){
+  const T=cbOfferTerms(E);if(!T||!p||!p.a||!S.nation||S.mode!=='world')return '';
+  const Ec=economy(),me=myId(),author=p.a;if(author!==S.uid&&Ec.T.byId[author]===undefined)return '';
+  const pend=Ec.pending.filter(q=>q.open&&q.from===author&&trTermsEq(q.g,T.g)&&trTermsEq(q.r,T.r)).sort((a,b)=>b.t-a.t)[0];
+  const act=Ec.active.filter(d=>d.open&&d.a===author&&trTermsEq(d.ag,T.g)&&trTermsEq(d.bg,T.r)).sort((a,b)=>b.t-a.t)[0];
+  const open=!!pend&&(!act||pend.t>=act.t);
+  if(author===S.uid){
+    if(open)return `<span class="pill">Open</span> to every nation of ${esc(REG.name)}; the first to sign gets it. <button type="button" class="linkish small" data-act="tr-cancel" data-id="${esc(pend.id)}">Withdraw</button>`;
+    if(act)return `<span class="pill up">Running</span> with ${esc(nameOf(act.b))}. <button type="button" class="linkish small" data-act="tr-cancel" data-id="${esc(act.id)}">End deal</button>`;
+    return `<span class="hint">Not open to sign now.</span> <button type="button" class="linkish small" data-act="cb-open" data-g="${T.g[0]}" data-ga="${T.g[1]}" data-r="${T.r[0]}" data-ra="${T.r[1]}">Open it again</button>`;
+  }
+  const other=`<button type="button" class="linkish small" data-act="cb-deal" data-w="${esc(author)}" data-gr="${T.r[0]}" data-ga="${T.r[1]}" data-rr="${T.g[0]}" data-ra="${T.g[1]}">${open?'Other terms…':'Propose this deal'}</button>`;
+  if(open)return `<button type="button" class="btn small" data-act="tr-sign" data-id="${esc(pend.id)}">Sign the deal</button> ${other} <span class="hint">Open: the first nation to sign gets it.</span>`;
+  if(act&&act.b===me)return `<span class="pill up">Signed</span> The deal runs between you and ${esc(nameOf(author))}. <button type="button" class="linkish small" data-act="go" data-v="trade">Open Trade</button>`;
+  if(act)return `<span class="hint">Taken by ${esc(nameOf(act.b))}.</span> ${other}`;
+  return '';
+}
+const cbOfferLive=()=>!!document.querySelector('.cb-offer[data-live]');
+cbEmbedHTML=(f=>function(E,p){
+  let html=f.apply(this,arguments);if(!E||(E.k!=='offer'&&E.k!=='want'))return html;
+  try{
+    if(E.big)html=html.replace('</p><p class="cb-offer-b">',`</p><p class="hint cb-offer-big">Posted as ${fmtAmt(E.big[0])}${E.fr?' for '+fmtAmt(E.big[1]):''}: a deal carries at most 100 of a resource a day, so the amounts are scaled down together.</p><p class="cb-offer-b">`);
+    const acts=cbOfferActs(E,p);
+    if(acts)html=html.replace('<div class="cb-emb cb-offer">','<div class="cb-emb cb-offer" data-live="1">').replace(/<p class="cb-offer-b">[\s\S]*<\/p><\/div>$/,`<p class="cb-offer-b">${acts}</p></div>`);
+  }catch(e){}
+  return html;
+})(cbEmbedHTML);
+document.addEventListener('click',e=>{
+  const el=e.target.closest&&e.target.closest('[data-act]');if(!el)return;const a=el.dataset.act;
+  if(a==='tr-sign'){trSignOpen(el.dataset.id);return;}
+  if(a==='cb-open'){const R=k=>RES.includes(k)?k:'',g=[R(el.dataset.g),+el.dataset.ga],r=[R(el.dataset.r),+el.dataset.ra];
+    if(g[0]&&r[0]&&g[1]>0&&r[1]>0&&trOpenNew([{g,r}]))toast(`Open again to every nation of ${REG.name}.`);render();return;}
+});
 
 /* ── the toolbar's extras: the flag, the arms, a trade offer and a picture ── */
 function cbToolsPlus(id){
@@ -90589,7 +90707,7 @@ mapBox=(f=>function(kind){const h=f.apply(this,arguments),n=S.nation;if(kind!=='
 
 /* the browser tests' window into the game: test/lib.mjs sets EDICTUM_PROBE before the page loads (a
    player's own browser can reach all of this anyway) */
-if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({RPATCH,SC:()=>scProbe(),EMX:()=>emProbe(),WR3:()=>({CQ_ISSUES,cqFall,cqFalls,cqPairs,cqFallOf,cqAct,wrSackFix,MON_FIRST,monSites,monCard,monInfo,monIsFirst,monNorm,monRisen,cqDue,cqTake,cityFounded,cqBuildings,openMapAt,WAR3_ISSUES,wr3WarsSection,wr3BattleCard,wr3MapData,wr3Econ,wr3Close,wr3VetDue,wr3WindToggle,wr3MunOn,wr3Reserve,wr3Factors,wr3On,wr3DieSpin,warOfficeView,woTargets,thrHTML,warsSection,warFigs,warRow,warRank,allyWars,wwState,wwCard,wwLevers,wwCeil,wwFight,wwFightBtn,WW_OR_TOP,WW_OR_MS}),WR2:()=>({wrFallenCard,WR,WAR_GOALS,WAR2_ISSUES,wrSiege,wrSiegesOn,wrFallsAt,myFall,wrSiegeWhy,wrCapExposed,wrUnrest,wrWarsOf,wrPopFx,wrTribute,wrForts,wrFortify,wrSurrender,wrSiegeStart,wrRise,wrCarry,wrEdictDue,wrSafe,wrNotice,territory,frontier,economy,warControls,targetPanel,armyBlock,warNotice,warWith,pairWar,nationView,rgnOverview,hxCard}),HELPX:()=>({HLP,HELP_CH,HELP_SUM,HELP_FOR,WIKI,WIKI_PAGE,wikiHref,wikiSearch,GLOSS,helpFind,helpIndex,helpSecList,helpForYou,helpChapters,rgcCmd,rgcCardOf,rgcCardHTML,admhHs,admhHsCount}),MTP:()=>({MTP,MTP_PAD,TBMP_SCALE,redrawMaps,mapScale,viewOf}),CSITE:()=>({citySites,siteSpots,siteCity,siteGains,siteLand,siteValue,citySpotProblem,cityProblem,territory,cityState,mpCityPopulations}),SCR:()=>({scrOf,scrClean,scrDef,scrFamOf,scrEdParse,scrGlyphs,scrLay,scrChars,scrSVG,scrLine,scrCard,scrCharterSVG,scrFmt,scrFor,dmRich,dmPlain,scrDmWith,SCR_FAM,SCR_ABC,SCS}),BDX:()=>bdProbe(),LDX:()=>ldProbe(),FLY:()=>({flagSVG,fgSplit,fgFused,FS,fsColours,fsPaint,fsCheck,fgCantonWH,czArmsSVG,CZ_SHIELDS,czShOk,czShHow,czCleanArms}),RD:()=>rdProbe(),JV:()=>jvProbe(),M100P:()=>({M100,M100_N,M100_MC,M100_MCN,m100Bits,m100Got,m100In,m100Due,m100Count,m100Show,m100Open,ctgMcOk,nationColor,czShOk,czShieldPath,unlocksOf,czPatSVG,xsMax}),M200P:()=>({M200,M200_N,M200_MC,M200_MCN,M200_U,m200Bits,m200Got,m200In,m200Due,m200Count,m200Show,m200Open,ctgMcOk,nationColor,czShOk,czShieldPath,unlocksOf,czPatSVG,czStampArt,czFrameArt,czCharge,czFramed,flagSVG,xsMax,ACH_BY_ID,achEarnedIds}),MRN:()=>({MR,mrMap,mrHeld,mrSync,mrAt,mrOf,mrName,mrIn,mrRename,mrReset,mrNameProblem,mrTaken,mrPanel,mrLabels,mrSnowOf,MR_MIN,MRN_MAX,placePhrase,territory,MAP,HEX_W,updateMapPanel,logLine,dspEdition,dspNoOf,SITES,siteDefault,siteName,RV:()=>RV}),WTN:()=>({WN,wbMap,wnKind,wnWaters,wnSync,wnAt,wnRename,wnReset,wnNameProblem,wnTaken,wnPanel,wnLabels,lakeMap,isLake,cellAt,WN_REACH,WTN_MAX,REG,RV,rvData,hexDist,territory,MAP,HEX_W,updateMapPanel,logLine}),RVN:()=>({RV,rvData,rvSync,rvKey,rvHeld,rvStretch,rvMost,rvEdgeHolder,rvAt,rvNameAt,rvLabelAt,rvParts,rvRename,rvReset,rvNameProblem,rvTidy,rvLabel,rvnPanel,logLine,RVN_MAX,RVN_LEN,updateMapPanel,hexDist,HEX_W,REG}),CP2:()=>({BLD_ICO,bldIco,bldLead,cxDefTotal,cxOrder,qjBuilding,BUILDINGS}),PRVC:()=>({cxPrvOf,cxPrvSeatTrial,cxOvwCols,prvSeat,prvMine,prvOfCell,prvSetAut,prvAppoint,PRV}),NPX:()=>({fbTrend,fbYesterday,heroLead,heroOpen,opOf,OPEN_TO,hnOf,hnFill,hnLine,nbSection,ppWho,ppWhoHTML,ppHash,ppCarried,economy,territory,bordersOf,fillDeal,findNation,clsHide,MAP,hexDist,STAT_KEYS,popNow,myId}),PT:()=>ptProbe(),LTH:()=>lthProbe(),DAM:()=>damProbe(),CHAT:()=>({RGC,RGW,RGF,RGA,tab:rgcTab(),count:rgcCount(),region:rgcUnread(),world:rgwUnread(),named:rgwNamedUnread(),fr:rgwUnread(RGF),frNamed:rgwNamedUnread(RGF),frOn:rgfOn(),amb:rgwUnread(RGA),ambOn:rgaOn(),tabs:rgcTabs().map(x=>x[0]),hidden:document.hidden}),UXP2:()=>({edictDesk,edictStep,edictOpen,fill,ISSUE_BY_ID,ACH,keysOpen,dmOthers,dmPickList,stGroups,stTabLast,navRecent,vhData,VH_KEY,VH_AFTER,QJ_DO,qjItems:q=>navQjItems(q),NAV_REC_KEY,ST_KEY}),HID:()=>({HIDN,hidMask,iAmHidden,frontier,mapPanel,warControls}),WG:()=>({wgTakers,wgForField,wgForPick,warGiveHex,warGive,occupiedFrom,attack,offerPeace,declareWar,collectConquests,dedupeConq}),WAKE:()=>({dormFresh,dormQuiet,dormWelcome,moveTo,RSTAT,REGIONS,REG,regDisabled}),HMB:()=>({RCTRL,hmBake,hmAutoFlag,fxDraw,capHolder,FX_DEF,DEF_FLAG,hmRle,hmLiveNorm,hmMapNorm,hmSel,hmRegions,hmBlocked,hmEngaged:()=>hmEngaged,HM,REG,MAP}),LAND:()=>({landWait,capLift,capWrong,capNote,raceKnown,RACE,worldHeardAt:()=>worldHeardAt,landQ:()=>S.landQ,landQueued,fdSites:(n,T)=>fdSites(n,T)}),BG:{gain:bldGain,html:bldGainHtml},IB:()=>({spyGiftRule,spyGiftUnseen,SPY_GIFT_GAP,agRoster,agPick,agStatus,heatOf,cvRoll,cvKey,cvBlock,cvOdds,buLv,buGap,buAll,BU,BU_KEYS,BU2,BU2_KEYS,buLine,bu2Lv,bb,bu2Cost,bu2Hours,bu2Why,buCredits,buHoldK,agRestMs,cvSwayOdds,ibTurnChance,mhChance,landEarned,ibFile,ibWanted,ibChatter,HEAT_MAX,DD_TASKS,DD_LEG,findNation,allNations,cvProtected}),VL:()=>({VL_SECS,VL_DEF,CLS,CLS_OPS,CLS_READ,vlOrder,clsOf,clsRaw,clsMax,clsSeen,clsHide,clsRead,vlSave,findNation}),IFC:()=>({plan:ifcPlan,works:ifcWorks,line:ifcLine,tab:ifcTab}),DS:()=>dsProbe(),XP:()=>({BUILDINGS,XU,XU_KEYS,XU_TOTAL,LOST_KINDS,LOST_ORDER,XU2,XU2_KEYS,LOST2_KINDS,LOST2_ORDER,xuLine,xu2Lv,xb,xu2Cost,xu2Hours,xu2Why,xu2Start,xuCredits,xuMapsLv,xuFlK,xuFindK,xuParty,xuTimeK,xuReach,xuCostK,xuCurio,flSoon,landEarned,xuLv,xuWhy,xuHave,xuStart,xuCost,xuGear,xpSeen,expFree,xpTeamOpen,nationBuilt,expBackTeam,SITES,SITE_KINDS,expPlan,expOdds,expRuns,expRange,flRange,flAlive,flPlan,flDebug,flNow,discoveries,sendExpedition,hearReport,xpRoute,xpRivals,xpRivalText,xpFinds,flOdds,territory}),SVC:()=>({SVC,SVC_N,SVC_V,SVC_NEED,svcPlan,svcOpen,svcDig,svcShort,svcRoll,svcAmt,svcDayOf,svcRoom,svcNext}),FLC:()=>({FLC,FLC_RULES,FLC_CAT,flcId,flcTimes,flcPhase,flcPrev,flcView,flcLoad,flcChamp,flcTodo,flcClaims,flcLand,flcStreak,flcAllDone,flcSeen,flcDuty,flcDeskOn,flcDraftPush,FCA}),LK:{lakeMap,isLake,claimLand,lakeShore,fillHeld,LAKE_MAX,LAKE_A,freeCell,claimFrontier,blockPlan,autoPlan,terrCount,placePhrase,claimWhy,swapCheck,inspectPanel,writeClaims,landCredits:n=>landCredits(n)},PST:()=>({PST,PST_LOOKS,PST_SHAPES,PST_SIZES,pstBar,pstKm,pstView,pstBox,pstPlace,pstKeyOf,pstRender,pstShow,pstHide,pstLocked,pstOffered,pstSizeOffered,pstPrintK,pstSealId,pstPhys,pstCrc}),DIG:()=>({DIG_SETS,DIG_FIRST,DIG_POOL,DIG_SITES,DIG_LEN,DIG_EVENTS,DIG_SCH,digSet,digHeld,digDone,digRew,digCredits,digOrder,digActive,digRetired,digOpenedAt,digPlan,digSend,digOpen,digChoose,digMod,digEvent,digPity,digGround,digInvites,digJoin,digJointOn,digGiftsIn,digTake,digGiveSpare,digSellSpare,digHire,digRegionFinds,digFirsts,landEarned:n=>landEarned(n),REG,REGIONS,COL_BY_ID}),MW:()=>({mwOf,mwLeft,mwDue,mwPoints,mwVisitors,mwTakings,mwExhibit,mwExhibitItems,mwRanking,mwWorn,mwSlots,mwOnShow,COL_BY_ID,COL_ITEMS,DIG_SETS,MW_FLOORS}),GM:()=>({gamesResults,edOf,b1Now,gevWhy,baseScores,entryOf,medalsIn,gamesRecords,gamesCeremony,unlocksOf,myId,formOf,GAME_EVENTS,clone,commit}),GM2:()=>({GAMES_V2,GTAC,TRAIN_PTS,TRAIN_MAX,BOY_GW,edOf,edStart,entryOf,gamesHost,gamesBids,edEvents,edDrawn,gmSwapOf,gmMascOf,gmChatLines,gmChatLine,gmTrCost,gevWhy,formOf,gamesResults,dspBuild,dspNoOf,c3MyBid,gcerSeen,stockNow,stockCap,canFeature,myId,clone,commit}),GB:()=>({IRON_DEP,IRON_DEP_YIELD,CELL_RES,MAP_T:MAP.T,mapAt:c=>{centerMain(c,NEAR_Z*1.6);},stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,FOOD_SPOIL,FOOD_EAT,FOOD_TIERS,FOOD_LAND,foodTier,TIMBER_BURN,foodGrowth,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({dspShown,dspRegShown,dspRegs,dspPic,dspLocator,dspHtDefs,pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),ASMX:()=>({ASMX,ASMX_TABS,asmBookAt,asmState,asmArcLoad,REG}),RGNX:()=>({RGN,RGN_PAGE,notifItems,ONL,onlRefresh}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals,seatsOf,alliancesOf,alMineAll,alClashes,alFest,alWornOf,alGuardsOf,alSeatsFor,allianceOf,AL_TY_UI,alStripHTML,alArmsSVG,alArmsAuto,alPzKeys,alMoCheck,alOpenPage,alWeekData,alLvOpens}),TYX:()=>({TY,TY_RULES,TY_K,tyOf,tyList,tyWarBlock,tyIncoming,affinity,alPactLive,alRelationsHTML,econOf,armyPower,armyRaw,attackMult,readyMs,drWords,drNote,drBroken,relationCard}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,npcIdeaNow,npcDealFor,npcAsk,npcReply,npcVerdict,npcTradeTalk,dealSlots,maxDeals,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,achTierCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC,step:rcStepCheck,head:rcHead,sponsoring:rcSponsoring,qr:qrMatrix,card:rcCardDraw,invCap:rcInvCap,free:rcFreeLand,STEPS:RC_STEPS,UNL:RC_UNLOCKS,link:rcLink,amts:rcAmts,amtText:rcAmtText,pact:rcPactUntil,quiet:rcQuiet,moments:rcMoments,momentOf:rcMomentOf,moDraw:rcMoDraw,ev:rcEv,evRead:rcEvRead,dev:rcDev,devNote:rcDevNote,noteLoad:rcNoteLoad,welcome:rcWelcomeText,traded:rcTraded,mult:rcMult,landAmt:rcLandAmt,GRAND:RC_GRAND,SHARE:RC_SHARE,GUNL:RC_GUNLOCKS,gcount:rcGCount,ulArt:rcUlArt,newUnl:rcNewUnl}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend,card:n=>tutCard(n),phase:n=>tutPhase(n),picks:(n,ph)=>tutPicks(n,ph),group:(n,k)=>tutGroup(n,tutL(k)),hid:n=>tutHid(n)},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours,
+if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE({RPATCH,SC:()=>scProbe(),EMX:()=>emProbe(),BT:()=>({economy,collectDeals,trOpenTaker,TR_OPEN,cbEmbedOf,cbOfferTerms}),WR3:()=>({CQ_ISSUES,cqFall,cqFalls,cqPairs,cqFallOf,cqAct,wrSackFix,MON_FIRST,monSites,monCard,monInfo,monIsFirst,monNorm,monRisen,cqDue,cqTake,cityFounded,cqBuildings,openMapAt,WAR3_ISSUES,wr3WarsSection,wr3BattleCard,wr3MapData,wr3Econ,wr3Close,wr3VetDue,wr3WindToggle,wr3MunOn,wr3Reserve,wr3Factors,wr3On,wr3DieSpin,warOfficeView,woTargets,thrHTML,warsSection,warFigs,warRow,warRank,allyWars,wwState,wwCard,wwLevers,wwCeil,wwFight,wwFightBtn,WW_OR_TOP,WW_OR_MS}),WR2:()=>({wrFallenCard,WR,WAR_GOALS,WAR2_ISSUES,wrSiege,wrSiegesOn,wrFallsAt,myFall,wrSiegeWhy,wrCapExposed,wrUnrest,wrWarsOf,wrPopFx,wrTribute,wrForts,wrFortify,wrSurrender,wrSiegeStart,wrRise,wrCarry,wrEdictDue,wrSafe,wrNotice,territory,frontier,economy,warControls,targetPanel,armyBlock,warNotice,warWith,pairWar,nationView,rgnOverview,hxCard}),HELPX:()=>({HLP,HELP_CH,HELP_SUM,HELP_FOR,WIKI,WIKI_PAGE,wikiHref,wikiSearch,GLOSS,helpFind,helpIndex,helpSecList,helpForYou,helpChapters,rgcCmd,rgcCardOf,rgcCardHTML,admhHs,admhHsCount}),MTP:()=>({MTP,MTP_PAD,TBMP_SCALE,redrawMaps,mapScale,viewOf}),CSITE:()=>({citySites,siteSpots,siteCity,siteGains,siteLand,siteValue,citySpotProblem,cityProblem,territory,cityState,mpCityPopulations}),SCR:()=>({scrOf,scrClean,scrDef,scrFamOf,scrEdParse,scrGlyphs,scrLay,scrChars,scrSVG,scrLine,scrCard,scrCharterSVG,scrFmt,scrFor,dmRich,dmPlain,scrDmWith,SCR_FAM,SCR_ABC,SCS}),BDX:()=>bdProbe(),LDX:()=>ldProbe(),FLY:()=>({flagSVG,fgSplit,fgFused,FS,fsColours,fsPaint,fsCheck,fgCantonWH,czArmsSVG,CZ_SHIELDS,czShOk,czShHow,czCleanArms}),RD:()=>rdProbe(),JV:()=>jvProbe(),M100P:()=>({M100,M100_N,M100_MC,M100_MCN,m100Bits,m100Got,m100In,m100Due,m100Count,m100Show,m100Open,ctgMcOk,nationColor,czShOk,czShieldPath,unlocksOf,czPatSVG,xsMax}),M200P:()=>({M200,M200_N,M200_MC,M200_MCN,M200_U,m200Bits,m200Got,m200In,m200Due,m200Count,m200Show,m200Open,ctgMcOk,nationColor,czShOk,czShieldPath,unlocksOf,czPatSVG,czStampArt,czFrameArt,czCharge,czFramed,flagSVG,xsMax,ACH_BY_ID,achEarnedIds}),MRN:()=>({MR,mrMap,mrHeld,mrSync,mrAt,mrOf,mrName,mrIn,mrRename,mrReset,mrNameProblem,mrTaken,mrPanel,mrLabels,mrSnowOf,MR_MIN,MRN_MAX,placePhrase,territory,MAP,HEX_W,updateMapPanel,logLine,dspEdition,dspNoOf,SITES,siteDefault,siteName,RV:()=>RV}),WTN:()=>({WN,wbMap,wnKind,wnWaters,wnSync,wnAt,wnRename,wnReset,wnNameProblem,wnTaken,wnPanel,wnLabels,lakeMap,isLake,cellAt,WN_REACH,WTN_MAX,REG,RV,rvData,hexDist,territory,MAP,HEX_W,updateMapPanel,logLine}),RVN:()=>({RV,rvData,rvSync,rvKey,rvHeld,rvStretch,rvMost,rvEdgeHolder,rvAt,rvNameAt,rvLabelAt,rvParts,rvRename,rvReset,rvNameProblem,rvTidy,rvLabel,rvnPanel,logLine,RVN_MAX,RVN_LEN,updateMapPanel,hexDist,HEX_W,REG}),CP2:()=>({BLD_ICO,bldIco,bldLead,cxDefTotal,cxOrder,qjBuilding,BUILDINGS}),PRVC:()=>({cxPrvOf,cxPrvSeatTrial,cxOvwCols,prvSeat,prvMine,prvOfCell,prvSetAut,prvAppoint,PRV}),NPX:()=>({fbTrend,fbYesterday,heroLead,heroOpen,opOf,OPEN_TO,hnOf,hnFill,hnLine,nbSection,ppWho,ppWhoHTML,ppHash,ppCarried,economy,territory,bordersOf,fillDeal,findNation,clsHide,MAP,hexDist,STAT_KEYS,popNow,myId}),PT:()=>ptProbe(),LTH:()=>lthProbe(),DAM:()=>damProbe(),CHAT:()=>({RGC,RGW,RGF,RGA,tab:rgcTab(),count:rgcCount(),region:rgcUnread(),world:rgwUnread(),named:rgwNamedUnread(),fr:rgwUnread(RGF),frNamed:rgwNamedUnread(RGF),frOn:rgfOn(),amb:rgwUnread(RGA),ambOn:rgaOn(),tabs:rgcTabs().map(x=>x[0]),hidden:document.hidden}),UXP2:()=>({edictDesk,edictStep,edictOpen,fill,ISSUE_BY_ID,ACH,keysOpen,dmOthers,dmPickList,stGroups,stTabLast,navRecent,vhData,VH_KEY,VH_AFTER,QJ_DO,qjItems:q=>navQjItems(q),NAV_REC_KEY,ST_KEY}),HID:()=>({HIDN,hidMask,iAmHidden,frontier,mapPanel,warControls}),WG:()=>({wgTakers,wgForField,wgForPick,warGiveHex,warGive,occupiedFrom,attack,offerPeace,declareWar,collectConquests,dedupeConq}),WAKE:()=>({dormFresh,dormQuiet,dormWelcome,moveTo,RSTAT,REGIONS,REG,regDisabled}),HMB:()=>({RCTRL,hmBake,hmAutoFlag,fxDraw,capHolder,FX_DEF,DEF_FLAG,hmRle,hmLiveNorm,hmMapNorm,hmSel,hmRegions,hmBlocked,hmEngaged:()=>hmEngaged,HM,REG,MAP}),LAND:()=>({landWait,capLift,capWrong,capNote,raceKnown,RACE,worldHeardAt:()=>worldHeardAt,landQ:()=>S.landQ,landQueued,fdSites:(n,T)=>fdSites(n,T)}),BG:{gain:bldGain,html:bldGainHtml},IB:()=>({spyGiftRule,spyGiftUnseen,SPY_GIFT_GAP,agRoster,agPick,agStatus,heatOf,cvRoll,cvKey,cvBlock,cvOdds,buLv,buGap,buAll,BU,BU_KEYS,BU2,BU2_KEYS,buLine,bu2Lv,bb,bu2Cost,bu2Hours,bu2Why,buCredits,buHoldK,agRestMs,cvSwayOdds,ibTurnChance,mhChance,landEarned,ibFile,ibWanted,ibChatter,HEAT_MAX,DD_TASKS,DD_LEG,findNation,allNations,cvProtected}),VL:()=>({VL_SECS,VL_DEF,CLS,CLS_OPS,CLS_READ,vlOrder,clsOf,clsRaw,clsMax,clsSeen,clsHide,clsRead,vlSave,findNation}),IFC:()=>({plan:ifcPlan,works:ifcWorks,line:ifcLine,tab:ifcTab}),DS:()=>dsProbe(),XP:()=>({BUILDINGS,XU,XU_KEYS,XU_TOTAL,LOST_KINDS,LOST_ORDER,XU2,XU2_KEYS,LOST2_KINDS,LOST2_ORDER,xuLine,xu2Lv,xb,xu2Cost,xu2Hours,xu2Why,xu2Start,xuCredits,xuMapsLv,xuFlK,xuFindK,xuParty,xuTimeK,xuReach,xuCostK,xuCurio,flSoon,landEarned,xuLv,xuWhy,xuHave,xuStart,xuCost,xuGear,xpSeen,expFree,xpTeamOpen,nationBuilt,expBackTeam,SITES,SITE_KINDS,expPlan,expOdds,expRuns,expRange,flRange,flAlive,flPlan,flDebug,flNow,discoveries,sendExpedition,hearReport,xpRoute,xpRivals,xpRivalText,xpFinds,flOdds,territory}),SVC:()=>({SVC,SVC_N,SVC_V,SVC_NEED,svcPlan,svcOpen,svcDig,svcShort,svcRoll,svcAmt,svcDayOf,svcRoom,svcNext}),FLC:()=>({FLC,FLC_RULES,FLC_CAT,flcId,flcTimes,flcPhase,flcPrev,flcView,flcLoad,flcChamp,flcTodo,flcClaims,flcLand,flcStreak,flcAllDone,flcSeen,flcDuty,flcDeskOn,flcDraftPush,FCA}),LK:{lakeMap,isLake,claimLand,lakeShore,fillHeld,LAKE_MAX,LAKE_A,freeCell,claimFrontier,blockPlan,autoPlan,terrCount,placePhrase,claimWhy,swapCheck,inspectPanel,writeClaims,landCredits:n=>landCredits(n)},PST:()=>({PST,PST_LOOKS,PST_SHAPES,PST_SIZES,pstBar,pstKm,pstView,pstBox,pstPlace,pstKeyOf,pstRender,pstShow,pstHide,pstLocked,pstOffered,pstSizeOffered,pstPrintK,pstSealId,pstPhys,pstCrc}),DIG:()=>({DIG_SETS,DIG_FIRST,DIG_POOL,DIG_SITES,DIG_LEN,DIG_EVENTS,DIG_SCH,digSet,digHeld,digDone,digRew,digCredits,digOrder,digActive,digRetired,digOpenedAt,digPlan,digSend,digOpen,digChoose,digMod,digEvent,digPity,digGround,digInvites,digJoin,digJointOn,digGiftsIn,digTake,digGiveSpare,digSellSpare,digHire,digRegionFinds,digFirsts,landEarned:n=>landEarned(n),REG,REGIONS,COL_BY_ID}),MW:()=>({mwOf,mwLeft,mwDue,mwPoints,mwVisitors,mwTakings,mwExhibit,mwExhibitItems,mwRanking,mwWorn,mwSlots,mwOnShow,COL_BY_ID,COL_ITEMS,DIG_SETS,MW_FLOORS}),GM:()=>({gamesResults,edOf,b1Now,gevWhy,baseScores,entryOf,medalsIn,gamesRecords,gamesCeremony,unlocksOf,myId,formOf,GAME_EVENTS,clone,commit}),GM2:()=>({GAMES_V2,GTAC,TRAIN_PTS,TRAIN_MAX,BOY_GW,edOf,edStart,entryOf,gamesHost,gamesBids,edEvents,edDrawn,gmSwapOf,gmMascOf,gmChatLines,gmChatLine,gmTrCost,gevWhy,formOf,gamesResults,dspBuild,dspNoOf,c3MyBid,gcerSeen,stockNow,stockCap,canFeature,myId,clone,commit}),GB:()=>({IRON_DEP,IRON_DEP_YIELD,CELL_RES,MAP_T:MAP.T,mapAt:c=>{centerMain(c,NEAR_Z*1.6);},stockRates,stockNow,stockCap,gbQuote,gbWhy,BUILDINGS,MILESTONES,DEMAND,GB,GB_MIN,FOOD_SPOIL,FOOD_EAT,FOOD_TIERS,FOOD_LAND,foodTier,TIMBER_BURN,foodGrowth,economy}),LH:()=>({paused:lcPaused,stored:lcStored,credits:n=>landCredits(n),msg:lcPauseMsg}),DSP:()=>({dspShown,dspRegShown,dspRegs,dspPic,dspLocator,dspHtDefs,pressLoad,dspCbLoad,dspCanFreeze,dspEdition,dspBuild,dspPack,dspThaw,dspView,dspFreeze,dspFetchPaper,dspPaperState,dspFrozen,dspTitle,dspScopesFor,dspAdsFor,dspBoxed,dspPoOf,dspBuryOk,dspNoOf,dspStartOf,PRESS,PAPERS,DSP_CB,DSP_AD_CATS,DSP_KEEP,DSP_BACK,pressClean,MD_COST}),ASMX:()=>({ASMX,ASMX_TABS,asmBookAt,asmState,asmArcLoad,REG}),RGNX:()=>({RGN,RGN_PAGE,notifItems,ONL,onlRefresh}),ALX:()=>({AL,alFx,alCalls,alNorm,alLevel,alPlaces,AL_RULES,AL_TYPES,politics,alMine,alRoleOf,alCan,alWaitCount,dpView,alTick,maxDeals,seatsOf,alliancesOf,alMineAll,alClashes,alFest,alWornOf,alGuardsOf,alSeatsFor,allianceOf,AL_TY_UI,alStripHTML,alArmsSVG,alArmsAuto,alPzKeys,alMoCheck,alOpenPage,alWeekData,alLvOpens}),TYX:()=>({TY,TY_RULES,TY_K,tyOf,tyList,tyWarBlock,tyIncoming,affinity,alPactLive,alRelationsHTML,econOf,armyPower,armyRaw,attackMult,readyMs,drWords,drNote,drBroken,relationCard}),LTR:()=>({LT,dmThreads,dmx,dmTrim,dmFlush,dmUnread,npcIdea,npcIdeaNow,npcDealFor,npcAsk,npcReply,npcVerdict,npcTradeTalk,dealSlots,maxDeals,OFFICES,PUSH,DM_NOTES,markThreadRead}),GV:()=>({parl:gvParl,seats:gvSeatCount,md:mdNow,mdCost,MD_CAP,brief:gvBriefState,BRIEF:GV_BRIEF,aph:gvAph,ldr:gvLdr,recent:gvRecent,polTopic:gvPolTopic,tab:()=>GV.tab}),S,MAP,achRankCredits,achTierCredits,RC:()=>({gift:rcGift,stock:stockNow,land:rcLand,credits:landCredits,poll:rcPoll,claim:rcClaim,pending:rcPending,section:rcSection,state:RC,step:rcStepCheck,head:rcHead,sponsoring:rcSponsoring,qr:qrMatrix,card:rcCardDraw,invCap:rcInvCap,free:rcFreeLand,STEPS:RC_STEPS,UNL:RC_UNLOCKS,link:rcLink,amts:rcAmts,amtText:rcAmtText,pact:rcPactUntil,quiet:rcQuiet,moments:rcMoments,momentOf:rcMomentOf,moDraw:rcMoDraw,ev:rcEv,evRead:rcEvRead,dev:rcDev,devNote:rcDevNote,noteLoad:rcNoteLoad,welcome:rcWelcomeText,traded:rcTraded,mult:rcMult,landAmt:rcLandAmt,GRAND:RC_GRAND,SHARE:RC_SHARE,GUNL:RC_GUNLOCKS,gcount:rcGCount,ulArt:rcUlArt,newUnl:rcNewUnl}),TUTL:{lists:TUT_LISTS,state:tutState,cur:tutCur,credits:tutCredits,pend:tutPend,card:n=>tutCard(n),phase:n=>tutPhase(n),picks:(n,ph)=>tutPicks(n,ph),group:(n,k)=>tutGroup(n,tutL(k)),hid:n=>tutHid(n)},locOf,clone,territory,SPX:{AT:SPX_AT,AGAIN:SPX_AGAIN,ID:SPX_ID,TEAM:SPX_TEAM,open:spOpen,due:spPreDue,pre:spPre,at:spPreAt,vet:mcVet,tourDue:spTourDue},MC:{STORY:MC_STORY,IDS:MC_IDS,TITLES:MC_TITLES,MS:MC_MS,TEAMS:MC_TEAMS,MD:MC_MD,AT:MC_AT,GATE:MC_GATE,ODDS:MC_ODDS,GUAR:MC_GUAR,SEC:MC_SEC,of:mcOf,norm:mcNorm,ctx:mcCtx,letter:mcLetter,outcome:mcOutcome,variant:mcVariant,reveal:mcReveal,ready:mcReady,next:mcNext,roll:mcRoll,done:mcDone,doneAt:mcDoneAt,has:mcHas,slots:mcSlots,active:mcActive,start:mcStart,found:mcFound,fund:mcFund,spend:mcSpend,mdState:mcMdState,sites:mcSites,siteSecs:mcSiteSecs,crew:mcCrew,manifest:mcManifest,cond:mcCond,hours:mcHours,
   SV:MC_SV,XS:MC_XS,QUEUE:MC_QUEUE,DISH:MC_DISH,FINDS:MC_FINDS,CHART_MS:MC_CHART_MS,repSecs:mcRepSecs,repKind:mcRepKind,fold:mcFold,lane:mcLane,dish:mcDish,
   finds:mcFinds,findAt:mcFindAt,bits:mcBitsList,charted:mcCharted,chartedNow:mcChartedNow,unqueue:mcUnqueue,dishBuild:mcDishBuild,bringHome:mcBringHome,
   secSite:mcSecSite,prefOk:mcPrefOk,prefTile:mcPrefTile,setPref:mcSetPref,startProblem:mcStartProblem,wfKey:mcWfKey,osKey:mcOsKey},WS:{STORY:WS_STORY,IDS:WS_IDS,AT:WS_AT,ACT1:WS_ACT1,KEEP:WS_KEEP,FACTS:WS_FACTS,ctx:wsCtx,letter:wsLetter,outcome:wsOutcome,variant:wsVariant,norm:wsNorm,due:wsDue,land:wsLand,cond:wsCond,real:wsReal,mask:wsMask,ansN:wsAnsN},syncInbox:(n,t)=>syncInbox(n,t),normalize:d=>normalize(d),commit:n=>commit(n),answer:(id,o)=>answer(id,o),dismiss:id=>dismiss(id),NEWS:{nwClean,nwUnread,nwIndex,NW,NWE,NTF,NWR,bell:now=>notifItems(now||Date.now())},BUGS:{BG,BGA,bgEnv,bgEnvText,bgEnvRows,bgWhereLabel},TIER:()=>({BTIER,bEff,bTier,bTierNext,bTierLine,tierQuote,tierProblem,cxTier,cxTrMap,tierSettle,tierReady,cxGoldNow,cxUpQuote,cxUpList,cxUps,mktSlots,mktSlotsOf,maxDeals,bldAggOf}),CX:{upgradable:cxUpgradable,mood:cxMood,def:cxDefAt,band:cxBand,events:CX_EVENTS,nationEvents:CX_NATION_EVENTS,next:cxEvNext,wait:cxEvWait,ripples:cxRipples,nwWait:cxNwWait,traits:CX_TRAITS,cityState,UG:CX_UG,LV:CX_LV,ups:cxUps,upMap:cxUpMap,extras:cxBldExtras,quote:cxUpQuote},NB:{works:nbWorks,boost:NB_BOOST,issues:NB_ISSUES,cfPct:cuCfPct,counterfeit:cuCounterfeit,hours:bHours,agg:bldAggOf,top:bldTop,effects:bldEffects,fill,buildProblem,myCityStates,ISSUES,ISSUE_BY_ID,FD_ID},frontier,battle,armyPower,allNations,myId,readiness,saveLocal,render,commit,updateMapPanel,REF,refK,AUDIT,PG:{sign:()=>pgFinishCharter(),pgAvailable,pgEligible,pgNorm,pgMerge,pgPulse,saveSoon,npcVerdict,keys:PG_KEYS},WH:{stockCap,stockNow,bCost,whQuote,whHasOwn,whExtras,whLevel,cityProblem,foundCity,claimAuto,edicts:{racking:ISSUE_BY_ID['warehouse-racking'],archives:ISSUE_BY_ID['warehouse-archives']}},UX:{UXP,uxCapture,uxKey,uxVisit,uxUnlockInfo,unlockTarget,unlockShow,unlockFresh,unlockQueue,ULK,UNLOCKS,unlocksOf,toast:m=>toast(m)},FD:{flagNorm,prvFlagNorm,flagSVG},CU:{coinBackSVG:cuCoinBackSVG,noteSVG:cuNoteSVG,backSVG:cuNoteBackSVG,coinSVG:cuCoinSVG,guide:cuGuideHTML,cuOf,beastKey:cuBeastKey,land:cuLand,denInk:cuDenInk},MD:{cityState,cpPop,stockRates,stockNow,claimFrontier,blockPlan,claimableBlocks,BLOCKS:()=>BLOCKS,landCredits,mpHarbourFrontier,mpClaimSequence,mpRoutePreview,centerMain,mapScale,viewOf,drawMap,sfKey,pickProblem,mpSeaReach,ringCells,cpUrban},RK:{ACH,ACH_TIER,ACH_RANKS,ACH_RANKS_V1,ID_BD,achVal,achCtx,achEvalNew,achState,stockRates:n=>stockRates(n),achPoints,achRank,achRankOf,idBdIndex,cabOf,achRankCredits,landEarned:n=>landEarned(n),earnedAt:(n,p)=>earnedAt(n,p),popNow:n=>popNow(n),nextCreditPop:n=>nextCreditPop(n)},WND:{land:n=>wndLand(n),unlocks:n=>[...unlocksOf(n)],rewarded:n=>wndRewarded(n),KEEP:WND_KEEP,art:{pat:p=>czPatSVG(p,1),framed:czFramed,emblem:czEmblemSVG,arms:czArmsSVG,arms0:czDefaultArms,pin:pnSVG,stamp:czStampArt}},SL:{seaLinks,seaIsles,prvPieces,prvCheck,prvMoveHex,prvMoveIsle,prvMerge,prvNatWith,prvState,prvSwitch,swapCheck,swapFromWhy,swapWait,claimWhy,mpHarbourReach,mpHarbours,landPatches,PRV},SHOP:{SHOP,IDS:SHOP_IDS,flagNorm:(f,n)=>flagNorm(f,n),flagSVG:(f,l)=>flagSVG(f,l),mapTip:id=>{const T=mapTerr('main'),i=T.list.findIndex(x=>x.id===id);if(i<0)return '';const cell=Array.prototype.indexOf.call(T.owner,i);return MAP_TIP.map(h=>{try{return h({kind:'main',cell,cv:null,x:0,y:0});}catch(e){return '';}}).filter(x=>typeof x==='string').join(' | ');},cap:t=>edictCapAt(t),runs:()=>VIP_RUNS,setRuns:r=>{VIP_RUNS=r;},held:()=>S.nation?shopHeld(S.nation):[],cz:n=>cz(n),fin:shopFin,PRE,CHR,chrFlush,certSVG:shopCertSVG,KEEP:EDICT_KEEP}});}catch(e){}

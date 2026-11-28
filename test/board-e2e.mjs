@@ -250,12 +250,29 @@ check('the preview shows the flag, the arms and the offer', await until(() => B.
 await B.click('[data-act="cb-pv"][data-for="cb-f-x"]');
 await clickPast(B, '#cb-nf button[type="submit"]');
 check('the topic shows the flag, the arms, the offer and the picture', await until(() => B.evaluate(() => { const x = document.querySelector('.cb-post'); return !!x && /Iron for sale/.test(x.textContent) && !!x.querySelector('.cb-emb-flag svg') && !!x.querySelector('.cb-emb-arms svg') && !!x.querySelector('.cb-offer') && !!x.querySelector('.cb-pic img'); }), 20000));
-check('the author sees it as their own offer', /Your offer/.test(await text(B, '.cb-post .cb-offer')));
+check('the author sees it open to the region (trading from the board)', await until(async () => /Open to every nation/.test(await text(B, '.cb-post .cb-offer'))), await text(B, '.cb-post .cb-offer'));
 const sale = await B.evaluate(() => location.href);
 await C.goto(sale); await ready(C);
 check('another player sees the picture, and it opens over the page', await until(async () => !!(await C.$('.cb-post .cb-pic img'))) && (await C.click('.cb-post .cb-pic [data-act="cb-pic-open"]'), await until(async () => !!(await C.$('#cb-lb[open] img')))));
 await C.keyboard.press('Escape');
 check('Propose this deal opens the Trade page filled in from their side', await until(async () => !!(await C.$('.cb-post .cb-offer [data-act="cb-deal"]'))) && (await C.click('.cb-post .cb-offer [data-act="cb-deal"]'), await until(() => C.evaluate(uid => { const t = G.S.trade || {}; return G.S.view === 'trade' && t.w === uid && t.gr === 'food' && +t.ga === 8 && t.rr === 'iron' && +t.ra === 10; }, uidB))), await C.evaluate(() => JSON.stringify(G.S.trade)));
+// trading from the board (28 Nov 2026): a priced offer posted on the author's own region's board is open to the region,
+// and the first nation to sign it gets the deal
+check('the author’s record holds the open offer', await until(() => B.evaluate(() => (G.S.nation.deals || []).some(x => x.w === '*' && x.o === 1 && x.g[0] === 'iron' && x.g[1] === 10 && x.r[0] === 'food' && x.r[1] === 8))));
+await C.goto(sale); await ready(C);
+check('another nation of the region is offered to sign it, or to propose other terms', await until(async () => !!(await C.$('.cb-post .cb-offer [data-act="tr-sign"]')) && !!(await C.$('.cb-post .cb-offer [data-act="cb-deal"]'))), await text(C, '.cb-post .cb-offer'));
+await C.click('.cb-post .cb-offer [data-act="tr-sign"]');
+check('signed, the deal runs at once and the card says so', await until(async () => /Signed/.test(await text(C, '.cb-post .cb-offer')) && await C.evaluate(b => G.BT().economy().active.some(d => d.open && d.a === b && d.b === G.S.uid), uidB)), await text(C, '.cb-post .cb-offer'));
+check('the signer’s record holds the acceptance', await C.evaluate(b => (G.S.nation.deals || []).some(x => x.a === 1 && x.w === b && x.g[0] === 'food' && x.g[1] === 8 && x.r[0] === 'iron' && x.r[1] === 10), uidB));
+check('the author’s card shows it running with the signer, without a reload', await until(async () => /Running with Readerland/.test(await text(B, '.cb-post .cb-offer')), 20000), await text(B, '.cb-post .cb-offer'));
+await A.goto(sale); await ready(A);
+check('a third nation sees it taken, and may still propose the same terms', await until(async () => /Taken by Readerland/.test(await text(A, '.cb-post .cb-offer')) && !!(await A.$('.cb-post .cb-offer [data-act="cb-deal"]'))), await text(A, '.cb-post .cb-offer'));
+check('nor can it sign it now', !(await A.$('.cb-post .cb-offer [data-act="tr-sign"]')));
+await B.evaluate(() => { const n = JSON.parse(JSON.stringify(G.S.nation)); n.motto = 'Iron for all'; G.commit(n); });
+check('the author’s next commit writes the taker in', await until(() => B.evaluate(c => (G.S.nation.deals || []).some(x => x.o === 1 && x.w === c && x.g[0] === 'iron'), uidC)));
+check('and the deal still runs as an ordinary one', await until(() => B.evaluate(c => G.BT().economy().active.some(d => d.b === c && d.open), uidC)));
+/* the toasts the deal brought the author (the signature, an achievement, a rank) take their turns before the next section's */
+await until(() => B.evaluate(() => !document.querySelector('.toast')), 60000);
 await B.screenshot({ path: OUT + '/board-following.png' });
 
 // the daily picture limit (2026-11-26, Balbosa; 12 since that day, CB_PIC_DAY in functions/board.js): with twelve
