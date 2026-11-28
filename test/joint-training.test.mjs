@@ -97,7 +97,8 @@ test('readiness comes 5% sooner for each pact at work, three at most, in the gam
   /* a copy of the player's record (an attack spends readiness on one) counts the player's own training */
   assert.match(code, /function econMine\(n\)\{return econOf\(n\)\|\|\(n&&!n\.npc&&S\.nation&&n!==S\.nation&&n\.founded===S\.nation\.founded&&n\.name===S\.nation\.name\?econOf\(S\.nation\):null\);\}/);
   /* a Drill Ground's cut comes after the pacts' (military buildings: milMs) */
-  assert.match(referee, /ms = milMs\(milMs\(trReadyMs\(\(pol\.rapidMobilisation \? 10 : 15\) \* 60000, drills \|\| 0\), m\.rcut \|\| 0\), m\.cut\)/, 'research cuts after the pacts and before the Drill Ground (research.test.mjs)');
+  /* and Blitz Command's after the Drill Ground's (general-staff.test.mjs) */
+  assert.match(referee, /ms = milMs\(milMs\(milMs\(trReadyMs\(\(pol\.rapidMobilisation \? 10 : 15\) \* 60000, drills \|\| 0\), m\.rcut \|\| 0\), m\.cut\), m\.bcut \|\| 0\)/, 'research cuts after the pacts and before the Drill Ground (research.test.mjs)');
   assert.match(referee, /T\.k === 'drill' && trLive\(T, now\) && !trVoid\(T, \{ \[uid\]: mine \}\)/);
 });
 

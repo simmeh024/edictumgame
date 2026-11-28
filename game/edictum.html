@@ -321,6 +321,7 @@ textarea.input{resize:vertical;min-height:84px;line-height:1.5}
 .bud li{display:grid;grid-template-columns:150px minmax(0,1fr) 56px 120px;gap:14px;align-items:center;padding:9px 0;border-top:1px solid var(--rule)}
 .bar{height:10px;background:var(--track);border-radius:2px;overflow:hidden}
 .bar i{display:block;height:100%;background:var(--accent);border-radius:0 4px 4px 0}
+.gs-meter{margin-top:8px}.gs-meter .hint{margin:0 0 4px}.gs-bar{display:block;height:6px;max-width:320px}.gs-bar.full i{background:var(--down)}
 .bud .pct{font:600 13px/1 var(--f-mono);text-align:right}
 .bud .amt{font:400 12.5px/1.2 var(--f-mono);color:var(--ink-3);text-align:right}
 @media (max-width:600px){.bud li{grid-template-columns:minmax(0,1fr) auto;gap:6px 12px}.bud .bar{grid-column:1/-1;grid-row:2}.bud .amt{display:none}}
@@ -8912,6 +8913,9 @@ span.nw-tag{cursor:default}
 .tier-l li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 12px;align-items:center}
 .tier-l li b{grid-column:1}.tier-l li .hint{grid-column:1;margin:0}.tier-l li .btn{grid-column:2;grid-row:1/span 2}
 @media (max-width:520px){.tier-l li{grid-template-columns:minmax(0,1fr)}.tier-l li .btn{grid-column:1;grid-row:auto;justify-self:start;margin-top:4px}}
+/* a narrow column on a wide screen (the city's card beside the list): the button goes under its line too */
+.tier-l{container-type:inline-size}
+@container (max-width:420px){.tier-l li{grid-template-columns:minmax(0,1fr)}.tier-l li .btn{grid-column:1;grid-row:auto;justify-self:start;margin-top:4px}}
 .cx-lv-c{color:var(--ink-3)}
 .ux-short{display:block;flex-basis:100%;margin-top:3px;font-size:12.5px;line-height:1.5;color:var(--down)}.ux-short .linkish{margin-left:10px;white-space:nowrap}
 .stop-ask{display:inline-flex;flex-wrap:wrap;align-items:center;gap:6px 10px}.stop-ask-t{color:var(--down)}
@@ -11643,7 +11647,7 @@ span.rs-card{cursor:default}
   .mpr .map-wrap.map-main:not(.is-full){height:var(--mpr-h,64vh)}
   .mpr .ml-legend{margin:10px 54px 0 0;width:min(360px,calc(100% - 64px))}
   .mpr-modes{top:auto;bottom:10px;left:8px;right:56px;max-width:none;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
-  .mpr-m{flex:none;min-height:40px}.mpr-m kbd{display:none}
+  .mpr-m{flex:none;min-height:40px;padding:0 8px}.mpr-m kbd{display:none}
   .mpr-mini{display:none}
   .mpr-chips{top:58px;left:8px;right:54px;max-width:none}
   .mpr-over .lc-coach{padding:8px 10px}
@@ -11693,7 +11697,8 @@ html.mpf-menu .layout.mpf::before{content:'';position:fixed;inset:0;z-index:61;b
 .mpr-m.war.on .mpr-n.war{background:#fff;color:var(--down)}
 .mpr-war-a .eyebrow{color:var(--down)}
 .mpr-i{display:none;flex:none}
-.mpr-more{display:none;position:relative;flex:none}
+.mpr-more{position:relative;flex:none}
+.mpr-modes.has-more{overflow:visible}
 .mpr-more>summary{list-style:none}
 .mpr-more>summary::-webkit-details-marker{display:none}
 .mpr-more-p{position:absolute;top:calc(100% + 8px);left:0;z-index:8;display:flex;flex-direction:column;gap:2px;min-width:170px;padding:4px;background:var(--sheet);border:1px solid var(--rule);border-radius:10px;box-shadow:var(--shadow)}
@@ -11708,13 +11713,8 @@ html.mpf-menu .layout.mpf::before{content:'';position:fixed;inset:0;z-index:61;b
 @media (min-width:1101px){@container (max-width:700px){
   .mpr-m .mpr-i{display:block}.mpr-m .mpr-l,.mpr-m kbd{display:none}.mpr-modes>.mpr-m{padding:0 9px}
 }}
-/* short of room (a phone, or a very narrow map): Transport and Landings under More */
-@container (max-width:520px){
-  .mpr-modes>.mpr-m[data-v="transport"],.mpr-modes>.mpr-m[data-v="land"]{display:none}
-  .mpr-more{display:block}.mpr-modes{overflow:visible}
-}
 .mpr-more-p .mpr-m .mpr-l{display:inline}
-@media (max-width:1100px){.mpr-more-p{top:auto;bottom:calc(100% + 8px)}.mpr-fold-b{display:none}.mpr-sidetop{margin:0 0 8px}}
+@media (max-width:1100px){.mpr-more-p{top:auto;bottom:calc(100% + 8px);left:auto;right:0}.mpr-fold-b{display:none}.mpr-sidetop{margin:0 0 8px}}
 </style>
 
 <div id="app"></div>
@@ -23526,7 +23526,7 @@ function auditNation(n,raw,id,now,keep){
     if(un.length){why.push(refWhy(un.length,false));n.conq=n.conq.filter(e=>!un.includes(e));}
     if(fk.length)why.push(refWhy(fk.length,true));
   }
-  if(Array.isArray(n.conq)){const t=n.conq.filter(e=>!e.n).map(e=>e.t).sort((a,b)=>a-b);let j=0,most=0;for(let i=0;i<t.length;i++){while(t[i]-t[j]>DAY)j++;most=Math.max(most,i-j+1);}if(most>16)why.push(`It has ${most} conquests within a day; the game allows 16.`);}
+  if(Array.isArray(n.conq)){const t=n.conq.filter(e=>!e.n).map(e=>e.t).sort((a,b)=>a-b);let j=0,most=0,cap=16;for(let i=0;i<t.length;i++){while(t[i]-t[j]>DAY)j++;const k=i-j+1,c=typeof gsCapAt==='function'?gsCapAt(n,t[i]):16;if(k-c>most-cap){most=k;cap=c;}}if(most>cap)why.push(`It has ${most} conquests within a day; the game allows ${cap}.`);}
   if(keep!==false){if(why.length)AUDIT.set(id,{why,name:n.name});else AUDIT.delete(id);}
   return why;
 }
@@ -23861,7 +23861,7 @@ function territory(extra){
       else if(!warCovers(e.src,vid,e.t)&&!(e.w&&(warCovers(e.src,e.w,e.t)||warCovers(e.w,vid,e.t))))continue;
       /* nothing is taken from a nation in its grace after coming back, or in the days after it rose again (wrShielded) */
       if(wrShielded(list[cur].n,e.t))continue;
-      const q=rate.get(e.src)||[];while(q.length&&q[0]<e.t-DAY)q.shift();if(q.length>=16)continue;q.push(e.t);rate.set(e.src,q);
+      const q=rate.get(e.src)||[];while(q.length&&q[0]<e.t-DAY)q.shift();{const sx=list[byId[e.src]];if(q.length>=(typeof gsCapAt==='function'?gsCapAt(sx&&sx.n,e.t):16))continue;}q.push(e.t);rate.set(e.src,q);
     }
     if(cur===oi&&!over.has(e.c))continue;
     over.set(e.c,oi);how.set(e.c,2);tk[e.c]=e.t;moved=true;
@@ -24132,7 +24132,7 @@ async function attack(){
     if(!res||!res.ok){
       const why=res&&res.why;
       if(why==='ready'){const n=clone(S.nation),ms=readyMs(n);n.ready=0;n.readyAt=Date.now()+clamp(Number(res.next)||ms,0,ms)-ms;commit(n);}
-      S.warMsg=why==='coming_soon'?COMING_SOON:why==='maintenance'?MAINTENANCE:why==='ready'?'Your army is not ready: the referee counts no readiness left. It returns as usual.':why==='banned'?'This account is banned, so its army cannot fight.':why==='hidden'?(iAmHidden()?HID_WAR:`The moderators have hidden ${en.n.name} while they look into a report, so the battle was not fought.`):why==='rcpact'?'The referee refused the battle: the recruits’ pact binds the two of you for a month after one recruited the other.':why==='pact'?'The referee refused the battle: a pact binds the two sides. It must be ended or broken first.':why==='nation'?'Your nation has not reached the region yet. Try again in a moment.':why==='gone'?`${en.n.name} is no longer a nation of this region, so the battle was not fought.`:'The battle was not fought: the referee could not be reached. Try again in a moment.';
+      S.warMsg=why==='cap'?`The referee counts ${Number(res.cap)||16} hexes taken in the last 24 hours. Your army must hold its gains before it advances again.`:why==='coming_soon'?COMING_SOON:why==='maintenance'?MAINTENANCE:why==='ready'?'Your army is not ready: the referee counts no readiness left. It returns as usual.':why==='banned'?'This account is banned, so its army cannot fight.':why==='hidden'?(iAmHidden()?HID_WAR:`The moderators have hidden ${en.n.name} while they look into a report, so the battle was not fought.`):why==='rcpact'?'The referee refused the battle: the recruits’ pact binds the two of you for a month after one recruited the other.':why==='pact'?'The referee refused the battle: a pact binds the two sides. It must be ended or broken first.':why==='nation'?'Your nation has not reached the region yet. Try again in a moment.':why==='gone'?`${en.n.name} is no longer a nation of this region, so the battle was not fought.`:'The battle was not fought: the referee could not be reached. Try again in a moment.';
       S.mapTarget=null;updateMapPanel();redrawMaps();return;
     }
     win=!!res.win;fell=!!(win&&capHit&&res.fell);if(fell&&res.doc&&typeof res.doc.ni==='string'&&res.doc.ni)mvDoc=res.doc;if(res.doc&&res.id)wrPut(res.id,res.doc);t=Number(res.t)||Date.now();roll=typeof res.roll==='number'?res.roll:null;seal=typeof res.s==='string'?res.s:null;seal2=typeof res.s2==='string'?res.s2:null;pe=typeof res.p==='number'?res.p:od.p;if(typeof res.w==='string')w=res.w;now=Date.now();
@@ -24171,7 +24171,7 @@ async function attack(){
     const ct=npcCounter(T,ci);
     if(ct&&ct.cell!==cell&&Math.random()<ct.p*(ci===bi?1:0.5)){struck++;n.conq.push({c:ct.cell,t:now+struck,n:x.id});n.log.unshift({t:now+struck,k:'lost',a:x.id,b:x.n.name,fx:landName(ct.cell),c:ct.cell});msgs.push(`${x.n.name} struck back and took a hex ${placePhrase(ct.cell)}.`);}
   }
-  n.conq=dedupeConq(n.conq);n.log=n.log.slice(0,60);
+  n.conq=dedupeConq(n.conq);n.log=n.log.slice(0,60);if(win&&!raid)gsWeary(n,now);
   commit(n);
   S.wgFor=null;S.warMsg=msgs.join(' ');S.mapTarget=null;S.mapSel=en.id;updateMapPanel();redrawMaps();toast(msgs[0]);
 }
@@ -24275,6 +24275,7 @@ function targetPanel(T,cell,reach){
   const notes=[];
   if(od.terr>1)notes.push(`${MAP.T[cell]===4?'Mountains':'Hills'} give the defender a ${Math.round((od.terr-1)*100)}% advantage.`);
   notes.push(...cityDefNotes(T,bi,cell));
+  {const l=x&&!x.npc?gsLvAt(x.n,Date.now()):0;if(l)notes.push(`${x.n.name} has a ${gsName(l)}: its army may take up to ${gsCapOf(l)} hexes in any 24 hours.`);}
   if(reach.gap)notes.push(`Your troops must cross ${reach.gap} ${reach.gap===1?'hex':'hexes'} of open ground or sea to reach it, losing 15% of their strength for each.`);
   if(reach.amph&&!pol(S.nation).navalFleet)notes.push('Part of the route is by sea, which costs another 25%.');
   notes.push(`${od.kA} of your or your allies’ hexes border it, against ${od.kB} of theirs.`);
@@ -24288,7 +24289,7 @@ function targetPanel(T,cell,reach){
     ${thrHTML(od.p,null,'The referee’s die')}
     <div class="die-wrap">${warDieHTML(S.attacking?1+Math.floor(Math.random()*99):null,S.attacking?'rolling':'')}<p class="die-say">${S.attacking?'The referee is rolling the dice…':S.db?'The die is cast on the server, once for this attack.':'The die is cast once for this attack.'}</p></div>
     <div class="row" style="margin-top:14px"><button class="btn danger solid" data-act="attack"${rd.r<1||conqCap(S.nation)||S.attacking?' disabled':''}>Attack</button><button class="btn ghost" data-act="map-untarget">Cancel</button></div>
-    <p class="hint" style="margin-top:10px">${conqCap(S.nation)?esc(conqCap(S.nation)):rd.r<1?`Your army is not ready. The next readiness point arrives in ${fmtDur(rd.next)}.`:`Uses 1 readiness point. You have ${rd.r} of ${rd.max}.`}</p>`;
+    <p class="hint" style="margin-top:10px">${conqCap(S.nation)?esc(conqCap(S.nation)):rd.r<1?`Your army is not ready. The next readiness point arrives in ${fmtDur(rd.next)}.`:`Uses 1 readiness point. You have ${rd.r} of ${rd.max}.`}</p>${gsMeter(S.nation)}`;
 }
 
 /* alliance actions: each one a request to the server (functions/alliances.js, civic ops al*), whose answer comes back
@@ -30353,7 +30354,7 @@ function helpBody(n){
       <h3 class="help-h3">What a war is for</h3>
       <p>When you declare war you choose its aim. A <b>border war</b> takes up to ${BORDER_CAP} hexes, and the enemy capital is safe. A <b>conquest</b> has no limit and may end in a siege of the enemy capital; it costs happiness at home and a little goodwill with every other nation of the region. A <b>raid</b> takes no land: each victory brings back materials, and the hex raided yields nothing for a day. Whoever declared the war set its aim, and the other side fights back as it likes.</p>
       <h3 class="help-h3">Attacking</h3>
-      <p>Select an enemy hex outlined in red on the map. You can strike hexes next to your land or your allies’ land, or up to 3 hexes beyond across unclaimed land or shallow sea, losing 15% of your strength for each hex crossed and 25% more by sea unless you have a Blue-Water Navy. A capital can only be taken at the end of a siege. The panel shows your chance, between 5% and 95%: hills and mountains, fortresses, walls, defence policies and the hexes around the target all count, and spies can tip it. A computer nation may strike back at once.</p>
+      <p>Select an enemy hex outlined in red on the map. You can strike hexes next to your land or your allies’ land, or up to 3 hexes beyond across unclaimed land or shallow sea, losing 15% of your strength for each hex crossed and 25% more by sea unless you have a Blue-Water Navy. A capital can only be taken at the end of a siege. The panel shows your chance, between 5% and 95%: hills and mountains, fortresses, walls, defence policies and the hexes around the target all count, and spies can tip it. A computer nation may strike back at once. Your army may take 16 hexes in any 24 hours (land taken in a hostile landing counts twice); a General Staff raises that to 21, and High Command to 26.</p>
       <h3 class="help-h3">Sieges and the fall of a nation</h3>
       <p>In a war of conquest, an enemy capital can be besieged once it is all the land its nation has left, or once every hex around it is held by you or your allies. The besieged player is told at once, by post as well if they take war letters. After ${hrs(SIEGE_MS)} your army may make the final assault, until ${hrs(SIEGE_MAX)} after the siege began; the capital’s last defenders make it ${Math.round((CAP_DEF-1)*100)}% harder to take. If it falls and the nation has another city, its government moves to the biggest (the one with the most finished buildings) and the war goes on: the attacker must lay siege to the new capital. Only when the last capital falls does the nation fall with it: it leaves the map, the land its enemies took stays theirs, and the rest lies open. Its player can rise again in the same region, with 3 bonus land credits, a quarter of its materials and ${SHIELD_MS/DAY} days in which nobody may attack it, or start anew in another region. Either way they keep their achievements, portrait, flag, coat of arms, currency, script and history. The conqueror decides the fallen capital’s fate in an edict: take it over as a city of its own (a captured city never counts against the cities a nation may found), raze it, plunder it, set it free or leave it in ruins. Any other city of a player’s nation on land you take in war brings an edict too: keep it as a captured city, raze it, sack it and hold it under occupation, or give it back.</p>
       <p>A nation under siege may surrender instead: the war ends on current lines, it pays ${Math.round(TRIB_SHARE*100)}% of its spare materials to the besieger for ${TRIB_MS/DAY} days, and a truce holds for ${SURR_TRUCE/DAY} days.</p>
@@ -30361,6 +30362,7 @@ function helpBody(n){
       <p>The defender can act too. Spend a point of readiness to fortify one of your hexes for ${hrs(FORT_MS)} (${Math.round((FORT_DEF-1)*100)}% harder to take, ${FORT_MAX} at a time). Your troops fight ${Math.round((RALLY-1)*100)}% harder to win back a hex lost within the day, and a city rises ${Math.round((LIBERATE-1)*100)}% stronger to free itself from an occupier. If enemies took your land while you were away for more than ${hrs(GRACE_AWAY)}, your people rally when you come back: nobody may attack you for ${GRACE_MS/DAY} days, at most once every ${GRACE_GAP/DAY} days. The grace ends if your army attacks land that was never yours.</p>
       <h3 class="help-h3">Military buildings</h3>
       <p>Besides the Barracks (army strength) and the Fortress (hexes near the city harder to take), four buildings help a nation at war. A <b>Drill Ground</b> brings readiness back 20% sooner (30% with all five upgrades), and an <b>Arsenal</b> holds one more point of readiness (two with all five) and adds 2% to your army; each needs a Barracks, and a nation has one of each. A <b>Naval Dockyard</b>, in a coastal city, lets your troops cross the water without the 25% loss, and makes your coastal hexes within 3 of the city 25% harder to take (35% with all five). A <b>Military Hospital</b> cuts the people a war costs by 20% (30% with all five), and when a war ends, a quarter of the people it cost come home over the next week. Like any building, the Dockyard and the Hospital work for whoever holds their city; the Drill Ground and the Arsenal count only in a city of your own that you hold.</p>
+      <p>At 25 million people a <b>General Staff</b> (one per nation; it needs a Barracks and an Arsenal) lets your army take 21 hexes in any 24 hours instead of 16, and adds 2.5% to your army (5% with all five upgrades); it uses 2 iron and 1 oil a day, and its city’s mood drops 3. With all five upgrades, retool it to <b>High Command</b> for 26 hexes a day, in one of three lines: Blitz Command (readiness 10% sooner), Occupation Command (land you took in the last day 15% harder to win back) or Combined Operations (land taken in a landing counts once). It counts while you hold its city, other nations can see it, and each hex past the sixteenth in a day adds to war weariness.</p>
       <h3 class="help-h3">The cost of war</h3>
       <p>A war uses food, timber, iron, oil and goods every day, on top of what the nation needs in peacetime, and each war costs more than the last: two at once cost nearly three times one, three cost five times. Every occupied city needs a garrison. Short of materials, cities grow restless and produce less, and a city at war whose mood falls under ${STRIKE_AT} goes on strike and produces nothing. War also slows population growth, and several wars at once, hunger and war weariness make the population shrink. Weariness builds every day at war, and faster with more wars, wars of conquest and land lost; at 100 the government sues for peace on current lines with every enemy. While cities complain or strike, war edicts land on your desk until there is peace.</p>
       <h3 class="help-h3">Seeing the war</h3>
@@ -52338,10 +52340,11 @@ const b2Days=k=>k<1?'less than a day':k===1?'one day':k+' days';
   try{new MutationObserver(b2Theme).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});}catch(e){}
   try{window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',b2Theme);}catch(e){}}
 /* territory() accepts at most 16 conquests a day from one record and ignores the rest, so a seventeenth victory
-   reported a hex taken that never changed hands. The army now waits until the oldest of the day's 16 is a day old. */
+   reported a hex taken that never changed hands. The army now waits until the oldest of the day's 16 is a day old.
+   Since 28 November a General Staff raises the 16 to 21, and High Command to 26 (gsCap; the map: gsCapAt) */
 function conqCap(n,now){
-  now=now||Date.now();const t=((n&&n.conq)||[]).filter(e=>e&&!e.n&&e.t>=FIX_EPOCH&&e.t>=now-DAY).map(e=>e.t).sort((a,b)=>b-a);
-  return t.length<16?'':`Your army has taken 16 hexes in the last 24 hours and must hold its gains before it advances again. The next attack is possible in ${fmtDur(t[15]+DAY-now)}.`;
+  now=now||Date.now();const cap=typeof gsCap==='function'?gsCap(n,now):16,t=((n&&n.conq)||[]).filter(e=>e&&!e.n&&e.t>=FIX_EPOCH&&e.t>=now-DAY).map(e=>e.t).sort((a,b)=>b-a);
+  return t.length<cap?'':`Your army has taken ${cap} hexes in the last 24 hours and must hold its gains before it advances again. The next attack is possible in ${fmtDur(t[cap-1]+DAY-now)}.`;
 }
 /* clicks and tips go to what is drawn on top: a fleeting find's marker, then a news pin, then a trade route. The
    route's handlers ran first, so a pin or marker beside a capital (where routes begin) opened the route instead.
@@ -95825,6 +95828,7 @@ DISPATCH_SOURCES.push(ctx=>{
       else if(l.k==='bgold')out.push({k,t:l.t,sec:'business',kick:'Cities',h:`${dspClean(l.b,60)||'A building'} in ${dspClean(l.a,60)||CAP} goes gold`,b:`${N} has fitted the last, gold upgrade to the ${dspClean(l.b,60)||'building'} in ${dspClean(l.a,60)||CAP}, which now works at double strength. A ribbon was cut, then framed.`,who:[x.id],w:4,go:'cities'});
       else if(l.k==='cxm'){const A=dspClean(l.a,60)||CAP,won=l.c===1;out.push({k,t:l.t,sec:'society',kick:'Cities',h:won?`A gamble pays off in ${A}`:`A gamble goes wrong in ${A}`,b:`${dspClean(l.fx,240)}. ${N} chose “${dspClean(l.b,60)}”, and it ${won?'paid off':'went badly'}. The city talks of nothing else.`,who:[x.id],w:2,go:'cities'});}
       else if(l.k==='cxn'){const how=l.b==='1'?' It paid off.':l.b==='0'?' It went badly.':'';out.push({k,t:l.t,sec:'politics',kick:'The nation',h:`${N} decides: “${dspClean(l.a,60)}”`,b:`${dspClean(l.fx,240)}. The government of ${N} chose “${dspClean(l.a,60)}”, and every city will feel it.${how}`,who:[x.id],w:3,go:'cities'});}
+      else if(l.k==='gsopen'||l.k==='gs2'){const A=dspClean(l.a,60)||CAP,two=l.k==='gs2';out.push({k,t:l.t,sec:'politics',kick:'Defence',h:two?`${N}’s General Staff becomes High Command`:`${N} opens a General Staff in ${A}`,b:two?`The generals in ${A} have moved their maps into bigger rooms: ${N}’s High Command${l.b?`, a ${dspClean(l.b,60)},`:''} lets its army take up to 26 hexes in any 24 hours. Its neighbours have been counting the boots.`:`Maps on every wall in ${A}: ${N}’s new General Staff lets its army take up to 21 hexes in any 24 hours, where most armies may take 16. Its neighbours have noticed.`,who:[x.id],w:4,go:'cities'});}
       else if(l.k==='cwall')out.push({k,t:l.t,sec:'society',kick:'Cities',h:`New walls for ${dspClean(l.a,60)||CAP}`,b:`The walls of ${dspClean(l.a,60)||CAP} in ${N} have reached level ${dspClean(l.b,2)||'1'}. Residents report feeling safer and slightly more enclosed.`,who:[x.id],w:3,go:'cities'});
     }
   }
@@ -104442,7 +104446,7 @@ function woTargetCard(T,now){
   return `<section class="st-card wo-card"><h3 class="st-h">The front, by the odds</h3>
     <p class="hint">Every enemy hex your army can reach. Your army reaches 3 hexes past your border or your allies’.</p>
     <ul class="tg">${li}</ul>
-    <p class="hint" style="margin-top:12px">${rest?`${rest} more ${rest===1?'hex is':'hexes are'} within reach. `:''}${conqCap(S.nation)?esc(conqCap(S.nation)):rd.r<1?`Your army is not ready. The next readiness point arrives in ${esc(fmtDur(rd.next))}.`:`An attack uses 1 readiness point. You have ${rd.r} of ${rd.max}.`}</p></section>`;
+    <p class="hint" style="margin-top:12px">${rest?`${rest} more ${rest===1?'hex is':'hexes are'} within reach. `:''}${conqCap(S.nation)?esc(conqCap(S.nation)):rd.r<1?`Your army is not ready. The next readiness point arrives in ${esc(fmtDur(rd.next))}.`:`An attack uses 1 readiness point. You have ${rd.r} of ${rd.max}.`}</p>${gsMeter(S.nation)}</section>`;
 }
 /* what the war layer draws, in words, so it reads with the layer off and by a screen reader */
 function woGround(T,now){
@@ -108716,6 +108720,7 @@ bldGain=(f=>function(ct,k,T){const g=f.apply(this,arguments);if(!g||g.dorm||!MIL
   try{const built=ct.done.includes(k),x=(T||territory()).list[ct.hi];g.x.push({t:milLine(k,built&&ct.ug?ct.ug[k]|0:0,x&&x.n&&x.n.policies)});}catch(e){}return g;})(bldGain);
 if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE.mil={milOwn,milLv,milNavy,milDockAt,milHospCut,milHomeAdd,milHome,milLine,MIL_KEYS,maxReady:n=>maxReady(n),readyMs:n=>readyMs(n),isCoastal:c=>isCoastal(c),wrPopFx:n=>wrPopFx(n)};}catch(e){}
 
+
 /* ───────── Letters from Willow Street, Act II: numbered after every edict before them ─────────
    ws-9 to ws-16 (see "Letters from Willow Street: one citizen"). Edicts written later go after this line. Tests that
    run the sections above on their own, without the letters, skip it. */
@@ -112338,9 +112343,11 @@ BATTLE_MODS.push((T,cell,ai,bi)=>{
 /* land taken in a hostile landing counts twice towards the sixteen hexes a day */
 conqCap=(f=>function(n,now){
   const r=f.apply(this,arguments);if(r)return r;now=now||Date.now();const L=lndList(n).filter(v=>v.k==='h');if(!L.length)return r;
+  /* a General Staff's cap (gsCap), and High Command's Combined Operations counts a landing once (gsCombined) */
+  if(typeof gsCombined==='function'&&gsCombined(n,now))return r;const cap=typeof gsCap==='function'?gsCap(n,now):16;
   const t=[];for(const e of (n&&n.conq)||[]){if(!e||e.n||!(e.t>=FIX_EPOCH)||e.t<now-DAY)continue;t.push(e.t);if(L.some(v=>v.cl.includes(e.c)&&e.t>=v.a&&e.t<=v.a+LND_RULES.hWin))t.push(e.t);}
-  if(t.length<16)return '';t.sort((a,b)=>b-a);
-  return `Your army has taken 16 hexes in the last 24 hours (land taken in a landing counts twice) and must hold its gains before it advances again. The next attack is possible in ${fmtDur(t[15]+DAY-now)}.`;
+  if(t.length<cap)return '';t.sort((a,b)=>b-a);
+  return `Your army has taken ${cap} hexes in the last 24 hours (land taken in a landing counts twice) and must hold its gains before it advances again. The next attack is possible in ${fmtDur(t[cap-1]+DAY-now)}.`;
 })(conqCap);
 
 /* ── the Shore Battery: no hostile landing comes ashore within LND_RULES.bat hexes of its city ── */
@@ -113302,6 +113309,17 @@ function mprWarPill(W){
   if(!W.on)return '';const sw=mprSiegeWords(W),hot=W.sg.some(x=>x.at<=W.now);
   return `<button type="button" class="mpr-war${hot?' hot':''}" data-act="mpr-view" data-v="war" title="Open the War view (key 6)">${mprIcon('war','mpr-war-i')}<span>At war with ${esc(mprWarWords(W))}${sw?`<span class="mpr-war-s"> · ${esc(sw)}</span>`:''}</span></button>`;
 }
+const MPR_FOLD=['land','transport','plan','claim'];
+/* the tool bar fitted to its room (28 Nov 2026): one tool more under More while the bar's tools run past its end (a
+   phone with a war on had More hanging out of the bar), measured after each drawing, afresh at a new width and once the
+   fonts are in. The bar is drawn again from mprModeBar, so the next page drawn comes out the same */
+function mprFitBar(){
+  if(!mprOn()||MPR.moreOpen)return;let bar=document.querySelector('.mpr-modes');if(!bar||!bar.clientWidth)return;
+  const redo=()=>{bar.outerHTML=mprModeBar();bar=document.querySelector('.mpr-modes');};
+  if(MPR.fitW!==window.innerWidth){MPR.fitW=window.innerWidth;if(MPR.fold){MPR.fold=0;redo();}}
+  for(let i=0;i<MPR_FOLD.length&&bar&&bar.scrollWidth>bar.clientWidth+1;i++){MPR.fold=(MPR.fold||0)+1;redo();}
+}
+try{document.fonts&&document.fonts.ready.then(()=>{MPR.fitW=0;mprFitBar();});}catch(e){}
 function mprModeBar(){
   const n=S.nation,tools=pgAvailable(n,'map'),cur=mprMode(),cr=landCredits(n),W=mprWar();
   let land=false;try{land=lndHarbours(n).length>0||lndCols(n).length>0||lndList(n).length>0;}catch(e){}
@@ -113313,11 +113331,13 @@ function mprModeBar(){
     return `<button type="button" class="mpr-m${v==='war'?' war':''}${on?' on':''}" data-act="${act}" data-v="${v}" aria-pressed="${on}" aria-keyshortcuts="${k}" aria-label="${esc(name)}" title="${esc(name)} (key ${k})">${mprIcon(v)}<span class="mpr-l">${l}</span>${badge||`<kbd>${k}</kbd>`}</button>`;};
   /* while at war, War comes straight after Explore, in red, with the number of wars */
   const order=W.on?[MPR_MODES[0],MPR_MODES[5],...MPR_MODES.slice(1,5)]:MPR_MODES,shown=order.filter(shows);
-  /* Transport and Landings, under More when the bar is short of room (the styles show one or the other) */
-  const more=shown.filter(m=>m[0]==='transport'||m[0]==='land'),mo=more.find(m=>m[0]===cur);
+  /* the tools the bar has no room for go under More (mprFitBar counts them, MPR.fold): Landings first, then Transport,
+     Plan and Claim; Explore and War always stay on the bar */
+  const under=new Set(MPR_FOLD.filter(v=>shown.some(m=>m[0]===v)).slice(0,MPR.fold||0));
+  const more=shown.filter(m=>under.has(m[0])),mo=more.find(m=>m[0]===cur);
   const moreBox=more.length?`<details class="mpr-more" id="mpr-more"${MPR.moreOpen?' open':''}><summary class="mpr-m${mo?' on':''}" aria-label="More tools">${mo?mprIcon(mo[0])+`<span class="mpr-l">${mo[1]}</span>`:'<span>More</span>'}${MPR_CHEV}</summary><div class="mpr-more-p" role="group" aria-label="More tools">${more.map(btn).join('')}</div></details>`:'';
   /* the old toolbar's name only while the map's tools are open to the nation (a new nation has none yet) */
-  return `<div class="${tools?'mp-map-toolbar ':''}mpr-modes" role="toolbar" aria-label="Map tools">${shown.map(btn).join('')}${moreBox}</div>`;
+  return `<div class="${tools?'mp-map-toolbar ':''}mpr-modes${more.length?' has-more':''}" role="toolbar" aria-label="Map tools">${shown.filter(m=>!under.has(m[0])).map(btn).join('')}${moreBox}</div>`;
 }
 /* the tool's hint, at the top of the panel (27 Nov 2026): open the first time a tool is used on this device, folded to an
    (i) after that, and folded again once another tool is chosen */
@@ -113373,7 +113393,7 @@ function mprAfter(){
   /* on the root, not on the layout: a style on the layout made each render find it changed and draw the whole map
      afresh, canvas and all; the maps redraw when it changed */
   const R=document.documentElement,was=R.style.getPropertyValue('--mpr-h');if(was!==h+'px'){R.style.setProperty('--mpr-h',h+'px');MPR.sized=h;redrawMaps();}
-  mprMiniDraw();
+  mprMiniDraw();mprFitBar();
 }
 window.addEventListener('resize',()=>{MPR.sized=0;clearTimeout(MPR.rt);MPR.rt=setTimeout(mprAfter,120);});
 /* the tools on the map cover its top edge (on a phone, its foot): the view may run that far past the edge of the world,
@@ -113728,6 +113748,156 @@ function mprUnfold(){return `<div class="mpr-unfold"><button type="button" class
 
 /* Keep the moderator preview in moderator pages even when a URL names an admin-only page. */
 shell=(f=>function(){if(modPreview()&&typeof S.view==='string'&&S.view.startsWith('admin')&&!MOD_VIEWS.includes(S.view))return admShell('admin-reports','<p class="hint">Choose a moderator page from the menu.</p>');return f.apply(this,arguments);})(shell);
+
+/* ───────── the General Staff (28 November 2026) ─────────
+   The owner asked for a military building that raises the hexes an army may take in any 24 hours from 16 to 21, and to
+   26 retooled to tier II; it costs materials and needs 25 million people. All eighteen ideas were picked:
+   - General Staff (staffhq: one per nation, needs a Barracks and an Arsenal, opens with the 25-million milestone):
+     21 hexes a day, army strength +2.5% (+5% with all five upgrades), 2 iron and 1 oil a day, the city's mood −3.
+   - High Command (tier II, 25 million people too), in one of three lines, each 26 hexes a day, army +5% rising to +10%,
+     4 iron and 2 oil a day: Blitz Command (readiness back GS_BLITZ sooner), Occupation Command (the hexes its nation
+     took in the last day GS_OCC harder to win back) and Combined Operations (land taken in a landing counts once).
+   - It counts while the nation holds its city (gsOwn). The map replays every conquest with the cap of its day
+     (territory(): gsCapAt), so the record keeps the periods it worked, n.gsp [{a from, b until, l tier 1–2}], written by
+     a save: the first from when it was finished, a tier from when its retool was done, an end when it is lost. Nothing is
+     backdated before it was finished, and a past day's cap never changes.
+   - The referee refuses a battle once its own log has the attacker's conquests of the last 24 hours at what the record's
+     General Staff allows, plus a margin (functions/war-rules.js conqCapOf, CONQ_SLACK): never stricter than the game.
+     Blitz Command's readiness is the referee's too (milReady bcut).
+   - Each hex past the sixteenth within a day adds 1 to war weariness. Rivals see it: the attack panel, the visit page,
+     the Dispatch, and a notice to every nation at war with it. A meter of the day's hexes, achievements, two edicts
+     (pushed at the very end of the script, so no edict number moves). ── */
+const GS_K='staffhq',GS_POP=25,GS_BLITZ=0.1,GS_OCC=0.15,GS_WEARY=1;
+/* the cap for a tier: literals, as territory() may ask before this section has run */
+function gsCapOf(l){l=l|0;return 16+5*(l<0?0:l>2?2:l);}
+/* the periods on the record, cleaned: [{a, b?, l}], up to twelve */
+function gsPeriods(n){const P=n&&n.gsp;return Array.isArray(P)?P.filter(p=>p&&typeof p==='object'&&Number.isFinite(p.a)&&(p.l===1||p.l===2)&&(p.b===undefined||Number.isFinite(p.b)&&p.b>p.a)).slice(-12):[];}
+/* the tier a nation's General Staff had at time t, and so its cap then */
+function gsLvAt(n,t){let l=0;for(const p of gsPeriods(n))if(p.a<=t&&(p.b===undefined||t<p.b)&&p.l>l)l=p.l;return l;}
+function gsCapAt(n,t){return gsCapOf(gsLvAt(n,t));}
+/* the best finished General Staff in a nation's cities, {l tier, ln line, b, c}; with a territory and an index, only in
+   cities that nation holds there */
+function gsBest(n,now,T,i){
+  const out={l:0,ln:'',b:null,c:null};if(!n||n.npc)return out;now=now||Date.now();
+  for(const c of cityList(n))for(const b of c.b||[]){
+    if(!b||b.k!==GS_K||!(b.d<=now))continue;if(T&&(i===undefined||T.owner[c.c]!==i))continue;
+    const t=cxTier(b,now),l=t.t>=2?2:1;if(l>out.l){out.l=l;out.ln=l>=2?t.ln||'':'';out.b=b;out.c=c;}}
+  return out;
+}
+/* the player's own, only while it holds the city (as milOwn); another nation's as its record has it */
+function gsOwn(n,now){
+  let T=null,i;if(S.nation&&n&&(n===S.nation||n.founded===S.nation.founded&&n.seed===S.nation.seed))try{T=territory();i=T.byId[myId()];if(i===undefined)return {l:0,ln:'',b:null,c:null};}catch(e){T=null;}
+  return gsBest(n,now,T,i);
+}
+function gsCap(n,now){try{return gsCapOf(gsOwn(n,now).l);}catch(e){return 16;}}
+function gsCombined(n,now){try{const g=gsOwn(n,now);return g.l>=2&&g.ln==='combined';}catch(e){return false;}}
+/* the hexes the attack gate counts in the last 24 hours (a hostile landing's twice, unless Combined Operations), newest first */
+function gsDay(n,now){
+  now=now||Date.now();const cap=gsCap(n,now);let L=[];
+  if(!gsCombined(n,now))try{L=lndList(n).filter(v=>v.k==='h');}catch(e){L=[];}
+  const t=[];for(const e of (n&&n.conq)||[]){if(!e||e.n||!(e.t>=FIX_EPOCH)||e.t<now-DAY)continue;t.push(e.t);if(L.some(v=>v.cl.includes(e.c)&&e.t>=v.a&&e.t<=v.a+LND_RULES.hWin))t.push(e.t);}
+  t.sort((a,b)=>b-a);return {k:t.length,t,cap};
+}
+/* the most conquests a nation made within any 24 hours (its record's own) */
+function gsBestDay(n){const t=((n&&n.conq)||[]).filter(e=>e&&!e.n&&Number.isFinite(e.t)).map(e=>e.t).sort((a,b)=>a-b);let j=0,most=0;for(let i=0;i<t.length;i++){while(t[i]-t[j]>DAY)j++;most=Math.max(most,i-j+1);}return most;}
+const gsName=l=>l>=2?'High Command':'General Staff';
+
+Object.assign(BUILDINGS,{
+  staffhq:{n:'General Staff',c:'def',one:1,ugx:1,icon:'staffhq',needB:['barracks','armoury'],mood:-3,army:0.025,
+    d:'Your army may take 21 hexes in any 24 hours instead of 16. Army strength +2.5%, +5% with all five upgrades. With all five it can be retooled to High Command: 26 hexes a day. Uses 2 iron and 1 oil a day. The city’s mood −3. Needs a Barracks and an Arsenal. One per nation.',
+    q:'Maps on every wall, pins in every map, and a general who has not seen daylight since the Tuesday before last.',cost:{timber:60,iron:60,oil:30,goods:40},h:12,up:{iron:2,oil:1}}
+});
+/* tier II, High Command: each line 26 hexes a day and army +5% (what gold tier I gives), doubling by gold II */
+BTIER.staffhq={2:{n:'High Command',cost:{timber:200,iron:150,oil:80,goods:100},h:24,ug:2,uh:1.5,lines:{
+  blitz:{n:'Blitz Command',s:'26 hexes a day, army +5% rising to +10% at gold II, and readiness back 10% sooner',d:'26 hexes a day, and readiness back 10% sooner. Army +5%. Uses 4 iron and 2 oil a day.',army:0.05,up:{iron:4,oil:2},mood:-3},
+  occupy:{n:'Occupation Command',s:'26 hexes a day, army +5% rising to +10% at gold II, and the land you took in the last day 15% harder to win back',d:'26 hexes a day, and land taken in the last day 15% harder to win back. Army +5%. Uses 4 iron and 2 oil a day.',army:0.05,up:{iron:4,oil:2},mood:-3},
+  combined:{n:'Combined Operations',s:'26 hexes a day, army +5% rising to +10% at gold II, and land taken in a landing counts once, not twice',d:'26 hexes a day, and a landing’s hexes count once, not twice. Army +5%. Uses 4 iron and 2 oil a day.',army:0.05,up:{iron:4,oil:2},mood:-3}}}};
+{const m=MILESTONES.find(m=>m.p===GS_POP);if(m)m.b=(m.b||[]).concat(GS_K);}
+/* High Command needs 25 million people too */
+tierProblem=(f=>function(n,ct,k,st,now){if(k===GS_K&&popNow(n)<GS_POP-1e-9)return `High Command needs ${GS_POP} million people.`;return f.apply(this,arguments);})(tierProblem);
+Object.assign(DC_GLYPH,{
+  staffhq:{w:5.6,h:4.2,f:(q,x)=>{q.box('face',x,4.2,1.9,{flat:1});q.poly('roof',[[x-0.2,-1.9],[x+2.1,-2.9],[x+4.4,-1.9]],{ol:1});
+    for(const cx of [0.45,1.35,2.55,3.45])q.rect('cut',x+cx,-1.5,0.3,1.5);q.ln('ink',0.16,[[x+2.1,-2.9],[x+2.1,-4.1]]);dcFlag(q,x+4.9,0,0);}}
+});
+/* its icon on the Cities page: a pillared headquarters under a pediment */
+BLD_ICO.staffhq='<path d="M3.5 20.5h17"/><path d="M4.5 9.5 12 4.5l7.5 5Z"/><path d="M5 12h14"/><path d="M6.5 20.5V12M10.5 20.5V12M13.5 20.5V12M17.5 20.5V12"/>';
+/* what it does, in words, on the Cities page */
+function gsLine(b,now){const t=b?cxTier(b,now):{t:1,ln:''},L=t.t>=2?bTierLine(GS_K,2,t.ln):null;
+  return `your army may take ${gsCapOf(t.t>=2?2:1)} hexes in any 24 hours instead of 16${L&&t.ln==='blitz'?', and readiness comes back 10% sooner':L&&t.ln==='occupy'?', and the land it took in the last day is 15% harder to win back':L&&t.ln==='combined'?', and land taken in a landing counts once':''}`;}
+bldGain=(f=>function(ct,k,T){const g=f.apply(this,arguments);if(!g||g.dorm||k!==GS_K)return g;
+  try{const b=ct.rec&&(ct.rec.b||[]).find(x=>x&&x.k===GS_K);g.x.push({t:gsLine(b,Date.now())});}catch(e){}return g;})(bldGain);
+
+/* the record's periods: kept on load, written at each save */
+NORM_HOOKS.push((n,d)=>{const P=gsPeriods(d);if(P.length)n.gsp=P.map(p=>p.b===undefined?{a:p.a,l:p.l}:{a:p.a,b:p.b,l:p.l});});
+COMMIT_HOOKS.push((n,old,now)=>{
+  const out=[];if(!n||n.npc||OBS||cellOf(n.loc)<0)return out;
+  let g;try{g=gsOwn(n,now);}catch(e){return out;}
+  const P=gsPeriods(n).map(p=>Object.assign({},p)),open=P.find(p=>p.b===undefined),last=P[P.length-1],L=g.l,ever=Math.max(0,...P.map(p=>p.l));
+  if(open?open.l===L:!L)return out;
+  /* when the new tier began: the first General Staff from when it was finished, a retool from when it was done (its
+     time is still on the record before this save, which settles it); else this save */
+  let at=now;
+  if(L){
+    if(!P.length&&L===1&&g.b)at=Math.min(now,g.b.d);
+    else if(L===2){const ob=old&&cityList(old).find(c=>g.c&&c.id===g.c.id),b0=ob&&(ob.b||[]).find(x=>x&&x.k===GS_K),tu=b0&&cxBldExtras(b0).tu;if(tu&&tu.l>=2&&tu.d<=now)at=tu.d;}
+    at=Math.max(at,open?open.a+1:0,last&&last.b?last.b:0);
+  }
+  if(open)open.b=Math.max(open.a+1,L?at:now);
+  if(L)P.push({a:at,l:L});
+  n.gsp=P.slice(-12);
+  if(L>ever){
+    const nm=String(cityLabel(n,g.c)).slice(0,60),ln=L>=2?bTierLine(GS_K,2,g.ln):null;
+    n.log=[{t:at,k:L>=2?'gs2':'gsopen',a:nm,b:ln?String(ln.n).slice(0,60):''}].concat(n.log||[]).slice(0,60);
+    out.push(L>=2?`The General Staff in ${nm} is now High Command${ln?', '+ln.n:''}: your army may take 26 hexes in any 24 hours.`:`The General Staff in ${nm} is at work: your army may take 21 hexes in any 24 hours instead of 16.`);
+  }
+  return out;
+});
+
+/* Blitz Command: readiness back sooner, after every other cut (the referee's milReady bcut, in the same order) */
+readyMs=(f=>function(n){const ms=f.apply(this,arguments);let g=null;try{g=gsOwn(n);}catch(e){g=null;}return g&&g.l>=2&&g.ln==='blitz'?Math.round(ms*(1-GS_BLITZ)):ms;})(readyMs);
+/* Occupation Command: land its nation took in war in the last day is harder to win back */
+BATTLE_MODS.push((T,cell,ai,bi)=>{
+  const B=T.list[bi];if(!B||B.npc||!T.occ||!T.occ[cell]||!T.tk)return null;const now=Date.now();if(!(now-(T.tk[cell]||0)<DAY))return null;
+  let g;try{g=gsBest(B.n,now,T,bi);}catch(e){return null;}if(!(g.l>=2&&g.ln==='occupy'))return null;
+  return {def:1+GS_OCC,note:`${B.me?'Your':B.n.name+'’s'} Occupation Command holds the land it took in the last day ${Math.round(GS_OCC*100)}% the stronger.`};
+});
+/* each hex past the sixteenth within a day wears the nation down */
+function gsWeary(n,now){let k=0;for(const e of (n&&n.conq)||[])if(e&&!e.n&&e.t>=FIX_EPOCH&&e.t>=now-DAY)k++;if(k>16)n.wwy=clamp((+n.wwy||0)+GS_WEARY,0,100);}
+
+/* the day's meter: hexes taken against the cap, and when the oldest stops counting */
+function gsMeter(n,now){
+  if(!n)return '';now=now||Date.now();let D;try{D=gsDay(n,now);}catch(e){return '';}
+  const pc=Math.min(100,Math.round(D.k/D.cap*100)),old=D.k?D.t[Math.min(D.k,D.cap)-1]:0;
+  return `<div class="gs-meter"><p class="hint">Hexes taken in the last 24 hours: <b>${Math.min(D.k,D.cap)} of ${D.cap}</b>${D.cap>16?` (your ${gsName(D.cap>21?2:1)})`:''}${D.k?`. The oldest counts until ${esc(c3Until(old+DAY))}.`:'.'}</p><span class="bar gs-bar${D.k>=D.cap?' full':''}" aria-hidden="true"><i style="width:${pc}%"></i></span></div>`;
+}
+/* rivals see it: the visit page, and a notice to every nation at war with its owner */
+vsAdd('ter',(x,now)=>{
+  if(!x||x.npc||!x.n)return '';const l=gsLvAt(x.n,now||Date.now());if(!l)return '';
+  return `<section class="section gs-vs"><h2 class="h2">${gsName(l)}</h2><p>${esc(x.n.name)}’s army may take up to <b>${gsCapOf(l)} hexes</b> in any 24 hours, where most may take 16.</p></section>`;
+});
+NOTIF_SOURCES.push((n,now)=>{
+  const out=[];if(!n||n.npc)return out;let foes=[];try{foes=wrWarsOf(myId());}catch(e){foes=[];}
+  for(const w of foes){const x=findNation(w.id);if(!x||x.npc||!x.n)continue;
+    for(const l of x.n.log||[])if(l&&(l.k==='gsopen'||l.k==='gs2')&&now-l.t<5*DAY)out.push({t:l.t,k:'war',kl:'War',txt:`${x.n.name}, at war with you, has ${l.k==='gs2'?'raised its General Staff to High Command':'opened a General Staff'}: its army may now take up to ${l.k==='gs2'?26:21} hexes in any 24 hours.`,go:'map'});}
+  return out;
+});
+/* honours */
+achDef('war','war-gs21','g','Twenty-One Guns','Take 21 hexes within 24 hours.',21,x=>Math.min(21,gsBestDay(x.n)));
+achDef('war','war-gs2','g','Supreme Command','Retool a General Staff to High Command, tier II.',1,x=>gsPeriods(x.n).some(p=>p.l>=2)||gsBest(x.n,Date.now()).l>=2?1:0);
+if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE.gs={gsCapOf,gsPeriods,gsLvAt,gsCapAt,gsBest,gsOwn,gsCap,gsDay,gsBestDay,gsMeter,gsWeary,GS_K};}catch(e){}
+
+/* ───────── the General Staff's edicts (28 November 2026): after every edict before them, so no number moves ───────── */
+const GS_ISSUES=[
+{id:'gs-parade',c:'gov',req:n=>gsPeriods(n).length>0,t:'The General Staff Would Like a Parade',q:'The new General Staff has finished its maps, sharpened its pencils and polished every medal it owns. Its generals would now like a parade through {CAP}, “to show the people what their taxes bought”. The people, asked informally at a bus stop, would mostly like to know what a General Staff does.',o:[
+ {t:'“Give them their parade,” says Defence Minister {DEF}. “Bands, flags, the whole army down the main avenue. Let every neighbour count the boots.”',e:{mil:3,happy:1,tour:1,econ:-2},fx:'{N} held a military parade through {CAP} for its new General Staff'},
+ {t:'“A medal for every officer, and a quiet line in the budget,” says Finance Minister {FIN}. “Nobody needs a parade to know we have generals.”',e:{mil:1,corrupt:1,econ:-1},fx:'every officer of {N}’s General Staff was given a medal, quietly'},
+ {t:'“Open the map room to schoolchildren,” says Interior Minister {INT}. “Nothing reassures a nation like a very large map with pins in it.”',e:{edu:1,civil:1,mil:1,safety:-1},fx:'schoolchildren in {N} tour the General Staff’s map room, and some of the pins have moved'}]},
+{id:'gs-command',c:'gov',req:n=>gsPeriods(n).some(p=>p.l>=2),t:'High Command Wants the Old Palace',q:'Now that {N}’s General Staff has become High Command, its generals say their offices are too small for the maps. They have their eye on the old summer palace outside {CAP}, which is currently a museum of antique teapots.',o:[
+ {t:'“Give them the palace,” says Defence Minister {DEF}. “A High Command should look like one. The teapots can go to the cellar.”',e:{mil:3,culture:-2,tour:-1},fx:'{N}’s High Command moved into the old summer palace, and the teapots went to the cellar'},
+ {t:'“Build them a bunker instead,” says Interior Minister {INT}. “Underground, out of sight, and no teapots to break.”',e:{safety:2,mil:1,econ:-2},fx:'{N}’s High Command works from a bunker under {CAP}'},
+ {t:'“Share it,” says Culture Minister {CUL}. “Generals on the first floor, teapots on the ground floor, and a café for both.”',e:{culture:1,tour:1,weird:2},fx:'{N}’s High Command shares the old summer palace with a museum of teapots, and the café is very popular'}]}
+];
+for(const is of GS_ISSUES){is.fo=1;ISSUES.push(is);is.no=ISSUES.length;ISSUE_BY_ID[is.id]=is;is.nbx=false;}
 
 if(hot&&typeof hot.snapshot==='function'){try{hot.snapshot(()=>({view:S.view,openIssue:S.openIssue,result:S.result,visit:S.visit,censusKey:S.censusKey,settings:S.settings,draft:S.draft,mapViews:S.mapViews,mapSel:S.mapSel,mapPick:S.mapPick}));}catch(e){}}
 if(hot&&typeof hot.ready==='function')hot.ready(start);else start((hot&&hot.data)||{});
