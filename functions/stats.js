@@ -87,7 +87,7 @@ export function funnelMask(x, registered) {
    {at, m: {uid: [score, days, rulings, uses, social]}} whenever the statistics are counted (the admin portal, at most
    every ten minutes, and the nightly job) */
 export const ENG_PARTS = 8;
-const engPart = uid => { let h = 0; for (const ch of String(uid)) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return h % ENG_PARTS; };
+export const engPart = uid => { let h = 0; for (const ch of String(uid)) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return h % ENG_PARTS; };
 export function engageParts(rows) {
   const parts = Array.from({ length: ENG_PARTS }, () => ({}));
   for (const x of rows) if (x.eng) parts[engPart(x.id)][x.id] = x.eng;

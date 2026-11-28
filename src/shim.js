@@ -1044,6 +1044,23 @@
       return call('accounts', Object.assign({}, isObj(data) ? data : {}, { op: 'letters', step: step }));
     }
   });
+  /* ───────── the player survey (functions/survey.js, accounts op 'survey') ─────────
+     check() → {due, next, s, title, qs, later, laterMax, gift, said?} or null when it cannot be asked; later(), no() and
+     answer({a, o, w}) → {ok} or {ok: false, why, msg} */
+  var surveyApi = Object.freeze({
+    check: function () { return surveyCall({ step: 'check' }).then(function (r) { return r && r.ok ? r : null; }, function () { return null; }); },
+    later: function () { return surveyCall({ step: 'later' }).then(surveyOk, surveyFail); },
+    no: function () { return surveyCall({ step: 'no' }).then(surveyOk, surveyFail); },
+    answer: function (x) { var d = { step: 'answer', a: isObj(x) && isObj(x.a) ? x.a : {}, o: isObj(x) && isObj(x.o) ? x.o : {}, w: isObj(x) && isObj(x.w) ? x.w : {} }; return surveyCall(d).then(surveyOk, surveyFail); }
+  });
+  function surveyCall(d) {
+    var u = A.auth && A.auth.currentUser;
+    if (!u || A.frozen || observing()) return Promise.reject(readOnly());
+    d.op = 'survey';
+    return call('accounts', d);
+  }
+  function surveyOk(r) { return r && r.ok ? r : { ok: false, why: 'retry' }; }
+  function surveyFail(e) { var c = e && e.details && e.details.code; return { ok: false, why: c || 'retry', msg: e && e.message ? String(e.message).slice(0, 300) : '' }; }
   var recruitApi = Object.freeze({
     me: function () { var u = A.auth && A.auth.currentUser; return u ? u.uid : ''; },
     /* → 'ok', 'done', 'guest', 'held', 'refused', 'retry', 'no' or 'bad' (claimx below says more) */
@@ -1208,7 +1225,7 @@
     return Object.freeze({
       use: function (n) {
         if (!online) return null;
-        return n === 'shop' ? shopApi : n === 'civic' ? civicApi : n === 'db' ? dbApi : n === 'user' ? userApi : n === 'report' ? reportApi : n === 'support' ? supportApi : n === 'bugs' ? bugsApi : n === 'mail' ? mailApi : n === 'recruit' ? recruitApi : n === 'letters' ? lettersApi : n === 'referee' ? refereeApi : n === 'admin' ? adminApi : null;
+        return n === 'shop' ? shopApi : n === 'civic' ? civicApi : n === 'db' ? dbApi : n === 'user' ? userApi : n === 'report' ? reportApi : n === 'support' ? supportApi : n === 'bugs' ? bugsApi : n === 'mail' ? mailApi : n === 'recruit' ? recruitApi : n === 'survey' ? surveyApi : n === 'letters' ? lettersApi : n === 'referee' ? refereeApi : n === 'admin' ? adminApi : null;
       }
     });
   }

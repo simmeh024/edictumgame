@@ -1254,6 +1254,39 @@ header.vh:has(.sg-gear)>h1,header.vh:has(.sg-gear)>.eyebrow{padding-right:44px}
 .dwb-in{padding:24px 24px 20px}
 .dwb-in h2{font-family:var(--f-display);font-size:26px;line-height:1.15;margin:2px 0 12px;outline:none}
 .dwb-in>p{margin:0 0 10px}
+/* the player survey (28 Nov 2026): one question a screen, answers as big tappable rows */
+.svd{width:min(600px,calc(100vw - 24px))}
+.sv-in .eyebrow{margin:0}
+.sv-top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}
+.sv-bar{height:6px;border-radius:3px;background:var(--rule);overflow:hidden;margin:0 0 14px}.sv-bar i{display:block;height:100%;background:var(--accent);border-radius:3px;transition:width .2s}
+.sv-in h2.sv-q{font-size:22px;margin:0 0 6px}
+.sv-q2{font-size:16px;margin:16px 0 4px}
+.sv-gift{display:flex;align-items:center;gap:12px;background:var(--accent-soft);border-radius:10px;padding:10px 12px}.sv-art{flex:none}
+.sv-priv{font-size:13px}
+.sv-acts{flex-wrap:wrap;gap:8px;margin-top:14px}
+.sv-opts{display:flex;flex-direction:column;gap:6px;margin:10px 0}
+.sv-opt{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--rule);border-radius:9px;cursor:pointer;min-height:44px;line-height:1.3}
+.sv-opt:hover{border-color:var(--accent)}.sv-opt.on{border-color:var(--accent);background:var(--accent-soft)}.sv-opt.off{opacity:.5;cursor:default}
+.sv-opt input{flex:none;width:18px;height:18px;margin:0;accent-color:var(--accent)}
+.sv-opt:focus-within{outline:2px solid var(--accent);outline-offset:1px}
+.sv-other{margin:-2px 0 4px 40px;width:calc(100% - 40px)}
+.sv-scale{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin:12px 0 4px}.sv-scale.wide{grid-template-columns:repeat(11,1fr);gap:4px}
+.sv-pt{position:relative;display:flex;align-items:center;justify-content:center;min-height:44px;border:1px solid var(--rule);border-radius:9px;cursor:pointer;font-weight:600}
+.sv-pt input{position:absolute;opacity:0;inset:0;margin:0;cursor:pointer}.sv-pt.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink,#fff)}
+.sv-pt:focus-within{outline:2px solid var(--accent);outline-offset:1px}
+.sv-ends{display:flex;justify-content:space-between;font-size:13px;opacity:.75;margin-bottom:6px}
+.sv-text{width:100%;resize:vertical;margin-top:10px}.sv-count{text-align:right;margin:2px 0 0}
+.sv-why{display:block;margin-top:10px}.sv-why span{display:block;font-size:14px;margin-bottom:4px}.sv-why textarea{width:100%;resize:vertical}
+.sv-sub{border-top:1px solid var(--rule);margin-top:12px}
+.sv-nav{align-items:center;gap:8px;margin-top:16px}.sv-sp{flex:1}
+@media(max-width:520px){.sv-scale.wide{grid-template-columns:repeat(6,1fr)}.sv-nav .btn{flex:1}.sv-sp{display:none}.sv-in h2.sv-q{font-size:20px}}
+/* Admin › Player survey */
+.asv-st{display:inline-block;font-size:13px;font-family:var(--f-body);padding:2px 10px;border-radius:99px;background:var(--rule);vertical-align:middle;margin-left:6px}.asv-st.on{background:var(--up);color:#fff}
+.asv-row,.asv-filt{flex-wrap:wrap;gap:10px;align-items:flex-end}.asv-lbl{display:flex;flex-direction:column;gap:3px;font-size:13px}
+.asv-q{border-top:1px solid var(--rule);padding:14px 0 6px}.asv-q .h3{margin:0 0 2px;font-size:17px}
+.asv-big{font-size:15px;margin:8px 0}.asv-big b{font-size:22px;margin-right:2px}
+.asv-words{margin:8px 0;padding-left:18px;display:flex;flex-direction:column;gap:6px}.asv-words q{font-style:italic}
+.asv-more{margin:6px 0}.asv-more summary{cursor:pointer;font-size:14px}
 .dwb-opts{display:grid;gap:12px;margin-top:16px}
 .dwb-opt{border:1px solid var(--rule);border-radius:8px;padding:14px 16px}
 .dwb-opt h3{font-size:15px;margin:0 0 4px}
@@ -64302,7 +64335,7 @@ function admShell(v,body){
       <div class="adm-brand"><span class="wordmark">Edictum</span>${S.isOwner&&!modPreview()?'<span class="adm-pill">Admin</span>':'<span class="adm-pill mod">Mod</span>'}<button type="button" class="btn ghost small adm-menu-close" data-act="adm-menu-close" aria-label="Close admin menu">Close</button></div>
       ${rolePicker()}<nav class="adm-nav" aria-label="Admin portal">
         ${group('Today',tab('admin-triage','Needs attention',triCount()))}
-        ${(!S.isOwner||modPreview())?group('Moderation',tab('admin-reports','Reports',ADM.d&&ADM.d.reports&&ADM.d.reports.length)+tab('admin-chat','Region chats')+tab('admin-ambnotes','Ambassadors&rsquo; notes',abnWaiting())+tab('admin-council','World Assembly Council')):`${group('World',tab('admin','Overview')+tab('admin-stats','Statistics')+tab('admin-shop','Shop statistics')+tab('admin-letters','Letter statistics')+tab('admin-feed','Live feed')+tab('admin-players','Player search')+tab('admin-online','Online players',ADMX.online&&ADMX.online.players.length)+tab('admin-alliances','Alliances')+tab('admin-watch','Watchlist &amp; alerts',AW.unseen)+tab('admin-regions','Region control'))}
+        ${(!S.isOwner||modPreview())?group('Moderation',tab('admin-reports','Reports',ADM.d&&ADM.d.reports&&ADM.d.reports.length)+tab('admin-chat','Region chats')+tab('admin-ambnotes','Ambassadors&rsquo; notes',abnWaiting())+tab('admin-council','World Assembly Council')):`${group('World',tab('admin','Overview')+tab('admin-stats','Statistics')+tab('admin-shop','Shop statistics')+tab('admin-letters','Letter statistics')+tab('admin-survey','Player survey')+tab('admin-feed','Live feed')+tab('admin-players','Player search')+tab('admin-online','Online players',ADMX.online&&ADMX.online.players.length)+tab('admin-alliances','Alliances')+tab('admin-watch','Watchlist &amp; alerts',AW.unseen)+tab('admin-regions','Region control'))}
         ${group('Moderation',tab('admin-reports','Reports',ADM.d&&ADM.d.reports&&ADM.d.reports.length)+tab('admin-chat','Region chats')+tab('admin-sus','Suspicious',AUDIT.size)+tab('admin-hidden','Hidden nations')+tab('admin-bans','Banned players'))}
         ${group('Support',tab('admin-help','Help queries',n)+tab('admin-bugs','Bug reports',BGA.n)+tab('admin-ambnotes','Ambassadors&rsquo; notes',abnWaiting())+tab('admin-gone','Recently dissolved'))}
         ${group('Game content',tab('admin-edicts','All edicts')+tab('admin-news','Development news')+tab('admin-board','Community boards')+tab('admin-flagc','Flag competition',window.fcaRep||0)+tab('admin-council','World Assembly Council',wcaWaiting())+tab('admin-notes','Banknote design guide')+tab('admin-balance','Balance'))}
@@ -106373,6 +106406,416 @@ document.addEventListener('click',e=>{
   if(a==='cb-goboard'){e.preventDefault();const reg=el.dataset.reg;if(!cbBoardOk(reg))return;uxOpen('community',()=>{cbOpenSet().add(reg);cbKeepOpen();cbCloseTopic();},`.cb-reg[data-reg="${reg}"]`);return;}
   if(a==='cb-qm'){uxOpen('region',()=>{RGN.tab='board';},'#rgn-mb-h');return;}
 });
+
+/* ───────── the player survey (28 November 2026) ─────────
+   A short survey for engaged players. The server picks them (functions/survey.js: an engagement score of 50 or more,
+   a nation at least a week old, not staff, drawn at random on some day) and sends each their questions: the core and
+   a few drawn from the rest (functions/survey-data.js, the one list of questions). The game asks the server at most
+   about once a day (svCheck: each answer says when to ask again, kept per account in localStorage), and a survey
+   waiting opens at a calm moment (svCalm): a minute after the page loads at the earliest, after a few quiet seconds,
+   never over another dialog, while typing, on the War page or the map's war mode, in the admin portal or a tutorial
+   guide. One question a screen, each one skippable; "Ask me tomorrow" at most twice (the server counts), "No thanks"
+   for good. Closing it keeps the answers so far on this device, and it comes back the next day. Finishing earns the
+   secret achievement Speak Your Mind and with it the Ballot box, a charge for the arms and a flag emblem: the same for
+   everyone, whatever they answered. Those who answered later see the staff's "you said, we did" note once (svSaid).
+   The results, with the Excel download, are the admin portal's Player survey page (admin-survey, below). */
+const SV={api:null,inv:null,checking:false,born:Date.now(),quiet:0,open:false,step:'intro',i:0,a:{},o:{},w:{},err:'',busy:false,preview:false,pv:null,started:false,done:false,said:null};
+const SV_NEXT='edictum.svNext',SV_DRAFT='edictum.svDraft',SV_SAID='edictum.svSaid';
+UNLOCKS['c-ballot']={k:'charge',n:'Ballot box',src:'ach',tw:'e-ballot'};UNLOCKS['e-ballot']={k:'emblem',n:'Ballot box',src:'ach'};
+CZ_CHB.ballot='a ballot box';
+/* the Ballot box: a voting paper, ticked, going into the slot of a box */
+czCharge=(f=>function(k,c,d,flat){
+  if(k!=='ballot')return f.apply(this,arguments);
+  const L=(p,w)=>`<path d="${p}" fill="none" stroke="${d}" stroke-width="${w||1.5}" stroke-linecap="round" stroke-linejoin="round"/>`;
+  return czSil([['M31,6L65,2L70,47L36,51Z',0],['M12,45H88V54H12Z',0],['M17,54H83V93H17Z',0]],c,d,flat)
+    +L('M40,24L47,32L60,13',2.6)+L('M38,40L62,37',1.2)+L('M32,49.5H68',2.6)+L('M17,61H83',1.1)+L('M43,76H57',1.3)+L('M50,69V83',1.3);
+})(czCharge);
+czEmblemSVG=(f=>function(e,x,y,r,col){if(e!=='e-ballot')return f.apply(this,arguments);const s=r/40;return `<g transform="translate(${(x-50*s).toFixed(2)},${(y-50*s).toFixed(2)}) scale(${s.toFixed(4)})">${czCharge('ballot',col,'rgba(0,0,0,.28)',1)}</g>`;})(czEmblemSVG);
+achDef('dip','dip-survey','b','Speak Your Mind','Answer the Edictum player survey when it comes to you.',1,x=>aTP(x,'svy'),{fm:'bool',u:'c-ballot',sec:'Some questions are worth answering, when they are asked.'});
+
+/* what this browser keeps, for each account: when to ask next, a draft, the "you said, we did" note seen */
+function svLs(k){try{const m=JSON.parse(localStorage.getItem(k)||'{}');return m&&typeof m==='object'&&!Array.isArray(m)?m:{};}catch(e){return {};}}
+function svLsSet(k,v){try{const m=svLs(k);if(v==null)delete m[myId()];else m[myId()]=v;localStorage.setItem(k,JSON.stringify(m));}catch(e){}}
+const svNext=()=>+svLs(SV_NEXT)[myId()]||0;
+function svApi(){if(SV.api)return Promise.resolve(SV.api);return Promise.resolve(window.claude&&typeof window.claude.use==='function'?window.claude.use('survey'):null).then(a=>(SV.api=a&&typeof a.check==='function'?a:null),()=>null);}
+/* the game only asks for a player's own nation, a week old, and never for staff (the server checks it all again) */
+function svMayAsk(){
+  const n=S.nation;if(!n||!n.name||n.npc||OBS||S.mode==='readonly'||S.isOwner||S.isMod)return false;
+  try{if(typeof PV!=='undefined'&&PV)return false;}catch(e){}
+  return +n.founded>0&&Date.now()-n.founded>=7*DAY-3600e3;
+}
+function svCheck(){
+  if(SV.checking||SV.inv||SV.open||!svMayAsk()||Date.now()<svNext())return;
+  SV.checking=true;
+  svApi().then(api=>api?api.check():null).then(r=>{
+    SV.checking=false;
+    if(!r){svLsSet(SV_NEXT,Date.now()+30*60000);return;}
+    if(r.said&&r.said.x)SV.said=r.said;
+    if(r.due&&Array.isArray(r.qs)&&r.qs.length){SV.inv=r;svDraftLoad();}
+    else svLsSet(SV_NEXT,Math.max(Date.now()+3600e3,+r.next||0));
+  },()=>{SV.checking=false;svLsSet(SV_NEXT,Date.now()+30*60000);});
+}
+function svDraftLoad(){
+  const d=svLs(SV_DRAFT)[myId()];SV.step='intro';SV.err='';SV.done=false;
+  if(d&&SV.inv&&d.s===SV.inv.s){SV.a=d.a&&typeof d.a==='object'?d.a:{};SV.o=d.o&&typeof d.o==='object'?d.o:{};SV.w=d.w&&typeof d.w==='object'?d.w:{};SV.i=Math.max(0,Math.min(SV.inv.qs.length-1,d.i|0));SV.started=true;}
+  else{SV.a={};SV.o={};SV.w={};SV.i=0;SV.started=false;}
+}
+function svDraftSave(){if(SV.preview||!SV.inv)return;svLsSet(SV_DRAFT,{s:SV.inv.s,i:SV.i,a:SV.a,o:SV.o,w:SV.w});}
+/* a calm moment: nothing else open or being typed, not in a war or the admin portal, and a few quiet seconds */
+function svCalm(){
+  const now=Date.now();if(document.hidden||now-SV.born<60000||now-SV.quiet<4000)return false;
+  if(document.querySelector('dialog[open]'))return false;
+  const app=document.getElementById('app');if(app&&app.inert)return false;
+  const el=document.activeElement,tag=el&&el.tagName;if(tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT'||(el&&el.isContentEditable))return false;
+  const v=String(S.view||'');if(/^admin/.test(v)||v==='war')return false;
+  try{if(v==='map'&&typeof mprMode==='function'&&mprMode()==='war')return false;if(typeof mapBusy==='function'&&mapBusy())return false;if(RENDER_HOLD.n)return false;}catch(e){}
+  return true;
+}
+function svTick(){
+  if(SV.open)return;
+  svCheck();
+  if(!svCalm())return;
+  if(SV.inv&&svMayAsk())svOpen();
+  else if(SV.said&&svSaidDue())svSaidOpen();
+}
+setInterval(svTick,5000);
+['pointerdown','keydown','wheel','touchstart'].forEach(t=>document.addEventListener(t,()=>{SV.quiet=Date.now();},{capture:true,passive:true}));
+
+/* ── the dialog ── */
+const svQs=()=>SV.preview?(SV.pv?SV.pv.qs:[]):(SV.inv?SV.inv.qs:[]);
+function svFind(id){for(const q of svQs()){if(q.id===id)return q;if(q.sub&&q.sub.id===id)return q.sub;}return null;}
+const svMins=n=>Math.max(2,Math.round(n/4));
+const svGiftArt=()=>`<svg class="sv-art" viewBox="0 0 100 100" width="46" height="46" aria-hidden="true">${czCharge('ballot','#d4a62a','rgba(40,26,6,.55)',1)}</svg>`;
+function svIntroHTML(){
+  const inv=SV.preview?SV.pv:SV.inv,n=inv.qs.length,lat=SV.preview?0:inv.later|0,max=SV.preview?2:(inv.laterMax|0),go=SV.started&&Object.keys(SV.a).length>0;
+  return `<div class="dwb-in sv-in"><p class="eyebrow">${SV.preview?'Preview · ':''}Edictum player survey</p>
+    <h2 id="sv-h" tabindex="-1">Help shape Edictum</h2>
+    <p class="dwb-lede">You are one of the players who keep Edictum lively, and we would like to know how you play. ${n} short questions, about ${svMins(n)} minutes. Skip any you like.</p>
+    <p class="sv-gift">${svGiftArt()}<span>As thanks, everyone who finishes gets the <b>Ballot box</b>, a charge for your coat of arms and an emblem for your flag.</span></p>
+    <p class="hint sv-priv">Your answers are kept with your nation’s name and region and how much you play, so that we can compare answers. Only the Edictum team reads them; other players never see them. <a href="/privacy.html#survey" target="_blank" rel="noopener">How they are kept</a></p>
+    <div class="row sv-acts"><button type="button" class="btn" data-act="sv-start">${go?'Carry on':'Start'}</button>${lat<max?'<button type="button" class="btn ghost" data-act="sv-later">Ask me tomorrow</button>':''}<button type="button" class="btn ghost" data-act="sv-no">No thanks</button></div>
+    ${SV.err?`<p class="err" role="alert">${esc(SV.err)}</p>`:''}</div>`;
+}
+function svBody(q,lab){
+  const v=SV.a[q.id],nm='sv-'+q.id;
+  if(q.k==='one'||q.k==='many'){
+    const many=q.k==='many',sel=many?(Array.isArray(v)?v:[]):(v==null?[]:[v]),full=many&&q.max&&sel.length>=q.max;
+    return `<div class="sv-opts" role="${many?'group':'radiogroup'}" aria-labelledby="${lab}">${(q.o||[]).map(o=>{const on=sel.includes(o.v),dis=!!(full&&!on&&!o.solo);
+      return `<label class="sv-opt${on?' on':''}${dis?' off':''}"><input type="${many?'checkbox':'radio'}" name="${esc(nm)}" value="${esc(o.v)}" data-svq="${esc(q.id)}"${on?' checked':''}${dis?' disabled':''}><span>${esc(o.t)}</span></label>${o.other&&on?`<input class="input sv-other" data-svo="${esc(q.id)}" maxlength="80" placeholder="Tell us (optional)" aria-label="${esc(o.t)}: tell us (optional)" value="${esc(SV.o[q.id]||'')}">`:''}`;}).join('')}</div>`;
+  }
+  if(q.k==='scale'){
+    const vals=[];for(let x=q.lo;x<=q.hi;x++)vals.push(x);
+    return `<div class="sv-scale${vals.length>6?' wide':''}" role="radiogroup" aria-labelledby="${lab}">${vals.map(x=>`<label class="sv-pt${v===x?' on':''}"><input type="radio" name="${esc(nm)}" value="${x}" data-svq="${esc(q.id)}"${v===x?' checked':''} aria-label="${x}${x===q.lo?' ('+esc(q.l[0])+')':x===q.hi?' ('+esc(q.l[1])+')':''}"><span aria-hidden="true">${x}</span></label>`).join('')}</div><div class="sv-ends" aria-hidden="true"><span>${esc(q.l[0])}</span><span>${esc(q.l[1])}</span></div>`;
+  }
+  if(q.k==='text'){const s=typeof v==='string'?v:'';return `<textarea class="input sv-text" data-svt="${esc(q.id)}" maxlength="300" rows="4" aria-labelledby="${lab}">${esc(s)}</textarea><p class="hint sv-count">${s.length} / 300</p>`;}
+  return '';
+}
+function svQHTML(){
+  const qs=svQs(),i=Math.min(SV.i,qs.length-1),q=qs[i],n=qs.length,last=i===n-1;
+  const sub=q.sub&&SV.a[q.id]===q.sub.when?`<div class="sv-sub"><h3 class="sv-q2" id="sv-h2">${esc(q.sub.q)}</h3>${q.sub.h?`<p class="hint">${esc(q.sub.h)}</p>`:''}${svBody(q.sub,'sv-h2')}</div>`:'';
+  return `<div class="dwb-in sv-in"><div class="sv-top"><p class="eyebrow">${SV.preview?'Preview · ':''}Question ${i+1} of ${n}</p><button type="button" class="btn ghost small" data-act="sv-close" aria-label="Close for now; your answers so far are kept">Close</button></div>
+    <div class="sv-bar" role="progressbar" aria-label="Survey progress" aria-valuemin="0" aria-valuemax="${n}" aria-valuenow="${i}"><i style="width:${(i/n*100).toFixed(1)}%"></i></div>
+    <h2 id="sv-h" tabindex="-1" class="sv-q">${esc(q.q)}</h2>${q.h?`<p class="hint">${esc(q.h)}</p>`:''}${svBody(q,'sv-h')}
+    ${q.why&&SV.a[q.id]?`<label class="sv-why"><span>${esc(q.why)}</span><textarea class="input" data-svw="${esc(q.id)}" maxlength="300" rows="2">${esc(SV.w[q.id]||'')}</textarea></label>`:''}${sub}
+    <div class="row sv-nav"><button type="button" class="btn ghost" data-act="sv-back"${i?'':' disabled'}>Back</button><span class="sv-sp"></span><button type="button" class="btn ghost" data-act="sv-skip"${SV.busy?' disabled':''}>${last?'Skip and send':'Skip'}</button><button type="button" class="btn" data-act="sv-next"${SV.busy?' disabled':''}>${last?(SV.busy?'Sending…':'Send answers'):'Next'}</button></div>
+    ${SV.err?`<p class="err" role="alert">${esc(SV.err)}</p>`:''}</div>`;
+}
+function svThanksHTML(){
+  return `<div class="dwb-in sv-in"><p class="eyebrow">${SV.preview?'Preview · ':''}Edictum player survey</p><h2 id="sv-h" tabindex="-1">Thank you</h2>
+    <p class="dwb-lede">Your answers are in. We read every one, and we will share what we learn, and what we change because of it, on the Community Board.</p>
+    <p class="sv-gift">${svGiftArt()}<span>${SV.preview?'In the game, the player now has the <b>Ballot box</b>.':'The <b>Ballot box</b> is yours: choose it in Customise, as a charge for your coat of arms or an emblem for your flag.'}</span></p>
+    <div class="row sv-acts"><button type="button" class="btn" data-act="sv-done">Close</button>${SV.preview?'':'<button type="button" class="btn ghost" data-act="sv-arms">Open Customise</button>'}</div></div>`;
+}
+const svHTML=()=>SV.step==='thanks'?svThanksHTML():SV.step==='q'?svQHTML():svIntroHTML();
+function svDraw(){const d=document.getElementById('sv-dlg');if(d)d.innerHTML=svHTML();}
+function svFocus(sel){const d=document.getElementById('sv-dlg');if(!d)return;const el=(sel&&d.querySelector(sel))||d.querySelector('#sv-h');try{if(el)el.focus({preventScroll:!!sel});}catch(e){}}
+function svOpen(preview){
+  const inv=preview?preview:SV.inv;if(!inv||!Array.isArray(inv.qs)||!inv.qs.length)return false;
+  let d=document.getElementById('sv-dlg');if(d)d.remove();
+  d=document.createElement('dialog');if(typeof d.showModal!=='function')return false;
+  SV.preview=!!preview;SV.err='';SV.busy=false;SV.done=false;
+  if(preview){SV.pv=inv;SV.step='intro';SV.i=0;SV.a={};SV.o={};SV.w={};SV.started=false;}
+  else SV.step='intro';
+  d.id='sv-dlg';d.className='dwb svd';d.setAttribute('aria-labelledby','sv-h');
+  document.body.appendChild(d);SV.open=true;
+  d.addEventListener('close',()=>{d.remove();SV.open=false;svClosed();},{once:true});
+  svDraw();d.showModal();svFocus();
+  return true;
+}
+/* closed without a choice (Close, Esc): the answers so far wait on this device, and the survey comes back tomorrow */
+function svClosed(){
+  if(SV.preview){SV.preview=false;SV.pv=null;return;}
+  if(SV.done){SV.done=false;return;}
+  if(SV.inv){if(SV.step==='q')svDraftSave();SV.inv=null;svLsSet(SV_NEXT,Date.now()+20*3600e3);}
+}
+async function svSend(){
+  if(SV.busy)return;
+  if(SV.preview){SV.step='thanks';svDraw();svFocus();return;}
+  SV.busy=true;SV.err='';svDraw();
+  let r=null;
+  try{const api=await svApi();r=api?await api.answer({a:SV.a,o:SV.o,w:SV.w}):{ok:false};}catch(e){r={ok:false,msg:e&&e.message};}
+  SV.busy=false;
+  if(!r||!r.ok){SV.err=(r&&r.msg)||'Your answers could not be sent just now. Check your connection and try again: nothing is lost.';svDraw();svFocus('[data-act="sv-next"]');return;}
+  svLsSet(SV_DRAFT,null);svLsSet(SV_NEXT,Date.now()+DAY);SV.done=true;SV.inv=null;SV.step='thanks';
+  achPend('svy');try{commit(clone(S.nation));}catch(e){}
+  svDraw();svFocus();
+}
+async function svDecline(no){
+  const d=document.getElementById('sv-dlg');
+  if(SV.preview){if(d)d.close();return;}
+  if(SV.busy)return;SV.busy=true;SV.err='';
+  let r=null;try{const api=await svApi();r=api?await (no?api.no():api.later()):null;}catch(e){}
+  SV.busy=false;
+  if(!r||!r.ok){SV.err=(r&&r.msg)||'That could not be saved just now. Try again in a moment.';svDraw();return;}
+  SV.done=true;SV.inv=null;svLsSet(SV_NEXT,Date.now()+(no?7:1)*DAY);if(no)svLsSet(SV_DRAFT,null);
+  if(d)d.close();
+  toast(no?'No problem: we won’t ask about this survey again.':'We’ll ask again tomorrow.');
+}
+document.addEventListener('click',e=>{
+  const el=e.target.closest&&e.target.closest('[data-act^="sv-"]');if(!el)return;const a=el.dataset.act,dlg=document.getElementById('sv-dlg');
+  if(a==='sv-said-x'){const s=document.getElementById('sv-said');if(s)s.close();return;}
+  if(!dlg||!dlg.contains(el))return;
+  if(a==='sv-start'){SV.step='q';SV.err='';SV.started=true;svDraw();svFocus();return;}
+  if(a==='sv-back'){if(SV.i>0)SV.i--;SV.err='';svDraftSave();svDraw();svFocus();return;}
+  if(a==='sv-skip'||a==='sv-next'){
+    const qs=svQs(),q=qs[SV.i];
+    if(a==='sv-skip'&&q)for(const k of [q.id,q.sub&&q.sub.id].filter(Boolean)){delete SV.a[k];delete SV.o[k];delete SV.w[k];}
+    SV.err='';
+    if(SV.i<qs.length-1){SV.i++;svDraftSave();svDraw();svFocus();return;}
+    svDraftSave();svSend();return;
+  }
+  if(a==='sv-close'||a==='sv-done'){dlg.close();return;}
+  if(a==='sv-later'||a==='sv-no'){svDecline(a==='sv-no');return;}
+  if(a==='sv-arms'){dlg.close();go('customise');return;}
+});
+document.addEventListener('change',e=>{
+  const t=e.target;if(!t||!t.closest||!t.closest('#sv-dlg'))return;
+  const id=t.dataset.svq,q=id&&svFind(id);if(!q)return;
+  if(q.k==='one'){SV.a[id]=t.value;if(q.sub&&t.value!==q.sub.when){delete SV.a[q.sub.id];delete SV.o[q.sub.id];}if(!(q.o.find(o=>o.v===t.value)||{}).other)delete SV.o[id];}
+  else if(q.k==='scale')SV.a[id]=+t.value;
+  else if(q.k==='many'){
+    const o=q.o.find(x=>x.v===t.value);if(!o)return;let cur=Array.isArray(SV.a[id])?SV.a[id].slice():[];
+    if(t.checked){if(o.solo)cur=[o.v];else{cur=cur.filter(x=>!(q.o.find(y=>y.v===x)||{}).solo);if(!cur.includes(o.v))cur.push(o.v);}if(q.max&&cur.length>q.max)cur=cur.slice(-q.max);}
+    else cur=cur.filter(x=>x!==o.v);
+    if(cur.length)SV.a[id]=cur;else delete SV.a[id];
+    if(!cur.some(x=>(q.o.find(y=>y.v===x)||{}).other))delete SV.o[id];
+  }
+  SV.err='';svDraftSave();svDraw();svFocus(`input[name="${CSS.escape('sv-'+id)}"][value="${CSS.escape(t.value)}"]`);
+});
+document.addEventListener('input',e=>{
+  const t=e.target;if(!t||!t.closest||!t.closest('#sv-dlg'))return;
+  if(t.dataset.svt){const k=t.dataset.svt,v=t.value.slice(0,300);if(v.trim())SV.a[k]=v;else delete SV.a[k];const c=t.parentNode&&t.parentNode.querySelector('.sv-count');if(c)c.textContent=v.length+' / 300';svDraftSave();}
+  else if(t.dataset.svo){SV.o[t.dataset.svo]=t.value.slice(0,80);svDraftSave();}
+  else if(t.dataset.svw){SV.w[t.dataset.svw]=t.value.slice(0,300);svDraftSave();}
+});
+
+/* ── "you said, we did": the staff's note, once, for those who answered ── */
+function svSaidDue(){const s=SV.said;return !!s&&+s.t>0&&(+svLs(SV_SAID)[myId()]||0)<+s.t;}
+function svSaidOpen(){
+  const s=SV.said;if(!s)return false;let d=document.getElementById('sv-said');if(d)d.remove();
+  d=document.createElement('dialog');if(typeof d.showModal!=='function')return false;
+  svLsSet(SV_SAID,+s.t);
+  const link=String(s.link||''),ext=/^https:\/\//.test(link),hash=/^#[\w-]+$/.test(link);
+  d.id='sv-said';d.className='dwb svd';d.setAttribute('aria-labelledby','sv-said-h');
+  d.innerHTML=`<div class="dwb-in sv-in"><p class="eyebrow">You said, we did</p><h2 id="sv-said-h" tabindex="-1">What changed after the player survey</h2>
+    <p class="dwb-lede sv-said-x">${esc(s.x)}</p><p class="hint">Thank you again for answering it.</p>
+    <div class="row sv-acts">${ext?`<a class="btn" href="${esc(link)}" target="_blank" rel="noopener">Read more</a>`:hash?`<a class="btn" href="${esc(link)}" data-act="sv-said-x">Read more</a>`:''}<button type="button" class="btn${ext||hash?' ghost':''}" data-act="sv-said-x">Close</button></div></div>`;
+  document.body.appendChild(d);SV.open=true;
+  d.addEventListener('close',()=>{d.remove();SV.open=false;SV.said=null;},{once:true});
+  d.showModal();try{d.querySelector('#sv-said-h').focus({preventScroll:true});}catch(e){}
+  return true;
+}
+
+/* ── Admin › Player survey (functions/survey.js, adminConsole op 'survey') ──
+   The switch (open or paused), the share of eligible players drawn each day and how many extra questions each gets;
+   the counts (invited, answered, put off, said no) and each question's answers, which can be narrowed by engagement,
+   region and ruler type; the open answers with the nation's name; the "you said, we did" note; a preview of the
+   whole survey as players see it; and the download: an Excel workbook (svXlsx: answers, one row per player; choices,
+   one row per answer, for pivot tables; a summary per question; the invitations; the open answers; the questions)
+   or the answers as CSV. */
+const ASV={d:null,busy:false,err:'',saving:false,f:{band:'',reg:'',ruler:''},said:null,link:null,msg:''};
+ADM_ICONS['admin-survey']=NAV_SVG('<path d="M9 4h6v3H9z"/><path d="M7 5.5H5.5v15h13v-15H17"/><path d="m8.5 12 1.6 1.6 3-3.2"/><path d="M8.5 17h7"/>');
+async function asvLoad(){
+  if(ASV.busy)return;ASV.busy=true;ASV.err='';if(S.view==='admin-survey')render();
+  try{ASV.d=await adminRequest({op:'survey',action:'get'});}catch(e){ASV.err=e.message||'The survey could not be fetched.';}
+  ASV.busy=false;if(S.view==='admin-survey')render();
+}
+async function asvSet(o){
+  if(ASV.saving)return;ASV.saving=true;ASV.msg='';render();
+  try{const r=await adminRequest({op:'survey',...o});if(ASV.d&&r&&r.cfg)ASV.d.cfg=r.cfg;ASV.msg=o.action==='said'?'Saved. Players who answered see it on their next visit.':'Saved.';}
+  catch(e){ASV.msg=e.message||'That could not be saved.';}
+  ASV.saving=false;render();
+}
+/* every question, with its follow-up, in the survey's order */
+const asvAllQs=d=>d.qs.flatMap(q=>q.sub?[q,Object.assign({},q.sub,{parent:q.id,core:q.core})]:[q]);
+const asvLabel=(q,v)=>{const o=(q.o||[]).find(x=>x.v===v);return o?o.t:String(v);};
+const asvScore=r=>r.x&&Array.isArray(r.x.eng)?r.x.eng[0]:r.e||0;
+const asvBand=r=>{const s=asvScore(r);return s>=75?'75–100':s>=50?'50–74':'under 50';};
+/* was a question put to this player: the core, the ones drawn for them, a follow-up after its answer */
+function asvAsked(d,r,q){if(q.parent)return asvAsked(d,r,d.qs.find(x=>x.id===q.parent))&&r.a&&r.a[q.parent]===q.when;return !!q.core||(r.q||[]).includes(q.id);}
+function asvRows(d){const f=ASV.f;return d.rows.filter(r=>r.d&&(!f.band||asvBand(r)===f.band)&&(!f.reg||(r.x&&r.x.reg)===f.reg)&&(!f.ruler||(r.a&&r.a.ruler)===f.ruler));}
+function asvQ(d,q,rows){
+  const asked=rows.filter(r=>asvAsked(d,r,q)),ans=asked.filter(r=>r.a&&r.a[q.id]!=null),n=ans.length;
+  const head=`<h3 class="h3">${esc(q.q)}</h3><p class="hint">${q.parent?'A follow-up. ':''}${q.core?'Core question':'Drawn for some players'} · ${stN(n)} answered of ${stN(asked.length)} asked${asked.length>n?` (${stN(asked.length-n)} skipped)`:''}</p>`;
+  if(!n)return `<section class="asv-q">${head}<p class="hint">No answers yet.</p></section>`;
+  let body='';
+  if(q.k==='one'||q.k==='many'){
+    const c={};for(const r of ans)for(const v of [].concat(r.a[q.id]))c[v]=(c[v]||0)+1;
+    body=`<div class="adst-rows">${q.o.map(o=>stBar(esc(o.t),c[o.v]||0,n,` of ${stN(n)}`)).join('')}</div>`;
+    const others=ans.filter(r=>r.o&&r.o[q.id]);
+    if(others.length)body+=`<details class="asv-more"><summary>“Something else”: ${stN(others.length)}</summary><ul class="asv-words">${others.map(r=>asvWord(r,r.o[q.id])).join('')}</ul></details>`;
+    if(q.k==='one'&&q.id==='pmf')body=`<p class="asv-big"><b>${stPc(c.very||0,n)}</b> would be very disappointed (above 40% is the usual sign that a game has found its players)</p>`+body;
+  }else if(q.k==='scale'){
+    const c={};let sum=0;for(const r of ans){c[r.a[q.id]]=(c[r.a[q.id]]||0)+1;sum+=r.a[q.id];}
+    const vals=[];for(let x=q.lo;x<=q.hi;x++)vals.push(x);
+    let big=`<p class="asv-big">Average <b>${(sum/n).toFixed(1)}</b> of ${q.hi}</p>`;
+    if(q.id==='nps'){const pro=ans.filter(r=>r.a.nps>=9).length,det=ans.filter(r=>r.a.nps<=6).length,nps=Math.round((pro-det)/n*100);
+      big=`<p class="asv-big">Net Promoter Score <b>${nps>0?'+':''}${nps}</b> <span class="hint">${stPc(pro,n)} promoters (9–10), ${stPc(det,n)} detractors (0–6); from −100 to +100</span></p>`;}
+    body=big+`<div class="adst-rows">${vals.map(x=>stBar(esc(String(x)+(x===q.lo?' · '+q.l[0]:x===q.hi?' · '+q.l[1]:'')),c[x]||0,n,` of ${stN(n)}`)).join('')}</div>`;
+  }else if(q.k==='text'){
+    body=`<ul class="asv-words">${ans.slice(0,200).map(r=>asvWord(r,r.a[q.id])).join('')}</ul>${ans.length>200?`<p class="hint">The newest 200 of ${stN(ans.length)}: the download has them all.</p>`:''}`;
+  }
+  const whys=q.why?ans.filter(r=>r.w&&r.w[q.id]):[];
+  if(whys.length)body+=`<details class="asv-more"><summary>Why: ${stN(whys.length)} answers</summary><ul class="asv-words">${whys.map(r=>asvWord(r,`${asvLabel(q,r.a[q.id])}: ${r.w[q.id]}`)).join('')}</ul></details>`;
+  return `<section class="asv-q">${head}${body}</section>`;
+}
+function asvWord(r,x){const nm=r.x&&r.x.name||'A nation';return `<li><q>${esc(x)}</q> <span class="hint">${esc(nm)}${r.x&&r.x.reg?', '+esc(regName(r.x.reg)):''} · ${esc(rel(r.d))}</span> <button type="button" class="linkish small" data-act="admin-inspect" data-id="${esc(r.uid)}">Inspect</button></li>`;}
+function asvView(){
+  const d=ASV.d;if(!d&&!ASV.busy&&!ASV.err)setTimeout(asvLoad,0);
+  const head=`<p class="eyebrow">Admin portal</p><h1 class="display">Player survey</h1>
+    <p class="lede">A short survey that pops up at random for engaged players${d?`: an engagement score of ${d.min} or more (the score in Player search), a nation at least ${d.ageDays} days old, never staff`:''}. Each day a share of them is drawn, so answers trickle in. Every player answers the core questions and a few drawn from the rest; each question can be skipped, and “Ask me tomorrow” works ${d?d.laterMax:2} times.</p>`;
+  if(ASV.err)return admShell('admin-survey',head+`<p class="err" role="alert">${esc(ASV.err)}</p><div class="row"><button type="button" class="btn ghost small" data-act="asv-reload">Fetch again</button></div>`);
+  if(!d)return admShell('admin-survey',head+'<p class="hint">Fetching the survey…</p>');
+  const c=d.cfg,all=d.rows,done=all.filter(r=>r.d),no=all.filter(r=>r.no&&!r.d),later=all.filter(r=>r.l&&!r.d&&!r.no),wait=all.length-done.length-no.length;
+  const kpi=(v,l)=>`<div class="adm-kpi"><b>${typeof v==='string'?v:stN(v)}</b><span>${l}</span></div>`;
+  const pool=d.pool.length,draw=Math.min(c.draw,pool);
+  const ctl=`<section class="adst-sec asv-ctl"><h2 class="h2">The survey <span class="asv-st ${c.on?'on':''}">${c.on?'Open':'Paused'}</span></h2>
+    <p class="hint">${c.on?'Players are being invited.':'Nobody is invited while it is paused; those already invited can still finish it.'}${c.t?` Last changed ${esc(adminTime(c.t))}.`:''}</p>
+    <div class="row asv-row"><button type="button" class="btn${c.on?' ghost':''}" data-act="asv-on" data-v="${c.on?0:1}"${ASV.saving?' disabled':''}>${c.on?'Pause the survey':'Open the survey'}</button>
+      <label class="asv-lbl">Drawn each day <select class="input" data-asv="share"${ASV.saving?' disabled':''}>${[[.1,'10% of eligible players'],[.25,'25%'],[.5,'50%'],[1,'All of them']].map(([v,l])=>`<option value="${v}"${Math.abs(c.share-v)<1e-9?' selected':''}>${l}</option>`).join('')}${[.1,.25,.5,1].some(v=>Math.abs(c.share-v)<1e-9)?'':`<option value="${c.share}" selected>${Math.round(c.share*100)}%</option>`}</select></label>
+      <label class="asv-lbl">Extra questions each <select class="input" data-asv="draw"${ASV.saving?' disabled':''}>${Array.from({length:pool+1},(x,i)=>`<option value="${i}"${i===draw?' selected':''}>${i} of ${pool}</option>`).join('')}</select></label>
+      <button type="button" class="btn ghost" data-act="asv-preview">Preview the survey</button></div>
+    <p class="hint">Each player gets the ${d.core.length} core questions and ${draw} of the other ${pool}, about ${svMins(d.core.length+draw)} minutes. A new number applies to players invited from now on.</p>
+    ${ASV.msg?`<p class="hint" role="status">${esc(ASV.msg)}</p>`:''}</section>`;
+  const kpis=`<div class="adm-kpis">${kpi(all.length,'players invited')}${kpi(done.length,'answered')}${kpi(stPc(done.length,all.length),'response rate')}${kpi(wait,'invited, not answered yet')}${kpi(later.length,'put it off (Ask me tomorrow)')}${kpi(no.length,'said no thanks')}</div>`;
+  const rows=asvRows(d),regs=[...new Set(done.map(r=>r.x&&r.x.reg).filter(Boolean))].sort((a,b)=>regName(a).localeCompare(regName(b))),rq=d.qs.find(q=>q.id==='ruler');
+  const chip=(k,v,l)=>`<button type="button" class="chip-btn${ASV.f[k]===v?' on':''}" data-act="asv-f" data-k="${k}" data-v="${esc(v)}" aria-pressed="${ASV.f[k]===v}">${l}</button>`;
+  const filt=`<div class="row asv-filt" role="group" aria-label="Narrow the answers">${chip('band','','All engaged')}${chip('band','50–74','Score 50–74')}${chip('band','75–100','Score 75–100')}
+    <label class="asv-lbl">Region <select class="input" data-asv="reg"><option value="">Every region</option>${regs.map(r=>`<option value="${esc(r)}"${ASV.f.reg===r?' selected':''}>${esc(regName(r))}</option>`).join('')}</select></label>
+    <label class="asv-lbl">Ruler type <select class="input" data-asv="ruler"><option value="">Every type</option>${rq?rq.o.map(o=>`<option value="${esc(o.v)}"${ASV.f.ruler===o.v?' selected':''}>${esc(o.t.split(':')[0])}</option>`).join(''):''}</select></label></div>`;
+  const dl=`<div class="row"><button type="button" class="btn" data-act="asv-xlsx"${done.length?'':' disabled'}>Download Excel (.xlsx)</button><button type="button" class="btn ghost" data-act="asv-csv"${done.length?'':' disabled'}>Download CSV</button><button type="button" class="btn ghost small" data-act="asv-reload"${ASV.busy?' disabled':''}>${ASV.busy?'Fetching…':'Fetch again'}</button><span class="hint">Fetched ${esc(adminTime(d.at))}</span></div>
+    <p class="hint">The workbook has every answer, whatever is narrowed below: one row per player, one row per answer (for pivot tables and charts), a summary per question, the invitations, the open answers and the questions.</p>`;
+  const res=done.length?`${filt}<p class="hint">${stN(rows.length)} of ${stN(done.length)} answers shown.</p>${asvAllQs(d).map(q=>asvQ(d,q,rows)).join('')}`:'<p class="hint">No answers yet.</p>';
+  const said=ASV.said!=null?ASV.said:(c.said?c.said.x:''),link=ASV.link!=null?ASV.link:(c.said?c.said.link:'');
+  const saidSec=`<section class="adst-sec"><h2 class="h2">You said, we did</h2><p class="hint">A short note for the players who answered: what you learned and what changed. Each of them sees it once, in a window in the game, on their next visit.${c.said?` Last saved ${esc(adminTime(c.said.t))}.`:''}</p>
+    <label class="admh-lbl" for="asv-said">The note</label><textarea class="input" id="asv-said" maxlength="600" rows="4" placeholder="e.g. Most of you found the economy hard to follow, so the Budget page now explains every line.">${esc(said)}</textarea>
+    <label class="admh-lbl" for="asv-link">A link for “Read more” (optional: https://…, or a page of the game such as #board)</label><input class="input" id="asv-link" maxlength="300" value="${esc(link)}" autocomplete="off">
+    <div class="row"><button type="button" class="btn" data-act="asv-said"${ASV.saving?' disabled':''}>Save the note</button>${c.said?'<button type="button" class="btn ghost" data-act="asv-said-clear">Take it down</button>':''}</div></section>`;
+  return admShell('admin-survey',head+ctl+kpis+`<section class="adst-sec"><h2 class="h2">Answers</h2>${dl}${res}</section>`+saidSec);
+}
+document.addEventListener('click',e=>{
+  const el=e.target.closest&&e.target.closest('[data-act^="asv-"]');if(!el||!S.isOwner)return;const a=el.dataset.act;
+  if(a==='asv-reload')asvLoad();
+  else if(a==='asv-on')asvSet({action:'set',on:el.dataset.v==='1'});
+  else if(a==='asv-f'){ASV.f[el.dataset.k]=el.dataset.v||'';render();}
+  else if(a==='asv-preview'&&ASV.d)svOpen({s:ASV.d.id,qs:ASV.d.qs,later:0,laterMax:ASV.d.laterMax});
+  else if(a==='asv-xlsx'&&ASV.d)svSaveFile(svXlsx(ASV.d),'edictum-survey-'+new Date().toISOString().slice(0,10)+'.xlsx','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  else if(a==='asv-csv'&&ASV.d)svSaveFile(new Blob(['﻿'+svCsv(svSheets(ASV.d)[0].rows)],{type:'text/csv;charset=utf-8'}),'edictum-survey-answers-'+new Date().toISOString().slice(0,10)+'.csv','text/csv');
+  else if(a==='asv-said')asvSet({action:'said',x:(document.getElementById('asv-said')||{}).value||'',link:(document.getElementById('asv-link')||{}).value||''}).then(()=>{ASV.said=null;ASV.link=null;});
+  else if(a==='asv-said-clear')asvSet({action:'said',x:''}).then(()=>{ASV.said=null;ASV.link=null;});
+});
+document.addEventListener('change',e=>{
+  const t=e.target,k=t&&t.dataset&&t.dataset.asv;if(!k||!S.isOwner)return;
+  if(k==='share')asvSet({action:'set',share:+t.value});
+  else if(k==='draw')asvSet({action:'set',draw:+t.value});
+  else if(k==='reg'||k==='ruler'){ASV.f[k]=t.value;render();}
+});
+document.addEventListener('input',e=>{const t=e.target;if(!t)return;if(t.id==='asv-said')ASV.said=t.value.slice(0,600);else if(t.id==='asv-link')ASV.link=t.value.slice(0,300);});
+ADM_VIEWS.push('admin-survey');
+shell=(f=>function(){if(S.view==='admin-survey'&&S.isOwner)return asvView();return f.apply(this,arguments);})(shell);
+go=(f=>function(v){if(v==='admin-survey'&&S.view!=='admin-survey'){ASV.d=null;ASV.err='';ASV.msg='';}return f.apply(this,arguments);})(go);
+
+/* ── the download: the survey's answers as sheets, then as an Excel workbook or CSV ──
+   A sheet is {name, rows, widths, dates}: rows of cells (a string, a number, a Date, or null for an empty cell), the
+   first row its headings. */
+function svSheets(d){
+  const qs=asvAllQs(d),done=d.rows.filter(r=>r.d),qById=Object.fromEntries(qs.map(q=>[q.id,q]));
+  const cell=(r,q)=>{if(!asvAsked(d,r,q))return null;const v=r.a&&r.a[q.id];if(v==null)return '(skipped)';
+    if(q.k==='scale')return v;if(q.k==='text')return String(v);return [].concat(v).map(x=>asvLabel(q,x)).join('; ');};
+  const nm=r=>r.x&&r.x.name||'',rg=r=>r.x&&r.x.reg?regName(r.x.reg):'',e=r=>r.x&&Array.isArray(r.x.eng)?r.x.eng:[];
+  const cols=[];for(const q of qs){cols.push([q.id,q]);if((q.o||[]).some(o=>o.other))cols.push([q.id+' (something else)',q,'o']);if(q.why)cols.push([q.id+' (why)',q,'w']);}
+  const answers=[['Answered (UTC)','Player ID','Nation','Region','Account','Nation age (days)','Population','Engagement score','Engagement band','Days played (last 14)','Edicts decided (last 14 days)','Parts of the game used','Social parts used','Invited (UTC)','Put off (times)',...cols.map(c=>c[2]?c[0]:c[1].q)]];
+  for(const r of done)answers.push([new Date(r.d),r.uid,nm(r),rg(r),r.x&&r.x.acct||'',r.x&&r.x.days!=null?r.x.days:null,r.x&&r.x.pop||null,asvScore(r),asvBand(r),e(r)[1]??null,e(r)[2]??null,e(r)[3]??null,e(r)[4]??null,new Date(r.t),r.l||0,
+    ...cols.map(([,q,k])=>k==='o'?(r.o&&r.o[q.id])||null:k==='w'?(r.w&&r.w[q.id])||null:cell(r,q))]);
+  const choices=[['Answered (UTC)','Player ID','Nation','Region','Engagement band','Ruler type','Question ID','Question','Answer','Value']],rul=qById.ruler;
+  for(const r of done)for(const q of qs){const v=r.a&&r.a[q.id];if(v==null||q.k==='text')continue;
+    for(const x of [].concat(v))choices.push([new Date(r.d),r.uid,nm(r),rg(r),asvBand(r),rul&&r.a.ruler?asvLabel(rul,r.a.ruler).split(':')[0]:'',q.id,q.q,q.k==='scale'?String(x):asvLabel(q,x),q.k==='scale'?x:1]);}
+  const summary=[['Question ID','Question','Answer','Count','Share of those who answered','Answered','Asked']];
+  for(const q of qs){const asked=done.filter(r=>asvAsked(d,r,q)),ans=asked.filter(r=>r.a&&r.a[q.id]!=null),n=ans.length;
+    if(q.k==='text'){summary.push([q.id,q.q,'(open answers)',n,null,n,asked.length]);continue;}
+    const opts=q.k==='scale'?Array.from({length:q.hi-q.lo+1},(x,i)=>({v:q.lo+i,t:String(q.lo+i)})):q.o;
+    for(const o of opts){const k=ans.filter(r=>[].concat(r.a[q.id]).includes(o.v)).length;summary.push([q.id,q.q,o.t,k,n?k/n:null,n,asked.length]);}
+    if(q.id==='nps'&&n){const pro=ans.filter(r=>r.a.nps>=9).length,det=ans.filter(r=>r.a.nps<=6).length;summary.push([q.id,q.q,'Net Promoter Score (−100 to +100)',Math.round((pro-det)/n*100),null,n,asked.length]);}
+    if(q.k==='scale'&&n)summary.push([q.id,q.q,'Average',Math.round(ans.reduce((s,r)=>s+r.a[q.id],0)/n*100)/100,null,n,asked.length]);}
+  const invites=[['Player ID','Invited (UTC)','Engagement score then','Put off (times)','Said no thanks (UTC)','Answered (UTC)','Questions drawn']];
+  for(const r of d.rows)invites.push([r.uid,new Date(r.t),r.e||null,r.l||0,r.no?new Date(r.no):null,r.d?new Date(r.d):null,(r.q||[]).join(', ')]);
+  const open=[['Answered (UTC)','Player ID','Nation','Region','Question','Kind','Words']];
+  for(const r of done)for(const q of qs){if(q.k==='text'&&r.a&&r.a[q.id])open.push([new Date(r.d),r.uid,nm(r),rg(r),q.q,'Answer',String(r.a[q.id])]);
+    if(r.o&&r.o[q.id])open.push([new Date(r.d),r.uid,nm(r),rg(r),q.q,'Something else',r.o[q.id]]);if(r.w&&r.w[q.id])open.push([new Date(r.d),r.uid,nm(r),rg(r),q.q,'Why ('+asvLabel(q,r.a[q.id])+')',r.w[q.id]]);}
+  const questions=[['Question ID','Question','Kind','Who is asked','Answers']];
+  for(const q of qs)questions.push([q.id,q.q,{one:'One answer',many:'Up to '+q.max+' answers',scale:'A number, '+q.lo+' to '+q.hi,text:'Open words'}[q.k]||q.k,q.parent?'Follow-up':q.core?'Everyone':'Drawn',q.k==='scale'?q.l.join(' … '):(q.o||[]).map(o=>o.t).join('; ')]);
+  return [{name:'Answers',rows:answers,widths:[17,14,22,16,11,10,12,10,11,10,10,10,10,17,9,...cols.map(c=>c[1].k==='text'||c[2]?40:24)]},
+    {name:'Choices',rows:choices,widths:[17,14,22,16,11,14,10,44,36,8]},{name:'Summary',rows:summary,widths:[10,44,40,9,12,10,9],pct:[4]},
+    {name:'Invitations',rows:invites,widths:[16,17,12,10,17,17,30]},{name:'Open answers',rows:open,widths:[17,14,22,16,40,16,70]},
+    {name:'Questions',rows:questions,widths:[10,50,20,12,90]}];
+}
+function svCsv(rows){const q=v=>{if(v==null)return '';if(v instanceof Date)return v.toISOString().slice(0,16).replace('T',' ');const s=String(v);return /[",\n\r;]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;};return rows.map(r=>r.map(q).join(',')).join('\r\n');}
+function svSaveFile(blob,name){try{const u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),4000);}catch(e){toast('The file could not be made.');}}
+/* An Excel workbook (.xlsx, Office Open XML) written by hand: each sheet's XML with its cells written in place (no
+   shared strings), dates as Excel's day numbers in a date style, the headings bold, frozen and filterable; packed
+   in a ZIP without compression (stored), which Excel, LibreOffice and Google Sheets all open. */
+const SV_CRC=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xedb88320^(c>>>1):c>>>1;t[n]=c>>>0;}return t;})();
+function svCrc(b){let c=0xffffffff;for(let i=0;i<b.length;i++)c=SV_CRC[(c^b[i])&255]^(c>>>8);return (c^0xffffffff)>>>0;}
+function svZip(files){
+  const enc=new TextEncoder(),parts=[],dir=[];let off=0;
+  const u16=v=>[v&255,(v>>>8)&255],u32=v=>[v&255,(v>>>8)&255,(v>>>16)&255,(v>>>24)&255];
+  const now=new Date(),dt=((now.getFullYear()-1980)<<9)|((now.getMonth()+1)<<5)|now.getDate(),tm=(now.getHours()<<11)|(now.getMinutes()<<5)|(now.getSeconds()>>1);
+  for(const [name,text] of files){
+    const nb=enc.encode(name),data=enc.encode(text),crc=svCrc(data);
+    const head=[...u32(0x04034b50),...u16(20),...u16(0x0800),...u16(0),...u16(tm),...u16(dt),...u32(crc),...u32(data.length),...u32(data.length),...u16(nb.length),...u16(0)];
+    parts.push(new Uint8Array(head),nb,data);
+    dir.push([...u32(0x02014b50),...u16(20),...u16(20),...u16(0x0800),...u16(0),...u16(tm),...u16(dt),...u32(crc),...u32(data.length),...u32(data.length),...u16(nb.length),...u16(0),...u16(0),...u16(0),...u16(0),...u32(0),...u32(off)],nb);
+    off+=head.length+nb.length+data.length;
+  }
+  let size=0;const cd=dir.map(x=>x instanceof Uint8Array?x:new Uint8Array(x));for(const x of cd)size+=x.length;
+  const end=new Uint8Array([...u32(0x06054b50),...u16(0),...u16(0),...u16(files.length),...u16(files.length),...u32(size),...u32(off),...u16(0)]);
+  return new Blob([...parts,...cd,end],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+}
+const svX=s=>String(s).replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f￾￿]/g,'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+function svCol(i){let s='';i++;while(i>0){const m=(i-1)%26;s=String.fromCharCode(65+m)+s;i=Math.floor((i-1)/26);}return s;}
+function svSheetXML(sh){
+  const rows=sh.rows,w=Math.max(1,...rows.map(r=>r.length)),pct=new Set(sh.pct||[]);
+  const cell=(v,r,c)=>{const ref=svCol(c)+(r+1);if(v==null||v==='')return '';
+    if(r===0)return `<c r="${ref}" t="inlineStr" s="1"><is><t>${svX(v)}</t></is></c>`;
+    if(v instanceof Date)return isNaN(v)?'':`<c r="${ref}" s="2"><v>${(v.getTime()/864e5+25569).toFixed(6)}</v></c>`;
+    if(typeof v==='number'&&isFinite(v))return `<c r="${ref}"${pct.has(c)?' s="3"':''}><v>${v}</v></c>`;
+    return `<c r="${ref}" t="inlineStr"><is><t xml:space="preserve">${svX(v)}</t></is></c>`;};
+  const cols=(sh.widths||[]).map((x,i)=>`<col min="${i+1}" max="${i+1}" width="${x}" customWidth="1"/>`).join('');
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><sheetFormatPr defaultRowHeight="15"/>${cols?`<cols>${cols}</cols>`:''}<sheetData>${rows.map((r,i)=>`<row r="${i+1}">${r.map((v,c)=>cell(v,i,c)).join('')}</row>`).join('')}</sheetData><autoFilter ref="A1:${svCol(w-1)}${Math.max(1,rows.length)}"/></worksheet>`;
+}
+function svXlsx(d){
+  const sheets=svSheets(d),ns='http://schemas.openxmlformats.org/',xml='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n';
+  const files=[['[Content_Types].xml',xml+`<Types xmlns="${ns}package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>${sheets.map((s,i)=>`<Override PartName="/xl/worksheets/sheet${i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('')}</Types>`],
+    ['_rels/.rels',xml+`<Relationships xmlns="${ns}package/2006/relationships"><Relationship Id="rId1" Type="${ns}officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`],
+    ['xl/workbook.xml',xml+`<workbook xmlns="${ns}spreadsheetml/2006/main" xmlns:r="${ns}officeDocument/2006/relationships"><sheets>${sheets.map((s,i)=>`<sheet name="${svX(s.name)}" sheetId="${i+1}" r:id="rId${i+1}"/>`).join('')}</sheets><definedNames>${sheets.map((s,i)=>`<definedName name="_xlnm._FilterDatabase" localSheetId="${i}" hidden="1">'${svX(s.name)}'!$A$1:$${svCol(Math.max(1,...s.rows.map(r=>r.length))-1)}$${Math.max(1,s.rows.length)}</definedName>`).join('')}</definedNames></workbook>`],
+    ['xl/_rels/workbook.xml.rels',xml+`<Relationships xmlns="${ns}package/2006/relationships">${sheets.map((s,i)=>`<Relationship Id="rId${i+1}" Type="${ns}officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i+1}.xml"/>`).join('')}<Relationship Id="rId${sheets.length+1}" Type="${ns}officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`],
+    ['xl/styles.xml',xml+`<styleSheet xmlns="${ns}spreadsheetml/2006/main"><numFmts count="1"><numFmt numFmtId="164" formatCode="yyyy-mm-dd hh:mm"/></numFmts><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="4"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/><xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="9" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`],
+    ...sheets.map((s,i)=>[`xl/worksheets/sheet${i+1}.xml`,svSheetXML(s)])];
+  return svZip(files);
+}
+/* the browser tests' window (EDICTUM_PROBE, SV) */
+if(typeof window.EDICTUM_PROBE==='function')try{window.EDICTUM_PROBE.sv={SV,svCheck,svCalm,svTick,svOpen,svMayAsk,svSheets,svXlsx,svZip,svCrc,svCsv,svSaidOpen,ASV,asvLoad,asvAsked,
+  charge:()=>czCharge('ballot','#d4a62a','#222',1),emblem:()=>czEmblemSVG('e-ballot',50,50,30,'#fff'),unlocked:()=>unlocksOf(S.nation).has('c-ballot')&&unlocksOf(S.nation).has('e-ballot')};}catch(e){}
 
 /* ───────── the National Research Programme (22 November 2026) ─────────
    A long programme for the middle and the end of the game, tying the rest of Edictum together (docs/research.md).
