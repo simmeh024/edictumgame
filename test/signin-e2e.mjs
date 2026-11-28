@@ -218,7 +218,7 @@ check('nothing was saved for the guest', !!uidH3 && uidH3 !== uidH && (await res
 const M = await player('M');
 const uidM = await open(M);
 const sent = [];
-await M.route('**/europe-west1/civic', route => { const d = route.request().postDataJSON()?.data; if (d?.op === 'authorizeSave') sent.push({ rev: d.rev, from: d.from }); route.continue(); });
+await M.route('**/europe-west1/civic', route => { const d = route.request().postDataJSON()?.data; if (['authorizeSave', 'save'].includes(d?.op)) sent.push({ rev: d.rev, from: d.from }); route.continue(); });
 await M.evaluate(([to]) => localStorage.setItem('edictum.carry', JSON.stringify({ from: 'guest-carried-from', to, at: Date.now() })), [uidM]);
 await founded(M, 'Movingham');
 check('the first save of a carried nation names the guest it came from', await until(() => sent.some(x => x.rev === 0)) && sent.find(x => x.rev === 0).from === 'guest-carried-from', JSON.stringify(sent));
@@ -246,7 +246,7 @@ check('the copy is kept for that account', await M.evaluate(u => JSON.parse(loca
 // Signed out with no connection, the browser has no account to start a new guest with; a nation founded then holds no
 // revision (no save carried it), and the next load with a connection used to wipe it without a word.
 const uidM2 = await settled(M);
-const noSave = route => route.request().postDataJSON()?.data?.op === 'authorizeSave' ? route.abort() : route.continue();
+const noSave = route => ['authorizeSave', 'save'].includes(route.request().postDataJSON()?.data?.op) ? route.abort() : route.continue();
 await M.route('**/europe-west1/civic', noSave);
 await found(M, 'Newfound');
 check('a nation founded with no save reaching the region', !!uidM2 && (await localNation(M))?.name === 'Newfound' && !(await localNation(M))?._rev);
@@ -287,7 +287,7 @@ const realP = await sendLink(P, 'ava@example.com');
 await P.ctx.addInitScript(() => { window.EDICTUM_SAVE_LIMIT = 4000; window.EDICTUM_SAVE_RETRY = [2000, 3000, 4000]; });
 await P.evaluate(() => localStorage.setItem('edictum.emailLink', JSON.stringify({ email: 'ava@example.com', mode: 'switch' })));
 let blockP = true;
-await P.route('**/europe-west1/civic', route => blockP && route.request().postDataJSON()?.data?.op === 'authorizeSave' ? route.abort() : route.continue());
+await P.route('**/europe-west1/civic', route => blockP && ['authorizeSave', 'save'].includes(route.request().postDataJSON()?.data?.op) ? route.abort() : route.continue());
 await P.goto(realP.replace(/oobCode=[^&]+/, 'oobCode=used-up-code'));
 check('a sign-in that fails leaves the guest playing', await until(async () => /sent a new one/.test(await text(P, '.ed-msg')), 20000) && (await ready(P)) === uidP && (await sideName(P)) === 'Pellmont', await text(P, '.ed-msg'));
 check('with its region copy gone for now', (await restGet('nations/' + uidP)).status === 404);

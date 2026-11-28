@@ -8,7 +8,7 @@ function walk(n){if(!n||typeof n!=='object')return;if(n.type==='FunctionDeclarat
 walk(parse(source,{ecmaVersion:'latest'}));
 const json=v=>JSON.parse(JSON.stringify(v));
 function fixture(saved=null){
- const writes=[],A={admin:false,raceAt:{},popBase:{}};
+ const writes=[],A={admin:false,raceAt:{},popBase:{},saveV1:true}; /* the game's own transaction; the server keeps storageV: test/server-save.test.mjs */
  A.fs={doc:path=>({path}),runTransaction:async fn=>fn({get:async ref=>ref.path==='nations/player'?{exists:!!saved,data:()=>saved}:{exists:false,data:()=>null},set:(ref,data)=>writes.push({path:ref.path,data:json(data)}),delete(){}})};
  const c=vm.createContext({A,E:{},performance,MAX_JSON:700000,BOOT_AT:1,serverTime:()=>123,num:v=>typeof v==='number'&&Number.isFinite(v)?v:0,str:(v,max)=>typeof v==='string'?v.slice(0,max):'',isObj:v=>!!v&&typeof v==='object'&&!Array.isArray(v),parse:s=>JSON.parse(s),millis:()=>1,mapError:e=>e,
   call:async(name,d)=>({...d.record,permit:'test-permit'}),setTimeout:()=>{},window:{dispatchEvent(){}},Event:class{},recoveryCheck:()=>{},spaceText:()=>null,splitNation:d=>[d,{}],activeUntil:(d,t)=>t,raceKeys:()=>[],isGuest:()=>false});

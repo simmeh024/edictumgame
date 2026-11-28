@@ -155,7 +155,7 @@ test('stopping: no more commits or saves, nothing waiting is sent, the adapter t
 const fns = new Map();
 (function walk(n) { if (!n || typeof n !== 'object') return; if (n.type === 'FunctionDeclaration') fns.set(n.id.name, shim.slice(n.start, n.end)); for (const [k, v] of Object.entries(n)) if (k !== 'start' && k !== 'end') { if (Array.isArray(v)) v.forEach(walk); else if (v && typeof v === 'object') walk(v); } })(parse(shim, { ecmaVersion: 'latest' }));
 function adapter(saved, mapVer) {
-  const writes = [], A = { admin: false, raceAt: {} };
+  const writes = [], A = { admin: false, raceAt: {}, saveV1: true }; /* the game's own transaction (serverSave: test/server-save.test.mjs) */
   A.fs = { doc: path => ({ path }), runTransaction: async f => f({ get: async ref => ref.path === 'nations/player' ? { exists: !!saved, data: () => saved } : { exists: false, data: () => null }, set: (ref, data) => writes.push({ path: ref.path, data: plain(data) }), delete() {} }) };
   const c = vm.createContext({ A, E: { mapVer }, performance, MAX_JSON: 700000, BOOT_AT: 1, serverTime: () => 1, num: v => typeof v === 'number' && Number.isFinite(v) ? v : 0, str: (v, max) => typeof v === 'string' ? v.slice(0, max) : '',
     isObj: v => !!v && typeof v === 'object' && !Array.isArray(v), parse: s => JSON.parse(s), millis: () => 1, mapError: e => e, call: async (name, d) => ({ ...d.record, permit: 'p' }), setTimeout: () => {},
