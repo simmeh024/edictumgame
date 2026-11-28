@@ -36,19 +36,26 @@ check('a confirmed nation shows Synced on both devices', await until(async () =>
 check('the indicator politely announces status changes', await A.locator('.ed-sync').getAttribute('role') === 'status' && await A.locator('.ed-sync').getAttribute('aria-live') === 'polite');
 await A.locator('.ed-acct').screenshot({ path: OUT + '/sync-synced-desktop.png' });
 
-// Hold a real commit in flight: connectivity alone must never produce a Synced label.
+// Hold a real save in flight: connectivity alone must never produce a Synced label. The save is the server's call
+// (functions/civic.js, serverSave: op 'save'), or the game's own commit on a page that saves that way.
 let releaseSave, commitWaiting = false;
 const saveGate = new Promise(resolve => { releaseSave = resolve; });
 const holdCommit = async route => {
   if (!(route.request().postData() || '').includes('"update"')) return route.continue();
   commitWaiting = true; await saveGate; await route.continue();
 };
+const holdSaveCall = async route => {
+  if (route.request().postDataJSON()?.data?.op !== 'save') return route.continue();
+  commitWaiting = true; await saveGate; await route.continue();
+};
 await A.ctx.route(/\/documents:commit/, holdCommit);
+await A.ctx.route('**/europe-west1/civic', holdSaveCall);
 await edit(A, 'Saved on desktop');
 check('an unacknowledged save shows Saving', await until(() => commitWaiting) && await status(A) === 'Saving');
 await A.locator('.ed-acct').screenshot({ path: OUT + '/sync-saving-desktop.png' });
 releaseSave(); await saved(A);
 await A.ctx.unroute(/\/documents:commit/, holdCommit);
+await A.ctx.unroute('**/europe-west1/civic', holdSaveCall);
 check('Saving becomes Synced only after the commit succeeds', await until(async () => await status(A) === 'Synced'));
 check('an idle phone receives a desktop save without reloading', await until(async () => (await localNation(B)).motto === 'Saved on desktop', 15000));
 await edit(B, 'Saved on phone'); await saved(B);
@@ -335,7 +342,7 @@ await B.evaluate(uid => localStorage.removeItem('edictum.unsaved.' + uid), uid);
 const lastVisit = await leaveWith(B, 'Carried from the last visit');
 const C2 = await player('returning phone', { vp: { width: 390, height: 844 }, storageState: lastVisit });
 let releasePermit, permitHeld = false; const permitGate = new Promise(r => { releasePermit = r; });
-const holdPermit = async route => { if (!permitHeld && route.request().postDataJSON()?.data?.op === 'authorizeSave') { permitHeld = true; await permitGate; } return route.continue(); };
+const holdPermit = async route => { if (!permitHeld && ['authorizeSave', 'save'].includes(route.request().postDataJSON()?.data?.op)) { permitHeld = true; await permitGate; } return route.continue(); };
 await C2.ctx.route('**/europe-west1/civic', holdPermit);
 await open(C2); await C2.waitForSelector('.layout');
 check('a returning device sends the change its last visit left unsaved', await until(() => permitHeld, 15000));
@@ -380,7 +387,10 @@ check('and signing out is allowed', await C3.evaluate(async () => { try { await 
 await found(C3, 'Secondland'); await saved(C3);
 let releaseCommit, commitHeld = false; const commitGate = new Promise(r => { releaseCommit = r; });
 const holdUpdate = async route => { if (!commitHeld && (route.request().postData() || '').includes('"update"')) { commitHeld = true; await commitGate; } return route.continue(); };
+/* the server's save in one trip: its call held, it reaches the server after the nation is gone */
+const holdSaveOnWay = async route => { if (!commitHeld && route.request().postDataJSON()?.data?.op === 'save') { commitHeld = true; await commitGate; } return route.continue(); };
 await C3.ctx.route(/\/documents:commit/, holdUpdate);
+await C3.ctx.route('**/europe-west1/civic', holdSaveOnWay);
 await edit(C3, 'A save still on its way');
 check('a save is on its way', await until(() => commitHeld, 15000));
 await nav(C3, 'settings'); await C3.click('#sg-tab-account'); await C3.click('[data-act="dissolve-ask"]');
@@ -388,6 +398,7 @@ await C3.fill('#dz-type', 'Secondland'); await C3.click('[data-act="dissolve-con
 await sleep(500); releaseCommit(); await sleep(6000);
 check('dissolving while a save is on its way does not bring the nation back', !(await localNation(C3)) && await C3.isVisible('#d-name') && (await restGet('nations/' + uid)).status === 404, JSON.stringify({ local: (await localNation(C3))?.name, cloud: (await restGet('nations/' + uid)).status }));
 await C3.ctx.unroute(/\/documents:commit/, holdUpdate);
+await C3.ctx.unroute('**/europe-west1/civic', holdSaveOnWay);
 
 // 21. two tabs in one browser share one copy of the nation: the newest plays, the other stops and can take over
 await found(C3, 'Tabsworth'); await saved(C3);
@@ -396,7 +407,7 @@ T2.on('pageerror', e => errors.push('second tab PAGEERROR ' + e.message));
 await T2.goto(BASE + '/'); await T2.waitForSelector('.layout', { timeout: 20000 });
 check('opening a second tab stops the first', await until(() => C3.isVisible('.tab-yield'), 10000) && /open in another tab/.test(await C3.locator('.tab-yield').textContent()));
 let stoppedSaves = 0;
-const countStopped = r => { if (/europe-west1\/civic/.test(r.url()) && /authorizeSave/.test(r.postData() || '')) stoppedSaves++; };
+const countStopped = r => { if (/europe-west1\/civic/.test(r.url()) && /"op":"(authorizeSave|save)"/.test(r.postData() || '')) stoppedSaves++; };
 C3.on('request', countStopped);
 await C3.evaluate(() => { const n = G.clone(G.S.nation); n.motto = 'From the stopped tab'; G.commit(n); });
 await edit(T2, 'From the newest tab'); await saved(T2);
@@ -417,7 +428,7 @@ await T2.close();
 // 22. a busy region (a rate limit, HTTP 429): tried again at growing gaps, and never called full
 const busyAt = [];
 const busy = route => {
-  if (!(route.request().postData() || '').includes('authorizeSave')) return route.continue();
+  if (!/"op":"(authorizeSave|save)"/.test(route.request().postData() || '')) return route.continue();
   busyAt.push(Date.now());
   return route.fulfill({ status: 429, contentType: 'application/json', body: JSON.stringify({ error: { status: 'RESOURCE_EXHAUSTED', message: 'Too many requests' } }) });
 };

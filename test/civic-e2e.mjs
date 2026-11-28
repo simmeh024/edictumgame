@@ -89,7 +89,8 @@ await A.click('[data-ed="recovery-regenerate"]');await A.click('[data-ed="recove
 check('Guest logout can open regeneration and return safely without changing the key',await A.isVisible('#ed-guest-code-saved')&&await A.locator('[data-ed="signout-yes"]').isDisabled());
 await A.click('[data-ed="close"]');
 check('cancelling Guest logout preserves the session',await ready(A)===uid&&await A.evaluate(()=>!!G.S.nation));
-await A.route('**/europe-west1/civic',route=>route.request().postDataJSON()?.data?.op==='authorizeSave'?route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({error:{status:'FAILED_PRECONDITION',message:'Save unavailable for this test.'}})}):route.continue());
+/* the save refused, whichever way it goes: the server's save in one trip (op save) or the game's own transaction's permit */
+await A.route('**/europe-west1/civic',route=>['authorizeSave','save'].includes(route.request().postDataJSON()?.data?.op)?route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({error:{status:'FAILED_PRECONDITION',message:'Save unavailable for this test.'}})}):route.continue());
 await A.evaluate(()=>{const n=G.clone(G.S.nation);n.motto='Saved before signing out';G.commit(n);G.PG.saveSoon();});
 await A.click('.side-foot .ed-out');await A.check('#ed-guest-code-saved');
 await A.click('[data-ed="signout-yes"]');

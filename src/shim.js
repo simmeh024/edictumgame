@@ -336,6 +336,47 @@
     return isObj(c) && c.u === uid && /^[0-9a-f]{64}$/.test(c.k) ? c.k : '';
   }
   function isGuest(uid) { var u = A.auth && A.auth.currentUser; return !!(u && u.uid === uid && !linkedUser(u)); }
+  /* The save in one trip (functions/civic.js, serverSave): the server checks it as it checks a permit, and writes the
+     shared half, the private and own halves, the summary, the race stamps and the space record itself, beside the
+     database. The game's own transaction below asked for a permit and then read five documents one after another before
+     writing: eight trips to Europe a save, five seconds and more from far away (Firebase Performance, 28 Nov 2026).
+     A save's name (sid) stays the same until it is known to have landed: when the answer is lost on the way back, the
+     save is asked again at once under that name, and the server, finding its own save on the record, follows it instead
+     of calling it another device's. null: a server from before this, or one that sends the page back to its own
+     transaction (save_v1); this page then saves that way until it reloads. */
+  var SAVE_AGAIN_MS = 1500;
+  async function serverSave(uid, data, noSpace, enc, expected, xj, oj, sj, carryArgs, zip) {
+    if (!A.sid || A.sid.u !== uid || A.sid.r !== expected) {
+      var b = new Uint8Array(12); crypto.getRandomValues(b);
+      A.sid = { u: uid, r: expected, s: Array.from(b).map(function (v) { return v.toString(16).padStart(2, '0'); }).join('') };
+    }
+    var sum = {}, e0 = activeUntil(data, enc.updatedAt);
+    if (e0 > enc.updatedAt) sum.e = e0;
+    if (isObj(data) && typeof data.founded === 'number' && data.founded > 0 && data.founded <= enc.updatedAt + 60000) sum.f = Math.floor(data.founded);
+    var record = { j: enc.j, reg: enc.reg, name: enc.name, pop: enc.pop, army: enc.army, cl: enc.cl, updatedAt: enc.updatedAt };
+    if (enc.mv) record.mv = enc.mv;
+    if (enc.storageV === 1) record.storageV = 1;
+    if (enc.iq === 1) record.iq = 1;
+    var req = Object.assign({ op: 'save', sid: A.sid.s, record: record, rev: expected, x: xj, o: oj, s: sj || '', ns: noSpace ? 1 : 0, sum: sum,
+      rk: raceKeys(data, A.raceAt[uid] != null ? A.raceAt[uid] : BOOT_AT) }, carryArgs, isGuest(uid) ? { ck: carryKey(uid) } : {}, zip ? { zip: 1 } : {}, { cap: 1 });
+    for (var i = 0; ; i++) {
+      try {
+        var r = await call('civic', req);
+        A.sid = null; A.savePath = 'server';
+        return r;
+      } catch (e) {
+        if (e && (e.code === 'save_v1' || e.firebaseCode === 'invalid-argument' && e.message === 'Unknown request.')) { A.saveV1 = true; A.sid = null; return null; }
+        /* no answer: the save may have landed, so it is asked once more, under the same name. Not while the page is
+           switching accounts (frozen: doSwitch puts the guest back itself, twice, and the game's own saves hang until it
+           is done, so a longer wait there left the next one hanging) */
+        if (i === 0 && e && e.code === 'unavailable' && !A.frozen) { await new Promise(function (res) { setTimeout(res, SAVE_AGAIN_MS); }); continue; }
+        /* refused as the rules refused (one save a second): retried tries once more, without the space record */
+        if (e && e.firebaseCode === 'permission-denied') e.code = 'permission-denied';
+        A.savePath = 'server';
+        throw e;
+      }
+    }
+  }
   /* a nation save: the shared half, its summary and, when they changed, the private half and the space document */
   async function saveNation(uid, data, noSpace) {
     /* Space pacing and private-half changes are checked against the server, including saves made by
@@ -348,6 +389,17 @@
        save the server lets a new record start from (functions/civic.js, createCap) */
     var carry = expected === 0 ? parse(L.get(LS_CARRY)) : null, from = isObj(carry) && carry.to === uid && Date.now() - num(carry.at) < 7 * 864e5 ? str(carry.from, 128) : '';
     var zip = typeof self !== 'undefined' && typeof self.edictumInflate === 'function' && A.fb && A.fb.firestore && A.fb.firestore.Blob;
+    /* EDICTUM_SAVE_V1: the tests' way to keep a page on the game's own transaction */
+    if (!A.saveV1 && !window.EDICTUM_SAVE_V1) {
+      var done = await serverSave(uid, data, noSpace, enc, expected, xj, oj, sj, from ? { from: from, fk: str(carry.k, 64) } : {}, zip);
+      if (done) {
+        if (from) L.set(LS_CARRY, null);
+        A.raceAt[uid] = enc.updatedAt; setTimeout(recoveryCheck, 0);
+        window.dispatchEvent(typeof CustomEvent === 'function' ? new CustomEvent('edictum:saved', { detail: { rev: done.rev, xm: isObj(done.xm) ? done.xm : null, rs: isObj(done.rs) ? done.rs : null } }) : new Event('edictum:saved'));
+        return { rev: done.rev };
+      }
+    }
+    A.savePath = 'client';
     var approved = await call('civic', Object.assign({ op: 'authorizeSave', record: { j: enc.j, reg: enc.reg, name: enc.name, pop: enc.pop, army: enc.army, cl: enc.cl, updatedAt: enc.updatedAt }, rev: expected },
       from ? { from: from, fk: str(carry.k, 64) } : {}, isGuest(uid) ? { ck: carryKey(uid) } : {}, zip ? { zip: 1 } : {}, { cap: 1 }));
     /* The rules (grows) let the headline population rise only as fast as the game can since the last save, by the
@@ -477,7 +529,7 @@
         if (nation) {
           if (!A.auth.currentUser || A.auth.currentUser.uid !== p[1]) return Promise.reject(mapError({ code: 'permission-denied' }));
           try { encode(col, data); } catch (e) { return Promise.reject(e && e.firebaseCode ? e : mapError(e)); }
-          var t0 = performance.now(), took = function (how) { perfTrace('nation_save', t0, performance.now() - t0, {}, { result: how }); };
+          var t0 = performance.now(), took = function (how) { perfTrace('nation_save', t0, performance.now() - t0, {}, { result: how, path: A.savePath || 'client' }); };
           return retried(function (noSpace) { return saveNation(p[1], data, noSpace); }).then(function (r) { took('saved'); return r; }, function (e) {
             /* a newer map's save is on the server: this save never ends, and the page reloads for the new build */
             if (e && e.code === 'newer_map') { took('newer_map'); newerMap(); return hang(); }
