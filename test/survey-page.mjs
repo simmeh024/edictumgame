@@ -217,7 +217,7 @@ const nextQ = page => page.click('#sv-dlg [data-act="sv-next"]');
     { uid: 'u3', t: NOW - 2 * DAY, q: ['len', 'rp'], e: 66, l: 0, no: 0, d: NOW - 3600e3, a: { ruler: 'builder', pmf: 'very', nps: 9, len: 'm15' }, o: {}, w: {}, x: x('Elarion', 'saffron', 66) },
     { uid: 'u4', t: NOW - DAY, q: ['src', 'len'], e: 58, l: 2, no: 0, d: 0 },
     { uid: 'u5', t: NOW - DAY, q: ['rp', 'econ'], e: 77, l: 0, no: NOW - 3600e3, d: 0 }];
-  const D = { ok: true, at: NOW, id: SV_ID, title: 'Edictum player survey', min: 50, ageDays: 7, laterMax: 2, core: svCore(), pool: svPool(), qs: SV_QS, cfg: { on: true, share: 0.25, draw: 2, said: null, t: NOW - 5 * DAY, by: 'a' }, rows };
+  const D = { ok: true, at: NOW, id: SV_ID, title: 'Edictum player survey', min: 35, ageDays: 7, laterMax: 2, core: svCore(), pool: svPool(), qs: SV_QS, cfg: { on: true, share: 0.25, draw: 2, said: null, t: NOW - 5 * DAY, by: 'a' }, rows };
   await S(page, () => { window.__game.S.isOwner = true; });
   await go('admin-survey');await sleep(500);
   await S(page, d => { const P = window.EDICTUM_PROBE.sv;Object.assign(P.ASV, { d, err: '', busy: false });window.__game.render(); }, D);

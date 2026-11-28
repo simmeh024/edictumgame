@@ -10,7 +10,7 @@
    player also gets `draw` of the others (the admin portal sets how many, 2 at first). */
 export const SV_ID = 's1';
 export const SV_TITLE = 'Edictum player survey';
-export const SV_MIN = 50;              // the engagement score (functions/stats.js, 0..100) a player needs to be asked
+export const SV_MIN = 35;              // the engagement score (functions/stats.js, 0..100) a player needs to be asked
 export const SV_AGE = 7 * 86400000;    // and a nation at least a week old
 export const SV_SHARE = 0.25;          // the chance an eligible player is drawn on a given day
 export const SV_DRAW = 2;              // questions drawn for each player from the ones not in the core
