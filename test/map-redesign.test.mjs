@@ -59,7 +59,7 @@ test('the Layers popover: the switches in five groups, the rest kept where it be
 });
 
 test('the page: slim header, the old tool row out, the tools, chip, hint and minimap on the map, the panel in tabs',()=>{
-  assert.match(SEC,/<header class="vh mpr-head"><h1>World map<\/h1>\$\{tabs\}<div class="mpr-go">\$\{mprGoBox\(\)\}<\/div><\/header>/);
+  assert.match(SEC,/<header class="vh mpr-head">\$\{mprFill\(\)\?mpfMenuBtn\(\):''\}<h1>World map<\/h1>\$\{tabs\}<\/header>/);
   assert.match(SEC,/h=h\.split\(tb\)\.join\(''\);h=h\.split\(tb\.replace\('mp-map-toolbar row','mp-map-toolbar mp-in-tabs'\)\)\.join\(''\);/,'the old toolbar out, wherever it was');
   assert.match(SEC,/class="\$\{tools\?'mp-map-toolbar ':''\}mpr-modes"/,'the old toolbar\'s name only once the map\'s tools are open to the nation');
   assert.match(SEC,/\[\['hex','This hex'\],\['nation','My nation'\],\['activity','Activity'\]\]/);
@@ -77,10 +77,55 @@ test('the map stays put: its height on the root, from the top of the page; notes
   assert.match(SEC,/const R=document\.documentElement,was=R\.style\.getPropertyValue\('--mpr-h'\);if\(was!==h\+'px'\)\{R\.style\.setProperty\('--mpr-h',h\+'px'\);/,'never a style on the patched layout');
   assert.doesNotMatch(SEC,/L\.style\.setProperty/);
   assert.match(SEC,/const h=Math\.max\(narrow\?300:460,Math\.round\(window\.innerHeight-top-foot\)\);/,'the page\'s top, not the screen\'s: scrolling never resizes it');
-  assert.match(SEC,/let top=0;for\(let e=L;e;e=e\.offsetParent\)top\+=e\.offsetTop;/,'measured as laid out, not part way through the page\'s entrance (that drew the map twice on the next page drawn)');
+  assert.match(SEC,/const M=L\.querySelector\('\.ml-map'\)\|\|L;let top=0;for\(let e=M;e;e=e\.offsetParent\)top\+=e\.offsetTop;/,'measured as laid out, not part way through the page\'s entrance (that drew the map twice on the next page drawn)');
   assert.match(SEC,/return top\+h\.replace\('<div class="map-layout',notes\+'<div class="mpr map-layout'\);/,'what the map box puts above the map goes above the layout');
   assert.match(SEC,/v\.cy=clamp\(cy,hh-e\.t\/s,MAP\.H-hh\+e\.b\/s\);\}\)\(clampView\);/,'the view may run past the edge by what the tools cover');
   assert.match(SEC,/const su=t\.closest\('#ml-sheet>summary'\);if\(su&&mprOn\(\)\)MPR\.layOpen=!su\.parentNode\.open;/,'the Layers stay open through a render');
   assert.match(SEC,/if\(t\.closest\('\[data-act="dp-lens"\]'\)\)MPR\.layOpen=true;/,'Show on the map opens the lens\'s key');
   assert.match(SEC,/if\(b\.dataset\.v&&S\.mpMode===b\.dataset\.v\)\{e\.preventDefault\(\);e\.stopPropagation\(\);\}/,'the open tool\'s button keeps it open, even after it came back with a reload');
+});
+
+/* the World map fills the page (27 Nov 2026): the menu as a drawer, the panel folding away, the war in sight, the tools
+   as icons on a narrow map and Transport and Landings under More when short of room, the search and the hint in the
+   panel's column */
+const FILL=(()=>{const a=code.indexOf('/* ───────── the World map fills the page (27 November 2026)'),b=code.indexOf('/* Keep the moderator preview',a);assert.ok(a>0&&b>a,'the fill section');return code.slice(a,b);})();
+test('the map fills the page: the menu in a drawer, the bell and chat in the header, the panel folding away',()=>{
+  assert.match(FILL,/function mprFill\(\)\{return mprOn\(\)&&!navNarrow\(\);\}/,'only where the menu sits beside the page; phones keep their own');
+  assert.match(FILL,/return h\.replace\('<div class="layout','<div class="layout mpf'\);/);
+  assert.ok(FILL.includes(String.raw`const m=h.match(/<div class="brand-actions">([\s\S]*?)<\/div><\/div>/);`),'the bell, search and chat leave the menu');
+  assert.match(FILL,/const acts=`<div class="brand-actions mpf-acts">\$\{m\[1\]\}<\/div>`;/,'and go to the map\'s header, so there is one of each');
+  assert.match(FILL,/R\.classList\.toggle\('mpf-menu',on\);/,'the drawer\'s state on the root, outside the page drawn again');
+  assert.match(FILL,/if\(t\.closest\('\.side'\)\)\{if\(t\.closest\('\.nav \[data-v\],\[data-act="go"\]'\)\)setTimeout\(\(\)=>mpfMenu\(false\),0\);return;\}/,'a page chosen folds it');
+  assert.match(FILL,/if\(e\.key==='Escape'&&mpfMenuOpen\(\)\)\{e\.preventDefault\(\);e\.stopImmediatePropagation\(\);mpfMenu\(false,true\);\}/,'Esc folds it before it leaves a tool');
+  assert.match(FILL,/R\.classList\.toggle\('mpr-fold',on\);mprSet\('fold',on\);/,'the fold remembered on the device');
+  assert.match(SEC,/S\.mprTab='hex';if\(mprFolded\(\)&&cell>=0\)mprFold\(false\);/,'a click on a hex brings the panel back');
+  assert.match(SEC,/if\(i\)\{e\.preventDefault\(\);mprFold\(false\);i\.focus\(\);\}/,'and / does, with the search ready');
+  assert.match(SEC,/h=h\.replace\('<aside class="map-panel',mprSideTop\(\)\+'<aside class="map-panel'\);/,'the search heads the panel\'s column, outside the panel drawn again');
+  assert.match(SEC,/return grab\+mprDock\(\)\+mprTip\(\)\+tabs\+/,'the hint at the top of the panel');
+  const css=source.slice(source.indexOf('/* the World map fills the page (27 November 2026)'),source.indexOf('</style>'));
+  assert.match(css,/\.mpf>\.side\{position:fixed;top:0;bottom:0;left:0;height:auto;align-self:stretch;/,'the drawer as tall as the window (align-self start made it as tall as the menu)');
+  assert.match(css,/html\.mpf-menu \.mpf>\.side\{transform:none;visibility:visible;/);
+  assert.match(css,/\.mpf \.wrap\{max-width:none\}/,'the page column without its width limit');
+  assert.match(css,/@media \(min-width:1101px\)\{[\s\S]*?\.mpr\.map-layout\{height:var\(--mpr-h,[\s\S]*?html\.mpr-fold \.mpr>\.map-panel,html\.mpr-fold \.mpr>\.mpr-sidetop\{display:none\}/,'folding on wide screens only, the column no taller than the map');
+});
+test('the war in sight: a pill on the map, War after Explore with its count; icons and More when short of room',()=>{
+  assert.match(SEC,/const order=W\.on\?\[MPR_MODES\[0\],MPR_MODES\[5\],\.\.\.MPR_MODES\.slice\(1,5\)\]:MPR_MODES/,'while at war, War straight after Explore');
+  assert.match(SEC,/v==='war'&&wars\?`<span class="mpr-n war">\$\{wars\}<\/span>`/,'with the number of wars');
+  assert.match(SEC,/<div class="mpr-chips">\$\{mprWarPill\(mprWar\(\)\)\}\$\{coach\}<\/div>/,'the pill above the land office\'s chip');
+  assert.match(SEC,/const more=shown\.filter\(m=>m\[0\]==='transport'\|\|m\[0\]==='land'\)/,'Transport and Landings under More');
+  assert.match(SEC,/if\(W\.on\)out\.push\(`<div class="mpr-alert mpr-war-a">/,'the war in the panel\'s alerts');
+  assert.match(SEC,/<span class="mpr-n\$\{nWar\?' war':''\}"/,'and a red count on Activity');
+  const icons=(SEC.match(/const MPR_ICON=\{([\s\S]*?)\};/)||[])[1]||'';for(const v of ["''",'claim','plan','transport','land','war'])assert.ok(icons.includes(v+':'),'an icon for '+v);
+  const css=source.slice(source.indexOf('/* the World map fills the page (27 November 2026)'),source.indexOf('</style>'));
+  assert.match(css,/@media \(min-width:1101px\)\{@container \(max-width:700px\)\{\s*\.mpr-m \.mpr-i\{display:block\}\.mpr-m \.mpr-l,\.mpr-m kbd\{display:none\}/,'icons on a narrow map on a wide screen');
+  assert.match(css,/@container \(max-width:520px\)\{\s*\.mpr-modes>\.mpr-m\[data-v="transport"\],\.mpr-modes>\.mpr-m\[data-v="land"\]\{display:none\}\s*\.mpr-more\{display:block\}/,'More when short of room');
+  assert.match(css,/@media \(max-width:1100px\)\{\.mpr-more-p\{top:auto;bottom:calc\(100% \+ 8px\)\}\.mpr-fold-b\{display:none\}/,'on a phone More opens upwards and the panel does not fold');
+});
+
+/* found by the water-names suite with the map filling the page (27 Nov 2026): a click on the sea opened a story at the
+   capital. The news pins' places for clicks were taken from pictures drawn ahead, off the map, with a margin round them;
+   and a view moved with centerMain on a page that came out as it was never drew the map there */
+test('the map answers clicks where it shows: news pins from its own picture, and drawn again when its view moves',()=>{
+  assert.match(code,/const own=M\.g\.canvas===M\.cv;if\(own\)M\.cv\._nws=null;if\(!nwsOn\(\)\)return;[\s\S]{0,80}if\(own\)M\.cv\._nws=L;/,'only a picture on the map itself places the pins');
+  assert.match(code,/function centerMain\(cell,z\)\{[^\n]*try\{const cv=document\.querySelector\('canvas\.map-cv\[data-map="main"\]'\);if\(cv\)schedule\(cv\);\}catch\(e\)\{\}\}/,'the map drawn where it was moved');
 });

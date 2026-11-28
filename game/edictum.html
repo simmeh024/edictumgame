@@ -11531,12 +11531,11 @@ span.rs-card{cursor:default}
 .mpr .ml-map{container-type:inline-size}
 .mpr-head h1{margin:0;font-size:30px;line-height:1.1}
 .mpr-head .map-tabs{margin:0;border-bottom:0;flex:0 1 auto;min-width:0}
-.mpr-head .mpr-go{margin-left:auto;flex:0 1 320px;min-width:180px}
 .mpr-gobox{margin:0}.mpr-gobox .input{width:100%;min-height:40px;box-sizing:border-box}
-.mpr.map-layout{grid-template-columns:minmax(0,1fr) 360px;grid-template-areas:'map side';grid-template-rows:auto;gap:0 14px}
+.mpr.map-layout{grid-template-columns:minmax(0,1fr) 360px;grid-template-areas:'map go' 'map side';grid-template-rows:auto minmax(0,1fr);gap:0 14px}
 .mpr .ml-map{grid-area:map;position:relative}
 .mpr .map-wrap.map-main:not(.is-full){height:var(--mpr-h,calc(100vh - 150px));max-height:none;min-height:320px}
-.mpr>.map-panel{max-height:var(--mpr-h,calc(100vh - 150px));overflow:auto;box-sizing:border-box;padding:14px}
+.mpr>.map-panel{grid-area:side;max-height:calc(var(--mpr-h,calc(100vh - 150px)) - 54px);overflow:auto;box-sizing:border-box;padding:14px}
 .mpr .map-hint{display:none}
 .mpr .ml-legend{grid-area:map;align-self:start;justify-self:end;z-index:7;margin:10px 56px 0 0;width:min(380px,calc(100% - 120px));pointer-events:none;display:flex;justify-content:flex-end}
 .mpr .ml-legend>*{pointer-events:auto}
@@ -11565,13 +11564,11 @@ span.rs-card{cursor:default}
 .mpr-n{display:inline-block;min-width:18px;padding:0 6px;border-radius:99px;background:var(--accent);color:var(--accent-ink,#fff);font:600 11px var(--f-body);text-align:center;box-sizing:border-box}
 .mpr-m.on .mpr-n{background:var(--sheet);color:var(--ink)}
 .mpr-dot{width:7px;height:7px;border-radius:50%;background:var(--down);display:inline-block}
-.mpr-over .lc-coach{position:absolute;top:58px;left:10px;max-width:min(560px,calc(100% - 90px));margin:0;padding:6px 8px 6px 14px;border-radius:10px;box-shadow:var(--shadow);display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.mpr-over .lc-coach{position:static;max-width:100%;box-sizing:border-box;margin:0;padding:6px 8px 6px 14px;border-radius:10px;box-shadow:var(--shadow);display:flex;gap:12px;align-items:center;flex-wrap:wrap}
 .mpr-over .lc-coach .eyebrow,.mpr-over .lc-coach .hint{display:none}
 .mpr-over .lc-coach-t{margin:0;font-size:13.5px}
 .mpr-over .lc-coach-a{display:flex;gap:8px;align-items:center;margin:0}
 .mpr-over .lc-coach-go{min-height:36px}
-.mpr-hint{position:absolute;left:206px;bottom:10px;width:max-content;max-width:min(640px,calc(100% - 270px));display:flex;gap:8px;align-items:center;padding:7px 12px;background:var(--sheet);border:1px solid var(--rule);border-radius:10px;font-size:13px;color:var(--ink-2);box-shadow:var(--shadow)}
-.mpr-hint b{color:var(--ink)}.mpr-hint kbd{font:500 10.5px var(--f-mono);border:1px solid var(--rule);border-radius:4px;padding:1px 5px}
 .mpr-mini{position:absolute;left:10px;bottom:10px;padding:5px;background:var(--sheet);border:1px solid var(--rule);border-radius:10px;box-shadow:var(--shadow)}
 .mpr-mini-cv{display:block;width:180px;height:auto;border-radius:6px;cursor:pointer}
 .mpr-mini-b{display:flex;gap:4px;margin-top:5px;max-width:180px;flex-wrap:wrap}
@@ -11607,19 +11604,84 @@ span.rs-card{cursor:default}
 @media (max-width:1100px){
   .mpr-head{gap:6px 10px;flex-wrap:wrap}.mpr-head h1{font-size:21px;flex:none}
   .mpr-head .map-tabs{order:3;width:100%;flex:1 1 100%}
-  .mpr-head .mpr-go{order:2;flex:1 1 110px;margin-left:0;min-width:110px}
   .mpr-gobox .input{min-height:36px}
-  .mpr.map-layout{grid-template-columns:minmax(0,1fr);grid-template-areas:'map'}
+  .mpr.map-layout{grid-template-columns:minmax(0,1fr);grid-template-areas:'go' 'map';grid-template-rows:auto auto}
   .mpr>.map-panel{max-height:56dvh}
   .mpr .map-wrap.map-main:not(.is-full){height:var(--mpr-h,64vh)}
   .mpr .ml-legend{margin:10px 54px 0 0;width:min(360px,calc(100% - 64px))}
   .mpr-modes{top:auto;bottom:10px;left:8px;right:56px;max-width:none;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
   .mpr-m{flex:none;min-height:40px}.mpr-m kbd{display:none}
-  .mpr-hint,.mpr-mini{display:none}
-  .mpr-over .lc-coach{top:58px;left:8px;right:54px;max-width:none;padding:8px 10px}
+  .mpr-mini{display:none}
+  .mpr-chips{top:58px;left:8px;right:54px;max-width:none}
+  .mpr-over .lc-coach{padding:8px 10px}
   .mpr-over .lc-coach-t{font-size:13px}
   .mpr-over .lc-coach-go{min-height:36px;white-space:nowrap}
   }
+/* the World map fills the page (27 November 2026): the menu as a drawer, the panel folding away, the war in sight */
+.layout.mpf{grid-template-columns:minmax(0,1fr)}
+.mpf>.side{position:fixed;top:0;bottom:0;left:0;height:auto;align-self:stretch;width:min(300px,86vw);box-sizing:border-box;z-index:62;background:var(--paper);border-right:1px solid var(--rule-2);box-shadow:12px 0 32px -18px rgba(0,0,0,.5);overflow-y:auto;transform:translateX(-105%);visibility:hidden;transition:transform .18s ease,visibility 0s linear .18s}
+html.mpf-menu .mpf>.side{transform:none;visibility:visible;transition:transform .18s ease}
+html.mpf-menu .layout.mpf::before{content:'';position:fixed;inset:0;z-index:61;background:rgba(6,10,12,.45)}
+@media (prefers-reduced-motion:reduce){.mpf>.side{transition:none}}
+.mpf>.main{padding:14px max(18px,env(safe-area-inset-right,0px)) 16px max(18px,env(safe-area-inset-left,0px))}
+.mpf .wrap{max-width:none}
+.mpf .mpr-head{margin-bottom:10px}
+.mpf-mb{flex:none;display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;border:1px solid var(--rule-2);border-radius:10px;background:var(--paper);color:var(--ink);cursor:pointer}
+.mpf-mb:hover{background:var(--sheet-2)}
+.mpf-acts{margin-left:auto}
+.mpf .notif-pop{left:auto;right:16px;top:64px}
+.mpr-sidetop{grid-area:go;display:flex;gap:8px;align-items:center;margin:0 0 10px;min-width:0}
+.mpr-sidetop .mpr-gobox{flex:1;min-width:0}
+.mpr-fold-b{flex:none;width:40px;height:40px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--rule-2);border-radius:8px;background:var(--paper);color:var(--ink-2);cursor:pointer}
+.mpr-fold-b:hover{color:var(--ink);background:var(--sheet-2)}
+.mpr-unfold{display:none;position:absolute;right:10px;bottom:10px;gap:2px;padding:3px;background:var(--sheet);border:1px solid var(--rule);border-radius:10px;box-shadow:var(--shadow)}
+.mpr-unfold button{min-height:36px;padding:0 10px;border:0;border-radius:7px;background:transparent;color:var(--ink);font:600 13px var(--f-body);display:inline-flex;align-items:center;gap:6px;cursor:pointer}
+.mpr-unfold button:hover{background:var(--sheet-2)}
+@media (min-width:1101px){
+  /* the layout as tall as the map: the search row and the panel share the column beside it, the panel scrolling */
+  .mpr.map-layout{height:var(--mpr-h,calc(100vh - 150px))}
+  .mpr>.map-panel{align-self:start;max-height:100%;min-height:0}
+  html.mpr-fold .mpr.map-layout{grid-template-columns:minmax(0,1fr);grid-template-areas:'map';grid-template-rows:auto}
+  html.mpr-fold .mpr>.map-panel,html.mpr-fold .mpr>.mpr-sidetop{display:none}
+  html.mpr-fold .mpr-unfold{display:flex}
+}
+.mpr-over>.mpr-chips{position:absolute;top:58px;left:10px;display:flex;flex-direction:column;align-items:flex-start;gap:8px;max-width:min(560px,calc(100% - 90px));pointer-events:none}
+.mpr-chips>*{pointer-events:auto}
+.mpr-war{display:inline-flex;align-items:center;gap:8px;min-height:36px;max-width:100%;padding:4px 14px;box-sizing:border-box;border-radius:99px;border:1px solid var(--down);background:var(--down-soft);color:var(--ink);font:600 13px/1.3 var(--f-body);box-shadow:var(--shadow);cursor:pointer;text-align:left}
+.mpr-war-i{color:var(--down);flex:none}
+.mpr-war-s{font-weight:500;color:var(--ink-2)}
+.mpr-war.hot .mpr-war-s{color:var(--down);font-weight:600}
+.mpr-war.hot::after{content:'';flex:none;width:8px;height:8px;border-radius:50%;background:var(--down);animation:mprPulse 1.4s ease-in-out infinite}
+@keyframes mprPulse{50%{opacity:.2}}
+@media (prefers-reduced-motion:reduce){.mpr-war.hot::after{animation:none}}
+.mpr-m.war{color:var(--down)}
+.mpr-m.war.on{background:var(--down);color:#fff}
+.mpr-n.war{background:var(--down);color:#fff}
+.mpr-m.war.on .mpr-n.war{background:#fff;color:var(--down)}
+.mpr-war-a .eyebrow{color:var(--down)}
+.mpr-i{display:none;flex:none}
+.mpr-more{display:none;position:relative;flex:none}
+.mpr-more>summary{list-style:none}
+.mpr-more>summary::-webkit-details-marker{display:none}
+.mpr-more-p{position:absolute;top:calc(100% + 8px);left:0;z-index:8;display:flex;flex-direction:column;gap:2px;min-width:170px;padding:4px;background:var(--sheet);border:1px solid var(--rule);border-radius:10px;box-shadow:var(--shadow)}
+.mpr-more-p .mpr-m{justify-content:flex-start}
+.mpr-tip{margin:0 0 12px;border:1px solid var(--rule);border-radius:8px;background:var(--paper)}
+.mpr-tip>summary{display:flex;align-items:center;gap:8px;min-height:34px;padding:0 10px;cursor:pointer;list-style:none;font-size:13px}
+.mpr-tip>summary::-webkit-details-marker{display:none}
+.mpr-tip-i{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;border:1px solid var(--rule-2);font:700 11px/1 var(--f-mono);color:var(--ink-2);flex:none}
+.mpr-tip p{margin:0;padding:0 10px 10px 36px;font-size:13px;color:var(--ink-2)}
+.mpr-tip kbd{font:500 10.5px var(--f-mono);border:1px solid var(--rule);border-radius:4px;padding:1px 5px}
+/* a narrow map on a wide screen: the tools as icons, their names in the tooltips */
+@media (min-width:1101px){@container (max-width:700px){
+  .mpr-m .mpr-i{display:block}.mpr-m .mpr-l,.mpr-m kbd{display:none}.mpr-modes>.mpr-m{padding:0 9px}
+}}
+/* short of room (a phone, or a very narrow map): Transport and Landings under More */
+@container (max-width:520px){
+  .mpr-modes>.mpr-m[data-v="transport"],.mpr-modes>.mpr-m[data-v="land"]{display:none}
+  .mpr-more{display:block}.mpr-modes{overflow:visible}
+}
+.mpr-more-p .mpr-m .mpr-l{display:inline}
+@media (max-width:1100px){.mpr-more-p{top:auto;bottom:calc(100% + 8px)}.mpr-fold-b{display:none}.mpr-sidetop{margin:0 0 8px}}
 </style>
 
 <div id="app"></div>
@@ -42114,9 +42176,12 @@ function nwsDraw(g,L,col){
     g.globalAlpha=1;}
 }
 MAP_LAYERS.push({stage:'top',kinds:['main'],draw:M=>{
-  M.cv._nws=null;if(!nwsOn())return;
+  /* where the pins are, for clicks, only from a picture drawn on the map itself: the pictures drawn ahead for moving the
+     map (mapPrewarm, mapPlate) are larger than the map, with a margin round it, and one finished after the map's own
+     put every pin a margin away from where it shows, so a click on the sea opened a story at the capital (27 Nov 2026) */
+  const own=M.g.canvas===M.cv;if(own)M.cv._nws=null;if(!nwsOn())return;
   const pins=nwsPins();if(!pins.length)return;
-  const L=nwsLayout(M,pins);M.cv._nws=L;nwsDraw(M.g,L,M.col);
+  const L=nwsLayout(M,pins);if(own)M.cv._nws=L;nwsDraw(M.g,L,M.col);
 }});
 /* the newest pin breathes, gently; with reduced motion it keeps a still ring */
 MFX_LAYERS.push({busy:(f,rm)=>!rm&&f.kind==='main'&&!!(f.cv._nws&&f.cv._nws.pulse),draw:(f,g,t,rm)=>{
@@ -55240,7 +55305,9 @@ function mapClick(cv,cell,ev){
 }
 /* jumping the map to a hex ends a glide still running there (a double tap's zoom, the home button): its remaining
    frames would carry the view on to where the glide was going, over the place just chosen */
-function centerMain(cell,z){mapGlideStop('main');if(!S.mapViews)S.mapViews={};S.mapViews.main={z:z||NEAR_Z,cx:MAP.cx[cell],cy:MAP.cy[cell]};}
+/* the main map moved to a hex, and drawn there in the next frame: a page drawn again that comes out as it was is left
+   alone (render), and the map stayed where it was, its news pins answering clicks where they had been (27 Nov 2026) */
+function centerMain(cell,z){mapGlideStop('main');if(!S.mapViews)S.mapViews={};S.mapViews.main={z:z||NEAR_Z,cx:MAP.cx[cell],cy:MAP.cy[cell]};try{const cv=document.querySelector('canvas.map-cv[data-map="main"]');if(cv)schedule(cv);}catch(e){}}
 function openMapAt(id){const T=territory(),i=T.byId[id];if(i!==undefined){centerMain(T.list[i].cap,NEAR_Z);S.mapSel=T.list[i].me?null:id;}go('map');}
 function updateMapPanel(){const p=document.getElementById('map-panel');if(!p)return;
   /* a field being typed in keeps the focus and the caret when the panel is drawn again */
@@ -112769,18 +112836,54 @@ function mprForce(k){if(!mprOn())return undefined;const F=MPR_FORCE[mprMode()];r
 mapOpt=(f=>function(k,def){const v=mprForce(k);return v!==undefined?v:f.apply(this,arguments);})(mapOpt);
 
 /* ── the mode bar, on the map (the poster and full screen stay among the map's controls) ── */
-function mprModeBar(){
-  const n=S.nation,tools=pgAvailable(n,'map'),cur=mprMode(),cr=landCredits(n),war=enemies().length>0;
-  let land=false;try{land=lndHarbours(n).length>0||lndCols(n).length>0||lndList(n).length>0;}catch(e){}
-  const btn=([v,l,k])=>{
-    if((v==='plan'||v==='transport')&&!tools)return '';if(v==='land'&&!land)return '';if(v==='war'&&!war&&cur!=='war')return '';
-    const on=cur===v,act=v==='plan'||v==='transport'||v==='land'||v===''?'mp-mode':'mpr-view';
-    const extra=v==='claim'&&cr>0?` <span class="mpr-n">${cr}</span>`:v==='war'?' <span class="mpr-dot" aria-hidden="true"></span>':` <kbd>${k}</kbd>`;
-    return `<button type="button" class="mpr-m${on?' on':''}" data-act="${act}" data-v="${v}" aria-pressed="${on}" aria-keyshortcuts="${k}">${l}${extra}</button>`;};
-  /* the old toolbar's name only while the map's tools are open to the nation (a new nation has none yet) */
-  return `<div class="${tools?'mp-map-toolbar ':''}mpr-modes" role="toolbar" aria-label="Map tools">${MPR_MODES.map(btn).join('')}</div>`;
+/* each tool's icon: on a narrow map the bar shows the icons alone, the names as their tooltips (27 Nov 2026) */
+const MPR_ICON={'':'<circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2 5-5 2 2-5z"/>',claim:'<path d="M5 21V4"/><path d="M5 4h11l-2 4 2 4H5"/>',
+  plan:'<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13.5 6.5 4 4"/>',transport:'<circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="6" r="2.5"/><path d="M8.5 18H15a3 3 0 0 0 0-6H9a3 3 0 0 1 0-6h6.5"/>',
+  land:'<circle cx="12" cy="5" r="2"/><path d="M12 7v14"/><path d="M5 13a7 7 0 0 0 14 0"/><path d="M8 10h8"/>',
+  war:'<path d="M14.5 17.5 3 6V3h3l11.5 11.5"/><path d="m13 19 6-6"/><path d="m16 16 4 4"/><path d="m19 21 2-2"/><path d="M14.5 6.5 18 3h3v3l-3.5 3.5"/><path d="m5 14 4 4"/><path d="m7 17-3 3"/><path d="m3 19 2 2"/>'};
+function mprIcon(v,cls){return `<svg class="${cls||'mpr-i'}" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${MPR_ICON[v]||''}</svg>`;}
+const MPR_CHEV='<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
+/* the wars, and the sieges in them (the nation's own, and those on its capital): for the pill on the map, the War
+   button, the panel's alert and the Activity tab's count */
+function mprWar(now){
+  now=now||Date.now();let en=[];try{en=enemies();}catch(e){}
+  const sg=[];
+  try{for(const d of WR.docs.values())if(d.st==='on'&&d.a===myId())sg.push({at:(d.t||now)+SIEGE_MS,nm:d.dn||nameOf(d.d)});}catch(e){}
+  try{for(const x of wrSiegesOn(myId(),now))sg.push({at:(x.t||now)+SIEGE_MS,nm:nameOf(x.a),on:1});}catch(e){}
+  sg.sort((a,b)=>a.at-b.at);
+  return {en,sg,on:en.length>0,now};
 }
-function mprHint(){const h=MPR_HINT[mprMode()]||MPR_HINT[''];return `<div class="mpr-hint" role="status"><b>${esc(h[0])}</b><span>${esc(h[1])}</span>${mprMode()?'<kbd>Esc</kbd>':''}</div>`;}
+function mprWarWords(W){const nm=W.en.map(x=>x.n.name);return nm.length<=2?nm.join(' and '):`${nm[0]} and ${nm.length-1} others`;}
+function mprSiegeWords(W){const x=W.sg[0];if(!x)return '';return (W.sg.length>1?W.sg.length+' sieges':'siege')+': '+(x.at<=W.now?'assault now':'assault in '+fmtDur(x.at-W.now));}
+function mprWarPill(W){
+  if(!W.on)return '';const sw=mprSiegeWords(W),hot=W.sg.some(x=>x.at<=W.now);
+  return `<button type="button" class="mpr-war${hot?' hot':''}" data-act="mpr-view" data-v="war" title="Open the War view (key 6)">${mprIcon('war','mpr-war-i')}<span>At war with ${esc(mprWarWords(W))}${sw?`<span class="mpr-war-s"> · ${esc(sw)}</span>`:''}</span></button>`;
+}
+function mprModeBar(){
+  const n=S.nation,tools=pgAvailable(n,'map'),cur=mprMode(),cr=landCredits(n),W=mprWar();
+  let land=false;try{land=lndHarbours(n).length>0||lndCols(n).length>0||lndList(n).length>0;}catch(e){}
+  const shows=([v])=>!((v==='plan'||v==='transport')&&!tools)&&!(v==='land'&&!land)&&!(v==='war'&&!W.on&&cur!=='war');
+  const btn=([v,l,k])=>{
+    const on=cur===v,act=v==='plan'||v==='transport'||v==='land'||v===''?'mp-mode':'mpr-view',wars=W.en.length,sgs=W.sg.length;
+    const badge=v==='claim'&&cr>0?`<span class="mpr-n">${cr}</span>`:v==='war'&&wars?`<span class="mpr-n war">${wars}</span>`:'';
+    const name=v==='claim'&&cr>0?`${l}, ${cr} land ${cr===1?'credit':'credits'}`:v==='war'&&wars?`War, ${wars} ${wars===1?'war':'wars'}${sgs?`, ${sgs} ${sgs===1?'siege':'sieges'}`:''}`:l;
+    return `<button type="button" class="mpr-m${v==='war'?' war':''}${on?' on':''}" data-act="${act}" data-v="${v}" aria-pressed="${on}" aria-keyshortcuts="${k}" aria-label="${esc(name)}" title="${esc(name)} (key ${k})">${mprIcon(v)}<span class="mpr-l">${l}</span>${badge||`<kbd>${k}</kbd>`}</button>`;};
+  /* while at war, War comes straight after Explore, in red, with the number of wars */
+  const order=W.on?[MPR_MODES[0],MPR_MODES[5],...MPR_MODES.slice(1,5)]:MPR_MODES,shown=order.filter(shows);
+  /* Transport and Landings, under More when the bar is short of room (the styles show one or the other) */
+  const more=shown.filter(m=>m[0]==='transport'||m[0]==='land'),mo=more.find(m=>m[0]===cur);
+  const moreBox=more.length?`<details class="mpr-more" id="mpr-more"${MPR.moreOpen?' open':''}><summary class="mpr-m${mo?' on':''}" aria-label="More tools">${mo?mprIcon(mo[0])+`<span class="mpr-l">${mo[1]}</span>`:'<span>More</span>'}${MPR_CHEV}</summary><div class="mpr-more-p" role="group" aria-label="More tools">${more.map(btn).join('')}</div></details>`:'';
+  /* the old toolbar's name only while the map's tools are open to the nation (a new nation has none yet) */
+  return `<div class="${tools?'mp-map-toolbar ':''}mpr-modes" role="toolbar" aria-label="Map tools">${shown.map(btn).join('')}${moreBox}</div>`;
+}
+/* the tool's hint, at the top of the panel (27 Nov 2026): open the first time a tool is used on this device, folded to an
+   (i) after that, and folded again once another tool is chosen */
+function mprTip(){
+  const m=mprMode(),h=MPR_HINT[m]||MPR_HINT[''];if(!MPR.tip)MPR.tip={};
+  if(MPR.tipLast!==undefined&&MPR.tipLast!==m)MPR.tip[MPR.tipLast]=false;MPR.tipLast=m;
+  if(MPR.tip[m]===undefined){let seen=mprGet('tips',[]);if(!Array.isArray(seen))seen=[];MPR.tip[m]=!seen.includes(m);if(MPR.tip[m])mprSet('tips',seen.concat(m).slice(-12));}
+  return `<details class="mpr-tip" data-m="${m}"${MPR.tip[m]?' open':''}><summary><span class="mpr-tip-i" aria-hidden="true">i</span><b>${esc(h[0])}</b><span class="mpr-sr">: how it works</span></summary><p>${esc(h[1])}${m?' <kbd>Esc</kbd> goes back to Explore.':''}</p></details>`;
+}
 
 /* ── the page: slim header, the tools on the map, the layers as a popover, the land office as a chip ── */
 worldMapView=(f=>function(){
@@ -112792,22 +112895,24 @@ worldMapView=(f=>function(){
   /* the tab row as the page has it (other sections add tabs to it), moved into the header */
   const tm=h.match(/<div class="stabs map-tabs"[\s\S]*?<\/div>/),tabs=tm?tm[0]:mapTabs('map');if(tm)h=h.replace(tm[0],'');
   let coach='';try{const c=lcCoachHTML();if(c&&h.includes(c)){h=h.replace(c,'');coach=c;}}catch(e){}
-  const top=`<header class="vh mpr-head"><h1>World map</h1>${tabs}<div class="mpr-go">${mprGoBox()}</div></header>`;
-  const over=`<div class="mpr-over">${mprModeBar()}${coach}${mprHint()}${mprMiniBox()}</div>`;
+  const top=`<header class="vh mpr-head">${mprFill()?mpfMenuBtn():''}<h1>World map</h1>${tabs}</header>`;
+  /* the war and the land office's offer as chips under the tools; the minimap; the button that brings the folded panel back */
+  const over=`<div class="mpr-over">${mprModeBar()}<div class="mpr-chips">${mprWarPill(mprWar())}${coach}</div>${mprMiniBox()}${mprUnfold()}</div>`;
   /* what the map box puts above the map (the finish being tried on, with its buttons) goes above the layout, where the
      tools and the Layers button on the map cannot cover it */
   const MB='<div class="ml-map">',a=h.indexOf(MB),b=a<0?-1:h.indexOf('<div class="map-wrap map-main',a);let notes='';
   if(b>a&&h.slice(a+MB.length,b).trim()){notes=h.slice(a+MB.length,b);h=h.slice(0,a+MB.length)+h.slice(b);}
   h=h.replace(MB,MB+over);
+  /* the Go to search and the fold button head the panel's column, outside the panel (which is drawn again often) */
+  h=h.replace('<aside class="map-panel',mprSideTop()+'<aside class="map-panel');
   setTimeout(mprAfter,0);
   return top+h.replace('<div class="map-layout',notes+'<div class="mpr map-layout');
 })(worldMapView);
 /* the land office's chip stays where it is now, on the map, when the panel is drawn again */
 updateMapPanel=(f=>function(){
   const r=f.apply(this,arguments);if(!mprOn())return r;
-  const el=document.getElementById('lc-coach'),box=document.querySelector('.mpr-over');
-  if(!el&&box){let c='';try{c=lcCoachHTML();}catch(e){}if(c){const t=document.createElement('div');t.innerHTML=c;const s=t.firstElementChild;const hint=box.querySelector('.mpr-hint');if(s)box.insertBefore(s,hint||null);}}
-  const hn=box&&box.querySelector('.mpr-hint');if(hn)hn.outerHTML=mprHint();
+  const el=document.getElementById('lc-coach'),box=document.querySelector('.mpr-over .mpr-chips');
+  if(!el&&box){let c='';try{c=lcCoachHTML();}catch(e){}if(c){const t=document.createElement('div');t.innerHTML=c;const s=t.firstElementChild;if(s)box.appendChild(s);}}
   return r;})(updateMapPanel);
 /* after drawing: the map as tall as the window, the minimap, and the view remembered */
 function mprAfter(){
@@ -112815,7 +112920,7 @@ function mprAfter(){
   /* where the layout sits in the page as laid out, transforms left out: a page just opened slides in (the page column and
      its header moved by its entrance), and measured then, the map came out 18 px short, so the next page drawn found a
      new height and drew the map a second time */
-  let top=0;for(let e=L;e;e=e.offsetParent)top+=e.offsetTop;
+  const M=L.querySelector('.ml-map')||L;let top=0;for(let e=M;e;e=e.offsetParent)top+=e.offsetTop;
   const narrow=mapxNarrow(),pn=document.getElementById('map-panel');
   /* on a phone the panel is a sheet over the foot of the screen: the map ends where its folded handle begins */
   const foot=narrow&&pn?(parseFloat(getComputedStyle(pn).bottom)||0)+58:16;
@@ -112832,7 +112937,7 @@ window.addEventListener('resize',()=>{MPR.sized=0;clearTimeout(MPR.rt);MPR.rt=se
    so a hex in the top or bottom row can be brought out from under them and clicked */
 function mprEdges(cv){
   const o=cv.closest('.ml-map'),box=o&&o.querySelector('.mpr-over');if(!box)return null;const r=cv.getBoundingClientRect();if(!r.height)return null;
-  let t=0,b=0;for(const el of box.querySelectorAll('.mpr-modes,.lc-coach,.mpr-hint')){const q=el.getBoundingClientRect();if(!q.height)continue;
+  let t=0,b=0;for(const el of box.querySelectorAll('.mpr-modes,.mpr-chips>*')){const q=el.getBoundingClientRect();if(!q.height)continue;
     if(q.top-r.top<r.height/2)t=Math.max(t,q.bottom-r.top+8);else b=Math.max(b,r.bottom-q.top+8);}
   return {t:Math.min(t,r.height*.45),b:Math.min(b,r.height*.45)};
 }
@@ -112858,6 +112963,8 @@ document.addEventListener('click',e=>{
   if(a==='mpr-preset'){mprPreset(b.dataset.v);return;}
   if(a==='mpr-act'){mprAct(b.dataset.a,+b.dataset.c);return;}
   if(a==='mpr-rings'){setMapOpt('mpr-rings',!mapOpt('mpr-rings',false));return;}
+  if(a==='mpr-fold'){const on=b.dataset.v==='1';mprFold(on);const f=document.querySelector(on?'.mpr-unf-b':'.mpr-fold-b');if(f)try{f.focus({preventScroll:true});}catch(err){}return;}
+  if(a==='mpr-find'){mprFold(false);const i=document.getElementById('mpr-go');if(i)i.focus();return;}
 });
 /* the mode buttons that were the old toolbar's (data-act mp-mode) also set the view back, and are remembered */
 document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('.mpr-modes [data-act="mp-mode"]');if(!b)return;S.mprView='';mprSet('view','');setTimeout(()=>mprSet('mode',S.mpMode||''),0);},true);
@@ -112870,7 +112977,10 @@ document.addEventListener('toggle',e=>{const d=e.target;if(d&&d.id==='ml-sheet'&
 /* a page's "Show on the map" (the Diplomacy lens) opens the Layers with the lens's key */
 document.addEventListener('click',e=>{const t=e.target;if(!t.closest)return;if(t.closest('[data-act="dp-lens"]'))MPR.layOpen=true;
   /* the Layers button's own click, at once: the toggle event comes a moment later, and a render in between closed it */
-  const su=t.closest('#ml-sheet>summary');if(su&&mprOn())MPR.layOpen=!su.parentNode.open;},true);
+  const su=t.closest('#ml-sheet>summary');if(su&&mprOn())MPR.layOpen=!su.parentNode.open;
+  /* More: its own button opens and closes it; a tool chosen in it, or a click anywhere else, closes it */
+  const ms=t.closest('#mpr-more>summary');if(ms){MPR.moreOpen=!ms.parentNode.open;}else if(MPR.moreOpen){MPR.moreOpen=false;const d=document.getElementById('mpr-more');if(d&&!t.closest('.mpr-more-p'))d.open=false;}
+  const ts=t.closest('.mpr-tip>summary');if(ts&&MPR.tip)MPR.tip[ts.parentNode.dataset.m||'']=!ts.parentNode.open;},true);
 /* the open tool's own button keeps it open (Explore or Esc closes it): a bar of modes, not of switches. A tool that came
    back open after a reload was closed again by the click meant to open it */
 document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('.mpr-modes [data-act="mp-mode"]');if(!b||!mprOn())return;
@@ -112917,6 +113027,7 @@ function mprTab(){if(S.mprTab==null)S.mprTab=mprGet('tab','hex');return ['hex','
 function mprDock(){
   const now=Date.now(),out=[];
   try{for(const t of lndThreats(now))out.push(lndThreatCard(t,now));}catch(e){}
+  try{const W=mprWar(now);if(W.on)out.push(`<div class="mpr-alert mpr-war-a"><p class="eyebrow">At war</p><p>With ${esc(mprWarWords(W))}.${W.sg.length?' '+esc(cap1(mprSiegeWords(W)))+'.':''}</p>${mprMode()==='war'?'':'<div class="row"><button type="button" class="btn small" data-act="mpr-view" data-v="war">Open the War view</button></div>'}</div>`);}catch(e){}
   try{for(const s of wrSiegesOn(myId(),now)){const at=(s.t||now)+SIEGE_MS;out.push(`<div class="mpr-alert"><p class="eyebrow">Your capital is under siege</p><p>${esc(nameOf(s.a))} has surrounded ${esc(S.nation.capital||'your capital')}: the final assault can come ${at>now?'in '+esc(fmtDur(at-now)):'now'}.</p><div class="row"><button type="button" class="btn small" data-act="wr-open" data-id="${esc(s.a)}">Show the siege</button></div></div>`);}}catch(e){}
   return out.length?`<div class="mpr-dock">${out.join('')}</div>`:'';
 }
@@ -112976,17 +113087,20 @@ function mprActivity(){
 mapPanel=(f=>function(){
   const h=f.apply(this,arguments);if(!mprOn())return h;
   let grab='',body=h;const gm=h.match(/^<button type="button" class="mp-grab"[\s\S]*?<\/button>/);if(gm){grab=gm[0];body=h.slice(gm[0].length);}
-  const tab=mprTab(),nAct=(()=>{try{return mprActivityCount();}catch(e){return 0;}})();
-  const tabs=`<div class="mpr-tabs" role="tablist" aria-label="Details">${[['hex','This hex'],['nation','My nation'],['activity','Activity']].map(([k,l])=>`<button type="button" role="tab" class="mpr-tab${k===tab?' on':''}" aria-selected="${k===tab}" data-act="mpr-tab" data-v="${k}">${l}${k==='activity'&&nAct?` <span class="mpr-n">${nAct}</span>`:''}</button>`).join('')}</div>`;
+  const tab=mprTab(),nAct=(()=>{try{return mprActivityCount();}catch(e){return 0;}})(),nWar=(()=>{try{return mprWarCount();}catch(e){return 0;}})();
+  const tabs=`<div class="mpr-tabs" role="tablist" aria-label="Details">${[['hex','This hex'],['nation','My nation'],['activity','Activity']].map(([k,l])=>`<button type="button" role="tab" class="mpr-tab${k===tab?' on':''}" aria-selected="${k===tab}" data-act="mpr-tab" data-v="${k}">${l}${k==='activity'&&nAct?` <span class="mpr-n${nWar?' war':''}"${nWar?` title="${nWar} to do with the war"`:''}>${nAct}</span>`:''}</button>`).join('')}</div>`;
   const content=tab==='nation'?mprNation():tab==='activity'?mprActivity():mprActions()+body;
-  return grab+mprDock()+tabs+`<div class="mpr-tabp" role="tabpanel">${content}</div>`;
+  return grab+mprDock()+mprTip()+tabs+`<div class="mpr-tabp" role="tabpanel">${content}</div>`;
 })(mapPanel);
-function mprActivityCount(){const n=S.nation,now=Date.now();let k=0;try{k+=lndThreats(now).length+lndAtSea(n).length+dsVoyages(n).filter(e=>e.a>now).length+flParties(n).filter(e=>e.a>now).length;for(const x of ['exp','exp2'])if(n[x]&&n[x].t1>now)k++;}catch(e){}return k;}
+function mprActivityCount(){const n=S.nation,now=Date.now();let k=0;try{k+=lndThreats(now).length+lndAtSea(n).length+dsVoyages(n).filter(e=>e.a>now).length+flParties(n).filter(e=>e.a>now).length;for(const x of ['exp','exp2'])if(n[x]&&n[x].t1>now)k++;}catch(e){}
+  try{for(const d of WR.docs.values())if(d.st==='on'&&d.a===myId())k++;}catch(e){}return k;}
+/* what in Activity has to do with a war: landings coming, the nation's own hostile landings, its sieges and those on it */
+function mprWarCount(){const n=S.nation,now=Date.now();let k=mprWar(now).sg.length;try{k+=lndThreats(now).length+lndAtSea(n).filter(v=>v.k==='h').length;}catch(e){}return k;}
 /* a click on the map answers in This hex; a long press inspects (below) */
 mapClick=(f=>function(cv,cell,ev){
   if(cv&&cv.dataset.map==='main'&&mprOn()){
     if(performance.now()-(MPR.lpAt||0)<700)return;
-    S.mprTab='hex';
+    S.mprTab='hex';if(mprFolded()&&cell>=0)mprFold(false);
     /* on a touch screen, a tap just off a hex that can be acted on takes that hex */
     try{if(ev&&ev.pointerType&&ev.pointerType!=='mouse'&&cell>=0)cell=mprNear(cell);}catch(e){}
   }
@@ -113112,7 +113226,7 @@ function mprGoFind(q){q=String(q||'').trim().toLowerCase();if(!q)return null;con
 document.addEventListener('submit',e=>{const f=e.target;if(!f||!f.dataset||!f.dataset.mprGo)return;e.preventDefault();const inp=f.querySelector('input'),p=mprGoFind(inp&&inp.value);if(!p){toast('Nothing on this map goes by that name.');return;}mprGoTo(p.c,p.sel||null);if(inp)inp.blur();});
 document.addEventListener('change',e=>{if(e.target&&e.target.id==='mpr-go'){const p=mprGoFind(e.target.value);if(p&&mprPlaces().some(x=>x.l===e.target.value))mprGoTo(p.c,p.sel||null);}});
 /* the Go to box answers / too */
-document.addEventListener('keydown',e=>{if(e.key!=='/'||!mprOn()||e.ctrlKey||e.metaKey||e.altKey)return;const t=e.target,tag=t&&t.tagName;if(tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT'||(t&&t.isContentEditable))return;const i=document.getElementById('mpr-go');if(i){e.preventDefault();i.focus();}});
+document.addEventListener('keydown',e=>{if(e.key!=='/'||!mprOn()||e.ctrlKey||e.metaKey||e.altKey)return;const t=e.target,tag=t&&t.tagName;if(tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT'||(t&&t.isContentEditable))return;const i=document.getElementById('mpr-go');if(i){e.preventDefault();mprFold(false);i.focus();}});
 
 /* ── remembered on this device: the view, the mode and the tab; a landing coming is shown once ── */
 function mprSaveView(){const v=S.mapViews&&S.mapViews.main;if(!v||!Number.isFinite(v.z)||Date.now()-(MPR.vAt||0)<1000)return;MPR.vAt=Date.now();mprSet('mapview',{z:v.z,cx:v.cx,cy:v.cy,r:REG.id});}
@@ -113124,6 +113238,50 @@ worldMapView=(f=>function(){
   if(mprOn()){try{for(const {v} of lndThreats(Date.now())){if(MPR.seen.has(v.id))continue;MPR.seen.add(v.id);centerMain(v.c,NEAR_Z);break;}}catch(e){}}
   return f.apply(this,arguments);
 })(worldMapView);
+
+/* ───────── the World map fills the page (27 November 2026) ─────────
+   On a screen wide enough for the game's menu beside the page (navNarrow false), the World map takes the whole window:
+   the menu folds into a drawer that a ☰ button in the map's header slides out over the map (a page chosen, a click
+   beside it or Esc folds it again), the bell, the game's search and the region chat move from the menu into the map's
+   header so they stay in reach, and the page column loses its width limit. The details panel folds away behind a
+   button of its own (remembered on the device; a click on a hex, / or the Details button on the map bring it back),
+   and the map takes its place. The drawer's state and the fold live on the root element, outside the page that is
+   drawn again (a class on the layout would have the whole page, map and all, drawn afresh). Phones keep their own
+   layout: the bottom menu and the details sheet. Only where the redesigned map is (mprOn). ── */
+function mprFill(){return mprOn()&&!navNarrow();}
+const MPF_SVG='<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>';
+function mpfMenuOpen(){return document.documentElement.classList.contains('mpf-menu');}
+function mpfMenuBtn(){return `<button type="button" class="mpf-mb" data-act="mpf-menu" aria-label="Menu" aria-expanded="${mpfMenuOpen()}" title="Menu">${MPF_SVG}</button>`;}
+function mpfMenu(on,back){
+  const R=document.documentElement;on=!!on&&mprFill();if(R.classList.contains('mpf-menu')===on)return;R.classList.toggle('mpf-menu',on);
+  const b=document.querySelector('.mpf-mb');if(b)b.setAttribute('aria-expanded',String(on));
+  if(on){const f=document.querySelector('.mpf>.side .nav a,.mpf>.side .nav button,.mpf>.side button');if(f)try{f.focus({preventScroll:true});}catch(e){}}
+  else if(back&&b)try{b.focus({preventScroll:true});}catch(e){}
+}
+shell=(f=>function(){
+  let h=f.apply(this,arguments);
+  if(!mprFill()){document.documentElement.classList.remove('mpf-menu');return h;}
+  /* the bell, the search and the chat button go to the map's header, in reach while the menu is folded away */
+  const m=h.match(/<div class="brand-actions">([\s\S]*?)<\/div><\/div>/);
+  if(m&&/<header class="vh mpr-head">/.test(h)){h=h.replace(m[0],()=>'</div>');const acts=`<div class="brand-actions mpf-acts">${m[1]}</div>`;h=h.replace(/(<header class="vh mpr-head">[\s\S]*?)(<\/header>)/,(x,a,b)=>a+acts+b);}
+  return h.replace('<div class="layout','<div class="layout mpf');
+})(shell);
+document.addEventListener('click',e=>{
+  const t=e.target;if(!t||!t.closest)return;
+  if(t.closest('[data-act="mpf-menu"]')){e.preventDefault();mpfMenu(!mpfMenuOpen());return;}
+  if(!mpfMenuOpen())return;
+  /* a page chosen in the menu, or a click beside it, folds it again */
+  if(t.closest('.side')){if(t.closest('.nav [data-v],[data-act="go"]'))setTimeout(()=>mpfMenu(false),0);return;}
+  if(t.closest('.notif-pop,.rgc-dock,dialog'))return;
+  mpfMenu(false);
+},true);
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&mpfMenuOpen()){e.preventDefault();e.stopImmediatePropagation();mpfMenu(false,true);}},true);
+/* the details panel, folded away: the map takes its place (wide screens; the styles leave phones alone) */
+function mprFolded(){return document.documentElement.classList.contains('mpr-fold');}
+function mprFold(on){const R=document.documentElement;on=!!on;if(R.classList.contains('mpr-fold')===on)return;R.classList.toggle('mpr-fold',on);mprSet('fold',on);try{mprAfter();}catch(e){}}
+try{if(mprGet('fold',false))document.documentElement.classList.add('mpr-fold');}catch(e){}
+function mprSideTop(){return `<div class="mpr-sidetop">${mprGoBox()}<button type="button" class="mpr-fold-b" data-act="mpr-fold" data-v="1" aria-label="Fold the panel away" title="Fold the panel away: the map takes its place"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 17 5-5-5-5"/><path d="m13 17 5-5-5-5"/></svg></button></div>`;}
+function mprUnfold(){return `<div class="mpr-unfold"><button type="button" class="mpr-unf-b" data-act="mpr-fold" data-v="0" title="Show the details panel"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m11 17-5-5 5-5"/><path d="m18 17-5-5 5-5"/></svg>Details</button><button type="button" class="mpr-unf-s" data-act="mpr-find" aria-label="Go to a place" title="Go to a place (/)"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg></button></div>`;}
 
 /* Keep the moderator preview in moderator pages even when a URL names an admin-only page. */
 shell=(f=>function(){if(modPreview()&&typeof S.view==='string'&&S.view.startsWith('admin')&&!MOD_VIEWS.includes(S.view))return admShell('admin-reports','<p class="hint">Choose a moderator page from the menu.</p>');return f.apply(this,arguments);})(shell);
